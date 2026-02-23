@@ -285,6 +285,13 @@ def test_run_model(client, text_model_id):
     assert result.data is not None
 
 
+def test_llm_capability_properties(client, stream_tool_call_model_id):
+    """Validate inferred LLM capability properties on the dedicated tool-calling model."""
+    model = client.Model.get(stream_tool_call_model_id)
+    assert model.supports_tool_calling is True
+    assert model.supports_structured_output is True
+
+
 def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):
     """E2E: stream tool-calling returns OpenAI-style tool call deltas in chunks."""
     model = client.Model.get(stream_tool_call_model_id)

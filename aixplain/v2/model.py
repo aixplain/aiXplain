@@ -594,6 +594,96 @@ class Model(
         # Initialize the inputs proxy
         self.inputs = InputsProxy(self)
 
+    @staticmethod
+    def _normalize_param_name(name: str) -> str:
+        """Normalize parameter names for snake_case/camelCase compatibility."""
+        return "".join(char for char in name.lower() if char.isalnum())
+
+    @property
+    def _normalized_param_names(self) -> Optional[set[str]]:
+        """Return normalized backend input parameter names for capability inference."""
+        if self.params is None:
+            return None
+
+        normalized_names: set[str] = set()
+        for param in self.params:
+            param_name = getattr(param, "name", None)
+            if isinstance(param_name, str):
+                normalized_names.add(self._normalize_param_name(param_name))
+        return normalized_names
+
+    @property
+    def _is_text_generation_model(self) -> Optional[bool]:
+        """Return whether this model is an LLM/text-generation model.
+
+        The primary source is `function == text-generation`.
+        If `function` is unavailable, we fall back to v2 metadata and params.
+        """
+        if self.function is not None:
+            if isinstance(self.function, Function):
+                function_value = self.function.value
+            elif isinstance(self.function, dict):
+                function_value = str(self.function.get("id"))
+            else:
+                function_value = str(self.function)
+            return function_value == Function.TEXT_GENERATION.value
+
+        function_type_value = str(self.function_type).lower() if self.function_type is not None else None
+        if function_type_value is not None and function_type_value != "ai":
+            return False
+
+        normalized_names = self._normalized_param_names
+        if normalized_names is None:
+            return None
+
+        llm_markers = {
+            "maxtokens",
+            "history",
+            "responseformat",
+            "tools",
+            "reasoningeffort",
+            "textverbosity",
+        }
+        return any(marker in normalized_names for marker in llm_markers)
+
+    @property
+    def supports_tool_calling(self) -> Optional[bool]:
+        """Return whether this LLM supports tool calling, inferred from backend params."""
+        is_text_generation_model = self._is_text_generation_model
+        if is_text_generation_model is False:
+            return False
+        if is_text_generation_model is None:
+            return None
+
+        normalized_names = self._normalized_param_names
+        if normalized_names is None:
+            return None
+
+        return "tools" in normalized_names or "toolchoice" in normalized_names
+
+    @property
+    def supports_structured_output(self) -> Optional[bool]:
+        """Return whether this LLM supports structured output, inferred from backend params."""
+        is_text_generation_model = self._is_text_generation_model
+        if is_text_generation_model is False:
+            return False
+        if is_text_generation_model is None:
+            return None
+
+        normalized_names = self._normalized_param_names
+        if normalized_names is None:
+            return None
+
+        structured_output_markers = {
+            "responseformat",
+            "guidedjson",
+            "guidedgrammar",
+            "guidedregex",
+            "guidedchoice",
+            "guidedwhitespacepattern",
+        }
+        return any(marker in normalized_names for marker in structured_output_markers)
+
     @property
     def is_sync_only(self) -> bool:
         """Check if the model only supports synchronous execution.

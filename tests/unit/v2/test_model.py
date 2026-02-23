@@ -7,9 +7,10 @@ This module tests Model-specific functionality including:
 """
 
 import pytest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from aixplain.v2.enums import ResponseStatus
+from aixplain.v2.enums import Function, ResponseStatus
 from aixplain.v2.model import Model, ModelResponseStreamer, ModelResult
 
 
@@ -74,6 +75,91 @@ class TestModelConnectionTypeProperties:
         """connection_type=None should return True for backward compatibility."""
         model = self._create_model(connection_type=None)
         assert model.is_async_capable is True
+
+
+# =============================================================================
+# Capability Inference Tests
+# =============================================================================
+
+
+class TestModelCapabilityInference:
+    """Tests for LLM-gated tool-calling and structured-output capability properties."""
+
+    @staticmethod
+    def _param(name: str):
+        """Create a lightweight parameter-like object."""
+        return SimpleNamespace(name=name)
+
+    def _create_model(self, function=Function.TEXT_GENERATION, params=None, function_type="ai"):
+        """Helper to create a Model with capability-related fields."""
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.function = function
+        model.function_type = function_type
+        model.params = params
+        model._dynamic_attrs = {}
+        return model
+
+    def test_supports_tool_calling_true_with_tools_param(self):
+        """LLM should support tool calling when backend params include 'tools'."""
+        model = self._create_model(params=[self._param("text"), self._param("tools")])
+        assert model.supports_tool_calling is True
+
+    def test_supports_tool_calling_true_with_tool_choice_camel_case(self):
+        """LLM should support tool calling when backend params include 'toolChoice'."""
+        model = self._create_model(params=[self._param("text"), self._param("toolChoice")])
+        assert model.supports_tool_calling is True
+
+    def test_supports_tool_calling_false_for_llm_without_tool_markers(self):
+        """LLM should return False when params exist but no tool-calling markers."""
+        model = self._create_model(params=[self._param("text"), self._param("temperature")])
+        assert model.supports_tool_calling is False
+
+    def test_supports_tool_calling_none_when_llm_params_unavailable(self):
+        """LLM should return None when params are unavailable."""
+        model = self._create_model(params=None)
+        assert model.supports_tool_calling is None
+
+    def test_supports_tool_calling_false_for_non_llm(self):
+        """Non-LLM models should always return False for tool-calling capability."""
+        model = self._create_model(function=Function.TRANSLATION, params=[self._param("tools")])
+        assert model.supports_tool_calling is False
+
+    def test_supports_tool_calling_true_when_function_missing_and_llm_markers_present(self):
+        """When function is missing, AI models should infer LLM via params markers."""
+        model = self._create_model(function=None, params=[self._param("max_tokens"), self._param("tools")])
+        assert model.supports_tool_calling is True
+
+    def test_supports_structured_output_true_with_response_format_snake_case(self):
+        """LLM should support structured output when params include 'response_format'."""
+        model = self._create_model(params=[self._param("text"), self._param("response_format")])
+        assert model.supports_structured_output is True
+
+    def test_supports_structured_output_true_with_response_format_camel_case(self):
+        """LLM should support structured output when params include 'responseFormat'."""
+        model = self._create_model(params=[self._param("text"), self._param("responseFormat")])
+        assert model.supports_structured_output is True
+
+    def test_supports_structured_output_false_for_llm_without_markers(self):
+        """LLM should return False when params exist but no structured-output markers."""
+        model = self._create_model(params=[self._param("text"), self._param("temperature")])
+        assert model.supports_structured_output is False
+
+    def test_supports_structured_output_none_when_llm_params_unavailable(self):
+        """LLM should return None when params are unavailable."""
+        model = self._create_model(params=None)
+        assert model.supports_structured_output is None
+
+    def test_supports_structured_output_false_for_non_llm(self):
+        """Non-LLM models should always return False for structured output capability."""
+        model = self._create_model(function=Function.TRANSLATION, params=[self._param("response_format")])
+        assert model.supports_structured_output is False
+
+    def test_supports_structured_output_none_when_function_missing_and_params_missing(self):
+        """When function and params are missing, capability should remain unknown."""
+        model = self._create_model(function=None, params=None)
+        assert model.supports_structured_output is None
 
 
 # =============================================================================
