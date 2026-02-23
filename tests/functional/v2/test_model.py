@@ -286,10 +286,23 @@ def test_run_model(client, text_model_id):
 
 
 def test_llm_capability_properties(client, stream_tool_call_model_id):
-    """Validate inferred LLM capability properties on the dedicated tool-calling model."""
+    """Validate capability properties under strict function-based LLM gating."""
     model = client.Model.get(stream_tool_call_model_id)
-    assert model.supports_tool_calling is True
-    assert model.supports_structured_output is True
+    function_value = getattr(model.function, "value", None)
+    if function_value is None and isinstance(model.function, dict):
+        function_value = model.function.get("id")
+    elif function_value is None and model.function is not None:
+        function_value = str(model.function)
+
+    if function_value is None:
+        assert model.supports_tool_calling is None
+        assert model.supports_structured_output is None
+    elif function_value == "text-generation":
+        assert model.supports_tool_calling is True
+        assert model.supports_structured_output is True
+    else:
+        assert model.supports_tool_calling is False
+        assert model.supports_structured_output is False
 
 
 def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):

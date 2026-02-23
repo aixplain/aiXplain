@@ -126,10 +126,10 @@ class TestModelCapabilityInference:
         model = self._create_model(function=Function.TRANSLATION, params=[self._param("tools")])
         assert model.supports_tool_calling is False
 
-    def test_supports_tool_calling_true_when_function_missing_and_llm_markers_present(self):
-        """When function is missing, AI models should infer LLM via params markers."""
+    def test_supports_tool_calling_none_when_function_missing_even_with_tool_params(self):
+        """When function is missing, LLM gating should remain unknown."""
         model = self._create_model(function=None, params=[self._param("max_tokens"), self._param("tools")])
-        assert model.supports_tool_calling is True
+        assert model.supports_tool_calling is None
 
     def test_supports_structured_output_true_with_response_format_snake_case(self):
         """LLM should support structured output when params include 'response_format'."""
@@ -159,6 +159,11 @@ class TestModelCapabilityInference:
     def test_supports_structured_output_none_when_function_missing_and_params_missing(self):
         """When function and params are missing, capability should remain unknown."""
         model = self._create_model(function=None, params=None)
+        assert model.supports_structured_output is None
+
+    def test_supports_structured_output_none_when_function_missing_even_with_markers(self):
+        """When function is missing, structured-output support should remain unknown."""
+        model = self._create_model(function=None, params=[self._param("response_format")])
         assert model.supports_structured_output is None
 
 

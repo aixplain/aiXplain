@@ -616,9 +616,11 @@ class Model(
     def _is_text_generation_model(self) -> Optional[bool]:
         """Return whether this model is an LLM/text-generation model.
 
-        The primary source is `function == text-generation`.
-        If `function` is unavailable, we fall back to v2 metadata and params.
+        Uses backend-provided function metadata only.
         """
+        if self.function is None:
+            return None
+
         if self.function is not None:
             if isinstance(self.function, Function):
                 function_value = self.function.value
@@ -627,24 +629,7 @@ class Model(
             else:
                 function_value = str(self.function)
             return function_value == Function.TEXT_GENERATION.value
-
-        function_type_value = str(self.function_type).lower() if self.function_type is not None else None
-        if function_type_value is not None and function_type_value != "ai":
-            return False
-
-        normalized_names = self._normalized_param_names
-        if normalized_names is None:
-            return None
-
-        llm_markers = {
-            "maxtokens",
-            "history",
-            "responseformat",
-            "tools",
-            "reasoningeffort",
-            "textverbosity",
-        }
-        return any(marker in normalized_names for marker in llm_markers)
+        return None
 
     @property
     def supports_tool_calling(self) -> Optional[bool]:
@@ -674,15 +659,7 @@ class Model(
         if normalized_names is None:
             return None
 
-        structured_output_markers = {
-            "responseformat",
-            "guidedjson",
-            "guidedgrammar",
-            "guidedregex",
-            "guidedchoice",
-            "guidedwhitespacepattern",
-        }
-        return any(marker in normalized_names for marker in structured_output_markers)
+        return "responseformat" in normalized_names
 
     @property
     def is_sync_only(self) -> bool:
