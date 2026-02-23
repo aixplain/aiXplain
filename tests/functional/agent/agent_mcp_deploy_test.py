@@ -11,24 +11,11 @@ from aixplain.factories import ToolFactory, AgentFactory
 from aixplain.modules.model.integration import AuthenticationSchema
 from aixplain.enums import AssetStatus
 from aixplain.exceptions import AlreadyDeployedError
-from tests.test_deletion_utils import safe_delete_all_agents_and_team_agents
 
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="function")
-def cleanup_agents():
-    """Fixture to clean up agents before and after tests."""
-    # Clean up before test
-    safe_delete_all_agents_and_team_agents()
-
-    yield True
-
-    # Clean up after test
-    safe_delete_all_agents_and_team_agents()
 
 
 @pytest.fixture
@@ -47,11 +34,15 @@ def mcp_tool():
     # Filter actions to only include "fetch" action
     tool.action_scope = [action for action in tool.actions if action.code == "fetch"]
 
-    return tool
+    yield tool
+    try:
+        tool.delete()
+    except Exception:
+        pass
 
 
 @pytest.fixture
-def test_agent(cleanup_agents, mcp_tool):
+def test_agent(mcp_tool):
     """Create a test agent with MCP tool."""
     agent = AgentFactory.create(
         name=f"Test Agent {uuid4()}",
@@ -60,7 +51,11 @@ def test_agent(cleanup_agents, mcp_tool):
         tools=[mcp_tool],
         llm="669a63646eb56306647e1091",
     )
-    return agent
+    yield agent
+    try:
+        agent.delete()
+    except Exception:
+        pass
 
 
 def test_agent_creation_with_mcp_tool(test_agent, mcp_tool):
@@ -132,7 +127,7 @@ def test_deployed_agent_can_run(test_agent):
     assert hasattr(response.data, "output")
 
 
-def test_agent_lifecycle_end_to_end(cleanup_agents, mcp_tool):
+def test_agent_lifecycle_end_to_end(mcp_tool):
     """Test the complete agent lifecycle: create, run, deploy, retrieve, run, delete."""
     # Create agent
     agent = AgentFactory.create(
@@ -143,28 +138,31 @@ def test_agent_lifecycle_end_to_end(cleanup_agents, mcp_tool):
         llm="669a63646eb56306647e1091",
     )
 
-    # Test initial state
-    assert agent.status == AssetStatus.DRAFT
+    try:
+        # Test initial state
+        assert agent.status == AssetStatus.DRAFT
 
-    # Test run before deployment
-    response = agent.run("Give me information about the aixplain website")
-    assert response is not None
+        # Test run before deployment
+        response = agent.run("Give me information about the aixplain website")
+        assert response is not None
 
-    # Deploy agent
-    agent.deploy()
-    assert agent.status == AssetStatus.ONBOARDED
+        # Deploy agent
+        agent.deploy()
+        assert agent.status == AssetStatus.ONBOARDED
 
-    # Retrieve agent by ID
-    agent_id = agent.id
-    retrieved_agent = AgentFactory.get(agent_id)
-    assert retrieved_agent.status == AssetStatus.ONBOARDED
+        # Retrieve agent by ID
+        agent_id = agent.id
+        retrieved_agent = AgentFactory.get(agent_id)
+        assert retrieved_agent.status == AssetStatus.ONBOARDED
 
-    # Test run after deployment
-    response = retrieved_agent.run("Give me information about the aixplain website")
-    assert response is not None
-
-    # Clean up
-    retrieved_agent.delete()
+        # Test run after deployment
+        response = retrieved_agent.run("Give me information about the aixplain website")
+        assert response is not None
+    finally:
+        try:
+            agent.delete()
+        except Exception:
+            pass
 
 
 def test_mcp_tool_properties(mcp_tool):

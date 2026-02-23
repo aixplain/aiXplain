@@ -285,6 +285,29 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
         return parameters
 
+    def as_tool(self) -> dict:
+        """Serialize this tool for agent creation.
+
+        This method extends the base Model.as_tool() to include tool-specific
+        fields like actions, which tells the backend which actions
+        the agent is permitted to use.
+
+        Returns:
+            dict: A dictionary representing this tool with:
+                - All fields from Model.as_tool()
+                - actions: Explicit list of actions (filtered to allowed only)
+        """
+        # Get the base serialization from Model
+        tool_dict = super().as_tool()
+
+        # Add tool-specific fields
+        if self.allowed_actions:
+            # Explicitly set actions list so backend uses this
+            # instead of populating from tool metadata (which has ALL actions)
+            tool_dict["actions"] = self.allowed_actions
+
+        return tool_dict
+
     def _validate_params(self, **kwargs: Any) -> List[str]:
         """Validate parameters for the tool.
 
