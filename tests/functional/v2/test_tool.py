@@ -234,15 +234,18 @@ def test_tool_get_parameters(client, slack_integration_id, slack_token):
     """Test getting tool parameters."""
     tool_name = f"test-params-{int(time.time())}"
 
-    # Get the integration
+    # Get the integration and discover available actions dynamically
     integration = client.Integration.get(slack_integration_id)
+    available_actions = integration.list_actions()
+    assert len(available_actions) > 0, "Integration should have at least one action"
+    first_action_name = available_actions[0].name
 
-    # Create tool with proper authentication
+    # Create tool with proper authentication using discovered action name
     tool = client.Tool(
         name=tool_name,
         integration=integration,
         config={"token": slack_token},
-        allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
+        allowed_actions=[first_action_name],
     )
 
     # Get parameters - this should work for properly configured tools

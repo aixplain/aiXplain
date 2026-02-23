@@ -208,19 +208,27 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """Validate that all allowed actions are available for this tool.
 
         Checks that:
-        - Integration is available
+        - Integration is available (attempts lazy resolution)
         - All actions in allowed_actions list exist in the integration
 
+        Skips validation gracefully when integration cannot be resolved
+        (e.g. tools fetched via search/get without integration data).
+
         Raises:
-            AssertionError: If validation fails.
+            AssertionError: If integration is available but actions don't match.
         """
         if self.allowed_actions:
-            assert self.integration is not None, "Integration is required to validate allowed actions"
+            if not self._ensure_integration():
+                return
 
             available_actions = [action.name for action in self.list_actions()]
-            assert available_actions is not None, "Integration must have available actions"
-            assert all(action in available_actions for action in self.allowed_actions), (
-                "All allowed actions must be available"
+            if not available_actions:
+                return
+
+            available_lower = [a.lower() for a in available_actions if a]
+            assert all(action.lower() in available_lower for action in self.allowed_actions), (
+                f"All allowed actions must be available. "
+                f"Requested: {self.allowed_actions}, Available: {available_actions}"
             )
 
     def get_parameters(self) -> List[dict]:
