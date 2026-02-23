@@ -1,3 +1,5 @@
+"""Streaming response handler for model execution."""
+
 import json
 from typing import Iterator
 
@@ -33,6 +35,8 @@ class ModelResponseStreamer:
         except json.JSONDecodeError:
             data = {"data": line}
         content = data.get("data", "")
+        if isinstance(content, dict):
+            content = content.get("text", content.get("output", str(content)))
         if content == "[DONE]":
             self.status = ResponseStatus.SUCCESS
             content = ""

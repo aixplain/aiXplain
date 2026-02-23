@@ -160,6 +160,8 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
             try:
                 data = json.loads(line)
                 content = data.get("data", "")
+                if isinstance(content, dict):
+                    content = content.get("text", content.get("output", str(content)))
 
                 # Check if this is the completion signal inside JSON
                 if content == "[DONE]":
