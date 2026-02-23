@@ -73,7 +73,7 @@ Parse code and validate description for new utility instances.
 def build_save_payload(**kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L91)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L93)
 
 Build the payload for the save action.
 
@@ -85,7 +85,7 @@ def get(cls: type["Utility"], id: str,
         **kwargs: Unpack[BaseGetParams]) -> "Utility"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L98)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L100)
 
 Get a utility by ID.
 
@@ -106,7 +106,7 @@ Get a utility by ID.
 def run(cls: type["Utility"], **kwargs: Unpack[UtilityRunParams]) -> Result
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L111)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L113)
 
 Run the utility with provided parameters.
 
@@ -128,7 +128,7 @@ def search(cls: type["Utility"],
            **kwargs: Unpack[UtilitySearchParams]) -> "Page[Utility]"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L123)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L125)
 
 Search utilities with optional query and filtering.
 
