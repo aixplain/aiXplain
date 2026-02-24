@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from aixplain.v2.enums import Function, ResponseStatus
-from aixplain.v2.model import Model, ModelResponseStreamer, ModelResult
+from aixplain.v2.model import Message, Model, ModelResponseStreamer, ModelResult, StreamChunk
 
 
 # =============================================================================
@@ -573,3 +573,154 @@ class TestModelStreaming:
         sent_payload = call_args.kwargs["json"]
         assert sent_payload["options"]["stream"] is True
         assert "raw" not in sent_payload["options"]
+
+
+# =============================================================================
+# Integration Gap Regression Tests
+# =============================================================================
+
+
+class TestModelIntegrationGaps:
+    """Regression tests for SDK integration gaps identified in ENG-2774."""
+
+    @staticmethod
+    def _create_streamer(lines):
+        """Create a response streamer from raw SSE lines."""
+        response = Mock()
+        response.iter_lines.return_value = iter(lines)
+        return ModelResponseStreamer(response)
+
+    @staticmethod
+    def _create_sync_model():
+        """Create a sync-only model configured for direct-response path tests."""
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model._dynamic_attrs = {}
+        model.context = Mock()
+        model.context.client = Mock()
+        return model
+
+    def test_message_deserializes_tool_calls_with_null_content(self):
+        """ModelResult parsing should keep tool_calls and None content on assistant messages."""
+        payload = {
+            "status": "SUCCESS",
+            "completed": True,
+            "model": "openai/gpt-5.2",
+            "details": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_tokyo",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_current_time",
+                                    "arguments": '{"city":"Tokyo"}',
+                                },
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+        }
+
+        result = ModelResult.from_dict(payload)
+
+        assert result.details is not None
+        message = result.details[0].message
+        assert isinstance(message, Message)
+        assert message.content is None
+        assert message.tool_calls is not None
+        assert message.tool_calls[0]["function"]["name"] == "get_current_time"
+        assert message.tool_calls[0]["function"]["arguments"] == '{"city":"Tokyo"}'
+
+    def test_run_sync_v2_attaches_raw_data_for_direct_response(self):
+        """_run_sync_v2() direct responses should preserve raw response payload."""
+        model = self._create_sync_model()
+        direct_response = {
+            "status": "SUCCESS",
+            "completed": True,
+            "model": "openai/gpt-5.2",
+            "details": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_tokyo",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_current_time",
+                                    "arguments": '{"city":"Tokyo"}',
+                                },
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+        }
+        model.context.client.request = Mock(return_value=direct_response)
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value={"text": "what time is it in tokyo?"}):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    result = model._run_sync_v2(text="what time is it in tokyo?")
+
+        assert result._raw_data == direct_response
+        assert result.model == "openai/gpt-5.2"
+
+    def test_stream_chunk_coerces_non_string_data(self):
+        """StreamChunk should enforce text chunks even when data is non-string."""
+        chunk = StreamChunk(status=ResponseStatus.IN_PROGRESS, data={"usage": {"total_tokens": 3}})
+        assert chunk.data == ""
+
+    def test_streamer_coerces_non_openai_dict_data_to_empty_string(self):
+        """ModelResponseStreamer should not leak dict payloads into chunk.data."""
+        streamer = self._create_streamer(
+            [
+                'data: {"model":"openai/gpt-5.2","data":{"usage":{"total_tokens":3}}}',
+                "data: [DONE]",
+            ]
+        )
+
+        chunk = next(streamer)
+        assert chunk.data == ""
+
+        with pytest.raises(StopIteration):
+            next(streamer)
+
+    def test_streamer_buffers_multiline_openai_tool_call_chunks(self):
+        """ModelResponseStreamer should buffer split SSE data lines into one JSON payload."""
+        streamer = self._create_streamer(
+            [
+                (
+                    'data: {"id":"chatcmpl-gap","model":"openai/gpt-5.2","choices":[{"index":0,"delta":{"role":"assistant",'
+                    '"content":null,"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"get_current_time",'
+                    '"arguments":"{\\"city\\":\\"Tok'
+                ),
+                'data: yo\\"}"}}]},"finish_reason":"tool_calls"}],"usage":null}',
+                "data: [DONE]",
+            ]
+        )
+
+        chunk = next(streamer)
+
+        assert chunk.data == ""
+        assert chunk.tool_calls is not None
+        assert chunk.tool_calls[0]["id"] == "call_1"
+        assert chunk.tool_calls[0]["function"]["name"] == "get_current_time"
+        assert chunk.tool_calls[0]["function"]["arguments"] == '{"city":"Tokyo"}'
+        assert chunk.finish_reason == "tool_calls"
+
+        with pytest.raises(StopIteration):
+            next(streamer)
