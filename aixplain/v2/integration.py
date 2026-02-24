@@ -1,5 +1,6 @@
 """Integration module for managing external service integrations."""
 
+import warnings
 from typing import Optional, List, Any, Dict, TYPE_CHECKING
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
@@ -254,6 +255,7 @@ class ToolId:
     """Result for tool operations."""
 
     id: str
+    redirectURL: Optional[str] = None
 
 
 @dataclass_json
@@ -526,10 +528,23 @@ class Integration(Model, ActionMixin):
         return super().run(**kwargs)
 
     def connect(self, **kwargs: Any) -> "Tool":
-        """Connect the integration."""
+        """Connect the integration.
+
+        For OAuth-based integrations, the backend may return a redirect URL
+        that the user must visit to complete authentication before using the tool.
+
+        Returns:
+            Tool: The created tool. If OAuth authentication is required,
+                ``tool.redirect_url`` will contain the URL the user must visit.
+        """
         response = self.run(**kwargs)
-        tool_id = response.data.id
-        return self.context.Tool.get(tool_id)
+        tool = self.context.Tool.get(response.data.id)
+        if response.data.redirectURL:
+            tool.redirect_url = response.data.redirectURL
+            warnings.warn(
+                f"Before using the tool, please visit the following URL to complete the connection: {response.data.redirectURL}"
+            )
+        return tool
 
     def handle_run_response(self, response: dict, **kwargs: Any) -> IntegrationResult:
         """Handle the response from the integration."""

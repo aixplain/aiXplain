@@ -45,6 +45,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     config: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     code: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     allowed_actions: Optional[List[str]] = field(default_factory=list, metadata=dj_config(field_name="allowedActions"))
+    redirect_url: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
 
     def __post_init__(self) -> None:
         """Initialize tool after dataclass creation.
@@ -171,6 +172,9 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         for attr_name in self.__dataclass_fields__:
             if not getattr(self, attr_name) and getattr(connection, attr_name, None):
                 setattr(self, attr_name, getattr(connection, attr_name))
+
+        if connection.redirect_url:
+            self.redirect_url = connection.redirect_url
 
     def _update(self, resource_path: str, payload: dict) -> None:
         raise NotImplementedError("Updating a tool is not supported yet")
