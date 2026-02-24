@@ -44,7 +44,6 @@ class LLM(Model):
         supplier (Union[Dict, Text, Supplier, int], optional): supplier of the asset. Defaults to "aiXplain".
         version (Text, optional): version of the model. Defaults to "1.0".
         function (Text, optional): model AI function. Defaults to None.
-        url (str): URL to run the model.
         backend_url (str): URL of the backend.
         pricing (Dict, optional): model price. Defaults to None.
         function_type (FunctionType, optional): type of the function. Defaults to FunctionType.AI.
