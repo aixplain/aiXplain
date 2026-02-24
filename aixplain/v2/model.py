@@ -36,7 +36,8 @@ class Message:
     """Message structure from the API response."""
 
     role: str
-    content: str
+    content: Optional[str] = None
+    tool_calls: Optional[List[dict[str, Any]]] = None
     refusal: Optional[str] = None
     annotations: List[Any] = field(default_factory=list)
 
@@ -91,6 +92,11 @@ class StreamChunk:
     usage: Optional[dict[str, Any]] = None
     finish_reason: Optional[str] = None
 
+    def __post_init__(self) -> None:
+        """Ensure data remains a text chunk."""
+        if not isinstance(self.data, str):
+            self.data = ""
+
 
 class ModelResponseStreamer(Iterator[StreamChunk]):
     """A streamer for model responses that yields chunks as they arrive.
@@ -123,6 +129,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
         self._iterator = response.iter_lines(decode_unicode=True)
         self.status = ResponseStatus.IN_PROGRESS
         self._done = False
+        self._buffered_line: Optional[str] = None
 
     def __iter__(self) -> Iterator[StreamChunk]:
         """Return the iterator for the ModelResponseStreamer."""
@@ -142,7 +149,11 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
 
         while True:
             try:
-                line = next(self._iterator)
+                if self._buffered_line is not None:
+                    line = self._buffered_line
+                    self._buffered_line = None
+                else:
+                    line = next(self._iterator)
             except StopIteration:
                 self._done = True
                 self.status = ResponseStatus.SUCCESS
@@ -162,56 +173,83 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                 self.status = ResponseStatus.SUCCESS
                 raise StopIteration
 
-            # Try to parse as JSON
-            try:
-                data = json.loads(line)
+            # Try to parse as JSON. If parsing fails, keep buffering consecutive
+            # SSE data lines to reconstruct split JSON payloads.
+            buffered_payload = line
+            data = None
+            while True:
+                try:
+                    data = json.loads(buffered_payload)
+                    break
+                except json.JSONDecodeError:
+                    try:
+                        continuation_line = next(self._iterator)
+                    except StopIteration:
+                        break
 
-                # OpenAI-style stream chunk format:
-                # {"choices":[{"delta":{"content":"...", "tool_calls":[...]},"finish_reason":...}],"usage":...}
-                if isinstance(data, dict) and "choices" in data:
-                    choices = data.get("choices")
-                    choice = choices[0] if isinstance(choices, list) and choices else {}
-                    if not isinstance(choice, dict):
-                        choice = {}
+                    if not continuation_line:
+                        break
 
-                    delta = choice.get("delta")
-                    if not isinstance(delta, dict):
-                        delta = {}
+                    if not continuation_line.startswith("data:"):
+                        self._buffered_line = continuation_line
+                        break
 
-                    content = delta.get("content")
-                    content = content if isinstance(content, str) else ""
+                    continuation_payload = continuation_line[5:].lstrip()
+                    if continuation_payload == "[DONE]":
+                        self._buffered_line = continuation_line
+                        break
 
-                    tool_calls = delta.get("tool_calls")
-                    if tool_calls is not None and not isinstance(tool_calls, list):
-                        tool_calls = [tool_calls]
+                    buffered_payload += continuation_payload
 
-                    finish_reason = choice.get("finish_reason")
-                    finish_reason = finish_reason if isinstance(finish_reason, str) else None
+            if data is None:
+                # If still not valid JSON, return the buffered raw payload as data.
+                if buffered_payload.strip():
+                    return StreamChunk(status=self.status, data=buffered_payload)
+                continue
 
-                    usage = data.get("usage")
-                    usage = usage if isinstance(usage, dict) else None
+            # OpenAI-style stream chunk format:
+            # {"choices":[{"delta":{"content":"...", "tool_calls":[...]},"finish_reason":...}],"usage":...}
+            if isinstance(data, dict) and "choices" in data:
+                choices = data.get("choices")
+                choice = choices[0] if isinstance(choices, list) and choices else {}
+                if not isinstance(choice, dict):
+                    choice = {}
 
-                    return StreamChunk(
-                        status=self.status,
-                        data=content,
-                        tool_calls=tool_calls,
-                        usage=usage,
-                        finish_reason=finish_reason,
-                    )
+                delta = choice.get("delta")
+                if not isinstance(delta, dict):
+                    delta = {}
 
-                content = data.get("data", "")
+                content = delta.get("content")
+                content = content if isinstance(content, str) else ""
 
-                # Check if this is the completion signal inside JSON
-                if content == "[DONE]":
-                    self._done = True
-                    self.status = ResponseStatus.SUCCESS
-                    raise StopIteration
+                tool_calls = delta.get("tool_calls")
+                if tool_calls is not None and not isinstance(tool_calls, list):
+                    tool_calls = [tool_calls]
 
-                return StreamChunk(status=self.status, data=content)
-            except json.JSONDecodeError:
-                # If not valid JSON, return the raw line as data
-                if line.strip():  # Only return non-empty lines
-                    return StreamChunk(status=self.status, data=line)
+                finish_reason = choice.get("finish_reason")
+                finish_reason = finish_reason if isinstance(finish_reason, str) else None
+
+                usage = data.get("usage")
+                usage = usage if isinstance(usage, dict) else None
+
+                return StreamChunk(
+                    status=self.status,
+                    data=content,
+                    tool_calls=tool_calls,
+                    usage=usage,
+                    finish_reason=finish_reason,
+                )
+
+            content = data.get("data", "") if isinstance(data, dict) else ""
+            content = content if isinstance(content, str) else ""
+
+            # Check if this is the completion signal inside JSON
+            if content == "[DONE]":
+                self._done = True
+                self.status = ResponseStatus.SUCCESS
+                raise StopIteration
+
+            return StreamChunk(status=self.status, data=content)
 
     def close(self) -> None:
         """Close the underlying response connection."""
