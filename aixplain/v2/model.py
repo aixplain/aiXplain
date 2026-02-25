@@ -173,39 +173,12 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                 self.status = ResponseStatus.SUCCESS
                 raise StopIteration
 
-            # Try to parse as JSON. If parsing fails, keep buffering consecutive
-            # SSE data lines to reconstruct split JSON payloads.
-            buffered_payload = line
-            data = None
-            while True:
-                try:
-                    data = json.loads(buffered_payload)
-                    break
-                except json.JSONDecodeError:
-                    try:
-                        continuation_line = next(self._iterator)
-                    except StopIteration:
-                        break
-
-                    if not continuation_line:
-                        break
-
-                    if not continuation_line.startswith("data:"):
-                        self._buffered_line = continuation_line
-                        break
-
-                    continuation_payload = continuation_line[5:].lstrip()
-                    if continuation_payload == "[DONE]":
-                        self._buffered_line = continuation_line
-                        break
-
-                    buffered_payload += continuation_payload
-
-            if data is None:
-                # If still not valid JSON, return the buffered raw payload as data.
-                if buffered_payload.strip():
-                    return StreamChunk(status=self.status, data=buffered_payload)
-                continue
+            # Try to parse as JSON
+            try:
+                data = json.loads(line)
+                content = data.get("data", "")
+                if isinstance(content, dict):
+                    content = content.get("text", content.get("output", str(content)))
 
             # OpenAI-style stream chunk format:
             # {"choices":[{"delta":{"content":"...", "tool_calls":[...]},"finish_reason":...}],"usage":...}
