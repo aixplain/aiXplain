@@ -184,6 +184,54 @@ def test_agent_run_structure(client, test_agent):
             pytest.fail(f"Agent execution failed with status: {response.status}")
 
 
+def _get_steps(response):
+    """Extract steps list from an agent response."""
+    data = getattr(response, "data", None)
+    if data is None:
+        return []
+    steps = getattr(data, "steps", None) or []
+    if isinstance(data, dict):
+        steps = data.get("steps", []) or []
+    return steps
+
+
+def _has_response_generator(steps):
+    """Return True if any step has agent id 'response_generator'."""
+    return any(((s.get("agent") or {}).get("id") or "").lower() == "response_generator" for s in steps)
+
+
+def test_run_response_generation(client, test_agent):
+    """Test that runResponseGeneration controls presence of response_generator step."""
+    agent = client.Agent.get(test_agent.id)
+
+    # Default (True): response_generator step should be present
+    response_default = agent.run("Say hello")
+    assert response_default.status == "SUCCESS", f"Default run failed: {response_default.status}"
+    steps_default = _get_steps(response_default)
+    assert _has_response_generator(steps_default), (
+        f"Expected response_generator step with default (True), got agent ids: "
+        f"{[((s.get('agent') or {}).get('id') or '') for s in steps_default]}"
+    )
+
+    # Explicit True: response_generator step should be present
+    response_true = agent.run("Say hello", run_response_generation=True)
+    assert response_true.status == "SUCCESS", f"run_response_generation=True run failed: {response_true.status}"
+    steps_true = _get_steps(response_true)
+    assert _has_response_generator(steps_true), (
+        f"Expected response_generator step with run_response_generation=True, got agent ids: "
+        f"{[((s.get('agent') or {}).get('id') or '') for s in steps_true]}"
+    )
+
+    # False: response_generator step should NOT be present
+    response_false = agent.run("Say hello", run_response_generation=False)
+    assert response_false.status == "SUCCESS", f"run_response_generation=False run failed: {response_false.status}"
+    steps_false = _get_steps(response_false)
+    assert not _has_response_generator(steps_false), (
+        f"Expected no response_generator step with run_response_generation=False, got agent ids: "
+        f"{[((s.get('agent') or {}).get('id') or '') for s in steps_false]}"
+    )
+
+
 def test_agent_creation_and_deletion(client):
     """Test agent creation and deletion workflow."""
     # Create a test agent

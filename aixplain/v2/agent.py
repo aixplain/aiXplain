@@ -460,6 +460,9 @@ class Agent(
         if "session_id" in kwargs and "sessionId" not in kwargs:
             kwargs["sessionId"] = kwargs.pop("session_id")
 
+        if "run_response_generation" in kwargs and "runResponseGeneration" not in kwargs:
+            kwargs["runResponseGeneration"] = kwargs.pop("run_response_generation")
+
         return super().run(*args, **kwargs)
 
     def run_async(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
@@ -480,6 +483,9 @@ class Agent(
         # Handle session_id parameter name compatibility (snake_case -> camelCase)
         if "session_id" in kwargs and "sessionId" not in kwargs:
             kwargs["sessionId"] = kwargs.pop("session_id")
+
+        if "run_response_generation" in kwargs and "runResponseGeneration" not in kwargs:
+            kwargs["runResponseGeneration"] = kwargs.pop("run_response_generation")
 
         return super().run_async(**kwargs)
 
