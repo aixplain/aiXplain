@@ -36,7 +36,8 @@ class Message:
     """Message structure from the API response."""
 
     role: str
-    content: str
+    content: Optional[str] = None
+    tool_calls: Optional[List[dict[str, Any]]] = None
     refusal: Optional[str] = None
     annotations: List[Any] = field(default_factory=list)
 
@@ -80,10 +81,21 @@ class StreamChunk:
     Attributes:
         status: The current status of the streaming operation (IN_PROGRESS or SUCCESS)
         data: The content/token of this chunk
+        tool_calls: Tool call deltas when stream uses OpenAI-style chunk format
+        usage: Usage payload when provided in a stream chunk
+        finish_reason: Completion reason for the current choice, when provided
     """
 
     status: ResponseStatus
     data: str
+    tool_calls: Optional[List[dict[str, Any]]] = None
+    usage: Optional[dict[str, Any]] = None
+    finish_reason: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        """Ensure data remains a text chunk."""
+        if not isinstance(self.data, str):
+            self.data = ""
 
 
 class ModelResponseStreamer(Iterator[StreamChunk]):
@@ -117,6 +129,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
         self._iterator = response.iter_lines(decode_unicode=True)
         self.status = ResponseStatus.IN_PROGRESS
         self._done = False
+        self._buffered_line: Optional[str] = None
 
     def __iter__(self) -> Iterator[StreamChunk]:
         """Return the iterator for the ModelResponseStreamer."""
@@ -136,7 +149,11 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
 
         while True:
             try:
-                line = next(self._iterator)
+                if self._buffered_line is not None:
+                    line = self._buffered_line
+                    self._buffered_line = None
+                else:
+                    line = next(self._iterator)
             except StopIteration:
                 self._done = True
                 self.status = ResponseStatus.SUCCESS
@@ -163,17 +180,49 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                 if isinstance(content, dict):
                     content = content.get("text", content.get("output", str(content)))
 
-                # Check if this is the completion signal inside JSON
-                if content == "[DONE]":
-                    self._done = True
-                    self.status = ResponseStatus.SUCCESS
-                    raise StopIteration
+            # OpenAI-style stream chunk format:
+            # {"choices":[{"delta":{"content":"...", "tool_calls":[...]},"finish_reason":...}],"usage":...}
+            if isinstance(data, dict) and "choices" in data:
+                choices = data.get("choices")
+                choice = choices[0] if isinstance(choices, list) and choices else {}
+                if not isinstance(choice, dict):
+                    choice = {}
 
-                return StreamChunk(status=self.status, data=content)
-            except json.JSONDecodeError:
-                # If not valid JSON, return the raw line as data
-                if line.strip():  # Only return non-empty lines
-                    return StreamChunk(status=self.status, data=line)
+                delta = choice.get("delta")
+                if not isinstance(delta, dict):
+                    delta = {}
+
+                content = delta.get("content")
+                content = content if isinstance(content, str) else ""
+
+                tool_calls = delta.get("tool_calls")
+                if tool_calls is not None and not isinstance(tool_calls, list):
+                    tool_calls = [tool_calls]
+
+                finish_reason = choice.get("finish_reason")
+                finish_reason = finish_reason if isinstance(finish_reason, str) else None
+
+                usage = data.get("usage")
+                usage = usage if isinstance(usage, dict) else None
+
+                return StreamChunk(
+                    status=self.status,
+                    data=content,
+                    tool_calls=tool_calls,
+                    usage=usage,
+                    finish_reason=finish_reason,
+                )
+
+            content = data.get("data", "") if isinstance(data, dict) else ""
+            content = content if isinstance(content, str) else ""
+
+            # Check if this is the completion signal inside JSON
+            if content == "[DONE]":
+                self._done = True
+                self.status = ResponseStatus.SUCCESS
+                raise StopIteration
+
+            return StreamChunk(status=self.status, data=content)
 
     def close(self) -> None:
         """Close the underlying response connection."""
@@ -556,6 +605,73 @@ class Model(
         # Initialize the inputs proxy
         self.inputs = InputsProxy(self)
 
+    @staticmethod
+    def _normalize_param_name(name: str) -> str:
+        """Normalize parameter names for snake_case/camelCase compatibility."""
+        return "".join(char for char in name.lower() if char.isalnum())
+
+    @property
+    def _normalized_param_names(self) -> Optional[set[str]]:
+        """Return normalized backend input parameter names for capability inference."""
+        if self.params is None:
+            return None
+
+        normalized_names: set[str] = set()
+        for param in self.params:
+            param_name = getattr(param, "name", None)
+            if isinstance(param_name, str):
+                normalized_names.add(self._normalize_param_name(param_name))
+        return normalized_names
+
+    @property
+    def _is_text_generation_model(self) -> Optional[bool]:
+        """Return whether this model is an LLM/text-generation model.
+
+        Uses backend-provided function metadata only.
+        """
+        if self.function is None:
+            return None
+
+        if self.function is not None:
+            if isinstance(self.function, Function):
+                function_value = self.function.value
+            elif isinstance(self.function, dict):
+                function_value = str(self.function.get("id"))
+            else:
+                function_value = str(self.function)
+            return function_value == Function.TEXT_GENERATION.value
+        return None
+
+    @property
+    def supports_tool_calling(self) -> Optional[bool]:
+        """Return whether this LLM supports tool calling, inferred from backend params."""
+        is_text_generation_model = self._is_text_generation_model
+        if is_text_generation_model is False:
+            return False
+        if is_text_generation_model is None:
+            return None
+
+        normalized_names = self._normalized_param_names
+        if normalized_names is None:
+            return None
+
+        return "tools" in normalized_names or "toolchoice" in normalized_names
+
+    @property
+    def supports_structured_output(self) -> Optional[bool]:
+        """Return whether this LLM supports structured output, inferred from backend params."""
+        is_text_generation_model = self._is_text_generation_model
+        if is_text_generation_model is False:
+            return False
+        if is_text_generation_model is None:
+            return None
+
+        normalized_names = self._normalized_param_names
+        if normalized_names is None:
+            return None
+
+        return "responseformat" in normalized_names
+
     @property
     def is_sync_only(self) -> bool:
         """Check if the model only supports synchronous execution.
@@ -813,6 +929,8 @@ class Model(
         if "options" not in payload:
             payload["options"] = {}
         payload["options"]["stream"] = True
+        if payload.get("tools") is not None:
+            payload["options"]["raw"] = True
 
         # Build the run URL
         run_url = self.build_run_url(**kwargs)

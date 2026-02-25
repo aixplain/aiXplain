@@ -1134,8 +1134,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 raise create_operation_failed_error(response)
 
             response_class = getattr(self, "RESPONSE_CLASS", Result)
-
-            return response_class.from_dict(response)
+            result = response_class.from_dict(response)
+            result._raw_data = response
+            return result
 
     # Optional hook methods - only implement what you need
     def before_run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
