@@ -242,7 +242,7 @@ class Task:
     name: str
     instructions: Optional[str] = field(metadata=config(field_name="description"))
     expected_output: Optional[str] = field(metadata=config(field_name="expectedOutput"))
-    dependencies: List[Union[str, "Task"]] = field(default_factory=list, metadata=config(exclude=lambda x: not x))
+    dependencies: List[Union[str, "Task"]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Initialize task dependencies after dataclass creation."""
