@@ -79,7 +79,6 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         api_key (str): Authentication key for API access.
         cost (Dict, optional): Pricing information for using the Agent. Defaults to None.
         is_valid (bool): Whether the Agent's configuration is valid.
-        cost (Dict, optional): model price. Defaults to None.
         output_format (OutputFormat): default output format for agent responses.
         expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
     """
@@ -750,7 +749,6 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
             output_format (OutputFormat, optional): response format. If not provided, uses the format set during initialization.
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
-            output_format (ResponseFormat, optional): response format. Defaults to TEXT.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
             run_response_generation (bool, optional): Whether to run response generation. Defaults to True.

@@ -62,15 +62,15 @@ class AixplainClient:
         retry_backoff_factor: float = DEFAULT_RETRY_BACKOFF_FACTOR,
         retry_status_forcelist: List[int] = DEFAULT_RETRY_STATUS_FORCELIST,
     ) -> None:
-        """Initializes AixplainClient with authentication and retry configuration.
+        """Initialize AixplainClient with authentication and retry configuration.
 
         Args:
             base_url (str): The base URL for the API.
             aixplain_api_key (str, optional): The individual API key.
             team_api_key (str, optional): The team API key.
-            retry_total (int, optional): Total number of retries allowed. Defaults to None, uses DEFAULT_RETRY_TOTAL.
-            retry_backoff_factor (float, optional): Backoff factor to apply between retry attempts. Defaults to None, uses DEFAULT_RETRY_BACKOFF_FACTOR.
-            retry_status_forcelist (list, optional): List of HTTP status codes to force a retry on. Defaults to None, uses DEFAULT_RETRY_STATUS_FORCELIST.
+            retry_total (int): Total number of retries allowed. Defaults to 5.
+            retry_backoff_factor (float): Backoff factor between retry attempts. Defaults to 0.1.
+            retry_status_forcelist (list): HTTP status codes that trigger a retry. Defaults to [500, 502, 503, 504].
         """
         self.base_url = base_url
         self.team_api_key = team_api_key
@@ -157,7 +157,7 @@ class AixplainClient:
             kwargs (dict, optional): Additional keyword arguments for the request
 
         Returns:
-            requests.Response: The response from the request
+            dict: The JSON response from the request
         """
         return self.request("GET", path, **kwargs)
 

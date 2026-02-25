@@ -6,9 +6,9 @@ import pytest
 def client():
     """Initialize Aixplain client with test configuration for v2 tests."""
     # Require credentials from environment variables for security
-    api_key = os.getenv("TEAM_API_KEY")
+    api_key = os.getenv("TEAM_API_KEY") or os.getenv("AIXPLAIN_API_KEY")
     if not api_key:
-        pytest.skip("TEAM_API_KEY environment variable is required for functional tests")
+        pytest.skip("TEAM_API_KEY or AIXPLAIN_API_KEY environment variable is required for functional tests")
 
     backend_url = os.getenv("BACKEND_URL") or "https://dev-platform-api.aixplain.com"
     # V2 tests require V2 model URL - ensure we use /api/v2/ even if env has /api/v1/

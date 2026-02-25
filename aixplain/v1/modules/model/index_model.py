@@ -1,3 +1,5 @@
+"""Index model module for document indexing and search operations."""
+
 import os
 import warnings
 from uuid import uuid4
@@ -122,6 +124,8 @@ class Splitter:
 
 
 class IndexModel(Model):
+    """A model for indexing and searching documents using vector embeddings."""
+
     def __init__(
         self,
         id: Text,
@@ -199,19 +203,24 @@ class IndexModel(Model):
         data["collection_type"] = self.version.split("-", 1)[0]
         return data
 
-    def search(self, query: str, top_k: int = 10, filters: List[IndexFilter] = []) -> ModelResponse:
-        """Search for documents in the index
+    def search(
+        self, query: str, top_k: int = 10, filters: List[IndexFilter] = [], score_threshold: float = 0.0
+    ) -> ModelResponse:
+        """Search for documents in the index.
 
         Args:
             query (str): Query to be searched
             top_k (int, optional): Number of results to be returned. Defaults to 10.
             filters (List[IndexFilter], optional): Filters to be applied. Defaults to [].
+            score_threshold (float, optional): Minimum score threshold for results. Results with
+                scores below this threshold will be filtered out. Defaults to 0.0.
 
         Returns:
             ModelResponse: Response from the indexing service
 
         Example:
             - index_model.search("Hello")
+            - index_model.search("Hello", score_threshold=0.5)
             - index_model.search("", filters=[IndexFilter(field="category", value="animate", operator=IndexFilterOperator.EQUALS)])
         """
         from aixplain.factories import FileFactory
@@ -228,12 +237,12 @@ class IndexModel(Model):
             "data": query or uri,
             "dataType": value_type,
             "filters": [filter.to_dict() for filter in filters],
-            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k},
+            "payload": {"uri": uri, "value_type": value_type, "top_k": top_k, "score_threshold": score_threshold},
         }
         return self.run(data=data)
 
     def upsert(self, documents: Union[List[Record], str], splitter: Optional[Splitter] = None) -> ModelResponse:
-        """Upsert documents into the index
+        """Upsert documents into the index.
 
         Args:
             documents (Union[List[Record], str]): List of documents to be upserted or a file path
