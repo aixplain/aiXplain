@@ -448,13 +448,6 @@ class Agent(
             progress_verbosity: Detail level 1-3 (default: 1)
             progress_truncate: Truncate long text (default: True)
             **kwargs: Additional run parameters
-            *args: Positional arguments (first arg is treated as query)
-            query: The query to run
-            progress_format: Display format - "status" or "logs". If None (default),
-                           progress tracking is disabled.
-            progress_verbosity: Detail level 1-3 (default: 1)
-            progress_truncate: Truncate long text (default: True)
-            **kwargs: Additional run parameters
 
         Returns:
             AgentRunResult: The result of the agent execution
@@ -851,13 +844,13 @@ class Agent(
     def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
         """Generate a unique session ID for agent conversations.
 
-        This method creates a unique session identifier based on the agent ID and current timestamp.
-        If conversation history is provided, it attempts to initialize the session on the server
-        to enable context-aware conversations.
+        Creates a unique session identifier based on the agent ID and current timestamp.
+        If conversation history is provided, it attempts to initialize the session on the
+        server to enable context-aware conversations.
 
         Args:
-            history (Optional[List[Dict]], optional): Previous conversation history.
-                Each dict should contain 'role' (either 'user' or 'assistant') and 'content' keys.
+            history: Previous conversation history. Each message should contain
+                'role' (either 'user' or 'assistant') and 'content' keys.
                 Defaults to None.
 
         Returns:
