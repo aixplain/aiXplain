@@ -1,4 +1,5 @@
 """aiXplain SDK Library.
+---
 
 aiXplain SDK enables python programmers to add AI functions
 to their software.
@@ -18,27 +19,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
-import logging
-from dotenv import load_dotenv
-
-load_dotenv()
-
-from aixplain._compat import install as _install_compat  # noqa: E402
-
-_install_compat()
-
-from .v2.core import Aixplain  # noqa: E402
-
-LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(level=LOG_LEVEL)
-
-
-aixplain_v2 = None
-try:
-    aixplain_v2 = Aixplain()
-except Exception:
-    pass
-
-
-__all__ = ["Aixplain", "aixplain_v2"]
+from .asset import Asset
+from .corpus import Corpus
+from .data import Data
+from .dataset import Dataset
+from .file import File
+from .metadata import MetaData
+from .metric import Metric
+from .model import Model
+from .model.llm_model import LLM
+from .pipeline import Pipeline
+from .finetune import Finetune, FinetuneCost
+from .finetune.status import FinetuneStatus
+from .benchmark import Benchmark
+from .benchmark_job import BenchmarkJob
+from .agent import Agent
+from .agent.tool import Tool
+from .team_agent import TeamAgent
+from .api_key import APIKey, APIKeyLimits, APIKeyUsageLimit
+from .model.index_model import IndexModel
