@@ -63,7 +63,7 @@ def test_llm_run_stream():
     from aixplain.modules.model.response import ModelResponse, ResponseStatus
     from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
 
-    llm_model = ModelFactory.get("669a63646eb56306647e1091")
+    llm_model = ModelFactory.get("6895d6d1d50c89537c1cf237")
 
     assert isinstance(llm_model, LLM)
     response = llm_model.run(
@@ -478,7 +478,7 @@ def test_index_model_with_pdf_file_link():
         assert str(response.status) == "SUCCESS"
         assert len(response.data) > 0
 
-        records = [resp['data'].lower() for resp in response.details]
+        records = [resp["data"].lower() for resp in response.details]
         assert any("document" in record for record in records)
 
         # Verify count

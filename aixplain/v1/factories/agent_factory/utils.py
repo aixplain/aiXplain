@@ -19,7 +19,7 @@ from aixplain.modules.model.connection import ConnectionTool
 from typing import Dict, Text, List, Union
 from urllib.parse import urljoin
 
-GPT_4o_ID = "6646261c6eb563165658bbb1"
+GPT_5_MINI_ID = "6895d6d1d50c89537c1cf237"
 
 
 def build_tool_payload(tool: Union[Tool, Model]):
@@ -259,7 +259,7 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),
         cost=payload.get("cost", None),
-        llm_id=payload.get("llmId", GPT_4o_ID),
+        llm_id=payload.get("llmId", GPT_5_MINI_ID),
         llm=llm,
         api_key=api_key,
         status=AssetStatus(payload["status"]),

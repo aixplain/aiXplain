@@ -49,7 +49,7 @@ def test_agent(mcp_tool):
         description="This agent is used to scrape websites",
         instructions="You are a helpful assistant that can scrape any given website",
         tools=[mcp_tool],
-        llm="669a63646eb56306647e1091",
+        llm="6895d6d1d50c89537c1cf237",
     )
     yield agent
     try:
@@ -135,7 +135,7 @@ def test_agent_lifecycle_end_to_end(mcp_tool):
         description="This agent is used for lifecycle testing",
         instructions="You are a helpful assistant that can scrape any given website",
         tools=[mcp_tool],
-        llm="669a63646eb56306647e1091",
+        llm="6895d6d1d50c89537c1cf237",
     )
 
     try:

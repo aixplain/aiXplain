@@ -68,8 +68,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         description (Text, optional): Detailed description of the Agent's capabilities.
             Defaults to "".
         instructions (Text): System instructions/prompt defining the Agent's behavior.
-        llm_id (Text): ID of the large language model. Defaults to GPT-4o
-            (6646261c6eb563165658bbb1).
+        llm_id (Text): ID of the large language model. Defaults to GPT-5 Mini
+            (6895d6d1d50c89537c1cf237).
         llm (Optional[LLM]): The LLM instance used by the Agent.
         supplier (Text): The provider/creator of the Agent.
         version (Text): Version identifier of the Agent.
@@ -92,7 +92,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         description: Text,
         instructions: Optional[Text] = None,
         tools: List[Union[Tool, Model]] = [],
-        llm_id: Text = "6646261c6eb563165658bbb1",
+        llm_id: Text = "6895d6d1d50c89537c1cf237",
         llm: Optional[LLM] = None,
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -115,8 +115,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 the Agent's behavior. Defaults to None.
             tools (List[Union[Tool, Model]], optional): Collection of tools and models
                 the Agent can use. Defaults to empty list.
-            llm_id (Text, optional): ID of the large language model. Defaults to GPT-4o
-                (6646261c6eb563165658bbb1).
+            llm_id (Text, optional): ID of the large language model. Defaults to GPT-5 Mini
+                (6895d6d1d50c89537c1cf237).
             llm (Optional[LLM], optional): The LLM instance to use. If provided, takes
                 precedence over llm_id. Defaults to None.
             api_key (Optional[Text], optional): Authentication key for API access.
@@ -942,7 +942,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 from aixplain.factories.model_factory import ModelFactory
 
                 try:
-                    llm = ModelFactory.get(data.get("llmId", "6646261c6eb563165658bbb1"))
+                    llm = ModelFactory.get(data.get("llmId", "6895d6d1d50c89537c1cf237"))
                     if llm_tool.get("parameters"):
                         # Apply stored parameters to LLM
                         llm.set_parameters(llm_tool["parameters"])
@@ -964,7 +964,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             description=data["description"],
             instructions=data.get("instructions"),
             tools=tools,
-            llm_id=data.get("llmId", "6646261c6eb563165658bbb1"),
+            llm_id=data.get("llmId", "6895d6d1d50c89537c1cf237"),
             llm=llm,
             api_key=data.get("api_key"),
             supplier=data.get("supplier", "aiXplain"),

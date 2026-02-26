@@ -109,7 +109,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
     for proper resource cleanup.
 
     Example:
-        >>> model = aix.Model.get("669a63646eb56306647e1091")  # GPT-4o Mini
+        >>> model = aix.Model.get("6895d6d1d50c89537c1cf237")  # GPT-5 Mini
         >>> for chunk in model.run(text="Explain LLMs", stream=True):
         ...     print(chunk.data, end="", flush=True)
 
@@ -928,7 +928,7 @@ class Model(
                 (supports_streaming is False)
 
         Example:
-            >>> model = aix.Model.get("669a63646eb56306647e1091")  # GPT-4o Mini
+            >>> model = aix.Model.get("6895d6d1d50c89537c1cf237")  # GPT-5 Mini
             >>> with model.run_stream(text="Explain quantum computing") as stream:
             ...     for chunk in stream:
             ...         print(chunk.data, end="", flush=True)

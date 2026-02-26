@@ -17,7 +17,7 @@ from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.modules.agent.output_format import OutputFormat
 
-GPT_4o_ID = "6646261c6eb563165658bbb1"
+GPT_5_MINI_ID = "6895d6d1d50c89537c1cf237"
 SUPPORTED_TOOLS = ["llm", "website_search", "website_scrape", "website_crawl", "serper_search"]
 
 
@@ -144,7 +144,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         supplier=payload.get("teamId", None),
         version=payload.get("version", None),
         cost=payload.get("cost", None),
-        llm_id=payload.get("llmId", GPT_4o_ID),
+        llm_id=payload.get("llmId", GPT_5_MINI_ID),
         supervisor_llm=supervisor_llm,
         mentalist_llm=mentalist_llm,
         use_mentalist=True if payload.get("plannerId", None) is not None else False,

@@ -138,7 +138,7 @@ class AgentFactory:
             llm = get_llm_instance(llm_id, api_key=api_key, use_cache=True)
         elif llm is None:
             # Use default GPT-4o if no LLM specified
-            llm = get_llm_instance("669a63646eb56306647e1091", api_key=api_key, use_cache=True)
+            llm = get_llm_instance("6895d6d1d50c89537c1cf237", api_key=api_key, use_cache=True)
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (
@@ -383,6 +383,7 @@ class AgentFactory:
             code (Union[Text, Callable]): Python code as string or callable function.
             name (Text): Name of the tool.
             description (Text, optional): Description of what the tool does. Defaults to "".
+            **kwargs: Additional keyword arguments passed to the underlying connection tool.
 
         Returns:
             ConnectionTool: Created connection tool object.
