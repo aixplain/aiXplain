@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config as dj_config
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Union, Any, TYPE_CHECKING
+from typing import ClassVar, Dict, List, Optional, Union, Any, TYPE_CHECKING
 
 from .resource import (
     BaseResource,
@@ -27,6 +27,23 @@ if TYPE_CHECKING:
     from .core import Aixplain
 
 
+def _resolve_model(model: Any) -> str:
+    """Resolve a model reference to an asset ID string.
+
+    Accepts a string (ID or path) or any object with ``path`` or ``id``
+    attributes (e.g. a :class:`Model` instance).
+    """
+    if isinstance(model, str):
+        return model
+    path = getattr(model, "path", None)
+    if path:
+        return path
+    model_id = getattr(model, "id", None)
+    if model_id:
+        return model_id
+    return str(model)
+
+
 class TokenType(Enum):
     """Token type for rate limiting."""
 
@@ -40,20 +57,21 @@ class TokenType(Enum):
 class APIKeyLimits:
     """Rate limits configuration for an API key.
 
-    Uses dataclass_json field mappings to handle API field names:
-    - tpm -> token_per_minute
-    - tpd -> token_per_day
-    - rpm -> request_per_minute
-    - rpd -> request_per_day
-    - assetId -> model_id
-    - tokenType -> token_type
+    Args:
+        token_per_minute: Maximum tokens per minute (maps to API ``tpm``).
+        token_per_day: Maximum tokens per day (maps to API ``tpd``).
+        request_per_minute: Maximum requests per minute (maps to API ``rpm``).
+        request_per_day: Maximum requests per day (maps to API ``rpd``).
+        model: The model to rate-limit.  Accepts a model path string, a model
+            ID, or a :class:`Model` object (maps to API ``assetId``).
+        token_type: Which tokens to count (input, output, or total).
     """
 
     token_per_minute: int = field(default=0, metadata=dj_config(field_name="tpm"))
     token_per_day: int = field(default=0, metadata=dj_config(field_name="tpd"))
     request_per_minute: int = field(default=0, metadata=dj_config(field_name="rpm"))
     request_per_day: int = field(default=0, metadata=dj_config(field_name="rpd"))
-    model_id: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
+    model: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
     token_type: Optional[TokenType] = field(
         default=None,
         metadata=dj_config(
@@ -64,9 +82,11 @@ class APIKeyLimits:
     )
 
     def __post_init__(self) -> None:
-        """Handle string token_type conversion."""
+        """Handle string token_type conversion and model object resolution."""
         if isinstance(self.token_type, str):
             self.token_type = TokenType(self.token_type)
+        if self.model is not None and not isinstance(self.model, str):
+            self.model = _resolve_model(self.model)
 
     def validate(self) -> None:
         """Validate rate limit values are non-negative."""
@@ -80,20 +100,59 @@ class APIKeyLimits:
             raise ValidationError("Request per day must be >= 0")
 
 
+def _api_key_limits_to_dict(self, encode_json=False) -> dict:
+    """Return a snake_case dictionary representation."""
+    result = {
+        "token_per_minute": self.token_per_minute,
+        "token_per_day": self.token_per_day,
+        "request_per_minute": self.request_per_minute,
+        "request_per_day": self.request_per_day,
+    }
+    if self.model is not None:
+        result["model"] = self.model
+    if self.token_type is not None:
+        result["token_type"] = self.token_type.value
+    return result
+
+
+APIKeyLimits.to_dict = _api_key_limits_to_dict
+
+
 @dataclass_json
 @dataclass
 class APIKeyUsageLimit:
     """Usage statistics for an API key.
 
-    Uses dataclass_json field mappings to handle API field names.
     All fields are Optional since the API may return null values.
     """
 
-    daily_request_count: Optional[int] = field(default=None, metadata=dj_config(field_name="requestCount"))
-    daily_request_limit: Optional[int] = field(default=None, metadata=dj_config(field_name="requestCountLimit"))
-    daily_token_count: Optional[int] = field(default=None, metadata=dj_config(field_name="tokenCount"))
-    daily_token_limit: Optional[int] = field(default=None, metadata=dj_config(field_name="tokenCountLimit"))
-    model_id: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
+    daily_request_count: Optional[int] = field(
+        default=None, metadata=dj_config(field_name="requestCount")
+    )
+    daily_request_limit: Optional[int] = field(
+        default=None, metadata=dj_config(field_name="requestCountLimit")
+    )
+    daily_token_count: Optional[int] = field(
+        default=None, metadata=dj_config(field_name="tokenCount")
+    )
+    daily_token_limit: Optional[int] = field(
+        default=None, metadata=dj_config(field_name="tokenCountLimit")
+    )
+    model: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
+
+
+def _api_key_usage_limit_to_dict(self, encode_json=False) -> dict:
+    """Return a snake_case dictionary representation."""
+    return {
+        "daily_request_count": self.daily_request_count,
+        "daily_request_limit": self.daily_request_limit,
+        "daily_token_count": self.daily_token_count,
+        "daily_token_limit": self.daily_token_limit,
+        "model": self.model,
+    }
+
+
+APIKeyUsageLimit.to_dict = _api_key_usage_limit_to_dict
 
 
 class APIKeySearchParams(BaseSearchParams):
@@ -143,10 +202,17 @@ class APIKey(
     PAGINATE_PATH = ""  # No /paginate suffix - direct GET to RESOURCE_PATH
     PAGINATE_METHOD = "get"  # GET request instead of POST
 
+    # Class-level cache: model ID → model path.  Populated by
+    # _resolve_asset_ids so that keys fetched via list()/get() can
+    # restore human-readable paths on their asset_limits.
+    _model_id_cache: ClassVar[Dict[str, str]] = {}
+
     # Core fields
     budget: Optional[float] = field(default=None)
-    expires_at: Optional[Union[datetime, str]] = field(default=None, metadata=dj_config(field_name="expiresAt"))
-    access_key: Optional[str] = field(default=None, metadata=dj_config(field_name="accessKey"))
+    expires_at: Optional[Union[datetime, str]] = field(
+        default=None, metadata=dj_config(field_name="expiresAt")
+    )
+    key: Optional[str] = field(default=None, metadata=dj_config(field_name="accessKey"))
     is_admin: bool = field(default=False, metadata=dj_config(field_name="isAdmin"))
 
     # Nested limit objects - dataclass_json handles deserialization automatically
@@ -161,11 +227,12 @@ class APIKey(
     )
 
     def __post_init__(self) -> None:
-        """Validate limits after initialization."""
+        """Validate limits and restore cached model paths after initialization."""
         if self.global_limits:
             self.global_limits.validate()
         for limit in self.asset_limits:
             limit.validate()
+        self._restore_model_paths()
 
     def __repr__(self) -> str:
         """Return string representation."""
@@ -175,12 +242,30 @@ class APIKey(
     # BaseResource overrides for save operations
     # =========================================================================
 
+    def before_save(self, *args: Any, **kwargs: Any) -> None:
+        """Delete an existing key with the same name so the create succeeds.
+
+        The backend's update endpoint rejects path-style ``assetId`` values
+        that the create endpoint accepts, making a reliable update impossible.
+        Instead we remove the stale key and let ``save()`` re-create it.
+        """
+        if not self.id and self.name:
+            try:
+                for existing in self.list():
+                    if existing.name == self.name:
+                        existing.delete()
+                        break
+            except Exception:
+                pass
+        return None
+
     def build_save_payload(self, **kwargs: Any) -> Dict:
         """Build the payload for save operations.
 
         Override because:
         1. Nested limits need manual serialization to API format
         2. Default to_dict() excludes global_limits and asset_limits
+        3. On updates the backend requires model IDs (not paths) in assetId
         """
         self._validate_limits()
 
@@ -196,25 +281,58 @@ class APIKey(
                 payload["expiresAt"] = self.expires_at
 
         if self.global_limits:
-            payload["globalLimits"] = self._limits_to_dict(self.global_limits)
+            payload["globalLimits"] = self._limits_to_api_dict(self.global_limits)
 
-        payload["assetsLimits"] = [self._limits_to_dict(limit, include_model_id=True) for limit in self.asset_limits]
+        payload["assetsLimits"] = [
+            self._limits_to_api_dict(limit, include_asset=True)
+            for limit in self.asset_limits
+        ]
+
+        self._resolve_asset_ids(payload)
 
         return payload
 
-    def _update(self, resource_path: str, payload: dict) -> None:
-        """Override to update instance from response.
+    def _create(self, resource_path: str, payload: dict) -> None:
+        """Create the resource, populating from existing if backend returns a conflict."""
+        try:
+            super()._create(resource_path, payload)
+        except Exception as e:
+            if "already in use" not in str(e):
+                raise
+            for existing in self.list():
+                if existing.name == self.name:
+                    for f in self.__dataclass_fields__:
+                        if hasattr(existing, f):
+                            setattr(self, f, getattr(existing, f))
+                    break
+            else:
+                raise
+        self._restore_model_paths()
 
-        BaseResource._update doesn't read the response, but API key update
-        returns the updated object which we want to reflect in the instance.
+    def _update(self, resource_path: str, payload: dict) -> None:
+        """Update with fallback to create when the key no longer exists.
+
+        Falls back to ``_create`` on 404 so that stale references (e.g.
+        after the creation cell was re-run and the old key deleted) don't
+        crash.
         """
-        result = self.context.client.request("PUT", f"{resource_path}/{self.encoded_id}", json=payload)
-        # Update instance from response using from_dict pattern
+        try:
+            result = self.context.client.request(
+                "PUT", f"{resource_path}/{self.encoded_id}", json=payload
+            )
+        except Exception as e:
+            if "Not Found" not in str(e):
+                raise
+            self.id = None
+            payload.pop("id", None)
+            self._create(resource_path, payload)
+            return
         if result and isinstance(result, dict):
             updated = self.from_dict(result)
             for field_name in self.__dataclass_fields__:
                 if hasattr(updated, field_name):
                     setattr(self, field_name, getattr(updated, field_name))
+        self._restore_model_paths()
 
     # =========================================================================
     # SearchResourceMixin overrides for non-paginated list endpoint
@@ -226,15 +344,15 @@ class APIKey(
         return {}
 
     @classmethod
-    def _build_page(cls, response: Any, context: "Aixplain", **kwargs: Any) -> Page["APIKey"]:
+    def _build_page(
+        cls, response: Any, context: "Aixplain", **kwargs: Any
+    ) -> Page["APIKey"]:
         """Override: Fix page_total for non-paginated list response.
 
         The base implementation sets page_total=len(items) for list responses,
         but it should be 1 (there's only one page when all results are returned).
         """
-        # Let base handle most of the work
         page = super()._build_page(response, context, **kwargs)
-        # Fix page_total - there's only 1 page for this endpoint
         page.page_total = 1
         return page
 
@@ -263,44 +381,52 @@ class APIKey(
             ResourceError: If no matching key is found
         """
         if len(access_key) < 8:
-            raise ValidationError("Access key must be at least 8 characters for matching")
+            raise ValidationError(
+                "Access key must be at least 8 characters for matching"
+            )
 
         prefix, suffix = access_key[:4], access_key[-4:]
         api_keys = cls.list(**kwargs)
-        for key in api_keys:
-            if key.access_key and (str(key.access_key).startswith(prefix) and str(key.access_key).endswith(suffix)):
-                return key
+        for api_key in api_keys:
+            if api_key.key and (
+                str(api_key.key).startswith(prefix)
+                and str(api_key.key).endswith(suffix)
+            ):
+                return api_key
         raise ResourceError(f"API key with access key {prefix}...{suffix} not found")
 
     # =========================================================================
     # Usage methods (API-specific endpoints, no mixin available)
     # =========================================================================
 
-    def get_usage(self, model_id: Optional[str] = None) -> List[APIKeyUsageLimit]:
+    def get_usage(self, model: Optional[Any] = None) -> List[APIKeyUsageLimit]:
         """Get usage statistics for this API key.
 
         Args:
-            model_id: Optional model ID to filter usage by
+            model: Optional model to filter usage by (string path/ID or Model object)
 
         Returns:
             List of usage limit objects
         """
         self._ensure_valid_state()
+        resolved = _resolve_model(model) if model else None
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}/usage-limits"
         response = self.context.client.get(path)
 
         results = []
         for item in response:
-            if model_id is None or item.get("assetId") == model_id:
+            if resolved is None or item.get("assetId") == resolved:
                 results.append(APIKeyUsageLimit.from_dict(item))
         return results
 
     @classmethod
-    def get_usage_limits(cls, model_id: Optional[str] = None, **kwargs) -> List[APIKeyUsageLimit]:
+    def get_usage_limits(
+        cls, model: Optional[Any] = None, **kwargs
+    ) -> List[APIKeyUsageLimit]:
         """Get usage limits for the current API key (the one used for authentication).
 
         Args:
-            model_id: Optional model ID to filter usage by
+            model: Optional model to filter usage by (string path/ID or Model object)
             **kwargs: Additional arguments (unused, for API consistency)
 
         Returns:
@@ -310,12 +436,13 @@ class APIKey(
         if context is None:
             raise ResourceError("Context is required for API key operations")
 
+        resolved = _resolve_model(model) if model else None
         path = f"{cls.RESOURCE_PATH}/usage-limits"
         response = context.client.get(path)
 
         results = []
         for item in response:
-            if model_id is None or item.get("assetId") == model_id:
+            if resolved is None or item.get("assetId") == resolved:
                 results.append(APIKeyUsageLimit.from_dict(item))
         return results
 
@@ -323,21 +450,21 @@ class APIKey(
     # Convenience methods for setting rate limits
     # =========================================================================
 
-    def set_token_per_day(self, value: int, model_id: Optional[str] = None) -> None:
+    def set_token_per_day(self, value: int, model: Optional[Any] = None) -> None:
         """Set token per day limit."""
-        self._set_limit(value, model_id, "token_per_day")
+        self._set_limit(value, model, "token_per_day")
 
-    def set_token_per_minute(self, value: int, model_id: Optional[str] = None) -> None:
+    def set_token_per_minute(self, value: int, model: Optional[Any] = None) -> None:
         """Set token per minute limit."""
-        self._set_limit(value, model_id, "token_per_minute")
+        self._set_limit(value, model, "token_per_minute")
 
-    def set_request_per_day(self, value: int, model_id: Optional[str] = None) -> None:
+    def set_request_per_day(self, value: int, model: Optional[Any] = None) -> None:
         """Set request per day limit."""
-        self._set_limit(value, model_id, "request_per_day")
+        self._set_limit(value, model, "request_per_day")
 
-    def set_request_per_minute(self, value: int, model_id: Optional[str] = None) -> None:
+    def set_request_per_minute(self, value: int, model: Optional[Any] = None) -> None:
         """Set request per minute limit."""
-        self._set_limit(value, model_id, "request_per_minute")
+        self._set_limit(value, model, "request_per_minute")
 
     # =========================================================================
     # Class methods for create/update (following V2 patterns)
@@ -370,7 +497,6 @@ class APIKey(
         if context is None:
             raise ResourceError("Context is required for API key operations")
 
-        # Parse limits if provided as dicts
         parsed_global = cls._parse_limits(global_limits) if global_limits else None
         parsed_assets = []
         if asset_limits:
@@ -393,6 +519,56 @@ class APIKey(
     # Private helper methods
     # =========================================================================
 
+    def _resolve_asset_ids(self, payload: dict) -> None:
+        """Resolve path-style assetIds to actual model IDs in the payload.
+
+        The backend requires model IDs (not paths) in ``assetId``.
+        Raises ``ValidationError`` when a path cannot be resolved.
+
+        Populates ``self._id_to_path`` so that the original user-facing
+        model paths can be restored on the instance after the API round-trip.
+        """
+        self._id_to_path: Dict[str, str] = {}
+        cache: Dict[str, str] = {}
+        for asset_limit in payload.get("assetsLimits", []):
+            asset_id = asset_limit.get("assetId", "")
+            if not asset_id or "/" not in str(asset_id):
+                continue
+            if asset_id in cache:
+                asset_limit["assetId"] = cache[asset_id]
+                continue
+            try:
+                from .model import Model
+
+                BoundModel = type("Model", (Model,), {"context": self.context})
+                model = BoundModel.get(asset_id)
+                cache[asset_id] = model.id
+                self._id_to_path[model.id] = asset_id
+                APIKey._model_id_cache[model.id] = asset_id
+                asset_limit["assetId"] = model.id
+            except Exception:
+                raise ValidationError(
+                    f"Could not resolve model path '{asset_id}'. "
+                    "Use a valid model path (e.g. 'openai/gpt-4o-mini/openai') "
+                    "or a model ID."
+                )
+
+    def _restore_model_paths(self) -> None:
+        """Replace resolved model IDs with the original user-provided paths.
+
+        Uses the instance-level ``_id_to_path`` mapping first, then falls
+        back to the class-level ``_model_id_cache`` so that keys fetched
+        via ``list()`` or ``get()`` also get human-readable paths.
+        """
+        instance_map = getattr(self, "_id_to_path", {})
+        for limit in self.asset_limits:
+            if not limit.model:
+                continue
+            if limit.model in instance_map:
+                limit.model = instance_map[limit.model]
+            elif limit.model in APIKey._model_id_cache:
+                limit.model = APIKey._model_id_cache[limit.model]
+
     def _validate_limits(self) -> None:
         """Validate the API key configuration."""
         if self.budget is not None and self.budget < 0:
@@ -400,26 +576,27 @@ class APIKey(
         if self.global_limits:
             self.global_limits.validate()
         for limit in self.asset_limits:
-            if limit.model_id is None:
-                raise ValidationError("Asset limit must have a model_id")
+            if limit.model is None:
+                raise ValidationError("Asset limit must have a model")
             limit.validate()
 
-    def _set_limit(self, value: int, model_id: Optional[str], attr: str) -> None:
+    def _set_limit(self, value: int, model: Optional[Any], attr: str) -> None:
         """Set a rate limit value on global or asset limits."""
-        if model_id is None:
+        if model is None:
             if self.global_limits is None:
                 self.global_limits = APIKeyLimits()
             setattr(self.global_limits, attr, value)
         else:
+            resolved = _resolve_model(model)
             for limit in self.asset_limits:
-                if limit.model_id == model_id:
+                if limit.model == resolved:
                     setattr(limit, attr, value)
                     return
-            raise ResourceError(f"Limit for model {model_id} not found in the API key")
+            raise ResourceError(f"Limit for model {resolved} not found in the API key")
 
     @staticmethod
-    def _limits_to_dict(limits: APIKeyLimits, include_model_id: bool = False) -> Dict:
-        """Convert APIKeyLimits to dictionary for API requests."""
+    def _limits_to_api_dict(limits: APIKeyLimits, include_asset: bool = False) -> Dict:
+        """Convert APIKeyLimits to camelCase dictionary for API requests."""
         result = {
             "tpm": limits.token_per_minute,
             "tpd": limits.token_per_day,
@@ -427,8 +604,8 @@ class APIKey(
             "rpd": limits.request_per_day,
             "tokenType": limits.token_type.value if limits.token_type else None,
         }
-        if include_model_id and limits.model_id:
-            result["assetId"] = limits.model_id
+        if include_asset and limits.model:
+            result["assetId"] = limits.model
         return result
 
     @staticmethod
@@ -441,3 +618,29 @@ class APIKey(
         if isinstance(data, dict):
             return APIKeyLimits.from_dict(data)
         return None
+
+
+def _api_key_to_dict(self, encode_json=False) -> dict:
+    """Return a snake_case dictionary representation including limits."""
+    result = {
+        "id": self.id,
+        "name": self.name,
+        "description": self.description,
+        "path": self.path,
+        "budget": self.budget,
+        "expires_at": (
+            self.expires_at.isoformat()
+            if isinstance(self.expires_at, datetime)
+            else self.expires_at
+        ),
+        "key": self.key,
+        "is_admin": self.is_admin,
+    }
+    if self.global_limits is not None:
+        result["global_limits"] = self.global_limits.to_dict()
+    if self.asset_limits:
+        result["asset_limits"] = [limit.to_dict() for limit in self.asset_limits]
+    return result
+
+
+APIKey.to_dict = _api_key_to_dict
