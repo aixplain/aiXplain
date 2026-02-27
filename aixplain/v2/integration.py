@@ -541,9 +541,7 @@ class Integration(Model, ActionMixin):
         tool = self.context.Tool.get(response.data.id)
         if response.data.redirectURL:
             tool.redirect_url = response.data.redirectURL
-            warnings.warn(
-                f"Before using the tool, please visit the following URL to complete the connection: {response.data.redirectURL}"
-            )
+            warnings.warn(f"To use this tool, complete the connection at:\n{response.data.redirectURL}")
         return tool
 
     def handle_run_response(self, response: dict, **kwargs: Any) -> IntegrationResult:
