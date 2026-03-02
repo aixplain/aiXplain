@@ -184,10 +184,12 @@ class BaseResource:
     """Base class for all resources.
 
     Attributes:
-        context: Aixplain: The Aixplain instance (hidden from serialization).
-        RESOURCE_PATH: str: The resource path.
-        id: str: The resource ID.
-        name: str: The resource name.
+        context: The Aixplain client instance (hidden from serialization).
+        RESOURCE_PATH: The API resource path.
+        id: The resource ID.
+        name: The resource name.
+        description: The resource description.
+        path: Full path identifier (e.g., "openai/whisper-large/groq").
     """
 
     context: Any = field(repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False)
@@ -514,19 +516,14 @@ class BaseGetParams(BaseParams):
     """Base class for all get parameters.
 
     Attributes:
-        id: str: The resource ID.
-        host: str: The host URL for the request (optional).
+        host: The host URL for the request (optional).
     """
 
     host: NotRequired[str]
 
 
 class BaseDeleteParams(BaseParams):
-    """Base class for all delete parameters.
-
-    Attributes:
-        id: str: The resource ID.
-    """
+    """Base class for all delete parameters."""
 
     pass
 
@@ -535,7 +532,8 @@ class BaseRunParams(BaseParams):
     """Base class for all run parameters.
 
     Attributes:
-        text: str: The text to run.
+        timeout: Maximum time in seconds to wait for completion.
+        wait_time: Initial interval in seconds between poll attempts.
     """
 
     timeout: NotRequired[int]
@@ -656,11 +654,13 @@ DeleteResultT = TypeVar("DeleteResultT", bound=DeleteResult)
 
 
 class Page(Generic[ResourceT]):
-    """Page of resources.
+    """A paginated page of resources.
 
     Attributes:
-        items: List[ResourceT]: The list of resources.
-        total: int: The total number of resources.
+        results: The list of resources in this page.
+        page_number: Current page number (0-indexed).
+        page_total: Total number of pages.
+        total: Total number of resources across all pages.
     """
 
     results: List[ResourceT]
@@ -1134,8 +1134,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 raise create_operation_failed_error(response)
 
             response_class = getattr(self, "RESPONSE_CLASS", Result)
-
-            return response_class.from_dict(response)
+            result = response_class.from_dict(response)
+            result._raw_data = response
+            return result
 
     # Optional hook methods - only implement what you need
     def before_run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
@@ -1240,7 +1241,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         Args:
             poll_url: URL to poll for results
-            name: Name/ID of the process
 
         Returns:
             Response instance from the configured RESPONSE_CLASS
@@ -1305,15 +1305,17 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         pass  # Default implementation does nothing
 
     def sync_poll(self, poll_url: str, **kwargs: Unpack[RunParamsT]) -> ResultT:
-        """Keeps polling until an asynchronous operation is complete.
+        """Keep polling until an asynchronous operation is complete.
 
         Args:
             poll_url: URL to poll for results
-            name: Name/ID of the process
-            **kwargs: Run parameters including timeout, wait_time, and show_progress
+            **kwargs: Run parameters including timeout and wait_time
 
         Returns:
             Response instance from the configured RESPONSE_CLASS
+
+        Raises:
+            TimeoutError: If the operation exceeds the timeout duration
         """
         import time
 

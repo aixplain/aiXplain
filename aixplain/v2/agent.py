@@ -242,7 +242,7 @@ class Task:
     name: str
     instructions: Optional[str] = field(metadata=config(field_name="description"))
     expected_output: Optional[str] = field(metadata=config(field_name="expectedOutput"))
-    dependencies: List[Union[str, "Task"]] = field(default_factory=list, metadata=config(exclude=lambda x: not x))
+    dependencies: List[Union[str, "Task"]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Initialize task dependencies after dataclass creation."""
@@ -265,7 +265,7 @@ class Agent(
 
     RESOURCE_PATH = "v2/agents"
 
-    DEFAULT_LLM = "669a63646eb56306647e1091"
+    DEFAULT_LLM = "6895d6d1d50c89537c1cf237"
     SUPPLIER = "aiXplain"
 
     RESPONSE_CLASS = AgentRunResult
@@ -448,13 +448,6 @@ class Agent(
             progress_verbosity: Detail level 1-3 (default: 1)
             progress_truncate: Truncate long text (default: True)
             **kwargs: Additional run parameters
-            *args: Positional arguments (first arg is treated as query)
-            query: The query to run
-            progress_format: Display format - "status" or "logs". If None (default),
-                           progress tracking is disabled.
-            progress_verbosity: Detail level 1-3 (default: 1)
-            progress_truncate: Truncate long text (default: True)
-            **kwargs: Additional run parameters
 
         Returns:
             AgentRunResult: The result of the agent execution
@@ -466,6 +459,9 @@ class Agent(
         # Handle session_id parameter name compatibility (snake_case -> camelCase)
         if "session_id" in kwargs and "sessionId" not in kwargs:
             kwargs["sessionId"] = kwargs.pop("session_id")
+
+        if "run_response_generation" in kwargs and "runResponseGeneration" not in kwargs:
+            kwargs["runResponseGeneration"] = kwargs.pop("run_response_generation")
 
         return super().run(*args, **kwargs)
 
@@ -487,6 +483,9 @@ class Agent(
         # Handle session_id parameter name compatibility (snake_case -> camelCase)
         if "session_id" in kwargs and "sessionId" not in kwargs:
             kwargs["sessionId"] = kwargs.pop("session_id")
+
+        if "run_response_generation" in kwargs and "runResponseGeneration" not in kwargs:
+            kwargs["runResponseGeneration"] = kwargs.pop("run_response_generation")
 
         return super().run_async(**kwargs)
 
@@ -851,13 +850,13 @@ class Agent(
     def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
         """Generate a unique session ID for agent conversations.
 
-        This method creates a unique session identifier based on the agent ID and current timestamp.
-        If conversation history is provided, it attempts to initialize the session on the server
-        to enable context-aware conversations.
+        Creates a unique session identifier based on the agent ID and current timestamp.
+        If conversation history is provided, it attempts to initialize the session on the
+        server to enable context-aware conversations.
 
         Args:
-            history (Optional[List[Dict]], optional): Previous conversation history.
-                Each dict should contain 'role' (either 'user' or 'assistant') and 'content' keys.
+            history: Previous conversation history. Each message should contain
+                'role' (either 'user' or 'assistant') and 'content' keys.
                 Defaults to None.
 
         Returns:
