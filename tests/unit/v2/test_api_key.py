@@ -27,9 +27,7 @@ class TestResolveModel:
 
     def test_resolve_string_returns_string(self):
         """Strings should pass through unchanged."""
-        assert (
-            _resolve_model("openai/gpt-4o-mini/openai") == "openai/gpt-4o-mini/openai"
-        )
+        assert _resolve_model("openai/gpt-4o-mini/openai") == "openai/gpt-4o-mini/openai"
 
     def test_resolve_object_with_path(self):
         """Objects with a path attribute should resolve to path."""
@@ -390,9 +388,7 @@ class TestAPIKey:
             "id": "key123",
             "name": "Test Key",
             "globalLimits": {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100},
-            "assetsLimits": [
-                {"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1"}
-            ],
+            "assetsLimits": [{"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1"}],
         }
 
         api_key = APIKey.from_dict(data)
@@ -758,9 +754,7 @@ class TestAPIKeyList:
                 "accessKey": "abc...xyz",
                 "isAdmin": False,
                 "globalLimits": {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100},
-                "assetsLimits": [
-                    {"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1"}
-                ],
+                "assetsLimits": [{"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1"}],
             }
         ]
 
@@ -874,9 +868,7 @@ class TestAPIKeyGet:
             "id": "key123",
             "name": "Test Key",
             "globalLimits": {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100},
-            "assetsLimits": [
-                {"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1"}
-            ],
+            "assetsLimits": [{"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1"}],
         }
 
         mock_client = Mock()
@@ -1037,26 +1029,25 @@ class TestAPIKeySave:
         assert api_key.global_limits is not None
         assert api_key.global_limits.token_per_minute == 200
 
-    def test_api_key_before_save_deletes_existing_then_creates(self):
-        """before_save() should delete existing key so save() re-creates."""
+    def test_api_key_before_save_finds_existing_by_name(self):
+        """before_save() should find existing key and set id for update."""
         mock_client = Mock()
         mock_client.request = Mock(
             side_effect=[
-                # First call: GET list (from before_save -> list)
+                # First call: GET list (from before_save)
                 [
                     {"id": "existing_id", "name": "Test Key", "accessKey": "abc...xyz"},
                     {"id": "other_id", "name": "Other Key"},
                 ],
-                # Second call: POST create (from save -> _create)
+                # Second call: PUT update (from save -> _update)
                 {
-                    "id": "new_id",
+                    "id": "existing_id",
                     "name": "Test Key",
-                    "accessKey": "new_key_value",
-                    "isAdmin": False,
+                    "accessKey": "abc...xyz",
+                    "budget": 1000.0,
                 },
             ]
         )
-        mock_client.request_raw = Mock(return_value=Mock())
 
         class BoundAPIKey(APIKey):
             context = Mock(client=mock_client)
@@ -1068,28 +1059,22 @@ class TestAPIKeySave:
 
         api_key.save()
 
-        assert api_key.id == "new_id"
-        mock_client.request_raw.assert_called_once_with(
-            "delete", "sdk/api-keys/existing_id"
-        )
+        assert api_key.id == "existing_id"
         assert mock_client.request.call_count == 2
         first_call = mock_client.request.call_args_list[0]
         assert first_call[0][0] == "get"
         second_call = mock_client.request.call_args_list[1]
-        assert second_call[0][0] == "post"
+        assert second_call[0][0] == "PUT"
 
     def test_api_key_create_populates_from_existing_on_conflict(self):
-        """_create() should populate from existing key when backend returns conflict."""
+        """_create() should populate from existing key when backend returns 422 conflict."""
         from aixplain.v2.exceptions import APIError
 
         mock_client = Mock()
 
-        call_count = [0]
-
         def request_side_effect(method, path, **kwargs):
-            call_count[0] += 1
             if method == "post":
-                raise APIError("Error: the name you provided is already in use.")
+                raise APIError("Error: the name you provided is already in use.", status_code=422)
             if method == "get":
                 return [
                     {"id": "existing_id", "name": "Test Key", "accessKey": "abc...xyz"},
@@ -1266,9 +1251,7 @@ class TestAPIKeyConvenienceMethods:
             name="Test Key",
             budget=1000,
             global_limits={"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100},
-            asset_limits=[
-                {"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1"}
-            ],
+            asset_limits=[{"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1"}],
             expires_at=expires,
         )
 
