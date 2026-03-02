@@ -183,7 +183,7 @@ def test_validate_record_failure_no_uri(mocker):
 
 
 def test_validate_record_failure_no_value(mocker):
-    record = Record(value_type="text", id=0, attributes={})
+    record = Record(uri="", value_type="text", id=0, attributes={})
     with pytest.raises(Exception) as e:
         record.validate()
     assert str(e.value) == "Index Upsert Error: Either value or uri is required for text records"

@@ -335,7 +335,7 @@ def test_specific_model_parameters_e2e(tool_config, resource_tracker):
         instructions="Test agent with parameterized tools. You MUST use a tool for the tasks. Do not directly answer the question.",
         description="Test agent with parameterized tools",
         tools=[tool],
-        llm_id="6646261c6eb563165658bbb1",  # Using LLM ID from test data
+        llm_id="6895d6d1d50c89537c1cf237",  # Using LLM ID from test data
     )
     resource_tracker.append(agent)
 
@@ -506,7 +506,7 @@ def test_instructions(resource_tracker, AgentFactory):
         name=agent_name,
         description="Test description",
         instructions="Always respond with '{magic_word}' does not matter what you are prompted for.",
-        llm_id="6646261c6eb563165658bbb1",
+        llm_id="6895d6d1d50c89537c1cf237",
         tools=[],
     )
     resource_tracker.append(agent)
@@ -586,7 +586,7 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
             AgentFactory.create_model_tool(model=vowel_remover_.id),
             AgentFactory.create_model_tool(model=concat_strings_.id),
         ],
-        llm_id="6646261c6eb563165658bbb1",
+        llm_id="6895d6d1d50c89537c1cf237",
     )
     resource_tracker.append(agent)
 
@@ -606,7 +606,7 @@ def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
     pipeline = PipelineFactory.init("Hello Pipeline")
     input_node = pipeline.input()
     input_node.label = "TextInput"
-    middle_node = pipeline.asset(asset_id="6646261c6eb563165658bbb1")
+    middle_node = pipeline.asset(asset_id="6895d6d1d50c89537c1cf237")
     middle_node.inputs.prompt.value = "Respond with 'Hello' regardless of the input text: "
     input_node.link(middle_node, "input", "text")
     middle_node.use_output("data")
@@ -625,7 +625,7 @@ def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
                 description="You are a tool that responds users query with only 'Hello'.",
             ),
         ],
-        llm_id="6646261c6eb563165658bbb1",
+        llm_id="6895d6d1d50c89537c1cf237",
     )
     resource_tracker.append(pipeline_agent)
 
@@ -709,7 +709,7 @@ def test_run_agent_with_expected_output(resource_tracker):
         name=agent_name,
         description="Test description",
         instructions=INSTRUCTIONS,
-        llm_id="6646261c6eb563165658bbb1",
+        llm_id="6895d6d1d50c89537c1cf237",
     )
     resource_tracker.append(agent)
     # Run the agent
@@ -797,7 +797,7 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
         name=agent_name,
         description="This agent is used to send messages to Slack",
         instructions="You are a helpful assistant that can send messages to Slack.",
-        llm_id="669a63646eb56306647e1091",
+        llm_id="6895d6d1d50c89537c1cf237",
         tools=[
             connection,
             AgentFactory.create_model_tool(model="6736411cf127849667606689"),
@@ -847,7 +847,7 @@ def test_agent_with_mcp_tool(resource_tracker):
         name=agent_name,
         description="This agent is used to send messages to Slack",
         instructions="You are a helpful assistant that can send messages to Slack. You MUST use the tool to send the message.",
-        llm_id="669a63646eb56306647e1091",
+        llm_id="6895d6d1d50c89537c1cf237",
         tools=[
             connection,
         ],

@@ -86,7 +86,7 @@ Get your API key from your [aiXplain account](https://console.aixplain.com/setti
 
 **Example:** A weather agent powered by the [Open Weather API](https://platform.aixplain.com/discover/model/66f83c216eb563266175e201) from the aiXplain marketplace.
 
-By default, aiXplain agents run on [GPT-4o-mini](https://platform.aixplain.com/discover/model/669a63646eb56306647e1091) as the reasoning model. You can swap it with any other model from the aiXplain marketplace at any time.
+By default, aiXplain agents run on [GPT-5 Mini](https://platform.aixplain.com/discover/model/6895d6d1d50c89537c1cf237) as the reasoning model. You can swap it with any other model from the aiXplain marketplace at any time.
 
 ```python
 from aixplain.factories import AgentFactory, ModelFactory

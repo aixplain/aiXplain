@@ -7,9 +7,11 @@ This module tests Model-specific functionality including:
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
-from aixplain.v2.model import Model, ModelResult
+from aixplain.v2.enums import Function, ResponseStatus
+from aixplain.v2.model import Message, Model, ModelResponseStreamer, ModelResult, StreamChunk
 
 
 # =============================================================================
@@ -73,6 +75,96 @@ class TestModelConnectionTypeProperties:
         """connection_type=None should return True for backward compatibility."""
         model = self._create_model(connection_type=None)
         assert model.is_async_capable is True
+
+
+# =============================================================================
+# Capability Inference Tests
+# =============================================================================
+
+
+class TestModelCapabilityInference:
+    """Tests for LLM-gated tool-calling and structured-output capability properties."""
+
+    @staticmethod
+    def _param(name: str):
+        """Create a lightweight parameter-like object."""
+        return SimpleNamespace(name=name)
+
+    def _create_model(self, function=Function.TEXT_GENERATION, params=None, function_type="ai"):
+        """Helper to create a Model with capability-related fields."""
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.function = function
+        model.function_type = function_type
+        model.params = params
+        model._dynamic_attrs = {}
+        return model
+
+    def test_supports_tool_calling_true_with_tools_param(self):
+        """LLM should support tool calling when backend params include 'tools'."""
+        model = self._create_model(params=[self._param("text"), self._param("tools")])
+        assert model.supports_tool_calling is True
+
+    def test_supports_tool_calling_true_with_tool_choice_camel_case(self):
+        """LLM should support tool calling when backend params include 'toolChoice'."""
+        model = self._create_model(params=[self._param("text"), self._param("toolChoice")])
+        assert model.supports_tool_calling is True
+
+    def test_supports_tool_calling_false_for_llm_without_tool_markers(self):
+        """LLM should return False when params exist but no tool-calling markers."""
+        model = self._create_model(params=[self._param("text"), self._param("temperature")])
+        assert model.supports_tool_calling is False
+
+    def test_supports_tool_calling_none_when_llm_params_unavailable(self):
+        """LLM should return None when params are unavailable."""
+        model = self._create_model(params=None)
+        assert model.supports_tool_calling is None
+
+    def test_supports_tool_calling_false_for_non_llm(self):
+        """Non-LLM models should always return False for tool-calling capability."""
+        model = self._create_model(function=Function.TRANSLATION, params=[self._param("tools")])
+        assert model.supports_tool_calling is False
+
+    def test_supports_tool_calling_none_when_function_missing_even_with_tool_params(self):
+        """When function is missing, LLM gating should remain unknown."""
+        model = self._create_model(function=None, params=[self._param("max_tokens"), self._param("tools")])
+        assert model.supports_tool_calling is None
+
+    def test_supports_structured_output_true_with_response_format_snake_case(self):
+        """LLM should support structured output when params include 'response_format'."""
+        model = self._create_model(params=[self._param("text"), self._param("response_format")])
+        assert model.supports_structured_output is True
+
+    def test_supports_structured_output_true_with_response_format_camel_case(self):
+        """LLM should support structured output when params include 'responseFormat'."""
+        model = self._create_model(params=[self._param("text"), self._param("responseFormat")])
+        assert model.supports_structured_output is True
+
+    def test_supports_structured_output_false_for_llm_without_markers(self):
+        """LLM should return False when params exist but no structured-output markers."""
+        model = self._create_model(params=[self._param("text"), self._param("temperature")])
+        assert model.supports_structured_output is False
+
+    def test_supports_structured_output_none_when_llm_params_unavailable(self):
+        """LLM should return None when params are unavailable."""
+        model = self._create_model(params=None)
+        assert model.supports_structured_output is None
+
+    def test_supports_structured_output_false_for_non_llm(self):
+        """Non-LLM models should always return False for structured output capability."""
+        model = self._create_model(function=Function.TRANSLATION, params=[self._param("response_format")])
+        assert model.supports_structured_output is False
+
+    def test_supports_structured_output_none_when_function_missing_and_params_missing(self):
+        """When function and params are missing, capability should remain unknown."""
+        model = self._create_model(function=None, params=None)
+        assert model.supports_structured_output is None
+
+    def test_supports_structured_output_none_when_function_missing_even_with_markers(self):
+        """When function is missing, structured-output support should remain unknown."""
+        model = self._create_model(function=None, params=[self._param("response_format")])
+        assert model.supports_structured_output is None
 
 
 # =============================================================================
@@ -275,3 +367,360 @@ class TestModelV1Fallback:
         assert "timeout" not in sent_payload
         assert "wait_time" not in sent_payload
         assert sent_payload["language"] == "en"
+
+
+# =============================================================================
+# Streaming Tests
+# =============================================================================
+
+
+class TestModelStreaming:
+    """Tests for v2 streaming parser and streaming payload options."""
+
+    @staticmethod
+    def _create_streamer(lines):
+        """Create a response streamer from raw SSE lines."""
+        response = Mock()
+        response.iter_lines.return_value = iter(lines)
+        return ModelResponseStreamer(response)
+
+    @staticmethod
+    def _create_streaming_model():
+        """Create a model configured for run_stream tests."""
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.supports_streaming = True
+        model.params = None
+        model._dynamic_attrs = {}
+        model.context = Mock()
+        model.context.client = Mock()
+        return model
+
+    def test_streamer_parses_aixplain_data_chunks(self):
+        """ModelResponseStreamer should parse aiXplain-formatted stream chunks."""
+        streamer = self._create_streamer(
+            [
+                'data: {"data":"Ship aiX"}',
+                "data: [DONE]",
+            ]
+        )
+
+        chunk = next(streamer)
+
+        assert chunk.status == ResponseStatus.IN_PROGRESS
+        assert chunk.data == "Ship aiX"
+        assert chunk.tool_calls is None
+        assert chunk.usage is None
+        assert chunk.finish_reason is None
+
+        with pytest.raises(StopIteration):
+            next(streamer)
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_streamer_parses_openai_tool_call_deltas(self):
+        """ModelResponseStreamer should parse OpenAI-formatted tool call deltas."""
+        streamer = self._create_streamer(
+            [
+                (
+                    'data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{"role":"assistant","content":null,'
+                    '"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"get_current_time",'
+                    '"arguments":""}}]},"finish_reason":null}],"usage":null}'
+                ),
+                (
+                    'data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":'
+                    '{"arguments":"{\\""}}]},"finish_reason":null}],"usage":null}'
+                ),
+                "data: [DONE]",
+            ]
+        )
+
+        first_chunk = next(streamer)
+        second_chunk = next(streamer)
+
+        assert first_chunk.data == ""
+        assert first_chunk.tool_calls is not None
+        assert first_chunk.tool_calls[0]["function"]["name"] == "get_current_time"
+        assert first_chunk.finish_reason is None
+        assert first_chunk.usage is None
+
+        assert second_chunk.data == ""
+        assert second_chunk.tool_calls is not None
+        assert second_chunk.tool_calls[0]["function"]["arguments"] == '{"'
+        assert second_chunk.finish_reason is None
+        assert second_chunk.usage is None
+
+        with pytest.raises(StopIteration):
+            next(streamer)
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_streamer_parses_openai_usage_and_finish_reason(self):
+        """ModelResponseStreamer should keep usage and finish_reason from OpenAI chunks."""
+        streamer = self._create_streamer(
+            [
+                'data: {"id":"chatcmpl-2","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}],"usage":null}',
+                (
+                    'data: {"id":"chatcmpl-2","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],'
+                    '"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}'
+                ),
+                "data: [DONE]",
+            ]
+        )
+
+        content_chunk = next(streamer)
+        usage_chunk = next(streamer)
+
+        assert content_chunk.data == "Hello"
+        assert content_chunk.finish_reason is None
+        assert content_chunk.usage is None
+
+        assert usage_chunk.data == ""
+        assert usage_chunk.finish_reason == "tool_calls"
+        assert usage_chunk.usage == {
+            "prompt_tokens": 1,
+            "completion_tokens": 2,
+            "total_tokens": 3,
+        }
+
+        with pytest.raises(StopIteration):
+            next(streamer)
+
+    def test_streamer_normalizes_single_tool_call_object(self):
+        """ModelResponseStreamer should normalize a single tool_call object to a list."""
+        streamer = self._create_streamer(
+            [
+                (
+                    'data: {"id":"chatcmpl-3","choices":[{"index":0,"delta":{"tool_calls":{"index":0,"id":"call_1",'
+                    '"type":"function","function":{"name":"get_current_time","arguments":""}}},"finish_reason":null}],'
+                    '"usage":null}'
+                ),
+                "data: [DONE]",
+            ]
+        )
+
+        chunk = next(streamer)
+        assert chunk.tool_calls is not None
+        assert isinstance(chunk.tool_calls, list)
+        assert chunk.tool_calls[0]["function"]["name"] == "get_current_time"
+
+        with pytest.raises(StopIteration):
+            next(streamer)
+
+    def test_run_stream_sets_raw_true_when_tools_present(self):
+        """run_stream() should auto-inject options.raw=True for streaming tool calls."""
+        model = self._create_streaming_model()
+        response = Mock()
+        response.iter_lines.return_value = iter([])
+        model.context.client.request_stream = Mock(return_value=response)
+
+        payload = {
+            "text": "hello",
+            "tools": [{"type": "function", "function": {"name": "get_current_time"}}],
+        }
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value=payload):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    model.run_stream(text="hello", tools=payload["tools"])
+
+        call_args = model.context.client.request_stream.call_args
+        sent_payload = call_args.kwargs["json"]
+        assert sent_payload["options"]["stream"] is True
+        assert sent_payload["options"]["raw"] is True
+
+    def test_run_stream_keeps_existing_options_and_overrides_raw_for_tools(self):
+        """run_stream() should preserve options and force raw=True when tools are present."""
+        model = self._create_streaming_model()
+        response = Mock()
+        response.iter_lines.return_value = iter([])
+        model.context.client.request_stream = Mock(return_value=response)
+
+        payload = {
+            "text": "hello",
+            "tools": [{"type": "function", "function": {"name": "get_current_time"}}],
+            "options": {
+                "temperature": 0.2,
+                "raw": False,
+            },
+        }
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value=payload):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    model.run_stream(text="hello", tools=payload["tools"])
+
+        call_args = model.context.client.request_stream.call_args
+        sent_payload = call_args.kwargs["json"]
+        assert sent_payload["options"]["temperature"] == 0.2
+        assert sent_payload["options"]["stream"] is True
+        assert sent_payload["options"]["raw"] is True
+
+    def test_run_stream_does_not_set_raw_when_tools_absent(self):
+        """run_stream() should not inject options.raw when tools are not in payload."""
+        model = self._create_streaming_model()
+        response = Mock()
+        response.iter_lines.return_value = iter([])
+        model.context.client.request_stream = Mock(return_value=response)
+
+        payload = {"text": "hello"}
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value=payload):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    model.run_stream(text="hello")
+
+        call_args = model.context.client.request_stream.call_args
+        sent_payload = call_args.kwargs["json"]
+        assert sent_payload["options"]["stream"] is True
+        assert "raw" not in sent_payload["options"]
+
+
+# =============================================================================
+# Integration Gap Regression Tests
+# =============================================================================
+
+
+class TestModelIntegrationGaps:
+    """Regression tests for SDK integration gaps identified in ENG-2774."""
+
+    @staticmethod
+    def _create_streamer(lines):
+        """Create a response streamer from raw SSE lines."""
+        response = Mock()
+        response.iter_lines.return_value = iter(lines)
+        return ModelResponseStreamer(response)
+
+    @staticmethod
+    def _create_sync_model():
+        """Create a sync-only model configured for direct-response path tests."""
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model._dynamic_attrs = {}
+        model.context = Mock()
+        model.context.client = Mock()
+        return model
+
+    def test_message_deserializes_tool_calls_with_null_content(self):
+        """ModelResult parsing should keep tool_calls and None content on assistant messages."""
+        payload = {
+            "status": "SUCCESS",
+            "completed": True,
+            "model": "openai/gpt-5.2",
+            "details": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_tokyo",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_current_time",
+                                    "arguments": '{"city":"Tokyo"}',
+                                },
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+        }
+
+        result = ModelResult.from_dict(payload)
+
+        assert result.details is not None
+        message = result.details[0].message
+        assert isinstance(message, Message)
+        assert message.content is None
+        assert message.tool_calls is not None
+        assert message.tool_calls[0]["function"]["name"] == "get_current_time"
+        assert message.tool_calls[0]["function"]["arguments"] == '{"city":"Tokyo"}'
+
+    def test_run_sync_v2_attaches_raw_data_for_direct_response(self):
+        """_run_sync_v2() direct responses should preserve raw response payload."""
+        model = self._create_sync_model()
+        direct_response = {
+            "status": "SUCCESS",
+            "completed": True,
+            "model": "openai/gpt-5.2",
+            "details": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_tokyo",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_current_time",
+                                    "arguments": '{"city":"Tokyo"}',
+                                },
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+        }
+        model.context.client.request = Mock(return_value=direct_response)
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value={"text": "what time is it in tokyo?"}):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    result = model._run_sync_v2(text="what time is it in tokyo?")
+
+        assert result._raw_data == direct_response
+        assert result.model == "openai/gpt-5.2"
+
+    def test_stream_chunk_coerces_non_string_data(self):
+        """StreamChunk should enforce text chunks even when data is non-string."""
+        chunk = StreamChunk(status=ResponseStatus.IN_PROGRESS, data={"usage": {"total_tokens": 3}})
+        assert chunk.data == ""
+
+    def test_streamer_coerces_non_openai_dict_data_to_empty_string(self):
+        """ModelResponseStreamer should not leak dict payloads into chunk.data."""
+        streamer = self._create_streamer(
+            [
+                'data: {"model":"openai/gpt-5.2","data":{"usage":{"total_tokens":3}}}',
+                "data: [DONE]",
+            ]
+        )
+
+        chunk = next(streamer)
+        assert chunk.data == ""
+
+        with pytest.raises(StopIteration):
+            next(streamer)
+
+    def test_streamer_buffers_multiline_openai_tool_call_chunks(self):
+        """ModelResponseStreamer should buffer split SSE data lines into one JSON payload."""
+        streamer = self._create_streamer(
+            [
+                (
+                    'data: {"id":"chatcmpl-gap","model":"openai/gpt-5.2","choices":[{"index":0,"delta":{"role":"assistant",'
+                    '"content":null,"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"get_current_time",'
+                    '"arguments":"{\\"city\\":\\"Tok'
+                ),
+                'data: yo\\"}"}}]},"finish_reason":"tool_calls"}],"usage":null}',
+                "data: [DONE]",
+            ]
+        )
+
+        chunk = next(streamer)
+
+        assert chunk.data == ""
+        assert chunk.tool_calls is not None
+        assert chunk.tool_calls[0]["id"] == "call_1"
+        assert chunk.tool_calls[0]["function"]["name"] == "get_current_time"
+        assert chunk.tool_calls[0]["function"]["arguments"] == '{"city":"Tokyo"}'
+        assert chunk.finish_reason == "tool_calls"
+
+        with pytest.raises(StopIteration):
+            next(streamer)

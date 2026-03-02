@@ -87,12 +87,12 @@ def test_to_dict():
                 name="Test Agent(-)",
                 description="Test Agent Description",
                 instructions="Test Agent Instructions",
-                llm_id="6646261c6eb563165658bbb1",
+                llm_id="6895d6d1d50c89537c1cf237",
                 tools=[ModelTool(function="text-generation")],
             )
         ],
         description="Test Team Agent Description",
-        llm_id="6646261c6eb563165658bbb1",
+        llm_id="6895d6d1d50c89537c1cf237",
         use_mentalist=False,
     )
 
@@ -101,8 +101,8 @@ def test_to_dict():
     assert team_agent_dict["id"] == "123"
     assert team_agent_dict["name"] == "Test Team Agent(-)"
     assert team_agent_dict["description"] == "Test Team Agent Description"
-    assert team_agent_dict["llmId"] == "6646261c6eb563165658bbb1"
-    assert team_agent_dict["supervisorId"] == "6646261c6eb563165658bbb1"
+    assert team_agent_dict["llmId"] == "6895d6d1d50c89537c1cf237"
+    assert team_agent_dict["supervisorId"] == "6895d6d1d50c89537c1cf237"
 
     assert team_agent_dict["agents"][0]["assetId"] == ""
     assert team_agent_dict["agents"][0]["number"] == 0
@@ -120,7 +120,7 @@ def test_create_team_agent(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6646261c6eb563165658bbb1",
+        id="6895d6d1d50c89537c1cf237",
         name="Test LLM",
         description="Test LLM Description",
         function=Function.TEXT_GENERATION,
@@ -130,9 +130,9 @@ def test_create_team_agent(mock_model_factory_get):
     with requests_mock.Mocker() as mock:
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         # MOCK GET LLM
-        url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+        url = urljoin(config.BACKEND_URL, "sdk/models/6895d6d1d50c89537c1cf237")
         model_ref_response = {
-            "id": "6646261c6eb563165658bbb1",
+            "id": "6895d6d1d50c89537c1cf237",
             "name": "Test LLM",
             "description": "Test LLM Description",
             "function": {"id": "text-generation"},
@@ -153,14 +153,14 @@ def test_create_team_agent(mock_model_factory_get):
             "teamId": "123",
             "version": "1.0",
             "status": "draft",
-            "llmId": "6646261c6eb563165658bbb1",
+            "llmId": "6895d6d1d50c89537c1cf237",
             "pricing": {"currency": "USD", "value": 0.0},
             "assets": [
                 {
                     "type": "model",
                     "supplier": "openai",
                     "version": "1.0",
-                    "assetId": "6646261c6eb563165658bbb1",
+                    "assetId": "6895d6d1d50c89537c1cf237",
                     "function": "text-generation",
                 }
             ],
@@ -171,8 +171,8 @@ def test_create_team_agent(mock_model_factory_get):
             name="Test Agent(-)",
             description="Test Agent Description",
             instructions="Test Agent Instructions",
-            llm_id="6646261c6eb563165658bbb1",
-            tools=[ModelTool(model="6646261c6eb563165658bbb1")],
+            llm_id="6895d6d1d50c89537c1cf237",
+            tools=[ModelTool(model="6895d6d1d50c89537c1cf237")],
         )
 
         # AGENT MOCK GET
@@ -187,12 +187,12 @@ def test_create_team_agent(mock_model_factory_get):
             "status": "draft",
             "teamId": 645,
             "description": "TEST Multi agent",
-            "llmId": "6646261c6eb563165658bbb1",
+            "llmId": "6895d6d1d50c89537c1cf237",
             "assets": [],
             "agents": [{"assetId": "123", "type": "AGENT", "number": 0, "label": "AGENT"}],
             "links": [],
-            "plannerId": "6646261c6eb563165658bbb1",
-            "supervisorId": "6646261c6eb563165658bbb1",
+            "plannerId": "6895d6d1d50c89537c1cf237",
+            "supervisorId": "6895d6d1d50c89537c1cf237",
             "createdAt": "2024-10-28T19:30:25.344Z",
             "updatedAt": "2024-10-28T19:30:25.344Z",
         }
@@ -201,7 +201,7 @@ def test_create_team_agent(mock_model_factory_get):
         team_agent = TeamAgentFactory.create(
             name="TEST Multi agent(-)",
             agents=[agent],
-            llm_id="6646261c6eb563165658bbb1",
+            llm_id="6895d6d1d50c89537c1cf237",
             description="TEST Multi agent",
             use_mentalist=True,
         )
@@ -243,8 +243,8 @@ def test_build_team_agent(mocker):
         name="Test Agent 1",
         description="Test Agent Description",
         instructions="Test Agent Instructions",
-        llm_id="6646261c6eb563165658bbb1",
-        tools=[ModelTool(model="6646261c6eb563165658bbb1")],
+        llm_id="6895d6d1d50c89537c1cf237",
+        tools=[ModelTool(model="6895d6d1d50c89537c1cf237")],
         tasks=[
             AgentTask(
                 name="Test Task 1",
@@ -260,8 +260,8 @@ def test_build_team_agent(mocker):
         name="Test Agent 2",
         description="Test Agent Description",
         instructions="Test Agent Instructions",
-        llm_id="6646261c6eb563165658bbb1",
-        tools=[ModelTool(model="6646261c6eb563165658bbb1")],
+        llm_id="6895d6d1d50c89537c1cf237",
+        tools=[ModelTool(model="6895d6d1d50c89537c1cf237")],
         tasks=[
             AgentTask(name="Test Task 2", description="Test Task Description", expected_output="Test Task Output"),
         ],
@@ -277,8 +277,8 @@ def test_build_team_agent(mocker):
         "id": "123",
         "name": "Test Team Agent(-)",
         "description": "Test Team Agent Description",
-        "plannerId": "6646261c6eb563165658bbb1",
-        "llmId": "6646261c6eb563165658bbb1",
+        "plannerId": "6895d6d1d50c89537c1cf237",
+        "llmId": "6895d6d1d50c89537c1cf237",
         "agents": [
             {"assetId": "agent1"},
             {"assetId": "agent2"},
@@ -370,7 +370,7 @@ def test_team_agent_serialization_completeness():
         name="Test Team",
         agents=[mock_agent1, mock_agent2],
         description="A test team agent",
-        llm_id="6646261c6eb563165658bbb1",
+        llm_id="6895d6d1d50c89537c1cf237",
         supervisor_llm=None,
         mentalist_llm=None,
         supplier="aixplain",
@@ -407,7 +407,7 @@ def test_team_agent_serialization_completeness():
     assert team_dict["name"] == "Test Team"
     assert team_dict["description"] == "A test team agent"
     assert team_dict["instructions"] == "You are a helpful team agent"
-    assert team_dict["llmId"] == "6646261c6eb563165658bbb1"
+    assert team_dict["llmId"] == "6895d6d1d50c89537c1cf237"
     assert team_dict["supplier"] == "aixplain"
     assert team_dict["version"] == "1.0.0"
     assert team_dict["status"] == "draft"
@@ -424,7 +424,6 @@ def test_team_agent_serialization_completeness():
     assert agent_dict["number"] == 0
     assert agent_dict["type"] == "AGENT"
     assert agent_dict["label"] == "AGENT"
-
 
 
 def test_team_agent_serialization_with_llms():
@@ -523,7 +522,7 @@ def test_update_success(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6646261c6eb563165658bbb1",
+        id="6895d6d1d50c89537c1cf237",
         name="Test LLM",
         description="Test LLM Description",
         function=Function.TEXT_GENERATION,
@@ -539,12 +538,12 @@ def test_update_success(mock_model_factory_get):
                 name="Test Agent(-)",
                 description="Test Agent Description",
                 instructions="Test Agent Instructions",
-                llm_id="6646261c6eb563165658bbb1",
-                tools=[ModelTool(model="6646261c6eb563165658bbb1")],
+                llm_id="6895d6d1d50c89537c1cf237",
+                tools=[ModelTool(model="6895d6d1d50c89537c1cf237")],
             )
         ],
         description="Test Team Agent Description",
-        llm_id="6646261c6eb563165658bbb1",
+        llm_id="6895d6d1d50c89537c1cf237",
     )
 
     with requests_mock.Mocker() as mock:
@@ -556,20 +555,20 @@ def test_update_success(mock_model_factory_get):
             "status": "onboarded",
             "teamId": 645,
             "description": "Test Team Agent Description",
-            "llmId": "6646261c6eb563165658bbb1",
+            "llmId": "6895d6d1d50c89537c1cf237",
             "assets": [],
             "agents": [{"assetId": "agent123", "type": "AGENT", "number": 0, "label": "AGENT"}],
             "links": [],
             "plannerId": None,
-            "supervisorId": "6646261c6eb563165658bbb1",
+            "supervisorId": "6895d6d1d50c89537c1cf237",
             "createdAt": "2024-10-28T19:30:25.344Z",
             "updatedAt": "2024-10-28T19:30:25.344Z",
         }
         mock.put(url, headers=headers, json=ref_response)
 
-        url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+        url = urljoin(config.BACKEND_URL, "sdk/models/6895d6d1d50c89537c1cf237")
         model_ref_response = {
-            "id": "6646261c6eb563165658bbb1",
+            "id": "6895d6d1d50c89537c1cf237",
             "name": "Test LLM",
             "description": "Test LLM Description",
             "function": {"id": "text-generation"},
@@ -601,7 +600,7 @@ def test_save_success(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6646261c6eb563165658bbb1",
+        id="6895d6d1d50c89537c1cf237",
         name="Test LLM",
         description="Test LLM Description",
         function=Function.TEXT_GENERATION,
@@ -617,12 +616,12 @@ def test_save_success(mock_model_factory_get):
                 name="Test Agent(-)",
                 description="Test Agent Description",
                 instructions="Test Agent Instructions",
-                llm_id="6646261c6eb563165658bbb1",
-                tools=[ModelTool(model="6646261c6eb563165658bbb1")],
+                llm_id="6895d6d1d50c89537c1cf237",
+                tools=[ModelTool(model="6895d6d1d50c89537c1cf237")],
             )
         ],
         description="Test Team Agent Description",
-        llm_id="6646261c6eb563165658bbb1",
+        llm_id="6895d6d1d50c89537c1cf237",
     )
 
     with requests_mock.Mocker() as mock:
@@ -634,20 +633,20 @@ def test_save_success(mock_model_factory_get):
             "status": "onboarded",
             "teamId": 645,
             "description": "Test Team Agent Description",
-            "llmId": "6646261c6eb563165658bbb1",
+            "llmId": "6895d6d1d50c89537c1cf237",
             "assets": [],
             "agents": [{"assetId": "agent123", "type": "AGENT", "number": 0, "label": "AGENT"}],
             "links": [],
             "plannerId": None,
-            "supervisorId": "6646261c6eb563165658bbb1",
+            "supervisorId": "6895d6d1d50c89537c1cf237",
             "createdAt": "2024-10-28T19:30:25.344Z",
             "updatedAt": "2024-10-28T19:30:25.344Z",
         }
         mock.put(url, headers=headers, json=ref_response)
 
-        url = urljoin(config.BACKEND_URL, "sdk/models/6646261c6eb563165658bbb1")
+        url = urljoin(config.BACKEND_URL, "sdk/models/6895d6d1d50c89537c1cf237")
         model_ref_response = {
-            "id": "6646261c6eb563165658bbb1",
+            "id": "6895d6d1d50c89537c1cf237",
             "name": "Test LLM",
             "description": "Test LLM Description",
             "function": {"id": "text-generation"},

@@ -79,20 +79,31 @@ class FileUploadError(AixplainV2Error):
     pass
 
 
+def _extract_error_from_dict(obj: Dict[str, Any]) -> Optional[str]:
+    """Extract first available error message from a dict (top-level or data)."""
+    if not obj:
+        return None
+    for key in (
+        "supplierError",
+        "supplier_error",
+        "error_message",
+        "errorMessage",
+        "error",
+        "message",
+    ):
+        val = obj.get(key)
+        if val is not None and str(val).strip():
+            return str(val).strip()
+    return None
+
+
 # Error factory function for consistent error creation
 def create_operation_failed_error(response: Dict[str, Any]) -> APIError:
     """Create an operation failed error from API response."""
-    # Extract error message using consistent logic
-    error_msg = None
-    if response.get("supplierError"):
-        error_msg = response["supplierError"]
-    elif response.get("supplier_error"):
-        error_msg = response["supplier_error"]
-    elif response.get("error_message"):
-        error_msg = response["error_message"]
-    elif response.get("error"):
-        error_msg = response["error"]
-    else:
+    error_msg = _extract_error_from_dict(response)
+    if not error_msg and isinstance(response.get("data"), dict):
+        error_msg = _extract_error_from_dict(response["data"])
+    if not error_msg:
         error_msg = "Operation failed"
 
     return APIError(

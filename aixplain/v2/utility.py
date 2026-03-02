@@ -24,10 +24,8 @@ class UtilitySearchParams(BaseSearchParams):
     """Parameters for listing utilities.
 
     Attributes:
-        function: Function: The function of the utility (should be UTILITIES).
-        status: str: The status of the utility.
-        query: str: Search query for utilities.
-        ownership: Tuple[OwnershipType, List[OwnershipType]]: Ownership filter.
+        function: The function type to filter by (e.g., Function.UTILITIES).
+        status: The status of the utility to filter by.
     """
 
     function: NotRequired[Function]

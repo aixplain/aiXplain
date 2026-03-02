@@ -81,10 +81,10 @@ class Aixplain:
         """Initialize the Aixplain class.
 
         Args:
-            api_key: str: The API key for the Aixplain API.
-            backend_url: str: The URL for the backend.
-            pipeline_url: str: The URL for the pipeline.
-            model_url: str: The URL for the model.
+            api_key (str, optional): The API key. Falls back to TEAM_API_KEY env var.
+            backend_url (str, optional): The backend URL. Falls back to BACKEND_URL env var.
+            pipeline_url (str, optional): The pipeline execution URL. Falls back to PIPELINES_RUN_URL env var.
+            model_url (str, optional): The model execution URL. Falls back to MODELS_RUN_URL env var.
         """
         self.api_key = api_key or os.getenv("TEAM_API_KEY") or ""
         assert self.api_key, (
