@@ -3,6 +3,8 @@ sidebar_label: utils
 title: aixplain.factories.team_agent_factory.utils
 ---
 
+Utils for building team agents.
+
 #### build\_team\_agent
 
 ```python
@@ -11,7 +13,7 @@ def build_team_agent(payload: Dict,
                      api_key: Text = config.TEAM_API_KEY) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L22)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L24)
 
 Build a TeamAgent instance from configuration payload.
 
@@ -50,13 +52,23 @@ handling the setup of agents, LLMs,and task dependencies.
 - `Exception` - If a task dependency referenced in an agent&#x27;s configuration
   cannot be found.
 
+#### parse\_tool\_from\_yaml
+
+```python
+def parse_tool_from_yaml(tool: str) -> ModelTool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L177)
+
+Parse a tool from a string.
+
 #### is\_yaml\_formatted
 
 ```python
 def is_yaml_formatted(text)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L210)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L211)
 
 Check if a string is valid YAML format with additional validation.
 
@@ -68,4 +80,17 @@ Check if a string is valid YAML format with additional validation.
 **Returns**:
 
 - `bool` - True if valid YAML, False otherwise
+
+#### build\_team\_agent\_from\_yaml
+
+```python
+def build_team_agent_from_yaml(yaml_code: str,
+                               llm_id: str,
+                               api_key: str,
+                               team_id: Optional[str] = None) -> TeamAgent
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/factories/team_agent_factory/utils.py#L244)
+
+Build a team agent from a YAML string.
 
