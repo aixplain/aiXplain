@@ -11,7 +11,7 @@ Core module for aiXplain v2 API.
 class Aixplain()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L28)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L30)
 
 Main class for the Aixplain API.
 
@@ -27,7 +27,7 @@ def __init__(api_key: Optional[str] = None,
              model_url: Optional[str] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L71)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L74)
 
 Initialize the Aixplain class.
 
@@ -44,7 +44,7 @@ Initialize the Aixplain class.
 def init_client() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L99)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L102)
 
 Initialize the client.
 
@@ -54,7 +54,7 @@ Initialize the client.
 def init_resources() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L106)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L109)
 
 Initialize the resources.
 
