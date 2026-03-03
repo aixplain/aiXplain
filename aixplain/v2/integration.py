@@ -9,7 +9,6 @@ from functools import cached_property
 from .resource import BaseSearchParams, Result
 from .model import Model
 from .enums import AuthenticationScheme
-from .deprecation import deprecated_alias_getattr
 
 if TYPE_CHECKING:
     from .tool import Tool
@@ -201,19 +200,6 @@ class Input:
     fixed: bool = False
     description: str = ""
 
-    def __getattr__(self, name: str) -> Any:
-        """Support deprecated camelCase attribute access."""
-        return deprecated_alias_getattr(
-            self,
-            name,
-            {
-                "availableOptions": "available_options",
-                "allowMulti": "allow_multi",
-                "supportsVariables": "supports_variables",
-                "defaultValue": "default_value",
-            },
-        )
-
 
 @dataclass_json
 @dataclass(repr=False)
@@ -234,10 +220,6 @@ class Action:
     no_auth: Optional[bool] = None
     deprecated: Optional[Dict[str, Any]] = None
     inputs: Optional[List[Input]] = None
-
-    def __getattr__(self, name: str) -> Any:
-        """Support deprecated camelCase attribute access."""
-        return deprecated_alias_getattr(self, name, {"displayName": "display_name"})
 
     def __repr__(self) -> str:
         """Return a string representation showing name and input parameters."""
@@ -274,10 +256,6 @@ class ToolId:
 
     id: str
     redirect_url: Optional[str] = field(default=None, metadata=config(field_name="redirectURL"))
-
-    def __getattr__(self, name: str) -> Any:
-        """Support deprecated camelCase attribute access."""
-        return deprecated_alias_getattr(self, name, {"redirectURL": "redirect_url"})
 
 
 @dataclass_json

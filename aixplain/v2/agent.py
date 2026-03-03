@@ -15,7 +15,6 @@ from pydantic import BaseModel
 from .enums import AssetStatus, ResponseStatus
 from .model import Model
 from .mixins import ToolableMixin
-from .deprecation import emit_kwarg_deprecation
 
 from .resource import (
     BaseResource,
@@ -438,24 +437,12 @@ class Agent(
 
         return None  # Return original result
 
-    _DEPRECATED_KWARG_ALIASES: ClassVar[Dict[str, str]] = {
-        "sessionId": "session_id",
-        "allowHistoryAndSessionId": "allow_history_and_session_id",
-        "executionParams": "execution_params",
-        "runResponseGeneration": "run_response_generation",
+    _SNAKE_TO_CAMEL: ClassVar[Dict[str, str]] = {
+        "session_id": "sessionId",
+        "allow_history_and_session_id": "allowHistoryAndSessionId",
+        "execution_params": "executionParams",
+        "run_response_generation": "runResponseGeneration",
     }
-
-    @classmethod
-    def _normalize_run_kwargs(cls, kwargs: Dict[str, Any]) -> Dict[str, Any]:
-        """Translate deprecated camelCase kwargs to snake_case with warnings."""
-        for old_name, new_name in cls._DEPRECATED_KWARG_ALIASES.items():
-            if old_name in kwargs:
-                if new_name not in kwargs:
-                    emit_kwarg_deprecation(old_name, new_name)
-                    kwargs[new_name] = kwargs.pop(old_name)
-                else:
-                    kwargs.pop(old_name)
-        return kwargs
 
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Run the agent with optional progress display.
@@ -476,7 +463,6 @@ class Agent(
             kwargs["query"] = args[0]
             args = args[1:]
 
-        self._normalize_run_kwargs(kwargs)
         return super().run(*args, **kwargs)
 
     def run_async(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
@@ -494,7 +480,6 @@ class Agent(
             kwargs["query"] = args[0]
             args = args[1:]
 
-        self._normalize_run_kwargs(kwargs)
         return super().run_async(**kwargs)
 
     def _validate_expected_output(self) -> None:
@@ -882,10 +867,9 @@ class Agent(
             payload["query"] = query
 
         # Translate remaining snake_case kwargs to camelCase for the API
-        snake_to_camel = {v: k for k, v in self._DEPRECATED_KWARG_ALIASES.items()}
         for key, value in kwargs.items():
             if value is not None:
-                api_key = snake_to_camel.get(key, key)
+                api_key = self._SNAKE_TO_CAMEL.get(key, key)
                 payload[api_key] = value
 
         return payload
