@@ -364,7 +364,7 @@ def test_team_agent_with_instructions(resource_tracker):
         name=team_agent_name,
         agents=[agent_1, agent_2],
         description="Team agent",
-        instructions="Use only 'Agent 2' to solve the tasks.",
+        instructions=f"Use only '{agent_2_name}' to solve the tasks.",
         llm_id="6895d6d1d50c89537c1cf237",
         use_mentalist=True,
     )

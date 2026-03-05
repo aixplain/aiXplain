@@ -171,10 +171,9 @@ class ConnectionTool(Model):
         Raises:
             Exception: If the inputs cannot be retrieved from the server.
         """
-        if action.inputs:
-            return action.inputs
-
         if isinstance(action, ConnectAction):
+            if action.inputs:
+                return action.inputs
             action = action.code
 
         response = super().run({"action": "LIST_INPUTS", "data": {"actions": [action]}})
