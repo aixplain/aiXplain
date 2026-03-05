@@ -73,13 +73,14 @@ class TestToolDictFieldsRoundTrip:
             assert saved_params, "Backend should return the tool parameters we sent"
 
             saved_sample = saved_params[0]
-            assert saved_sample["allow_multi"] == sent_allow_multi, (
+            # Backend returns camelCase keys in the raw dict
+            assert saved_sample["allowMulti"] == sent_allow_multi, (
                 f"allow_multi we sent ({sent_allow_multi}) "
-                f"!= allow_multi backend returned ({saved_sample.get('allow_multi')})"
+                f"!= allowMulti backend returned ({saved_sample.get('allowMulti')})"
             )
-            assert saved_sample["supports_variables"] == sent_supports_variables, (
+            assert saved_sample["supportsVariables"] == sent_supports_variables, (
                 f"supports_variables we sent ({sent_supports_variables}) "
-                f"!= supports_variables backend returned ({saved_sample.get('supports_variables')})"
+                f"!= supportsVariables backend returned ({saved_sample.get('supportsVariables')})"
             )
         finally:
             try:

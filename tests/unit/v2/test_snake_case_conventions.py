@@ -259,6 +259,32 @@ class TestNormalizeToolDictForApi:
         assert "allow_multi" not in param_input
         assert "supports_variables" not in param_input
 
+    def test_model_parameters_top_level_keys_converted(self):
+        """Model get_parameters() returns flat dicts with allow_multi/supports_variables at top level."""
+        tool_dict = {
+            "id": "m1",
+            "name": "test-model",
+            "asset_id": "m1",
+            "parameters": [
+                {
+                    "name": "temperature",
+                    "value": 0.7,
+                    "required": False,
+                    "datatype": "number",
+                    "allow_multi": False,
+                    "supports_variables": False,
+                    "fixed": False,
+                    "description": "",
+                }
+            ],
+        }
+        result = Agent._normalize_tool_dict_for_api(tool_dict)
+        param = result["parameters"][0]
+        assert param["allowMulti"] is False
+        assert param["supportsVariables"] is False
+        assert "allow_multi" not in param
+        assert "supports_variables" not in param
+
     def test_passthrough_keys_unchanged(self):
         tool_dict = {"id": "t1", "name": "test", "type": "model", "version": "1"}
         result = Agent._normalize_tool_dict_for_api(tool_dict)

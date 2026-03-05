@@ -689,20 +689,25 @@ class Agent(
 
     @staticmethod
     def _normalize_parameter_for_api(param: dict) -> dict:
-        """Convert snake_case keys inside a parameter definition for the API."""
+        """Convert snake_case keys in a parameter definition to camelCase for the API.
+
+        Handles both flat Model parameters (top-level keys) and nested Tool
+        parameters (keys inside the 'inputs' dict).
+        """
         _KEY_MAP = {
             "allow_multi": "allowMulti",
             "supports_variables": "supportsVariables",
         }
         result = {}
         for k, v in param.items():
+            api_key = _KEY_MAP.get(k, k)
             if k == "inputs" and isinstance(v, dict):
-                result[k] = {
+                result[api_key] = {
                     input_name: {_KEY_MAP.get(ik, ik): iv for ik, iv in input_val.items()}
                     for input_name, input_val in v.items()
                 }
             else:
-                result[k] = v
+                result[api_key] = v
         return result
 
     def build_save_payload(self, **kwargs: Any) -> dict:
@@ -805,7 +810,7 @@ class Agent(
         # Extract execution_params if provided, otherwise use defaults
         execution_params = kwargs.pop("execution_params", {})
 
-        # Set default values for executionParams if not provided
+        # Set default values for execution_params if not provided
         defaults = {
             "outputFormat": self.output_format,
             "maxTokens": getattr(self, "max_tokens", 2048),
@@ -817,7 +822,7 @@ class Agent(
             execution_params.setdefault(k, v)
 
         # Handle BaseModel conversion for expectedOutput (following legacy pattern)
-        # Use agent's expected_output if none provided in executionParams
+        # Use agent's expected_output if none provided in execution_params
         if "expectedOutput" not in execution_params:
             execution_params["expectedOutput"] = self.expected_output
 
