@@ -444,6 +444,14 @@ class Agent(
         "run_response_generation": "runResponseGeneration",
     }
 
+    _EXEC_PARAMS_MAP: ClassVar[Dict[str, str]] = {
+        "output_format": "outputFormat",
+        "max_tokens": "maxTokens",
+        "max_iterations": "maxIterations",
+        "max_time": "maxTime",
+        "expected_output": "expectedOutput",
+    }
+
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Run the agent with optional progress display.
 
@@ -810,6 +818,9 @@ class Agent(
         # Extract execution_params if provided, otherwise use defaults
         execution_params = kwargs.pop("execution_params", {})
 
+        # Normalize snake_case keys to camelCase for the API
+        execution_params = {self._EXEC_PARAMS_MAP.get(k, k): v for k, v in execution_params.items()}
+
         # Set default values for execution_params if not provided
         defaults = {
             "outputFormat": self.output_format,
@@ -926,10 +937,10 @@ class Agent(
                 session_id=session_id,
                 history=history,
                 execution_params={
-                    "maxTokens": 2048,
-                    "maxIterations": 10,
-                    "outputFormat": OutputFormat.TEXT.value,
-                    "expectedOutput": None,
+                    "max_tokens": 2048,
+                    "max_iterations": 10,
+                    "output_format": OutputFormat.TEXT.value,
+                    "expected_output": None,
                 },
                 allow_history_and_session_id=True,
             )

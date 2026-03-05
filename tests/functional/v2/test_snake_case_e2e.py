@@ -196,7 +196,7 @@ class TestAgentRunParamsKwargs:
         with pytest.raises(APIError, match="(?i)max.?token"):
             agent.run(
                 "ping",
-                execution_params={"maxTokens": 1, "maxIterations": 3, "outputFormat": "text"},
+                execution_params={"max_tokens": 1, "max_iterations": 3, "output_format": "text"},
             )
 
     def test_run_response_generation(self, client, test_agent):

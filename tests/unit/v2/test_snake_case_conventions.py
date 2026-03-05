@@ -198,7 +198,19 @@ class TestBuildRunPayload:
         assert payload["allowHistoryAndSessionId"] is True
         assert "allow_history_and_session_id" not in payload
 
-    def test_execution_params_used(self):
+    def test_execution_params_snake_case_converted(self):
+        agent = self._make_agent()
+        payload = agent.build_run_payload(
+            query="hello",
+            execution_params={"max_tokens": 100, "max_iterations": 5},
+        )
+        assert payload["executionParams"]["maxTokens"] == 100
+        assert payload["executionParams"]["maxIterations"] == 5
+        assert "max_tokens" not in payload["executionParams"]
+        assert "max_iterations" not in payload["executionParams"]
+
+    def test_execution_params_camelcase_still_works(self):
+        """Backwards compat: camelCase keys pass through unchanged."""
         agent = self._make_agent()
         payload = agent.build_run_payload(
             query="hello",
