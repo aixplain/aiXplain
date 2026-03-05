@@ -668,7 +668,11 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(
-                poll_url, name=name, timeout=timeout, wait_time=wait_time, progress_verbosity=progress_verbosity
+                poll_url,
+                name=name,
+                timeout=timeout,
+                wait_time=wait_time,
+                progress_verbosity=progress_verbosity,
             )
             result_data = result.get("data") or {}
             if result.status == ResponseStatus.FAILED:
