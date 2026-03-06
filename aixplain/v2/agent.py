@@ -682,8 +682,9 @@ class Agent(
 
         payload = {
             "cloneSubagents": clone_subagents,
-            "name": name if name is not None else False,
         }
+        if name is not None:
+            payload["name"] = name
 
         response_data = self._action(method="post", action_paths=["duplicate"], json=payload)
 

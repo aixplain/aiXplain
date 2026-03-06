@@ -86,7 +86,7 @@ class TestAgentDuplicate:
         assert call_args[0][0] == "post"
         assert call_args[0][1].endswith("/duplicate")
         assert call_args[1]["json"]["cloneSubagents"] is False
-        assert call_args[1]["json"]["name"] is False
+        assert "name" not in call_args[1]["json"]
 
     def test_duplicate_with_clone_subagents(self):
         agent = _make_agent()
