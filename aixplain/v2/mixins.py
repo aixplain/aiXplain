@@ -12,8 +12,8 @@ class ParameterInput(TypedDict):
     value: Optional[Any]
     required: bool
     datatype: Literal["boolean", "string", "text", "number", "integer", "array", "object"]
-    allowMulti: bool
-    supportsVariables: bool
+    allow_multi: bool
+    supports_variables: bool
     fixed: bool
     description: str
 
@@ -50,7 +50,7 @@ class ToolDict(TypedDict):
     ]
     type: Literal["model", "pipeline", "utility", "tool"]
     version: str
-    assetId: str
+    asset_id: str
 
 
 class ToolableMixin(ABC):
@@ -77,7 +77,7 @@ class ToolableMixin(ABC):
                 - function: The tool's function type (e.g., "utilities")
                 - type: The tool type (e.g., "model")
                 - version: The tool's version as a string
-                - assetId: The tool's asset ID (usually same as id)
+                - asset_id: The tool's asset ID (usually same as id)
 
         Raises:
             NotImplementedError: If the subclass doesn't implement this method

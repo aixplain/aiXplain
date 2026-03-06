@@ -49,7 +49,7 @@ class ActionInputsProxy:
         for input_param in action.inputs:
             input_code = input_param.code or input_param.name.lower().replace(" ", "_")
             self._inputs[input_code] = {
-                "value": (input_param.defaultValue[0] if input_param.defaultValue else None),
+                "value": (input_param.default_value[0] if input_param.default_value else None),
                 "input": input_param,
             }
 
@@ -170,7 +170,7 @@ class ActionInputsProxy:
         """Reset an input parameter to its backend default value."""
         input_info = self._get_input_info(input_code)
         input_param = input_info["input"]
-        input_info["value"] = input_param.defaultValue[0] if input_param.defaultValue else None
+        input_info["value"] = input_param.default_value[0] if input_param.default_value else None
 
     def reset_all_inputs(self):
         """Reset all input parameters to their backend default values."""
@@ -191,11 +191,11 @@ class Input:
     name: str
     code: Optional[str] = None
     value: List[Any] = field(default_factory=list)
-    availableOptions: List[Any] = field(default_factory=list)
+    available_options: List[Any] = field(default_factory=list, metadata=config(field_name="availableOptions"))
     datatype: str = "string"
-    allowMulti: bool = False
-    supportsVariables: bool = False
-    defaultValue: List[Any] = field(default_factory=list)
+    allow_multi: bool = field(default=False, metadata=config(field_name="allowMulti"))
+    supports_variables: bool = field(default=False, metadata=config(field_name="supportsVariables"))
+    default_value: List[Any] = field(default_factory=list, metadata=config(field_name="defaultValue"))
     required: bool = False
     fixed: bool = False
     description: str = ""
@@ -208,7 +208,7 @@ class Action:
 
     name: Optional[str] = None
     description: Optional[str] = None
-    displayName: Optional[str] = None
+    display_name: Optional[str] = field(default=None, metadata=config(field_name="displayName"))
     slug: Optional[str] = None
     available_versions: Optional[List[str]] = None
     version: Optional[str] = None
@@ -255,7 +255,7 @@ class ToolId:
     """Result for tool operations."""
 
     id: str
-    redirectURL: Optional[str] = None
+    redirect_url: Optional[str] = field(default=None, metadata=config(field_name="redirectURL"))
 
 
 @dataclass_json
@@ -539,10 +539,10 @@ class Integration(Model, ActionMixin):
         """
         response = self.run(**kwargs)
         tool = self.context.Tool.get(response.data.id)
-        if response.data.redirectURL:
-            tool.redirect_url = response.data.redirectURL
+        if response.data.redirect_url:
+            tool.redirect_url = response.data.redirect_url
             warnings.warn(
-                f"Before using the tool, please visit the following URL to complete the connection: {response.data.redirectURL}"
+                f"Before using the tool, please visit the following URL to complete the connection: {response.data.redirect_url}"
             )
         return tool
 
