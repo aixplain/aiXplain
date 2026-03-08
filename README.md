@@ -6,26 +6,28 @@
 
 ## aiXplain agents
 
-aiXplain Agents SDK gives developers Python and REST APIs to build, run, and deploy autonomous multi-step agents on AgenticOS. Agents run as runtime systems, not fixed workflow graphs: on each run, they can break goals into steps, select tools dynamically, call models and data sources, execute code tools, evaluate intermediate outputs, retry or switch strategy, and continue until completion criteria are met.
+aiXplain Agents SDK gives developers Python and REST APIs to build, run, and deploy autonomous multi-step agents on [AgenticOS](https://docs.aixplain.com/getting-started/agenticos). Agents adapt at runtime by planning steps, selecting tools and models, running code, and refining outputs until tasks are complete.
 
-Build with a vendor-agnostic catalog of 900+ AI models, tools, and integrations, swap models and tools without rewriting pipelines, and use SDK/API or aiXplain Studio on the same runtime and policies. A single API key provides unified access with consolidated billing. Micro-agents handle runtime planning, orchestration, policy checks, and response shaping, while meta-agents (for example, Evolver) optimize behavior over time from trace and KPI feedback.
+aiXplain agents include micro-agents for runtime policy enforcement and access control, plus proprietary meta-agents like Evolver for self-improvement.
+
+With one API key, access 900+ vendor-agnostic models, tools, and integrations in the aiXplain Marketplace with consolidated billing, and swap assets without rewriting pipelines.
+
+### Why aiXplain for developers
+
+- **Autonomy** — agents plan and adapt at runtime instead of following fixed workflows.
+- **Delegation** — route complex work to specialized subagents during execution.
+- **Policy enforcement** — apply runtime guardrails with Inspector and Bodyguard on every run.
+- **Observability** — inspect step-level traces, tool calls, and outcomes for debugging.
+- **Portability** — swap models and tools without rewriting application logic.
+- **Flexible deployment** — run the same agent definition serverless or private.
 
 <div align="center">
   <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aiXplain team-agent runtime flow" title="aiXplain"/>
 </div>
 
-## Why aiXplain for developers
-
-- **Autonomous runtime loop** — plan, call tools/models, reflect, and continue without fixed flowcharts.
-- **Multi-agent execution** — delegate work to specialized agents at runtime.
-- **Governance by default** — inspectors and policy controls execute on every run.
-- **Production observability** — use validation traces and run telemetry for debugging and operations.
-- **Model and tool portability** — swap assets without rewriting application glue code.
-- **Flexible deployment** — run serverless or on-prem (private).
-
 ## AgenticOS
 
-AgenticOS is the runtime behind SDK/API and aiXplain Studio, designed around **speed**, **trust**, and **sovereignty**. It provides routing with fallbacks, unified policies and traces, flexible serverless/private deployment, and BYO support for keys, files, models, databases, code, and MCP servers.
+AgenticOS is the runtime behind aiXplain Agents. It orchestrates multi-step execution, routes model and tool calls with fallback policies, enforces governance at runtime, records step-level traces, and supports both serverless and private deployment.
 
 <div align="center">
   <img src="docs/assets/aixplain-agentic-os-architecture.png" alt="aiXplain AgenticOS architecture" title="aiXplain"/>
@@ -34,8 +36,6 @@ AgenticOS is the runtime behind SDK/API and aiXplain Studio, designed around **s
 ---
 
 ## Quick start
-
-### Installation
 
 ```bash
 pip install aixplain
@@ -126,12 +126,12 @@ You can still access legacy docs at [docs.aixplain.com/1.0](https://docs.aixplai
 
 ---
 
-## Security, compliance, and privacy
+## Data handling and deployment
 
 aiXplain applies runtime governance and enterprise controls by default:
 
+- **No data retained by default** — agent memory is opt-in (short-term and long-term).
 - **SOC 2 Type II certified** — enterprise security and compliance posture.
-- **No training on your data** — prompts and outputs are not used to train foundation models.
 - **Runtime policy enforcement** — Inspector and Bodyguard govern every agent execution.
 - **Sovereign deployment options** — serverless or private (on-prem, VPC, and air-gapped).
 - **Encryption** — TLS 1.2+ in transit and encrypted storage at rest.
@@ -144,10 +144,9 @@ Learn more at [aiXplain Security](https://aixplain.com/security/) and [Sovereign
 
 Start free, then scale with usage-based pricing.
 
-- **Builder credits at signup** — start without upfront cost.
 - **Pay as you go** — prepaid usage with no surprise overage bills.
 - **Subscription plans** — reduce effective consumption-based rates.
-- **Consolidated billing** — track spend across models, tools, and integrations in one place.
+- **Custom enterprise pricing** — available for advanced scale and deployment needs.
 
 Learn more at [aiXplain Pricing](https://aixplain.com/pricing/).
 
