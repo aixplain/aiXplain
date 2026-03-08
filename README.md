@@ -6,7 +6,7 @@
 
 ## aiXplain agents
 
-aiXplain Agents SDK gives developers Python and REST APIs to build, run, and deploy autonomous multi-step agents on [AgenticOS](https://docs.aixplain.com/getting-started/agenticos). Agents adapt at runtime by planning steps, selecting tools and models, running code, and refining outputs until tasks are complete.
+aiXplain Agents SDK gives developers Python and REST APIs to build, run, and deploy autonomous multi-step agents on [AgenticOS](https://docs.aixplain.com/getting-started/agenticos). Agents include built-in memory for short- and long-term context (opt-in), and adapt at runtime by planning steps, selecting tools and models, running code, and refining outputs until tasks are complete.
 
 aiXplain agents include micro-agents for runtime policy enforcement and access control, plus proprietary meta-agents like Evolver for self-improvement.
 
