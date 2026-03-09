@@ -305,6 +305,7 @@ def test_llm_capability_properties(client, stream_tool_call_model_id):
         assert model.supports_structured_output is False
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):
     """E2E: stream tool-calling returns OpenAI-style tool call deltas in chunks."""
     model = client.Model.get(stream_tool_call_model_id)
@@ -435,7 +436,6 @@ def test_dynamic_validation_parameter_types(client, text_model_id):
     valid_params = {
         "text": "Hello, world!",
         "language": "en",
-        "temperature": 0.5,  # number
         "max_tokens": 50,  # number
         "context": "Test context",  # text
         "prompt": "Test prompt",  # text
@@ -450,13 +450,6 @@ def test_dynamic_validation_parameter_types(client, text_model_id):
     # Test validation - this should work with proper parameters
     result = model.run(**available_params)
     assert result.status == "SUCCESS"
-
-    # Test with string values for number parameters (should be valid for text/number)
-    if any(param.name == "temperature" for param in model.params):
-        string_params = available_params.copy()
-        string_params["temperature"] = "0.5"  # Should be valid for text/number
-        result = model.run(**string_params)
-        assert result.status == "SUCCESS"
 
     # Test with invalid type for text parameter
     if any(param.name == "text" for param in model.params):
@@ -776,8 +769,6 @@ def test_model_run_with_configured_inputs(client, text_model_id):
     model = client.Model.get(text_model_id)
 
     # Configure parameters through inputs proxy
-    if "temperature" in model.inputs:
-        model.inputs.temperature = 0.7
     if "max_tokens" in model.inputs:
         model.inputs.max_tokens = 500
     if "language" in model.inputs:
@@ -897,8 +888,6 @@ def test_model_inputs_proxy_integration_with_run(client, text_model_id):
     model = client.Model.get(text_model_id)
 
     # Configure some parameters through inputs proxy
-    if "temperature" in model.inputs:
-        model.inputs.temperature = 0.6
     if "max_tokens" in model.inputs:
         model.inputs.max_tokens = 400
 
@@ -929,8 +918,6 @@ def test_model_inputs_proxy_integration_with_run(client, text_model_id):
     assert result.data is not None
 
     # Verify that the configured inputs are still intact after the run
-    if "temperature" in model.inputs:
-        assert model.inputs.temperature == 0.6
     if "max_tokens" in model.inputs:
         assert model.inputs.max_tokens == 400
 

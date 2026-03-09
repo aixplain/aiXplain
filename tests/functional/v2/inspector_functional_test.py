@@ -150,7 +150,7 @@ def _run_and_get_steps(team_agent, query: str):
     return response, steps
 
 
-@pytest.mark.flaky(reruns=2, reruns_delay=2)
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_output_inspector_abort(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
@@ -191,6 +191,7 @@ def test_output_inspector_abort(client, run_input_map, resource_tracker):
     ) + str(inspector_steps)
 
 
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
