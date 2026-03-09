@@ -1,3 +1,5 @@
+"""Record module for index operations."""
+
 from aixplain.enums import DataType, StorageType
 from typing import Optional
 from uuid import uuid4
@@ -70,5 +72,4 @@ class Record:
         if storage_type in [StorageType.FILE, StorageType.URL]:
             if is_supported_image_type(self.uri):
                 self.value_type = DataType.IMAGE
-            self.uri = FileFactory.to_link(self.uri) if storage_type == StorageType.FILE else self.uri
             self.uri = FileFactory.to_link(self.uri) if storage_type == StorageType.FILE else self.uri
