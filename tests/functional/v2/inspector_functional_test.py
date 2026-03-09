@@ -45,6 +45,16 @@ def resource_tracker():
             resource.delete()
         except Exception:
             pass
+@pytest.fixture
+def resource_tracker():
+    """Tracks resources created during a test for guaranteed cleanup."""
+    resources = []
+    yield resources
+    for resource in reversed(resources):
+        try:
+            resource.delete()
+        except Exception:
+            pass
 
 
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
@@ -156,6 +166,8 @@ def test_output_inspector_abort(client, run_input_map, resource_tracker):
     agents = _make_two_subagents(client, timestamp)
     for agent in agents:
         resource_tracker.append(agent)
+    for agent in agents:
+        resource_tracker.append(agent)
 
     inspector = Inspector(
         name="always_abort_output_inspector",
@@ -170,6 +182,7 @@ def test_output_inspector_abort(client, run_input_map, resource_tracker):
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
+    resource_tracker.append(team_agent)
     resource_tracker.append(team_agent)
     team_agent.save()
 
@@ -193,8 +206,11 @@ def test_output_inspector_abort(client, run_input_map, resource_tracker):
 
 @pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_tracker):
+def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
 
@@ -216,6 +232,7 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_trac
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
     resource_tracker.append(team_agent)
+    resource_tracker.append(team_agent)
     team_agent.save()
 
     response, steps = _run_and_get_steps(team_agent, "Write a short customer service reply.")
@@ -235,8 +252,11 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_trac
 
 
 def test_edit_steps_always_runs(client, run_input_map, resource_tracker):
+def test_edit_steps_always_runs(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
 
@@ -256,6 +276,7 @@ def test_edit_steps_always_runs(client, run_input_map, resource_tracker):
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
+    resource_tracker.append(team_agent)
     resource_tracker.append(team_agent)
     team_agent.save()
 
@@ -279,8 +300,11 @@ def edit_fn(text: str) -> str:
 
 
 def test_edit_with_gate_true(client, run_input_map, resource_tracker):
+def test_edit_with_gate_true(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
 
@@ -301,6 +325,7 @@ def test_edit_with_gate_true(client, run_input_map, resource_tracker):
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
     resource_tracker.append(team_agent)
+    resource_tracker.append(team_agent)
     team_agent.save()
 
     response, steps = _run_and_get_steps(team_agent, "DETAILED: Translate 'Hello' to Portuguese.")
@@ -318,8 +343,11 @@ def evaluator_fn(text: str) -> bool:
 
 
 def test_edit_with_gate_false(client, run_input_map, resource_tracker):
+def test_edit_with_gate_false(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
 
@@ -339,6 +367,7 @@ def test_edit_with_gate_false(client, run_input_map, resource_tracker):
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
+    resource_tracker.append(team_agent)
     resource_tracker.append(team_agent)
     team_agent.save()
 
