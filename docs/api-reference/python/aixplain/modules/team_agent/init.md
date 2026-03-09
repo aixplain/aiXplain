@@ -86,7 +86,7 @@ Advanced AI system capable of using multiple agents to perform a variety of task
 - `name`1 _Optional[Text]_ - Instructions to guide the team agent.
 - `name`2 _OutputFormat_ - Response format. Defaults to TEXT.
 - `name`3 _Optional[Union[BaseModel, Text, dict]]_ - Expected output format.
-  
+
   Deprecated Attributes:
 - `name`4 _Text_ - DEPRECATED. Use &#x27;llm&#x27; parameter instead. Large language model ID.
 - `name`5 _Optional[LLM]_ - DEPRECATED. LLM for planning.
@@ -133,9 +133,9 @@ Initialize a TeamAgent instance.
 - `name`2 _OutputFormat, optional_ - Output format. Defaults to OutputFormat.TEXT.
 - `name`3 _Optional[Union[BaseModel, Text, dict]], optional_ - Expected output format. Defaults to None.
 - `name`4 - Additional keyword arguments.
-  
+
   Deprecated Args:
-- `name`5 _Text, optional_ - DEPRECATED. Use &#x27;llm&#x27; parameter instead. ID of the language model. Defaults to &quot;6646261c6eb563165658bbb1&quot;.
+- `name`5 _Text, optional_ - DEPRECATED. Use &#x27;llm&#x27; parameter instead. ID of the language model. Defaults to &quot;6895d6d1d50c89537c1cf237&quot;.
 - `name`6 _Optional[LLM], optional_ - DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
 - `name`7 _bool, optional_ - DEPRECATED. Whether to use mentalist/planner. Defaults to True.
 
@@ -152,7 +152,7 @@ Generate a new session ID for the team agent.
 **Arguments**:
 
 - `history` _list, optional_ - Chat history to initialize the session with. Defaults to None.
-  
+
 
 **Returns**:
 
@@ -179,7 +179,7 @@ Poll the platform until team agent execution completes or times out.
 - `wait_time` _float, optional_ - Initial wait time in seconds between polls. Defaults to 0.5.
 - `timeout` _float, optional_ - Maximum total time to poll in seconds. Defaults to 300.
 - `progress_verbosity` _Optional[str], optional_ - Progress display mode - &quot;full&quot; (detailed), &quot;compact&quot; (brief), or None (no progress). Defaults to &quot;compact&quot;.
-  
+
 
 **Returns**:
 
@@ -224,7 +224,7 @@ Runs a team agent call.
 - `query`1 _bool, optional_ - return the request id for tracing the request. Defaults to False.
 - `query`2 _Optional[str], optional_ - Progress display mode - &quot;full&quot; (detailed), &quot;compact&quot; (brief), or None (no progress). Defaults to &quot;compact&quot;.
 - `query`3 - Additional deprecated keyword arguments (output_format, expected_output).
-  
+
 
 **Returns**:
 
@@ -267,7 +267,7 @@ Runs asynchronously a Team Agent call.
 - `query`0 _Union[BaseModel, Text, dict], optional_ - expected output. Defaults to None.
 - `query`1 _Union[Dict[str, Any], EvolveParam, None], optional_ - evolve the team agent configuration. Can be a dictionary, EvolveParam instance, or None.
 - `query`2 _bool, optional_ - return the request id for tracing the request. Defaults to False.
-  
+
 
 **Returns**:
 
@@ -287,7 +287,7 @@ Poll once for team agent execution status.
 
 - `poll_url` _Text_ - URL to poll for status.
 - `name` _Text, optional_ - Identifier for the operation. Defaults to &quot;model_process&quot;.
-  
+
 
 **Returns**:
 
@@ -346,7 +346,7 @@ Create a TeamAgent instance from a dictionary representation.
 **Arguments**:
 
 - `data` - Dictionary containing TeamAgent parameters
-  
+
 
 **Returns**:
 
@@ -369,18 +369,18 @@ including name format, LLM compatibility, and agent validity.
 
 - `raise_exception` _bool, optional_ - If True, raises exceptions for
   validation failures. If False, logs warnings. Defaults to False.
-  
+
 
 **Returns**:
 
 - `bool` - True if validation succeeds, False otherwise.
-  
+
 
 **Raises**:
 
 - `Exception` - If raise_exception is True and validation fails, with
   details about the specific validation error.
-  
+
 
 **Notes**:
 
@@ -409,7 +409,7 @@ backend system. It is deprecated in favor of the save() method.
   - Validation failures with details
   - HTTP errors with status codes
   - General update errors requiring admin attention
-  
+
 
 **Notes**:
 
@@ -465,7 +465,7 @@ Asynchronously evolve the Team Agent and return a polling URL in the AgentRespon
 - `max_iterations` _int_ - Maximum number of iterations. Defaults to 50.
 - `max_non_improving_generations` _Optional[int]_ - Stop condition parameter for non-improving generations. Defaults to 2, can be None.
 - `llm` _Optional[Union[Text, LLM]]_ - LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
-  
+
 
 **Returns**:
 
@@ -494,9 +494,8 @@ Synchronously evolve the Team Agent and poll for the result.
 - `max_iterations` _int_ - Maximum number of iterations. Defaults to 50.
 - `max_non_improving_generations` _Optional[int]_ - Stop condition parameter for non-improving generations. Defaults to 2, can be None.
 - `llm` _Optional[Union[Text, LLM]]_ - LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
-  
+
 
 **Returns**:
 
 - `AgentResponse` - Final response from the evolution process.
-

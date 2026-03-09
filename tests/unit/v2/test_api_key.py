@@ -5,7 +5,7 @@ functionality in the v2 SDK.
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 from datetime import datetime, timedelta, timezone
 
 from aixplain.v2.api_key import (
@@ -13,8 +13,41 @@ from aixplain.v2.api_key import (
     APIKeyLimits,
     APIKeyUsageLimit,
     TokenType,
+    _resolve_model,
 )
 from aixplain.v2.exceptions import ResourceError, ValidationError
+
+# =============================================================================
+# _resolve_model Tests
+# =============================================================================
+
+
+class TestResolveModel:
+    """Tests for the _resolve_model helper function."""
+
+    def test_resolve_string_returns_string(self):
+        """Strings should pass through unchanged."""
+        assert _resolve_model("openai/gpt-4o-mini/openai") == "openai/gpt-4o-mini/openai"
+
+    def test_resolve_object_with_path(self):
+        """Objects with a path attribute should resolve to path."""
+        model = Mock(path="openai/gpt-4o-mini/openai", id="model123")
+        assert _resolve_model(model) == "openai/gpt-4o-mini/openai"
+
+    def test_resolve_object_with_id_only(self):
+        """Objects with only an id attribute should resolve to id."""
+        model = Mock(spec=["id"])
+        model.id = "model123"
+        assert _resolve_model(model) == "model123"
+
+    def test_resolve_object_with_no_path_or_id(self):
+        """Objects without path or id should fall back to str()."""
+
+        class CustomObj:
+            def __str__(self):
+                return "custom_str"
+
+        assert _resolve_model(CustomObj()) == "custom_str"
 
 
 # =============================================================================
@@ -65,7 +98,7 @@ class TestAPIKeyLimits:
         assert limits.token_per_day == 0
         assert limits.request_per_minute == 0
         assert limits.request_per_day == 0
-        assert limits.model_id is None
+        assert limits.model is None
         assert limits.token_type is None
 
     def test_create_limits_with_values(self):
@@ -75,7 +108,7 @@ class TestAPIKeyLimits:
             token_per_day=1000,
             request_per_minute=10,
             request_per_day=100,
-            model_id="model123",
+            model="model123",
             token_type=TokenType.INPUT,
         )
 
@@ -83,8 +116,23 @@ class TestAPIKeyLimits:
         assert limits.token_per_day == 1000
         assert limits.request_per_minute == 10
         assert limits.request_per_day == 100
-        assert limits.model_id == "model123"
+        assert limits.model == "model123"
         assert limits.token_type == TokenType.INPUT
+
+    def test_create_limits_with_model_object(self):
+        """Limits should resolve Model objects to path strings."""
+        model_obj = Mock(path="openai/gpt-4o-mini/openai", id="abc123")
+        limits = APIKeyLimits(model=model_obj)
+
+        assert limits.model == "openai/gpt-4o-mini/openai"
+
+    def test_create_limits_with_model_object_id_fallback(self):
+        """Limits should fall back to id when Model object has no path."""
+        model_obj = Mock(spec=["id"])
+        model_obj.id = "abc123"
+        limits = APIKeyLimits(model=model_obj)
+
+        assert limits.model == "abc123"
 
     def test_limits_validate_success(self):
         """validate() should pass for valid limits."""
@@ -148,7 +196,7 @@ class TestAPIKeyLimits:
         assert limits.token_per_day == 1000
         assert limits.request_per_minute == 10
         assert limits.request_per_day == 100
-        assert limits.model_id == "model123"
+        assert limits.model == "model123"
         assert limits.token_type == TokenType.INPUT
 
     def test_limits_from_dict_output_token_type(self):
@@ -175,6 +223,44 @@ class TestAPIKeyLimits:
 
         assert limits.token_type is None
 
+    def test_limits_to_dict_returns_snake_case(self):
+        """to_dict() should return snake_case keys."""
+        limits = APIKeyLimits(
+            token_per_minute=100,
+            token_per_day=1000,
+            request_per_minute=10,
+            request_per_day=100,
+            model="model123",
+            token_type=TokenType.OUTPUT,
+        )
+
+        result = limits.to_dict()
+
+        assert result == {
+            "token_per_minute": 100,
+            "token_per_day": 1000,
+            "request_per_minute": 10,
+            "request_per_day": 100,
+            "model": "model123",
+            "token_type": "output",
+        }
+
+    def test_limits_to_dict_omits_none_model(self):
+        """to_dict() should omit model when None."""
+        limits = APIKeyLimits(token_per_minute=100)
+
+        result = limits.to_dict()
+
+        assert "model" not in result
+
+    def test_limits_to_dict_omits_none_token_type(self):
+        """to_dict() should omit token_type when None."""
+        limits = APIKeyLimits(token_per_minute=100)
+
+        result = limits.to_dict()
+
+        assert "token_type" not in result
+
 
 # =============================================================================
 # APIKeyUsageLimit Tests
@@ -192,7 +278,7 @@ class TestAPIKeyUsageLimit:
         assert usage.daily_request_limit is None
         assert usage.daily_token_count is None
         assert usage.daily_token_limit is None
-        assert usage.model_id is None
+        assert usage.model is None
 
     def test_create_usage_limit_with_values(self):
         """Usage limits should accept custom values."""
@@ -201,14 +287,14 @@ class TestAPIKeyUsageLimit:
             daily_request_limit=100,
             daily_token_count=500,
             daily_token_limit=1000,
-            model_id="model123",
+            model="model123",
         )
 
         assert usage.daily_request_count == 50
         assert usage.daily_request_limit == 100
         assert usage.daily_token_count == 500
         assert usage.daily_token_limit == 1000
-        assert usage.model_id == "model123"
+        assert usage.model == "model123"
 
     def test_usage_limit_from_dict(self):
         """from_dict() should parse API response format."""
@@ -226,7 +312,27 @@ class TestAPIKeyUsageLimit:
         assert usage.daily_request_limit == 100
         assert usage.daily_token_count == 500
         assert usage.daily_token_limit == 1000
-        assert usage.model_id == "model123"
+        assert usage.model == "model123"
+
+    def test_usage_limit_to_dict_returns_snake_case(self):
+        """to_dict() should return snake_case keys."""
+        usage = APIKeyUsageLimit(
+            daily_request_count=50,
+            daily_request_limit=100,
+            daily_token_count=500,
+            daily_token_limit=1000,
+            model="model123",
+        )
+
+        result = usage.to_dict()
+
+        assert result == {
+            "daily_request_count": 50,
+            "daily_request_limit": 100,
+            "daily_token_count": 500,
+            "daily_token_limit": 1000,
+            "model": "model123",
+        }
 
 
 # =============================================================================
@@ -264,8 +370,8 @@ class TestAPIKey:
     def test_create_api_key_with_asset_limits(self):
         """Should create APIKey with asset limits."""
         asset_limits = [
-            APIKeyLimits(token_per_minute=100, model_id="model1"),
-            APIKeyLimits(token_per_minute=200, model_id="model2"),
+            APIKeyLimits(token_per_minute=100, model="model1"),
+            APIKeyLimits(token_per_minute=200, model="model2"),
         ]
 
         api_key = APIKey(
@@ -274,7 +380,7 @@ class TestAPIKey:
         )
 
         assert len(api_key.asset_limits) == 2
-        assert api_key.asset_limits[0].model_id == "model1"
+        assert api_key.asset_limits[0].model == "model1"
 
     def test_api_key_from_dict_parses_nested_limits(self):
         """from_dict() should parse nested limits using dataclass_json."""
@@ -290,7 +396,7 @@ class TestAPIKey:
         assert api_key.global_limits is not None
         assert api_key.global_limits.token_per_minute == 100
         assert len(api_key.asset_limits) == 1
-        assert api_key.asset_limits[0].model_id == "model1"
+        assert api_key.asset_limits[0].model == "model1"
 
     def test_api_key_validate_success(self):
         """_validate_limits() should pass for valid API key."""
@@ -298,7 +404,7 @@ class TestAPIKey:
             name="Test Key",
             budget=1000.0,
             global_limits=APIKeyLimits(token_per_minute=100),
-            asset_limits=[APIKeyLimits(token_per_minute=50, model_id="model1")],
+            asset_limits=[APIKeyLimits(token_per_minute=50, model="model1")],
         )
 
         api_key._validate_limits()  # Should not raise
@@ -313,14 +419,14 @@ class TestAPIKey:
         with pytest.raises(ValidationError, match="Budget must be >= 0"):
             api_key._validate_limits()
 
-    def test_api_key_validate_asset_without_model_id(self):
-        """_validate_limits() should fail if asset limit has no model_id."""
+    def test_api_key_validate_asset_without_model(self):
+        """_validate_limits() should fail if asset limit has no model."""
         api_key = APIKey(
             name="Test Key",
-            asset_limits=[APIKeyLimits(token_per_minute=50)],  # No model_id
+            asset_limits=[APIKeyLimits(token_per_minute=50)],
         )
 
-        with pytest.raises(ValidationError, match="must have a model_id"):
+        with pytest.raises(ValidationError, match="must have a model"):
             api_key._validate_limits()
 
     def test_api_key_build_save_payload(self):
@@ -341,7 +447,7 @@ class TestAPIKey:
                     token_per_day=500,
                     request_per_minute=5,
                     request_per_day=50,
-                    model_id="model1",
+                    model="model1",
                 )
             ],
             expires_at="2024-12-31T23:59:59.000000Z",
@@ -397,7 +503,7 @@ class TestAPIKey:
                     token_per_day=1000,
                     request_per_minute=10,
                     request_per_day=100,
-                    model_id="model1",
+                    model="model1",
                     token_type=TokenType.TOTAL,
                 ),
             ],
@@ -440,10 +546,22 @@ class TestAPIKey:
         """set_token_per_day() should update asset limits for model."""
         api_key = APIKey(
             name="Test Key",
-            asset_limits=[APIKeyLimits(token_per_day=100, model_id="model1")],
+            asset_limits=[APIKeyLimits(token_per_day=100, model="model1")],
         )
 
-        api_key.set_token_per_day(200, model_id="model1")
+        api_key.set_token_per_day(200, model="model1")
+
+        assert api_key.asset_limits[0].token_per_day == 200
+
+    def test_api_key_set_token_per_day_model_object(self):
+        """set_token_per_day() should accept Model objects for model."""
+        model_obj = Mock(path="model1", id="id1")
+        api_key = APIKey(
+            name="Test Key",
+            asset_limits=[APIKeyLimits(token_per_day=100, model="model1")],
+        )
+
+        api_key.set_token_per_day(200, model=model_obj)
 
         assert api_key.asset_limits[0].token_per_day == 200
 
@@ -451,11 +569,11 @@ class TestAPIKey:
         """set_token_per_day() should raise for unknown model."""
         api_key = APIKey(
             name="Test Key",
-            asset_limits=[APIKeyLimits(token_per_day=100, model_id="model1")],
+            asset_limits=[APIKeyLimits(token_per_day=100, model="model1")],
         )
 
         with pytest.raises(ResourceError, match="not found"):
-            api_key.set_token_per_day(200, model_id="unknown_model")
+            api_key.set_token_per_day(200, model="unknown_model")
 
     def test_api_key_set_token_per_minute(self):
         """set_token_per_minute() should update limits."""
@@ -481,8 +599,35 @@ class TestAPIKey:
 
         assert api_key.global_limits.request_per_minute == 100
 
-    def test_api_key_limits_to_dict_static_method(self):
-        """_limits_to_dict() static method should convert limits properly."""
+    def test_api_key_to_dict_returns_snake_case(self):
+        """to_dict() should return snake_case keys with limits included."""
+        api_key = APIKey(
+            id="key123",
+            name="Test Key",
+            budget=1000.0,
+            key="abc123xyz",
+            is_admin=False,
+            global_limits=APIKeyLimits(token_per_minute=100, token_per_day=1000),
+            asset_limits=[APIKeyLimits(token_per_minute=50, model="model1")],
+        )
+
+        result = api_key.to_dict()
+
+        assert "key" in result
+        assert result["key"] == "abc123xyz"
+        assert "is_admin" in result
+        assert result["is_admin"] is False
+        assert "global_limits" in result
+        assert result["global_limits"]["token_per_minute"] == 100
+        assert "asset_limits" in result
+        assert result["asset_limits"][0]["model"] == "model1"
+        # Verify no camelCase keys
+        assert "accessKey" not in result
+        assert "isAdmin" not in result
+        assert "expiresAt" not in result
+
+    def test_api_key_limits_to_api_dict_static_method(self):
+        """_limits_to_api_dict() static method should convert limits to camelCase."""
         limits = APIKeyLimits(
             token_per_minute=100,
             token_per_day=1000,
@@ -491,7 +636,7 @@ class TestAPIKey:
             token_type=TokenType.INPUT,
         )
 
-        result = APIKey._limits_to_dict(limits)
+        result = APIKey._limits_to_api_dict(limits)
 
         assert result == {
             "tpm": 100,
@@ -501,16 +646,16 @@ class TestAPIKey:
             "tokenType": "input",
         }
 
-    def test_api_key_limits_to_dict_with_model_id(self):
-        """_limits_to_dict() should include model_id when flag is set."""
-        limits = APIKeyLimits(token_per_minute=100, model_id="model1")
+    def test_api_key_limits_to_api_dict_with_model(self):
+        """_limits_to_api_dict() should include assetId when flag is set."""
+        limits = APIKeyLimits(token_per_minute=100, model="model1")
 
-        result = APIKey._limits_to_dict(limits, include_model_id=True)
+        result = APIKey._limits_to_api_dict(limits, include_asset=True)
 
         assert result["assetId"] == "model1"
 
-    def test_api_key_limits_to_dict_output_token_type(self):
-        """_limits_to_dict() should serialize OUTPUT token type."""
+    def test_api_key_limits_to_api_dict_output_token_type(self):
+        """_limits_to_api_dict() should serialize OUTPUT token type."""
         limits = APIKeyLimits(
             token_per_minute=100,
             token_per_day=1000,
@@ -519,12 +664,12 @@ class TestAPIKey:
             token_type=TokenType.OUTPUT,
         )
 
-        result = APIKey._limits_to_dict(limits)
+        result = APIKey._limits_to_api_dict(limits)
 
         assert result["tokenType"] == "output"
 
-    def test_api_key_limits_to_dict_total_token_type(self):
-        """_limits_to_dict() should serialize TOTAL token type."""
+    def test_api_key_limits_to_api_dict_total_token_type(self):
+        """_limits_to_api_dict() should serialize TOTAL token type."""
         limits = APIKeyLimits(
             token_per_minute=100,
             token_per_day=1000,
@@ -533,12 +678,12 @@ class TestAPIKey:
             token_type=TokenType.TOTAL,
         )
 
-        result = APIKey._limits_to_dict(limits)
+        result = APIKey._limits_to_api_dict(limits)
 
         assert result["tokenType"] == "total"
 
-    def test_api_key_limits_to_dict_none_token_type(self):
-        """_limits_to_dict() should serialize None token_type as None."""
+    def test_api_key_limits_to_api_dict_none_token_type(self):
+        """_limits_to_api_dict() should serialize None token_type as None."""
         limits = APIKeyLimits(
             token_per_minute=100,
             token_per_day=1000,
@@ -547,7 +692,7 @@ class TestAPIKey:
             token_type=None,
         )
 
-        result = APIKey._limits_to_dict(limits)
+        result = APIKey._limits_to_api_dict(limits)
 
         assert result["tokenType"] is None
 
@@ -595,11 +740,10 @@ class TestAPIKeyList:
         assert len(api_keys) == 2
         assert api_keys[0].id == "key1"
         assert api_keys[1].id == "key2"
-        # Verify it uses GET method with empty filters (configured via class attrs)
         mock_client.request.assert_called_once()
         call_args = mock_client.request.call_args
-        assert call_args[0][0] == "get"  # PAGINATE_METHOD
-        assert call_args[0][1] == "sdk/api-keys"  # RESOURCE_PATH with empty PAGINATE_PATH
+        assert call_args[0][0] == "get"
+        assert call_args[0][1] == "sdk/api-keys"
 
     def test_api_key_list_parses_nested_limits(self):
         """list() should parse globalLimits and assetsLimits via from_dict."""
@@ -625,7 +769,7 @@ class TestAPIKeyList:
         assert api_keys[0].global_limits is not None
         assert api_keys[0].global_limits.token_per_minute == 100
         assert len(api_keys[0].asset_limits) == 1
-        assert api_keys[0].asset_limits[0].model_id == "model1"
+        assert api_keys[0].asset_limits[0].model == "model1"
 
     def test_api_key_list_parses_token_type(self):
         """list() should parse tokenType from API response."""
@@ -635,9 +779,22 @@ class TestAPIKeyList:
                 "name": "Key 1",
                 "accessKey": "abc...xyz",
                 "isAdmin": False,
-                "globalLimits": {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": "output"},
+                "globalLimits": {
+                    "tpm": 100,
+                    "tpd": 1000,
+                    "rpm": 10,
+                    "rpd": 100,
+                    "tokenType": "output",
+                },
                 "assetsLimits": [
-                    {"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1", "tokenType": "input"}
+                    {
+                        "tpm": 50,
+                        "tpd": 500,
+                        "rpm": 5,
+                        "rpd": 50,
+                        "assetId": "model1",
+                        "tokenType": "input",
+                    }
                 ],
             }
         ]
@@ -668,7 +825,7 @@ class TestAPIKeyList:
 
         page = MockAPIKey.search()
 
-        assert page.page_total == 1  # Fixed by _build_page override
+        assert page.page_total == 1
         assert page.total == 2
         assert len(page.results) == 2
 
@@ -731,8 +888,23 @@ class TestAPIKeyGet:
         response_data = {
             "id": "key123",
             "name": "Test Key",
-            "globalLimits": {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": "total"},
-            "assetsLimits": [{"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1", "tokenType": "output"}],
+            "globalLimits": {
+                "tpm": 100,
+                "tpd": 1000,
+                "rpm": 10,
+                "rpd": 100,
+                "tokenType": "total",
+            },
+            "assetsLimits": [
+                {
+                    "tpm": 50,
+                    "tpd": 500,
+                    "rpm": 5,
+                    "rpd": 50,
+                    "assetId": "model1",
+                    "tokenType": "output",
+                }
+            ],
         }
 
         mock_client = Mock()
@@ -807,7 +979,7 @@ class TestAPIKeySave:
         assert api_key.id == "new_key_id"
         mock_client.request.assert_called_once()
         call_args = mock_client.request.call_args
-        assert call_args[0][0] == "post"  # BaseResource uses lowercase
+        assert call_args[0][0] == "post"
 
     def test_api_key_save_updates_existing(self):
         """save() should update existing API key when id is set."""
@@ -832,7 +1004,7 @@ class TestAPIKeySave:
         assert api_key.id == "existing_key"
         mock_client.request.assert_called_once()
         call_args = mock_client.request.call_args
-        assert call_args[0][0] == "PUT"  # Our _update override uses uppercase
+        assert call_args[0][0] == "PUT"
 
     def test_api_key_update_populates_from_response(self):
         """_update() should populate instance from response."""
@@ -856,6 +1028,85 @@ class TestAPIKeySave:
         assert api_key.name == "Updated Name"
         assert api_key.global_limits is not None
         assert api_key.global_limits.token_per_minute == 200
+
+    def test_api_key_before_save_finds_existing_by_name(self):
+        """before_save() should find existing key and set id for update."""
+        mock_client = Mock()
+        mock_client.request = Mock(
+            side_effect=[
+                # First call: GET list (from before_save)
+                [
+                    {"id": "existing_id", "name": "Test Key", "accessKey": "abc...xyz"},
+                    {"id": "other_id", "name": "Other Key"},
+                ],
+                # Second call: PUT update (from save -> _update)
+                {
+                    "id": "existing_id",
+                    "name": "Test Key",
+                    "accessKey": "abc...xyz",
+                    "budget": 1000.0,
+                },
+            ]
+        )
+
+        class BoundAPIKey(APIKey):
+            context = Mock(client=mock_client)
+
+        api_key = BoundAPIKey(
+            name="Test Key",
+            budget=1000.0,
+        )
+
+        api_key.save()
+
+        assert api_key.id == "existing_id"
+        assert mock_client.request.call_count == 2
+        first_call = mock_client.request.call_args_list[0]
+        assert first_call[0][0] == "get"
+        second_call = mock_client.request.call_args_list[1]
+        assert second_call[0][0] == "PUT"
+
+    def test_api_key_create_populates_from_existing_on_conflict(self):
+        """_create() should populate from existing key when backend returns 422 conflict."""
+        from aixplain.v2.exceptions import APIError
+
+        mock_client = Mock()
+
+        def request_side_effect(method, path, **kwargs):
+            if method == "post":
+                raise APIError("Error: the name you provided is already in use.", status_code=422)
+            if method == "get":
+                return [
+                    {"id": "existing_id", "name": "Test Key", "accessKey": "abc...xyz"},
+                    {"id": "other_id", "name": "Other Key"},
+                ]
+            return {}
+
+        mock_client.request = Mock(side_effect=request_side_effect)
+
+        class BoundAPIKey(APIKey):
+            context = Mock(client=mock_client)
+
+        api_key = BoundAPIKey(
+            id="brand_new_id",
+            name="Test Key",
+            budget=1000.0,
+        )
+
+        api_key._create("sdk/api-keys", {"name": "Test Key", "budget": 1000.0})
+
+        assert api_key.id == "existing_id"
+
+    def test_api_key_create_raises_on_unrelated_error(self):
+        """_create() should re-raise errors that are not name conflicts."""
+        mock_client = Mock()
+        mock_client.request = Mock(side_effect=Exception("Internal server error"))
+
+        api_key = APIKey(name="Test Key", budget=1000.0)
+        api_key.context = Mock(client=mock_client)
+
+        with pytest.raises(ResourceError):
+            api_key.save()
 
 
 # =============================================================================
@@ -895,10 +1146,10 @@ class TestAPIKeyUsage:
         assert len(usage_limits) == 2
         assert isinstance(usage_limits[0], APIKeyUsageLimit)
         assert usage_limits[0].daily_request_count == 50
-        assert usage_limits[1].model_id == "model1"
+        assert usage_limits[1].model == "model1"
 
-    def test_get_usage_filters_by_model_id(self):
-        """get_usage() should filter by model_id."""
+    def test_get_usage_filters_by_model(self):
+        """get_usage() should filter by model."""
         mock_client = Mock()
         mock_client.get = Mock(
             return_value=[
@@ -921,10 +1172,33 @@ class TestAPIKeyUsage:
         api_key = APIKey(id="key123", name="Test Key")
         api_key.context = Mock(client=mock_client)
 
-        usage_limits = api_key.get_usage(model_id="model1")
+        usage_limits = api_key.get_usage(model="model1")
 
         assert len(usage_limits) == 1
-        assert usage_limits[0].model_id == "model1"
+        assert usage_limits[0].model == "model1"
+
+    def test_get_usage_accepts_model_object(self):
+        """get_usage() should accept Model objects."""
+        mock_client = Mock()
+        mock_client.get = Mock(
+            return_value=[
+                {
+                    "requestCount": 25,
+                    "requestCountLimit": 50,
+                    "tokenCount": 250,
+                    "tokenCountLimit": 500,
+                    "assetId": "openai/gpt-4o-mini/openai",
+                },
+            ]
+        )
+
+        api_key = APIKey(id="key123", name="Test Key")
+        api_key.context = Mock(client=mock_client)
+
+        model_obj = Mock(path="openai/gpt-4o-mini/openai", id="model_id")
+        usage_limits = api_key.get_usage(model=model_obj)
+
+        assert len(usage_limits) == 1
 
     def test_get_usage_limits_class_method(self):
         """get_usage_limits() class method should return usage limits."""
@@ -992,9 +1266,22 @@ class TestAPIKeyConvenienceMethods:
                 "name": "Test Key",
                 "accessKey": "abc...xyz",
                 "isAdmin": False,
-                "globalLimits": {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": "output"},
+                "globalLimits": {
+                    "tpm": 100,
+                    "tpd": 1000,
+                    "rpm": 10,
+                    "rpd": 100,
+                    "tokenType": "output",
+                },
                 "assetsLimits": [
-                    {"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1", "tokenType": "input"}
+                    {
+                        "tpm": 50,
+                        "tpd": 500,
+                        "rpm": 5,
+                        "rpd": 50,
+                        "assetId": "model1",
+                        "tokenType": "input",
+                    }
                 ],
             }
         )
@@ -1005,12 +1292,26 @@ class TestAPIKeyConvenienceMethods:
         api_key = MockAPIKey.create(
             name="Test Key",
             budget=1000,
-            global_limits={"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": "output"},
-            asset_limits=[{"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1", "tokenType": "input"}],
+            global_limits={
+                "tpm": 100,
+                "tpd": 1000,
+                "rpm": 10,
+                "rpd": 100,
+                "tokenType": "output",
+            },
+            asset_limits=[
+                {
+                    "tpm": 50,
+                    "tpd": 500,
+                    "rpm": 5,
+                    "rpd": 50,
+                    "assetId": "model1",
+                    "tokenType": "input",
+                }
+            ],
         )
 
         assert api_key.id == "new_key"
-        # Verify the payload sent includes tokenType
         call_args = mock_client.request.call_args
         payload = call_args[1]["json"]
         assert payload["globalLimits"]["tokenType"] == "output"

@@ -106,7 +106,7 @@ def test_model_supplier(ModelFactory):
     "model_ids,model_names",
     [
         (
-            ("67be216bd8f6a65d6f74d5e9", "669a63646eb56306647e1091"),
+            ("67be216bd8f6a65d6f74d5e9", "6895d6d1d50c89537c1cf237"),
             ("Anthropic Claude 3.7 Sonnet", "GPT-4o Mini"),
         ),
     ],

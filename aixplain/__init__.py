@@ -1,6 +1,4 @@
-"""
-aiXplain SDK Library.
----
+"""aiXplain SDK Library.
 
 aiXplain SDK enables python programmers to add AI functions
 to their software.
@@ -26,7 +24,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from .v2.core import Aixplain  # noqa
+from aixplain._compat import install as _install_compat  # noqa: E402
+
+_install_compat()
+
+from .v2.core import Aixplain  # noqa: E402
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=LOG_LEVEL)

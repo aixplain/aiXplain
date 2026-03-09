@@ -45,6 +45,16 @@ def resource_tracker():
             resource.delete()
         except Exception:
             pass
+@pytest.fixture
+def resource_tracker():
+    """Tracks resources created during a test for guaranteed cleanup."""
+    resources = []
+    yield resources
+    for resource in reversed(resources):
+        try:
+            resource.delete()
+        except Exception:
+            pass
 
 
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
@@ -79,6 +89,16 @@ def _make_team_agent(client, timestamp: str, agents, inspectors):
     return team_agent
 
 
+def _step_agent_id(step: Dict) -> str:
+    """Return step's agent id (lowercased). Backend may use 'inspector' or 'inspector|name'."""
+    return ((step.get("agent") or {}).get("id") or "").lower()
+
+
+def _is_inspector_step(step: Dict) -> bool:
+    """True if step is an inspector (id is 'inspector' or 'inspector|...')."""
+    return _step_agent_id(step).startswith("inspector")
+
+
 def verify_inspector_steps(
     steps: List[Dict],
     inspector_names: List[str],
@@ -96,7 +116,7 @@ def verify_inspector_steps(
     assert len(rg_indices) == 1, f"Expected exactly one response_generator step, got {len(rg_indices)}"
     rg_idx = rg_indices[0]
 
-    inspector_indices = [i for i, s in enumerate(steps) if agent_id(s) == "inspector"]
+    inspector_indices = [i for i, s in enumerate(steps) if _is_inspector_step(s)]
     assert inspector_indices, "Expected at least one inspector step"
 
     if InspectorTarget.OUTPUT in inspector_targets:
@@ -104,7 +124,7 @@ def verify_inspector_steps(
         assert after, "Expected inspector steps after response_generator for OUTPUT target"
 
         last_steps = steps[rg_idx + 1 :]
-        assert all(agent_id(s) in {"inspector"} for s in last_steps), (
+        assert all(_is_inspector_step(s) for s in last_steps), (
             "Not all steps after response_generator are inspector steps"
         )
 
@@ -141,9 +161,11 @@ def _run_and_get_steps(team_agent, query: str):
 
 
 @pytest.mark.flaky(reruns=2, reruns_delay=2)
-def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_agents):
+def test_output_inspector_abort(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
 
@@ -155,15 +177,16 @@ def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_ag
         evaluator=EvaluatorConfig(
             type=EvaluatorType.ASSET,
             asset_id=run_input_map["llm_id"],
-            prompt="ALWAYS critique the final output.",
+            prompt="ALWAYS abort if the output is in English",
         ),
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
     resource_tracker.append(team_agent)
+    resource_tracker.append(team_agent)
     team_agent.save()
 
-    _, steps = _run_and_get_steps(team_agent, "Return anything at all.")
+    _, steps = _run_and_get_steps(team_agent, "What's the biggest city in the world?")
 
     response_generator_steps = [
         s for s in steps if (s.get("agent") or {}).get("id", "").lower() == "response_generator"
@@ -173,19 +196,20 @@ def test_output_inspector_abort(client, run_input_map, delete_agents_and_team_ag
     )
     response_generator_index = steps.index(response_generator_steps[0])
 
-    inspector_steps = [
-        s for s in steps[response_generator_index + 1 :] if (s.get("agent") or {}).get("id", "").lower() == "inspector"
-    ]
-    assert len(inspector_steps) > 0, "Expected inspector step(s) after response_generator"
+    inspector_steps = [s for s in steps[response_generator_index + 1 :] if _is_inspector_step(s)]
+    assert len(inspector_steps) > 0, "Expected inspector step(s) after response_generator" 
 
     assert (inspector_steps[-1].get("action") or "").lower() == "abort", (
         f"Expected abort, got {inspector_steps[-1].get('action')}"
-    )
+    )+ str(inspector_steps)
 
 
 def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_tracker):
+def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
 
@@ -207,6 +231,7 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_trac
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
     resource_tracker.append(team_agent)
+    resource_tracker.append(team_agent)
     team_agent.save()
 
     response, steps = _run_and_get_steps(team_agent, "Write a short customer service reply.")
@@ -217,7 +242,7 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_trac
     assert len(rg_steps) == 2
     rg_idx = steps.index(rg_steps[0])
 
-    inspector_steps = [s for s in steps[rg_idx + 1 :] if (s.get("agent") or {}).get("id", "").lower() == "inspector"]
+    inspector_steps = [s for s in steps[rg_idx + 1 :] if _is_inspector_step(s)]
     assert inspector_steps, "Expected inspector steps after response_generator"
 
     assert any((s.get("action") or "").lower() == "rerun" for s in inspector_steps), (
@@ -226,8 +251,11 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_trac
 
 
 def test_edit_steps_always_runs(client, run_input_map, resource_tracker):
+def test_edit_steps_always_runs(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
 
@@ -247,6 +275,7 @@ def test_edit_steps_always_runs(client, run_input_map, resource_tracker):
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
+    resource_tracker.append(team_agent)
     resource_tracker.append(team_agent)
     team_agent.save()
 
@@ -270,8 +299,11 @@ def edit_fn(text: str) -> str:
 
 
 def test_edit_with_gate_true(client, run_input_map, resource_tracker):
+def test_edit_with_gate_true(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
 
@@ -292,12 +324,13 @@ def test_edit_with_gate_true(client, run_input_map, resource_tracker):
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
     resource_tracker.append(team_agent)
+    resource_tracker.append(team_agent)
     team_agent.save()
 
-    response, _ = _run_and_get_steps(team_agent, "DETAILED: Translate 'Hello' to Portuguese.")
+    response, steps = _run_and_get_steps(team_agent, "DETAILED: Translate 'Hello' to Portuguese.")
 
     out = (getattr(response.data, "output", "") or "").lower()
-    assert "paris" in out
+    assert "paris" in out, steps
 
 
 def edit_fn(text: str) -> str:
@@ -309,8 +342,11 @@ def evaluator_fn(text: str) -> bool:
 
 
 def test_edit_with_gate_false(client, run_input_map, resource_tracker):
+def test_edit_with_gate_false(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
 
@@ -330,6 +366,7 @@ def test_edit_with_gate_false(client, run_input_map, resource_tracker):
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
+    resource_tracker.append(team_agent)
     resource_tracker.append(team_agent)
     team_agent.save()
 

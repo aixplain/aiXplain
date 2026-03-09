@@ -50,7 +50,7 @@ model (LLM) with specialized tools to provide comprehensive task-solving capabil
   Defaults to &quot;&quot;.
 - `instructions` _Text_ - System instructions/prompt defining the Agent&#x27;s behavior.
 - `llm_id` _Text_ - ID of the large language model. Defaults to GPT-4o
-  (6646261c6eb563165658bbb1).
+  (6895d6d1d50c89537c1cf237).
 - `llm` _Optional[LLM]_ - The LLM instance used by the Agent.
 - `supplier` _Text_ - The provider/creator of the Agent.
 - `version` _Text_ - Version identifier of the Agent.
@@ -72,7 +72,7 @@ def __init__(id: Text,
              description: Text,
              instructions: Optional[Text] = None,
              tools: List[Union[Tool, Model]] = [],
-             llm_id: Text = "6646261c6eb563165658bbb1",
+             llm_id: Text = "6895d6d1d50c89537c1cf237",
              llm: Optional[LLM] = None,
              api_key: Optional[Text] = config.TEAM_API_KEY,
              supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -100,7 +100,7 @@ Initialize a new Agent instance.
 - `tools` _List[Union[Tool, Model]], optional_ - Collection of tools and models
   the Agent can use. Defaults to empty list.
 - `llm_id` _Text, optional_ - ID of the large language model. Defaults to GPT-4o
-  (6646261c6eb563165658bbb1).
+  (6895d6d1d50c89537c1cf237).
 - `llm` _Optional[LLM], optional_ - The LLM instance to use. If provided, takes
   precedence over llm_id. Defaults to None.
 - `api_key` _Optional[Text], optional_ - Authentication key for API access.
@@ -136,12 +136,12 @@ If validation fails, it can either raise an exception or log warnings.
 
 - `raise_exception` _bool, optional_ - Whether to raise exceptions on validation
   failures. If False, failures are logged as warnings. Defaults to False.
-  
+
 
 **Returns**:
 
 - `bool` - True if validation passed, False otherwise.
-  
+
 
 **Raises**:
 
@@ -160,7 +160,7 @@ Generate a unique session ID for agent conversations.
 **Arguments**:
 
 - `history` _list, optional_ - Previous conversation history. Defaults to None.
-  
+
 
 **Returns**:
 
@@ -180,7 +180,7 @@ Override poll to normalize progress data from camelCase to snake_case.
 
 - `poll_url` _Text_ - URL to poll for operation status.
 - `name` _Text, optional_ - Identifier for the operation. Defaults to &quot;model_process&quot;.
-  
+
 
 **Returns**:
 
@@ -208,7 +208,7 @@ Poll the platform until agent execution completes or times out.
 - `wait_time` _float, optional_ - Initial wait time in seconds between polls. Defaults to 0.5.
 - `timeout` _float, optional_ - Maximum total time to poll in seconds. Defaults to 300.
 - `progress_verbosity` _Optional[str], optional_ - Progress display mode - &quot;full&quot; (detailed), &quot;compact&quot; (brief), or None (no progress). Defaults to &quot;compact&quot;.
-  
+
 
 **Returns**:
 
@@ -255,7 +255,7 @@ Runs an agent call.
 - `query`2 _Optional[str], optional_ - Progress display mode - &quot;full&quot; (detailed), &quot;compact&quot; (brief), or None (no progress). Defaults to &quot;compact&quot;.
 - `query`3 _bool, optional_ - Whether to run response generation. Defaults to True.
 - `query`4 - Additional keyword arguments.
-  
+
 
 **Returns**:
 
@@ -301,7 +301,7 @@ Runs asynchronously an agent call.
 - `query`2 _Union[Dict[str, Any], EvolveParam, None], optional_ - evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
 - `query`3 _bool, optional_ - return the request id for tracing the request. Defaults to False.
 - `query`4 _bool, optional_ - Whether to run response generation. Defaults to True.
-  
+
 
 **Returns**:
 
@@ -335,7 +335,7 @@ Create an Agent instance from a dictionary representation.
 **Arguments**:
 
 - `data` - Dictionary containing Agent parameters
-  
+
 
 **Returns**:
 
@@ -379,7 +379,7 @@ in favor of the save() method.
 
 - `Exception` - If validation fails or if there are errors during the update.
 - `DeprecationWarning` - This method is deprecated, use save() instead.
-  
+
 
 **Notes**:
 
@@ -440,7 +440,7 @@ Asynchronously evolve the Agent and return a polling URL in the AgentResponse.
 - `max_iterations` _int_ - Maximum number of iterations. Defaults to 50.
 - `max_non_improving_generations` _Optional[int]_ - Stop condition parameter for non-improving generations. Defaults to 2, can be None.
 - `llm` _Optional[Union[Text, LLM]]_ - LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
-  
+
 
 **Returns**:
 
@@ -469,9 +469,8 @@ Synchronously evolve the Agent and poll for the result.
 - `max_iterations` _int_ - Maximum number of iterations. Defaults to 50.
 - `max_non_improving_generations` _Optional[int]_ - Stop condition parameter for non-improving generations. Defaults to 2, can be None.
 - `llm` _Optional[Union[Text, LLM]]_ - LLM to use for evolution. Can be an LLM ID string or LLM object. Defaults to None.
-  
+
 
 **Returns**:
 
 - `AgentResponse` - Final response from the evolution process.
-

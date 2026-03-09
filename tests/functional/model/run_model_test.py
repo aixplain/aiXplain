@@ -46,7 +46,6 @@ def pytest_generate_tests(metafunc):
 
 def test_llm_run(llm_model):
     """Testing LLMs with history context"""
-
     assert isinstance(llm_model, LLM)
     response = llm_model.run(
         data="What is my name?",
@@ -64,7 +63,7 @@ def test_llm_run_stream():
     from aixplain.modules.model.response import ModelResponse, ResponseStatus
     from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
 
-    llm_model = ModelFactory.get("669a63646eb56306647e1091")
+    llm_model = ModelFactory.get("6895d6d1d50c89537c1cf237")
 
     assert isinstance(llm_model, LLM)
     response = llm_model.run(
@@ -225,7 +224,6 @@ def test_index_model_with_filter(embedding_model, supplier_params):
 
 def test_llm_run_with_file():
     """Testing LLM with local file input containing emoji"""
-
     # Create test file path
     test_file_path = Path(__file__).parent / "data" / "test_input.txt"
 
@@ -480,7 +478,7 @@ def test_index_model_with_pdf_file_link():
         assert str(response.status) == "SUCCESS"
         assert len(response.data) > 0
 
-        records = [resp['data'].lower() for resp in response.details]
+        records = [resp["data"].lower() for resp in response.details]
         assert any("document" in record for record in records)
 
         # Verify count
@@ -607,3 +605,15 @@ def test_delete_records_by_date(setup_index_with_test_records):
     response = index_model.retrieve_records_with_filter(filter_all)
     assert response.status == "SUCCESS"
     assert len(response.details) == 2
+
+
+def test_index_model_with_score_threshold(setup_index_with_test_records):
+    """Testing Index Model with score threshold"""
+    index_model = setup_index_with_test_records
+    response = index_model.search("technology", score_threshold=0.0)
+    assert response.status == "SUCCESS"
+    assert len(response.details) == 5
+
+    response = index_model.search("technology", score_threshold=1.0)
+    assert response.status == "SUCCESS"
+    assert len(response.details) == 0
