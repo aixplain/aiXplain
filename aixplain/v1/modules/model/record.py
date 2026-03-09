@@ -71,3 +71,4 @@ class Record:
             if is_supported_image_type(self.uri):
                 self.value_type = DataType.IMAGE
             self.uri = FileFactory.to_link(self.uri) if storage_type == StorageType.FILE else self.uri
+            self.uri = FileFactory.to_link(self.uri) if storage_type == StorageType.FILE else self.uri
