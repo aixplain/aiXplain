@@ -184,11 +184,11 @@ def test_output_inspector_abort(client, run_input_map, resource_tracker):
     response_generator_index = steps.index(response_generator_steps[0])
 
     inspector_steps = [s for s in steps[response_generator_index + 1 :] if _is_inspector_step(s)]
-    assert len(inspector_steps) > 0, "Expected inspector step(s) after response_generator" 
+    assert len(inspector_steps) > 0, "Expected inspector step(s) after response_generator"
 
     assert (inspector_steps[-1].get("action") or "").lower() == "abort", (
         f"Expected abort, got {inspector_steps[-1].get('action')}"
-    )+ str(inspector_steps)
+    ) + str(inspector_steps)
 
 
 def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_tracker):
