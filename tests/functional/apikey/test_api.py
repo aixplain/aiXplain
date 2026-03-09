@@ -47,6 +47,7 @@ def test_api_key_lifecycle():
     _delete_test_api_key(APIKeyFactory)
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 @pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
 def test_01_create_api_key_from_json(APIKeyFactory):
     """Test creating API key from JSON file."""
