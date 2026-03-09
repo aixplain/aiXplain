@@ -46,7 +46,7 @@ Script integration
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L49)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L50)
 
 Initialize tool after dataclass creation.
 
@@ -59,7 +59,7 @@ Validates integration type if provided.
 def list_actions() -> List[Action]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L112)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L107)
 
 List available actions for the tool.
 
@@ -76,7 +76,7 @@ Overrides parent method to add fallback to base integration.
 def list_inputs(*actions: str) -> List["Action"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L133)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L126)
 
 List available inputs for specified actions.
 
@@ -98,17 +98,20 @@ Overrides parent method to add fallback to base integration.
 def validate_allowed_actions() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L219)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L211)
 
 Validate that all allowed actions are available for this tool.
 
 Checks that:
-- Integration is available
+- Integration is available (attempts lazy resolution)
 - All actions in allowed_actions list exist in the integration
+
+Skips validation gracefully when integration cannot be resolved
+(e.g. tools fetched via search/get without integration data).
 
 **Raises**:
 
-- `AssertionError` - If validation fails.
+- `AssertionError` - If integration is available but actions don&#x27;t match.
 
 #### get\_parameters
 
@@ -116,7 +119,7 @@ Checks that:
 def get_parameters() -> List[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L242)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L238)
 
 Get parameters for the tool in the format expected by agent saving.
 
@@ -124,13 +127,33 @@ This method includes both static backend values and dynamically set values
 from the ActionInputsProxy instances, ensuring agents get the current
 configured action inputs.
 
+#### as\_tool
+
+```python
+def as_tool() -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L300)
+
+Serialize this tool for agent creation.
+
+This method extends the base Model.as_tool() to include tool-specific
+fields like actions, which tells the backend which actions
+the agent is permitted to use.
+
+**Returns**:
+
+- `dict` - A dictionary representing this tool with:
+  - All fields from Model.as_tool()
+  - actions: Explicit list of actions (filtered to allowed only)
+
 #### run
 
 ```python
 def run(*args: Any, **kwargs: Unpack[ModelRunParams]) -> ToolResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L366)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L373)
 
 Run the tool.
 

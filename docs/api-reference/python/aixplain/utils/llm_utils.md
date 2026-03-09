@@ -3,6 +3,8 @@ sidebar_label: llm_utils
 title: aixplain.utils.llm_utils
 ---
 
+Utils for LLM operations.
+
 #### get\_llm\_instance
 
 ```python
@@ -11,7 +13,7 @@ def get_llm_instance(llm_id: Text,
                      use_cache: bool = True) -> LLM
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/llm_utils.py#L6)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/llm_utils.py#L8)
 
 Get an LLM instance with specific configuration.
 

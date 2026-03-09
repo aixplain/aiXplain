@@ -191,13 +191,47 @@ class CodeInterpreterModel(str, Enum)
 
 Code interpreter models.
 
+### DataType Objects
+
+```python
+class DataType(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L202)
+
+Enumeration of supported data types in the aiXplain system.
+
+**Attributes**:
+
+- `AUDIO` - Audio data type.
+- `FLOAT` - Floating-point number data type.
+- `IMAGE` - Image data type.
+- `INTEGER` - Integer number data type.
+- `LABEL` - Label/category data type.
+- `TENSOR` - Tensor/multi-dimensional array data type.
+- `TEXT` - Text data type.
+- `VIDEO` - Video data type.
+- `EMBEDDING` - Vector embedding data type.
+- `NUMBER` - Generic number data type.
+- `FLOAT`0 - Boolean data type.
+
+#### \_\_str\_\_
+
+```python
+def __str__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L231)
+
+Return the string representation of the data type.
+
 ### SplittingOptions Objects
 
 ```python
 class SplittingOptions(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L202)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L236)
 
 Enumeration of possible splitting options for text chunking.
 
