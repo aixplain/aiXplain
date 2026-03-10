@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import warnings
 from typing import Union, List, Optional, Any, TYPE_CHECKING, Iterator
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
@@ -390,11 +391,27 @@ class InputsProxy:
         return {name: info["value"] for name, info in self._dynamic_attrs.items()}
 
     def has_parameter(self, param_name: str) -> bool:
-        """Check if a parameter exists."""
+        """Check if a parameter exists.
+
+        .. deprecated:: Use ``'param_name' in inputs`` instead.
+        """
+        warnings.warn(
+            "has_parameter() is deprecated. Use 'param_name' in inputs instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return param_name in self._dynamic_attrs
 
     def get_parameter_names(self) -> list:
-        """Get a list of all available parameter names."""
+        """Get a list of all available parameter names.
+
+        .. deprecated:: Use ``inputs.keys()`` instead.
+        """
+        warnings.warn(
+            "get_parameter_names() is deprecated. Use inputs.keys() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return list(self._dynamic_attrs.keys())
 
     def get_required_parameters(self) -> list:
@@ -408,7 +425,15 @@ class InputsProxy:
         return None
 
     def get_all_parameters(self) -> dict:
-        """Get all current parameter values."""
+        """Get all current parameter values.
+
+        .. deprecated:: Use ``dict(inputs.items())`` instead.
+        """
+        warnings.warn(
+            "get_all_parameters() is deprecated. Use dict(inputs.items()) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return {name: info["value"] for name, info in self._dynamic_attrs.items()}
 
     def reset_parameter(self, param_name: str):
@@ -469,8 +494,7 @@ class InputsProxy:
 
     def __repr__(self):
         """Return string representation of InputsProxy."""
-        params = self.get_all_parameters()
-        return f"InputsProxy({params})"
+        return f"InputsProxy({dict(self.items())})"
 
 
 def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]:
@@ -978,7 +1002,7 @@ class Model(
             Dictionary with all parameters, including dynamic attributes
         """
         # Start with current dynamic attribute values
-        merged = self.inputs.get_all_parameters()
+        merged = dict(self.inputs.items())
 
         # Override with explicitly provided parameters
         merged.update(kwargs)

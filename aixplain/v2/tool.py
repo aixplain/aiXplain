@@ -123,30 +123,38 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
             return []
 
-    def list_inputs(self, *actions: str) -> List["Action"]:
-        """List available inputs for specified actions.
+    def _list_inputs(self, *actions: str) -> List["Action"]:
+        """List available inputs for specified actions (internal).
 
-        Overrides parent method to add fallback to base integration.
-
-        Args:
-            *actions: Variable number of action names to get inputs for.
-
-        Returns:
-            List of Action objects with their input specifications. Falls back to
-            integration's list_inputs() if tool's own method fails.
+        Overrides parent to add fallback to base integration when the tool's
+        own endpoint cannot return input specs.
         """
         try:
-            inputs = super().list_inputs(*actions)
-            return inputs
+            return super()._list_inputs(*actions)
         except Exception as e:
-            warnings.warn(f"Error listing inputs: {e}. Using integration.list_inputs() instead.")
+            warnings.warn(f"Error listing inputs: {e}. Using integration._list_inputs() instead.")
             if self._ensure_integration():
                 try:
-                    return self.integration.list_inputs(*actions)
+                    return self.integration._list_inputs(*actions)
                 except Exception:
                     pass
 
             return []
+
+    def list_inputs(self, *actions: str) -> List["Action"]:
+        """List available inputs for specified actions.
+
+        .. deprecated::
+            Use ``tool.actions['action_name']`` to discover and configure
+            action inputs instead.
+        """
+        warnings.warn(
+            "list_inputs() is deprecated. Use tool.actions['action_name'] to "
+            "discover and configure action inputs instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._list_inputs(*actions)
 
     def _create(self, resource_path: str, payload: dict) -> None:
         """Create the tool by connecting to the integration."""
@@ -247,7 +255,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         parameters = []
 
         # Get all actions at once to avoid multiple API calls
-        actions = self.list_inputs(*self.allowed_actions)
+        actions = self._list_inputs(*self.allowed_actions)
 
         for action in actions:
             # Convert action inputs to the expected parameter format
