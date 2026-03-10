@@ -218,15 +218,15 @@ class TestBuildRunPayload:
         )
         assert payload["executionParams"]["maxTokens"] == 100
 
-    def test_run_response_generation_default_true(self):
+    def test_run_response_generation_default_false(self):
         agent = self._make_agent()
         payload = agent.build_run_payload(query="hello")
-        assert payload["runResponseGeneration"] is True
-
-    def test_run_response_generation_false(self):
-        agent = self._make_agent()
-        payload = agent.build_run_payload(query="hello", run_response_generation=False)
         assert payload["runResponseGeneration"] is False
+
+    def test_run_response_generation_true(self):
+        agent = self._make_agent()
+        payload = agent.build_run_payload(query="hello", run_response_generation=True)
+        assert payload["runResponseGeneration"] is True
 
 
 # =============================================================================
