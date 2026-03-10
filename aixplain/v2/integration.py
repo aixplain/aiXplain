@@ -198,7 +198,7 @@ class Input:
     default_value: List[Any] = field(default_factory=list, metadata=config(field_name="defaultValue"))
     required: bool = False
     fixed: bool = False
-    description: str = ""
+    description: Optional[str] = ""
 
 
 @dataclass_json
