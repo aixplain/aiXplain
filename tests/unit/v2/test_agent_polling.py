@@ -138,6 +138,13 @@ class TestAgentResolvePollUrl:
         assert resolved == f"{BACKEND_URL}/sdk/agents/exec-id-1/result"
         assert "//" not in resolved.replace("https://", "")
 
+    def test_empty_poll_url_raises(self):
+        """Empty poll_url should raise ValueError (would produce sdk/agents//result)."""
+        agent = _create_agent()
+
+        with pytest.raises(ValueError, match="poll_url must be a full URL or non-empty execution ID"):
+            agent._resolve_poll_url("")
+
 
 class TestAgentPollWithExecutionId:
     """Tests for Agent.poll() accepting execution IDs."""

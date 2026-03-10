@@ -1,6 +1,9 @@
+import re
+
 import pytest
 import time
 from aixplain.enums import AssetStatus, ResponseStatus
+from aixplain.v2.exceptions import APIError
 
 
 @pytest.fixture(scope="module")
@@ -182,6 +185,45 @@ def test_agent_run_structure(client, test_agent):
             pytest.fail(f"Agent execution failed: {response.error_message}")
         else:
             pytest.fail(f"Agent execution failed with status: {response.status}")
+
+
+def test_run_async_poll_url_and_sdk_runs_404(client, test_agent):
+    """Validate issue: GET /sdk/runs/{execution_id} returns 404 for valid agent executions.
+
+    run_async returns result.url in format .../sdk/agents/{execution_id}/result.
+    That URL works for polling. But /sdk/runs/{execution_id} returns 404.
+    The SDK correctly uses result.url; this test documents the backend behavior.
+    """
+    agent = client.Agent.get(test_agent.id)
+
+    # Step 1: run_async returns result.url
+    result = agent.run_async(query="Respond with OK")
+    assert result.url, "run_async must return result.url for polling"
+    assert "/sdk/agents/" in result.url, f"Expected .../sdk/agents/... in result.url, got {result.url}"
+    assert "/result" in result.url, f"Expected .../result in result.url, got {result.url}"
+
+    # Extract execution_id from URL
+    match = re.search(r"/sdk/agents/([^/]+)/", result.url)
+    assert match, f"Could not extract execution_id from {result.url}"
+    execution_id = match.group(1)
+
+    # Step 2: GET result.url (sdk/agents/{id}/result) works
+    poll_result = agent.poll(result.url)
+    assert hasattr(poll_result, "status")
+    assert hasattr(poll_result, "completed")
+    assert poll_result.status in ("IN_PROGRESS", "SUCCESS", "FAILED")
+
+    # Step 3: GET /sdk/runs/{execution_id} returns 404 (backend limitation)
+    backend_url = agent.context.backend_url.rstrip("/")
+    runs_url = f"{backend_url}/sdk/runs/{execution_id}"
+    with pytest.raises(APIError) as exc_info:
+        agent.context.client.get(runs_url)
+    assert exc_info.value.status_code == 404, f"Expected 404 from /sdk/runs/{{id}}, got {exc_info.value.status_code}"
+
+    # Step 4: agent.poll(execution_id) works with bare ID (SDK constructs correct URL)
+    poll_by_id = agent.poll(execution_id)
+    assert hasattr(poll_by_id, "status")
+    assert poll_by_id.status in ("IN_PROGRESS", "SUCCESS", "FAILED")
 
 
 def _get_steps(response):

@@ -504,7 +504,11 @@ class Agent(
             **kwargs: Additional run parameters
 
         Returns:
-            AgentRunResult: The result of the agent execution
+            AgentRunResult: The result of the agent execution. Use ``result.url``
+                to poll for completion via ``sync_poll(result.url)`` or
+                ``client.get(result.url)``. Do not construct
+                ``/sdk/runs/{execution_id}`` — that endpoint is not supported
+                for agent runs.
         """
         if len(args) > 0:
             kwargs["query"] = args[0]
@@ -524,6 +528,8 @@ class Agent(
         which is *not* the generic ``/sdk/runs/{id}`` path but rather
         ``/sdk/agents/{id}/result``.
         """
+        if not poll_url:
+            raise ValueError("poll_url must be a full URL or non-empty execution ID")
         if poll_url.startswith(("http://", "https://")):
             return poll_url
         backend_url = self.context.backend_url.rstrip("/")
