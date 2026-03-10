@@ -1058,7 +1058,7 @@ class Model(
                 - function: The model's function type
                 - type: Always "model"
                 - version: The model's version
-                - assetId: The model's ID (same as id)
+                - asset_id: The model's ID (same as id)
 
         Example:
             >>> model = aix.Model.get("some-model-id")
@@ -1096,7 +1096,7 @@ class Model(
             "function": function_type,
             "type": "model",
             "version": version,
-            "assetId": self.id,
+            "asset_id": self.id,
         }
 
     def get_parameters(self) -> List[dict]:
@@ -1116,8 +1116,8 @@ class Model(
                             "value": param_value,
                             "required": param.required,
                             "datatype": param.data_type,
-                            "allowMulti": param.multiple_values,
-                            "supportsVariables": False,  # Default value
+                            "allow_multi": param.multiple_values,
+                            "supports_variables": False,
                             "fixed": param.is_fixed,
                             "description": "",  # Default empty description
                         }

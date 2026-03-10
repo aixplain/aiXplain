@@ -26,7 +26,7 @@ def _make_input(name, code, datatype, default_value=None, required=False):
         name=name,
         code=code,
         datatype=datatype,
-        defaultValue=default_list,
+        default_value=default_list,
         required=required,
     )
 
@@ -166,7 +166,7 @@ class TestExtractDefaultValue:
 
     def test_extract_non_dict_default_passthrough(self):
         """Non-dict default value should be returned as-is."""
-        inp = Input(name="Raw", code="raw", datatype="string", defaultValue=["literal_value"])
+        inp = Input(name="Raw", code="raw", datatype="string", default_value=["literal_value"])
         result = ActionInputsProxy._extract_default_value(inp)
         assert result == "literal_value"
 

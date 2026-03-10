@@ -303,7 +303,7 @@ def test_tool_as_tool_includes_actions(client):
     # Verify base fields are present
     assert "id" in tool_dict, "as_tool() should include 'id' field"
     assert "name" in tool_dict, "as_tool() should include 'name' field"
-    assert "assetId" in tool_dict, "as_tool() should include 'assetId' field"
+    assert "asset_id" in tool_dict, "as_tool() should include 'asset_id' field"
 
     # Verify actions is included (ensures backend uses filtered list)
     assert "actions" in tool_dict, "as_tool() should include 'actions' field when allowed_actions is set"

@@ -61,9 +61,9 @@ class ActionInputsProxy:
         ``{'label': '...', 'value': '10', 'providerValue': '10', ...}``.
         This method extracts the raw value and coerces it to the declared datatype.
         """
-        if not input_param.defaultValue:
+        if not input_param.default_value:
             return None
-        default = input_param.defaultValue[0]
+        default = input_param.default_value[0]
         if isinstance(default, dict):
             raw = default.get("value")
             return ActionInputsProxy._coerce_value(raw, input_param.datatype)
@@ -223,11 +223,11 @@ class Input:
     name: str
     code: Optional[str] = None
     value: List[Any] = field(default_factory=list)
-    availableOptions: List[Any] = field(default_factory=list)
+    available_options: List[Any] = field(default_factory=list, metadata=config(field_name="availableOptions"))
     datatype: str = "string"
-    allowMulti: bool = False
-    supportsVariables: bool = False
-    defaultValue: List[Any] = field(default_factory=list)
+    allow_multi: bool = field(default=False, metadata=config(field_name="allowMulti"))
+    supports_variables: bool = field(default=False, metadata=config(field_name="supportsVariables"))
+    default_value: List[Any] = field(default_factory=list, metadata=config(field_name="defaultValue"))
     required: bool = False
     fixed: bool = False
     description: str = ""
@@ -240,7 +240,7 @@ class Action:
 
     name: Optional[str] = None
     description: Optional[str] = None
-    displayName: Optional[str] = None
+    display_name: Optional[str] = field(default=None, metadata=config(field_name="displayName"))
     slug: Optional[str] = None
     available_versions: Optional[List[str]] = None
     version: Optional[str] = None
@@ -287,7 +287,7 @@ class ToolId:
     """Result for tool operations."""
 
     id: str
-    redirectURL: Optional[str] = None
+    redirect_url: Optional[str] = field(default=None, metadata=config(field_name="redirectURL"))
 
 
 @dataclass_json
@@ -571,10 +571,10 @@ class Integration(Model, ActionMixin):
         """
         response = self.run(**kwargs)
         tool = self.context.Tool.get(response.data.id)
-        if response.data.redirectURL:
-            tool.redirect_url = response.data.redirectURL
+        if response.data.redirect_url:
+            tool.redirect_url = response.data.redirect_url
             warnings.warn(
-                f"Before using the tool, please visit the following URL to complete the connection: {response.data.redirectURL}"
+                f"Before using the tool, please visit the following URL to complete the connection: {response.data.redirect_url}"
             )
         return tool
 
