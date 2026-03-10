@@ -311,6 +311,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """
         # Get the base serialization from Model
         tool_dict = super().as_tool()
+        tool_dict["type"] = "tool"
+
 
         # Add tool-specific fields
         if self.allowed_actions:
