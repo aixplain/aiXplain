@@ -126,7 +126,7 @@ class AgentRunParams(BaseRunParams):
         criteria: Criteria for evaluation
         evolve: Evolution parameters
         inspectors: Inspector configurations
-        run_response_generation: Whether to run response generation. Defaults to True.
+        run_response_generation: Whether to run response generation. Defaults to False.
         progress_format: Display format - "status" (single line) or "logs" (timeline).
                         If None (default), progress tracking is disabled.
         progress_verbosity: Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
@@ -928,8 +928,8 @@ class Agent(
         elif isinstance(expected_output, BaseModel):
             execution_params["expectedOutput"] = expected_output.model_dump()
 
-        # Handle run_response_generation with default value of True
-        run_response_generation = kwargs.pop("run_response_generation", True)
+        # Handle run_response_generation with default value of False
+        run_response_generation = kwargs.pop("run_response_generation", False)
 
         # Process variables for instruction/description placeholders (sent to backend for substitution)
         variables = kwargs.pop("variables", None) or {}
