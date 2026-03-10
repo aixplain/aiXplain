@@ -1308,7 +1308,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """Keep polling until an asynchronous operation is complete.
 
         Args:
-            poll_url: URL to poll for results
+            poll_url: URL to poll for results. Must be the exact URL returned
+                by run_async (e.g. result.url). Do not use a constructed
+                /sdk/runs/{id} URL — that endpoint is not supported for
+                agent runs.
             **kwargs: Run parameters including timeout and wait_time
 
         Returns:
