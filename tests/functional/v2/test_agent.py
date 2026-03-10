@@ -204,12 +204,12 @@ def test_run_response_generation(client, test_agent):
     """Test that runResponseGeneration controls presence of response_generator step."""
     agent = client.Agent.get(test_agent.id)
 
-    # Default (True): response_generator step should be present
+    # Default (False): response_generator step should NOT be present
     response_default = agent.run("Say hello")
     assert response_default.status == "SUCCESS", f"Default run failed: {response_default.status}"
     steps_default = _get_steps(response_default)
-    assert _has_response_generator(steps_default), (
-        f"Expected response_generator step with default (True), got agent ids: "
+    assert not _has_response_generator(steps_default), (
+        f"Expected no response_generator step with default (False), got agent ids: "
         f"{[((s.get('agent') or {}).get('id') or '') for s in steps_default]}"
     )
 
