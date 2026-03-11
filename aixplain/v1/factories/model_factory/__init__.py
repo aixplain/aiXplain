@@ -34,7 +34,7 @@ from urllib.parse import urljoin
 from aixplain.factories.model_factory.mixins import ModelGetterMixin, ModelListMixin
 from typing import Callable, Dict, List, Optional, Text, Union
 from aixplain.modules.model.integration import AuthenticationSchema
-
+from aixplain.modules.model.rlm import RLM
 
 class ModelFactory(ModelGetterMixin, ModelListMixin):
     """Factory class for creating, managing, and exploring models.
@@ -406,6 +406,84 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         else:
             message = "An error has occurred. Please make sure your model_id is valid and your host_machine, if set, is a valid option from the LIST_GPUS function."
         return response
+
+    @classmethod
+    def create_rlm(
+        cls,
+        orchestrator_model_id: Text,
+        worker_model_id: Text,
+        name: Text = "RLM",
+        description: Text = "Recursive Language Model for long-context analysis.",
+        max_iterations: int = 10,
+        api_key: Optional[Text] = None,
+    ) -> RLM:
+        import uuid
+        """Create an RLM (Recursive Language Model) instance for long-context analysis.
+
+        RLM overcomes LLM context window limits by giving a powerful orchestrator
+        model a Python REPL environment pre-loaded with the user's context. The
+        orchestrator writes code to chunk and explore the data, delegating
+        per-chunk analysis to a lighter worker model via ``llm_query()`` calls.
+
+        Args:
+            orchestrator_model_id (Text): aiXplain model ID of the root LLM that
+                plans and writes REPL code. Use a powerful, reasoning-capable model.
+            worker_model_id (Text): aiXplain model ID of the sub-LLM called inside
+                the REPL for per-chunk analysis. A fast, cost-efficient model is
+                recommended as it may be invoked many times per run.
+            name (Text, optional): Display name for the RLM instance.
+                Defaults to ``"RLM"``.
+            description (Text, optional): Description of this RLM instance.
+                Defaults to a generic string.
+            max_iterations (int, optional): Maximum orchestrator loop iterations
+                before a forced final answer is requested. Defaults to 10.
+            api_key (Optional[Text], optional): API key for model lookups.
+                Defaults to ``config.TEAM_API_KEY``.
+
+        Returns:
+            RLM: A configured RLM instance ready to call ``run()``.
+
+        Raises:
+            Exception: If either model ID cannot be fetched from the platform.
+
+        Example::
+
+            from aixplain.factories import ModelFactory
+
+            rlm = ModelFactory.create_rlm(
+                orchestrator_model_id="<powerful-model-id>",
+                worker_model_id="<fast-cheap-model-id>",
+                max_iterations=10,
+            )
+            response = rlm.run(data={
+                "context": very_long_document,
+                "query": "What are the key findings?",
+            })
+            print(response.data)
+            print(f"Done in {response['iterations_used']} iterations.")
+        """
+        resolved_api_key = api_key or config.TEAM_API_KEY
+
+        logging.info(f"RLM Creation: fetching orchestrator model '{orchestrator_model_id}'.")
+        orchestrator = cls.get(orchestrator_model_id, api_key=resolved_api_key)
+
+        logging.info(f"RLM Creation: fetching worker model '{worker_model_id}'.")
+        worker = cls.get(worker_model_id, api_key=resolved_api_key)
+
+        rlm = RLM(
+            id=str(uuid.uuid4()),
+            name=name,
+            description=description,
+            orchestrator=orchestrator,
+            worker=worker,
+            max_iterations=max_iterations,
+            api_key=resolved_api_key,
+        )
+        logging.info(
+            f"RLM Creation: instance created — orchestrator='{orchestrator.name}', "
+            f"worker='{worker.name}', max_iterations={max_iterations}."
+        )
+        return rlm
 
     @classmethod
     def deploy_huggingface_model(
