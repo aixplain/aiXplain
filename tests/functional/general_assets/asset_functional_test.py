@@ -108,7 +108,7 @@ def test_model_supplier(ModelFactory):
     [
         (
             ("67be216bd8f6a65d6f74d5e9", "6895d6d1d50c89537c1cf237"),
-            ("Anthropic Claude 3.7 Sonnet", "GPT-5 Mini"),
+            ("Claude 3.7 Sonnet", "GPT-5 Mini"),
         ),
     ],
 )
