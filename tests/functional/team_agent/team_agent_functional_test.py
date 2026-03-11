@@ -47,6 +47,8 @@ def resource_tracker():
             resource.delete()
         except Exception:
             pass
+
+
 @pytest.fixture
 def resource_tracker():
     """Tracks resources created during a test for guaranteed cleanup."""
@@ -152,9 +154,7 @@ def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
     )
 
     text_gen_agent_name = f"TGA {str(uuid4())[:8]}"
-    text_gen_agent_name = f"TGA {str(uuid4())[:8]}"
     text_gen_agent = AgentFactory.create(
-        name=text_gen_agent_name,
         name=text_gen_agent_name,
         description="Agent for text generation",
         instructions="Generate creative text based on input",
@@ -167,7 +167,6 @@ def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
     # Create team agent with both agents (in DRAFT state)
     team_agent_name = f"MFT {str(uuid4())[:8]}"
     team_agent = TeamAgentFactory.create(
-        name=team_agent_name,
         name=team_agent_name,
         description="Team that can translate and generate text",
         agents=[translation_agent, text_gen_agent],
@@ -256,11 +255,9 @@ def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, Team
     assert len(team_agent.agents) == len(agents)
 
 
-
 def test_team_agent_tasks(resource_tracker):
     agent_name = f"TSA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name=agent_name,
         name=agent_name,
         description="You are a test agent that always returns the same answer",
         tools=[
@@ -483,9 +480,7 @@ def test_run_team_agent_with_expected_output(resource_tracker):
 +-----------------+-------+----------------+"""
 
     agent_name = f"TA {str(uuid4())[:8]}"
-    agent_name = f"TA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
-        name=agent_name,
         name=agent_name,
         description="Test description",
         instructions=INSTRUCTIONS,
