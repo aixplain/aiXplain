@@ -36,7 +36,7 @@ class ActionInputsProxy:
 
     def _fetch_action_inputs(self):
         """Fetch action input specifications from the backend."""
-        actions = self._container.list_inputs(self._action_name)
+        actions = self._container._list_inputs(self._action_name)
 
         if not actions:
             raise ValueError(f"Action '{self._action_name}' not found or has no input parameters defined.")
@@ -162,9 +162,24 @@ class ActionInputsProxy:
         self._ensure_inputs_fetched()
         return [(name, info["value"]) for name, info in self._inputs.items()]
 
-    # Remove redundant wrapper methods - these just duplicate existing functionality
-    # def get_input_codes(self) -> list:  # Just calls self.keys()
-    # def get_all_inputs(self) -> dict:  # Just calls dict(self.items())
+    def get_required_parameters(self) -> list:
+        """Get a list of required input parameter codes."""
+        self._ensure_inputs_fetched()
+        return [name for name, info in self._inputs.items() if info["input"] and info["input"].required]
+
+    def get_parameter_info(self, param_name: str):
+        """Get information about a specific input parameter."""
+        self._ensure_inputs_fetched()
+        if param_name in self._inputs:
+            info = self._inputs[param_name]
+            input_param = info["input"]
+            return {
+                "value": info["value"],
+                "required": input_param.required if input_param else False,
+                "datatype": input_param.datatype if input_param else None,
+                "description": input_param.description if input_param else "",
+            }
+        return None
 
     def reset_input(self, input_code: str):
         """Reset an input parameter to its backend default value."""
@@ -224,18 +239,14 @@ class Action:
     def __repr__(self) -> str:
         """Return a string representation showing name and input parameters."""
         name_str = self.name or self.slug or "Unknown"
+        parts = [f"name='{name_str}'"]
 
-        # Show input_parameters if available, otherwise show inputs summary
-        if self.input_parameters:
-            input_params_str = str(self.input_parameters)
-        elif self.inputs:
-            # Create a summary of input names
-            input_names = [inp.name for inp in self.inputs if inp.name]
-            input_params_str = f"[{', '.join(input_names)}]" if input_names else "[]"
-        else:
-            input_params_str = "[]"
+        if self.inputs:
+            input_codes = [inp.code or inp.name for inp in self.inputs if inp.code or inp.name]
+            if input_codes:
+                parts.append(f"inputs=[{', '.join(input_codes)}]")
 
-        return f"Action(name='{name_str}', input_parameters={input_params_str})"
+        return f"Action({', '.join(parts)})"
 
     def get_inputs_proxy(self, container) -> ActionInputsProxy:
         """Get an ActionInputsProxy for this action from a container.
@@ -308,8 +319,12 @@ class ActionMixin:
 
         return actions
 
-    def list_inputs(self, *actions: str) -> List[Action]:
-        """List available inputs for the integration."""
+    def _list_inputs(self, *actions: str) -> List[Action]:
+        """List available inputs for the integration (internal).
+
+        This is the internal implementation. Use ``tool.actions['name']`` to
+        discover and configure action inputs interactively.
+        """
         run_url = self.build_run_url()
         response = self.context.client.request(
             "post",
@@ -317,7 +332,6 @@ class ActionMixin:
             json={"action": "LIST_INPUTS", "data": {"actions": actions}},
         )
 
-        # Handle the response data
         if "data" not in response:
             return []
 
@@ -325,12 +339,27 @@ class ActionMixin:
         if not isinstance(data, list):
             return []
 
-        actions = []
+        result = []
         for input_data in data:
             if isinstance(input_data, dict):
-                actions.append(Action.from_dict(input_data))
+                result.append(Action.from_dict(input_data))
 
-        return actions
+        return result
+
+    def list_inputs(self, *actions: str) -> List[Action]:
+        """List available inputs for the integration.
+
+        .. deprecated::
+            Use ``tool.actions['action_name']`` to discover and configure
+            action inputs instead.
+        """
+        warnings.warn(
+            "list_inputs() is deprecated. Use tool.actions['action_name'] to "
+            "discover and configure action inputs instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._list_inputs(*actions)
 
     @cached_property
     def actions(self):
