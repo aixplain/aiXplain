@@ -5,7 +5,6 @@ dataclasses, serialization, CRUD operations, and the MIME-to-AttachmentType
 mapping — all with mocked HTTP calls.
 """
 
-import warnings
 from unittest.mock import Mock, patch, call
 
 import pytest
@@ -974,25 +973,6 @@ class TestAgentListSessions:
 
         with pytest.raises(ValueError, match="must be saved"):
             agent.list_sessions()
-
-
-class TestAgentGenerateSessionIdDeprecation:
-    """Tests that generate_session_id() emits a deprecation warning."""
-
-    def test_deprecation_warning_emitted(self):
-        ctx = _make_mock_context()
-        BoundAgent = _bound_agent_class(ctx)
-        agent = BoundAgent(id="agent_99", name="Test Agent")
-
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            try:
-                agent.generate_session_id()
-            except Exception:
-                pass  # Will fail on HTTP call, but warning should fire first
-            dep = [x for x in w if issubclass(x.category, DeprecationWarning)]
-            assert len(dep) == 1
-            assert "create_session" in str(dep[0].message)
 
 
 # =========================================================================

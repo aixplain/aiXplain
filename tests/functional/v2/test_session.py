@@ -9,7 +9,6 @@ A test agent is created once per module and cleaned up afterwards.
 import os
 import tempfile
 import time
-import warnings
 
 import pytest
 
@@ -346,24 +345,3 @@ class TestSessionErrors:
             session.delete()
         except Exception:
             pass
-
-
-# ---------------------------------------------------------------------------
-# Deprecation
-# ---------------------------------------------------------------------------
-
-
-class TestDeprecation:
-    """Test that deprecated methods emit warnings."""
-
-    def test_generate_session_id_emits_deprecation_warning(self, test_agent):
-        """generate_session_id() should emit a DeprecationWarning."""
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            try:
-                test_agent.generate_session_id()
-            except Exception:
-                pass
-            dep = [x for x in w if issubclass(x.category, DeprecationWarning)]
-            assert len(dep) >= 1
-            assert "create_session" in str(dep[0].message)

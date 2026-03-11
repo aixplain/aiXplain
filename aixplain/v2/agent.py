@@ -3,7 +3,6 @@
 import json
 import logging
 import re
-import warnings
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
@@ -973,85 +972,6 @@ class Agent(
                 payload[api_key] = value
 
         return payload
-
-    def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
-        """Generate a unique session ID for agent conversations.
-
-        Creates a unique session identifier based on the agent ID and current timestamp.
-        If conversation history is provided, it attempts to initialize the session on the
-        server to enable context-aware conversations.
-
-        Args:
-            history: Previous conversation history. Each message should contain
-                'role' (either 'user' or 'assistant') and 'content' keys.
-                Defaults to None.
-
-        Returns:
-            str: A unique session identifier in the format "{agent_id}_{timestamp}".
-
-        Raises:
-            ValueError: If the history format is invalid.
-
-        Example:
-            >>> agent = Agent.get("my_agent_id")
-            >>> session_id = agent.generate_session_id()
-            >>> # Or with history
-            >>> history = [
-            ...     {"role": "user", "content": "Hello"},
-            ...     {"role": "assistant", "content": "Hi there!"}
-            ... ]
-            >>> session_id = agent.generate_session_id(history=history)
-        """
-        warnings.warn(
-            "generate_session_id() is deprecated. Use create_session() instead, "
-            "which creates a backend-managed session.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        if not self.id:
-            self.save(as_draft=True)
-
-        if history:
-            validate_history(history)
-
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        session_id = f"{self.id}_{timestamp}"
-
-        if not history:
-            return session_id
-
-        try:
-            # Use the existing run infrastructure to initialize the session
-            result = self.run_async(
-                query="/",
-                session_id=session_id,
-                history=history,
-                execution_params={
-                    "max_tokens": 2048,
-                    "max_iterations": 10,
-                    "output_format": OutputFormat.TEXT.value,
-                    "expected_output": None,
-                },
-                allow_history_and_session_id=True,
-            )
-
-            # If we got a polling URL, poll for completion
-            if result.url and not result.completed:
-                final_result = self.sync_poll(result.url, timeout=300, wait_time=0.5)
-
-                if final_result.status == ResponseStatus.SUCCESS:
-                    return session_id
-                else:
-                    logging.error(f"Session {session_id} initialization failed: {final_result}")
-                    return session_id
-            else:
-                # Direct completion or no polling needed
-                return session_id
-
-        except Exception as e:
-            logging.error(f"Failed to initialize session {session_id}: {e}")
-            return session_id
 
     def create_session(
         self,
