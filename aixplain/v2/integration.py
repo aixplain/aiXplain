@@ -49,9 +49,41 @@ class ActionInputsProxy:
         for input_param in action.inputs:
             input_code = input_param.code or input_param.name.lower().replace(" ", "_")
             self._inputs[input_code] = {
-                "value": (input_param.default_value[0] if input_param.default_value else None),
+                "value": self._extract_default_value(input_param),
                 "input": input_param,
             }
+
+    @staticmethod
+    def _extract_default_value(input_param):
+        """Extract the actual value from an input parameter's default spec.
+
+        The backend returns defaults as dicts like
+        ``{'label': '...', 'value': '10', 'providerValue': '10', ...}``.
+        This method extracts the raw value and coerces it to the declared datatype.
+        """
+        if not input_param.default_value:
+            return None
+        default = input_param.default_value[0]
+        if isinstance(default, dict):
+            raw = default.get("value")
+            return ActionInputsProxy._coerce_value(raw, input_param.datatype)
+        return default
+
+    @staticmethod
+    def _coerce_value(value, datatype):
+        """Coerce a string value to the expected datatype."""
+        if value is None:
+            return None
+        try:
+            if datatype in ("number", "integer"):
+                return float(value) if "." in str(value) else int(value)
+            if datatype == "boolean":
+                if isinstance(value, str):
+                    return value.lower() in ("true", "1", "yes")
+                return bool(value)
+        except (ValueError, TypeError):
+            pass
+        return value
 
     def _get_input_info(self, key: str):
         """Get input info, ensuring inputs are fetched."""
@@ -170,7 +202,7 @@ class ActionInputsProxy:
         """Reset an input parameter to its backend default value."""
         input_info = self._get_input_info(input_code)
         input_param = input_info["input"]
-        input_info["value"] = input_param.default_value[0] if input_param.default_value else None
+        input_info["value"] = self._extract_default_value(input_param)
 
     def reset_all_inputs(self):
         """Reset all input parameters to their backend default values."""

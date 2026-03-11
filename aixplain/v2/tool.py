@@ -13,7 +13,7 @@ from .resource import (
     DeleteResult,
 )
 from .model import Model, ModelRunParams
-from .integration import Integration, Action, ActionMixin
+from .integration import Integration, Action, ActionMixin, ActionInputsProxy
 
 
 @dataclass_json
@@ -272,8 +272,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     current_value = action_proxy.get(input_code)
 
                 # Fall back to backend default if no current value
-                if current_value is None and input_param.default_value:
-                    current_value = input_param.default_value[0] if input_param.default_value else None
+                if current_value is None:
+                    current_value = ActionInputsProxy._extract_default_value(input_param)
 
                 action_inputs[input_code] = {
                     "name": input_param.name,
@@ -312,7 +312,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         # Get the base serialization from Model
         tool_dict = super().as_tool()
         tool_dict["type"] = "tool"
-
 
         # Add tool-specific fields
         if self.allowed_actions:

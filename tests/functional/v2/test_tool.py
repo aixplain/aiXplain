@@ -314,6 +314,36 @@ def test_tool_as_tool_includes_actions(client):
     print(f"✅ as_tool() correctly includes actions: {tool_dict['actions']}")
 
 
+def test_tool_run_with_default_params(client):
+    """Test running a tool without specifying optional params that have backend defaults.
+
+    Regression test for the bug where optional parameters (e.g. num_results)
+    were sent as raw default dicts instead of extracted primitive values,
+    causing the backend to reject the request.
+    """
+    tavily_tool = client.Tool.get("tavily/tavily-web-search")
+
+    # Verify the action proxy stores extracted primitives, not raw dicts
+    action_proxy = tavily_tool.actions["search"]
+    for key in action_proxy.keys():
+        value = action_proxy.get(key)
+        assert not isinstance(value, dict), f"Action input '{key}' default should be a primitive, got dict: {value}"
+
+    # Run with only the required 'query' param — all optional params should
+    # fall back to their extracted defaults without errors.
+    result = tavily_tool.run(action="search", data={"query": "friendship paradox", "num_results": 2})
+
+    assert hasattr(result, "status"), "Result should have status attribute"
+    assert result.status == "SUCCESS", f"Expected SUCCESS status, got {result.status}"
+    assert result.completed is True, "Result should be completed"
+
+    # Now run WITHOUT num_results to verify defaults don't break the request
+    result_defaults = tavily_tool.run(action="search", data={"query": "friendship paradox"})
+
+    assert result_defaults.status == "SUCCESS", f"Expected SUCCESS with default params, got {result_defaults.status}"
+    assert result_defaults.completed is True, "Result with defaults should be completed"
+
+
 def test_tool_as_tool_without_actions(client):
     """Test that as_tool() does NOT include actions when allowed_actions is empty."""
     # Search for an existing tool to test with
