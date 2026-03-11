@@ -55,16 +55,16 @@ def __init__(
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L56)
 
-Initializes AixplainClient with authentication and retry configuration.
+Initialize AixplainClient with authentication and retry configuration.
 
 **Arguments**:
 
 - `base_url` _str_ - The base URL for the API.
 - `aixplain_api_key` _str, optional_ - The individual API key.
 - `team_api_key` _str, optional_ - The team API key.
-- `retry_total` _int, optional_ - Total number of retries allowed. Defaults to None, uses DEFAULT_RETRY_TOTAL.
-- `retry_backoff_factor` _float, optional_ - Backoff factor to apply between retry attempts. Defaults to None, uses DEFAULT_RETRY_BACKOFF_FACTOR.
-- `retry_status_forcelist` _list, optional_ - List of HTTP status codes to force a retry on. Defaults to None, uses DEFAULT_RETRY_STATUS_FORCELIST.
+- `retry_total` _int_ - Total number of retries allowed. Defaults to 5.
+- `retry_backoff_factor` _float_ - Backoff factor between retry attempts. Defaults to 0.1.
+- `retry_status_forcelist` _list_ - HTTP status codes that trigger a retry. Defaults to [500, 502, 503, 504].
 
 #### request\_raw
 
@@ -126,5 +126,54 @@ Sends an HTTP GET request.
 
 **Returns**:
 
-- `requests.Response` - The response from the request
+- `dict` - The JSON response from the request
+
+#### post
+
+```python
+def post(path: str, **kwargs: Any) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L164)
+
+Sends an HTTP POST request.
+
+**Arguments**:
+
+- `path` _str_ - URL path
+- `kwargs` _dict, optional_ - Additional keyword arguments for the request
+  
+
+**Returns**:
+
+- `dict` - The JSON response from the request
+
+#### request\_stream
+
+```python
+def request_stream(method: str, path: str, **kwargs: Any) -> requests.Response
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L176)
+
+Sends a streaming HTTP request.
+
+This method is similar to request_raw but enables streaming mode,
+which is necessary for Server-Sent Events (SSE) responses.
+
+**Arguments**:
+
+- `method` _str_ - HTTP method (e.g. &#x27;GET&#x27;, &#x27;POST&#x27;)
+- `path` _str_ - URL path or full URL
+- `kwargs` _dict, optional_ - Additional keyword arguments for the request
+  
+
+**Returns**:
+
+- `requests.Response` - The streaming response (not consumed)
+  
+
+**Raises**:
+
+- `APIError` - If the request fails
 

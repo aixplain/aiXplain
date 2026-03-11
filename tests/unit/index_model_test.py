@@ -187,7 +187,6 @@ def test_validate_record_failure_no_value(mocker):
     with pytest.raises(Exception) as e:
         record.validate()
     assert str(e.value) == "Index Upsert Error: Either value or uri is required for text records"
-    assert str(e.value) == "Index Upsert Error: Either value or uri is required for text records"
 
 
 def test_record_to_dict():
@@ -238,10 +237,6 @@ def test_index_factory_create_failure():
         str(e.value)
         == "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
     )
-    assert (
-        str(e.value)
-        == "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
-    )
 
     with pytest.raises(Exception) as e:
         IndexFactory.create(name="test")
@@ -249,17 +244,9 @@ def test_index_factory_create_failure():
         str(e.value)
         == "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
     )
-    assert (
-        str(e.value)
-        == "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
-    )
 
     with pytest.raises(Exception) as e:
         IndexFactory.create(name="test", description="test", embedding_model=None)
-    assert (
-        str(e.value)
-        == "Index Factory Exception: name, description, and embedding_model must be provided when params is not"
-    )
     assert (
         str(e.value)
         == "Index Factory Exception: name, description, and embedding_model must be provided when params is not"

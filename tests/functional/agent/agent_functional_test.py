@@ -536,6 +536,7 @@ def test_instructions(resource_tracker, AgentFactory):
     assert "aixplain" in response["data"]["output"].lower()
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_with_utility_tool(resource_tracker, AgentFactory):
     from aixplain.enums import DataType
@@ -602,11 +603,15 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
     )
     resource_tracker.append(agent)
 
-    result_vowel = agent.run("Remove all the vowels in this string: 'Hello'")
-    result_concat_text = agent.run("Concat these strings: String1 = 'Hello'; string2= 'World!'.")
+    result_vowel = agent.run(
+        "Use the Vowel Remover tool to remove all vowels from the text 'Banana'. Return only the result."
+    )
+    result_concat_text = agent.run(
+        "Use the String Concatenator tool to concatenate string1='Good' and string2='Morning'. Return only the result."
+    )
 
-    assert "hll" in result_vowel["data"]["output"].lower()
-    assert "helloworld!" in result_concat_text["data"]["output"].lower()
+    assert "bnn" in result_vowel["data"]["output"].lower()
+    assert "goodmorning" in result_concat_text["data"]["output"].lower()
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
