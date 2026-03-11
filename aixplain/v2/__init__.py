@@ -17,6 +17,7 @@ from .inspector import (
     EvaluatorConfig,
     EditorConfig,
 )
+from .session import Session, SessionMessage, SessionMessageAttachment
 from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
 from .api_key import APIKey, APIKeyLimits, APIKeyUsageLimit, TokenType
@@ -48,6 +49,11 @@ from .enums import (
     EvolveType,
     CodeInterpreterModel,
     SplittingOptions,
+    SessionStatus,
+    RunStatus,
+    MessageRole,
+    Reaction,
+    AttachmentType,
 )
 
 __all__ = [
@@ -59,6 +65,10 @@ __all__ = [
     "FileUploader",
     "upload_file",
     "validate_file_for_upload",
+    # Session classes
+    "Session",
+    "SessionMessage",
+    "SessionMessageAttachment",
     # Inspector classes
     "Inspector",
     "InspectorTarget",
@@ -111,4 +121,9 @@ __all__ = [
     "EvolveType",
     "CodeInterpreterModel",
     "SplittingOptions",
+    "SessionStatus",
+    "RunStatus",
+    "MessageRole",
+    "Reaction",
+    "AttachmentType",
 ]
