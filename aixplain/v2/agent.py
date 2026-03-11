@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+import warnings
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
@@ -38,10 +39,14 @@ class ConversationMessage(TypedDict):
     Attributes:
         role: The role of the message sender, either 'user' or 'assistant'
         content: The text content of the message
+        attachments: Optional pre-built attachment dicts (url, name, type)
+        files: Optional local file paths to upload and attach
     """
 
     role: Literal["user", "assistant"]
     content: str
+    attachments: NotRequired[Optional[List[Dict[str, Any]]]]
+    files: NotRequired[Optional[List[Any]]]
 
 
 def validate_history(history: List[Dict[str, Any]]) -> bool:
@@ -997,6 +1002,13 @@ class Agent(
             ... ]
             >>> session_id = agent.generate_session_id(history=history)
         """
+        warnings.warn(
+            "generate_session_id() is deprecated. Use create_session() instead, "
+            "which creates a backend-managed session.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         if not self.id:
             self.save(as_draft=True)
 
@@ -1040,3 +1052,73 @@ class Agent(
         except Exception as e:
             logging.error(f"Failed to initialize session {session_id}: {e}")
             return session_id
+
+    def create_session(
+        self,
+        name: Optional[str] = None,
+        history: Optional[List[ConversationMessage]] = None,
+    ) -> "Session":
+        """Create a new backend-managed session for this agent.
+
+        Args:
+            name: Optional human-readable name for the session.
+            history: Optional conversation history to seed the session with.
+                Each message must have 'role' and 'content' keys.
+                Messages may also include optional 'attachments'
+                (pre-built dicts with url/name/type) and/or 'files'
+                (local file paths to upload).
+
+        Returns:
+            Session: The created Session instance, pre-populated with
+            history messages when provided.
+
+        Raises:
+            ValueError: If the agent has not been saved yet or if history
+                format is invalid.
+
+        Example:
+            >>> session = agent.create_session(
+            ...     name="My Chat",
+            ...     history=[
+            ...         {"role": "user", "content": "Analyze this",
+            ...          "files": ["/tmp/data.csv"]},
+            ...         {"role": "assistant", "content": "Here are the results..."},
+            ...     ],
+            ... )
+        """
+        if not self.id:
+            raise ValueError("Agent must be saved before creating a session. Call agent.save() first.")
+
+        if history:
+            validate_history(history)
+
+        session = self.context.Session(agent_id=self.id, name=name)
+        session.save()
+
+        if history:
+            for message in history:
+                session.add_message(
+                    role=message["role"],
+                    content=message["content"],
+                    attachments=message.get("attachments"),
+                    files=message.get("files"),
+                )
+
+        return session
+
+    def list_sessions(self, status: Optional[str] = None) -> list:
+        """List sessions for this agent.
+
+        Args:
+            status: Optional status filter (e.g. "active", "completed").
+
+        Returns:
+            List of Session instances belonging to this agent.
+
+        Raises:
+            ValueError: If the agent has not been saved yet.
+        """
+        if not self.id:
+            raise ValueError("Agent must be saved before listing sessions. Call agent.save() first.")
+
+        return self.context.Session.list(agent_id=self.id, status=status)
