@@ -287,22 +287,27 @@ def test_run_model(client, text_model_id):
 
 def test_llm_capability_properties(client, stream_tool_call_model_id):
     """Validate capability properties under strict function-based LLM gating."""
-    model = client.Model.get(stream_tool_call_model_id)
-    function_value = getattr(model.function, "value", None)
-    if function_value is None and isinstance(model.function, dict):
-        function_value = model.function.get("id")
-    elif function_value is None and model.function is not None:
-        function_value = str(model.function)
+    from aixplain.v2.enums import Function
 
-    if function_value is None:
-        assert model.supports_tool_calling is None
-        assert model.supports_structured_output is None
-    elif function_value == "text-generation":
-        assert model.supports_tool_calling is True
-        assert model.supports_structured_output is True
-    else:
-        assert model.supports_tool_calling is False
-        assert model.supports_structured_output is False
+    model = client.Model.get(stream_tool_call_model_id)
+
+    assert model.function is not None, (
+        f"Model {model.name} ({model.id}) should have a decoded function, "
+        "but got None — the Function enum may not handle the backend ID format"
+    )
+    assert isinstance(model.function, Function), (
+        f"Expected Function enum, got {type(model.function).__name__}: {model.function}"
+    )
+    assert model.function == Function.TEXT_GENERATION
+
+    assert model.supports_tool_calling is True, (
+        f"Text-generation model with 'tools' param should report supports_tool_calling=True, "
+        f"got {model.supports_tool_calling}"
+    )
+    assert model.supports_structured_output is True, (
+        f"Text-generation model with 'response_format' param should report "
+        f"supports_structured_output=True, got {model.supports_structured_output}"
+    )
 
 
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
