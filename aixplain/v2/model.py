@@ -489,11 +489,14 @@ def find_function_by_id(function_id: str) -> Optional[Function]:
     kebab-case identifiers returned by the backend API
     (``text-generation``).
     """
+    # First try the raw value — some members use lowercase values
+    # (e.g. UTILITIES = "utilities") that would break if uppercased.
     try:
         return Function(function_id)
     except ValueError:
         pass
 
+    # Fall back to normalising backend kebab-case IDs (e.g. "text-generation" → "TEXT_GENERATION").
     normalized = function_id.upper().replace("-", "_")
     try:
         return Function(normalized)
@@ -749,7 +752,8 @@ class Model(
         ``show_progress``, ``stream``) so they are never forwarded to the
         backend API.
         """
-        return {k: v for k, v in kwargs.items() if k not in self._SDK_ONLY_PARAMS}
+        filtered = {k: v for k, v in kwargs.items() if k not in self._SDK_ONLY_PARAMS}
+        return super().build_run_payload(**filtered)
 
     def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
         """Build the URL for running the model."""
