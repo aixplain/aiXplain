@@ -88,8 +88,8 @@ researcher = aix.Agent(
 
 team_agent = aix.Agent(
     name="Research team",
-    instructions="Delegate work to subagents, then return one final answer.",
-    subagents=[planner, researcher],
+    instructions="Delegate work to agents, then return one final answer.",
+    agents=[planner, researcher],
 )
 team_agent.save()
 

@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+import warnings
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
@@ -310,7 +311,15 @@ class Agent(
 
     # Task fields
     tasks: Optional[List[Task]] = field(default_factory=list)
-    subagents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
+    agents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
+
+    # Deprecated alias for `agents` — will be removed in a future release
+    subagents: Optional[List[Union[str, "Agent"]]] = field(
+        default=None,
+        repr=False,
+        compare=False,
+        metadata=config(exclude=lambda x: True),
+    )
 
     # Output and execution fields
     output_format: Optional[Union[str, OutputFormat]] = field(
@@ -343,12 +352,21 @@ class Agent(
         """Initialize agent after dataclass creation."""
         self.tasks = [Task.from_dict(task) for task in self.tasks]
 
-        # Store original subagent objects to resolve IDs at save time
-        self._original_subagents = list(self.subagents)
+        if self.subagents is not None:
+            warnings.warn(
+                "The 'subagents' parameter is deprecated. Use 'agents' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if self.agents:
+                raise ValueError("Cannot specify both 'agents' and 'subagents'.")
+            self.agents = self.subagents
+            self.subagents = None
+
+        # Store original agent objects to resolve IDs at save time
+        self._original_agents = list(self.agents)
         # Convert to IDs for serialization (to_dict), using None as placeholder for unsaved agents
-        self.subagents = [
-            a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.subagents
-        ]
+        self.agents = [a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.agents]
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
@@ -375,7 +393,7 @@ class Agent(
             self.inspector_targets = normalized_targets
 
         # TODO: Re-enable this validation after backend data consistency is fixed
-        # if self.subagents and (self.tasks or self.tools):
+        # if self.agents and (self.tasks or self.tools):
         #     raise ValueError(
         #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
         #     )
@@ -640,17 +658,17 @@ class Agent(
                         tool_name = getattr(tool, "name", f"tool_{i}")
                         failed_components.append(("tool", tool_name, str(e)))
 
-        # Save subagents (recursively)
-        if hasattr(self, "_original_subagents") and self._original_subagents:
-            for i, subagent in enumerate(self._original_subagents):
-                if isinstance(subagent, (str, dict)):  # Already an ID
+        # Save agents (recursively)
+        if hasattr(self, "_original_agents") and self._original_agents:
+            for i, agent in enumerate(self._original_agents):
+                if isinstance(agent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(subagent, "save") and hasattr(subagent, "id") and not subagent.id:
+                if hasattr(agent, "save") and hasattr(agent, "id") and not agent.id:
                     try:
-                        subagent.save(save_subcomponents=True)
+                        agent.save(save_subcomponents=True)
                     except Exception as e:
-                        subagent_name = getattr(subagent, "name", f"subagent_{i}")
-                        failed_components.append(("subagent", subagent_name, str(e)))
+                        agent_name = getattr(agent, "name", f"agent_{i}")
+                        failed_components.append(("agent", agent_name, str(e)))
 
         if failed_components:
             error_details = "; ".join(
@@ -668,14 +686,14 @@ class Agent(
                 if hasattr(tool, "id") and not tool.id:
                     unsaved_components.append(f"tool '{tool.name}'")
 
-        # Check subagents
-        if hasattr(self, "_original_subagents") and self._original_subagents:
-            for subagent in self._original_subagents:
-                if isinstance(subagent, (str, dict)):  # Already an ID
+        # Check agents
+        if hasattr(self, "_original_agents") and self._original_agents:
+            for agent in self._original_agents:
+                if isinstance(agent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(subagent, "id") and not subagent.id:
-                    subagent_name = getattr(subagent, "name", "unnamed")
-                    unsaved_components.append(f"subagent '{subagent_name}'")
+                if hasattr(agent, "id") and not agent.id:
+                    agent_name = getattr(agent, "name", "unnamed")
+                    unsaved_components.append(f"agent '{agent_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -696,14 +714,14 @@ class Agent(
                     tool_name = getattr(tool, "name", "unnamed")
                     unsaved_components.append(f"tool '{tool_name}'")
 
-        # Check subagents
-        if hasattr(self, "_original_subagents") and self._original_subagents:
-            for subagent in self._original_subagents:
-                if isinstance(subagent, (str, dict)):  # Already an ID
+        # Check agents
+        if hasattr(self, "_original_agents") and self._original_agents:
+            for agent in self._original_agents:
+                if isinstance(agent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(subagent, "id") and not subagent.id:
-                    subagent_name = getattr(subagent, "name", "unnamed")
-                    unsaved_components.append(f"subagent '{subagent_name}'")
+                if hasattr(agent, "id") and not agent.id:
+                    agent_name = getattr(agent, "name", "unnamed")
+                    unsaved_components.append(f"agent '{agent_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -864,10 +882,10 @@ class Agent(
 
         payload["model"] = {"id": self.llm}
 
-        # Convert subagents to API format, resolving IDs from original objects
-        if hasattr(self, "_original_subagents") and self._original_subagents:
+        # Convert agents to API format, resolving IDs from original objects
+        if hasattr(self, "_original_agents") and self._original_agents:
             converted_agents = []
-            for agent in self._original_subagents:
+            for agent in self._original_agents:
                 if isinstance(agent, str):
                     agent_id = agent
                 elif isinstance(agent, dict):
@@ -875,7 +893,7 @@ class Agent(
                 else:
                     agent_id = agent.id  # Get current ID from Agent object
                 if not agent_id:
-                    raise ValueError("All subagents must be saved before saving the team agent.")
+                    raise ValueError("All agents must be saved before saving the team agent.")
                 converted_agents.append({"id": agent_id, "inspectors": []})
             payload["agents"] = converted_agents
 
