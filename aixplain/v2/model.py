@@ -483,9 +483,23 @@ def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]:
 
 
 def find_function_by_id(function_id: str) -> Optional[Function]:
-    """Find function enum by ID."""
+    """Find function enum by ID.
+
+    Handles both SDK-style identifiers (``TEXT_GENERATION``) and the
+    kebab-case identifiers returned by the backend API
+    (``text-generation``).
+    """
+    # First try the raw value — some members use lowercase values
+    # (e.g. UTILITIES = "utilities") that would break if uppercased.
     try:
         return Function(function_id)
+    except ValueError:
+        pass
+
+    # Fall back to normalising backend kebab-case IDs (e.g. "text-generation" → "TEXT_GENERATION").
+    normalized = function_id.upper().replace("-", "_")
+    try:
+        return Function(normalized)
     except ValueError:
         return None
 
@@ -729,6 +743,18 @@ class Model(
             # Handle regular attributes
             super().__setattr__(name, value)
 
+    _SDK_ONLY_PARAMS = frozenset({"timeout", "wait_time", "show_progress", "stream"})
+
+    def build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> dict:
+        """Build the JSON payload for a model execution request.
+
+        Strips SDK-only orchestration params (``timeout``, ``wait_time``,
+        ``show_progress``, ``stream``) so they are never forwarded to the
+        backend API.
+        """
+        filtered = {k: v for k, v in kwargs.items() if k not in self._SDK_ONLY_PARAMS}
+        return super().build_run_payload(**filtered)
+
     def build_run_url(self, **kwargs: Unpack[ModelRunParams]) -> str:
         """Build the URL for running the model."""
         self._ensure_valid_state()
@@ -926,6 +952,7 @@ class Model(
         Raises:
             ValidationError: If the model explicitly does not support streaming
                 (supports_streaming is False)
+            ValueError: If required parameters are missing or have invalid types
 
         Example:
             >>> model = aix.Model.get("6895d6d1d50c89537c1cf237")  # GPT-5 Mini
@@ -937,33 +964,33 @@ class Model(
             >>> for chunk in model.run_stream(text="Hello"):
             ...     print(chunk.data, end="", flush=True)
         """
-        # Check if model explicitly does not support streaming
-        # We only block if supports_streaming is explicitly False
-        # If it's None (unknown), we allow the attempt since the backend may support it
         if self.supports_streaming is False:
             raise ValidationError(
                 f"Model '{self.name}' (id={self.id}) does not support streaming. "
                 "Check the model's supports_streaming attribute before calling run_stream()."
             )
 
+        effective_params = self._merge_with_dynamic_attrs(**kwargs)
+
+        if self.params:
+            param_errors = self._validate_params(**effective_params)
+            if param_errors:
+                raise ValueError(f"Parameter validation failed: {'; '.join(param_errors)}")
+
         self._ensure_valid_state()
 
-        # Build the payload with stream option enabled
-        payload = self.build_run_payload(**kwargs)
+        payload = self.build_run_payload(**effective_params)
 
-        # Add streaming option to the payload
         if "options" not in payload:
             payload["options"] = {}
         payload["options"]["stream"] = True
         if payload.get("tools") is not None:
             payload["options"]["raw"] = True
 
-        # Build the run URL
-        run_url = self.build_run_url(**kwargs)
+        run_url = self.build_run_url(**effective_params)
 
         logger.debug(f"Model Run Stream: Start service for {run_url}")
 
-        # Make streaming request
         response = self.context.client.request_stream("POST", run_url, json=payload)
 
         return ModelResponseStreamer(response)
@@ -1058,7 +1085,7 @@ class Model(
                 - function: The model's function type
                 - type: Always "model"
                 - version: The model's version
-                - assetId: The model's ID (same as id)
+                - asset_id: The model's ID (same as id)
 
         Example:
             >>> model = aix.Model.get("some-model-id")
@@ -1096,7 +1123,7 @@ class Model(
             "function": function_type,
             "type": "model",
             "version": version,
-            "assetId": self.id,
+            "asset_id": self.id,
         }
 
     def get_parameters(self) -> List[dict]:
@@ -1116,8 +1143,8 @@ class Model(
                             "value": param_value,
                             "required": param.required,
                             "datatype": param.data_type,
-                            "allowMulti": param.multiple_values,
-                            "supportsVariables": False,  # Default value
+                            "allow_multi": param.multiple_values,
+                            "supports_variables": False,
                             "fixed": param.is_fixed,
                             "description": "",  # Default empty description
                         }
