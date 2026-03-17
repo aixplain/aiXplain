@@ -38,10 +38,14 @@ class ConversationMessage(TypedDict):
     Attributes:
         role: The role of the message sender, either 'user' or 'assistant'
         content: The text content of the message
+        attachments: Optional pre-built attachment dicts (url, name, type)
+        files: Optional local file paths to upload and attach
     """
 
     role: Literal["user", "assistant"]
     content: str
+    attachments: NotRequired[Optional[List[Dict[str, Any]]]]
+    files: NotRequired[Optional[List[Any]]]
 
 
 def validate_history(history: List[Dict[str, Any]]) -> bool:
@@ -969,74 +973,72 @@ class Agent(
 
         return payload
 
-    def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
-        """Generate a unique session ID for agent conversations.
-
-        Creates a unique session identifier based on the agent ID and current timestamp.
-        If conversation history is provided, it attempts to initialize the session on the
-        server to enable context-aware conversations.
+    def create_session(
+        self,
+        name: Optional[str] = None,
+        history: Optional[List[ConversationMessage]] = None,
+    ) -> "Session":
+        """Create a new backend-managed session for this agent.
 
         Args:
-            history: Previous conversation history. Each message should contain
-                'role' (either 'user' or 'assistant') and 'content' keys.
-                Defaults to None.
+            name: Optional human-readable name for the session.
+            history: Optional conversation history to seed the session with.
+                Each message must have 'role' and 'content' keys.
+                Messages may also include optional 'attachments'
+                (pre-built dicts with url/name/type) and/or 'files'
+                (local file paths to upload).
 
         Returns:
-            str: A unique session identifier in the format "{agent_id}_{timestamp}".
+            Session: The created Session instance, pre-populated with
+            history messages when provided.
 
         Raises:
-            ValueError: If the history format is invalid.
+            ValueError: If the agent has not been saved yet or if history
+                format is invalid.
 
         Example:
-            >>> agent = Agent.get("my_agent_id")
-            >>> session_id = agent.generate_session_id()
-            >>> # Or with history
-            >>> history = [
-            ...     {"role": "user", "content": "Hello"},
-            ...     {"role": "assistant", "content": "Hi there!"}
-            ... ]
-            >>> session_id = agent.generate_session_id(history=history)
+            >>> session = agent.create_session(
+            ...     name="My Chat",
+            ...     history=[
+            ...         {"role": "user", "content": "Analyze this",
+            ...          "files": ["/tmp/data.csv"]},
+            ...         {"role": "assistant", "content": "Here are the results..."},
+            ...     ],
+            ... )
         """
         if not self.id:
-            self.save(as_draft=True)
+            raise ValueError("Agent must be saved before creating a session. Call agent.save() first.")
 
         if history:
             validate_history(history)
 
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        session_id = f"{self.id}_{timestamp}"
+        session = self.context.Session(agent_id=self.id, name=name)
+        session.save()
 
-        if not history:
-            return session_id
+        if history:
+            for message in history:
+                session.add_message(
+                    role=message["role"],
+                    content=message["content"],
+                    attachments=message.get("attachments"),
+                    files=message.get("files"),
+                )
 
-        try:
-            # Use the existing run infrastructure to initialize the session
-            result = self.run_async(
-                query="/",
-                session_id=session_id,
-                history=history,
-                execution_params={
-                    "max_tokens": 2048,
-                    "max_iterations": 10,
-                    "output_format": OutputFormat.TEXT.value,
-                    "expected_output": None,
-                },
-                allow_history_and_session_id=True,
-            )
+        return session
 
-            # If we got a polling URL, poll for completion
-            if result.url and not result.completed:
-                final_result = self.sync_poll(result.url, timeout=300, wait_time=0.5)
+    def list_sessions(self, status: Optional[str] = None) -> list:
+        """List sessions for this agent.
 
-                if final_result.status == ResponseStatus.SUCCESS:
-                    return session_id
-                else:
-                    logging.error(f"Session {session_id} initialization failed: {final_result}")
-                    return session_id
-            else:
-                # Direct completion or no polling needed
-                return session_id
+        Args:
+            status: Optional status filter (e.g. "active", "completed").
 
-        except Exception as e:
-            logging.error(f"Failed to initialize session {session_id}: {e}")
-            return session_id
+        Returns:
+            List of Session instances belonging to this agent.
+
+        Raises:
+            ValueError: If the agent has not been saved yet.
+        """
+        if not self.id:
+            raise ValueError("Agent must be saved before listing sessions. Call agent.save() first.")
+
+        return self.context.Session.list(agent_id=self.id, status=status)
