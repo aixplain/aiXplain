@@ -271,8 +271,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     def as_tool(self) -> dict:
         """Serialize this tool for agent creation."""
         tool_dict = super().as_tool()
-        tool_dict["type"] = "tool"
-
 
         if self.allowed_actions:
             tool_dict["actions"] = self.allowed_actions
