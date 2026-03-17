@@ -1,7 +1,7 @@
 __author__ = "aiXplain"
 
 """
-Copyright 2022 The aiXplain SDK authors
+Copyright 2026 The aiXplain SDK authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ Description:
 import json
 import logging
 import os
+import pathlib
 import re
 import tempfile
 import time
@@ -240,7 +241,61 @@ class RLM(Model):
         self._sandbox_tool: Optional[Model] = None
         self._messages: List[Dict[str, str]] = []
 
-    # Sandbox Setup 
+    # Context Resolution
+
+    @staticmethod
+    def _resolve_context(context) -> Union[str, dict, list]:
+        """Normalize context to a str, dict, or list before sandbox loading.
+
+        Accepts context in several forms:
+
+        - ``str`` pointing to an existing file → file is read and deserialized
+          based on its extension (``.json`` → dict/list, everything else → str).
+        - ``pathlib.Path`` → same file-reading logic as a path string.
+        - ``str`` that is NOT a file path → used as-is (raw text content).
+        - ``dict`` / ``list`` → passed through unchanged.
+        - Anything else → converted to ``str`` via ``str()``.
+
+        Supported file extensions:
+            - ``.json``                              → parsed with ``json.load()`` → dict or list
+            - ``.txt``, ``.md``, ``.csv``, ``.html``,
+              ``.xml``, ``.yaml``, ``.yml``, ``.py``,
+              and any other text format              → read as a plain string
+
+        Args:
+            context: Raw context value passed by the caller.
+
+        Returns:
+            Union[str, dict, list]: Normalized context ready for ``_setup_repl``.
+
+        Raises:
+            ValueError: If the path exists but the file cannot be read or parsed.
+        """
+        # Resolve pathlib.Path to a string path first
+        if isinstance(context, pathlib.Path):
+            context = str(context)
+
+        # If it looks like a file path and the file exists, read it
+        if isinstance(context, str) and os.path.isfile(context):
+            ext = os.path.splitext(context)[1].lower()
+            try:
+                if ext == ".json":
+                    with open(context, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                else:
+                    with open(context, "r", encoding="utf-8") as f:
+                        return f.read()
+            except Exception as e:
+                raise ValueError(f"RLM: failed to read context file '{context}': {e}") from e
+
+        # dict / list → pass through unchanged
+        if isinstance(context, (str, dict, list)):
+            return context
+
+        # Fallback: stringify anything else
+        return str(context)
+
+    # Sandbox Setup
 
     def _setup_repl(self, context: Union[str, dict, list]) -> None:
         """Initialize a fresh sandbox session and load context + llm_query into it.
@@ -351,7 +406,7 @@ import json as __json
 
 def llm_query(prompt):
     _headers = {{"x-api-key": "{self.api_key}", "Content-Type": "application/json"}}
-    _payload = __json.dumps({{"data": prompt}})
+    _payload = __json.dumps({{"data": prompt, "max_tokens": 8192}})
     try:
         _resp = __requests.post("{worker_url}", headers=_headers, data=_payload, timeout=60)
         _result = _resp.json()
@@ -458,7 +513,7 @@ def llm_query(prompt):
         #   if isinstance(self.orchestrator, LLM):
         #       response = self.orchestrator.run(data={"messages": messages})
         prompt = _messages_to_prompt(messages)
-        response = self.orchestrator.run(data=prompt, max_tokens = 10000)
+        response = self.orchestrator.run(data=prompt, max_tokens = 8192)
         if response.get("completed") or response["status"] == ResponseStatus.SUCCESS:
             return str(response["data"])
         raise RuntimeError(
@@ -484,11 +539,18 @@ def llm_query(prompt):
         declare a final answer via ``FINAL(...)`` or ``FINAL_VAR(...)``.
 
         Args:
-            data (Union[Text, Dict]): Input data. Two accepted formats:
+            data (Union[Text, Dict]): Input data. Accepted formats:
 
-                - ``str``: Treated as the context; a default query is used.
+                - ``str`` (raw text): Treated directly as the context content;
+                  a default query is used.
+                - ``str`` (file path): If the string points to an existing file,
+                  the file is read automatically. ``.json`` files are parsed into
+                  a dict/list; all other text formats are read as a plain string.
+                - ``pathlib.Path``: Resolved and read exactly like a file-path string.
                 - ``dict``: Must contain ``"context"`` (required) and optionally
-                  ``"query"`` (defaults to a generic analysis prompt).
+                  ``"query"`` (defaults to a generic analysis prompt). The value
+                  of ``"context"`` itself may also be a file path or
+                  ``pathlib.Path`` — it will be resolved the same way.
 
             name (Text, optional): Identifier used in log messages.
                 Defaults to ``"rlm_process"``.
@@ -523,7 +585,11 @@ def llm_query(prompt):
         )
         assert not stream, "RLM does not support streaming responses."
 
-        # Parse data argument 
+        # Parse data argument
+        # pathlib.Path is treated as a file-path context with the default query
+        if isinstance(data, pathlib.Path):
+            data = str(data)
+
         if isinstance(data, str):
             context = data
             query = _DEFAULT_QUERY
@@ -537,7 +603,9 @@ def llm_query(prompt):
             query = data.get("query", _DEFAULT_QUERY)
         else:
             raise ValueError(
-                f"Unsupported data type: {type(data)}. Expected str or dict with 'context' key."
+                f"Unsupported data type: {type(data)}. "
+                "Expected a str (raw text or file path), a pathlib.Path, "
+                "or a dict with a 'context' key."
             )
 
         logging.info(f"RLM '{name}': starting. Query: {query[:120]!r}")
@@ -546,7 +614,10 @@ def llm_query(prompt):
         final_answer = None
         repl_logs: List[Dict] = []
 
-        # Initialize sandbox and conversation 
+        # Normalize context: resolve file paths and pathlib.Path objects
+        context = self._resolve_context(context)
+
+        # Initialize sandbox and conversation
         self._setup_repl(context)
         self._messages = _build_system_messages()
 
@@ -653,6 +724,86 @@ def llm_query(prompt):
             NotImplementedError: Always.
         """
         raise NotImplementedError("RLM does not support streaming responses.")
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "RLM":
+        """Create an RLM instance from a dictionary representation.
+
+        Reconstructs the RLM from a dict produced by ``to_dict()``. The
+        orchestrator and worker models are fetched from the aiXplain platform
+        using their stored IDs, so a valid API key and network access are
+        required.
+
+        Args:
+            data (Dict): Dictionary as produced by ``to_dict()``, containing:
+                - id: RLM instance identifier.
+                - name: Display name.
+                - description: Description string.
+                - api_key: API key for authentication.
+                - supplier: Supplier information.
+                - orchestrator_model_id: ID of the orchestrator model.
+                - worker_model_id: ID of the worker model.
+                - max_iterations: Maximum orchestrator loop iterations.
+                - additional_info: Extra metadata (optional).
+
+        Returns:
+            RLM: A fully configured RLM instance with orchestrator and worker
+                models loaded, ready to call ``run()``.
+
+        Raises:
+            Exception: If either model ID cannot be fetched from the platform.
+        """
+        # Lazy import avoids circular: model_factory → rlm → model_factory
+        from aixplain.factories.model_factory import ModelFactory
+
+        api_key = data.get("api_key", config.TEAM_API_KEY)
+
+        orchestrator_model_id = data.get("orchestrator_model_id")
+        worker_model_id = data.get("worker_model_id")
+
+        orchestrator = (
+            ModelFactory.get(orchestrator_model_id, api_key=api_key)
+            if orchestrator_model_id
+            else None
+        )
+        worker = (
+            ModelFactory.get(worker_model_id, api_key=api_key)
+            if worker_model_id
+            else None
+        )
+
+        return cls(
+            id=data.get("id", ""),
+            name=data.get("name", "RLM"),
+            description=data.get("description", ""),
+            api_key=api_key,
+            supplier=data.get("supplier", "aiXplain"),
+            orchestrator=orchestrator,
+            worker=worker,
+            max_iterations=data.get("max_iterations", 10),
+            **data.get("additional_info", {}),
+        )
+
+    def to_dict(self) -> Dict:
+        """Convert the RLM instance to a dictionary representation.
+
+        Extends the base ``Model.to_dict()`` with RLM-specific fields:
+        orchestrator model ID, worker model ID, and max_iterations.
+        The orchestrator and worker are stored as their model IDs (not full
+        objects) so the dict is JSON-serializable and can be used to
+        reconstruct the instance via ``ModelFactory.create_rlm()``.
+
+        Returns:
+            Dict: A dictionary containing all base model fields plus:
+                - orchestrator_model_id: ID of the orchestrator model.
+                - worker_model_id: ID of the worker model.
+                - max_iterations: Maximum orchestrator loop iterations.
+        """
+        base = super().to_dict()
+        base["orchestrator_model_id"] = self.orchestrator.id if self.orchestrator else None
+        base["worker_model_id"] = self.worker.id if self.worker else None
+        base["max_iterations"] = self.max_iterations
+        return base
 
     def __repr__(self) -> str:
         """Return a string representation of this RLM instance."""
