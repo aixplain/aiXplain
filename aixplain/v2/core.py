@@ -81,15 +81,24 @@ class Aixplain:
         """Initialize the Aixplain class.
 
         Args:
-            api_key (str, optional): The API key. Falls back to TEAM_API_KEY env var.
+            api_key (str, optional): The API key. Falls back to TEAM_API_KEY or AIXPLAIN_API_KEY env var.
             backend_url (str, optional): The backend URL. Falls back to BACKEND_URL env var.
             pipeline_url (str, optional): The pipeline execution URL. Falls back to PIPELINES_RUN_URL env var.
             model_url (str, optional): The model execution URL. Falls back to MODELS_RUN_URL env var.
         """
-        self.api_key = api_key or os.getenv("TEAM_API_KEY") or ""
+        resolved = api_key or os.getenv("TEAM_API_KEY") or os.getenv("AIXPLAIN_API_KEY") or ""
+        self.api_key = resolved
+        if api_key:
+            os.environ["TEAM_API_KEY"] = api_key
+            os.environ["AIXPLAIN_API_KEY"] = api_key
+            try:
+                import aixplain.utils.config as _cfg
+                _cfg.TEAM_API_KEY = api_key
+                _cfg.AIXPLAIN_API_KEY = api_key
+            except ImportError:
+                pass
         assert self.api_key, (
-            "API key is required. You should either pass it as an argument or "
-            "set the TEAM_API_KEY environment variable."
+            "API key is required. Pass api_key=... to Aixplain() or set TEAM_API_KEY or AIXPLAIN_API_KEY."
         )
 
         self.backend_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
