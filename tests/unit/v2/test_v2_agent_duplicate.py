@@ -6,8 +6,7 @@ from dataclasses import dataclass
 
 from aixplain.v2.agent import Agent
 from aixplain.v2.enums import AssetStatus
-from aixplain.v2.resource import ValidationError
-
+from aixplain.v2.exceptions import ResourceError
 
 DUPLICATE_RESPONSE = {
     "id": "duplicated-agent-456",
@@ -126,7 +125,7 @@ class TestAgentDuplicate:
         mock_context = MagicMock()
         agent.context = mock_context
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(ResourceError, match="not been saved"):
             agent.duplicate()
 
     def test_duplicate_returns_independent_instance(self):

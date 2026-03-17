@@ -28,6 +28,7 @@ from .resource import (
     Result,
     RunnableResourceMixin,
     Page,
+    with_hooks,
 )
 
 
@@ -647,15 +648,16 @@ class Agent(
 
         return None
 
-    def after_clone(self, result: Union["Agent", Exception], **kwargs: Any) -> Optional["Agent"]:
-        """Callback called after the agent is cloned.
+    def after_duplicate(self, result: Union["Agent", Exception], **kwargs: Any) -> Optional["Agent"]:
+        """Callback called after the agent is duplicated.
 
-        Sets the cloned agent's status to DRAFT.
+        Sets the duplicated agent's status to DRAFT.
         """
         if isinstance(result, Agent):
             result.status = AssetStatus.DRAFT
         return None
 
+    @with_hooks
     def duplicate(self, clone_subagents: bool = False, name: Optional[str] = None) -> "Agent":
         """Duplicate this agent on the aiXplain platform (server-side).
 
@@ -677,8 +679,6 @@ class Agent(
             ResourceError: If the duplication request fails.
         """
         from .resource import _flatten_asset_info
-
-        self._ensure_valid_state()
 
         payload = {
             "cloneSubagents": clone_subagents,
