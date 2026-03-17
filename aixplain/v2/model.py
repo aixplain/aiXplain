@@ -47,8 +47,8 @@ class Message:
 class Detail:
     """Detail structure from the API response."""
 
-    index: int
     message: Message
+    index: Optional[int] = None
     logprobs: Optional[Any] = None
     finish_reason: Optional[str] = field(default=None, metadata=config(field_name="finish_reason"))
 
@@ -608,7 +608,7 @@ class Model(
     vendor: Optional[VendorInfo] = None
     function: Optional[Function] = field(
         default=None,
-        metadata=config(decoder=lambda x: (find_function_by_id(x["id"]) if isinstance(x, dict) and "id" in x else x)),
+        metadata=config(decoder=lambda x: find_function_by_id(x["id"]) if isinstance(x, dict) and "id" in x else x),
     )
 
     # Pricing information
