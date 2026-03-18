@@ -92,10 +92,10 @@ class TestAgentDuplicate:
 class TestAgentDuplicateWithSubagents:
     @pytest.fixture(scope="class")
     def team_agent(self, client):
-        """Create a team agent (agent with subagents) for testing clone_subagents."""
+        """Create a team agent (agent with subagents) for testing duplicate_subagents."""
         sub = client.Agent(
             name=f"Sub for Dup {int(time.time())}",
-            description="A subagent used to test duplicate clone_subagents",
+            description="A subagent used to test duplicate_subagents",
             instructions="You are a subagent.",
         )
         sub.save()
@@ -119,7 +119,7 @@ class TestAgentDuplicateWithSubagents:
     def test_duplicate_keep_references(self, client, team_agent):
         """Duplicate a team agent keeping references to original subagents."""
         team, sub = team_agent
-        duplicated = team.duplicate(clone_subagents=False)
+        duplicated = team.duplicate(duplicate_subagents=False)
 
         try:
             assert duplicated.id is not None
@@ -135,10 +135,10 @@ class TestAgentDuplicateWithSubagents:
             except Exception:
                 pass
 
-    def test_duplicate_clone_subagents(self, client, team_agent):
+    def test_duplicate_subagents(self, client, team_agent):
         """Duplicate a team agent with independent copies of subagents."""
         team, sub = team_agent
-        duplicated = team.duplicate(clone_subagents=True)
+        duplicated = team.duplicate(duplicate_subagents=True)
 
         cloned_subs_to_clean = []
         try:
@@ -149,7 +149,7 @@ class TestAgentDuplicateWithSubagents:
                 for sa_id in duplicated.subagents:
                     if isinstance(sa_id, str):
                         assert sa_id != sub.id, (
-                            "With clone_subagents=True, subagent IDs should differ from the originals"
+                            "With duplicate_subagents=True, subagent IDs should differ from the originals"
                         )
                         cloned_subs_to_clean.append(sa_id)
         finally:

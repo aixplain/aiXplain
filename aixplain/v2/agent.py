@@ -658,7 +658,7 @@ class Agent(
         return None
 
     @with_hooks
-    def duplicate(self, clone_subagents: bool = False, name: Optional[str] = None) -> "Agent":
+    def duplicate(self, duplicate_subagents: bool = False, name: Optional[str] = None) -> "Agent":
         """Duplicate this agent on the aiXplain platform (server-side).
 
         Creates a server-side copy of this agent with a clean usage baseline.
@@ -666,7 +666,7 @@ class Agent(
         but resets all usage and cost metrics.
 
         Args:
-            clone_subagents: If True, recursively clones referenced subagents
+            duplicate_subagents: If True, recursively duplicates referenced subagents
                 so the duplicate has independent copies. If False, the duplicate
                 keeps references to the original subagents. Defaults to False.
             name: Custom name for the duplicate. If None, a unique name is
@@ -681,7 +681,7 @@ class Agent(
         from .resource import _flatten_asset_info
 
         payload = {
-            "cloneSubagents": clone_subagents,
+            "cloneSubagents": duplicate_subagents,
         }
         if name is not None:
             payload["name"] = name

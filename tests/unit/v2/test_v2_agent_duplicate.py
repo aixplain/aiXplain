@@ -87,11 +87,11 @@ class TestAgentDuplicate:
         assert call_args[1]["json"]["cloneSubagents"] is False
         assert "name" not in call_args[1]["json"]
 
-    def test_duplicate_with_clone_subagents(self):
+    def test_duplicate_with_duplicate_subagents(self):
         agent = _make_agent()
         agent.context.client.request.return_value = DUPLICATE_RESPONSE
 
-        agent.duplicate(clone_subagents=True)
+        agent.duplicate(duplicate_subagents=True)
 
         call_args = agent.context.client.request.call_args
         assert call_args[1]["json"]["cloneSubagents"] is True
@@ -160,6 +160,6 @@ class TestAgentDuplicate:
         }
         agent.context.client.request.return_value = response_with_subagents
 
-        duplicated = agent.duplicate(clone_subagents=True)
+        duplicated = agent.duplicate(duplicate_subagents=True)
 
         assert len(duplicated.subagents) == 2
