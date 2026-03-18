@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from aixplain.v2.enums import Function, ResponseStatus
-from aixplain.v2.model import InputsProxy, Message, Model, ModelResponseStreamer, ModelResult, StreamChunk, find_function_by_id
+from aixplain.v2.model import Message, Model, ModelResponseStreamer, ModelResult, StreamChunk, find_function_by_id
 
 
 # =============================================================================
@@ -60,7 +60,7 @@ class TestModelConnectionTypeProperties:
         model.name = "Test Model"
         model.connection_type = connection_type
         model.params = None
-        model.inputs = InputsProxy(model)
+        model.__post_init__()
         return model
 
     # is_sync_only tests
@@ -118,7 +118,7 @@ class TestModelCapabilityInference:
 
     @staticmethod
     def _param(name: str):
-        """Create a lightweight parameter-like object compatible with InputsProxy."""
+        """Create a lightweight parameter-like object compatible with Inputs."""
         return SimpleNamespace(
             name=name,
             required=False,
@@ -135,7 +135,7 @@ class TestModelCapabilityInference:
         model.function = function
         model.function_type = function_type
         model.params = params
-        model.inputs = InputsProxy(model)
+        model.__post_init__()
         return model
 
     def test_supports_tool_calling_true_with_tools_param(self):
@@ -219,7 +219,7 @@ class TestModelRunRouting:
         model.name = "Test Model"
         model.connection_type = connection_type
         model.params = None
-        model.inputs = InputsProxy(model)
+        model.__post_init__()
         model.context = Mock()
         return model
 
@@ -304,7 +304,7 @@ class TestModelV1Fallback:
         model.name = "Test Model"
         model.connection_type = ["synchronous"]
         model.params = None
-        model.inputs = InputsProxy(model)
+        model.__post_init__()
         model.context = Mock()
         model.context.model_url = "https://models.aixplain.com/api/v2/execute"
         model.context.api_key = "test-api-key"
@@ -444,7 +444,7 @@ class TestModelStreaming:
         model.name = "Test Model"
         model.supports_streaming = True
         model.params = None
-        model.inputs = InputsProxy(model)
+        model.__post_init__()
         model.context = Mock()
         model.context.client = Mock()
         return model
@@ -650,7 +650,7 @@ class TestModelIntegrationGaps:
         model.name = "Test Model"
         model.connection_type = ["synchronous"]
         model.params = None
-        model.inputs = InputsProxy(model)
+        model.__post_init__()
         model.context = Mock()
         model.context.client = Mock()
         return model
