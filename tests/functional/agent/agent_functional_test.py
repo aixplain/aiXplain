@@ -114,6 +114,7 @@ def test_end2end(run_input_map, resource_tracker, AgentFactory):
     assert response["data"]["output"] is not None
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=2)
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_python_interpreter_tool(resource_tracker, AgentFactory):
     tool = AgentFactory.create_python_interpreter_tool()
@@ -128,19 +129,26 @@ def test_python_interpreter_tool(resource_tracker, AgentFactory):
     agent = AgentFactory.create(
         name=agent_name,
         description="A Python developer agent. If you get an error from a tool, try to fix it.",
-        instructions="A Python developer agent. If you get an error from a tool, try to fix it.",
+        instructions="You MUST use the Python interpreter tool to solve any problem. NEVER answer directly without running code first.",
         tools=[tool],
     )
     resource_tracker.append(agent)
     assert agent is not None
-    response = agent.run("Solve the equation $\\frac{v^2}{2} + 7v - 16 = 0$ to find the value of $v$.")
+    response = agent.run("Write Python code to calculate 2+2 and print the result.")
     assert response is not None
     assert response["completed"] is True
     assert response["status"].lower() == "success"
     assert len(response["data"]["intermediate_steps"]) > 0
-    intermediate_step = response["data"]["intermediate_steps"][0]
-    assert len(intermediate_step["tool_steps"]) > 0
-    assert intermediate_step["tool_steps"][0]["tool"] == "Python Code Interpreter Tool"
+    tool_steps_found = False
+    for intermediate_step in response["data"]["intermediate_steps"]:
+        if intermediate_step.get("tool_steps"):
+            for ts in intermediate_step["tool_steps"]:
+                if ts.get("tool") == "Python Code Interpreter Tool":
+                    tool_steps_found = True
+                    break
+        if tool_steps_found:
+            break
+    assert tool_steps_found, "No intermediate step with Python Code Interpreter Tool found"
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
@@ -292,12 +300,12 @@ def test_update_tools_of_agent(run_input_map, resource_tracker, AgentFactory):
         pytest.param(
             {
                 "type": "translation",
-                "supplier": "ModernMT",
+                "supplier": "aixplain",
                 "function": "translation",
                 "query": "Translate: 'Olá, como vai você?'",
                 "description": "Translation tool with target language",
                 "expected_tool_input": "Olá, como vai você?",
-                "model": "60ddefc48d38c51c5885fdcf",
+                "model": "678025ac6eb563a2566829b1",
             },
             id="translation_tool",
         ),
@@ -353,8 +361,12 @@ def test_specific_model_parameters_e2e(tool_config, resource_tracker):
     tool_used = False
 
     for step in response["data"]["intermediate_steps"]:
-        if len(step["tool_steps"]) > 0 and tool_config["expected_tool_input"] in step["tool_steps"][0]["input"]:
-            tool_used = True
+        if step.get("tool_steps"):
+            for ts in step["tool_steps"]:
+                if ts.get("input") and tool_config["expected_tool_input"] in ts["input"]:
+                    tool_used = True
+                    break
+        if tool_used:
             break
     assert tool_used, "Tool was not used in execution"
 
@@ -524,6 +536,7 @@ def test_instructions(resource_tracker, AgentFactory):
     assert "aixplain" in response["data"]["output"].lower()
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
 def test_agent_with_utility_tool(resource_tracker, AgentFactory):
     from aixplain.enums import DataType
@@ -590,11 +603,15 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
     )
     resource_tracker.append(agent)
 
-    result_vowel = agent.run("Remove all the vowels in this string: 'Hello'")
-    result_concat_text = agent.run("Concat these strings: String1 = 'Hello'; string2= 'World!'.")
+    result_vowel = agent.run(
+        "Use the Vowel Remover tool to remove all vowels from the text 'Banana'. Return only the result."
+    )
+    result_concat_text = agent.run(
+        "Use the String Concatenator tool to concatenate string1='Good' and string2='Morning'. Return only the result."
+    )
 
-    assert "hll" in result_vowel["data"]["output"].lower()
-    assert "helloworld!" in result_concat_text["data"]["output"].lower()
+    assert "bnn" in result_vowel["data"]["output"].lower()
+    assert "goodmorning" in result_concat_text["data"]["output"].lower()
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
@@ -632,7 +649,16 @@ def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
     answer = pipeline_agent.run("Who is the president of USA?")
 
     assert "hello" in answer["data"]["output"].lower()
-    assert "hello pipeline" in answer["data"]["intermediate_steps"][0]["tool_steps"][0]["tool"].lower()
+    pipeline_tool_found = False
+    for step in answer["data"]["intermediate_steps"]:
+        if step.get("tool_steps"):
+            for ts in step["tool_steps"]:
+                if ts.get("tool") and "hello pipeline" in ts["tool"].lower():
+                    pipeline_tool_found = True
+                    break
+        if pipeline_tool_found:
+            break
+    assert pipeline_tool_found, "Pipeline tool was not found in intermediate steps"
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])

@@ -17,10 +17,8 @@ Parameters for listing utilities.
 
 **Attributes**:
 
-- `function` - Function: The function of the utility (should be UTILITIES).
-- `status` - str: The status of the utility.
-- `query` - str: Search query for utilities.
-- `ownership` - Tuple[OwnershipType, List[OwnershipType]]: Ownership filter.
+- `function` - The function type to filter by (e.g., Function.UTILITIES).
+- `status` - The status of the utility to filter by.
 
 ### UtilityRunParams Objects
 
@@ -28,7 +26,7 @@ Parameters for listing utilities.
 class UtilityRunParams(BaseRunParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L37)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L35)
 
 Parameters for running utilities.
 
@@ -49,7 +47,7 @@ class Utility(BaseResource, SearchResourceMixin[UtilitySearchParams,
               RunnableResourceMixin[UtilityRunParams, Result])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L49)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L47)
 
 Resource for utilities.
 
@@ -63,7 +61,7 @@ executed on the platform.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L69)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L67)
 
 Parse code and validate description for new utility instances.
 

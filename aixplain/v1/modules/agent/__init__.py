@@ -576,7 +576,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         max_iterations: int = 5,
         trace_request: bool = False,
         progress_verbosity: Optional[str] = "compact",
-        run_response_generation: bool = True,
+        run_response_generation: bool = False,
         **kwargs,
     ) -> AgentResponse:
         """Runs an agent call.
@@ -595,7 +595,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             max_iterations (int, optional): maximum number of iterations between the agent and the tools. Defaults to 10.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
             progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
-            run_response_generation (bool, optional): Whether to run response generation. Defaults to True.
+            run_response_generation (bool, optional): Whether to run response generation. Defaults to False.
             **kwargs: Additional keyword arguments.
 
         Returns:
@@ -668,7 +668,11 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             poll_url = response["url"]
             end = time.time()
             result = self.sync_poll(
-                poll_url, name=name, timeout=timeout, wait_time=wait_time, progress_verbosity=progress_verbosity
+                poll_url,
+                name=name,
+                timeout=timeout,
+                wait_time=wait_time,
+                progress_verbosity=progress_verbosity,
             )
             result_data = result.get("data") or {}
             if result.status == ResponseStatus.FAILED:
@@ -733,7 +737,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         evolve: Union[Dict[str, Any], EvolveParam, None] = None,
         trace_request: bool = False,
-        run_response_generation: bool = True,
+        run_response_generation: bool = False,
     ) -> AgentResponse:
         """Runs asynchronously an agent call.
 
@@ -751,7 +755,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
-            run_response_generation (bool, optional): Whether to run response generation. Defaults to True.
+            run_response_generation (bool, optional): Whether to run response generation. Defaults to False.
 
         Returns:
             dict: polling URL in response

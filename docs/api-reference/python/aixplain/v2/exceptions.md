@@ -110,7 +110,7 @@ Raised when file upload operations fail.
 def create_operation_failed_error(response: Dict[str, Any]) -> APIError
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L83)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L101)
 
 Create an operation failed error from API response.
 

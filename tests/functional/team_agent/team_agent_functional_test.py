@@ -49,6 +49,18 @@ def resource_tracker():
             pass
 
 
+@pytest.fixture
+def resource_tracker():
+    """Tracks resources created during a test for guaranteed cleanup."""
+    resources = []
+    yield resources
+    for resource in reversed(resources):
+        try:
+            resource.delete()
+        except Exception:
+            pass
+
+
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
 def run_input_map(request):
     return request.param
@@ -57,6 +69,8 @@ def run_input_map(request):
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_end2end(run_input_map, resource_tracker, TeamAgentFactory):
     agents = create_agents_from_input_map(run_input_map)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
     team_agent = create_team_agent(
@@ -88,6 +102,8 @@ def test_end2end(run_input_map, resource_tracker, TeamAgentFactory):
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_draft_team_agent_update(run_input_map, resource_tracker, TeamAgentFactory):
     agents = create_agents_from_input_map(run_input_map, deploy=False)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
     team_agent = create_team_agent(
@@ -182,6 +198,8 @@ def test_fail_non_existent_llm(run_input_map, resource_tracker, TeamAgentFactory
     agents = create_agents_from_input_map(run_input_map, deploy=False)
     for agent in agents:
         resource_tracker.append(agent)
+    for agent in agents:
+        resource_tracker.append(agent)
 
     with pytest.raises(Exception) as exc_info:
         TeamAgentFactory.create(
@@ -199,6 +217,8 @@ def test_fail_non_existent_llm(run_input_map, resource_tracker, TeamAgentFactory
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, TeamAgentFactory):
     agents = create_agents_from_input_map(run_input_map, deploy=False)
+    for agent in agents:
+        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
     team_agent = create_team_agent(
