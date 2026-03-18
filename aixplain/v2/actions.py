@@ -296,11 +296,11 @@ class Inputs:
         inputs: Dict[str, Input] = object.__getattribute__(self, "_inputs")
         return [(name, inp.value) for name, inp in inputs.items()]
 
-    def get(self, key: str, default: Any = None) -> Any:
-        """Return the *raw value* for *key*, or *default*."""
+    def get(self, key: str, default: Any = None) -> Optional[Input]:
+        """Return the :class:`Input` for *key*, or *default*."""
         inputs: Dict[str, Input] = object.__getattribute__(self, "_inputs")
         if key in inputs:
-            return inputs[key].value
+            return inputs[key]
         return default
 
     def update(self, **kwargs: Any) -> None:
@@ -442,7 +442,9 @@ class Action:
             return header
 
         try:
-            inputs: Dict[str, Input] = object.__getattribute__(self.inputs, "_inputs")
+            inputs: Dict[str, Input] = (
+                object.__getattribute__(self._inputs, "_inputs") if self._inputs is not None else {}
+            )
         except Exception:
             return header
 

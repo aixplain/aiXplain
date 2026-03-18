@@ -932,7 +932,8 @@ class Model(
         parameters = []
         if self.params:
             for param in self.params:
-                param_value = self.inputs.get(param.name)
+                inp = self.inputs.get(param.name)
+                param_value = inp.value if inp is not None else None
                 if param_value is not None:
                     parameters.append(
                         {

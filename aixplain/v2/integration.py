@@ -228,11 +228,6 @@ class ActionMixin:
                 raise ValueError(f"Error setting inputs for action '{action_name}': {e}")
 
 
-# Backward-compat aliases for the renamed internal classes
-Input = ActionInputSpec
-Action = ActionSpec
-
-
 class Integration(Model, ActionMixin):
     """Resource for integrations.
 

@@ -75,6 +75,16 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """Collection of actions available on this tool."""
         return ActionMixin.actions.func(self)
 
+    @property
+    def inputs(self):
+        """Tools have multiple actions — use tool.actions['action_name'].inputs instead."""
+        raise AttributeError("Tools have multiple actions — use tool.actions['action_name'].inputs instead")
+
+    @inputs.setter
+    def inputs(self, value):
+        """Prevent setting inputs directly on tools."""
+        raise AttributeError("Tools have multiple actions — use tool.actions['action_name'].inputs instead")
+
     # ------------------------------------------------------------------
     # Action / Input listing (with integration fallback)
     # ------------------------------------------------------------------
@@ -241,7 +251,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
                 current_value = None
                 if action_obj:
-                    current_value = action_obj.inputs.get(input_code)
+                    inp = action_obj.inputs.get(input_code)
+                    current_value = inp.value if inp is not None else None
 
                 if current_value is None and input_param.default_value:
                     current_value = input_param.default_value[0] if input_param.default_value else None
@@ -355,9 +366,9 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         action_obj = self.actions[action_name]
 
         for input_code in action_obj.inputs.keys():
-            value = action_obj.inputs.get(input_code)
-            if value is not None:
-                merged[input_code] = value
+            inp = action_obj.inputs.get(input_code)
+            if inp is not None and inp.value is not None:
+                merged[input_code] = inp.value
 
         kwargs.setdefault("data", {})
 
