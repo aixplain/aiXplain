@@ -48,8 +48,8 @@ class Message:
 class Detail:
     """Detail structure from the API response."""
 
-    index: int
-    message: Message
+    index: Optional[int] = None
+    message: Optional[Message] = None
     logprobs: Optional[Any] = None
     finish_reason: Optional[str] = field(default=None, metadata=config(field_name="finish_reason"))
 
