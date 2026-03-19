@@ -1,5 +1,6 @@
 """Tool resource module for managing tools and their integrations."""
 
+import re
 import warnings
 from typing import Union, List, Optional, Any
 from typing_extensions import Unpack
@@ -42,6 +43,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
     # Tool-specific fields
     asset_id: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
+    parent_model_id: Optional[str] = field(default=None, metadata=dj_config(field_name="parentModelId"))
     subscriptions: Optional[Any] = field(default=None)
     integration: Optional[Union[Integration, str]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     config: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
@@ -183,8 +185,103 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         if connection.redirect_url:
             self.redirect_url = connection.redirect_url
 
+    def _resolve_integration(self) -> None:
+        """Auto-resolve the integration from ``parent_model_id`` when not explicitly set.
+
+        The backend populates ``parentModelId`` on tools/connections with the
+        ID of the integration that created them.  Older tools may not have this
+        field, in which case the caller must set ``tool.integration`` manually.
+
+        Raises:
+            ValueError: If integration cannot be resolved.
+        """
+        if self.integration:
+            return
+
+        if self.parent_model_id:
+            self.integration = self.parent_model_id
+            return
+
+        raise ValueError(
+            "Cannot update tool: the integration could not be resolved automatically "
+            "(parentModelId is not set — this may be an older tool). "
+            "Set tool.integration = '<integration_id>' before calling save()."
+        )
+
+    _AUTH_SCHEME_RE = re.compile(r"Authentication scheme used for this connections?:\s*(\w+)")
+
+    def _extract_auth_scheme(self) -> Optional[str]:
+        """Extract the authentication scheme from the tool's description.
+
+        The backend embeds ``Authentication scheme used for this connections: <SCHEME>``
+        in the description text.  Returns ``None`` when the pattern is absent.
+        """
+        if self.description:
+            m = self._AUTH_SCHEME_RE.search(self.description)
+            if m:
+                return m.group(1)
+        if self.attributes:
+            for attr in self.attributes:
+                name = getattr(attr, "name", None) or (attr.get("name") if isinstance(attr, dict) else None)
+                if name == "auth_schemes":
+                    code = getattr(attr, "code", None) or (attr.get("code") if isinstance(attr, dict) else None)
+                    if code:
+                        schemes = re.findall(r"\w+", code)
+                        if "BEARER_TOKEN" in schemes:
+                            return "BEARER_TOKEN"
+                        if schemes:
+                            return schemes[0]
+        return None
+
     def _update(self, resource_path: str, payload: dict) -> None:
-        raise NotImplementedError("Updating a tool is not supported yet")
+        """Update tool metadata and optionally reconnect the integration.
+
+        Metadata (name, description) is updated via ``PUT /sdk/utilities/{id}``.
+        Connection-related fields (config, code) trigger a reconnect via
+        ``integration.connect()`` with the existing ``assetId``.
+        """
+        needs_reconnect = bool(self.config or self.code)
+
+        metadata_payload: dict = {"id": self.id}
+        if self.name:
+            metadata_payload["name"] = self.name
+        if self.description:
+            metadata_payload["description"] = self.description
+
+        self.context.client.request("put", f"sdk/utilities/{self.id}", json=metadata_payload)
+
+        if needs_reconnect:
+            self._resolve_integration()
+            self._ensure_integration(required=True)
+
+            connect_payload: dict = {}
+            data: dict = {}
+            if self.config:
+                config_copy = dict(self.config)
+                nested_data = config_copy.pop("data", {})
+                data.update(nested_data)
+                data.update(config_copy)
+
+            if self.code and "code" not in data:
+                data["code"] = self.code
+
+            data["assetId"] = self.asset_id or self.id
+            connect_payload["data"] = data
+
+            auth_scheme = self._extract_auth_scheme()
+            if auth_scheme:
+                connect_payload["authScheme"] = auth_scheme
+
+            connection = self.integration.connect(**connect_payload)
+
+            self.id = connection.id
+
+            for attr_name in self.__dataclass_fields__:
+                if not getattr(self, attr_name) and getattr(connection, attr_name, None):
+                    setattr(self, attr_name, getattr(connection, attr_name))
+
+            if connection.redirect_url:
+                self.redirect_url = connection.redirect_url
 
     # ------------------------------------------------------------------
     # Introspection helpers

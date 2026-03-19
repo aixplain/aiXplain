@@ -332,3 +332,114 @@ def test_tool_as_tool_without_actions(client):
     assert "actions" not in tool_dict, "as_tool() should NOT include 'actions' field when allowed_actions is empty"
 
     print("✅ as_tool() correctly omits actions when not set")
+
+
+def test_tool_update_name(client, slack_integration_id, slack_token):
+    """Test updating an existing tool's name via save().
+
+    Validates the full reconnection-based update flow:
+    1. Create a tool via integration.connect (save with no id)
+    2. Fetch the tool fresh (simulates a new session)
+    3. Change the name and call save() (triggers _update)
+    4. Verify the name was persisted on the backend
+    """
+    original_name = f"test-update-{int(time.time())}"
+    updated_name = f"test-updated-{int(time.time())}"
+
+    # --- Create ---
+    tool = client.Tool(
+        name=original_name,
+        integration=slack_integration_id,
+        config={"token": slack_token},
+    )
+    tool.save()
+    assert tool.id is not None, "Tool should have an ID after save"
+    tool_id = tool.id
+
+    try:
+        # --- Fetch fresh (simulates a new session where integration is not set) ---
+        fetched = client.Tool.get(tool_id)
+        assert fetched.parent_model_id is not None, "Fetched tool should have parentModelId from backend"
+        assert fetched.integration is None, "Fetched tool should not have integration set (local-only field)"
+        assert fetched.name == original_name
+
+        # --- Update name ---
+        fetched.name = updated_name
+        fetched.save()
+
+        # --- Verify persistence ---
+        verified = client.Tool.get(tool_id)
+        assert verified.name == updated_name, f"Expected name '{updated_name}', got '{verified.name}'"
+
+        print(f"✅ Tool name updated: '{original_name}' → '{updated_name}'")
+
+    finally:
+        # Clean up
+        try:
+            client.Tool.get(tool_id).delete()
+        except Exception:
+            pass
+
+
+def test_tool_update_description(client, slack_integration_id, slack_token):
+    """Test updating an existing tool's description via save()."""
+    tool_name = f"test-update-desc-{int(time.time())}"
+    new_description = "Updated description from functional test."
+
+    tool = client.Tool(
+        name=tool_name,
+        integration=slack_integration_id,
+        config={"token": slack_token},
+    )
+    tool.save()
+    tool_id = tool.id
+
+    try:
+        fetched = client.Tool.get(tool_id)
+        fetched.description = new_description
+        fetched.save()
+
+        verified = client.Tool.get(tool_id)
+        assert verified.description == new_description, (
+            f"Expected description '{new_description}', got '{verified.description}'"
+        )
+
+        print(f"✅ Tool description updated successfully")
+
+    finally:
+        try:
+            client.Tool.get(tool_id).delete()
+        except Exception:
+            pass
+
+
+def test_tool_update_preserves_allowed_actions(client, slack_integration_id, slack_token):
+    """Test that local-only fields like allowed_actions survive a save() round-trip."""
+    tool_name = f"test-update-actions-{int(time.time())}"
+
+    tool = client.Tool(
+        name=tool_name,
+        integration=slack_integration_id,
+        config={"token": slack_token},
+        allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
+    )
+    tool.save()
+    tool_id = tool.id
+
+    try:
+        fetched = client.Tool.get(tool_id)
+        fetched.allowed_actions = ["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"]
+        fetched.name = f"test-update-actions-renamed-{int(time.time())}"
+        fetched.save()
+
+        assert fetched.allowed_actions == ["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"], (
+            "allowed_actions should be preserved after save()"
+        )
+
+        print("✅ allowed_actions preserved through update")
+
+    finally:
+        try:
+            client.Tool.get(tool_id).delete()
+        except Exception:
+            pass
