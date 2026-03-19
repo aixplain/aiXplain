@@ -48,6 +48,7 @@ from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_par
 from urllib.parse import urljoin
 from aixplain.modules.model.llm_model import LLM
 from aixplain.utils.convert_datatype_utils import normalize_expected_output
+from aixplain.utils.user_info_utils import build_user_info
 
 from aixplain.utils import config
 from aixplain.modules.mixins import DeployableMixin
@@ -266,6 +267,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 "query": "/",
                 "sessionId": session_id,
                 "history": history,
+                "userInfo": build_user_info(),
                 "executionParams": {
                     "maxTokens": 2048,
                     "maxIterations": 10,
@@ -835,6 +837,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             "query": input_data,
             "sessionId": session_id,
             "history": history,
+            "userInfo": build_user_info(),
             "executionParams": {
                 "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
                 "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),

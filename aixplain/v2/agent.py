@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from .enums import AssetStatus, ResponseStatus
 from .model import Model
 from .mixins import ToolableMixin
+from ..utils.user_info_utils import build_user_info
 
 from .resource import (
     BaseResource,
@@ -955,6 +956,7 @@ class Agent(
             "id": self.id,
             "executionParams": execution_params,
             "runResponseGeneration": run_response_generation,
+            "userInfo": build_user_info(),
         }
 
         # Add query back if present

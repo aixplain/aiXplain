@@ -1,5 +1,6 @@
 import pytest
 import requests_mock
+from datetime import datetime
 from aixplain.factories import AgentFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules import Agent, Model
@@ -550,6 +551,29 @@ def test_run_success():
     assert isinstance(response, AgentResponse)
     assert response["status"] == "IN_PROGRESS"
     assert response["url"] == ref_response["data"]
+
+
+def test_run_async_includes_user_info_datetime():
+    agent = Agent(
+        "123",
+        "Test Agent(-)",
+        "Sample Description",
+        instructions="Test Agent Instructions",
+    )
+    run_url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
+    agent.url = run_url
+
+    with requests_mock.Mocker() as mock:
+        headers = {"x-api-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
+        mock.post(run_url, headers=headers, json={"data": "www.aixplain.com", "status": "IN_PROGRESS"})
+
+        agent.run_async(data={"query": "Hello, how are you?"})
+
+        sent = mock.last_request.json()
+        assert "userInfo" in sent
+        assert "datetime" in sent["userInfo"]
+        assert isinstance(sent["userInfo"]["datetime"], str)
+        datetime.fromisoformat(sent["userInfo"]["datetime"])
 
 
 def test_run_variable_missing():
