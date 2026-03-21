@@ -1,25 +1,31 @@
-# aiXplain Agents SDK
+# aiXplain SDK
 
-**Build and deploy autonomous AI agents on production-grade infrastructure, instantly.**
+**aiXplain SDK lets you build autonomous AI agents that reason, use tools, delegate work, and run on portable production infrastructure.**
 
 ---
 
-## aiXplain agents
+**One SDK: build, deploy, and run production AI agents.**
 
-aiXplain Agents SDK gives developers Python and REST APIs to build, run, and deploy autonomous multi-step agents on [AgenticOS](https://docs.aixplain.com/getting-started/agenticos). Agents include built-in memory for short- and long-term context (opt-in), and adapt at runtime by planning steps, selecting tools and models, running code, and refining outputs until tasks are complete.
+**You define the agent. AgenticOS runs, governs, traces, and deploys it.**
 
-aiXplain agents include micro-agents for runtime policy enforcement and access control, plus proprietary meta-agents like Evolver for self-improvement.
+**Built for modern coding agents and IDEs.**  
+Works with Claude Code, Codex, Cursor, OpenClaw, and other coding-agent workflows.
 
-With one API key, access 900+ vendor-agnostic models, tools, and integrations in the aiXplain Marketplace with consolidated billing, and swap assets without rewriting pipelines.
+## Why aiXplain
 
-### Why aiXplain for developers
+- Build autonomous AI agents and multi-agent systems for real business workflows
+- Govern every run with runtime policy enforcement, access control, and isolated workspaces
+- Access 900+ models and tools with one API key, or bring your own model, data, code, or MCP
+- Deploy instantly on AgenticOS Cloud or keep full control with AgenticOS OnPrem
+- Trace and monitor agents with visual execution traces and real-time dashboards
 
-- **Autonomy** — agents plan and adapt at runtime instead of following fixed workflows.
-- **Delegation** — route complex work to specialized subagents during execution.
-- **Policy enforcement** — apply runtime guardrails with Inspector and Bodyguard on every run.
-- **Observability** — inspect step-level traces, tool calls, and outcomes for debugging.
-- **Portability** — swap models and tools without rewriting application logic.
-- **Flexible deployment** — run the same agent definition serverless or private.
+| | aiXplain SDK | Other agent frameworks |
+|---|---|---|
+| Governance | Runtime policy enforcement and access control built in | Usually custom code or external guardrails |
+| Models and tools | 900+ models and tools with one API key | Provider-by-provider setup |
+| Deployment | AgenticOS Cloud or AgenticOS OnPrem | Usually self-assembled runtime and infra |
+| Observability | Built-in traces and dashboards | Varies by framework |
+| Coding-agent workflows | Works with Claude Code, Codex, Cursor, OpenClaw, and similar tools | Usually not a first-class workflow target |
 
 <div align="center">
   <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aiXplain team-agent runtime flow" title="aiXplain"/>
@@ -27,10 +33,10 @@ With one API key, access 900+ vendor-agnostic models, tools, and integrations in
 
 ## AgenticOS
 
-AgenticOS is the runtime behind aiXplain Agents. It orchestrates multi-step execution, routes model and tool calls with fallback policies, enforces governance at runtime, records step-level traces, and supports both serverless and private deployment.
+AgenticOS is the portable runtime platform behind aiXplain agents. It is composed of three main layers: AgentEngine, AssetServing, and Observability. It handles orchestration, model and tool execution, runtime governance, and production monitoring across AgenticOS Cloud and AgenticOS OnPrem.
 
 <div align="center">
-  <img src="docs/assets/aixplain-agentic-os-architecture.png" alt="aiXplain AgenticOS architecture" title="aiXplain"/>
+  <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aiXplain AgenticOS architecture" title="aiXplain"/>
 </div>
 
 ---
@@ -49,52 +55,93 @@ Get your API key from your [aiXplain account](https://console.aixplain.com/setti
 ### Create and run your first agent (v2)
 
 ```python
+from uuid import uuid4
 from aixplain import Aixplain
 
 aix = Aixplain(api_key="<AIXPLAIN_API_KEY>")
 
 search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
+search_tool.allowed_actions = ["search"]
 
 agent = aix.Agent(
-    name="Research agent",
+    name=f"Research agent {uuid4().hex[:8]}",
     description="Answers questions with concise web-grounded findings.",
     instructions="Use the search tool when needed and cite key findings.",
     tools=[search_tool],
 )
 agent.save()
 
-result = agent.run(query="Summarize the latest AgenticOS updates.")
+result = agent.run(
+    query="Who is the CEO of OpenAI? Answer in one sentence.",
+)
 print(result.data.output)
 ```
 
 ### Build a multi-agent team (v2)
 
 ```python
+from uuid import uuid4
 from aixplain import Aixplain
+from aixplain.v2 import EditorConfig, EvaluatorConfig, EvaluatorType, Inspector, InspectorAction, InspectorActionConfig, InspectorSeverity, InspectorTarget
 
 aix = Aixplain(api_key="<AIXPLAIN_API_KEY>")
 search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
+search_tool.allowed_actions = ["search"]
 
-planner = aix.Agent(
-    name="Planner",
-    instructions="Break requests into clear subtasks."
+def never_edit(text: str) -> bool:
+    return False
+
+def passthrough(text: str) -> str:
+    return text
+
+noop_inspector = Inspector(
+    name=f"noop-output-inspector-{uuid4().hex[:8]}",
+    severity=InspectorSeverity.LOW,
+    targets=[InspectorTarget.OUTPUT],
+    action=InspectorActionConfig(type=InspectorAction.EDIT),
+    evaluator=EvaluatorConfig(
+        type=EvaluatorType.FUNCTION,
+        function=never_edit,
+    ),
+    editor=EditorConfig(
+        type=EvaluatorType.FUNCTION,
+        function=passthrough,
+    ),
 )
 
 researcher = aix.Agent(
-    name="Researcher",
+    name=f"Researcher {uuid4().hex[:8]}",
     instructions="Find and summarize reliable sources.",
     tools=[search_tool],
 )
 
 team_agent = aix.Agent(
-    name="Research team",
-    instructions="Delegate work to subagents, then return one final answer.",
-    subagents=[planner, researcher],
+    name=f"Research team {uuid4().hex[:8]}",
+    instructions="Research the topic and return exactly 5 concise bullet points.",
+    subagents=[researcher],
+    inspectors=[noop_inspector],
 )
-team_agent.save()
+team_agent.save(save_subcomponents=True)
 
-response = team_agent.run(query="Compare top open-source agent frameworks in 5 bullets.")
+response = team_agent.run(
+    query="Compare OpenAI and Anthropic in exactly 5 concise bullet points.",
+)
 print(response.data.output)
+```
+
+Execution order:
+
+```text
+Human prompt: "Compare OpenAI and Anthropic in exactly 5 concise bullet points."
+
+Team agent
+├── Planner: breaks the goal into research and synthesis steps
+├── Orchestrator: routes work to the right subagent
+├── Researcher subagent
+│   └── Tavily search tool: finds and summarizes reliable sources
+├── Inspector: checks the final output through a simple runtime policy
+├── Orchestrator: decides whether another pass is needed
+└── Responder: returns one final answer
 ```
 
 </details>
@@ -130,13 +177,14 @@ You can still access legacy docs at [docs.aixplain.com/1.0](https://docs.aixplai
 
 aiXplain applies runtime governance and enterprise controls by default:
 
+- **We do not train on your data** — your data is not used to train foundation models.
 - **No data retained by default** — agent memory is opt-in (short-term and long-term).
 - **SOC 2 Type II certified** — enterprise security and compliance posture.
 - **Runtime policy enforcement** — Inspector and Bodyguard govern every agent execution.
-- **Sovereign deployment options** — serverless or private (on-prem, VPC, and air-gapped).
+- **Portable deployment options** — AgenticOS Cloud or AgenticOS OnPrem (including VPC and air-gapped environments).
 - **Encryption** — TLS 1.2+ in transit and encrypted storage at rest.
 
-Learn more at [aiXplain Security](https://aixplain.com/security/) and [Sovereignty](https://aixplain.com/sovereignty/).
+Learn more at aiXplain [Security](https://aixplain.com/security/) and aiXplain [pricing](https://aixplain.com/pricing/).
 
 ---
 
@@ -148,7 +196,7 @@ Start free, then scale with usage-based pricing.
 - **Subscription plans** — reduce effective consumption-based rates.
 - **Custom enterprise pricing** — available for advanced scale and deployment needs.
 
-Learn more at [aiXplain Pricing](https://aixplain.com/pricing/).
+Learn more at aiXplain [pricing](https://aixplain.com/pricing/).
 
 ---
 
