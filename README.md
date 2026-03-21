@@ -11,6 +11,8 @@
 **Built for modern coding agents and IDEs.**  
 Works with Claude Code, Codex, Cursor, OpenClaw, and other coding-agent workflows.
 
+aiXplain SDK gives you Python and REST APIs to build, run, and deploy autonomous agent software. Set your instructions, tools, and rules, and let the agent plan steps, use tools, call models and data sources, run code, and adapt until the job is done.
+
 ## Why aiXplain
 
 - Build autonomous AI agents and multi-agent systems for real business workflows
