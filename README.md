@@ -145,7 +145,6 @@ Team agent
 ├── Orchestrator: decides whether another pass is needed
 └── Responder: returns one final answer
 ```
-
 </details>
 
 <details>

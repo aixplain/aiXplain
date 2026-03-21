@@ -9,7 +9,7 @@ import time
 
 import pytest
 
-from aixplain.v2.integration import Input, Action
+from aixplain.v2.integration import ActionInputSpec, ActionSpec
 
 
 class TestToolDictFieldsRoundTrip:
@@ -121,7 +121,7 @@ class TestInputActionFieldsRoundTrip:
         orig_available_options = original.available_options
 
         # Serialize (snake_case → camelCase JSON) then deserialize (camelCase JSON → snake_case)
-        restored = Input.from_dict(original.to_dict())
+        restored = ActionInputSpec.from_dict(original.to_dict())
 
         assert restored.default_value == orig_default_value
         assert restored.allow_multi == orig_allow_multi
@@ -141,7 +141,7 @@ class TestInputActionFieldsRoundTrip:
         original = actions[0]
         orig_display_name = original.display_name
 
-        restored = Action.from_dict(original.to_dict())
+        restored = ActionSpec.from_dict(original.to_dict())
         assert restored.display_name == orig_display_name
 
 

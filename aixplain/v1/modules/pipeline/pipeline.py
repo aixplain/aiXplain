@@ -153,13 +153,11 @@ class BenchmarkScoringAsrInputs(Inputs):
 
     input: InputParam = None
     text: InputParam = None
-    text: InputParam = None
 
     def __init__(self, node=None):
         """Initialize BenchmarkScoringAsrInputs."""
         super().__init__(node=node)
         self.input = self.create_param(code="input", data_type=DataType.AUDIO, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
         self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
 
 
@@ -4359,13 +4357,11 @@ class BenchmarkScoringMtInputs(Inputs):
 
     input: InputParam = None
     text: InputParam = None
-    text: InputParam = None
 
     def __init__(self, node=None):
         """Initialize BenchmarkScoringMtInputs."""
         super().__init__(node=node)
         self.input = self.create_param(code="input", data_type=DataType.TEXT, is_required=True)
-        self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
         self.text = self.create_param(code="text", data_type=DataType.TEXT, is_required=True)
 
 

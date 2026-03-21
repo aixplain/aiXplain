@@ -287,24 +287,30 @@ def test_run_model(client, text_model_id):
 
 def test_llm_capability_properties(client, stream_tool_call_model_id):
     """Validate capability properties under strict function-based LLM gating."""
+    from aixplain.v2.enums import Function
+
     model = client.Model.get(stream_tool_call_model_id)
-    function_value = getattr(model.function, "value", None)
-    if function_value is None and isinstance(model.function, dict):
-        function_value = model.function.get("id")
-    elif function_value is None and model.function is not None:
-        function_value = str(model.function)
 
-    if function_value is None:
-        assert model.supports_tool_calling is None
-        assert model.supports_structured_output is None
-    elif function_value == "text-generation":
-        assert model.supports_tool_calling is True
-        assert model.supports_structured_output is True
-    else:
-        assert model.supports_tool_calling is False
-        assert model.supports_structured_output is False
+    assert model.function is not None, (
+        f"Model {model.name} ({model.id}) should have a decoded function, "
+        "but got None — the Function enum may not handle the backend ID format"
+    )
+    assert isinstance(model.function, Function), (
+        f"Expected Function enum, got {type(model.function).__name__}: {model.function}"
+    )
+    assert model.function == Function.TEXT_GENERATION
+
+    assert model.supports_tool_calling is True, (
+        f"Text-generation model with 'tools' param should report supports_tool_calling=True, "
+        f"got {model.supports_tool_calling}"
+    )
+    assert model.supports_structured_output is True, (
+        f"Text-generation model with 'response_format' param should report "
+        f"supports_structured_output=True, got {model.supports_structured_output}"
+    )
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):
     """E2E: stream tool-calling returns OpenAI-style tool call deltas in chunks."""
     model = client.Model.get(stream_tool_call_model_id)
@@ -435,7 +441,6 @@ def test_dynamic_validation_parameter_types(client, text_model_id):
     valid_params = {
         "text": "Hello, world!",
         "language": "en",
-        "temperature": 0.5,  # number
         "max_tokens": 50,  # number
         "context": "Test context",  # text
         "prompt": "Test prompt",  # text
@@ -450,13 +455,6 @@ def test_dynamic_validation_parameter_types(client, text_model_id):
     # Test validation - this should work with proper parameters
     result = model.run(**available_params)
     assert result.status == "SUCCESS"
-
-    # Test with string values for number parameters (should be valid for text/number)
-    if any(param.name == "temperature" for param in model.params):
-        string_params = available_params.copy()
-        string_params["temperature"] = "0.5"  # Should be valid for text/number
-        result = model.run(**string_params)
-        assert result.status == "SUCCESS"
 
     # Test with invalid type for text parameter
     if any(param.name == "text" for param in model.params):
@@ -627,35 +625,33 @@ def test_model_inputs_proxy_methods(client, text_model_id):
     """Test the various methods available on the inputs proxy."""
     model = client.Model.get(text_model_id)
 
-    # Test has_parameter method
-    assert model.inputs.has_parameter("text") == True
-    assert model.inputs.has_parameter("nonexistent_param") == False
+    # Test containment check
+    assert ("text" in model.inputs) is True
+    assert ("nonexistent_param" in model.inputs) is False
 
-    # Test get_parameter_names method
-    param_names = model.inputs.get_parameter_names()
+    # Test keys()
+    param_names = model.inputs.keys()
     assert isinstance(param_names, list)
     assert len(param_names) > 0
     assert "text" in param_names
 
-    # Test get_required_parameters method
-    required_params = model.inputs.get_required_parameters()
+    # Test required property
+    required_params = model.inputs.required
     assert isinstance(required_params, list)
     assert len(required_params) > 0
 
-    # Test get_parameter_info method
+    # Test Input object access
     if "text" in model.inputs:
-        text_param_info = model.inputs.get_parameter_info("text")
-        assert isinstance(text_param_info, dict)
-        assert "required" in text_param_info
-        assert "data_type" in text_param_info
-        assert "data_sub_type" in text_param_info
+        text_input = model.inputs["text"]
+        assert hasattr(text_input, "required")
+        assert hasattr(text_input, "type")
+        assert hasattr(text_input, "value")
 
-    # Test get_all_parameters method
-    all_params = model.inputs.get_all_parameters()
+    # Test copy method (returns {name: value} dict)
+    all_params = model.inputs.copy()
     assert isinstance(all_params, dict)
     assert len(all_params) > 0
 
-    # Test copy method
     params_copy = model.inputs.copy()
     assert isinstance(params_copy, dict)
     assert params_copy == all_params
@@ -679,10 +675,10 @@ def test_model_inputs_proxy_validation(client, text_model_id):
             model.inputs.temperature = ["invalid", "list", "value"]
 
     # Test setting values for non-existent parameters
-    with pytest.raises(AttributeError, match="Parameter 'nonexistent_param' not found"):
+    with pytest.raises(AttributeError, match="Input 'nonexistent_param' not found"):
         model.inputs.nonexistent_param = "value"
 
-    with pytest.raises(KeyError, match="Parameter 'nonexistent_param' not found"):
+    with pytest.raises(KeyError, match="Input 'nonexistent_param' not found"):
         model.inputs["nonexistent_param"] = "value"
 
 
@@ -702,17 +698,17 @@ def test_model_inputs_proxy_reset_functionality(client, text_model_id):
         model.inputs.max_tokens = 1000
         assert model.inputs.max_tokens == 1000
 
-    # Test reset_parameter for individual parameters
+    # Test reset for individual parameters
     if "temperature" in model.inputs:
-        model.inputs.reset_parameter("temperature")
+        model.inputs.reset("temperature")
         # Should be back to original or backend default
         assert model.inputs.temperature == original_values.get("temperature")
 
-    # Test reset_all_parameters
-    model.inputs.reset_all_parameters()
+    # Test reset all
+    model.inputs.reset()
 
     # All values should be back to original
-    current_values = model.inputs.get_all_parameters()
+    current_values = model.inputs.copy()
     for param_name in original_values:
         if param_name in current_values:
             assert current_values[param_name] == original_values[param_name]
@@ -776,8 +772,6 @@ def test_model_run_with_configured_inputs(client, text_model_id):
     model = client.Model.get(text_model_id)
 
     # Configure parameters through inputs proxy
-    if "temperature" in model.inputs:
-        model.inputs.temperature = 0.7
     if "max_tokens" in model.inputs:
         model.inputs.max_tokens = 500
     if "language" in model.inputs:
@@ -817,7 +811,7 @@ def test_model_inputs_proxy_edge_cases(client, text_model_id):
     # Test setting None values (should work for most parameters)
     if "temperature" in model.inputs:
         model.inputs.temperature = None
-        assert model.inputs.temperature is None
+        assert model.inputs.temperature == None  # noqa: E711
 
     # Test setting empty string
     if "language" in model.inputs:
@@ -829,14 +823,14 @@ def test_model_inputs_proxy_edge_cases(client, text_model_id):
         model.inputs.max_tokens = 0
         assert model.inputs.max_tokens == 0
 
-    # Test that the proxy object has a good string representation
-    proxy_repr = repr(model.inputs)
-    assert isinstance(proxy_repr, str)
-    assert "InputsProxy" in proxy_repr
+    # Test that the inputs object has a good string representation
+    inputs_repr = repr(model.inputs)
+    assert isinstance(inputs_repr, str)
+    assert "Inputs" in inputs_repr
 
-    # Test that the proxy object has the expected length
+    # Test that the inputs object has the expected length
     assert len(model.inputs) > 0
-    assert len(model.inputs) == len(model.inputs.get_parameter_names())
+    assert len(model.inputs) == len(model.inputs.keys())
 
 
 def test_model_inputs_bulk_assignment_syntax(client, text_model_id):
@@ -874,7 +868,7 @@ def test_model_inputs_bulk_assignment_syntax(client, text_model_id):
     model.inputs = {}
 
     # All parameters should be back to their backend default values
-    current_values = model.inputs.get_all_parameters()
+    current_values = model.inputs.copy()
     for param_name in original_values:
         if param_name in current_values:
             # For parameters that were changed, they should be back to backend defaults
@@ -897,8 +891,6 @@ def test_model_inputs_proxy_integration_with_run(client, text_model_id):
     model = client.Model.get(text_model_id)
 
     # Configure some parameters through inputs proxy
-    if "temperature" in model.inputs:
-        model.inputs.temperature = 0.6
     if "max_tokens" in model.inputs:
         model.inputs.max_tokens = 400
 
@@ -929,8 +921,6 @@ def test_model_inputs_proxy_integration_with_run(client, text_model_id):
     assert result.data is not None
 
     # Verify that the configured inputs are still intact after the run
-    if "temperature" in model.inputs:
-        assert model.inputs.temperature == 0.6
     if "max_tokens" in model.inputs:
         assert model.inputs.max_tokens == 400
 

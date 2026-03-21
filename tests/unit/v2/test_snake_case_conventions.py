@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
-from aixplain.v2.integration import Input, Action, ToolId
+from aixplain.v2.integration import ActionInputSpec, ActionSpec, ToolId
 from aixplain.v2.agent import Agent, AgentRunParams
 from aixplain.v2.mixins import ParameterInput, ToolDict
 
@@ -41,7 +41,7 @@ class TestInputDataclass:
     }
 
     def test_from_dict_populates_snake_case_attrs(self):
-        inp = Input.from_dict(self.SAMPLE_JSON)
+        inp = ActionInputSpec.from_dict(self.SAMPLE_JSON)
 
         assert inp.available_options == ["general", "random"]
         assert inp.allow_multi is True
@@ -49,7 +49,7 @@ class TestInputDataclass:
         assert inp.default_value == ["general"]
 
     def test_to_dict_emits_camelcase_keys(self):
-        inp = Input.from_dict(self.SAMPLE_JSON)
+        inp = ActionInputSpec.from_dict(self.SAMPLE_JSON)
         d = inp.to_dict()
 
         assert "availableOptions" in d
@@ -63,8 +63,8 @@ class TestInputDataclass:
         assert "default_value" not in d
 
     def test_round_trip_preserves_values(self):
-        inp = Input.from_dict(self.SAMPLE_JSON)
-        restored = Input.from_dict(inp.to_dict())
+        inp = ActionInputSpec.from_dict(self.SAMPLE_JSON)
+        restored = ActionInputSpec.from_dict(inp.to_dict())
 
         assert restored.available_options == inp.available_options
         assert restored.allow_multi == inp.allow_multi
@@ -72,7 +72,7 @@ class TestInputDataclass:
         assert restored.default_value == inp.default_value
 
     def test_constructor_accepts_snake_case(self):
-        inp = Input(
+        inp = ActionInputSpec(
             name="test",
             available_options=["a", "b"],
             allow_multi=True,
@@ -90,11 +90,11 @@ class TestInputDataclass:
 
 class TestActionDataclass:
     def test_display_name_from_dict(self):
-        action = Action.from_dict({"name": "send", "displayName": "Send Message"})
+        action = ActionSpec.from_dict({"name": "send", "displayName": "Send Message"})
         assert action.display_name == "Send Message"
 
     def test_display_name_to_dict(self):
-        action = Action(name="send", display_name="Send Message")
+        action = ActionSpec(name="send", display_name="Send Message")
         d = action.to_dict()
         assert d["displayName"] == "Send Message"
         assert "display_name" not in d
@@ -218,15 +218,15 @@ class TestBuildRunPayload:
         )
         assert payload["executionParams"]["maxTokens"] == 100
 
-    def test_run_response_generation_default_true(self):
+    def test_run_response_generation_default_false(self):
         agent = self._make_agent()
         payload = agent.build_run_payload(query="hello")
-        assert payload["runResponseGeneration"] is True
-
-    def test_run_response_generation_false(self):
-        agent = self._make_agent()
-        payload = agent.build_run_payload(query="hello", run_response_generation=False)
         assert payload["runResponseGeneration"] is False
+
+    def test_run_response_generation_true(self):
+        agent = self._make_agent()
+        payload = agent.build_run_payload(query="hello", run_response_generation=True)
+        assert payload["runResponseGeneration"] is True
 
 
 # =============================================================================

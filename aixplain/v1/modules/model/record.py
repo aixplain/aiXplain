@@ -1,3 +1,5 @@
+"""Record module for index operations."""
+
 from aixplain.enums import DataType, StorageType
 from typing import Optional
 from uuid import uuid4

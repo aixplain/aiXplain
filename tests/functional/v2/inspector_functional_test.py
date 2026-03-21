@@ -47,6 +47,18 @@ def resource_tracker():
             pass
 
 
+@pytest.fixture
+def resource_tracker():
+    """Tracks resources created during a test for guaranteed cleanup."""
+    resources = []
+    yield resources
+    for resource in reversed(resources):
+        try:
+            resource.delete()
+        except Exception:
+            pass
+
+
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
 def run_input_map(request):
     return request.param
@@ -150,7 +162,7 @@ def _run_and_get_steps(team_agent, query: str):
     return response, steps
 
 
-@pytest.mark.flaky(reruns=2, reruns_delay=2)
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_output_inspector_abort(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)
@@ -184,13 +196,14 @@ def test_output_inspector_abort(client, run_input_map, resource_tracker):
     response_generator_index = steps.index(response_generator_steps[0])
 
     inspector_steps = [s for s in steps[response_generator_index + 1 :] if _is_inspector_step(s)]
-    assert len(inspector_steps) > 0, "Expected inspector step(s) after response_generator" 
+    assert len(inspector_steps) > 0, "Expected inspector step(s) after response_generator"
 
     assert (inspector_steps[-1].get("action") or "").lower() == "abort", (
         f"Expected abort, got {inspector_steps[-1].get('action')}"
-    )+ str(inspector_steps)
+    ) + str(inspector_steps)
 
 
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_tracker):
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)

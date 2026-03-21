@@ -291,18 +291,11 @@ Run the agent with optional progress display.
 - `progress_verbosity` - Detail level 1-3 (default: 1)
 - `progress_truncate` - Truncate long text (default: True)
 - `**kwargs` - Additional run parameters
-- `*args` - Positional arguments (first arg is treated as query)
-- `query` - The query to run
-- `progress_format` - Display format - &quot;status&quot; or &quot;logs&quot;. If None (default),
-  progress tracking is disabled.
-- `progress_verbosity` - Detail level 1-3 (default: 1)
-- `progress_truncate` - Truncate long text (default: True)
-- `**kwargs` - Additional run parameters
   
 
 **Returns**:
 
-- `query`2 - The result of the agent execution
+- `AgentRunResult` - The result of the agent execution
 
 #### run\_async
 
@@ -310,7 +303,7 @@ Run the agent with optional progress display.
 def run_async(*args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L472)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L468)
 
 Run the agent asynchronously.
 
@@ -331,7 +324,7 @@ Run the agent asynchronously.
 def save(*args: Any, **kwargs: Any) -> "Agent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L520)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L519)
 
 Save the agent with dependency management.
 
@@ -361,7 +354,7 @@ child components before the agent itself is saved.
 def before_save(*args: Any, **kwargs: Any) -> Optional[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L636)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L635)
 
 Callback to be called before the resource is saved.
 
@@ -374,7 +367,7 @@ def after_clone(result: Union["Agent", Exception],
                 **kwargs: Any) -> Optional["Agent"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L651)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L650)
 
 Callback called after the agent is cloned.
 
@@ -389,7 +382,7 @@ def search(cls: type["Agent"],
            **kwargs: Unpack[BaseSearchParams]) -> "Page[Agent]"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L661)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L660)
 
 Search agents with optional query and filtering.
 
@@ -409,7 +402,7 @@ Search agents with optional query and filtering.
 def build_save_payload(**kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L681)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L680)
 
 Build the payload for the save action.
 
@@ -419,7 +412,7 @@ Build the payload for the save action.
 def build_run_payload(**kwargs: Unpack[AgentRunParams]) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L778)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L777)
 
 Build the payload for the run action.
 
@@ -430,18 +423,18 @@ def generate_session_id(
         history: Optional[List[ConversationMessage]] = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L851)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L850)
 
 Generate a unique session ID for agent conversations.
 
-This method creates a unique session identifier based on the agent ID and current timestamp.
-If conversation history is provided, it attempts to initialize the session on the server
-to enable context-aware conversations.
+Creates a unique session identifier based on the agent ID and current timestamp.
+If conversation history is provided, it attempts to initialize the session on the
+server to enable context-aware conversations.
 
 **Arguments**:
 
-- `history` _Optional[List[Dict]], optional_ - Previous conversation history.
-  Each dict should contain &#x27;role&#x27; (either &#x27;user&#x27; or &#x27;assistant&#x27;) and &#x27;content&#x27; keys.
+- `history` - Previous conversation history. Each message should contain
+  &#x27;role&#x27; (either &#x27;user&#x27; or &#x27;assistant&#x27;) and &#x27;content&#x27; keys.
   Defaults to None.
   
 
