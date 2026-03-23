@@ -45,6 +45,8 @@ def resource_tracker():
             resource.delete()
         except Exception:
             pass
+
+
 @pytest.fixture
 def resource_tracker():
     """Tracks resources created during a test for guaranteed cleanup."""

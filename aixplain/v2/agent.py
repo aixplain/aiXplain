@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import List, Optional, Any, Dict, Union, Text
+from typing import ClassVar, List, Optional, Any, Dict, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
 from dataclasses_json import dataclass_json, config
 
@@ -114,37 +114,37 @@ class AgentRunParams(BaseRunParams):
     """Parameters for running an agent.
 
     Attributes:
-        sessionId: Session ID for conversation continuity
+        session_id: Session ID for conversation continuity
         query: The query to run
         variables: Variables to replace {{variable}} placeholders in instructions and description.
             The backend performs the actual substitution.
-        allowHistoryAndSessionId: Allow both history and session ID
+        allow_history_and_session_id: Allow both history and session ID
         tasks: List of tasks for the agent
         prompt: Custom prompt override
         history: Conversation history
-        executionParams: Execution parameters (maxTokens, etc.)
+        execution_params: Execution parameters (maxTokens, etc.)
         criteria: Criteria for evaluation
         evolve: Evolution parameters
         inspectors: Inspector configurations
-        runResponseGeneration: Whether to run response generation. Defaults to True.
+        run_response_generation: Whether to run response generation. Defaults to False.
         progress_format: Display format - "status" (single line) or "logs" (timeline).
                         If None (default), progress tracking is disabled.
         progress_verbosity: Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
         progress_truncate: Whether to truncate long text in progress display
     """
 
-    sessionId: NotRequired[Optional[Text]]
+    session_id: NotRequired[Optional[Text]]
     query: NotRequired[Optional[Union[Dict, Text]]]
     variables: NotRequired[Optional[Dict[str, Any]]]
-    allowHistoryAndSessionId: NotRequired[Optional[bool]]
+    allow_history_and_session_id: NotRequired[Optional[bool]]
     tasks: NotRequired[Optional[List[Any]]]
     prompt: NotRequired[Optional[Text]]
     history: NotRequired[Optional[List[ConversationMessage]]]
-    executionParams: NotRequired[Optional[Dict[str, Any]]]
+    execution_params: NotRequired[Optional[Dict[str, Any]]]
     criteria: NotRequired[Optional[Text]]
     evolve: NotRequired[Optional[Text]]
     inspectors: NotRequired[Optional[List[Dict]]]
-    runResponseGeneration: NotRequired[Optional[bool]]
+    run_response_generation: NotRequired[Optional[bool]]
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
@@ -182,6 +182,27 @@ class AgentRunResult(Result):
         metadata=config(exclude=lambda x: True),
         init=False,
     )
+
+    @property
+    def execution_id(self) -> Optional[str]:
+        """Extract the execution ID from the poll URL or request_id.
+
+        The execution ID can be used with ``Agent.poll()`` and
+        ``Agent.sync_poll()`` to resume polling a previously started run
+        without persisting the full URL.
+
+        Returns:
+            The execution ID if available, None otherwise.
+        """
+        if self.request_id:
+            return self.request_id
+
+        if self.url:
+            match = re.search(r"/sdk/agents/([^/]+)/", self.url)
+            if match:
+                return match.group(1)
+
+        return None
 
     def debug(
         self,
@@ -264,6 +285,7 @@ class Agent(
     """Agent resource class."""
 
     RESOURCE_PATH = "v2/agents"
+    POLL_URL_TEMPLATE = "sdk/agents/{execution_id}/result"
 
     DEFAULT_LLM = "6895d6d1d50c89537c1cf237"
     SUPPLIER = "aiXplain"
@@ -437,6 +459,21 @@ class Agent(
 
         return None  # Return original result
 
+    _SNAKE_TO_CAMEL: ClassVar[Dict[str, str]] = {
+        "session_id": "sessionId",
+        "allow_history_and_session_id": "allowHistoryAndSessionId",
+        "execution_params": "executionParams",
+        "run_response_generation": "runResponseGeneration",
+    }
+
+    _EXEC_PARAMS_MAP: ClassVar[Dict[str, str]] = {
+        "output_format": "outputFormat",
+        "max_tokens": "maxTokens",
+        "max_iterations": "maxIterations",
+        "max_time": "maxTime",
+        "expected_output": "expectedOutput",
+    }
+
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Run the agent with optional progress display.
 
@@ -456,13 +493,6 @@ class Agent(
             kwargs["query"] = args[0]
             args = args[1:]
 
-        # Handle session_id parameter name compatibility (snake_case -> camelCase)
-        if "session_id" in kwargs and "sessionId" not in kwargs:
-            kwargs["sessionId"] = kwargs.pop("session_id")
-
-        if "run_response_generation" in kwargs and "runResponseGeneration" not in kwargs:
-            kwargs["runResponseGeneration"] = kwargs.pop("run_response_generation")
-
         return super().run(*args, **kwargs)
 
     def run_async(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
@@ -474,20 +504,70 @@ class Agent(
             **kwargs: Additional run parameters
 
         Returns:
-            AgentRunResult: The result of the agent execution
+            AgentRunResult: The result of the agent execution. Use ``result.url``
+                to poll for completion via ``sync_poll(result.url)`` or
+                ``client.get(result.url)``. Do not construct
+                ``/sdk/runs/{execution_id}`` — that endpoint is not supported
+                for agent runs.
         """
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
 
-        # Handle session_id parameter name compatibility (snake_case -> camelCase)
-        if "session_id" in kwargs and "sessionId" not in kwargs:
-            kwargs["sessionId"] = kwargs.pop("session_id")
-
-        if "run_response_generation" in kwargs and "runResponseGeneration" not in kwargs:
-            kwargs["runResponseGeneration"] = kwargs.pop("run_response_generation")
-
         return super().run_async(**kwargs)
+
+    def _resolve_poll_url(self, poll_url: str) -> str:
+        """Resolve a poll URL or bare execution ID to a full poll URL.
+
+        If *poll_url* is already a full URL (starts with ``http``), it is
+        returned unchanged.  Otherwise it is treated as an execution ID and
+        the correct agent-specific poll URL is constructed from
+        ``POLL_URL_TEMPLATE``.
+
+        This removes the need for callers to know the backend URL pattern,
+        which is *not* the generic ``/sdk/runs/{id}`` path but rather
+        ``/sdk/agents/{id}/result``.
+        """
+        if not poll_url:
+            raise ValueError("poll_url must be a full URL or non-empty execution ID")
+        if poll_url.startswith(("http://", "https://")):
+            return poll_url
+        backend_url = self.context.backend_url.rstrip("/")
+        path = self.POLL_URL_TEMPLATE.format(execution_id=poll_url)
+        return f"{backend_url}/{path}"
+
+    def poll(self, poll_url: str) -> AgentRunResult:
+        """Poll for the result of an asynchronous agent execution.
+
+        Unlike the base implementation, *poll_url* may be either a full URL
+        (as returned in ``AgentRunResult.url``) **or** a bare execution ID.
+        When an execution ID is provided the correct
+        ``/sdk/agents/{id}/result`` endpoint is used automatically, avoiding
+        the common mistake of calling the unsupported
+        ``/sdk/runs/{id}`` endpoint.
+
+        Args:
+            poll_url: Full poll URL or execution ID.
+
+        Returns:
+            AgentRunResult with current execution status.
+        """
+        return super().poll(self._resolve_poll_url(poll_url))
+
+    def sync_poll(self, poll_url: str, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
+        """Poll until an asynchronous agent execution completes.
+
+        Accepts either a full URL or a bare execution ID (see
+        :meth:`poll` for details).
+
+        Args:
+            poll_url: Full poll URL or execution ID.
+            **kwargs: Run parameters including ``timeout`` and ``wait_time``.
+
+        Returns:
+            AgentRunResult with final execution status.
+        """
+        return super().sync_poll(self._resolve_poll_url(poll_url), **kwargs)
 
     def _validate_expected_output(self) -> None:
         # Skip validation if expected_output is None (it's optional)
@@ -677,6 +757,46 @@ class Agent(
 
         return super().search(**kwargs)
 
+    @staticmethod
+    def _normalize_tool_dict_for_api(tool_dict: dict) -> dict:
+        """Convert snake_case keys in a tool dict to the camelCase the API expects."""
+        _KEY_MAP = {
+            "asset_id": "assetId",
+            "allow_multi": "allowMulti",
+            "supports_variables": "supportsVariables",
+        }
+        result = {}
+        for k, v in tool_dict.items():
+            api_key = _KEY_MAP.get(k, k)
+            if api_key == "parameters" and isinstance(v, list):
+                result[api_key] = [Agent._normalize_parameter_for_api(p) for p in v]
+            else:
+                result[api_key] = v
+        return result
+
+    @staticmethod
+    def _normalize_parameter_for_api(param: dict) -> dict:
+        """Convert snake_case keys in a parameter definition to camelCase for the API.
+
+        Handles both flat Model parameters (top-level keys) and nested Tool
+        parameters (keys inside the 'inputs' dict).
+        """
+        _KEY_MAP = {
+            "allow_multi": "allowMulti",
+            "supports_variables": "supportsVariables",
+        }
+        result = {}
+        for k, v in param.items():
+            api_key = _KEY_MAP.get(k, k)
+            if k == "inputs" and isinstance(v, dict):
+                result[api_key] = {
+                    input_name: {_KEY_MAP.get(ik, ik): iv for ik, iv in input_val.items()}
+                    for input_name, input_val in v.items()
+                }
+            else:
+                result[api_key] = v
+        return result
+
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
@@ -731,11 +851,9 @@ class Agent(
         if self.tools:
             for tool in self.tools:
                 if isinstance(tool, ToolableMixin):
-                    # Tool/Model objects that implement as_tool()
-                    converted_assets.append(tool.as_tool())
+                    converted_assets.append(self._normalize_tool_dict_for_api(tool.as_tool()))
                 elif isinstance(tool, dict):
-                    # Already a dictionary (from API response after save, or user-provided)
-                    converted_assets.append(tool)
+                    converted_assets.append(self._normalize_tool_dict_for_api(tool))
                 else:
                     raise ValueError(
                         "A tool in the agent must be a Tool, Model, ToolableMixin instance, or a dictionary."
@@ -776,10 +894,13 @@ class Agent(
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
         """Build the payload for the run action."""
-        # Extract executionParams if provided, otherwise use defaults
-        execution_params = kwargs.pop("executionParams", {})
+        # Extract execution_params if provided, otherwise use defaults
+        execution_params = kwargs.pop("execution_params", {})
 
-        # Set default values for executionParams if not provided
+        # Normalize snake_case keys to camelCase for the API
+        execution_params = {self._EXEC_PARAMS_MAP.get(k, k): v for k, v in execution_params.items()}
+
+        # Set default values for execution_params if not provided
         defaults = {
             "outputFormat": self.output_format,
             "maxTokens": getattr(self, "max_tokens", 2048),
@@ -791,7 +912,7 @@ class Agent(
             execution_params.setdefault(k, v)
 
         # Handle BaseModel conversion for expectedOutput (following legacy pattern)
-        # Use agent's expected_output if none provided in executionParams
+        # Use agent's expected_output if none provided in execution_params
         if "expectedOutput" not in execution_params:
             execution_params["expectedOutput"] = self.expected_output
 
@@ -807,8 +928,8 @@ class Agent(
         elif isinstance(expected_output, BaseModel):
             execution_params["expectedOutput"] = expected_output.model_dump()
 
-        # Handle runResponseGeneration with default value of True
-        run_response_generation = kwargs.pop("runResponseGeneration", True)
+        # Handle run_response_generation with default value of False
+        run_response_generation = kwargs.pop("run_response_generation", False)
 
         # Process variables for instruction/description placeholders (sent to backend for substitution)
         variables = kwargs.pop("variables", None) or {}
@@ -840,10 +961,11 @@ class Agent(
         if query is not None:
             payload["query"] = query
 
-        # Add all other parameters from kwargs
+        # Translate remaining snake_case kwargs to camelCase for the API
         for key, value in kwargs.items():
-            if value is not None:  # Only include non-None values
-                payload[key] = value
+            if value is not None:
+                api_key = self._SNAKE_TO_CAMEL.get(key, key)
+                payload[api_key] = value
 
         return payload
 
@@ -891,15 +1013,15 @@ class Agent(
             # Use the existing run infrastructure to initialize the session
             result = self.run_async(
                 query="/",
-                sessionId=session_id,
+                session_id=session_id,
                 history=history,
-                executionParams={
-                    "maxTokens": 2048,
-                    "maxIterations": 10,
-                    "outputFormat": OutputFormat.TEXT.value,
-                    "expectedOutput": None,
+                execution_params={
+                    "max_tokens": 2048,
+                    "max_iterations": 10,
+                    "output_format": OutputFormat.TEXT.value,
+                    "expected_output": None,
                 },
-                allowHistoryAndSessionId=True,
+                allow_history_and_session_id=True,
             )
 
             # If we got a polling URL, poll for completion

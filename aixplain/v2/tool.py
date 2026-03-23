@@ -272,16 +272,16 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     current_value = action_proxy.get(input_code)
 
                 # Fall back to backend default if no current value
-                if current_value is None and input_param.defaultValue:
-                    current_value = input_param.defaultValue[0] if input_param.defaultValue else None
+                if current_value is None and input_param.default_value:
+                    current_value = input_param.default_value[0] if input_param.default_value else None
 
                 action_inputs[input_code] = {
                     "name": input_param.name,
                     "value": current_value,
                     "required": input_param.required,
                     "datatype": input_param.datatype,
-                    "allowMulti": input_param.allowMulti,
-                    "supportsVariables": input_param.supportsVariables,
+                    "allow_multi": input_param.allow_multi,
+                    "supports_variables": input_param.supports_variables,
                     "fixed": input_param.fixed,
                     "description": input_param.description,
                 }
@@ -311,6 +311,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """
         # Get the base serialization from Model
         tool_dict = super().as_tool()
+        tool_dict["type"] = "tool"
+
 
         # Add tool-specific fields
         if self.allowed_actions:
