@@ -18,14 +18,14 @@ aiXplain SDK gives you Python and REST APIs to build, run, and deploy autonomous
 - Build autonomous AI agents and multi-agent systems for real business workflows
 - Govern every run with runtime policy enforcement, access control, and isolated workspaces
 - Access 900+ models and tools with one API key, or bring your own model, data, code, or MCP
-- Deploy on AgenticOS Cloud or run fully within your own infrastructure with AgenticOS OnPrem.
+- Deploy on Cloud (instant) or on-prem.
 - Trace and monitor agents with visual execution traces and real-time dashboards
 
 | | aiXplain SDK | Other agent frameworks |
 |---|---|---|
 | Governance | Runtime access and policy enforcement built in | Usually custom code or external guardrails |
 | Models and tools | 900+ models and tools with one API key | Provider-by-provider setup |
-| Deployment | AgenticOS Cloud or AgenticOS OnPrem | Usually self-assembled runtime and infra |
+| Deployment | Cloud (instant) or on-prem | Usually self-assembled runtime and infra |
 | Observability | Built-in traces and dashboards | Varies by framework |
 | Coding-agent workflows | Works natively with MCP-compatible coding agents and IDEs | Usually not a first-class workflow target |
 
@@ -35,7 +35,7 @@ aiXplain SDK gives you Python and REST APIs to build, run, and deploy autonomous
 
 ## AgenticOS
 
-AgenticOS is the portable runtime platform behind aiXplain agents. AgentEngine orchestrates planning, execution, and delegation for autonomous agents. AssetServing connects agents to models, tools, and data through a governed runtime layer. Observability captures traces, metrics, and monitoring for every production run across AgenticOS Cloud and AgenticOS OnPrem.
+AgenticOS is the portable runtime platform behind aiXplain agents. AgentEngine orchestrates planning, execution, and delegation for autonomous agents. AssetServing connects agents to models, tools, and data through a governed runtime layer. Observability captures traces, metrics, and monitoring for every production run across Cloud (instant) and on-prem deployments.
 
 <div align="center">
   <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aiXplain AgenticOS architecture" title="aiXplain"/>
@@ -182,7 +182,7 @@ aiXplain applies runtime governance and enterprise controls by default:
 - **No data retained by default** — agent memory is opt-in (short-term and long-term).
 - **SOC 2 Type II certified** — enterprise security and compliance posture.
 - **Runtime policy enforcement** — Inspector and Bodyguard govern every agent execution.
-- **Portable deployment options** — AgenticOS Cloud or AgenticOS OnPrem (including VPC and air-gapped environments).
+- **Portable deployment options** — Cloud (instant) or on-prem (including VPC and air-gapped environments).
 - **Encryption** — TLS 1.2+ in transit and encrypted storage at rest.
 
 Learn more at aiXplain [Security](https://aixplain.com/security/) and aiXplain [pricing](https://aixplain.com/pricing/).
