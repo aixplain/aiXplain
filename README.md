@@ -9,7 +9,7 @@
 **You define the agent. AgenticOS runs, governs, traces, and deploys it.**
 
 **Built for modern coding agents and IDEs.**  
-Works with Claude Code, Codex, Cursor, OpenClaw, and other coding-agent workflows.
+Works with Claude Code, Codex, Cursor, and other coding-agent workflows.
 
 aiXplain SDK gives you Python and REST APIs to build, run, and deploy autonomous agent software. Set your instructions, tools, and rules, and let the agent plan steps, use tools, call models and data sources, run code, and adapt until the job is done.
 
@@ -27,7 +27,7 @@ aiXplain SDK gives you Python and REST APIs to build, run, and deploy autonomous
 | Models and tools | 900+ models and tools with one API key | Provider-by-provider setup |
 | Deployment | AgenticOS Cloud or AgenticOS OnPrem | Usually self-assembled runtime and infra |
 | Observability | Built-in traces and dashboards | Varies by framework |
-| Coding-agent workflows | Works with Claude Code, Codex, Cursor, OpenClaw, and similar tools | Usually not a first-class workflow target |
+| Coding-agent workflows | Works with Claude Code, Codex, Cursor, and similar tools | Usually not a first-class workflow target |
 
 <div align="center">
   <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aiXplain team-agent runtime flow" title="aiXplain"/>
