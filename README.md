@@ -9,7 +9,7 @@
 **You define the agent. AgenticOS runs, governs, traces, and deploys it.**
 
 **Built for modern coding agents and IDEs.**  
-Works with Claude Code, Codex, Cursor, and other coding-agent workflows.
+Works natively with MCP-compatible coding agents and IDEs.
 
 aiXplain SDK gives you Python and REST APIs to build, run, and deploy autonomous agent software. Set your instructions, tools, and rules, and let the agent plan steps, use tools, call models and data sources, run code, and adapt until the job is done.
 
@@ -18,16 +18,16 @@ aiXplain SDK gives you Python and REST APIs to build, run, and deploy autonomous
 - Build autonomous AI agents and multi-agent systems for real business workflows
 - Govern every run with runtime policy enforcement, access control, and isolated workspaces
 - Access 900+ models and tools with one API key, or bring your own model, data, code, or MCP
-- Deploy instantly on AgenticOS Cloud or keep full control with AgenticOS OnPrem
+- Deploy on AgenticOS Cloud or run fully within your own infrastructure with AgenticOS OnPrem.
 - Trace and monitor agents with visual execution traces and real-time dashboards
 
 | | aiXplain SDK | Other agent frameworks |
 |---|---|---|
-| Governance | Runtime policy enforcement and access control built in | Usually custom code or external guardrails |
+| Governance | Runtime access and policy enforcement built in | Usually custom code or external guardrails |
 | Models and tools | 900+ models and tools with one API key | Provider-by-provider setup |
 | Deployment | AgenticOS Cloud or AgenticOS OnPrem | Usually self-assembled runtime and infra |
 | Observability | Built-in traces and dashboards | Varies by framework |
-| Coding-agent workflows | Works with Claude Code, Codex, Cursor, and similar tools | Usually not a first-class workflow target |
+| Coding-agent workflows | Works natively with MCP-compatible coding agents and IDEs | Usually not a first-class workflow target |
 
 <div align="center">
   <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aiXplain team-agent runtime flow" title="aiXplain"/>
@@ -35,7 +35,7 @@ aiXplain SDK gives you Python and REST APIs to build, run, and deploy autonomous
 
 ## AgenticOS
 
-AgenticOS is the portable runtime platform behind aiXplain agents. It is composed of three main layers: AgentEngine, AssetServing, and Observability. It handles orchestration, model and tool execution, runtime governance, and production monitoring across AgenticOS Cloud and AgenticOS OnPrem.
+AgenticOS is the portable runtime platform behind aiXplain agents. AgentEngine orchestrates planning, execution, and delegation for autonomous agents. AssetServing connects agents to models, tools, and data through a governed runtime layer. Observability captures traces, metrics, and monitoring for every production run across AgenticOS Cloud and AgenticOS OnPrem.
 
 <div align="center">
   <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aiXplain AgenticOS architecture" title="aiXplain"/>
