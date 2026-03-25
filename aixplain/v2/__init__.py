@@ -20,6 +20,7 @@ from .inspector import (
 )
 from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
+from .agent_evaluator import AgentEvaluationExecutor, EvalCase, MetricTool, MetricToolResponse
 from .api_key import APIKey, APIKeyLimits, APIKeyUsageLimit, TokenType
 from .exceptions import (
     AixplainV2Error,
@@ -77,14 +78,16 @@ __all__ = [
     # Progress tracking
     "AgentProgressTracker",
     "ProgressFormat",
+    # Agent evaluation
+    "AgentEvaluationExecutor",
+    "EvalCase",
+    "MetricTool",
+    "MetricToolResponse",
     # API Key management
     "APIKey",
     "APIKeyLimits",
     "APIKeyUsageLimit",
     "TokenType",
-    # Progress tracking
-    "AgentProgressTracker",
-    "ProgressFormat",
     # Exceptions
     "AixplainV2Error",
     "ResourceError",
