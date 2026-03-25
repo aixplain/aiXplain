@@ -148,101 +148,101 @@
   <text x="380" y="150" font-size="13" font-weight="600" fill="#5c7cff" letter-spacing="2">AIXPLAIN AGENTIC OS</text>
 
   <!-- AgentEngine box -->
-  <rect x="390" y="225" width="310" height="370" rx="12" fill="#f5f7fa" filter="url(#softShadow)"/>
-  <text x="545" y="268" text-anchor="middle" font-size="11" font-weight="600" fill="#7b8c9d" letter-spacing="1.5">AGENTENGINE</text>
+  <rect x="390" y="197" width="310" height="370" rx="12" fill="#f5f7fa" filter="url(#softShadow)"/>
+  <text x="545" y="240" text-anchor="middle" font-size="11" font-weight="600" fill="#7b8c9d" letter-spacing="1.5">AGENTENGINE</text>
 
-  <rect x="415" y="286" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRuntime" x="425" y="293" width="28" height="28"/>
-  <text x="467" y="316" font-size="13" font-weight="500" fill="#364049">Agent Runtime</text>
+  <rect x="415" y="258" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
+  <use href="#iconRuntime" x="425" y="265" width="28" height="28"/>
+  <text x="467" y="279" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Agent Runtime</text>
 
-  <rect x="415" y="336" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconMemory" x="425" y="343" width="28" height="28"/>
-  <text x="467" y="366" font-size="13" font-weight="500" fill="#364049">Memory</text>
+  <rect x="415" y="308" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
+  <use href="#iconMemory" x="425" y="315" width="28" height="28"/>
+  <text x="467" y="329" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Memory</text>
 
-  <rect x="415" y="386" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconGovernance" x="425" y="393" width="28" height="28"/>
-  <text x="467" y="416" font-size="13" font-weight="500" fill="#364049">Guards</text>
+  <rect x="415" y="358" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
+  <use href="#iconGovernance" x="425" y="365" width="28" height="28"/>
+  <text x="467" y="379" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Guards</text>
 
-  <rect x="415" y="436" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRuntime" x="425" y="443" width="28" height="28"/>
-  <text x="467" y="466" font-size="13" font-weight="500" fill="#364049">Code Execution</text>
+  <rect x="415" y="408" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
+  <use href="#iconRuntime" x="425" y="415" width="28" height="28"/>
+  <text x="467" y="429" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Code Execution</text>
 
-  <rect x="415" y="486" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRouter" x="425" y="493" width="28" height="28"/>
-  <text x="467" y="516" font-size="13" font-weight="500" fill="#364049">Integrations</text>
+  <rect x="415" y="458" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
+  <use href="#iconRouter" x="425" y="465" width="28" height="28"/>
+  <text x="467" y="479" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Integrations</text>
 
   <!-- AssetServing box -->
-  <rect x="740" y="225" width="310" height="370" rx="12" fill="#f5f7fa" filter="url(#softShadow)"/>
-  <text x="895" y="268" text-anchor="middle" font-size="11" font-weight="600" fill="#7b8c9d" letter-spacing="1.5">ASSETSERVING</text>
+  <rect x="740" y="197" width="310" height="370" rx="12" fill="#f5f7fa" filter="url(#softShadow)"/>
+  <text x="895" y="240" text-anchor="middle" font-size="11" font-weight="600" fill="#7b8c9d" letter-spacing="1.5">ASSETSERVING</text>
 
-  <rect x="765" y="286" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRuntime" x="775" y="293" width="28" height="28"/>
-  <text x="817" y="316" font-size="13" font-weight="500" fill="#364049">Model Serving</text>
+  <rect x="765" y="258" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
+  <use href="#iconRuntime" x="775" y="265" width="28" height="28"/>
+  <text x="817" y="279" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Model Serving</text>
 
-  <rect x="765" y="336" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRouter" x="775" y="343" width="28" height="28"/>
-  <text x="817" y="366" font-size="13" font-weight="500" fill="#364049">Router</text>
+  <rect x="765" y="308" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
+  <use href="#iconRouter" x="775" y="315" width="28" height="28"/>
+  <text x="817" y="329" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Router</text>
 
-  <rect x="765" y="386" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRouter" x="775" y="393" width="28" height="28"/>
-  <text x="817" y="416" font-size="13" font-weight="500" fill="#364049">Integrations</text>
+  <rect x="765" y="358" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
+  <use href="#iconRouter" x="775" y="365" width="28" height="28"/>
+  <text x="817" y="379" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Integrations</text>
 
-  <rect x="765" y="436" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconKnowledge" x="775" y="443" width="28" height="28"/>
-  <text x="817" y="466" font-size="13" font-weight="500" fill="#364049">Retrieval Engine</text>
+  <rect x="765" y="408" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
+  <use href="#iconKnowledge" x="775" y="415" width="28" height="28"/>
+  <text x="817" y="429" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Retrieval Engine</text>
 
-  <rect x="765" y="486" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconCatalogue" x="775" y="493" width="28" height="28"/>
-  <text x="817" y="516" font-size="13" font-weight="500" fill="#364049">Marketplace</text>
+  <rect x="765" y="458" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
+  <use href="#iconCatalogue" x="775" y="465" width="28" height="28"/>
+  <text x="817" y="479" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Marketplace</text>
 
-  <rect x="765" y="536" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconAuth" x="775" y="543" width="28" height="28"/>
-  <text x="817" y="566" font-size="13" font-weight="500" fill="#364049">Access</text>
+  <rect x="765" y="508" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
+  <use href="#iconAuth" x="775" y="515" width="28" height="28"/>
+  <text x="817" y="529" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Access</text>
 
   <!-- ========================================= -->
   <!-- SDK / STUDIO (far left)                   -->
   <!-- ========================================= -->
-  <rect x="20" y="340" width="170" height="45" rx="8" fill="#f0f2f5"/>
-  <text x="105" y="368" text-anchor="middle" font-size="13" font-weight="500" fill="#364049">SDK / STUDIO / MCP</text>
+  <rect x="20" y="360" width="170" height="45" rx="8" fill="#f0f2f5"/>
+  <text x="105" y="388" text-anchor="middle" font-size="13" font-weight="500" fill="#364049">SDK / STUDIO / MCP</text>
 
   <!-- AUTH circle (straddling OS frame left edge at x=310, y=357) -->
-  <circle cx="310" cy="357" r="30" fill="#ffffff" stroke="#5c7cff" stroke-width="2"/>
-  <use href="#iconAuth" x="296" y="338" width="28" height="28"/>
-  <text x="310" y="374" text-anchor="middle" font-size="10" font-weight="600" fill="#364049">AUTH</text>
+  <circle cx="310" cy="382" r="30" fill="#ffffff" stroke="#5c7cff" stroke-width="2"/>
+  <use href="#iconAuth" x="296" y="363" width="28" height="28"/>
+  <text x="310" y="399" text-anchor="middle" font-size="10" font-weight="600" fill="#364049">AUTH</text>
 
   <!-- Arrow: SDK → AUTH -->
-  <line x1="180" y1="362" x2="278" y2="362" stroke="#7b8c9d" stroke-width="1.8" marker-end="url(#arrowGray)"/>
+  <line x1="180" y1="382" x2="278" y2="382" stroke="#7b8c9d" stroke-width="1.8" marker-end="url(#arrowGray)"/>
 
   <!-- Arrow: AUTH → AgentEngine -->
-  <line x1="340" y1="357" x2="388" y2="357" stroke="#7b8c9d" stroke-width="1.8" marker-end="url(#arrowGray)"/>
+  <line x1="340" y1="382" x2="388" y2="382" stroke="#7b8c9d" stroke-width="1.8" marker-end="url(#arrowGray)"/>
 
   <!-- ========================================= -->
   <!-- APPS / CLIENTS (far right)                -->
   <!-- ========================================= -->
-  <rect x="1180" y="335" width="170" height="45" rx="8" fill="#f0f2f5"/>
-  <text x="1265" y="363" text-anchor="middle" font-size="13" font-weight="500" fill="#364049">APPS / CLIENTS</text>
+  <rect x="1180" y="360" width="170" height="45" rx="8" fill="#f0f2f5"/>
+  <text x="1265" y="388" text-anchor="middle" font-size="13" font-weight="500" fill="#364049">APPS / CLIENTS</text>
 
   <!-- Arrow: blue boundary right edge → Apps/Clients -->
-  <line x1="1112" y1="357" x2="1160" y2="357" stroke="#7b8c9d" stroke-width="1.8" marker-end="url(#arrowGray)"/>
+  <line x1="1112" y1="382" x2="1160" y2="382" stroke="#7b8c9d" stroke-width="1.8" marker-end="url(#arrowGray)"/>
 
   <!-- ========================================= -->
   <!-- YOUR ASSETS (bottom left, outside frame)  -->
   <!-- ========================================= -->
-  <circle cx="1215" cy="585" r="18" fill="#f0f2f5" stroke="#7b8c9d" stroke-width="1.5"/>
-  <use href="#iconAssets" x="1202" y="572" width="26" height="26"/>
-  <text x="1215" y="620" text-anchor="middle" font-size="11" font-weight="600" fill="#364049">Your assets</text>
-  <text x="1215" y="635" text-anchor="middle" font-size="9" font-weight="400" fill="#7b8c9d">Models, data,</text>
-  <text x="1215" y="648" text-anchor="middle" font-size="9" font-weight="400" fill="#7b8c9d">files, code, MCPs</text>
+  <circle cx="1215" cy="565" r="18" fill="#f0f2f5" stroke="#7b8c9d" stroke-width="1.5"/>
+  <use href="#iconAssets" x="1202" y="552" width="26" height="26"/>
+  <text x="1215" y="600" text-anchor="middle" font-size="11" font-weight="600" fill="#364049">Your assets</text>
+  <text x="1215" y="615" text-anchor="middle" font-size="9" font-weight="400" fill="#7b8c9d">Models, data,</text>
+  <text x="1215" y="628" text-anchor="middle" font-size="9" font-weight="400" fill="#7b8c9d">files, code, MCPs</text>
 
   <!-- Dotted arrow: Your assets → AssetServing -->
-  <line x1="1192" y1="585" x2="1054" y2="585" stroke="#7b8c9d" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrowGray)"/>
+  <line x1="1192" y1="565" x2="1054" y2="565" stroke="#7b8c9d" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrowGray)"/>
 
   <!-- ========================================= -->
   <!-- OBSERVABILITY LAYER                       -->
   <!-- ========================================= -->
-  <rect x="390" y="615" width="660" height="55" rx="12" fill="#fff8e6" stroke="#f4c95d" stroke-width="1.5" filter="url(#softShadow)"/>
-  <use href="#iconObservability" x="408" y="628" width="28" height="28"/>
-  <text x="448" y="638" font-size="12" font-weight="700" fill="#364049">Observability</text>
-  <text x="448" y="655" font-size="11" font-weight="400" fill="#364049">Trace, debug, and monitor agent and model performance in production</text>
+  <rect x="390" y="587" width="660" height="55" rx="12" fill="#fff8e6" stroke="#f4c95d" stroke-width="1.5" filter="url(#softShadow)"/>
+  <use href="#iconObservability" x="408" y="600" width="28" height="28"/>
+  <text x="448" y="610" font-size="12" font-weight="700" fill="#364049">Observability</text>
+  <text x="448" y="627" font-size="11" font-weight="400" fill="#364049">Trace, debug, and monitor agent and model performance in production</text>
 
 </svg>

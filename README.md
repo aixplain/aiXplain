@@ -1,25 +1,39 @@
-# aiXplain SDK
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/aixplain-logo-light.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/aixplain-logo-dark.png">
+    <img src="docs/assets/aixplain-logo-dark.png" alt="aiXplain" width="520">
+  </picture>
+</p>
 
-**aiXplain SDK lets you build autonomous AI agents that reason, use tools, delegate work, and run on portable production infrastructure.**
+<h1 align="center">aiXplain SDK</h1>
 
----
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square" alt="License"></a>
+  <a href="https://studio.aixplain.com/browse"><img src="https://img.shields.io/badge/Marketplace-900%2B%20models%20%26%20tools-0b74de?style=flat-square" alt="Marketplace size"></a>
+  <a href="https://console.aixplain.com/settings/keys"><img src="https://img.shields.io/badge/%F0%9F%94%91%20PAYG%20API%20key-Console-0b74de?style=flat-square" alt="PAYG API key"></a>
+  <a href="https://discord.gg/aixplain"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
+</p>
 
-**One SDK: build, deploy, and run production AI agents.**
+**Build, deploy, and govern autonomous AI agents for your business operations.**
 
-**You define the agent. AgenticOS runs, governs, traces, and deploys it.**
+aiXplain SDK provides Python and REST APIs for agents that plan, use tools, call models and data, run code, and adapt at runtime. It also works natively with MCP-compatible coding agents and IDEs.
 
-**Built for modern coding agents and IDEs.**  
-Works natively with MCP-compatible coding agents and IDEs.
-
-aiXplain SDK gives you Python and REST APIs to build, run, and deploy autonomous agent software. Set your instructions, tools, and rules, and let the agent plan steps, use tools, call models and data sources, run code, and adapt until the job is done.
+> **Become an agentic-first organization**
+>
+> Designed for business operations: autonomous, governed, MCP-compatible, and built for context management. Your interactive AI assistant is [a click away](https://auth.aixplain.com/).
+>
+> _We operate our business with aiXplain agents, using them across product, business development, and marketing._
 
 ## Why aiXplain
 
-- Build autonomous AI agents and multi-agent systems for real business workflows
-- Govern every run with runtime policy enforcement, access control, and isolated workspaces
-- Access 900+ models and tools with one API key, or bring your own model, data, code, or MCP
-- Deploy on Cloud (instant) or on-prem.
-- Trace and monitor agents with visual execution traces and real-time dashboards
+- **Autonomous runtime loop** — plan, call tools and models, reflect, and continue without fixed flowcharts.
+- **Multi-agent execution** — delegate work to specialized subagents at runtime.
+- **Governance by default** — runtime access and policy enforcement on every run.
+- **Production observability** — inspect step-level traces, tool calls, and outcomes for debugging.
+- **Model and tool portability** — swap assets without rewriting application glue code.
+- **MCP-native access** — connect MCP clients to [900+ aiXplain-hosted assets](#mcp-servers) with one PAYG API key.
+- **Flexible deployment** — run the same agent definition serverless or private.
 
 | | aiXplain SDK | Other agent frameworks |
 |---|---|---|
@@ -29,10 +43,6 @@ aiXplain SDK gives you Python and REST APIs to build, run, and deploy autonomous
 | Observability | Built-in traces and dashboards | Varies by framework |
 | Coding-agent workflows | Works natively with MCP-compatible coding agents and IDEs | Usually not a first-class workflow target |
 
-<div align="center">
-  <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aiXplain team-agent runtime flow" title="aiXplain"/>
-</div>
-
 ## AgenticOS
 
 AgenticOS is the portable runtime platform behind aiXplain agents. AgentEngine orchestrates planning, execution, and delegation for autonomous agents. AssetServing connects agents to models, tools, and data through a governed runtime layer. Observability captures traces, metrics, and monitoring for every production run across Cloud (instant) and on-prem deployments.
@@ -40,6 +50,26 @@ AgenticOS is the portable runtime platform behind aiXplain agents. AgentEngine o
 <div align="center">
   <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aiXplain AgenticOS architecture" title="aiXplain"/>
 </div>
+
+---
+
+## MCP Server Marketplace
+
+[aiXplain Marketplace](https://studio.aixplain.com/browse) now also exposes MCP servers for **900+ models and tools**, allowing external clients to access selected **tool, integration, and model assets**, for example **Opus 4.6, Kimi, Qwen, Airtable, and Slack**, through **aiXplain-hosted MCP endpoints** with a single API key 🔑.
+
+Read the full MCP setup guide in the [MCP servers docs](https://docs.aixplain.com/api-reference/mcp-servers).
+
+```json
+{
+  "ms1": {
+    "url": "https://models-mcp.aixplain.com/mcp/<AIXPLAIN_ASSET_ID>",
+    "headers": {
+      "Authorization": "Bearer <AIXPLAIN_APIKEY>",
+      "Accept": "application/json, text/event-stream"
+    }
+  }
+}
+```
 
 ---
 
@@ -130,6 +160,10 @@ response = team_agent.run(
 )
 print(response.data.output)
 ```
+
+<div align="center">
+  <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aiXplain team-agent runtime flow" title="aiXplain"/>
+</div>
 
 Execution order:
 
