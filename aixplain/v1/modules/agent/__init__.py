@@ -576,7 +576,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         max_iterations: int = 5,
         trace_request: bool = False,
         progress_verbosity: Optional[str] = "compact",
-        run_response_generation: bool = False,
+        run_response_generation: bool = True,
         **kwargs,
     ) -> AgentResponse:
         """Runs an agent call.
@@ -737,7 +737,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         evolve: Union[Dict[str, Any], EvolveParam, None] = None,
         trace_request: bool = False,
-        run_response_generation: bool = False,
+        run_response_generation: bool = True,
     ) -> AgentResponse:
         """Runs asynchronously an agent call.
 
