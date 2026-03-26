@@ -27,4 +27,6 @@ jobs:
           pip install pre-commit coverage
 
       - name: Run pre-commit hooks
+        env:
+          TEAM_API_KEY: dummy-key-for-unit-tests
         run: pre-commit run --all-files
