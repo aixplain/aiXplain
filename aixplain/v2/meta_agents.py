@@ -158,6 +158,7 @@ class Debugger:
 
         # Get the debugger agent and run
         agent = self._get_debugger_agent()
+        kwargs.setdefault("run_response_generation", True)
         agent_result = agent.run(query=query, **kwargs)
 
         # Convert AgentRunResult to DebugResult
