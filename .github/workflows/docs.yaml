@@ -31,7 +31,7 @@ jobs:
       - name: Run pydoc-markdown
         run: |
           pydoc-markdown pydoc-markdown.yml
-          
+
       - name: Create Pull Request if docs changed
         uses: peter-evans/create-pull-request@v7
         with:

@@ -113,17 +113,15 @@ def test_url_configuration(api_keys):
 
 def test_api_key_validation():
     """Test that API key validation works correctly."""
-    # Save original value
-    original_key = os.environ.get("TEAM_API_KEY")
-
-    original_aixplain_key = os.environ.get("AIXPLAIN_API_KEY")
+    # Save original values
+    original_team_key = os.environ.get("TEAM_API_KEY")
+    original_aix_key = os.environ.get("AIXPLAIN_API_KEY")
 
     try:
-        # Remove both environment variables to test the assertion
-        if "TEAM_API_KEY" in os.environ:
-            del os.environ["TEAM_API_KEY"]
-        if "AIXPLAIN_API_KEY" in os.environ:
-            del os.environ["AIXPLAIN_API_KEY"]
+        # Remove the environment variables to test the assertion
+        for var in ("TEAM_API_KEY", "AIXPLAIN_API_KEY"):
+            if var in os.environ:
+                del os.environ[var]
 
         # Should raise assertion error when no API key is provided
         with pytest.raises(AssertionError):
@@ -135,10 +133,10 @@ def test_api_key_validation():
 
     finally:
         # Restore original values
-        if original_key is not None:
-            os.environ["TEAM_API_KEY"] = original_key
-        if original_aixplain_key is not None:
-            os.environ["AIXPLAIN_API_KEY"] = original_aixplain_key
+        if original_team_key is not None:
+            os.environ["TEAM_API_KEY"] = original_team_key
+        if original_aix_key is not None:
+            os.environ["AIXPLAIN_API_KEY"] = original_aix_key
 
 
 def test_context_api_key_retrieval(api_keys):
