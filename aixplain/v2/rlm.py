@@ -8,7 +8,6 @@ injected into the sandbox session.
 
 __author__ = "aiXplain"
 
-from cgitb import text
 import json
 import logging
 import os
@@ -72,7 +71,7 @@ Think step by step carefully, plan, and execute this plan immediately — do not
 
 _USER_PROMPT = (
     "Think step-by-step on what to do using the REPL environment (which contains the context) "
-    "to answer the original query: \"{query}\".\n\n"
+    'to answer the original query: "{query}".\n\n'
     "Continue using the REPL environment, which has the `context` variable, and querying sub-LLMs "
     "by writing to ```repl``` tags, and determine your answer. Your next action:"
 )
@@ -90,12 +89,12 @@ _FORCE_FINAL_PROMPT = (
 )
 
 _DEFAULT_QUERY = (
-    "Please read through the context and answer any queries or respond to "
-    "any instructions contained within it."
+    "Please read through the context and answer any queries or respond to any instructions contained within it."
 )
 
 
 # Prompt Helpers
+
 
 def _build_system_messages() -> List[Dict[str, str]]:
     return [{"role": "system", "content": _SYSTEM_PROMPT}]
@@ -110,20 +109,15 @@ def _next_action_message(query: str, iteration: int, force_final: bool = False) 
 
 def _messages_to_prompt(messages: List[Dict[str, str]]) -> str:
     """Serialize a chat message list to a single prompt string for Model.run()."""
-    return "\n\n".join(
-        f"[{msg['role'].upper()}]: {msg['content']}"
-        for msg in messages
-    )
+    return "\n\n".join(f"[{msg['role'].upper()}]: {msg['content']}" for msg in messages)
 
 
 # Response Parsing
 
+
 def _find_code_blocks(text: str) -> Optional[List[str]]:
     """Extract all ```repl ... ``` code blocks from a model response."""
-    results = [
-        m.group(1).strip()
-        for m in re.finditer(r"```repl\s*\n(.*?)\n```", text, re.DOTALL)
-    ]
+    results = [m.group(1).strip() for m in re.finditer(r"```repl\s*\n(.*?)\n```", text, re.DOTALL)]
     return results if results else None
 
 
@@ -145,6 +139,7 @@ def _truncate(text: str, max_chars: int = _REPL_OUTPUT_MAX_CHARS) -> str:
 
 
 # Result
+
 
 @dataclass_json
 @dataclass(repr=False)
@@ -170,6 +165,7 @@ class RLMResult(Result):
 
 
 # RLM
+
 
 @dataclass_json
 @dataclass(repr=False)
@@ -273,14 +269,10 @@ class RLM(BaseResource, ToolableMixin):
         """Raise if orchestrator_id or worker_id are missing."""
         if not self.orchestrator_id:
             raise ResourceError(
-                "RLM requires an orchestrator_id. "
-                "Pass orchestrator_id= when constructing aix.RLM(...)."
+                "RLM requires an orchestrator_id. Pass orchestrator_id= when constructing aix.RLM(...)."
             )
         if not self.worker_id:
-            raise ResourceError(
-                "RLM requires a worker_id. "
-                "Pass worker_id= when constructing aix.RLM(...)."
-            )
+            raise ResourceError("RLM requires a worker_id. Pass worker_id= when constructing aix.RLM(...).")
 
     # Context Resolution
 
@@ -319,9 +311,7 @@ class RLM(BaseResource, ToolableMixin):
                     with open(context, "r", encoding="utf-8") as fh:
                         return fh.read()
             except Exception as exc:
-                raise ValueError(
-                    f"RLM: failed to read context file '{context}': {exc}"
-                ) from exc
+                raise ValueError(f"RLM: failed to read context file '{context}': {exc}") from exc
 
         if isinstance(context, (str, dict, list)):
             return context
@@ -378,10 +368,7 @@ class RLM(BaseResource, ToolableMixin):
         if isinstance(context, str):
             ext = ".txt"
             content_bytes = context.encode("utf-8")
-            load_code = (
-                "with open(_filename, 'r', encoding='utf-8') as _f:\n"
-                "    context = _f.read()"
-            )
+            load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
         elif isinstance(context, (dict, list)):
             ext = ".json"
             content_bytes = json.dumps(context).encode("utf-8")
@@ -393,10 +380,7 @@ class RLM(BaseResource, ToolableMixin):
         else:
             ext = ".txt"
             content_bytes = str(context).encode("utf-8")
-            load_code = (
-                "with open(_filename, 'r', encoding='utf-8') as _f:\n"
-                "    context = _f.read()"
-            )
+            load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
 
         tmp_dir = tempfile.mkdtemp()
         tmp_path = os.path.join(tmp_dir, f"context{ext}")
@@ -422,9 +406,8 @@ class RLM(BaseResource, ToolableMixin):
             except OSError:
                 pass
 
-        # Extract sandbox filename from download URL
-        # URL format: https://.../{uuid}-context.txt?X-Amz-...
-        sandbox_filename = download_url.split("?")[0].split("/")[-1].split("-")[1]
+        # Use the known filename directly instead of parsing it from the URL.
+        sandbox_filename = f"context{ext}"
 
         # Inject context download + load code
         context_code = f"""import requests as __requests
@@ -554,8 +537,7 @@ def llm_query(prompt):
         if response.completed or response.status == "SUCCESS":
             return str(response.data)
         raise ResourceError(
-            f"RLM: orchestrator model failed — "
-            f"{getattr(response, 'error_message', None) or response.status}"
+            f"RLM: orchestrator model failed — {getattr(response, 'error_message', None) or response.status}"
         )
 
     # Core Orchestration Loop
@@ -618,8 +600,7 @@ def llm_query(prompt):
         elif isinstance(data, dict):
             if "context" not in data:
                 raise ValueError(
-                    "When passing data as a dict, it must contain a 'context' key. "
-                    "Optionally include a 'query' key."
+                    "When passing data as a dict, it must contain a 'context' key. Optionally include a 'query' key."
                 )
             context = data["context"]
             query = data.get("query", _DEFAULT_QUERY)
@@ -646,16 +627,11 @@ def llm_query(prompt):
                 iterations_used = iteration + 1
 
                 if (time.time() - start_time) > effective_timeout:
-                    logger.warning(
-                        f"RLM '{name}': timeout after {iteration} iterations "
-                        "— forcing final answer."
-                    )
+                    logger.warning(f"RLM '{name}': timeout after {iteration} iterations — forcing final answer.")
                     break
 
                 # Ask orchestrator for its next action
-                response_text = self._orchestrator_completion(
-                    self._messages + [_next_action_message(query, iteration)]
-                )
+                response_text = self._orchestrator_completion(self._messages + [_next_action_message(query, iteration)])
                 logger.debug(f"RLM '{name}' iter {iteration}: orchestrator responded.")
 
                 # Execute any repl code blocks
@@ -666,16 +642,14 @@ def llm_query(prompt):
                         output = self._execute_code(code)
                         repl_logs.append({"iteration": iteration, "code": code, "output": output})
                         logger.debug(
-                            f"RLM '{name}' iter {iteration}: "
-                            f"executed {len(code)} chars → {len(output)} chars output."
+                            f"RLM '{name}' iter {iteration}: executed {len(code)} chars → {len(output)} chars output."
                         )
-                        self._messages.append({
-                            "role": "user",
-                            "content": (
-                                f"Code executed:\n```python\n{code}\n```\n\n"
-                                f"REPL output:\n{output}"
-                            ),
-                        })
+                        self._messages.append(
+                            {
+                                "role": "user",
+                                "content": (f"Code executed:\n```python\n{code}\n```\n\nREPL output:\n{output}"),
+                            }
+                        )
                 else:
                     self._messages.append({"role": "assistant", "content": response_text})
 
@@ -691,20 +665,12 @@ def llm_query(prompt):
                         if retrieved is not None:
                             final_answer = retrieved
                             break
-                        logger.warning(
-                            f"RLM '{name}': FINAL_VAR('{content}') not found "
-                            "in sandbox — continuing."
-                        )
+                        logger.warning(f"RLM '{name}': FINAL_VAR('{content}') not found in sandbox — continuing.")
 
             # Force a final answer if loop exhausted or timed out without one
             if final_answer is None:
-                logger.info(
-                    f"RLM '{name}': requesting forced final answer after "
-                    f"{iterations_used} iteration(s)."
-                )
-                self._messages.append(
-                    _next_action_message(query, iterations_used, force_final=True)
-                )
+                logger.info(f"RLM '{name}': requesting forced final answer after {iterations_used} iteration(s).")
+                self._messages.append(_next_action_message(query, iterations_used, force_final=True))
                 final_answer = self._orchestrator_completion(self._messages)
 
         except Exception as exc:
@@ -748,10 +714,7 @@ def llm_query(prompt):
         return {
             "id": self.id,
             "name": self.name or "RLM",
-            "description": (
-                self.description
-                or "Recursive Language Model for long-context analysis."
-            ),
+            "description": (self.description or "Recursive Language Model for long-context analysis."),
             "supplier": "aixplain",
             "parameters": None,
             "function": "text-generation",
@@ -773,6 +736,7 @@ def llm_query(prompt):
     # Representation
 
     def __repr__(self) -> str:
+        """Return string representation of this RLM instance."""
         return (
             f"RLM("
             f"orchestrator_id={self.orchestrator_id!r}, "

@@ -1,3 +1,5 @@
+"""Model Factory Class."""
+
 __author__ = "aiXplain"
 
 """
@@ -35,6 +37,8 @@ from aixplain.factories.model_factory.mixins import ModelGetterMixin, ModelListM
 from typing import Callable, Dict, List, Optional, Text, Union
 from aixplain.modules.model.integration import AuthenticationSchema
 from aixplain.modules.model.rlm import RLM
+import uuid
+
 
 class ModelFactory(ModelGetterMixin, ModelListMixin):
     """Factory class for creating, managing, and exploring models.
@@ -81,6 +85,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
                 Defaults to empty string.
             api_key (Optional[Text], optional): API key for authentication.
                 Defaults to None, using the configured TEAM_API_KEY.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             UtilityModel: Created and registered utility model instance.
@@ -150,6 +155,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
                 Defaults to None.
             api_key (Optional[Text], optional): API key for authentication.
                 Defaults to None, using the configured TEAM_API_KEY.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             ConnectionTool: Created and registered connection tool instance.
@@ -211,6 +217,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
 
         Args:
             api_key (Text, optional): Team API key. Defaults to None.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             List[Dict]: List of dictionaries containing information about
@@ -232,6 +239,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
 
         Args:
             api_key (Text, optional): Team API key. Defaults to None.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             List[List[Text]]: List of all available GPUs and their prices.
@@ -254,6 +262,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             verbose (Boolean, optional): Set to True if a detailed response
                 is desired; is otherwise False by default.
             api_key (Text, optional): Team API key. Defaults to None.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             List[Dict]: List of dictionaries containing information about
@@ -308,6 +317,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
                 Defaults to empty string.
             api_key (Optional[Text], optional): API key for authentication.
                 Defaults to None, using the configured TEAM_API_KEY.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             Dict: Repository creation response containing model ID and other details.
@@ -351,11 +361,14 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
 
     @classmethod
     def asset_repo_login(cls, api_key: Optional[Text] = None, **kwargs) -> Dict:
-        """Return login credentials for the image repository that corresponds with
-        the given API_KEY.
+        """Return login credentials for the image repository.
+
+        Returns credentials for the image repository that corresponds
+        with the given API_KEY.
 
         Args:
             api_key (Text, optional): Team API key. Defaults to None.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             Dict: Backend response
@@ -389,6 +402,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             image_hash (Text): Image digest.
             host_machine (Text, optional): Machine on which to host model.
             api_key (Text, optional): Team API key. Defaults to None.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             Dict: Backend response
@@ -417,7 +431,6 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
         max_iterations: int = 10,
         api_key: Optional[Text] = None,
     ) -> RLM:
-        import uuid
         """Create an RLM (Recursive Language Model) instance for long-context analysis.
 
         RLM overcomes LLM context window limits by giving a powerful orchestrator
@@ -509,6 +522,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
                 Defaults to empty string.
             api_key (Optional[Text], optional): API key for authentication.
                 Defaults to None, using the configured TEAM_API_KEY.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             Dict: Deployment response containing model ID and status information.
@@ -553,6 +567,7 @@ class ModelFactory(ModelGetterMixin, ModelListMixin):
             model_id (Text): Model ID returned by deploy_huggingface_model.
             api_key (Optional[Text], optional): API key for authentication.
                 Defaults to None, using the configured TEAM_API_KEY.
+            **kwargs: Additional keyword arguments.
 
         Returns:
             Dict: Status response containing:

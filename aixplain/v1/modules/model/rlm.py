@@ -1,3 +1,5 @@
+"""RLM (Recursive Language Model) module for aiXplain SDK v1."""
+
 __author__ = "aiXplain"
 
 """
@@ -40,7 +42,7 @@ from aixplain.modules.model.response import ModelResponse
 from aixplain.utils import config
 
 
-# Sandbox 
+# Sandbox
 
 # aiXplain managed Python sandbox tool ID.
 _SANDBOX_TOOL_ID = "698cda188bbb345db14ac13b"
@@ -49,7 +51,7 @@ _SANDBOX_TOOL_ID = "698cda188bbb345db14ac13b"
 _REPL_OUTPUT_MAX_CHARS = 100_000
 
 
-# Prompt Templates 
+# Prompt Templates
 
 _SYSTEM_PROMPT = """You are tasked with answering a query with associated context. You can access, transform, and analyze this context interactively in a REPL environment that can recursively query sub-LLMs, which you are strongly encouraged to use as much as possible. You will be queried iteratively until you provide a final answer.
 
@@ -80,7 +82,7 @@ Think step by step carefully, plan, and execute this plan immediately — do not
 
 _USER_PROMPT = (
     "Think step-by-step on what to do using the REPL environment (which contains the context) "
-    "to answer the original query: \"{query}\".\n\n"
+    'to answer the original query: "{query}".\n\n'
     "Continue using the REPL environment, which has the `context` variable, and querying sub-LLMs "
     "by writing to ```repl``` tags, and determine your answer. Your next action:"
 )
@@ -98,12 +100,12 @@ _FORCE_FINAL_PROMPT = (
 )
 
 _DEFAULT_QUERY = (
-    "Please read through the context and answer any queries or respond to "
-    "any instructions contained within it."
+    "Please read through the context and answer any queries or respond to any instructions contained within it."
 )
 
 
-# Prompt Helpers 
+# Prompt Helpers
+
 
 def _build_system_messages() -> List[Dict[str, str]]:
     return [{"role": "system", "content": _SYSTEM_PROMPT}]
@@ -118,20 +120,15 @@ def _next_action_message(query: str, iteration: int, force_final: bool = False) 
 
 def _messages_to_prompt(messages: List[Dict[str, str]]) -> str:
     """Serialize a chat message list to a single prompt string for Model.run()."""
-    return "\n\n".join(
-        f"[{msg['role'].upper()}]: {msg['content']}"
-        for msg in messages
-    )
+    return "\n\n".join(f"[{msg['role'].upper()}]: {msg['content']}" for msg in messages)
 
 
-# Response Parsing 
+# Response Parsing
+
 
 def _find_code_blocks(text: str) -> Optional[List[str]]:
     """Extract all ```repl ... ``` code blocks from a model response."""
-    results = [
-        m.group(1).strip()
-        for m in re.finditer(r"```repl\s*\n(.*?)\n```", text, re.DOTALL)
-    ]
+    results = [m.group(1).strip() for m in re.finditer(r"```repl\s*\n(.*?)\n```", text, re.DOTALL)]
     return results if results else None
 
 
@@ -152,7 +149,8 @@ def _truncate(text: str, max_chars: int = _REPL_OUTPUT_MAX_CHARS) -> str:
     return text
 
 
-# RLM Class 
+# RLM Class
+
 
 class RLM(Model):
     """Recursive Language Model — long-context analysis via an iterative REPL sandbox.
@@ -322,14 +320,11 @@ class RLM(Model):
         self._sandbox_tool = ToolFactory.get(self.SANDBOX_TOOL_ID, api_key=self.api_key)
         logging.info(f"RLM: sandbox session started (id={self._session_id}).")
 
-        # Serialize context to a local temp file 
+        # Serialize context to a local temp file
         if isinstance(context, str):
             ext = ".txt"
             content_bytes = context.encode("utf-8")
-            load_code = (
-                "with open(_filename, 'r', encoding='utf-8') as _f:\n"
-                "    context = _f.read()"
-            )
+            load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
         elif isinstance(context, (dict, list)):
             ext = ".json"
             content_bytes = json.dumps(context).encode("utf-8")
@@ -342,10 +337,7 @@ class RLM(Model):
             # Fallback: stringify anything else
             ext = ".txt"
             content_bytes = str(context).encode("utf-8")
-            load_code = (
-                "with open(_filename, 'r', encoding='utf-8') as _f:\n"
-                "    context = _f.read()"
-            )
+            load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
 
         # Write to a named temp file so the upload filename is predictable
         # (format will be: context.txt or context.json)
@@ -355,7 +347,7 @@ class RLM(Model):
             with open(tmp_path, "wb") as f:
                 f.write(content_bytes)
 
-            # Upload to aiXplain storage 
+            # Upload to aiXplain storage
             # FileFactory.create(is_temp=True) returns a temporary download URL.
             download_url = FileFactory.create(local_path=tmp_path, is_temp=True)
             logging.debug(f"RLM: context uploaded ({ext}, {len(content_bytes)} bytes).")
@@ -367,12 +359,10 @@ class RLM(Model):
             except OSError:
                 pass
 
-        # Extract sandbox filename from the download URL 
-        # URL format: https://.../{prefix}-{filename}?{query_params}
-        # e.g. https://storage.../abc123-context.txt?X-Amz-...
-        sandbox_filename = download_url.split("?")[0].split("/")[-1].split("-")[1]
+        # Use the known filename directly instead of parsing it from the URL.
+        sandbox_filename = f"context{ext}"
 
-        # Inject sandbox download + load code 
+        # Inject sandbox download + load code
         context_code = f"""import requests as __requests
 
 _url = {repr(download_url)}
@@ -391,14 +381,11 @@ with __requests.get(_url, stream=True) as _r:
         self._run_sandbox(context_code)
         logging.debug(f"RLM: context loaded into sandbox from uploaded file ({sandbox_filename}).")
 
-        # Inject llm_query 
+        # Inject llm_query
         # The function is defined directly in the sandbox session so that it
         # persists for all subsequent code blocks in this run. It calls the
         # worker model's run endpoint using requests, with async polling.
-        worker_url = (
-            f"{self.worker.url}/{self.worker.id}"
-            .replace("api/v1/execute", "api/v2/execute")
-        )
+        worker_url = f"{self.worker.url}/{self.worker.id}".replace("api/v1/execute", "api/v2/execute")
 
         llm_query_code = f"""import requests as __requests
 import time as __time
@@ -434,7 +421,7 @@ def llm_query(prompt):
             action="run",
         )
 
-    # Code Execution 
+    # Code Execution
 
     def _execute_code(self, code: str) -> str:
         """Execute a Python code block in the sandbox and return formatted output.
@@ -491,7 +478,7 @@ def llm_query(prompt):
             return None
         return stdout.strip() if stdout else None
 
-    # Orchestrator 
+    # Orchestrator
 
     def _orchestrator_completion(self, messages: List[Dict[str, str]]) -> str:
         """Query the orchestrator model with the full conversation history.
@@ -513,14 +500,12 @@ def llm_query(prompt):
         #   if isinstance(self.orchestrator, LLM):
         #       response = self.orchestrator.run(data={"messages": messages})
         prompt = _messages_to_prompt(messages)
-        response = self.orchestrator.run(data=prompt, max_tokens = 8192)
+        response = self.orchestrator.run(data=prompt, max_tokens=8192)
         if response.get("completed") or response["status"] == ResponseStatus.SUCCESS:
             return str(response["data"])
-        raise RuntimeError(
-            f"Orchestrator model failed: {response.get('error_message', 'Unknown error')}"
-        )
+        raise RuntimeError(f"Orchestrator model failed: {response.get('error_message', 'Unknown error')}")
 
-    # Core Orchestration Loop 
+    # Core Orchestration Loop
 
     def run(
         self,
@@ -580,8 +565,7 @@ def llm_query(prompt):
             "Set rlm.orchestrator or pass orchestrator= to ModelFactory.create_rlm()."
         )
         assert self.worker is not None, (
-            "RLM requires a worker model. "
-            "Set rlm.worker or pass worker= to ModelFactory.create_rlm()."
+            "RLM requires a worker model. Set rlm.worker or pass worker= to ModelFactory.create_rlm()."
         )
         assert not stream, "RLM does not support streaming responses."
 
@@ -596,8 +580,7 @@ def llm_query(prompt):
         elif isinstance(data, dict):
             if "context" not in data:
                 raise ValueError(
-                    "When passing data as a dict, it must contain a 'context' key. "
-                    "Optionally include a 'query' key."
+                    "When passing data as a dict, it must contain a 'context' key. Optionally include a 'query' key."
                 )
             context = data["context"]
             query = data.get("query", _DEFAULT_QUERY)
@@ -626,15 +609,11 @@ def llm_query(prompt):
                 iterations_used = iteration + 1
 
                 if (time.time() - start_time) > timeout:
-                    logging.warning(
-                        f"RLM '{name}': timeout after {iteration} iterations — forcing final answer."
-                    )
+                    logging.warning(f"RLM '{name}': timeout after {iteration} iterations — forcing final answer.")
                     break
 
                 # Ask orchestrator for its next action
-                response_text = self._orchestrator_completion(
-                    self._messages + [_next_action_message(query, iteration)]
-                )
+                response_text = self._orchestrator_completion(self._messages + [_next_action_message(query, iteration)])
                 logging.debug(f"RLM '{name}' iter {iteration}: orchestrator responded.")
 
                 # Execute repl code blocks if present
@@ -645,16 +624,14 @@ def llm_query(prompt):
                         output = self._execute_code(code)
                         repl_logs.append({"iteration": iteration, "code": code, "output": output})
                         logging.debug(
-                            f"RLM '{name}' iter {iteration}: "
-                            f"executed {len(code)} chars → {len(output)} chars output."
+                            f"RLM '{name}' iter {iteration}: executed {len(code)} chars → {len(output)} chars output."
                         )
-                        self._messages.append({
-                            "role": "user",
-                            "content": (
-                                f"Code executed:\n```python\n{code}\n```\n\n"
-                                f"REPL output:\n{output}"
-                            ),
-                        })
+                        self._messages.append(
+                            {
+                                "role": "user",
+                                "content": (f"Code executed:\n```python\n{code}\n```\n\nREPL output:\n{output}"),
+                            }
+                        )
                 else:
                     self._messages.append({"role": "assistant", "content": response_text})
 
@@ -670,15 +647,11 @@ def llm_query(prompt):
                         if retrieved is not None:
                             final_answer = retrieved
                             break
-                        logging.warning(
-                            f"RLM '{name}': FINAL_VAR('{content}') not found in sandbox — continuing."
-                        )
+                        logging.warning(f"RLM '{name}': FINAL_VAR('{content}') not found in sandbox — continuing.")
 
             # Force a final answer if loop exhausted or timed out without one
             if final_answer is None:
-                logging.info(
-                    f"RLM '{name}': requesting forced final answer after {iterations_used} iterations."
-                )
+                logging.info(f"RLM '{name}': requesting forced final answer after {iterations_used} iterations.")
                 self._messages.append(_next_action_message(query, iterations_used, force_final=True))
                 final_answer = self._orchestrator_completion(self._messages)
 
@@ -761,16 +734,8 @@ def llm_query(prompt):
         orchestrator_model_id = data.get("orchestrator_model_id")
         worker_model_id = data.get("worker_model_id")
 
-        orchestrator = (
-            ModelFactory.get(orchestrator_model_id, api_key=api_key)
-            if orchestrator_model_id
-            else None
-        )
-        worker = (
-            ModelFactory.get(worker_model_id, api_key=api_key)
-            if worker_model_id
-            else None
-        )
+        orchestrator = ModelFactory.get(orchestrator_model_id, api_key=api_key) if orchestrator_model_id else None
+        worker = ModelFactory.get(worker_model_id, api_key=api_key) if worker_model_id else None
 
         return cls(
             id=data.get("id", ""),
