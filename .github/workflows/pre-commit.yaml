@@ -28,5 +28,5 @@ jobs:
 
       - name: Run pre-commit hooks
         env:
-          TEAM_API_KEY: dummy-key-for-unit-tests
+          TEAM_API_KEY: ${{ secrets.TEAM_API_KEY }}
         run: pre-commit run --all-files
