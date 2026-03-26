@@ -17,4 +17,3 @@ To run these tests, you need:
    - The tests create and delete API keys during execution
    - Make sure you have at least one available slot for API key creation
    - The tests will fail if you've reached the maximum number of allowed API keys
-

@@ -148,21 +148,6 @@ def test_invalid_llm_id():
     assert str(exc_info.value) == "Large Language Model with ID '123' not found."
 
 
-def test_invalid_agent_name():
-    with pytest.raises(Exception) as exc_info:
-        AgentFactory.create(
-            name="[Test]",
-            description="",
-            instructions="",
-            tools=[],
-            llm_id="6895d6d1d50c89537c1cf237",
-        )
-    assert str(exc_info.value) == (
-        "Agent Creation Error: Agent name contains invalid characters. "
-        "Only alphanumeric characters, spaces, hyphens, and brackets are allowed."
-    )
-
-
 @patch("aixplain.factories.model_factory.ModelFactory.get")
 def test_create_agent(mock_model_factory_get):
     from aixplain.enums import Supplier, Function

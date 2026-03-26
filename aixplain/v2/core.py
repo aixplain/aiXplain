@@ -1,6 +1,7 @@
 """Core module for aiXplain v2 API."""
 
 import os
+import sys
 from typing import Optional, TypeVar
 
 from .client import AixplainClient
@@ -91,12 +92,10 @@ class Aixplain:
         if api_key:
             os.environ["TEAM_API_KEY"] = api_key
             os.environ["AIXPLAIN_API_KEY"] = api_key
-            try:
-                import aixplain.utils.config as _cfg
+            _cfg = sys.modules.get("aixplain.utils.config")
+            if _cfg is not None:
                 _cfg.TEAM_API_KEY = api_key
                 _cfg.AIXPLAIN_API_KEY = api_key
-            except ImportError:
-                pass
         assert self.api_key, (
             "API key is required. Pass api_key=... to Aixplain() or set TEAM_API_KEY or AIXPLAIN_API_KEY."
         )
