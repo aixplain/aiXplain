@@ -1,6 +1,7 @@
 """aiXplain SDK v2 - Modern Python SDK for the aiXplain platform."""
 
 from .core import Aixplain
+from .rlm import RLM, RLMResult
 from .utility import Utility
 from .agent import Agent
 from .tool import Tool
@@ -53,6 +54,8 @@ from .enums import (
 
 __all__ = [
     "Aixplain",
+    "RLM",
+    "RLMResult",
     "Utility",
     "Agent",
     "Tool",
