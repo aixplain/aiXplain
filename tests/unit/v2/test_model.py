@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from aixplain.v2.enums import Function, ResponseStatus
-from aixplain.v2.model import Message, Model, ModelResponseStreamer, ModelResult, StreamChunk, find_function_by_id
+from aixplain.v2.model import Message, Model, ModelResponseStreamer, ModelResult, StreamChunk, Usage, find_function_by_id
 
 
 # =============================================================================
@@ -730,6 +730,35 @@ class TestModelIntegrationGaps:
 
         assert result._raw_data == direct_response
         assert result.model == "openai/gpt-5.2"
+
+    def test_run_sync_v2_preserves_usage_and_asset(self):
+        """_run_sync_v2() should deserialize usage and asset from direct response."""
+        model = self._create_sync_model()
+        direct_response = {
+            "status": "SUCCESS",
+            "completed": True,
+            "data": "2 + 2 = 4.",
+            "runTime": 1.766,
+            "usedCredits": 3.725e-05,
+            "usage": {"prompt_tokens": 13, "completion_tokens": 17, "total_tokens": 30},
+            "asset": {"assetId": "test-model-id", "id": "openai/gpt-5-mini/openai"},
+        }
+        model.context.client.request = Mock(return_value=direct_response)
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value={"data": "What is 2+2?"}):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    result = model._run_sync_v2(data="What is 2+2?")
+
+        assert isinstance(result, ModelResult)
+        assert result.usage is not None
+        assert isinstance(result.usage, Usage)
+        assert result.usage.prompt_tokens == 13
+        assert result.usage.completion_tokens == 17
+        assert result.usage.total_tokens == 30
+        assert result.used_credits == 3.725e-05
+        assert result.run_time == 1.766
+        assert result.asset == {"assetId": "test-model-id", "id": "openai/gpt-5-mini/openai"}
 
     def test_stream_chunk_coerces_non_string_data(self):
         """StreamChunk should enforce text chunks even when data is non-string."""

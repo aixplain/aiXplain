@@ -162,4 +162,4 @@ class TestAgentDuplicate:
 
         duplicated = agent.duplicate(duplicate_subagents=True)
 
-        assert len(duplicated.subagents) == 2
+        assert len(duplicated.agents) == 2

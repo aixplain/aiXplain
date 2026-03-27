@@ -23,6 +23,7 @@ class ModelResponse:
         usage: Optional[Dict] = None,
         url: Optional[Text] = None,
         error_code: Optional[ErrorCode] = None,
+        asset: Optional[Dict] = None,
         **kwargs,
     ):
         """Initialize a new ModelResponse instance.
@@ -35,9 +36,11 @@ class ModelResponse:
             error_message (Text): The error message if the response is not successful.
             used_credits (float): The amount of credits used for the response.
             run_time (float): The time taken to generate the response.
-            usage (Optional[Dict]): Usage information about the response.
+            usage (Optional[Dict]): Usage information about the response (prompt_tokens,
+                completion_tokens, total_tokens).
             url (Optional[Text]): The URL of the response.
             error_code (Optional[ErrorCode]): The error code if the response is not successful.
+            asset (Optional[Dict]): Asset information (assetId, id) from model serving.
             **kwargs: Additional keyword arguments.
         """
         self.status = status
@@ -54,6 +57,7 @@ class ModelResponse:
         self.usage = usage
         self.url = url
         self.error_code = error_code
+        self.asset = asset
         self.additional_fields = kwargs
 
     def __getitem__(self, key: Text) -> Any:
@@ -137,6 +141,8 @@ class ModelResponse:
             fields.append(f"run_time={self.run_time}")
         if self.usage:
             fields.append(f"usage={self.usage}")
+        if self.asset:
+            fields.append(f"asset={self.asset}")
         if self.url:
             fields.append(f"url='{self.url}'")
         if self.error_code:
@@ -175,6 +181,7 @@ class ModelResponse:
             "used_credits": self.used_credits,
             "run_time": self.run_time,
             "usage": self.usage,
+            "asset": self.asset,
             "url": self.url,
             "error_code": self.error_code,
         }

@@ -73,6 +73,7 @@ class ModelResult(Result):
     run_time: Optional[float] = field(default=None, metadata=config(field_name="runTime"))
     used_credits: Optional[float] = field(default=None, metadata=config(field_name="usedCredits"))
     usage: Optional[Usage] = None
+    asset: Optional[Dict[str, Any]] = None
 
 
 @dataclass
