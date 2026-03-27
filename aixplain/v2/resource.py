@@ -1274,6 +1274,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "usedCredits": response.get("usedCredits", 0.0),
             "runTime": response.get("runTime", 0.0),
             "requestId": response.get("requestId"),
+            "usage": response.get("usage"),
+            "asset": response.get("asset"),
         }
         status = response.get("status", "IN_PROGRESS")
 

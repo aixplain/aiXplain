@@ -139,7 +139,8 @@ def test_run_with_custom_parameters():
         "data": "Test Result",
         "usedCredits": 10,
         "runTime": 1.5,
-        "usage": {"prompt_tokens": 10, "completion_tokens": 20},
+        "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+        "asset": {"assetId": "test-model-id", "id": "openai/gpt-5-mini/openai"},
     }
 
     with requests_mock.Mocker() as mock:
@@ -156,4 +157,8 @@ def test_run_with_custom_parameters():
     assert response.data == "Test Result"
     assert response.used_credits == 10
     assert response.run_time == 1.5
-    assert response.usage == {"prompt_tokens": 10, "completion_tokens": 20}
+    assert response.usage == {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
+    assert response.usage["prompt_tokens"] == 10
+    assert response.usage["completion_tokens"] == 20
+    assert response.usage["total_tokens"] == 30
+    assert response.asset == {"assetId": "test-model-id", "id": "openai/gpt-5-mini/openai"}
