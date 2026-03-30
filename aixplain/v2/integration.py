@@ -190,7 +190,6 @@ class ActionMixin:
                         candidate
                         for candidate in specs
                         if (candidate.name and candidate.name.lower() == normalized_action_name)
-                        or (candidate.slug and candidate.slug.lower() == normalized_action_name)
                     ),
                     None,
                 )
