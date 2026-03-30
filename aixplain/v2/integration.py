@@ -184,9 +184,18 @@ class ActionMixin:
                 specs = container._list_inputs(action_name)
                 if not specs:
                     raise ValueError(f"Action '{action_name}' not found or has no input parameters defined.")
-                spec = specs[0]
-                if not spec.inputs:
-                    raise ValueError(f"Action '{action_name}' found but has no input parameters defined.")
+                normalized_action_name = action_name.lower()
+                spec = next(
+                    (
+                        candidate
+                        for candidate in specs
+                        if (candidate.name and candidate.name.lower() == normalized_action_name)
+                        or (candidate.slug and candidate.slug.lower() == normalized_action_name)
+                    ),
+                    None,
+                )
+                if spec is None:
+                    raise ValueError(f"Action '{action_name}' not found in LIST_INPUTS response.")
                 return Inputs.from_action_input_specs(spec.inputs)
 
             return ActionView(name=action_name, description=description, _inputs_loader=_load_inputs)

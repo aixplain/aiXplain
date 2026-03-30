@@ -419,8 +419,8 @@ class Model(
     # Values can be: ["synchronous"], ["asynchronous"], or ["synchronous", "asynchronous"]
     connection_type: Optional[List[str]] = field(default=None, metadata=config(field_name="connectionType"))
 
-    # Attributes and parameters with proper types
-    attributes: Optional[Dict[str, Any]] = None
+    # The backend returns attributes as a list for integrations/tools.
+    attributes: Optional[List[Dict[str, Any]]] = None
     params: Optional[List[Parameter]] = None
 
     def __post_init__(self):
