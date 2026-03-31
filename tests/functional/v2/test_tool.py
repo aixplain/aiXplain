@@ -389,7 +389,7 @@ def test_tool_update_name(client, slack_integration_id, slack_token):
     try:
         # --- Fetch fresh (simulates a new session where integration is not set) ---
         fetched = client.Tool.get(tool_id)
-        assert fetched.parent_model_id is not None, "Fetched tool should have parentModelId from backend"
+        assert fetched.integration_id is not None, "Fetched tool should have integration_id from backend"
         assert fetched.integration is None, "Fetched tool should not have integration set (local-only field)"
         assert fetched.name == original_name
 

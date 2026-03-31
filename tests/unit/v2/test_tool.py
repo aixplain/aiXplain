@@ -29,10 +29,11 @@ MOCK_BACKEND_RESPONSE = {
     "updatedAt": "2026-03-19T13:27:29.604Z",
     "supportsStreaming": None,
     "supportsBYOC": None,
-    "attributes": [
-        {"name": "auth_schemes", "code": '["OAUTH2","BEARER_TOKEN"]'},
-        {"name": "connectionId", "code": "ca_ZvGTPS6hxXIL"},
-    ],
+    "attributes": {
+        "auth_schemes": '["OAUTH2","BEARER_TOKEN"]',
+        "BEARER_TOKEN-inputs": '[{"name":"token","displayName":"Bearer Token","type":"string","description":"Token for bearer authentication","required":true}]',
+        "OAUTH2-inputs": "[]",
+    },
     "parentModelId": "686432941223092cb4294d3f",
     "params": [
         {
@@ -77,37 +78,71 @@ def _make_connection_tool(context=None):
     connection.name = "Slack Tool (1773926848)"
     connection.redirect_url = None
     for attr_name in Tool.__dataclass_fields__:
-        if not hasattr(connection, attr_name):
-            setattr(connection, attr_name, None)
+        setattr(connection, attr_name, None)
+    connection.id = "69bbf9c19e1085b478304903"
+    connection.name = "Slack Tool (1773926848)"
     return connection
 
 
 # =============================================================================
-# parent_model_id deserialization
+# integration_id deserialization (maps to backend parentModelId)
 # =============================================================================
 
 
-class TestParentModelIdDeserialization:
-    """Tests for parentModelId field mapping."""
+class TestIntegrationIdDeserialization:
+    """Tests for parentModelId → integration_id field mapping."""
 
-    def test_parent_model_id_deserialized_from_backend(self):
-        """parentModelId in the response should map to parent_model_id."""
+    def test_integration_id_deserialized_from_backend(self):
+        """parentModelId in the response should map to integration_id."""
         tool = _make_fetched_tool()
-        assert tool.parent_model_id == "686432941223092cb4294d3f"
+        assert tool.integration_id == "686432941223092cb4294d3f"
 
-    def test_parent_model_id_none_when_absent(self):
-        """Older tools without parentModelId should have parent_model_id=None."""
+    def test_integration_id_none_when_absent(self):
+        """Older tools without parentModelId should have integration_id=None."""
         data = dict(MOCK_BACKEND_RESPONSE)
         del data["parentModelId"]
         tool = _make_fetched_tool(response=data)
-        assert tool.parent_model_id is None
+        assert tool.integration_id is None
 
-    def test_parent_model_id_serialized_as_camel_case(self):
-        """parent_model_id should serialize back as parentModelId."""
+    def test_integration_id_serialized_as_camel_case(self):
+        """integration_id should serialize back as parentModelId."""
         tool = _make_fetched_tool()
         d = tool.to_dict()
         assert "parentModelId" in d
         assert d["parentModelId"] == "686432941223092cb4294d3f"
+
+    def test_integration_id_setter(self):
+        tool = _make_fetched_tool()
+        tool.integration_id = "new-integration-id"
+        assert tool.integration_id == "new-integration-id"
+
+
+class TestIntegrationPathProperty:
+    """Tests for integration_path property."""
+
+    def test_integration_path_returns_path_when_resolved(self):
+        tool = _make_fetched_tool()
+        mock_integration = Mock(spec=Integration)
+        mock_integration.path = "aixplain/python-sandbox/aixplain"
+        tool.integration = mock_integration
+        assert tool.integration_path == "aixplain/python-sandbox/aixplain"
+
+    def test_integration_path_none_when_not_resolved(self):
+        tool = _make_fetched_tool()
+        assert tool.integration is None
+        assert tool.integration_path is None
+
+    def test_integration_path_none_when_string(self):
+        tool = _make_fetched_tool()
+        tool.integration = "686432941223092cb4294d3f"
+        assert tool.integration_path is None
+
+    def test_integration_path_none_when_integration_has_no_path(self):
+        tool = _make_fetched_tool()
+        mock_integration = Mock(spec=Integration)
+        mock_integration.path = None
+        tool.integration = mock_integration
+        assert tool.integration_path is None
 
 
 # =============================================================================
@@ -127,8 +162,8 @@ class TestResolveIntegration:
 
         assert tool.integration == "already-set-id"
 
-    def test_resolve_uses_parent_model_id(self):
-        """Should set integration from parent_model_id when available."""
+    def test_resolve_uses_integration_id(self):
+        """Should set integration from integration_id when available."""
         tool = _make_fetched_tool()
         assert tool.integration is None
 
@@ -136,13 +171,13 @@ class TestResolveIntegration:
 
         assert tool.integration == "686432941223092cb4294d3f"
 
-    def test_resolve_raises_when_no_parent_model_id(self):
-        """Should raise ValueError when parent_model_id is None (older tool)."""
+    def test_resolve_raises_when_no_integration_id(self):
+        """Should raise ValueError when integration_id is None (older tool)."""
         data = dict(MOCK_BACKEND_RESPONSE)
         del data["parentModelId"]
         tool = _make_fetched_tool(response=data)
 
-        with pytest.raises(ValueError, match="parentModelId is not set"):
+        with pytest.raises(ValueError, match="integration_id is not set"):
             tool._resolve_integration()
 
     def test_resolve_is_idempotent(self):
@@ -228,7 +263,7 @@ class TestToolUpdate:
         assert call_kwargs["data"]["code"] == "def add(a, b): return a + b"
 
     def test_update_reconnect_resolves_integration(self):
-        """Reconnect path should auto-resolve integration via parent_model_id."""
+        """Reconnect path should auto-resolve integration via integration_id."""
         tool = _make_fetched_tool()
         mock_integration, _ = self._setup_mocks(tool)
         tool.config = {"token": "xyz"}
@@ -295,6 +330,72 @@ class TestToolUpdate:
 
         assert tool.redirect_url == "https://oauth.example.com/callback"
 
+    def test_update_reconnect_sends_empty_name(self):
+        """Reconnect should send empty name to avoid 'Name already exists' error."""
+        tool = _make_fetched_tool()
+        mock_integration, _ = self._setup_mocks(tool)
+        tool.name = "My Tool Name"
+        tool.config = {"code": "print('hi')"}
+
+        tool._update("v2/tools", {})
+
+        call_kwargs = mock_integration.connect.call_args[1]
+        assert call_kwargs["name"] == ""
+
+    def test_update_reconnect_omits_description(self):
+        """Reconnect should not include description (metadata PUT handles it)."""
+        tool = _make_fetched_tool()
+        mock_integration, _ = self._setup_mocks(tool)
+        tool.description = "Updated description"
+        tool.config = {"code": "print('hi')"}
+
+        tool._update("v2/tools", {})
+
+        call_kwargs = mock_integration.connect.call_args[1]
+        assert "description" not in call_kwargs
+
+    def test_update_reconnect_clears_config_and_code(self):
+        """After a successful reconnect, config and code should be cleared."""
+        tool = _make_fetched_tool()
+        mock_integration, _ = self._setup_mocks(tool)
+        tool.config = {"code": "print('hi')", "function_name": "greet"}
+        tool.code = "def greet(): pass"
+
+        tool._update("v2/tools", {})
+
+        assert tool.config is None
+        assert tool.code is None
+
+
+# =============================================================================
+# _create clears transient fields
+# =============================================================================
+
+
+class TestToolCreate:
+    """Tests that _create clears config/code after success."""
+
+    def test_create_clears_config_after_success(self):
+        """After successful creation, config should be cleared to prevent false reconnects."""
+        mock_connection = _make_connection_tool()
+        mock_integration = Mock(spec=Integration)
+        mock_integration.connect = Mock(return_value=mock_connection)
+
+        tool = _make_fetched_tool()
+        tool.id = None
+        tool.integration_id = None
+        tool.name = "test-tool"
+        tool.description = "desc"
+        tool.config = {"code": "def add(): pass", "function_name": "add"}
+        tool.code = None
+        tool.integration = mock_integration
+
+        tool._create("v2/tools", {})
+
+        assert tool.config is None
+        assert tool.code is None
+        assert tool.id == mock_connection.id
+
 
 # =============================================================================
 # save() integration (update path)
@@ -354,7 +455,7 @@ class TestExtractAuthScheme:
     def test_returns_none_when_description_has_no_scheme(self):
         data = dict(MOCK_BACKEND_RESPONSE)
         data["description"] = "A plain description with no auth info."
-        data["attributes"] = []
+        data["attributes"] = {}
         tool = _make_fetched_tool(response=data)
         assert tool._extract_auth_scheme() is None
 
@@ -405,7 +506,7 @@ class TestUpdateSendsAuthScheme:
         """Reconnect should not include authScheme when it can't be extracted."""
         data = dict(MOCK_BACKEND_RESPONSE)
         data["description"] = "No auth info."
-        data["attributes"] = []
+        data["attributes"] = {}
         tool = _make_fetched_tool(response=data)
         mock_integration, _ = self._setup_mocks(tool)
         tool.config = {"token": "xyz"}

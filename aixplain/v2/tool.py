@@ -43,13 +43,25 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
     # Tool-specific fields
     asset_id: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
-    parent_model_id: Optional[str] = field(default=None, metadata=dj_config(field_name="parentModelId"))
+    integration_id: Optional[str] = field(default=None, metadata=dj_config(field_name="parentModelId"))
     subscriptions: Optional[Any] = field(default=None)
     integration: Optional[Union[Integration, str]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     config: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     code: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     allowed_actions: Optional[List[str]] = field(default_factory=list, metadata=dj_config(field_name="allowedActions"))
     redirect_url: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+
+    @property
+    def integration_path(self) -> Optional[str]:
+        """The path of the integration (e.g. ``"aixplain/python-sandbox"``).
+
+        Available when the ``integration`` has been resolved to an
+        :class:`Integration` object that carries a ``path`` attribute.
+        Returns ``None`` when the integration has not been resolved yet.
+        """
+        if isinstance(self.integration, Integration) and self.integration.path:
+            return self.integration.path
+        return None
 
     def __post_init__(self) -> None:
         """Initialize tool after dataclass creation."""
@@ -170,13 +182,16 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             payload["description"] = self.description
 
         if self.config:
-            data = self.config.pop("data", {})
-            data.update(self.config)
+            config_copy = dict(self.config)
+            data = config_copy.pop("data", {})
+            data.update(config_copy)
             payload["data"] = data
 
         connection = self.integration.connect(**payload)
 
         self.id = connection.id
+        self.config = None
+        self.code = None
 
         for attr_name in self.__dataclass_fields__:
             if not getattr(self, attr_name) and getattr(connection, attr_name, None):
@@ -186,11 +201,12 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             self.redirect_url = connection.redirect_url
 
     def _resolve_integration(self) -> None:
-        """Auto-resolve the integration from ``parent_model_id`` when not explicitly set.
+        """Auto-resolve the integration from ``integration_id`` when not explicitly set.
 
-        The backend populates ``parentModelId`` on tools/connections with the
-        ID of the integration that created them.  Older tools may not have this
-        field, in which case the caller must set ``tool.integration`` manually.
+        The backend populates ``parentModelId`` (exposed as ``integration_id``)
+        on tools/connections with the ID of the integration that created them.
+        Older tools may not have this field, in which case the caller must set
+        ``tool.integration`` manually.
 
         Raises:
             ValueError: If integration cannot be resolved.
@@ -198,39 +214,37 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         if self.integration:
             return
 
-        if self.parent_model_id:
-            self.integration = self.parent_model_id
+        if self.integration_id:
+            self.integration = self.integration_id
             return
 
         raise ValueError(
             "Cannot update tool: the integration could not be resolved automatically "
-            "(parentModelId is not set — this may be an older tool). "
+            "(integration_id is not set — this may be an older tool). "
             "Set tool.integration = '<integration_id>' before calling save()."
         )
 
     _AUTH_SCHEME_RE = re.compile(r"Authentication scheme used for this connections?:\s*(\w+)")
 
     def _extract_auth_scheme(self) -> Optional[str]:
-        """Extract the authentication scheme from the tool's description.
+        """Extract the authentication scheme from the tool's description or attributes.
 
         The backend embeds ``Authentication scheme used for this connections: <SCHEME>``
-        in the description text.  Returns ``None`` when the pattern is absent.
+        in the description text.  Falls back to the ``auth_schemes`` key in the
+        ``attributes`` dict.  Returns ``None`` when neither source is available.
         """
         if self.description:
             m = self._AUTH_SCHEME_RE.search(self.description)
             if m:
                 return m.group(1)
-        if self.attributes:
-            for attr in self.attributes:
-                name = getattr(attr, "name", None) or (attr.get("name") if isinstance(attr, dict) else None)
-                if name == "auth_schemes":
-                    code = getattr(attr, "code", None) or (attr.get("code") if isinstance(attr, dict) else None)
-                    if code:
-                        schemes = re.findall(r"\w+", code)
-                        if "BEARER_TOKEN" in schemes:
-                            return "BEARER_TOKEN"
-                        if schemes:
-                            return schemes[0]
+        if isinstance(self.attributes, dict):
+            auth_schemes_val = self.attributes.get("auth_schemes")
+            if auth_schemes_val:
+                schemes = re.findall(r"\w+", str(auth_schemes_val))
+                if "BEARER_TOKEN" in schemes:
+                    return "BEARER_TOKEN"
+                if schemes:
+                    return schemes[0]
         return None
 
     def _update(self, resource_path: str, payload: dict) -> None:
@@ -268,6 +282,11 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             data["assetId"] = self.asset_id or self.id
             connect_payload["data"] = data
 
+            # The metadata PUT above already persists name/description.
+            # Send an empty name so the backend's .trim() call succeeds
+            # without triggering a "Name already exists" uniqueness check.
+            connect_payload["name"] = ""
+
             auth_scheme = self._extract_auth_scheme()
             if auth_scheme:
                 connect_payload["authScheme"] = auth_scheme
@@ -275,6 +294,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             connection = self.integration.connect(**connect_payload)
 
             self.id = connection.id
+            self.config = None
+            self.code = None
 
             for attr_name in self.__dataclass_fields__:
                 if not getattr(self, attr_name) and getattr(connection, attr_name, None):
