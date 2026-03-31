@@ -14,6 +14,19 @@ from dataclasses import dataclass, field
 AUTO_DEFAULT_MODEL_ID = "67fd9e2bef0365783d06e2f0"
 
 
+def _resolve_asset_reference(asset: Any) -> str:
+    """Resolve a model-like asset reference to a string identifier."""
+    if isinstance(asset, str):
+        return asset
+    path = getattr(asset, "path", None)
+    if path:
+        return path
+    asset_id = getattr(asset, "id", None)
+    if asset_id:
+        return asset_id
+    return str(asset)
+
+
 def _callable_to_string(fn) -> str:
     """Convert a callable to its source string representation."""
     try:
@@ -116,6 +129,8 @@ class EvaluatorConfig:
         """Validate and convert callable functions to source strings."""
         if callable(self.function):
             self.function = _callable_to_string(self.function)
+        if self.asset_id is not None and not isinstance(self.asset_id, str):
+            self.asset_id = _resolve_asset_reference(self.asset_id)
         if self.type == EvaluatorType.ASSET and not self.asset_id:
             raise ValueError("asset_id is required when evaluator type is 'asset'")
         if self.type == EvaluatorType.FUNCTION and not self.function:
@@ -156,6 +171,8 @@ class EditorConfig:
         """Validate and convert callable functions to source strings."""
         if callable(self.function):
             self.function = _callable_to_string(self.function)
+        if self.asset_id is not None and not isinstance(self.asset_id, str):
+            self.asset_id = _resolve_asset_reference(self.asset_id)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a dictionary for API serialization."""

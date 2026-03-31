@@ -855,6 +855,40 @@ class Agent(
                 result[api_key] = v
         return result
 
+    def _resolve_inspector_asset_ids(self, payload: dict) -> None:
+        """Resolve inspector model paths to backend IDs before saving."""
+        if not payload.get("inspectors") or not getattr(self, "context", None):
+            return
+
+        model_resource = getattr(self.context, "Model", None)
+        if model_resource is None or not hasattr(model_resource, "get"):
+            return
+
+        resolved_ids: Dict[str, str] = {}
+        for inspector in payload["inspectors"]:
+            if not isinstance(inspector, dict):
+                continue
+
+            for key in ("evaluator", "editor"):
+                config = inspector.get(key)
+                if not isinstance(config, dict) or config.get("type") != "asset":
+                    continue
+
+                asset_id = config.get("assetId")
+                if not asset_id or "/" not in str(asset_id):
+                    continue
+
+                if asset_id not in resolved_ids:
+                    try:
+                        resolved_ids[asset_id] = self.context.Model.get(asset_id).id
+                    except Exception as exc:
+                        raise ValueError(
+                            f"Could not resolve inspector model path '{asset_id}'. "
+                            "Use a valid model path (e.g. 'openai/gpt-4o-mini/openai') or a model ID."
+                        ) from exc
+
+                config["assetId"] = resolved_ids[asset_id]
+
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
@@ -892,6 +926,8 @@ class Agent(
 
         # Now call to_dict() with inspectors and inspector_targets already serialized
         payload = self.to_dict()
+
+        self._resolve_inspector_asset_ids(payload)
 
         # Restore original values
         self.inspectors = original_inspectors
