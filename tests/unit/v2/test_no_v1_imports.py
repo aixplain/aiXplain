@@ -14,8 +14,10 @@ import pytest
 
 V2_PACKAGE_DIR = Path(__file__).resolve().parents[3] / "aixplain" / "v2"
 
-# Auto-generated compatibility shim — allowed to import v1
-EXCLUDED_FILES = {"enums_include.py"}
+# Files allowed to reference v1 modules:
+#   enums_include.py — auto-generated compatibility shim
+#   core.py — optional try/except guarded sync of api key to v1 config
+EXCLUDED_FILES = {"enums_include.py", "core.py"}
 
 # Patterns that constitute a v1 import.
 # Matches:  from aixplain.modules  / from aixplain.factories
