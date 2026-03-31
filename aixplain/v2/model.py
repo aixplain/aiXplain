@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Union, List, Optional, Any, TYPE_CHECKING, Iterator
+from typing import Dict, Union, List, Optional, Any, TYPE_CHECKING, Iterator
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
 from dataclasses import dataclass, field
@@ -73,6 +73,7 @@ class ModelResult(Result):
     run_time: Optional[float] = field(default=None, metadata=config(field_name="runTime"))
     used_credits: Optional[float] = field(default=None, metadata=config(field_name="usedCredits"))
     usage: Optional[Usage] = None
+    asset: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -301,16 +302,6 @@ def find_function_by_id(function_id: str) -> Optional[Function]:
 
 @dataclass_json
 @dataclass
-class Attribute:
-    """Common attribute structure from the API response."""
-
-    name: str
-    code: Optional[Any] = None
-    value: Optional[Any] = None
-
-
-@dataclass_json
-@dataclass
 class Parameter:
     """Common parameter structure from the API response."""
 
@@ -429,7 +420,7 @@ class Model(
     connection_type: Optional[List[str]] = field(default=None, metadata=config(field_name="connectionType"))
 
     # Attributes and parameters with proper types
-    attributes: Optional[List[Attribute]] = None
+    attributes: Optional[Dict[str, Any]] = None
     params: Optional[List[Parameter]] = None
 
     def __post_init__(self):
