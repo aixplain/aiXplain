@@ -421,7 +421,7 @@ class Model(
 
     # The backend returns attributes as a list for integrations/tools.
     attributes: Optional[List[Dict[str, Any]]] = None
-    params: Optional[List[Parameter]] = None
+    attributes: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
         """Initialize dynamic attributes based on backend parameters."""
