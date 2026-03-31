@@ -1,5 +1,6 @@
 """Tool resource module for managing tools and their integrations."""
 
+import re
 import warnings
 from typing import Union, List, Optional, Any
 from typing_extensions import Unpack
@@ -42,12 +43,25 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
     # Tool-specific fields
     asset_id: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
+    integration_id: Optional[str] = field(default=None, metadata=dj_config(field_name="parentModelId"))
     subscriptions: Optional[Any] = field(default=None)
     integration: Optional[Union[Integration, str]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     config: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     code: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     allowed_actions: Optional[List[str]] = field(default_factory=list, metadata=dj_config(field_name="allowedActions"))
     redirect_url: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+
+    @property
+    def integration_path(self) -> Optional[str]:
+        """The path of the integration (e.g. ``"aixplain/python-sandbox"``).
+
+        Available when the ``integration`` has been resolved to an
+        :class:`Integration` object that carries a ``path`` attribute.
+        Returns ``None`` when the integration has not been resolved yet.
+        """
+        if isinstance(self.integration, Integration) and self.integration.path:
+            return self.integration.path
+        return None
 
     def __post_init__(self) -> None:
         """Initialize tool after dataclass creation."""
@@ -168,13 +182,16 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             payload["description"] = self.description
 
         if self.config:
-            data = self.config.pop("data", {})
-            data.update(self.config)
+            config_copy = dict(self.config)
+            data = config_copy.pop("data", {})
+            data.update(config_copy)
             payload["data"] = data
 
         connection = self.integration.connect(**payload)
 
         self.id = connection.id
+        self.config = None
+        self.code = None
 
         for attr_name in self.__dataclass_fields__:
             if not getattr(self, attr_name) and getattr(connection, attr_name, None):
@@ -183,8 +200,109 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         if connection.redirect_url:
             self.redirect_url = connection.redirect_url
 
+    def _resolve_integration(self) -> None:
+        """Auto-resolve the integration from ``integration_id`` when not explicitly set.
+
+        The backend populates ``parentModelId`` (exposed as ``integration_id``)
+        on tools/connections with the ID of the integration that created them.
+        Older tools may not have this field, in which case the caller must set
+        ``tool.integration`` manually.
+
+        Raises:
+            ValueError: If integration cannot be resolved.
+        """
+        if self.integration:
+            return
+
+        if self.integration_id:
+            self.integration = self.integration_id
+            return
+
+        raise ValueError(
+            "Cannot update tool: the integration could not be resolved automatically "
+            "(integration_id is not set — this may be an older tool). "
+            "Set tool.integration = '<integration_id>' before calling save()."
+        )
+
+    _AUTH_SCHEME_RE = re.compile(r"Authentication scheme used for this connections?:\s*(\w+)")
+
+    def _extract_auth_scheme(self) -> Optional[str]:
+        """Extract the authentication scheme from the tool's description or attributes.
+
+        The backend embeds ``Authentication scheme used for this connections: <SCHEME>``
+        in the description text.  Falls back to the ``auth_schemes`` key in the
+        ``attributes`` dict.  Returns ``None`` when neither source is available.
+        """
+        if self.description:
+            m = self._AUTH_SCHEME_RE.search(self.description)
+            if m:
+                return m.group(1)
+        if isinstance(self.attributes, dict):
+            auth_schemes_val = self.attributes.get("auth_schemes")
+            if auth_schemes_val:
+                schemes = re.findall(r"\w+", str(auth_schemes_val))
+                if "BEARER_TOKEN" in schemes:
+                    return "BEARER_TOKEN"
+                if schemes:
+                    return schemes[0]
+        return None
+
     def _update(self, resource_path: str, payload: dict) -> None:
-        raise NotImplementedError("Updating a tool is not supported yet")
+        """Update tool metadata and optionally reconnect the integration.
+
+        Metadata (name, description) is updated via ``PUT /sdk/utilities/{id}``.
+        Connection-related fields (config, code) trigger a reconnect via
+        ``integration.connect()`` with the existing ``assetId``.
+        """
+        needs_reconnect = bool(self.config or self.code)
+
+        metadata_payload: dict = {"id": self.id}
+        if self.name:
+            metadata_payload["name"] = self.name
+        if self.description:
+            metadata_payload["description"] = self.description
+
+        self.context.client.request("put", f"sdk/utilities/{self.id}", json=metadata_payload)
+
+        if needs_reconnect:
+            self._resolve_integration()
+            self._ensure_integration(required=True)
+
+            connect_payload: dict = {}
+            data: dict = {}
+            if self.config:
+                config_copy = dict(self.config)
+                nested_data = config_copy.pop("data", {})
+                data.update(nested_data)
+                data.update(config_copy)
+
+            if self.code and "code" not in data:
+                data["code"] = self.code
+
+            data["assetId"] = self.asset_id or self.id
+            connect_payload["data"] = data
+
+            # The metadata PUT above already persists name/description.
+            # Send an empty name so the backend's .trim() call succeeds
+            # without triggering a "Name already exists" uniqueness check.
+            connect_payload["name"] = ""
+
+            auth_scheme = self._extract_auth_scheme()
+            if auth_scheme:
+                connect_payload["authScheme"] = auth_scheme
+
+            connection = self.integration.connect(**connect_payload)
+
+            self.id = connection.id
+            self.config = None
+            self.code = None
+
+            for attr_name in self.__dataclass_fields__:
+                if not getattr(self, attr_name) and getattr(connection, attr_name, None):
+                    setattr(self, attr_name, getattr(connection, attr_name))
+
+            if connection.redirect_url:
+                self.redirect_url = connection.redirect_url
 
     # ------------------------------------------------------------------
     # Introspection helpers
