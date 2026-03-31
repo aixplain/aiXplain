@@ -345,23 +345,30 @@ def test_tool_run_with_default_params(client):
 
 
 def test_tool_as_tool_without_actions(client):
-    """Test that as_tool() does NOT include actions when allowed_actions is empty."""
-    # Search for an existing tool to test with
+    """Test that as_tool() does NOT include actions when allowed_actions is empty and tool has multiple actions."""
     tools = client.Tool.search()
     assert len(tools.results) > 0, "Expected to have at least one tool available for testing"
 
-    tool = tools.results[0]
+    tool = None
+    for t in tools.results:
+        try:
+            action_names = list(t.actions)
+            if len(action_names) >= 2:
+                tool = t
+                break
+        except Exception:
+            continue
 
-    # Ensure allowed_actions is empty/not set
+    if tool is None:
+        pytest.skip("No multi-action tool found for testing")
+
     tool.allowed_actions = []
-
-    # Get the serialized tool dict
     tool_dict = tool.as_tool()
 
-    # Verify actions is NOT included when empty
-    assert "actions" not in tool_dict, "as_tool() should NOT include 'actions' field when allowed_actions is empty"
+    assert "actions" not in tool_dict, (
+        "as_tool() should NOT include 'actions' field when allowed_actions is empty and tool has multiple actions"
+    )
 
-    print("✅ as_tool() correctly omits actions when not set")
 
 
 def test_tool_update_name(client, slack_integration_id, slack_token):
@@ -473,3 +480,63 @@ def test_tool_update_preserves_allowed_actions(client, slack_integration_id, sla
             client.Tool.get(tool_id).delete()
         except Exception:
             pass
+
+
+def test_tool_as_tool_auto_detects_single_action(client):
+    """Test that as_tool() auto-includes the action when a tool has exactly one action."""
+    tool = client.Tool.get("tavily/tavily-web-search")
+    tool.allowed_actions = []
+
+    tool_dict = tool.as_tool()
+
+    assert "actions" in tool_dict, "as_tool() should auto-detect and include the single available action"
+    assert len(tool_dict["actions"]) == 1, f"Expected 1 auto-detected action, got {len(tool_dict['actions'])}"
+
+
+def test_tool_as_tool_no_mutation(client):
+    """Test that as_tool() does NOT mutate self.allowed_actions as a side effect."""
+    tool = client.Tool.get("tavily/tavily-web-search")
+    tool.allowed_actions = []
+
+    tool.as_tool()
+
+    assert tool.allowed_actions == [], (
+        f"as_tool() mutated allowed_actions to {tool.allowed_actions} -- serialization should be side-effect-free"
+    )
+
+
+def test_tool_as_tool_caching(client):
+    """Test that repeated as_tool() calls reuse cached actions instead of hitting the API again."""
+    from unittest.mock import patch
+
+    tool = client.Tool.get("tavily/tavily-web-search")
+    tool.allowed_actions = []
+
+    tool.as_tool()
+
+    original_list_actions = tool.list_actions
+    call_count = 0
+
+    def counting_list_actions():
+        nonlocal call_count
+        call_count += 1
+        return original_list_actions()
+
+    with patch.object(type(tool), "list_actions", counting_list_actions):
+        tool.as_tool()
+
+    assert call_count == 0, (
+        f"list_actions() was called {call_count} time(s) on second as_tool() -- "
+        "should be 0 because self.actions caches the result"
+    )
+
+
+def test_tool_run_auto_detects_single_action(client):
+    """Test that run() auto-detects the action for single-action tools without explicit action kwarg."""
+    tool = client.Tool.get("tavily/tavily-web-search")
+    tool.allowed_actions = []
+
+    result = tool.run(data={"query": "friendship paradox", "num_results": 1})
+
+    assert result.status == "SUCCESS", f"Expected SUCCESS, got {result.status}"
+    assert result.completed is True, "Result should be completed"
