@@ -420,7 +420,7 @@ class Model(
     connection_type: Optional[List[str]] = field(default=None, metadata=config(field_name="connectionType"))
 
     # The backend returns attributes as a list for integrations/tools.
-    attributes: Optional[List[Dict[str, Any]]] = None
+    params: Optional[List[Parameter]] = None
     attributes: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
