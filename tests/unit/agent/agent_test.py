@@ -123,7 +123,7 @@ def test_invalid_pipelinetool(mocker):
     mocker.patch(
         "aixplain.factories.model_factory.ModelFactory.get",
         return_value=Model(
-            id="6895d6d1d50c89537c1cf237",
+            id="69b7e5f1b2fe44704ab0e7d0",
             name="Test Model",
             function=Function.TEXT_GENERATION,
         ),
@@ -134,7 +134,7 @@ def test_invalid_pipelinetool(mocker):
             description="Test Description",
             instructions="Test Instructions",
             tools=[PipelineTool(pipeline="309851793", description="Test")],
-            llm_id="6895d6d1d50c89537c1cf237",
+            llm_id="69b7e5f1b2fe44704ab0e7d0",
         )
     assert (
         str(exc_info.value)
@@ -154,7 +154,7 @@ def test_create_agent(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6895d6d1d50c89537c1cf237",
+        id="69b7e5f1b2fe44704ab0e7d0",
         name="Test LLM",
         description="Test LLM Description",
         function=Function.TEXT_GENERATION,
@@ -185,7 +185,7 @@ def test_create_agent(mock_model_factory_get):
                 "teamId": "123",
                 "version": "1.0",
                 "status": "draft",
-                "llmId": "6895d6d1d50c89537c1cf237",
+                "llmId": "69b7e5f1b2fe44704ab0e7d0",
                 "pricing": {"currency": "USD", "value": 0.0},
                 "assets": [
                     {
@@ -222,9 +222,9 @@ def test_create_agent(mock_model_factory_get):
             }
             mock.post(url, headers=headers, json=ref_response)
 
-            url = urljoin(config.BACKEND_URL, "sdk/models/6895d6d1d50c89537c1cf237")
+            url = urljoin(config.BACKEND_URL, "sdk/models/69b7e5f1b2fe44704ab0e7d0")
             model_ref_response = {
-                "id": "6895d6d1d50c89537c1cf237",
+                "id": "69b7e5f1b2fe44704ab0e7d0",
                 "name": "Test LLM",
                 "description": "Test LLM Description",
                 "function": {"id": "text-generation"},
@@ -301,7 +301,7 @@ def test_create_agent(mock_model_factory_get):
                 name="Test Agent(-)",
                 description="Test Agent Description",
                 instructions="Test Agent Instructions",
-                llm_id="6895d6d1d50c89537c1cf237",
+                llm_id="69b7e5f1b2fe44704ab0e7d0",
                 tools=[
                     AgentFactory.create_model_tool(
                         supplier=Supplier.OPENAI,
@@ -337,7 +337,7 @@ def test_to_dict():
         name="Test Agent(-)",
         description="Test Agent Description",
         instructions="Test Agent Instructions",
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
         api_key="test_api_key",
         status=AssetStatus.DRAFT,
@@ -348,7 +348,7 @@ def test_to_dict():
     assert agent_json["name"] == "Test Agent(-)"
     assert agent_json["description"] == "Test Agent Description"
     assert agent_json["instructions"] == "Test Agent Instructions"
-    assert agent_json["llmId"] == "6895d6d1d50c89537c1cf237"
+    assert agent_json["llmId"] == "69b7e5f1b2fe44704ab0e7d0"
     assert agent_json["assets"][0]["function"] == "text-generation"
     assert agent_json["assets"][0]["type"] == "model"
     assert agent_json["status"] == "draft"
@@ -360,7 +360,7 @@ def test_update_success(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6895d6d1d50c89537c1cf237",
+        id="69b7e5f1b2fe44704ab0e7d0",
         name="Test LLM",
         description="Test LLM Description",
         function=Function.TEXT_GENERATION,
@@ -372,7 +372,7 @@ def test_update_success(mock_model_factory_get):
         name="Test Agent(-)",
         description="Test Agent Description",
         instructions="Test Agent Instructions",
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
     )
 
@@ -387,23 +387,23 @@ def test_update_success(mock_model_factory_get):
             "teamId": "123",
             "version": "1.0",
             "status": "onboarded",
-            "llmId": "6895d6d1d50c89537c1cf237",
+            "llmId": "69b7e5f1b2fe44704ab0e7d0",
             "pricing": {"currency": "USD", "value": 0.0},
             "assets": [
                 {
                     "type": "model",
                     "supplier": "openai",
                     "version": "1.0",
-                    "assetId": "6895d6d1d50c89537c1cf237",
+                    "assetId": "69b7e5f1b2fe44704ab0e7d0",
                     "function": "text-generation",
                 }
             ],
         }
         mock.put(url, headers=headers, json=ref_response)
 
-        url = urljoin(config.BACKEND_URL, "sdk/models/6895d6d1d50c89537c1cf237")
+        url = urljoin(config.BACKEND_URL, "sdk/models/69b7e5f1b2fe44704ab0e7d0")
         model_ref_response = {
-            "id": "6895d6d1d50c89537c1cf237",
+            "id": "69b7e5f1b2fe44704ab0e7d0",
             "name": "Test LLM",
             "description": "Test LLM Description",
             "function": {"id": "text-generation"},
@@ -435,7 +435,7 @@ def test_save_success(mock_model_factory_get):
 
     # Mock the model factory response
     mock_model = Model(
-        id="6895d6d1d50c89537c1cf237",
+        id="69b7e5f1b2fe44704ab0e7d0",
         name="Test LLM",
         description="Test LLM Description",
         function=Function.TEXT_GENERATION,
@@ -447,7 +447,7 @@ def test_save_success(mock_model_factory_get):
         name="Test Agent(-)",
         description="Test Agent Description",
         instructions="Test Agent Instructions",
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
         tools=[AgentFactory.create_model_tool(function="text-generation")],
     )
 
@@ -462,23 +462,23 @@ def test_save_success(mock_model_factory_get):
             "teamId": "123",
             "version": "1.0",
             "status": "onboarded",
-            "llmId": "6895d6d1d50c89537c1cf237",
+            "llmId": "69b7e5f1b2fe44704ab0e7d0",
             "pricing": {"currency": "USD", "value": 0.0},
             "assets": [
                 {
                     "type": "model",
                     "supplier": "openai",
                     "version": "1.0",
-                    "assetId": "6895d6d1d50c89537c1cf237",
+                    "assetId": "69b7e5f1b2fe44704ab0e7d0",
                     "function": "text-generation",
                 }
             ],
         }
         mock.put(url, headers=headers, json=ref_response)
 
-        url = urljoin(config.BACKEND_URL, "sdk/models/6895d6d1d50c89537c1cf237")
+        url = urljoin(config.BACKEND_URL, "sdk/models/69b7e5f1b2fe44704ab0e7d0")
         model_ref_response = {
-            "id": "6895d6d1d50c89537c1cf237",
+            "id": "69b7e5f1b2fe44704ab0e7d0",
             "name": "Test LLM",
             "description": "Test LLM Description",
             "function": {"id": "text-generation"},
@@ -582,7 +582,7 @@ def test_fail_utilities_without_model():
         AgentFactory.create(
             name="Test",
             tools=[ModelTool(function=Function.UTILITIES)],
-            llm_id="6895d6d1d50c89537c1cf237",
+            llm_id="69b7e5f1b2fe44704ab0e7d0",
         )
     assert str(exc_info.value) == "Agent Creation Error: Utility function must be used with an associated model."
 
@@ -648,7 +648,7 @@ def test_agent_factory_create_without_instructions():
 
         # Mock the LLM model
         mock_model = Model(
-            id="6895d6d1d50c89537c1cf237",
+            id="69b7e5f1b2fe44704ab0e7d0",
             name="Test LLM",
             description="Test LLM Description",
             function=Function.TEXT_GENERATION,
@@ -668,15 +668,15 @@ def test_agent_factory_create_without_instructions():
                 "teamId": "123",
                 "version": "1.0",
                 "status": "draft",
-                "llmId": "6895d6d1d50c89537c1cf237",
+                "llmId": "69b7e5f1b2fe44704ab0e7d0",
                 "assets": [],
             }
             mock.post(url, headers=headers, json=ref_response)
 
             # Mock LLM GET request
-            url = urljoin(config.BACKEND_URL, "sdk/models/6895d6d1d50c89537c1cf237")
+            url = urljoin(config.BACKEND_URL, "sdk/models/69b7e5f1b2fe44704ab0e7d0")
             model_ref_response = {
-                "id": "6895d6d1d50c89537c1cf237",
+                "id": "69b7e5f1b2fe44704ab0e7d0",
                 "name": "Test LLM",
                 "description": "Test LLM Description",
                 "function": {"id": "text-generation"},
@@ -692,7 +692,7 @@ def test_agent_factory_create_without_instructions():
                 name="Test Agent",
                 description="Test Agent Description",
                 # No instructions parameter
-                llm_id="6895d6d1d50c89537c1cf237",
+                llm_id="69b7e5f1b2fe44704ab0e7d0",
             )
 
             # Verify the agent was created with fallback instructions
@@ -756,7 +756,7 @@ def test_agent_factory_create_with_explicit_none_instructions():
 
         # Mock the LLM model
         mock_model = Model(
-            id="6895d6d1d50c89537c1cf237",
+            id="69b7e5f1b2fe44704ab0e7d0",
             name="Test LLM",
             description="Test LLM Description",
             function=Function.TEXT_GENERATION,
@@ -776,15 +776,15 @@ def test_agent_factory_create_with_explicit_none_instructions():
                 "teamId": "123",
                 "version": "1.0",
                 "status": "draft",
-                "llmId": "6895d6d1d50c89537c1cf237",
+                "llmId": "69b7e5f1b2fe44704ab0e7d0",
                 "assets": [],
             }
             mock.post(url, headers=headers, json=ref_response)
 
             # Mock LLM GET request
-            url = urljoin(config.BACKEND_URL, "sdk/models/6895d6d1d50c89537c1cf237")
+            url = urljoin(config.BACKEND_URL, "sdk/models/69b7e5f1b2fe44704ab0e7d0")
             model_ref_response = {
-                "id": "6895d6d1d50c89537c1cf237",
+                "id": "69b7e5f1b2fe44704ab0e7d0",
                 "name": "Test LLM",
                 "description": "Test LLM Description",
                 "function": {"id": "text-generation"},
@@ -800,7 +800,7 @@ def test_agent_factory_create_with_explicit_none_instructions():
                 name="Test Agent",
                 description="Test Agent Description",
                 instructions=None,  # Explicitly set to None
-                llm_id="6895d6d1d50c89537c1cf237",
+                llm_id="69b7e5f1b2fe44704ab0e7d0",
             )
 
             # Verify the agent was created with fallback instructions
@@ -940,7 +940,7 @@ def test_create_agent_with_model_instance(mock_model_factory_get):
 
     # Mock the LLM model factory response
     llm_model = Model(
-        id="6895d6d1d50c89537c1cf237",
+        id="69b7e5f1b2fe44704ab0e7d0",
         name="Test LLM",
         description="Test LLM Description",
         function=Function.TEXT_GENERATION,
@@ -950,7 +950,7 @@ def test_create_agent_with_model_instance(mock_model_factory_get):
     def validate_side_effect(model_id, *args, **kwargs):
         if model_id == "model123":
             return model_tool
-        elif model_id == "6895d6d1d50c89537c1cf237":
+        elif model_id == "69b7e5f1b2fe44704ab0e7d0":
             return llm_model
         return None
 
@@ -967,7 +967,7 @@ def test_create_agent_with_model_instance(mock_model_factory_get):
             "teamId": "123",
             "version": "1.0",
             "status": "draft",
-            "llmId": "6895d6d1d50c89537c1cf237",
+            "llmId": "69b7e5f1b2fe44704ab0e7d0",
             "pricing": {"currency": "USD", "value": 0.0},
             "assets": [
                 {
@@ -982,9 +982,9 @@ def test_create_agent_with_model_instance(mock_model_factory_get):
         }
         mock.post(url, headers=headers, json=ref_response)
 
-        url = urljoin(config.BACKEND_URL, "sdk/models/6895d6d1d50c89537c1cf237")
+        url = urljoin(config.BACKEND_URL, "sdk/models/69b7e5f1b2fe44704ab0e7d0")
         model_ref_response = {
-            "id": "6895d6d1d50c89537c1cf237",
+            "id": "69b7e5f1b2fe44704ab0e7d0",
             "name": "Test LLM",
             "description": "Test LLM Description",
             "function": {"id": "text-generation"},
@@ -998,7 +998,7 @@ def test_create_agent_with_model_instance(mock_model_factory_get):
         agent = AgentFactory.create(
             name="Test Agent",
             description="Test Agent Description",
-            llm_id="6895d6d1d50c89537c1cf237",
+            llm_id="69b7e5f1b2fe44704ab0e7d0",
             tools=[model_tool],
         )
 
@@ -1060,7 +1060,7 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get):
 
     # Mock the LLM model factory response
     llm_model = Model(
-        id="6895d6d1d50c89537c1cf237",
+        id="69b7e5f1b2fe44704ab0e7d0",
         name="Test LLM",
         description="Test LLM Description",
         function=Function.TEXT_GENERATION,
@@ -1073,7 +1073,7 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get):
             return model_tool
         elif model_id == "openai-model":
             return openai_model
-        elif model_id == "6895d6d1d50c89537c1cf237":
+        elif model_id == "69b7e5f1b2fe44704ab0e7d0":
             return llm_model
         return None
 
@@ -1098,7 +1098,7 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get):
             "teamId": "123",
             "version": "1.0",
             "status": "draft",
-            "llmId": "6895d6d1d50c89537c1cf237",
+            "llmId": "69b7e5f1b2fe44704ab0e7d0",
             "pricing": {"currency": "USD", "value": 0.0},
             "assets": [
                 {
@@ -1121,9 +1121,9 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get):
         }
         mock.post(url, headers=headers, json=ref_response)
 
-        url = urljoin(config.BACKEND_URL, "sdk/models/6895d6d1d50c89537c1cf237")
+        url = urljoin(config.BACKEND_URL, "sdk/models/69b7e5f1b2fe44704ab0e7d0")
         model_ref_response = {
-            "id": "6895d6d1d50c89537c1cf237",
+            "id": "69b7e5f1b2fe44704ab0e7d0",
             "name": "Test LLM",
             "description": "Test LLM Description",
             "function": {"id": "text-generation"},
@@ -1137,7 +1137,7 @@ def test_create_agent_with_mixed_tools(mock_model_factory_get):
         agent = AgentFactory.create(
             name="Test Agent",
             description="Test Agent Description",
-            llm_id="6895d6d1d50c89537c1cf237",
+            llm_id="69b7e5f1b2fe44704ab0e7d0",
             tools=[model_tool, regular_tool],
         )
 
@@ -1394,7 +1394,7 @@ def test_agent_serialization_completeness():
         description="A test agent for validation",
         instructions="You are a helpful test agent",
         tools=[],  # Empty for simplicity
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
         api_key="test-api-key",
         supplier="aixplain",
         version="1.0.0",
@@ -1431,7 +1431,7 @@ def test_agent_serialization_completeness():
     assert agent_dict["name"] == "Test Agent"
     assert agent_dict["description"] == "A test agent for validation"
     assert agent_dict["instructions"] == "You are a helpful test agent"
-    assert agent_dict["llmId"] == "6895d6d1d50c89537c1cf237"
+    assert agent_dict["llmId"] == "69b7e5f1b2fe44704ab0e7d0"
     assert agent_dict["api_key"] == "test-api-key"
     assert agent_dict["supplier"] == "aixplain"
     assert agent_dict["version"] == "1.0.0"

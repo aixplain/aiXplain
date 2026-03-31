@@ -5,7 +5,7 @@ from aixplain.enums import SortBy, SortOrder
 @pytest.fixture(scope="module")
 def text_model_id():
     """Return a text-generation model ID for testing."""
-    return "6895d6d1d50c89537c1cf237"  # GPT-5 Mini
+    return "69b7e5f1b2fe44704ab0e7d0"  # GPT-5.4
 
 
 @pytest.fixture(scope="module")
