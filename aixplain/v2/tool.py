@@ -283,17 +283,18 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """Serialize this tool for agent creation."""
         tool_dict = super().as_tool()
 
-        if not self.allowed_actions:
+        actions_to_serialize = self.allowed_actions
+        if not actions_to_serialize:
             try:
-                available_actions = [action.name for action in self.list_actions() if action.name]
+                action_names = list(self.actions)
             except Exception:
-                available_actions = []
+                action_names = []
 
-            if len(available_actions) == 1:
-                self.allowed_actions = available_actions
+            if len(action_names) == 1:
+                actions_to_serialize = action_names
 
-        if self.allowed_actions:
-            tool_dict["actions"] = self.allowed_actions
+        if actions_to_serialize:
+            tool_dict["actions"] = actions_to_serialize
 
         return tool_dict
 
@@ -351,7 +352,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             if self.allowed_actions and len(self.allowed_actions) == 1:
                 kwargs["action"] = self.allowed_actions[0]
             else:
-                available_actions = [action.name for action in self.list_actions()]
+                available_actions = list(self.actions)
                 if available_actions and len(available_actions) == 1:
                     kwargs["action"] = available_actions[0]
                 else:
