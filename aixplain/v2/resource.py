@@ -1288,7 +1288,20 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         try:
             result = response_class.from_dict(filtered_response)
         except Exception:
-            raise
+            if filtered_response.get("completed"):
+                logger.warning(
+                    "Poll response deserialization failed for a completed response. "
+                    "Building fallback result from raw data."
+                )
+                result = response_class.from_dict(
+                    {
+                        "status": filtered_response["status"],
+                        "completed": True,
+                        "data": filtered_response.get("data") or {},
+                    }
+                )
+            else:
+                raise
 
         # Attach raw response
         result._raw_data = response
