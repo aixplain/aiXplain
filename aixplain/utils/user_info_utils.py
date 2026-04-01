@@ -15,8 +15,45 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import logging
 from datetime import datetime
+from functools import lru_cache
 from typing import Dict
+
+import requests
+
+
+logger = logging.getLogger(__name__)
+
+_IPINFO_URL = "https://ipinfo.io/json"
+_IPINFO_TIMEOUT = 2.0
+
+
+@lru_cache(maxsize=1)
+def get_user_location() -> Dict[str, str]:
+    """Fetch and cache the user's region and country from ipinfo.io."""
+    try:
+        response = requests.get(_IPINFO_URL, timeout=_IPINFO_TIMEOUT)
+        response.raise_for_status()
+        payload = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        logger.debug("Failed to fetch user location from ipinfo.io: %s", exc)
+        return {}
+
+    if not isinstance(payload, dict):
+        return {}
+
+    location: Dict[str, str] = {}
+
+    region = payload.get("region")
+    if isinstance(region, str) and region.strip():
+        location["region"] = region.strip()
+
+    country = payload.get("country")
+    if isinstance(country, str) and country.strip():
+        location["country"] = country.strip()
+
+    return location
 
 
 def build_user_info() -> Dict[str, str]:
@@ -25,4 +62,6 @@ def build_user_info() -> Dict[str, str]:
     Returns:
         Dict[str, str]: User metadata derived from the local client system.
     """
-    return {"datetime": datetime.now().astimezone().isoformat()}
+    user_info = {"datetime": datetime.now().astimezone().isoformat()}
+    user_info.update(get_user_location())
+    return user_info
