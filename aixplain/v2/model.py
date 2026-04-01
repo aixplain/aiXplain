@@ -111,7 +111,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
     for proper resource cleanup.
 
     Example:
-        >>> model = aix.Model.get("6895d6d1d50c89537c1cf237")  # GPT-5 Mini
+        >>> model = aix.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
         >>> for chunk in model.run(text="Explain LLMs", stream=True):
         ...     print(chunk.data, end="", flush=True)
 
@@ -743,7 +743,7 @@ class Model(
             ValueError: If required parameters are missing or have invalid types
 
         Example:
-            >>> model = aix.Model.get("6895d6d1d50c89537c1cf237")  # GPT-5 Mini
+            >>> model = aix.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
             >>> with model.run_stream(text="Explain quantum computing") as stream:
             ...     for chunk in stream:
             ...         print(chunk.data, end="", flush=True)

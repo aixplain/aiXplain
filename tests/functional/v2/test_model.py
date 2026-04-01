@@ -5,7 +5,7 @@ from aixplain.enums import SortBy, SortOrder
 @pytest.fixture(scope="module")
 def text_model_id():
     """Return a text-generation model ID for testing."""
-    return "6895d6d1d50c89537c1cf237"  # GPT-5 Mini
+    return "69b7e5f1b2fe44704ab0e7d0"  # GPT-5.4
 
 
 @pytest.fixture(scope="module")
@@ -350,8 +350,8 @@ def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):
         assert any(reason in {"tool_calls", "stop"} for reason in finish_reasons)
 
 
-def test_dynamic_validation_gpt4o_mini(client, text_model_id):
-    """Test dynamic validation with GPT-4o Mini LLM model."""
+def test_dynamic_validation_gpt5_4(client, text_model_id):
+    """Test dynamic validation with GPT-5.4 LLM model."""
     model = client.Model.get(text_model_id)
 
     # Verify the model has the expected parameters
