@@ -2,13 +2,13 @@
     {
         "team_agent_name": "TEST Multi agent",
         "llm_id": "69b7e5f1b2fe44704ab0e7d0",
-        "llm_name": "GPT-4o Mini",
+        "llm_name": "GPT-5.4",
         "query": "Who is the president of Brazil right now? Translate to pt and synthesize in audio",
         "agents": [
             {
                 "agent_name": "TEST Translation agent",
                 "llm_id": "69b7e5f1b2fe44704ab0e7d0",
-                "llm_name": "GPT-4o Mini",
+                "llm_name": "GPT-5.4",
                 "model_tools": [
                     {
                         "function": "translation",
@@ -19,7 +19,7 @@
             {
                 "agent_name": "TEST Speech Synthesis agent",
                 "llm_id": "69b7e5f1b2fe44704ab0e7d0",
-                "llm_name": "GPT-4o Mini",
+                "llm_name": "GPT-5.4",
                 "model_tools": [
                     {
                         "function": "speech-synthesis",

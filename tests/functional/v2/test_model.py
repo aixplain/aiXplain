@@ -350,8 +350,8 @@ def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):
         assert any(reason in {"tool_calls", "stop"} for reason in finish_reasons)
 
 
-def test_dynamic_validation_gpt4o_mini(client, text_model_id):
-    """Test dynamic validation with GPT-4o Mini LLM model."""
+def test_dynamic_validation_gpt5_4(client, text_model_id):
+    """Test dynamic validation with GPT-5.4 LLM model."""
     model = client.Model.get(text_model_id)
 
     # Verify the model has the expected parameters

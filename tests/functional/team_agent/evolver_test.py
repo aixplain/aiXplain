@@ -13,14 +13,14 @@ import uuid
 team_dict = {
     "team_agent_name": "Test Text Speech Team",
     "llm_id": "69b7e5f1b2fe44704ab0e7d0",
-    "llm_name": "GPT4o",
+    "llm_name": "GPT-5.4",
     "query": "Translate this text into Portuguese: 'This is a test'. Translate to pt and synthesize in audio",
     "description": "You are a text translation and speech synthesizing agent. You will be provided a text in the source language and expected to translate and synthesize in the target language.",
     "agents": [
         {
             "agent_name": "Text Translation agent",
             "llm_id": "69b7e5f1b2fe44704ab0e7d0",
-            "llm_name": "GPT4o",
+            "llm_name": "GPT-5.4",
             "description": "Text Translator",
             "instructions": "You are a text translation agent. You will be provided a text in the source language and expected to translate in the target language.",
             "tasks": [
@@ -35,7 +35,7 @@ team_dict = {
         {
             "agent_name": "Test Speech Synthesis agent",
             "llm_id": "69b7e5f1b2fe44704ab0e7d0",
-            "llm_name": "GPT4o",
+            "llm_name": "GPT-5.4",
             "description": "Speech Synthesizer",
             "instructions": "You are a speech synthesizing agent. You will be provided a text to synthesize into audio and return the audio link.",
             "tasks": [
@@ -166,7 +166,7 @@ def test_evolver_with_custom_llm_id(team_agent):
     """Test evolver functionality with custom LLM ID."""
     from aixplain.factories.model_factory import ModelFactory
 
-    custom_llm_id = "69b7e5f1b2fe44704ab0e7d0"  # GPT-4o ID
+    custom_llm_id = "69b7e5f1b2fe44704ab0e7d0"  # GPT-5.4 ID
     model = ModelFactory.get(model_id=custom_llm_id)
 
     # Test with llm parameter
