@@ -319,9 +319,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         if not self.id:
             return False
 
-        actions_available = getattr(self, "actions_available", None)
-        if hasattr(actions_available, "__class__") and "Field" in str(type(actions_available)):
-            actions_available = True
+        actions_available = self.actions_available
 
         return bool(actions_available)
 

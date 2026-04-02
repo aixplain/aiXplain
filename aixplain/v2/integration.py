@@ -90,6 +90,7 @@ class IntegrationSearchParams(BaseSearchParams):
     pass
 
 
+@dataclass
 class ActionMixin:
     """Mixin class providing action-related functionality for integrations and tools."""
 
@@ -236,6 +237,8 @@ class ActionMixin:
                 raise ValueError(f"Error setting inputs for action '{action_name}': {e}")
 
 
+@dataclass_json
+@dataclass
 class Integration(Model, ActionMixin):
     """Resource for integrations.
 
@@ -280,7 +283,9 @@ class Integration(Model, ActionMixin):
         """
         response = self.run(**kwargs)
         if not response.data or not response.data.id:
-            error_msg = getattr(response, "error_message", None) or getattr(response, "supplier_error", None) or "Unknown error"
+            error_msg = (
+                getattr(response, "error_message", None) or getattr(response, "supplier_error", None) or "Unknown error"
+            )
             raise ValueError(f"Integration connection failed: {error_msg}")
         tool = self.context.Tool.get(response.data.id)
         if response.data.redirect_url:
