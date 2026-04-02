@@ -250,7 +250,9 @@ class RLM(Model):
         - ``str`` pointing to an existing file → file is read and deserialized
           based on its extension (``.json`` → dict/list, everything else → str).
         - ``pathlib.Path`` → same file-reading logic as a path string.
-        - ``str`` that is NOT a file path → used as-is (raw text content).
+        - ``str`` HTTP/HTTPS URL → returned as-is; ``_setup_repl`` streams it
+          directly into the sandbox without an intermediate re-upload.
+        - ``str`` that is NOT a file path or URL → used as-is (raw text content).
         - ``dict`` / ``list`` → passed through unchanged.
         - Anything else → converted to ``str`` via ``str()``.
 
@@ -299,12 +301,17 @@ class RLM(Model):
         """Initialize a fresh sandbox session and load context + llm_query into it.
 
         Each call generates a new UUID session ID, ensuring complete isolation
-        between runs. The context is serialized to a local temp file, uploaded
-        to aiXplain storage, then downloaded and deserialized inside the sandbox
-        as a variable named ``context``. This avoids the size limits of injecting
-        large contexts as Python string literals.
+        between runs. Two paths are used to get context into the sandbox:
 
-        Supported context types and their serialization:
+        - **URL** (``str`` starting with ``http://`` or ``https://``): the sandbox
+          downloads the file directly from the caller's URL. The Content-Type
+          response header and the URL path extension are both checked to decide
+          whether to load the result as JSON or plain text. No local temp file or
+          intermediate upload is needed.
+        - **Everything else**: the context is serialized to a local temp file,
+          uploaded to aiXplain storage, then downloaded inside the sandbox.
+
+        Supported context types (non-URL path):
             - ``str``        → ``.txt`` file, loaded with ``open().read()``
             - ``dict``/``list`` → ``.json`` file, loaded with ``json.load()``
             - other          → converted to string, stored as ``.txt``
@@ -320,50 +327,75 @@ class RLM(Model):
         self._sandbox_tool = ToolFactory.get(self.SANDBOX_TOOL_ID, api_key=self.api_key)
         logging.info(f"RLM: sandbox session started (id={self._session_id}).")
 
-        # Serialize context to a local temp file
-        if isinstance(context, str):
-            ext = ".txt"
-            content_bytes = context.encode("utf-8")
-            load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
-        elif isinstance(context, (dict, list)):
-            ext = ".json"
-            content_bytes = json.dumps(context).encode("utf-8")
-            load_code = (
-                "import json as __json\n"
-                "with open(_filename, 'r', encoding='utf-8') as _f:\n"
-                "    context = __json.load(_f)"
-            )
+        # --- URL fast path: stream directly into the sandbox, no re-upload ---
+        if isinstance(context, str) and (context.startswith("http://") or context.startswith("https://")):
+            context_code = f"""import requests as __requests
+import json as __json
+
+_url = {repr(context)}
+_url_path = _url.split("?")[0].lower()
+
+with __requests.get(_url, stream=True) as _r:
+    _r.raise_for_status()
+    _content_type = _r.headers.get("Content-Type", "")
+    _is_json = "application/json" in _content_type or _url_path.endswith(".json")
+    _filename = "context.json" if _is_json else "context.txt"
+    with open(_filename, "wb") as _f:
+        for _chunk in _r.iter_content(chunk_size=8192):
+            if _chunk:
+                _f.write(_chunk)
+
+if _is_json:
+    try:
+        with open(_filename, "r", encoding="utf-8") as _f:
+            context = __json.load(_f)
+    except Exception:
+        with open(_filename, "r", encoding="utf-8") as _f:
+            context = _f.read()
+else:
+    with open(_filename, "r", encoding="utf-8") as _f:
+        context = _f.read()
+"""
+            self._run_sandbox(context_code)
+            logging.debug("RLM: context loaded into sandbox from URL (direct stream).")
+
         else:
-            # Fallback: stringify anything else
-            ext = ".txt"
-            content_bytes = str(context).encode("utf-8")
-            load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
+            # --- Upload path: serialize locally, upload, then download in sandbox ---
+            if isinstance(context, str):
+                ext = ".txt"
+                content_bytes = context.encode("utf-8")
+                load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
+            elif isinstance(context, (dict, list)):
+                ext = ".json"
+                content_bytes = json.dumps(context).encode("utf-8")
+                load_code = (
+                    "import json as __json\n"
+                    "with open(_filename, 'r', encoding='utf-8') as _f:\n"
+                    "    context = __json.load(_f)"
+                )
+            else:
+                ext = ".txt"
+                content_bytes = str(context).encode("utf-8")
+                load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
 
-        # Write to a named temp file so the upload filename is predictable
-        # (format will be: context.txt or context.json)
-        tmp_dir = tempfile.mkdtemp()
-        tmp_path = os.path.join(tmp_dir, f"context{ext}")
-        try:
-            with open(tmp_path, "wb") as f:
-                f.write(content_bytes)
-
-            # Upload to aiXplain storage
-            # FileFactory.create(is_temp=True) returns a temporary download URL.
-            download_url = FileFactory.create(local_path=tmp_path, is_temp=True)
-            logging.debug(f"RLM: context uploaded ({ext}, {len(content_bytes)} bytes).")
-        finally:
-            # Temp file is no longer needed once uploaded
+            tmp_dir = tempfile.mkdtemp()
+            tmp_path = os.path.join(tmp_dir, f"context{ext}")
             try:
-                os.unlink(tmp_path)
-                os.rmdir(tmp_dir)
-            except OSError:
-                pass
+                with open(tmp_path, "wb") as f:
+                    f.write(content_bytes)
 
-        # Use the known filename directly instead of parsing it from the URL.
-        sandbox_filename = f"context{ext}"
+                download_url = FileFactory.create(local_path=tmp_path, is_temp=True)
+                logging.debug(f"RLM: context uploaded ({ext}, {len(content_bytes)} bytes).")
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                    os.rmdir(tmp_dir)
+                except OSError:
+                    pass
 
-        # Inject sandbox download + load code
-        context_code = f"""import requests as __requests
+            sandbox_filename = f"context{ext}"
+
+            context_code = f"""import requests as __requests
 
 _url = {repr(download_url)}
 _filename = {repr(sandbox_filename)}
@@ -377,9 +409,8 @@ with __requests.get(_url, stream=True) as _r:
 
 {load_code}
 """
-
-        self._run_sandbox(context_code)
-        logging.debug(f"RLM: context loaded into sandbox from uploaded file ({sandbox_filename}).")
+            self._run_sandbox(context_code)
+            logging.debug(f"RLM: context loaded into sandbox from uploaded file ({sandbox_filename}).")
 
         # Inject llm_query
         # The function is defined directly in the sandbox session so that it
@@ -528,13 +559,16 @@ def llm_query(prompt):
 
                 - ``str`` (raw text): Treated directly as the context content;
                   a default query is used.
+                - ``str`` (HTTP/HTTPS URL): Content is downloaded automatically.
+                  ``.json`` URLs or ``application/json`` responses are parsed into
+                  a dict/list; all other content is decoded as plain text.
                 - ``str`` (file path): If the string points to an existing file,
                   the file is read automatically. ``.json`` files are parsed into
                   a dict/list; all other text formats are read as a plain string.
                 - ``pathlib.Path``: Resolved and read exactly like a file-path string.
                 - ``dict``: Must contain ``"context"`` (required) and optionally
                   ``"query"`` (defaults to a generic analysis prompt). The value
-                  of ``"context"`` itself may also be a file path or
+                  of ``"context"`` itself may also be a URL, a file path, or a
                   ``pathlib.Path`` — it will be resolved the same way.
 
             name (Text, optional): Identifier used in log messages.
