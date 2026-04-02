@@ -96,23 +96,41 @@ class ActionMixin:
 
     actions_available: Optional[bool] = field(default=None, metadata=config(field_name="actionsAvailable"))
 
+    def _poll_for_data(self, response: dict, timeout: float = 30, wait_time: float = 1) -> Any:
+        """Poll an async response until completion and return the ``data`` field."""
+        import time
+
+        data = response.get("data")
+        if response.get("completed", True) or not isinstance(data, str) or not data.startswith("http"):
+            return data
+
+        poll_url = data
+        start = time.time()
+        while (time.time() - start) < timeout:
+            time.sleep(wait_time)
+            poll_resp = self.context.client.request("get", poll_url)
+            if poll_resp.get("completed", False) or poll_resp.get("status") == "SUCCESS":
+                return poll_resp.get("data")
+        return None
+
     def list_actions(self) -> List[ActionSpec]:
         """List available actions for the integration.
 
         Returns:
             List of :class:`ActionSpec` objects from the backend.
         """
-        if not self.actions_available:
+        if self.actions_available is False:
             return []
 
         run_url = self.build_run_url()
         response = self.context.client.request("post", run_url, json={"action": "LIST_ACTIONS", "data": {}})
 
-        if "data" not in response:
+        data = self._poll_for_data(response)
+        if not data or not isinstance(data, list):
             return []
 
         actions: List[ActionSpec] = []
-        for action_data in response["data"]:
+        for action_data in data:
             try:
                 if isinstance(action_data, dict):
                     actions.append(ActionSpec.from_dict(action_data))
@@ -136,11 +154,8 @@ class ActionMixin:
             json={"action": "LIST_INPUTS", "data": {"actions": actions}},
         )
 
-        if "data" not in response:
-            return []
-
-        data = response["data"]
-        if not isinstance(data, list):
+        data = self._poll_for_data(response)
+        if not data or not isinstance(data, list):
             return []
 
         result: List[ActionSpec] = []

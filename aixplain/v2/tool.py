@@ -106,9 +106,12 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     def _ensure_integration(self, required: bool = False) -> bool:
         """Ensure integration is resolved to an Integration instance."""
         if not self.integration:
-            if required:
-                raise ValueError("Integration is required")
-            return False
+            if self.integration_id:
+                self.integration = self.integration_id
+            else:
+                if required:
+                    raise ValueError("Integration is required")
+                return False
 
         if isinstance(self.integration, str):
             try:
@@ -129,13 +132,15 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """List available actions for the tool (with integration fallback)."""
         try:
             actions = super().list_actions()
-            return actions
+            if actions:
+                return actions
         except Exception as e:
             warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
-            if self._ensure_integration():
-                return self.integration.list_actions()
 
-            return []
+        if self._ensure_integration():
+            return self.integration.list_actions()
+
+        return []
 
     def _list_inputs(self, *actions: str) -> List[ActionSpec]:
         """List available inputs for specified actions (with integration fallback)."""
