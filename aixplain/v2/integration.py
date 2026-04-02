@@ -274,8 +274,14 @@ class Integration(Model, ActionMixin):
         Returns:
             Tool: The created tool. If OAuth authentication is required,
                 ``tool.redirect_url`` will contain the URL the user must visit.
+
+        Raises:
+            ValueError: If the connection fails (e.g., name already exists).
         """
         response = self.run(**kwargs)
+        if not response.data or not response.data.id:
+            error_msg = getattr(response, "error_message", None) or getattr(response, "supplier_error", None) or "Unknown error"
+            raise ValueError(f"Integration connection failed: {error_msg}")
         tool = self.context.Tool.get(response.data.id)
         if response.data.redirect_url:
             tool.redirect_url = response.data.redirect_url

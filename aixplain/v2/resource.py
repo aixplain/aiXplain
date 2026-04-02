@@ -741,7 +741,11 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
             # This will automatically map API field names to dataclass field
             # names
             if isinstance(cls, HasFromDict):
-                obj = cls.from_dict(item)
+                try:
+                    obj = cls.from_dict(item)
+                except Exception as e:
+                    logger.warning("Skipping item during %s deserialization: %s", cls.__name__, e)
+                    continue
             else:
                 # Fallback for classes without from_dict
                 obj = cls(**item)  # type: ignore[call-arg]
@@ -915,7 +919,10 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         obj = _flatten_asset_info(dict(obj)) if isinstance(obj, dict) else obj
 
         if isinstance(cls, HasFromDict):
-            instance = cls.from_dict(obj)
+            try:
+                instance = cls.from_dict(obj)
+            except Exception as e:
+                raise ResourceError(f"Failed to deserialize {cls.__name__} (id={id}): {e}") from e
         else:
             instance = cls(**obj)  # type: ignore[call-arg]
         setattr(instance, "context", context)
