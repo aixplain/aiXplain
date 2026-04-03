@@ -10,7 +10,6 @@ from aixplain.v2.issue import IssueSeverity
 
 
 class TestIssueReporter:
-
     def test_report_minimal_submission(self):
         aix = Aixplain(api_key="test-key")
         aix.client.post = Mock(return_value={"issue_id": "issue-123", "bug_board_url": "https://bugs.example.com/issue-123"})
@@ -19,7 +18,7 @@ class TestIssueReporter:
 
         assert issue_id == "issue-123"
         aix.client.post.assert_called_once_with(
-            "https://dev-platform-api.aixplain.com/v1/issue",
+            "https://platform-api.aixplain.com/v1/issue",
             json={"description": "Pipeline times out on step 3 when using GPT-4o tool"},
         )
 
@@ -39,7 +38,7 @@ class TestIssueReporter:
 
         assert issue_id == "issue-456"
         aix.client.post.assert_called_once_with(
-            "https://dev-platform-api.aixplain.com/v1/issue",
+            "https://platform-api.aixplain.com/v1/issue",
             json={
                 "description": "Pipeline times out on step 3 when using GPT-4o tool",
                 "title": "GPT-4o pipeline timeout on step 3",
@@ -66,7 +65,7 @@ class TestIssueReporter:
         )
 
         aix.client.post.assert_called_once_with(
-            "https://dev-platform-api.aixplain.com/v1/issue",
+            "https://platform-api.aixplain.com/v1/issue",
             json={
                 "description": "Agent crashes on tool invocation",
                 "severity": "SEV1",

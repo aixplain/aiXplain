@@ -56,8 +56,6 @@ class IssueReporter:
                 payload[key] = value.value if isinstance(value, IssueSeverity) else value
 
         try:
-            import logging
-            logging.info(f"Issue URL: {self._issue_url()}")
             response = self.context.client.post(self._issue_url(), json=payload)
         except APIError as error:
             raise AixplainIssueError(
