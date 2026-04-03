@@ -84,6 +84,7 @@ class IssueReporter:
     def _validate_description(description: Optional[str]) -> None:
         if description is None:
             raise AixplainIssueError("Field 'description' is required.", status_code=400)
+
     @staticmethod
     def _validate_severity(severity: Any) -> None:
         valid_values = {level.value for level in IssueSeverity}

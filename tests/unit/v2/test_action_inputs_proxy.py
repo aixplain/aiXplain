@@ -380,6 +380,7 @@ class TestToolMergePayloadDefaults:
         action_obj = Action(name="search", inputs=inputs_obj)
 
         from aixplain.v2.actions import Actions
+
         actions = Actions(actions={"search": action_obj})
         tool.__dict__["actions"] = actions
 

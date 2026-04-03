@@ -11,7 +11,15 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from aixplain.v2.enums import Function, ResponseStatus
-from aixplain.v2.model import Message, Model, ModelResponseStreamer, ModelResult, StreamChunk, Usage, find_function_by_id
+from aixplain.v2.model import (
+    Message,
+    Model,
+    ModelResponseStreamer,
+    ModelResult,
+    StreamChunk,
+    Usage,
+    find_function_by_id,
+)
 
 
 # =============================================================================

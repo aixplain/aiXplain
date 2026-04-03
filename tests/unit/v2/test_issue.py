@@ -12,7 +12,9 @@ from aixplain.v2.issue import IssueSeverity
 class TestIssueReporter:
     def test_report_minimal_submission(self):
         aix = Aixplain(api_key="test-key")
-        aix.client.post = Mock(return_value={"issue_id": "issue-123", "bug_board_url": "https://bugs.example.com/issue-123"})
+        aix.client.post = Mock(
+            return_value={"issue_id": "issue-123", "bug_board_url": "https://bugs.example.com/issue-123"}
+        )
 
         issue_id = aix.issue.report("Pipeline times out on step 3 when using GPT-4o tool")
 
@@ -24,7 +26,9 @@ class TestIssueReporter:
 
     def test_report_full_submission_payload(self):
         aix = Aixplain(api_key="test-key")
-        aix.client.post = Mock(return_value={"issue_id": "issue-456", "bug_board_url": "https://bugs.example.com/issue-456"})
+        aix.client.post = Mock(
+            return_value={"issue_id": "issue-456", "bug_board_url": "https://bugs.example.com/issue-456"}
+        )
 
         issue_id = aix.issue.report(
             "Pipeline times out on step 3 when using GPT-4o tool",
@@ -73,12 +77,9 @@ class TestIssueReporter:
             },
         )
 
-
     @pytest.mark.parametrize(
         ("description", "message"),
-        [
-            (None, "Field 'description' is required.")
-        ],
+        [(None, "Field 'description' is required.")],
     )
     def test_report_validates_description(self, description, message):
         aix = Aixplain(api_key="test-key")

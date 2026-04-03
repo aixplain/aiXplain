@@ -153,7 +153,12 @@ def upload_data(
             url = urljoin(config.BACKEND_URL, "sdk/file/upload-url")
             if tags is None:
                 tags = []
-            payload = {"contentType": content_type, "originalName": file_name, "tags": ",".join(tags), "license": license.value}
+            payload = {
+                "contentType": content_type,
+                "originalName": file_name,
+                "tags": ",".join(tags),
+                "license": license.value,
+            }
 
         team_key = api_key or config.TEAM_API_KEY
         headers = {"Authorization": "token " + team_key}
@@ -209,7 +214,7 @@ def upload_data(
 
 def s3_to_csv(
     s3_url: Text,
-    aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None}
+    aws_credentials: Optional[Dict[Text, Text]] = {"AWS_ACCESS_KEY_ID": None, "AWS_SECRET_ACCESS_KEY": None},
 ) -> str:
     """Convert S3 directory contents to a CSV file with file listings.
 

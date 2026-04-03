@@ -370,7 +370,6 @@ def test_tool_as_tool_without_actions(client):
     )
 
 
-
 def test_tool_update_name(client, slack_integration_id, slack_token):
     """Test updating an existing tool's name via save().
 
