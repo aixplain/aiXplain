@@ -1,64 +1,167 @@
-# aiXplain SDK
+# aiXplain Agents SDK
+
+**Build and deploy autonomous AI agents on production-grade infrastructure, instantly.**
+
+---
+
+## aiXplain agents
+
+aiXplain Agents SDK gives developers Python and REST APIs to build, run, and deploy autonomous multi-step agents on [AgenticOS](https://docs.aixplain.com/getting-started/agenticos). Agents include built-in memory for short- and long-term context (opt-in), and adapt at runtime by planning steps, selecting tools and models, running code, and refining outputs until tasks are complete.
+
+aiXplain agents include micro-agents for runtime policy enforcement and access control, plus proprietary meta-agents like Evolver for self-improvement.
+
+With one API key, access 900+ vendor-agnostic models, tools, and integrations in the aiXplain Marketplace with consolidated billing, and swap assets without rewriting pipelines.
+
+### Why aiXplain for developers
+
+- **Autonomy** — agents plan and adapt at runtime instead of following fixed workflows.
+- **Delegation** — route complex work to specialized subagents during execution.
+- **Policy enforcement** — apply runtime guardrails with Inspector and Bodyguard on every run.
+- **Observability** — inspect step-level traces, tool calls, and outcomes for debugging.
+- **Portability** — swap models and tools without rewriting application logic.
+- **Flexible deployment** — run the same agent definition serverless or private.
 
 <div align="center">
-  <img src="assets/aixplain-brandmark-line.png" alt="aiXplain logo" title="aiXplain" height="132" width="85"/>
-  <br>
-  <br>
-
-  [![Python 3.5+](https://img.shields.io/badge/python-3.5+-blue.svg)](https://www.python.org/downloads/)
-  [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
-  [![PyPI version](https://badge.fury.io/py/aiXplain.svg)](https://badge.fury.io/py/aiXplain)
-
-  **The professional AI SDK for developers and enterprises**
+  <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aiXplain team-agent runtime flow" title="aiXplain"/>
 </div>
 
-## 📖 API Reference
+## AgenticOS
 
-- **Complete documentation:**
-  - [Python](https://docs.aixplain.com/api-reference/python/)
-  - [Swift](https://docs.aixplain.com/api-reference/swift/)
+AgenticOS is the runtime behind aiXplain Agents. It orchestrates multi-step execution, routes model and tool calls with fallback policies, enforces governance at runtime, records step-level traces, and supports both serverless and private deployment.
 
+<div align="center">
+  <img src="docs/assets/aixplain-agentic-os-architecture.png" alt="aiXplain AgenticOS architecture" title="aiXplain"/>
+</div>
 
-## 🚀 Overview
+---
 
-The aiXplain SDK is a comprehensive Python library that empowers developers to integrate cutting-edge AI capabilities into their applications with ease. Access thousands of AI models, build custom pipelines, and deploy intelligent solutions at scale.
+## Quick start
 
-### ✨ Key Features
-
-- **🔍 Discover**: Access 35,000+ ready-to-use AI models across multiple domains
-- **⚡ Benchmark**: Compare AI systems using comprehensive datasets and metrics
-- **🛠️ Design**: Create and deploy custom AI pipelines with our visual designer
-- **🎯 FineTune**: Enhance pre-trained models with your data for optimal performance
-
-
-## 📦 Installation
 ```bash
 pip install aixplain
 ```
 
-## 🔑 Authentication
-```bash
-export TEAM_API_KEY=your_api_key_here
-```
+Get your API key from your [aiXplain account](https://console.aixplain.com/settings/keys).
 
-## 🏃‍♂️ Quick Start
+<details open>
+  <summary><strong>v2 (default)</strong></summary>
+
+### Create and run your first agent (v2)
+
 ```python
-agent = AgentFactory.create(
-    name="Google Search Agent",
-    description="A search agent",
-    instructions="Use Google Search to answer queries.",
-    tools=[
-        # Google Search (Serp)
-        AgentFactory.create_model_tool("692f18557b2cc45d29150cb0")])
+from aixplain import Aixplain
 
-response = agent.run("What's the latest AI news?").data.output
-print(response)
+aix = Aixplain(api_key="<AIXPLAIN_API_KEY>")
 
-agent.deploy()
+search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
+
+agent = aix.Agent(
+    name="Research agent",
+    description="Answers questions with concise web-grounded findings.",
+    instructions="Use the search tool when needed and cite key findings.",
+    tools=[search_tool],
+)
+agent.save()
+
+result = agent.run(query="Summarize the latest AgenticOS updates.")
+print(result.data.output)
 ```
 
-## 🔗 Platform Links
-- **Platform**: [platform.aixplain.com](https://platform.aixplain.com)
-- **Discover**: [platform.aixplain.com/discover](https://platform.aixplain.com/discover)
-- **Docs**: [docs.aixplain.com/](https://docs.aixplain.com/)
-- **Support**: [GitHub Issues](https://github.com/aixplain/aiXplain/issues)
+### Build a multi-agent team (v2)
+
+```python
+from aixplain import Aixplain
+
+aix = Aixplain(api_key="<AIXPLAIN_API_KEY>")
+search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
+
+planner = aix.Agent(
+    name="Planner",
+    instructions="Break requests into clear subtasks."
+)
+
+researcher = aix.Agent(
+    name="Researcher",
+    instructions="Find and summarize reliable sources.",
+    tools=[search_tool],
+)
+
+team_agent = aix.Agent(
+    name="Research team",
+    instructions="Delegate work to subagents, then return one final answer.",
+    subagents=[planner, researcher],
+)
+team_agent.save()
+
+response = team_agent.run(query="Compare top open-source agent frameworks in 5 bullets.")
+print(response.data.output)
+```
+
+</details>
+
+<details>
+  <summary><strong>v1 (legacy)</strong></summary>
+
+### Create and run your first agent (v1)
+
+```python
+from aixplain.factories import AgentFactory, ModelFactory
+
+weather_tool = ModelFactory.get("66f83c216eb563266175e201")
+
+agent = AgentFactory.create(
+    name="Weather Agent",
+    description="Answers weather queries.",
+    instructions="Use the weather tool to answer user questions.",
+    tools=[weather_tool],
+)
+
+result = agent.run("What is the weather in Liverpool, UK?")
+print(result["data"]["output"])
+```
+
+You can still access legacy docs at [docs.aixplain.com/1.0](https://docs.aixplain.com/1.0/).
+
+</details>
+
+---
+
+## Data handling and deployment
+
+aiXplain applies runtime governance and enterprise controls by default:
+
+- **No data retained by default** — agent memory is opt-in (short-term and long-term).
+- **SOC 2 Type II certified** — enterprise security and compliance posture.
+- **Runtime policy enforcement** — Inspector and Bodyguard govern every agent execution.
+- **Sovereign deployment options** — serverless or private (on-prem, VPC, and air-gapped).
+- **Encryption** — TLS 1.2+ in transit and encrypted storage at rest.
+
+Learn more at [aiXplain Security](https://aixplain.com/security/) and [Sovereignty](https://aixplain.com/sovereignty/).
+
+---
+
+## Pricing
+
+Start free, then scale with usage-based pricing.
+
+- **Pay as you go** — prepaid usage with no surprise overage bills.
+- **Subscription plans** — reduce effective consumption-based rates.
+- **Custom enterprise pricing** — available for advanced scale and deployment needs.
+
+Learn more at [aiXplain Pricing](https://aixplain.com/pricing/).
+
+---
+
+## Community & support
+
+- **Documentation:** [docs.aixplain.com](https://docs.aixplain.com)
+- **Example agents**: [https://github.com/aixplain/cookbook](https://github.com/aixplain/cookbook)
+- **Learn how to build agents**: [https://academy.aixplain.com/student-registration/](https://academy.aixplain.com/student-registration/)
+- **Meet us in Discord:** [discord.gg/aixplain](https://discord.gg/aixplain)
+- **Talk with our team:** [care@aixplain.com](mailto:care@aixplain.com)
+
+---
+
+## License
+
+This project is licensed under the Apache License 2.0. See the [`LICENSE`](LICENSE) file for details.
