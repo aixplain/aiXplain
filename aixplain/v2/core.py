@@ -15,6 +15,7 @@ from .inspector import Inspector
 from .meta_agents import Debugger
 from .api_key import APIKey
 from .rlm import RLM, RLMResult
+from .issue import IssueReporter
 from . import enums
 
 
@@ -28,6 +29,7 @@ InspectorType = TypeVar("InspectorType", bound=Inspector)
 DebuggerType = TypeVar("DebuggerType", bound=Debugger)
 APIKeyType = TypeVar("APIKeyType", bound=APIKey)
 RLMType = TypeVar("RLMType", bound=RLM)
+IssueReporterType = TypeVar("IssueReporterType", bound=IssueReporter)
 
 
 class Aixplain:
@@ -53,6 +55,7 @@ class Aixplain:
     Debugger: DebuggerType = None
     APIKey: APIKeyType = None
     RLM: RLMType = None
+    issue: IssueReporterType = None
 
     Function = enums.Function
     Supplier = enums.Supplier
@@ -133,3 +136,4 @@ class Aixplain:
         self.Debugger = type("Debugger", (Debugger,), {"context": self})
         self.APIKey = type("APIKey", (APIKey,), {"context": self})
         self.RLM = type("RLM", (RLM,), {"context": self})
+        self.issue = IssueReporter(context=self)

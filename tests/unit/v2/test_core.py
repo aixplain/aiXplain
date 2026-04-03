@@ -16,6 +16,7 @@ from aixplain.v2.utility import Utility
 from aixplain.v2.integration import Integration
 from aixplain.v2.file import Resource
 from aixplain.v2.inspector import Inspector
+from aixplain.v2.issue import IssueReporter
 
 
 class TestAixplainInitialization:
@@ -231,6 +232,7 @@ class TestAixplainInitResources:
         assert aixplain.Integration is not None
         assert aixplain.Resource is not None
         assert aixplain.Inspector is not None
+        assert aixplain.issue is not None
 
     def test_init_resources_sets_context(self):
         """All resource classes should have context set to Aixplain instance."""
@@ -243,6 +245,7 @@ class TestAixplainInitResources:
         assert aixplain.Integration.context == aixplain
         assert aixplain.Resource.context == aixplain
         assert aixplain.Inspector.context == aixplain
+        assert aixplain.issue.context == aixplain
 
     def test_init_resources_creates_subclasses(self):
         """Resource classes should be subclasses of base types."""
@@ -253,6 +256,7 @@ class TestAixplainInitResources:
         assert issubclass(aixplain.Tool, Tool)
         assert issubclass(aixplain.Utility, Utility)
         assert issubclass(aixplain.Integration, Integration)
+        assert isinstance(aixplain.issue, IssueReporter)
 
     def test_init_resources_creates_unique_classes(self):
         """Each instance should have unique resource classes (not base types)."""
