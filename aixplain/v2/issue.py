@@ -1,3 +1,5 @@
+"""Issue reporting helpers for the V2 SDK."""
+
 from __future__ import annotations
 
 from enum import Enum
@@ -10,6 +12,7 @@ if TYPE_CHECKING:
 
 
 class IssueSeverity(str, Enum):
+    """Supported issue severity levels."""
 
     SEV1 = "SEV1"
     SEV2 = "SEV2"
@@ -23,6 +26,7 @@ class IssueReporter:
     ISSUE_PATH = "/v1/issue"
 
     def __init__(self, context: "Aixplain") -> None:
+        """Initialize the issue reporter."""
         self.context = context
 
     def _issue_url(self) -> str:
@@ -30,6 +34,7 @@ class IssueReporter:
         return f"{self.context.backend_url.rstrip('/')}{self.ISSUE_PATH}"
 
     def report(self, description: Optional[str], **kwargs: Any) -> str:
+        """Submit an issue report and return its ID."""
         self._validate_description(description)
 
         allowed_fields = {
