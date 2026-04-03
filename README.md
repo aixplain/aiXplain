@@ -1,75 +1,37 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/aixplain-logo-light.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/aixplain-logo-dark.png">
-    <img src="docs/assets/aixplain-logo-dark.png" alt="aiXplain" width="520">
-  </picture>
-</p>
+# aiXplain SDK
 
-<h1 align="center">aiXplain SDK</h1>
-
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square" alt="License"></a>
-  <a href="https://studio.aixplain.com/browse"><img src="https://img.shields.io/badge/Marketplace-900%2B%20models%20%26%20tools-0b74de?style=flat-square" alt="Marketplace size"></a>
-  <a href="https://console.aixplain.com/settings/keys"><img src="https://img.shields.io/badge/%F0%9F%94%91%20PAYG%20API%20key-Console-0b74de?style=flat-square" alt="PAYG API key"></a>
-  <a href="https://discord.gg/aixplain"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
-</p>
-
-**Build, deploy, and govern autonomous AI agents for your business operations.**
-
-aiXplain SDK provides Python and REST APIs for agents that plan, use tools, call models and data, run code, and adapt at runtime. It also works natively with MCP-compatible coding agents and IDEs.
-
-> **Become an agentic-first organization**
->
-> Designed for business operations: autonomous, governed, MCP-compatible, and built for context management. Your interactive AI assistant is [a click away](https://auth.aixplain.com/).
->
-> _We operate our business with aiXplain agents, using them across product, business development, and marketing._
-
-## Why aiXplain
-
-- **Autonomous runtime loop** — plan, call tools and models, reflect, and continue without fixed flowcharts.
-- **Multi-agent execution** — delegate work to specialized subagents at runtime.
-- **Governance by default** — runtime access and policy enforcement on every run.
-- **Production observability** — inspect step-level traces, tool calls, and outcomes for debugging.
-- **Model and tool portability** — swap assets without rewriting application glue code.
-- **MCP-native access** — connect MCP clients to [900+ aiXplain-hosted assets](#mcp-servers) with one PAYG API key.
-- **Flexible deployment** — run the same agent definition serverless or private.
-
-| | aiXplain SDK | Other agent frameworks |
-|---|---|---|
-| Governance | Runtime access and policy enforcement built in | Usually custom code or external guardrails |
-| Models and tools | 900+ models and tools with one API key | Provider-by-provider setup |
-| Deployment | Cloud (instant) or on-prem | Usually self-assembled runtime and infra |
-| Observability | Built-in traces and dashboards | Varies by framework |
-| Coding-agent workflows | Works natively with MCP-compatible coding agents and IDEs | Usually not a first-class workflow target |
-
-## AgenticOS
-
-AgenticOS is the portable runtime platform behind aiXplain agents. AgentEngine orchestrates planning, execution, and delegation for autonomous agents. AssetServing connects agents to models, tools, and data through a governed runtime layer. Observability captures traces, metrics, and monitoring for every production run across Cloud (instant) and on-prem deployments.
-
-<div align="center">
-  <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aiXplain AgenticOS architecture" title="aiXplain"/>
-</div>
+**Build and deploy autonomous AI agents on production-grade infrastructure, instantly.**
 
 ---
 
-## MCP Server Marketplace
+## aiXplain agents
 
-[aiXplain Marketplace](https://studio.aixplain.com/browse) now also exposes MCP servers for **900+ models and tools**, allowing external clients to access selected **tool, integration, and model assets**, for example **Opus 4.6, Kimi, Qwen, Airtable, and Slack**, through **aiXplain-hosted MCP endpoints** with a single API key 🔑.
+aiXplain Agents SDK gives developers Python and REST APIs to build, run, and deploy autonomous multi-step agents on [AgenticOS](https://docs.aixplain.com/getting-started/agenticos). Agents include built-in memory for short- and long-term context (opt-in), and adapt at runtime by planning steps, selecting tools and models, running code, and refining outputs until tasks are complete.
 
-Read the full MCP setup guide in the [MCP servers docs](https://docs.aixplain.com/api-reference/mcp-servers).
+aiXplain agents include micro-agents for runtime policy enforcement and access control, plus proprietary meta-agents like Evolver for self-improvement.
 
-```json
-{
-  "ms1": {
-    "url": "https://models-mcp.aixplain.com/mcp/<AIXPLAIN_ASSET_ID>",
-    "headers": {
-      "Authorization": "Bearer <AIXPLAIN_APIKEY>",
-      "Accept": "application/json, text/event-stream"
-    }
-  }
-}
-```
+With one API key, access 900+ vendor-agnostic models, tools, and integrations in the aiXplain Marketplace with consolidated billing, and swap assets without rewriting pipelines.
+
+### Why aiXplain for developers
+
+- **Autonomy** — agents plan and adapt at runtime instead of following fixed workflows.
+- **Delegation** — route complex work to specialized subagents during execution.
+- **Policy enforcement** — apply runtime guardrails with Inspector and Bodyguard on every run.
+- **Observability** — inspect step-level traces, tool calls, and outcomes for debugging.
+- **Portability** — swap models and tools without rewriting application logic.
+- **Flexible deployment** — run the same agent definition serverless or private.
+
+<div align="center">
+  <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aiXplain team-agent runtime flow" title="aiXplain"/>
+</div>
+
+## AgenticOS
+
+AgenticOS is the runtime behind aiXplain Agents. It orchestrates multi-step execution, routes model and tool calls with fallback policies, enforces governance at runtime, records step-level traces, and supports both serverless and private deployment.
+
+<div align="center">
+  <img src="docs/assets/aixplain-agentic-os-architecture.png" alt="aiXplain AgenticOS architecture" title="aiXplain"/>
+</div>
 
 ---
 
@@ -87,98 +49,54 @@ Get your API key from your [aiXplain account](https://console.aixplain.com/setti
 ### Create and run your first agent (v2)
 
 ```python
-from uuid import uuid4
 from aixplain import Aixplain
 
 aix = Aixplain(api_key="<AIXPLAIN_API_KEY>")
 
 search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
-search_tool.allowed_actions = ["search"]
 
 agent = aix.Agent(
-    name=f"Research agent {uuid4().hex[:8]}",
+    name="Research agent",
     description="Answers questions with concise web-grounded findings.",
     instructions="Use the search tool when needed and cite key findings.",
     tools=[search_tool],
 )
 agent.save()
 
-result = agent.run(
-    query="Who is the CEO of OpenAI? Answer in one sentence.",
-)
+result = agent.run(query="Summarize the latest AgenticOS updates.")
 print(result.data.output)
 ```
 
 ### Build a multi-agent team (v2)
 
 ```python
-from uuid import uuid4
 from aixplain import Aixplain
-from aixplain.v2 import EditorConfig, EvaluatorConfig, EvaluatorType, Inspector, InspectorAction, InspectorActionConfig, InspectorSeverity, InspectorTarget
 
 aix = Aixplain(api_key="<AIXPLAIN_API_KEY>")
 search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
-search_tool.allowed_actions = ["search"]
 
-def never_edit(text: str) -> bool:
-    return False
-
-def passthrough(text: str) -> str:
-    return text
-
-noop_inspector = Inspector(
-    name=f"noop-output-inspector-{uuid4().hex[:8]}",
-    severity=InspectorSeverity.LOW,
-    targets=[InspectorTarget.OUTPUT],
-    action=InspectorActionConfig(type=InspectorAction.EDIT),
-    evaluator=EvaluatorConfig(
-        type=EvaluatorType.FUNCTION,
-        function=never_edit,
-    ),
-    editor=EditorConfig(
-        type=EvaluatorType.FUNCTION,
-        function=passthrough,
-    ),
+planner = aix.Agent(
+    name="Planner",
+    instructions="Break requests into clear subtasks."
 )
 
 researcher = aix.Agent(
-    name=f"Researcher {uuid4().hex[:8]}",
+    name="Researcher",
     instructions="Find and summarize reliable sources.",
     tools=[search_tool],
 )
 
 team_agent = aix.Agent(
-    name=f"Research team {uuid4().hex[:8]}",
-    instructions="Research the topic and return exactly 5 concise bullet points.",
-    subagents=[researcher],
-    inspectors=[noop_inspector],
+    name="Research team",
+    instructions="Delegate work to subagents, then return one final answer.",
+    subagents=[planner, researcher],
 )
-team_agent.save(save_subcomponents=True)
+team_agent.save()
 
-response = team_agent.run(
-    query="Compare OpenAI and Anthropic in exactly 5 concise bullet points.",
-)
+response = team_agent.run(query="Compare top open-source agent frameworks in 5 bullets.")
 print(response.data.output)
 ```
 
-<div align="center">
-  <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aiXplain team-agent runtime flow" title="aiXplain"/>
-</div>
-
-Execution order:
-
-```text
-Human prompt: "Compare OpenAI and Anthropic in exactly 5 concise bullet points."
-
-Team agent
-├── Planner: breaks the goal into research and synthesis steps
-├── Orchestrator: routes work to the right subagent
-├── Researcher subagent
-│   └── Tavily search tool: finds and summarizes reliable sources
-├── Inspector: checks the final output through a simple runtime policy
-├── Orchestrator: decides whether another pass is needed
-└── Responder: returns one final answer
-```
 </details>
 
 <details>
@@ -212,14 +130,13 @@ You can still access legacy docs at [docs.aixplain.com/1.0](https://docs.aixplai
 
 aiXplain applies runtime governance and enterprise controls by default:
 
-- **We do not train on your data** — your data is not used to train foundation models.
 - **No data retained by default** — agent memory is opt-in (short-term and long-term).
 - **SOC 2 Type II certified** — enterprise security and compliance posture.
 - **Runtime policy enforcement** — Inspector and Bodyguard govern every agent execution.
-- **Portable deployment options** — Cloud (instant) or on-prem (including VPC and air-gapped environments).
+- **Sovereign deployment options** — serverless or private (on-prem, VPC, and air-gapped).
 - **Encryption** — TLS 1.2+ in transit and encrypted storage at rest.
 
-Learn more at aiXplain [Security](https://aixplain.com/security/) and aiXplain [pricing](https://aixplain.com/pricing/).
+Learn more at [aiXplain Security](https://aixplain.com/security/) and [Sovereignty](https://aixplain.com/sovereignty/).
 
 ---
 
@@ -231,7 +148,7 @@ Start free, then scale with usage-based pricing.
 - **Subscription plans** — reduce effective consumption-based rates.
 - **Custom enterprise pricing** — available for advanced scale and deployment needs.
 
-Learn more at aiXplain [pricing](https://aixplain.com/pricing/).
+Learn more at [aiXplain Pricing](https://aixplain.com/pricing/).
 
 ---
 
