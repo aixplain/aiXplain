@@ -106,9 +106,12 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     def _ensure_integration(self, required: bool = False) -> bool:
         """Ensure integration is resolved to an Integration instance."""
         if not self.integration:
-            if required:
-                raise ValueError("Integration is required")
-            return False
+            if self.integration_id:
+                self.integration = self.integration_id
+            else:
+                if required:
+                    raise ValueError("Integration is required")
+                return False
 
         if isinstance(self.integration, str):
             try:
@@ -129,13 +132,15 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """List available actions for the tool (with integration fallback)."""
         try:
             actions = super().list_actions()
-            return actions
+            if actions:
+                return actions
         except Exception as e:
             warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
-            if self._ensure_integration():
-                return self.integration.list_actions()
 
-            return []
+        if self._ensure_integration():
+            return self.integration.list_actions()
+
+        return []
 
     def _list_inputs(self, *actions: str) -> List[ActionSpec]:
         """List available inputs for specified actions (with integration fallback)."""
@@ -319,9 +324,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         if not self.id:
             return False
 
-        actions_available = getattr(self, "actions_available", None)
-        if hasattr(actions_available, "__class__") and "Field" in str(type(actions_available)):
-            actions_available = True
+        actions_available = self.actions_available
 
         return bool(actions_available)
 
@@ -420,8 +423,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     def as_tool(self) -> dict:
         """Serialize this tool for agent creation."""
         tool_dict = super().as_tool()
+        tool_dict["type"] = "tool"
         actions_to_serialize = self._get_effective_actions()
-
         if actions_to_serialize:
             tool_dict["actions"] = actions_to_serialize
 

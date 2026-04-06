@@ -9,7 +9,7 @@ def test_invalid_agent_name():
             description="",
             instructions="",
             tools=[],
-            llm_id="6895d6d1d50c89537c1cf237",
+            llm_id="69b7e5f1b2fe44704ab0e7d0",
         )
     assert str(exc_info.value) == (
         "Agent Creation Error: Agent name contains invalid characters. "

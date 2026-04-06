@@ -141,7 +141,7 @@ def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
         name=translation_agent_name,
         description="Agent for translation",
         instructions="Translate text from English to Spanish",
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
         tools=[translation_tool],
     )
     resource_tracker.append(translation_agent)
@@ -158,7 +158,7 @@ def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
         name=text_gen_agent_name,
         description="Agent for text generation",
         instructions="Generate creative text based on input",
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
         tools=[text_gen_tool],
     )
     resource_tracker.append(text_gen_agent)
@@ -170,7 +170,7 @@ def test_nested_deployment_chain(resource_tracker, TeamAgentFactory):
         name=team_agent_name,
         description="Team that can translate and generate text",
         agents=[translation_agent, text_gen_agent],
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
     )
     resource_tracker.append(team_agent)
     assert team_agent.status == AssetStatus.DRAFT
@@ -366,7 +366,7 @@ def test_team_agent_with_instructions(resource_tracker):
         name=agent_1_name,
         description="Translation agent",
         tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.AZURE)],
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
     )
     resource_tracker.append(agent_1)
 
@@ -375,7 +375,7 @@ def test_team_agent_with_instructions(resource_tracker):
         name=agent_2_name,
         description="Translation agent",
         tools=[AgentFactory.create_model_tool(function=Function.TRANSLATION, supplier=Supplier.GOOGLE)],
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
     )
     resource_tracker.append(agent_2)
 
@@ -385,7 +385,7 @@ def test_team_agent_with_instructions(resource_tracker):
         agents=[agent_1, agent_2],
         description="Team agent",
         instructions=f"Use only '{agent_2_name}' to solve the tasks.",
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
         use_mentalist=True,
     )
     resource_tracker.append(team_agent)
@@ -491,7 +491,7 @@ def test_run_team_agent_with_expected_output(resource_tracker):
                 expected_output="A table with the following columns: Name, Age, City",
             )
         ],
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
     )
     resource_tracker.append(agent)
 
@@ -500,7 +500,7 @@ def test_run_team_agent_with_expected_output(resource_tracker):
         name=team_agent_name,
         agents=[agent],
         description="Team agent",
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
         use_mentalist=False,
     )
     resource_tracker.append(team_agent)
@@ -566,7 +566,7 @@ def test_team_agent_with_slack_connector(resource_tracker):
         name=agent_name,
         description="This agent is used to send messages to Slack",
         instructions="You are a helpful assistant that can answer questions based on a large knowledge base and send messages to Slack.",
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
         tasks=[
             AgentFactory.create_task(
                 name="Task 1",
@@ -586,7 +586,7 @@ def test_team_agent_with_slack_connector(resource_tracker):
         name=team_agent_name,
         agents=[agent],
         description="Team agent",
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
         use_mentalist=False,
     )
     resource_tracker.append(team_agent)
@@ -614,7 +614,7 @@ def test_multiple_teams_with_shared_deployed_agent(resource_tracker, TeamAgentFa
         name=shared_agent_name,
         description="Agent for translation shared between teams",
         instructions="Translate text from English to Spanish",
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
         tools=[translation_tool],
     )
     resource_tracker.append(shared_agent)
@@ -630,7 +630,7 @@ def test_multiple_teams_with_shared_deployed_agent(resource_tracker, TeamAgentFa
         name=team_agent_1_name,
         description="First team using shared agent",
         agents=[shared_agent],
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
     )
     resource_tracker.append(team_agent_1)
     assert team_agent_1.status == AssetStatus.DRAFT
@@ -646,7 +646,7 @@ def test_multiple_teams_with_shared_deployed_agent(resource_tracker, TeamAgentFa
         name=team_agent_2_name,
         description="Second team using shared agent",
         agents=[shared_agent],
-        llm_id="6895d6d1d50c89537c1cf237",
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
     )
     resource_tracker.append(team_agent_2)
     assert team_agent_2.status == AssetStatus.DRAFT

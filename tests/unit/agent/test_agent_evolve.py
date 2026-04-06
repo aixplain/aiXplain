@@ -54,7 +54,7 @@ class TestAgentEvolve:
             description="Test Description",
             instructions="Test Instructions",
             tools=[],
-            llm_id="6895d6d1d50c89537c1cf237",
+            llm_id="69b7e5f1b2fe44704ab0e7d0",
         )
 
         # Mock the run_async method
@@ -91,7 +91,7 @@ class TestAgentEvolve:
             description="Test Description",
             instructions="Test Instructions",
             tools=[],
-            llm_id="6895d6d1d50c89537c1cf237",
+            llm_id="69b7e5f1b2fe44704ab0e7d0",
         )
 
         # Mock the run_async method
@@ -139,7 +139,7 @@ class TestAgentEvolve:
             description="Test Description",
             instructions="Test Instructions",
             tools=[],
-            llm_id="6895d6d1d50c89537c1cf237",
+            llm_id="69b7e5f1b2fe44704ab0e7d0",
         )
 
         # Mock the run_async method
@@ -176,7 +176,7 @@ class TestAgentEvolve:
             description="Test Description",
             instructions="Test Instructions",
             tools=[],
-            llm_id="6895d6d1d50c89537c1cf237",
+            llm_id="69b7e5f1b2fe44704ab0e7d0",
         )
 
         with (

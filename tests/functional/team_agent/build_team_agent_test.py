@@ -10,8 +10,8 @@ def test_build_team_agent(mocker):
         name="Test Agent 1",
         description="Test Agent Description",
         instructions="Test Agent Instructions",
-        llm_id="6895d6d1d50c89537c1cf237",
-        tools=[ModelTool(model="6895d6d1d50c89537c1cf237")],
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
+        tools=[ModelTool(model="69b7e5f1b2fe44704ab0e7d0")],
         tasks=[
             AgentTask(
                 name="Test Task 1",
@@ -27,8 +27,8 @@ def test_build_team_agent(mocker):
         name="Test Agent 2",
         description="Test Agent Description",
         instructions="Test Agent Instructions",
-        llm_id="6895d6d1d50c89537c1cf237",
-        tools=[ModelTool(model="6895d6d1d50c89537c1cf237")],
+        llm_id="69b7e5f1b2fe44704ab0e7d0",
+        tools=[ModelTool(model="69b7e5f1b2fe44704ab0e7d0")],
         tasks=[
             AgentTask(name="Test Task 2", description="Test Task Description", expected_output="Test Task Output"),
         ],
@@ -44,8 +44,8 @@ def test_build_team_agent(mocker):
         "id": "123",
         "name": "Test Team Agent(-)",
         "description": "Test Team Agent Description",
-        "plannerId": "6895d6d1d50c89537c1cf237",
-        "llmId": "6895d6d1d50c89537c1cf237",
+        "plannerId": "69b7e5f1b2fe44704ab0e7d0",
+        "llmId": "69b7e5f1b2fe44704ab0e7d0",
         "agents": [
             {"assetId": "agent1"},
             {"assetId": "agent2"},

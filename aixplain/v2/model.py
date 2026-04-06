@@ -54,14 +54,57 @@ class Detail:
     finish_reason: Optional[str] = field(default=None, metadata=config(field_name="finish_reason"))
 
 
+def _safe_token_count(val: Any) -> Optional[int]:
+    """Coerce a token count to int, returning None for unparseable values.
+
+    The model-serving backend returns token counts inconsistently:
+    valid ints, numeric strings (``"20"``), ``"NaN"``, ``null``, or ``"0"``.
+    This helper normalises all of those without raising.
+    """
+    if val is None:
+        return None
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
+        import math
+
+        return None if math.isnan(val) else int(val)
+    s = str(val).strip()
+    if not s or s.lower() == "nan" or s.lower() == "null" or s.lower() == "none":
+        return None
+    try:
+        return int(s)
+    except (ValueError, TypeError):
+        try:
+            import math
+
+            f = float(s)
+            return None if math.isnan(f) else int(f)
+        except (ValueError, TypeError):
+            return None
+
+
 @dataclass_json
 @dataclass
 class Usage:
-    """Usage structure from the API response."""
+    """Usage structure from the API response.
 
-    prompt_tokens: int = field(metadata=config(field_name="prompt_tokens"))
-    completion_tokens: int = field(metadata=config(field_name="completion_tokens"))
-    total_tokens: int = field(metadata=config(field_name="total_tokens"))
+    Token counts are nullable because some model providers (GPT-5.4, Claude,
+    Mistral Large) return ``"NaN"`` or ``null`` instead of integers.
+    """
+
+    prompt_tokens: Optional[int] = field(
+        default=None,
+        metadata=config(field_name="prompt_tokens", decoder=_safe_token_count),
+    )
+    completion_tokens: Optional[int] = field(
+        default=None,
+        metadata=config(field_name="completion_tokens", decoder=_safe_token_count),
+    )
+    total_tokens: Optional[int] = field(
+        default=None,
+        metadata=config(field_name="total_tokens", decoder=_safe_token_count),
+    )
 
 
 @dataclass_json
@@ -111,7 +154,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
     for proper resource cleanup.
 
     Example:
-        >>> model = aix.Model.get("6895d6d1d50c89537c1cf237")  # GPT-5 Mini
+        >>> model = aix.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
         >>> for chunk in model.run(text="Explain LLMs", stream=True):
         ...     print(chunk.data, end="", flush=True)
 
@@ -603,9 +646,10 @@ class Model(
                 raise ValueError(f"Parameter validation failed: {'; '.join(param_errors)}")
 
         if self.is_sync_only:
-            # Sync-only models: Call V2 endpoint directly (bypass run_async which would route to V1)
-            # V2 returns result directly for sync models, no polling needed
-            return self._run_sync_v2(**effective_params)
+            result = self._run_sync_v2(**effective_params)
+            if result.url and not result.completed:
+                result = self.sync_poll(result.url, **effective_params)
+            return result
         else:
             # Async-capable models: Use base run() which calls run_async() and polls
             return super().run(**effective_params)
@@ -743,7 +787,7 @@ class Model(
             ValueError: If required parameters are missing or have invalid types
 
         Example:
-            >>> model = aix.Model.get("6895d6d1d50c89537c1cf237")  # GPT-5 Mini
+            >>> model = aix.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
             >>> with model.run_stream(text="Explain quantum computing") as stream:
             ...     for chunk in stream:
             ...         print(chunk.data, end="", flush=True)

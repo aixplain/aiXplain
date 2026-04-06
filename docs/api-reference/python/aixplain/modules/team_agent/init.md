@@ -135,7 +135,7 @@ Initialize a TeamAgent instance.
 - `name`4 - Additional keyword arguments.
 
   Deprecated Args:
-- `name`5 _Text, optional_ - DEPRECATED. Use &#x27;llm&#x27; parameter instead. ID of the language model. Defaults to &quot;6895d6d1d50c89537c1cf237&quot;.
+- `name`5 _Text, optional_ - DEPRECATED. Use &#x27;llm&#x27; parameter instead. ID of the language model. Defaults to &quot;69b7e5f1b2fe44704ab0e7d0&quot;.
 - `name`6 _Optional[LLM], optional_ - DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
 - `name`7 _bool, optional_ - DEPRECATED. Whether to use mentalist/planner. Defaults to True.
 

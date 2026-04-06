@@ -17,7 +17,7 @@ class TestToolDictFieldsRoundTrip:
 
     def test_asset_id_round_trips_through_backend(self, client):
         """Set asset_id (renamed from assetId) via as_tool(), save agent, fetch back, compare."""
-        model = client.Model.get("6895d6d1d50c89537c1cf237")  # GPT-5 Mini
+        model = client.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
         tool_dict = model.as_tool()
 
         # Value we're about to send (snake_case key)
@@ -48,7 +48,7 @@ class TestToolDictFieldsRoundTrip:
 
     def test_allow_multi_and_supports_variables_round_trip(self, client):
         """get_parameters() returns allow_multi / supports_variables; verify values survive save."""
-        model = client.Model.get("6895d6d1d50c89537c1cf237")
+        model = client.Model.get("69b7e5f1b2fe44704ab0e7d0")
         params = model.get_parameters()
         if not params:
             pytest.skip("Model has no parameters")
