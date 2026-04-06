@@ -688,6 +688,10 @@ class Page(Generic[ResourceT]):
 
         return json.dumps(self.__dict__, indent=2, default=str)
 
+    def __iter__(self):
+        """Iterate over the results in this page."""
+        return iter(self.results)
+
     def __getitem__(self, key: str):
         """Allow dictionary-like access to page attributes."""
         return getattr(self, key)
