@@ -11,6 +11,33 @@ def slack_integration_id():
     return "686432941223092cb4294d3f"
 
 
+@pytest.fixture(scope="module")
+def single_action_test_agent(client):
+    """Create a temporary agent using a single-action tool and clean it up."""
+    tool = client.Tool.get("tavily/tavily-web-search")
+    tool.allowed_actions = []
+
+    agent = client.Agent(
+        name=f"Functional Single Action Agent {int(time.time() * 1000)}",
+        description="Verify single-action tool serialization and execution.",
+        instructions=(
+            "ROLE: Search the web using the Tavily tool.\n"
+            "CONSTRAINTS: Use the available tool when the user asks for web information.\n"
+            "OUTPUT RULES: Return a concise text answer with the key fact requested."
+        ),
+        tools=[tool],
+        output_format="text",
+    )
+    agent.save()
+
+    yield agent, tool.id
+
+    try:
+        agent.delete()
+    except Exception:
+        pass
+
+
 def validate_tool_structure(tool):
     """Helper function to validate tool structure and data types."""
     # Test core fields (inherited from Model)
@@ -540,3 +567,35 @@ def test_tool_run_auto_detects_single_action(client):
 
     assert result.status == "SUCCESS", f"Expected SUCCESS, got {result.status}"
     assert result.completed is True, "Result should be completed"
+
+
+def test_single_action_agent_payload_alignment(client, single_action_test_agent):
+    """Saved agent payload should keep inferred single action and parameters aligned."""
+    agent, tool_id = single_action_test_agent
+    raw_agent = client.client.request("get", f"sdk/agents/{agent.id}")
+    asset = next((item for item in raw_agent.get("assets", []) if item.get("assetId") == tool_id), None)
+
+    assert asset is not None, f"Expected Tavily tool asset {tool_id} in saved agent payload"
+    assert asset.get("actions") == ["search"], f"Expected inferred single action, got {asset.get('actions')}"
+    assert isinstance(asset.get("parameters"), list), "Expected saved parameters to be a list"
+    assert len(asset["parameters"]) > 0, "Expected non-empty saved parameters for the inferred action"
+
+    first_parameter = asset["parameters"][0]
+    assert first_parameter.get("name") == "search" or first_parameter.get("code") == "search", (
+        f"Expected first parameter to match inferred action, got {first_parameter}"
+    )
+    assert first_parameter.get("inputs"), "Expected inferred action parameters to include input metadata"
+
+
+def test_single_action_agent_run_end_to_end(single_action_test_agent):
+    """Agent should run successfully with a single-action tool and no explicit action."""
+    agent, _ = single_action_test_agent
+    query = f"Use web search to tell me in one sentence what the friendship paradox is. {int(time.time())}"
+
+    result = agent.run(query=query, runResponseGeneration=False)
+
+    assert result.status == "SUCCESS", f"Expected SUCCESS, got {result.status}"
+    assert result.completed is True, "Expected run to complete"
+
+    output = result.data.output if hasattr(result.data, "output") else result.data
+    assert output is not None and str(output).strip(), "Expected non-empty agent output"
