@@ -5,6 +5,8 @@ from unittest.mock import Mock, patch, MagicMock
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
+from aixplain.v2.actions import Action, Actions, Inputs
+from aixplain.v2.integration import ActionInputSpec, ActionSpec
 from aixplain.v2.tool import Tool, ToolResult
 from aixplain.v2.integration import Integration
 from aixplain.v2.resource import ResourceError
@@ -82,6 +84,37 @@ def _make_connection_tool(context=None):
     connection.id = "69bbf9c19e1085b478304903"
     connection.name = "Slack Tool (1773926848)"
     return connection
+
+
+def _make_action_input_spec(name="Query", code="query", datatype="string", default_value=None, required=False):
+    """Create a minimal action input spec for Tool action tests."""
+    return ActionInputSpec(
+        name=name,
+        code=code,
+        datatype=datatype,
+        default_value=[] if default_value is None else [default_value],
+        required=required,
+        description=f"{name} description",
+    )
+
+
+def _make_minimal_tool_with_actions(action_specs, allowed_actions=None):
+    """Create a lightweight Tool instance with injected cached actions."""
+    tool = Tool.__new__(Tool)
+    tool.id = "test-tool-id"
+    tool.name = "Test Tool"
+    tool.description = "Tool description"
+    tool.allowed_actions = [] if allowed_actions is None else list(allowed_actions)
+    tool.vendor = None
+    tool.function = None
+    tool.version = None
+    tool._dynamic_attrs = {}
+
+    actions = {}
+    for action_name, specs in action_specs.items():
+        actions[action_name] = Action(name=action_name, inputs=Inputs.from_action_input_specs(specs))
+    tool.__dict__["actions"] = Actions(actions=actions)
+    return tool
 
 
 # =============================================================================
@@ -528,3 +561,73 @@ class TestUpdateSendsAuthScheme:
 
         call_kwargs = mock_integration.connect.call_args[1]
         assert call_kwargs["authScheme"] == "OAUTH2"
+
+
+class TestSingleActionInference:
+    """Tests for single-action inference across serialization and run behavior."""
+
+    def test_as_tool_infers_single_action_for_actions_and_parameters(self):
+        """Single-action tools should serialize aligned actions and parameters."""
+        query_spec = _make_action_input_spec(default_value="friendship paradox")
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]}, allowed_actions=[])
+        tool.validate_allowed_actions = Mock()
+        tool._list_inputs = Mock(
+            return_value=[
+                ActionSpec(
+                    name="search",
+                    slug="search",
+                    description="Search docs",
+                    inputs=[query_spec],
+                )
+            ]
+        )
+
+        tool_dict = tool.as_tool()
+
+        tool._list_inputs.assert_called_once_with("search")
+        assert tool_dict["actions"] == ["search"]
+        assert tool_dict["parameters"] == [
+            {
+                "code": "search",
+                "name": "search",
+                "description": "Search docs",
+                "inputs": {
+                    "query": {
+                        "name": "Query",
+                        "value": "friendship paradox",
+                        "required": False,
+                        "datatype": "string",
+                        "allow_multi": False,
+                        "supports_variables": False,
+                        "fixed": False,
+                        "description": "Query description",
+                    }
+                },
+            }
+        ]
+
+    def test_run_uses_single_allowed_action_without_explicit_action(self):
+        """run() should default to the only allowed action on multi-action tools."""
+        query_spec = _make_action_input_spec()
+        tool = _make_minimal_tool_with_actions(
+            {"search": [query_spec], "delete": [query_spec]},
+            allowed_actions=["search"],
+        )
+
+        with patch.object(Tool, "_ensure_valid_state", return_value=None), patch(
+            "aixplain.v2.model.Model.run", return_value="ok"
+        ) as mock_run:
+            result = tool.run(data={"query": "hello"})
+
+        assert result == "ok"
+        mock_run.assert_called_once_with(data={"query": "hello"}, action="search")
+
+    def test_validate_params_rejects_disallowed_actions(self):
+        """_validate_params should reject actions outside allowed_actions."""
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]}, allowed_actions=["search"])
+        tool.validate_allowed_actions = Mock()
+
+        errors = tool._validate_params(action="delete", data={})
+
+        assert errors == ["Action 'delete' is not allowed for this tool. Allowed actions: ['search']"]

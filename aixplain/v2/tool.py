@@ -341,6 +341,26 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                 f"Requested: {self.allowed_actions}, Available: {available_actions}"
             )
 
+    def _get_effective_actions(self) -> List[str]:
+        """Return the effective action scope for serialization and defaulting.
+
+        Prefer explicitly scoped ``allowed_actions``. When none are set,
+        auto-detect a single available action so serialization and runtime
+        defaulting stay aligned for single-action tools.
+        """
+        if self.allowed_actions:
+            return list(self.allowed_actions)
+
+        try:
+            action_names = list(self.actions)
+        except Exception:
+            action_names = []
+
+        if len(action_names) == 1:
+            return action_names
+
+        return []
+
     # ------------------------------------------------------------------
     # Serialization
     # ------------------------------------------------------------------
@@ -350,8 +370,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         self.validate_allowed_actions()
 
         parameters = []
-
-        action_specs = self._list_inputs(*self.allowed_actions)
+        effective_actions = self._get_effective_actions()
+        action_specs = self._list_inputs(*effective_actions)
 
         for spec in action_specs:
             action_inputs = {}
@@ -400,16 +420,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     def as_tool(self) -> dict:
         """Serialize this tool for agent creation."""
         tool_dict = super().as_tool()
-
-        actions_to_serialize = self.allowed_actions
-        if not actions_to_serialize:
-            try:
-                action_names = list(self.actions)
-            except Exception:
-                action_names = []
-
-            if len(action_names) == 1:
-                actions_to_serialize = action_names
+        actions_to_serialize = self._get_effective_actions()
 
         if actions_to_serialize:
             tool_dict["actions"] = actions_to_serialize

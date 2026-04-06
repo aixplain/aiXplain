@@ -429,3 +429,17 @@ class TestToolMergePayloadDefaults:
         result = tool._merge_with_dynamic_attrs(action="search", data={"query": "test"})
 
         assert "domains" not in result["data"]
+
+    def test_payload_uses_single_allowed_action_when_omitted(self):
+        """Missing action should fall back to the single allowed action."""
+        specs = [
+            _make_spec("Query", "query", "string"),
+            _make_spec("Num Results", "num_results", "number", 10),
+        ]
+        tool = self._create_tool_with_inputs(specs)
+
+        result = tool._merge_with_dynamic_attrs(data={"query": "test"})
+
+        assert result["action"] == "search"
+        assert result["data"]["query"] == "test"
+        assert result["data"]["num_results"] == 10
