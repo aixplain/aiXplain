@@ -1,6 +1,7 @@
 """Core module for aiXplain v2 API."""
 
 import os
+import sys
 from typing import Optional, TypeVar
 
 from .client import AixplainClient
@@ -13,6 +14,7 @@ from .file import Resource
 from .inspector import Inspector
 from .meta_agents import Debugger
 from .api_key import APIKey
+from .rlm import RLM, RLMResult
 from . import enums
 
 
@@ -25,6 +27,7 @@ ResourceType = TypeVar("ResourceType", bound=Resource)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
 DebuggerType = TypeVar("DebuggerType", bound=Debugger)
 APIKeyType = TypeVar("APIKeyType", bound=APIKey)
+RLMType = TypeVar("RLMType", bound=RLM)
 
 
 class Aixplain:
@@ -49,6 +52,7 @@ class Aixplain:
     Inspector: InspectorType = None
     Debugger: DebuggerType = None
     APIKey: APIKeyType = None
+    RLM: RLMType = None
 
     Function = enums.Function
     Supplier = enums.Supplier
@@ -81,15 +85,22 @@ class Aixplain:
         """Initialize the Aixplain class.
 
         Args:
-            api_key (str, optional): The API key. Falls back to TEAM_API_KEY env var.
+            api_key (str, optional): The API key. Falls back to TEAM_API_KEY or AIXPLAIN_API_KEY env var.
             backend_url (str, optional): The backend URL. Falls back to BACKEND_URL env var.
             pipeline_url (str, optional): The pipeline execution URL. Falls back to PIPELINES_RUN_URL env var.
             model_url (str, optional): The model execution URL. Falls back to MODELS_RUN_URL env var.
         """
-        self.api_key = api_key or os.getenv("TEAM_API_KEY") or ""
+        resolved = api_key or os.getenv("TEAM_API_KEY") or os.getenv("AIXPLAIN_API_KEY") or ""
+        self.api_key = resolved
+        if api_key:
+            os.environ["TEAM_API_KEY"] = api_key
+            os.environ["AIXPLAIN_API_KEY"] = api_key
+            _cfg = sys.modules.get("aixplain.utils.config")
+            if _cfg is not None:
+                _cfg.TEAM_API_KEY = api_key
+                _cfg.AIXPLAIN_API_KEY = api_key
         assert self.api_key, (
-            "API key is required. You should either pass it as an argument or "
-            "set the TEAM_API_KEY environment variable."
+            "API key is required. Pass api_key=... to Aixplain() or set TEAM_API_KEY or AIXPLAIN_API_KEY."
         )
 
         self.backend_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
@@ -121,3 +132,4 @@ class Aixplain:
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
         self.Debugger = type("Debugger", (Debugger,), {"context": self})
         self.APIKey = type("APIKey", (APIKey,), {"context": self})
+        self.RLM = type("RLM", (RLM,), {"context": self})

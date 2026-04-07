@@ -11,6 +11,33 @@ def slack_integration_id():
     return "686432941223092cb4294d3f"
 
 
+@pytest.fixture(scope="module")
+def single_action_test_agent(client):
+    """Create a temporary agent using a single-action tool and clean it up."""
+    tool = client.Tool.get("tavily/tavily-web-search")
+    tool.allowed_actions = []
+
+    agent = client.Agent(
+        name=f"Functional Single Action Agent {int(time.time() * 1000)}",
+        description="Verify single-action tool serialization and execution.",
+        instructions=(
+            "ROLE: Search the web using the Tavily tool.\n"
+            "CONSTRAINTS: Use the available tool when the user asks for web information.\n"
+            "OUTPUT RULES: Return a concise text answer with the key fact requested."
+        ),
+        tools=[tool],
+        output_format="text",
+    )
+    agent.save()
+
+    yield agent, tool.id
+
+    try:
+        agent.delete()
+    except Exception:
+        pass
+
+
 def validate_tool_structure(tool):
     """Helper function to validate tool structure and data types."""
     # Test core fields (inherited from Model)
@@ -314,21 +341,261 @@ def test_tool_as_tool_includes_actions(client):
     print(f"✅ as_tool() correctly includes actions: {tool_dict['actions']}")
 
 
+def test_tool_run_with_default_params(client):
+    """Test running a tool without specifying optional params that have backend defaults.
+
+    Regression test for the bug where optional parameters (e.g. num_results)
+    were sent as raw default dicts instead of extracted primitive values,
+    causing the backend to reject the request.
+    """
+    tavily_tool = client.Tool.get("tavily/tavily-web-search")
+
+    # Verify the action proxy stores extracted primitives, not raw dicts
+    action_proxy = tavily_tool.actions["search"]
+    for key in action_proxy.keys():
+        value = action_proxy.get(key)
+        assert not isinstance(value, dict), f"Action input '{key}' default should be a primitive, got dict: {value}"
+
+    # Run with only the required 'query' param — all optional params should
+    # fall back to their extracted defaults without errors.
+    result = tavily_tool.run(action="search", data={"query": "friendship paradox", "num_results": 2})
+
+    assert hasattr(result, "status"), "Result should have status attribute"
+    assert result.status == "SUCCESS", f"Expected SUCCESS status, got {result.status}"
+    assert result.completed is True, "Result should be completed"
+
+    # Now run WITHOUT num_results to verify defaults don't break the request
+    result_defaults = tavily_tool.run(action="search", data={"query": "friendship paradox"})
+
+    assert result_defaults.status == "SUCCESS", f"Expected SUCCESS with default params, got {result_defaults.status}"
+    assert result_defaults.completed is True, "Result with defaults should be completed"
+
+
 def test_tool_as_tool_without_actions(client):
-    """Test that as_tool() does NOT include actions when allowed_actions is empty."""
-    # Search for an existing tool to test with
+    """Test that as_tool() does NOT include actions when allowed_actions is empty and tool has multiple actions."""
     tools = client.Tool.search()
     assert len(tools.results) > 0, "Expected to have at least one tool available for testing"
 
-    tool = tools.results[0]
+    tool = None
+    for t in tools.results:
+        try:
+            action_names = list(t.actions)
+            if len(action_names) >= 2:
+                tool = t
+                break
+        except Exception:
+            continue
 
-    # Ensure allowed_actions is empty/not set
+    if tool is None:
+        pytest.skip("No multi-action tool found for testing")
+
     tool.allowed_actions = []
-
-    # Get the serialized tool dict
     tool_dict = tool.as_tool()
 
-    # Verify actions is NOT included when empty
-    assert "actions" not in tool_dict, "as_tool() should NOT include 'actions' field when allowed_actions is empty"
+    assert "actions" not in tool_dict, (
+        "as_tool() should NOT include 'actions' field when allowed_actions is empty and tool has multiple actions"
+    )
 
-    print("✅ as_tool() correctly omits actions when not set")
+
+
+def test_tool_update_name(client, slack_integration_id, slack_token):
+    """Test updating an existing tool's name via save().
+
+    Validates the full reconnection-based update flow:
+    1. Create a tool via integration.connect (save with no id)
+    2. Fetch the tool fresh (simulates a new session)
+    3. Change the name and call save() (triggers _update)
+    4. Verify the name was persisted on the backend
+    """
+    original_name = f"test-update-{int(time.time())}"
+    updated_name = f"test-updated-{int(time.time())}"
+
+    # --- Create ---
+    tool = client.Tool(
+        name=original_name,
+        integration=slack_integration_id,
+        config={"token": slack_token},
+    )
+    tool.save()
+    assert tool.id is not None, "Tool should have an ID after save"
+    tool_id = tool.id
+
+    try:
+        # --- Fetch fresh (simulates a new session where integration is not set) ---
+        fetched = client.Tool.get(tool_id)
+        assert fetched.integration_id is not None, "Fetched tool should have integration_id from backend"
+        assert fetched.integration is None, "Fetched tool should not have integration set (local-only field)"
+        assert fetched.name == original_name
+
+        # --- Update name ---
+        fetched.name = updated_name
+        fetched.save()
+
+        # --- Verify persistence ---
+        verified = client.Tool.get(tool_id)
+        assert verified.name == updated_name, f"Expected name '{updated_name}', got '{verified.name}'"
+
+        print(f"✅ Tool name updated: '{original_name}' → '{updated_name}'")
+
+    finally:
+        # Clean up
+        try:
+            client.Tool.get(tool_id).delete()
+        except Exception:
+            pass
+
+
+def test_tool_update_description(client, slack_integration_id, slack_token):
+    """Test updating an existing tool's description via save()."""
+    tool_name = f"test-update-desc-{int(time.time())}"
+    new_description = "Updated description from functional test."
+
+    tool = client.Tool(
+        name=tool_name,
+        integration=slack_integration_id,
+        config={"token": slack_token},
+    )
+    tool.save()
+    tool_id = tool.id
+
+    try:
+        fetched = client.Tool.get(tool_id)
+        fetched.description = new_description
+        fetched.save()
+
+        verified = client.Tool.get(tool_id)
+        assert verified.description == new_description, (
+            f"Expected description '{new_description}', got '{verified.description}'"
+        )
+
+        print(f"✅ Tool description updated successfully")
+
+    finally:
+        try:
+            client.Tool.get(tool_id).delete()
+        except Exception:
+            pass
+
+
+def test_tool_update_preserves_allowed_actions(client, slack_integration_id, slack_token):
+    """Test that local-only fields like allowed_actions survive a save() round-trip."""
+    tool_name = f"test-update-actions-{int(time.time())}"
+
+    tool = client.Tool(
+        name=tool_name,
+        integration=slack_integration_id,
+        config={"token": slack_token},
+        allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
+    )
+    tool.save()
+    tool_id = tool.id
+
+    try:
+        fetched = client.Tool.get(tool_id)
+        fetched.allowed_actions = ["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"]
+        fetched.name = f"test-update-actions-renamed-{int(time.time())}"
+        fetched.save()
+
+        assert fetched.allowed_actions == ["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"], (
+            "allowed_actions should be preserved after save()"
+        )
+
+        print("✅ allowed_actions preserved through update")
+
+    finally:
+        try:
+            client.Tool.get(tool_id).delete()
+        except Exception:
+            pass
+
+
+def test_tool_as_tool_auto_detects_single_action(client):
+    """Test that as_tool() auto-includes the action when a tool has exactly one action."""
+    tool = client.Tool.get("tavily/tavily-web-search")
+    tool.allowed_actions = []
+
+    tool_dict = tool.as_tool()
+
+    assert "actions" in tool_dict, "as_tool() should auto-detect and include the single available action"
+    assert len(tool_dict["actions"]) == 1, f"Expected 1 auto-detected action, got {len(tool_dict['actions'])}"
+
+
+def test_tool_as_tool_no_mutation(client):
+    """Test that as_tool() does NOT mutate self.allowed_actions as a side effect."""
+    tool = client.Tool.get("tavily/tavily-web-search")
+    tool.allowed_actions = []
+
+    tool.as_tool()
+
+    assert tool.allowed_actions == [], (
+        f"as_tool() mutated allowed_actions to {tool.allowed_actions} -- serialization should be side-effect-free"
+    )
+
+
+def test_tool_as_tool_caching(client):
+    """Test that repeated as_tool() calls reuse cached actions instead of hitting the API again."""
+    from unittest.mock import patch
+
+    tool = client.Tool.get("tavily/tavily-web-search")
+    tool.allowed_actions = []
+
+    tool.as_tool()
+
+    original_list_actions = tool.list_actions
+    call_count = 0
+
+    def counting_list_actions():
+        nonlocal call_count
+        call_count += 1
+        return original_list_actions()
+
+    with patch.object(type(tool), "list_actions", counting_list_actions):
+        tool.as_tool()
+
+    assert call_count == 0, (
+        f"list_actions() was called {call_count} time(s) on second as_tool() -- "
+        "should be 0 because self.actions caches the result"
+    )
+
+
+def test_tool_run_auto_detects_single_action(client):
+    """Test that run() auto-detects the action for single-action tools without explicit action kwarg."""
+    tool = client.Tool.get("tavily/tavily-web-search")
+    tool.allowed_actions = []
+
+    result = tool.run(data={"query": "friendship paradox", "num_results": 1})
+
+    assert result.status == "SUCCESS", f"Expected SUCCESS, got {result.status}"
+    assert result.completed is True, "Result should be completed"
+
+
+def test_single_action_agent_payload_alignment(client, single_action_test_agent):
+    """Saved agent payload should keep inferred single action and parameters aligned."""
+    agent, tool_id = single_action_test_agent
+    raw_agent = client.client.request("get", f"sdk/agents/{agent.id}")
+    asset = next((item for item in raw_agent.get("assets", []) if item.get("assetId") == tool_id), None)
+
+    assert asset is not None, f"Expected Tavily tool asset {tool_id} in saved agent payload"
+    assert asset.get("actions") == ["search"], f"Expected inferred single action, got {asset.get('actions')}"
+    assert isinstance(asset.get("parameters"), list), "Expected saved parameters to be a list"
+    assert len(asset["parameters"]) > 0, "Expected non-empty saved parameters for the inferred action"
+
+    first_parameter = asset["parameters"][0]
+    assert first_parameter.get("name") == "search" or first_parameter.get("code") == "search", (
+        f"Expected first parameter to match inferred action, got {first_parameter}"
+    )
+    assert first_parameter.get("inputs"), "Expected inferred action parameters to include input metadata"
+
+
+def test_single_action_agent_run_end_to_end(single_action_test_agent):
+    """Agent should run successfully with a single-action tool and no explicit action."""
+    agent, _ = single_action_test_agent
+    query = f"Use web search to tell me in one sentence what the friendship paradox is. {int(time.time())}"
+
+    result = agent.run(query=query, runResponseGeneration=False)
+
+    assert result.status == "SUCCESS", f"Expected SUCCESS, got {result.status}"
+    assert result.completed is True, "Expected run to complete"
+
+    output = result.data.output if hasattr(result.data, "output") else result.data
+    assert output is not None and str(output).strip(), "Expected non-empty agent output"

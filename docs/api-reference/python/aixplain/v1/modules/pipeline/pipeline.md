@@ -192,7 +192,7 @@ Input parameters for BenchmarkScoringAsr.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L157)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L158)
 
 Initialize BenchmarkScoringAsrInputs.
 
@@ -202,7 +202,7 @@ Initialize BenchmarkScoringAsrInputs.
 class BenchmarkScoringAsrOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L164)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L166)
 
 Output parameters for BenchmarkScoringAsr.
 
@@ -212,7 +212,7 @@ Output parameters for BenchmarkScoringAsr.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L169)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L171)
 
 Initialize BenchmarkScoringAsrOutputs.
 
@@ -223,7 +223,7 @@ class BenchmarkScoringAsr(AssetNode[BenchmarkScoringAsrInputs,
                                     BenchmarkScoringAsrOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L175)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L177)
 
 BenchmarkScoringAsr node.
 
@@ -240,7 +240,7 @@ OutputType: label
 class MultiClassTextClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L194)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L196)
 
 Input parameters for MultiClassTextClassification.
 
@@ -250,7 +250,7 @@ Input parameters for MultiClassTextClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L200)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L202)
 
 Initialize MultiClassTextClassificationInputs.
 
@@ -260,7 +260,7 @@ Initialize MultiClassTextClassificationInputs.
 class MultiClassTextClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L207)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L209)
 
 Output parameters for MultiClassTextClassification.
 
@@ -270,7 +270,7 @@ Output parameters for MultiClassTextClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L212)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L214)
 
 Initialize MultiClassTextClassificationOutputs.
 
@@ -282,7 +282,7 @@ class MultiClassTextClassification(
                   MultiClassTextClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L218)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L220)
 
 MultiClassTextClassification node.
 
@@ -299,7 +299,7 @@ OutputType: label
 class SpeechEmbeddingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L237)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L239)
 
 Input parameters for SpeechEmbedding.
 
@@ -309,7 +309,7 @@ Input parameters for SpeechEmbedding.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L245)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L247)
 
 Initialize SpeechEmbeddingInputs.
 
@@ -319,7 +319,7 @@ Initialize SpeechEmbeddingInputs.
 class SpeechEmbeddingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L254)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L256)
 
 Output parameters for SpeechEmbedding.
 
@@ -329,7 +329,7 @@ Output parameters for SpeechEmbedding.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L259)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L261)
 
 Initialize SpeechEmbeddingOutputs.
 
@@ -340,7 +340,7 @@ class SpeechEmbedding(AssetNode[SpeechEmbeddingInputs,
                                 SpeechEmbeddingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L265)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L267)
 
 SpeechEmbedding node.
 
@@ -357,7 +357,7 @@ OutputType: text
 class DocumentImageParsingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L284)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L286)
 
 Input parameters for DocumentImageParsing.
 
@@ -367,7 +367,7 @@ Input parameters for DocumentImageParsing.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L289)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L291)
 
 Initialize DocumentImageParsingInputs.
 
@@ -377,7 +377,7 @@ Initialize DocumentImageParsingInputs.
 class DocumentImageParsingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L295)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L297)
 
 Output parameters for DocumentImageParsing.
 
@@ -387,7 +387,7 @@ Output parameters for DocumentImageParsing.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L300)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L302)
 
 Initialize DocumentImageParsingOutputs.
 
@@ -398,7 +398,7 @@ class DocumentImageParsing(AssetNode[DocumentImageParsingInputs,
                                      DocumentImageParsingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L306)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L308)
 
 DocumentImageParsing node.
 
@@ -415,7 +415,7 @@ OutputType: text
 class TranslationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L325)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L327)
 
 Input parameters for Translation.
 
@@ -425,7 +425,7 @@ Input parameters for Translation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L337)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L339)
 
 Initialize TranslationInputs.
 
@@ -435,7 +435,7 @@ Initialize TranslationInputs.
 class TranslationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L350)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L352)
 
 Output parameters for Translation.
 
@@ -445,7 +445,7 @@ Output parameters for Translation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L355)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L357)
 
 Initialize TranslationOutputs.
 
@@ -455,7 +455,7 @@ Initialize TranslationOutputs.
 class Translation(AssetNode[TranslationInputs, TranslationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L361)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L363)
 
 Translation node.
 
@@ -471,7 +471,7 @@ OutputType: text
 class AudioSourceSeparationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L379)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L381)
 
 Input parameters for AudioSourceSeparation.
 
@@ -481,7 +481,7 @@ Input parameters for AudioSourceSeparation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L384)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L386)
 
 Initialize AudioSourceSeparationInputs.
 
@@ -491,7 +491,7 @@ Initialize AudioSourceSeparationInputs.
 class AudioSourceSeparationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L390)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L392)
 
 Output parameters for AudioSourceSeparation.
 
@@ -501,7 +501,7 @@ Output parameters for AudioSourceSeparation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L395)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L397)
 
 Initialize AudioSourceSeparationOutputs.
 
@@ -512,7 +512,7 @@ class AudioSourceSeparation(AssetNode[AudioSourceSeparationInputs,
                                       AudioSourceSeparationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L401)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L403)
 
 AudioSourceSeparation node.
 
@@ -529,7 +529,7 @@ OutputType: audio
 class SpeechRecognitionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L420)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L422)
 
 Input parameters for SpeechRecognition.
 
@@ -539,7 +539,7 @@ Input parameters for SpeechRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L429)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L431)
 
 Initialize SpeechRecognitionInputs.
 
@@ -549,7 +549,7 @@ Initialize SpeechRecognitionInputs.
 class SpeechRecognitionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L439)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L441)
 
 Output parameters for SpeechRecognition.
 
@@ -559,7 +559,7 @@ Output parameters for SpeechRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L444)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L446)
 
 Initialize SpeechRecognitionOutputs.
 
@@ -570,7 +570,7 @@ class SpeechRecognition(AssetNode[SpeechRecognitionInputs,
                                   SpeechRecognitionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L450)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L452)
 
 SpeechRecognition node.
 
@@ -586,7 +586,7 @@ OutputType: text
 class KeywordSpottingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L468)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L470)
 
 Input parameters for KeywordSpotting.
 
@@ -596,7 +596,7 @@ Input parameters for KeywordSpotting.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L473)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L475)
 
 Initialize KeywordSpottingInputs.
 
@@ -606,7 +606,7 @@ Initialize KeywordSpottingInputs.
 class KeywordSpottingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L479)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L481)
 
 Output parameters for KeywordSpotting.
 
@@ -616,7 +616,7 @@ Output parameters for KeywordSpotting.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L484)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L486)
 
 Initialize KeywordSpottingOutputs.
 
@@ -627,7 +627,7 @@ class KeywordSpotting(AssetNode[KeywordSpottingInputs,
                                 KeywordSpottingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L490)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L492)
 
 KeywordSpotting node.
 
@@ -644,7 +644,7 @@ OutputType: label
 class PartOfSpeechTaggingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L509)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L511)
 
 Input parameters for PartOfSpeechTagging.
 
@@ -654,7 +654,7 @@ Input parameters for PartOfSpeechTagging.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L515)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L517)
 
 Initialize PartOfSpeechTaggingInputs.
 
@@ -664,7 +664,7 @@ Initialize PartOfSpeechTaggingInputs.
 class PartOfSpeechTaggingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L522)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L524)
 
 Output parameters for PartOfSpeechTagging.
 
@@ -674,7 +674,7 @@ Output parameters for PartOfSpeechTagging.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L527)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L529)
 
 Initialize PartOfSpeechTaggingOutputs.
 
@@ -685,7 +685,7 @@ class PartOfSpeechTagging(AssetNode[PartOfSpeechTaggingInputs,
                                     PartOfSpeechTaggingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L533)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L535)
 
 PartOfSpeechTagging node.
 
@@ -703,7 +703,7 @@ OutputType: label
 class ReferencelessAudioGenerationMetricInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L553)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L555)
 
 Input parameters for ReferencelessAudioGenerationMetric.
 
@@ -713,7 +713,7 @@ Input parameters for ReferencelessAudioGenerationMetric.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L560)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L562)
 
 Initialize ReferencelessAudioGenerationMetricInputs.
 
@@ -723,7 +723,7 @@ Initialize ReferencelessAudioGenerationMetricInputs.
 class ReferencelessAudioGenerationMetricOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L568)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L570)
 
 Output parameters for ReferencelessAudioGenerationMetric.
 
@@ -733,7 +733,7 @@ Output parameters for ReferencelessAudioGenerationMetric.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L573)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L575)
 
 Initialize ReferencelessAudioGenerationMetricOutputs.
 
@@ -745,7 +745,7 @@ class ReferencelessAudioGenerationMetric(
                    ReferencelessAudioGenerationMetricOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L579)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L581)
 
 ReferencelessAudioGenerationMetric node.
 
@@ -762,7 +762,7 @@ OutputType: text
 class VoiceActivityDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L600)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L602)
 
 Input parameters for VoiceActivityDetection.
 
@@ -772,7 +772,7 @@ Input parameters for VoiceActivityDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L609)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L611)
 
 Initialize VoiceActivityDetectionInputs.
 
@@ -782,7 +782,7 @@ Initialize VoiceActivityDetectionInputs.
 class VoiceActivityDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L619)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L621)
 
 Output parameters for VoiceActivityDetection.
 
@@ -792,7 +792,7 @@ Output parameters for VoiceActivityDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L625)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L627)
 
 Initialize VoiceActivityDetectionOutputs.
 
@@ -803,7 +803,7 @@ class VoiceActivityDetection(BaseSegmentor[VoiceActivityDetectionInputs,
                                            VoiceActivityDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L632)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L634)
 
 VoiceActivityDetection node.
 
@@ -819,7 +819,7 @@ OutputType: audio
 class SentimentAnalysisInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L650)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L652)
 
 Input parameters for SentimentAnalysis.
 
@@ -829,7 +829,7 @@ Input parameters for SentimentAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L658)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L660)
 
 Initialize SentimentAnalysisInputs.
 
@@ -839,7 +839,7 @@ Initialize SentimentAnalysisInputs.
 class SentimentAnalysisOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L667)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L669)
 
 Output parameters for SentimentAnalysis.
 
@@ -849,7 +849,7 @@ Output parameters for SentimentAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L672)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L674)
 
 Initialize SentimentAnalysisOutputs.
 
@@ -860,7 +860,7 @@ class SentimentAnalysis(AssetNode[SentimentAnalysisInputs,
                                   SentimentAnalysisOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L678)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L680)
 
 SentimentAnalysis node.
 
@@ -876,7 +876,7 @@ OutputType: label
 class SubtitlingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L696)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L698)
 
 Input parameters for Subtitling.
 
@@ -886,7 +886,7 @@ Input parameters for Subtitling.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L706)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L708)
 
 Initialize SubtitlingInputs.
 
@@ -896,7 +896,7 @@ Initialize SubtitlingInputs.
 class SubtitlingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L717)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L719)
 
 Output parameters for Subtitling.
 
@@ -906,7 +906,7 @@ Output parameters for Subtitling.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L722)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L724)
 
 Initialize SubtitlingOutputs.
 
@@ -916,7 +916,7 @@ Initialize SubtitlingOutputs.
 class Subtitling(AssetNode[SubtitlingInputs, SubtitlingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L728)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L730)
 
 Subtitling node.
 
@@ -932,7 +932,7 @@ OutputType: text
 class MultiLabelTextClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L746)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L748)
 
 Input parameters for MultiLabelTextClassification.
 
@@ -942,7 +942,7 @@ Input parameters for MultiLabelTextClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L752)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L754)
 
 Initialize MultiLabelTextClassificationInputs.
 
@@ -952,7 +952,7 @@ Initialize MultiLabelTextClassificationInputs.
 class MultiLabelTextClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L759)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L761)
 
 Output parameters for MultiLabelTextClassification.
 
@@ -962,7 +962,7 @@ Output parameters for MultiLabelTextClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L764)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L766)
 
 Initialize MultiLabelTextClassificationOutputs.
 
@@ -974,7 +974,7 @@ class MultiLabelTextClassification(
                   MultiLabelTextClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L770)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L772)
 
 MultiLabelTextClassification node.
 
@@ -992,7 +992,7 @@ OutputType: label
 class VisemeGenerationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L790)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L792)
 
 Input parameters for VisemeGeneration.
 
@@ -1002,7 +1002,7 @@ Input parameters for VisemeGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L798)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L800)
 
 Initialize VisemeGenerationInputs.
 
@@ -1012,7 +1012,7 @@ Initialize VisemeGenerationInputs.
 class VisemeGenerationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L807)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L809)
 
 Output parameters for VisemeGeneration.
 
@@ -1022,7 +1022,7 @@ Output parameters for VisemeGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L812)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L814)
 
 Initialize VisemeGenerationOutputs.
 
@@ -1033,7 +1033,7 @@ class VisemeGeneration(AssetNode[VisemeGenerationInputs,
                                  VisemeGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L818)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L820)
 
 VisemeGeneration node.
 
@@ -1050,7 +1050,7 @@ OutputType: label
 class TextSegmenationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L837)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L839)
 
 Input parameters for TextSegmenation.
 
@@ -1060,7 +1060,7 @@ Input parameters for TextSegmenation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L843)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L845)
 
 Initialize TextSegmenationInputs.
 
@@ -1070,7 +1070,7 @@ Initialize TextSegmenationInputs.
 class TextSegmenationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L850)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L852)
 
 Output parameters for TextSegmenation.
 
@@ -1080,7 +1080,7 @@ Output parameters for TextSegmenation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L855)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L857)
 
 Initialize TextSegmenationOutputs.
 
@@ -1091,7 +1091,7 @@ class TextSegmenation(AssetNode[TextSegmenationInputs,
                                 TextSegmenationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L861)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L863)
 
 TextSegmenation node.
 
@@ -1108,7 +1108,7 @@ OutputType: text
 class ZeroShotClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L880)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L882)
 
 Input parameters for ZeroShotClassification.
 
@@ -1118,7 +1118,7 @@ Input parameters for ZeroShotClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L887)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L889)
 
 Initialize ZeroShotClassificationInputs.
 
@@ -1128,7 +1128,7 @@ Initialize ZeroShotClassificationInputs.
 class ZeroShotClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L895)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L897)
 
 Output parameters for ZeroShotClassification.
 
@@ -1138,7 +1138,7 @@ Output parameters for ZeroShotClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L900)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L902)
 
 Initialize ZeroShotClassificationOutputs.
 
@@ -1149,7 +1149,7 @@ class ZeroShotClassification(AssetNode[ZeroShotClassificationInputs,
                                        ZeroShotClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L906)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L908)
 
 ZeroShotClassification node.
 
@@ -1162,7 +1162,7 @@ OutputType: text
 class TextGenerationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L921)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L923)
 
 Input parameters for TextGeneration.
 
@@ -1172,7 +1172,7 @@ Input parameters for TextGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L931)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L933)
 
 Initialize TextGenerationInputs.
 
@@ -1182,7 +1182,7 @@ Initialize TextGenerationInputs.
 class TextGenerationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L942)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L944)
 
 Output parameters for TextGeneration.
 
@@ -1192,7 +1192,7 @@ Output parameters for TextGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L947)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L949)
 
 Initialize TextGenerationOutputs.
 
@@ -1202,7 +1202,7 @@ Initialize TextGenerationOutputs.
 class TextGeneration(AssetNode[TextGenerationInputs, TextGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L953)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L955)
 
 TextGeneration node.
 
@@ -1219,7 +1219,7 @@ OutputType: text
 class AudioIntentDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L972)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L974)
 
 Input parameters for AudioIntentDetection.
 
@@ -1229,7 +1229,7 @@ Input parameters for AudioIntentDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L977)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L979)
 
 Initialize AudioIntentDetectionInputs.
 
@@ -1239,7 +1239,7 @@ Initialize AudioIntentDetectionInputs.
 class AudioIntentDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L983)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L985)
 
 Output parameters for AudioIntentDetection.
 
@@ -1249,7 +1249,7 @@ Output parameters for AudioIntentDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L988)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L990)
 
 Initialize AudioIntentDetectionOutputs.
 
@@ -1260,7 +1260,7 @@ class AudioIntentDetection(AssetNode[AudioIntentDetectionInputs,
                                      AudioIntentDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L994)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L996)
 
 AudioIntentDetection node.
 
@@ -1278,7 +1278,7 @@ OutputType: label
 class EntityLinkingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1014)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1016)
 
 Input parameters for EntityLinking.
 
@@ -1288,7 +1288,7 @@ Input parameters for EntityLinking.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1021)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1023)
 
 Initialize EntityLinkingInputs.
 
@@ -1298,7 +1298,7 @@ Initialize EntityLinkingInputs.
 class EntityLinkingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1029)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1031)
 
 Output parameters for EntityLinking.
 
@@ -1308,7 +1308,7 @@ Output parameters for EntityLinking.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1034)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1036)
 
 Initialize EntityLinkingOutputs.
 
@@ -1318,7 +1318,7 @@ Initialize EntityLinkingOutputs.
 class EntityLinking(AssetNode[EntityLinkingInputs, EntityLinkingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1040)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1042)
 
 EntityLinking node.
 
@@ -1334,7 +1334,7 @@ OutputType: label
 class ConnectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1058)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1060)
 
 Input parameters for Connection.
 
@@ -1344,7 +1344,7 @@ Input parameters for Connection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1063)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1065)
 
 Initialize ConnectionInputs.
 
@@ -1354,7 +1354,7 @@ Initialize ConnectionInputs.
 class ConnectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1069)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1071)
 
 Output parameters for Connection.
 
@@ -1364,7 +1364,7 @@ Output parameters for Connection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1074)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1076)
 
 Initialize ConnectionOutputs.
 
@@ -1374,7 +1374,7 @@ Initialize ConnectionOutputs.
 class Connection(AssetNode[ConnectionInputs, ConnectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1080)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1082)
 
 Connection node.
 
@@ -1390,7 +1390,7 @@ OutputType: text
 class VisualQuestionAnsweringInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1098)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1100)
 
 Input parameters for VisualQuestionAnswering.
 
@@ -1400,7 +1400,7 @@ Input parameters for VisualQuestionAnswering.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1105)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1107)
 
 Initialize VisualQuestionAnsweringInputs.
 
@@ -1410,7 +1410,7 @@ Initialize VisualQuestionAnsweringInputs.
 class VisualQuestionAnsweringOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1113)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1115)
 
 Output parameters for VisualQuestionAnswering.
 
@@ -1420,7 +1420,7 @@ Output parameters for VisualQuestionAnswering.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1118)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1120)
 
 Initialize VisualQuestionAnsweringOutputs.
 
@@ -1431,7 +1431,7 @@ class VisualQuestionAnswering(AssetNode[VisualQuestionAnsweringInputs,
                                         VisualQuestionAnsweringOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1124)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1126)
 
 VisualQuestionAnswering node.
 
@@ -1448,7 +1448,7 @@ OutputType: video
 class LoglikelihoodInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1143)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1145)
 
 Input parameters for Loglikelihood.
 
@@ -1458,7 +1458,7 @@ Input parameters for Loglikelihood.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1148)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1150)
 
 Initialize LoglikelihoodInputs.
 
@@ -1468,7 +1468,7 @@ Initialize LoglikelihoodInputs.
 class LoglikelihoodOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1154)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1156)
 
 Output parameters for Loglikelihood.
 
@@ -1478,7 +1478,7 @@ Output parameters for Loglikelihood.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1159)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1161)
 
 Initialize LoglikelihoodOutputs.
 
@@ -1488,7 +1488,7 @@ Initialize LoglikelihoodOutputs.
 class Loglikelihood(AssetNode[LoglikelihoodInputs, LoglikelihoodOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1165)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1167)
 
 Loglikelihood node.
 
@@ -1506,7 +1506,7 @@ OutputType: number
 class LanguageIdentificationAudioInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1185)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1187)
 
 Input parameters for LanguageIdentificationAudio.
 
@@ -1516,7 +1516,7 @@ Input parameters for LanguageIdentificationAudio.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1190)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1192)
 
 Initialize LanguageIdentificationAudioInputs.
 
@@ -1526,7 +1526,7 @@ Initialize LanguageIdentificationAudioInputs.
 class LanguageIdentificationAudioOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1196)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1198)
 
 Output parameters for LanguageIdentificationAudio.
 
@@ -1536,7 +1536,7 @@ Output parameters for LanguageIdentificationAudio.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1201)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1203)
 
 Initialize LanguageIdentificationAudioOutputs.
 
@@ -1548,7 +1548,7 @@ class LanguageIdentificationAudio(AssetNode[LanguageIdentificationAudioInputs,
                                   )
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1207)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1209)
 
 LanguageIdentificationAudio node.
 
@@ -1564,7 +1564,7 @@ OutputType: label
 class FactCheckingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1225)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1227)
 
 Input parameters for FactChecking.
 
@@ -1574,7 +1574,7 @@ Input parameters for FactChecking.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1231)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1233)
 
 Initialize FactCheckingInputs.
 
@@ -1584,7 +1584,7 @@ Initialize FactCheckingInputs.
 class FactCheckingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1238)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1240)
 
 Output parameters for FactChecking.
 
@@ -1594,7 +1594,7 @@ Output parameters for FactChecking.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1243)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1245)
 
 Initialize FactCheckingOutputs.
 
@@ -1604,7 +1604,7 @@ Initialize FactCheckingOutputs.
 class FactChecking(AssetNode[FactCheckingInputs, FactCheckingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1249)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1251)
 
 FactChecking node.
 
@@ -1621,7 +1621,7 @@ OutputType: label
 class TableQuestionAnsweringInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1268)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1270)
 
 Input parameters for TableQuestionAnswering.
 
@@ -1631,7 +1631,7 @@ Input parameters for TableQuestionAnswering.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1274)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1276)
 
 Initialize TableQuestionAnsweringInputs.
 
@@ -1641,7 +1641,7 @@ Initialize TableQuestionAnsweringInputs.
 class TableQuestionAnsweringOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1281)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1283)
 
 Output parameters for TableQuestionAnswering.
 
@@ -1651,7 +1651,7 @@ Output parameters for TableQuestionAnswering.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1286)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1288)
 
 Initialize TableQuestionAnsweringOutputs.
 
@@ -1662,7 +1662,7 @@ class TableQuestionAnswering(AssetNode[TableQuestionAnsweringInputs,
                                        TableQuestionAnsweringOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1292)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1294)
 
 TableQuestionAnswering node.
 
@@ -1679,7 +1679,7 @@ OutputType: text
 class SpeechClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1311)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1313)
 
 Input parameters for SpeechClassification.
 
@@ -1689,7 +1689,7 @@ Input parameters for SpeechClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1319)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1321)
 
 Initialize SpeechClassificationInputs.
 
@@ -1699,7 +1699,7 @@ Initialize SpeechClassificationInputs.
 class SpeechClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1328)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1330)
 
 Output parameters for SpeechClassification.
 
@@ -1709,7 +1709,7 @@ Output parameters for SpeechClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1333)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1335)
 
 Initialize SpeechClassificationOutputs.
 
@@ -1720,7 +1720,7 @@ class SpeechClassification(AssetNode[SpeechClassificationInputs,
                                      SpeechClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1339)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1341)
 
 SpeechClassification node.
 
@@ -1736,7 +1736,7 @@ OutputType: label
 class InverseTextNormalizationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1357)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1359)
 
 Input parameters for InverseTextNormalization.
 
@@ -1746,7 +1746,7 @@ Input parameters for InverseTextNormalization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1362)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1364)
 
 Initialize InverseTextNormalizationInputs.
 
@@ -1756,7 +1756,7 @@ Initialize InverseTextNormalizationInputs.
 class InverseTextNormalizationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1368)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1370)
 
 Output parameters for InverseTextNormalization.
 
@@ -1766,7 +1766,7 @@ Output parameters for InverseTextNormalization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1373)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1375)
 
 Initialize InverseTextNormalizationOutputs.
 
@@ -1777,7 +1777,7 @@ class InverseTextNormalization(AssetNode[InverseTextNormalizationInputs,
                                          InverseTextNormalizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1379)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1381)
 
 InverseTextNormalization node.
 
@@ -1794,7 +1794,7 @@ OutputType: label
 class MultiClassImageClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1398)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1400)
 
 Input parameters for MultiClassImageClassification.
 
@@ -1804,7 +1804,7 @@ Input parameters for MultiClassImageClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1403)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1405)
 
 Initialize MultiClassImageClassificationInputs.
 
@@ -1814,7 +1814,7 @@ Initialize MultiClassImageClassificationInputs.
 class MultiClassImageClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1409)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1411)
 
 Output parameters for MultiClassImageClassification.
 
@@ -1824,7 +1824,7 @@ Output parameters for MultiClassImageClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1414)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1416)
 
 Initialize MultiClassImageClassificationOutputs.
 
@@ -1836,7 +1836,7 @@ class MultiClassImageClassification(
                   MultiClassImageClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1420)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1422)
 
 MultiClassImageClassification node.
 
@@ -1853,7 +1853,7 @@ OutputType: label
 class AsrGenderClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1441)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1443)
 
 Input parameters for AsrGenderClassification.
 
@@ -1863,7 +1863,7 @@ Input parameters for AsrGenderClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1446)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1448)
 
 Initialize AsrGenderClassificationInputs.
 
@@ -1873,7 +1873,7 @@ Initialize AsrGenderClassificationInputs.
 class AsrGenderClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1452)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1454)
 
 Output parameters for AsrGenderClassification.
 
@@ -1883,7 +1883,7 @@ Output parameters for AsrGenderClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1457)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1459)
 
 Initialize AsrGenderClassificationOutputs.
 
@@ -1894,7 +1894,7 @@ class AsrGenderClassification(AssetNode[AsrGenderClassificationInputs,
                                         AsrGenderClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1463)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1465)
 
 AsrGenderClassification node.
 
@@ -1910,7 +1910,7 @@ OutputType: label
 class SummarizationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1481)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1483)
 
 Input parameters for Summarization.
 
@@ -1920,7 +1920,7 @@ Input parameters for Summarization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1489)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1491)
 
 Initialize SummarizationInputs.
 
@@ -1930,7 +1930,7 @@ Initialize SummarizationInputs.
 class SummarizationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1498)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1500)
 
 Output parameters for Summarization.
 
@@ -1940,7 +1940,7 @@ Output parameters for Summarization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1503)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1505)
 
 Initialize SummarizationOutputs.
 
@@ -1950,7 +1950,7 @@ Initialize SummarizationOutputs.
 class Summarization(AssetNode[SummarizationInputs, SummarizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1509)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1511)
 
 Summarization node.
 
@@ -1967,7 +1967,7 @@ OutputType: text
 class TopicModelingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1528)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1530)
 
 Input parameters for TopicModeling.
 
@@ -1977,7 +1977,7 @@ Input parameters for TopicModeling.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1535)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1537)
 
 Initialize TopicModelingInputs.
 
@@ -1987,7 +1987,7 @@ Initialize TopicModelingInputs.
 class TopicModelingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1543)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1545)
 
 Output parameters for TopicModeling.
 
@@ -1997,7 +1997,7 @@ Output parameters for TopicModeling.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1548)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1550)
 
 Initialize TopicModelingOutputs.
 
@@ -2007,7 +2007,7 @@ Initialize TopicModelingOutputs.
 class TopicModeling(AssetNode[TopicModelingInputs, TopicModelingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1554)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1556)
 
 TopicModeling node.
 
@@ -2023,7 +2023,7 @@ OutputType: label
 class AudioReconstructionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1572)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1574)
 
 Input parameters for AudioReconstruction.
 
@@ -2033,7 +2033,7 @@ Input parameters for AudioReconstruction.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1577)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1579)
 
 Initialize AudioReconstructionInputs.
 
@@ -2043,7 +2043,7 @@ Initialize AudioReconstructionInputs.
 class AudioReconstructionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1583)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1585)
 
 Output parameters for AudioReconstruction.
 
@@ -2053,7 +2053,7 @@ Output parameters for AudioReconstruction.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1588)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1590)
 
 Initialize AudioReconstructionOutputs.
 
@@ -2064,7 +2064,7 @@ class AudioReconstruction(BaseReconstructor[AudioReconstructionInputs,
                                             AudioReconstructionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1594)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1596)
 
 AudioReconstruction node.
 
@@ -2081,7 +2081,7 @@ OutputType: audio
 class TextEmbeddingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1613)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1615)
 
 Input parameters for TextEmbedding.
 
@@ -2091,7 +2091,7 @@ Input parameters for TextEmbedding.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1621)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1623)
 
 Initialize TextEmbeddingInputs.
 
@@ -2101,7 +2101,7 @@ Initialize TextEmbeddingInputs.
 class TextEmbeddingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1630)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1632)
 
 Output parameters for TextEmbedding.
 
@@ -2111,7 +2111,7 @@ Output parameters for TextEmbedding.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1635)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1637)
 
 Initialize TextEmbeddingOutputs.
 
@@ -2121,7 +2121,7 @@ Initialize TextEmbeddingOutputs.
 class TextEmbedding(AssetNode[TextEmbeddingInputs, TextEmbeddingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1641)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1643)
 
 TextEmbedding node.
 
@@ -2139,7 +2139,7 @@ OutputType: text
 class DetectLanguageFromTextInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1661)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1663)
 
 Input parameters for DetectLanguageFromText.
 
@@ -2149,7 +2149,7 @@ Input parameters for DetectLanguageFromText.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1666)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1668)
 
 Initialize DetectLanguageFromTextInputs.
 
@@ -2159,7 +2159,7 @@ Initialize DetectLanguageFromTextInputs.
 class DetectLanguageFromTextOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1672)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1674)
 
 Output parameters for DetectLanguageFromText.
 
@@ -2169,7 +2169,7 @@ Output parameters for DetectLanguageFromText.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1677)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1679)
 
 Initialize DetectLanguageFromTextOutputs.
 
@@ -2180,7 +2180,7 @@ class DetectLanguageFromText(AssetNode[DetectLanguageFromTextInputs,
                                        DetectLanguageFromTextOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1683)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1685)
 
 DetectLanguageFromText node.
 
@@ -2195,7 +2195,7 @@ OutputType: label
 class ExtractAudioFromVideoInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1700)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1702)
 
 Input parameters for ExtractAudioFromVideo.
 
@@ -2205,7 +2205,7 @@ Input parameters for ExtractAudioFromVideo.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1705)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1707)
 
 Initialize ExtractAudioFromVideoInputs.
 
@@ -2215,7 +2215,7 @@ Initialize ExtractAudioFromVideoInputs.
 class ExtractAudioFromVideoOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1711)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1713)
 
 Output parameters for ExtractAudioFromVideo.
 
@@ -2225,7 +2225,7 @@ Output parameters for ExtractAudioFromVideo.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1716)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1718)
 
 Initialize ExtractAudioFromVideoOutputs.
 
@@ -2236,7 +2236,7 @@ class ExtractAudioFromVideo(AssetNode[ExtractAudioFromVideoInputs,
                                       ExtractAudioFromVideoOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1722)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1724)
 
 ExtractAudioFromVideo node.
 
@@ -2252,7 +2252,7 @@ OutputType: audio
 class SceneDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1740)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1742)
 
 Input parameters for SceneDetection.
 
@@ -2262,7 +2262,7 @@ Input parameters for SceneDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1745)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1747)
 
 Initialize SceneDetectionInputs.
 
@@ -2272,7 +2272,7 @@ Initialize SceneDetectionInputs.
 class SceneDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1751)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1753)
 
 Output parameters for SceneDetection.
 
@@ -2282,7 +2282,7 @@ Output parameters for SceneDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1756)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1758)
 
 Initialize SceneDetectionOutputs.
 
@@ -2292,7 +2292,7 @@ Initialize SceneDetectionOutputs.
 class SceneDetection(AssetNode[SceneDetectionInputs, SceneDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1762)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1764)
 
 SceneDetection node.
 
@@ -2308,7 +2308,7 @@ OutputType: text
 class TextToImageGenerationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1780)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1782)
 
 Input parameters for TextToImageGeneration.
 
@@ -2318,7 +2318,7 @@ Input parameters for TextToImageGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1785)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1787)
 
 Initialize TextToImageGenerationInputs.
 
@@ -2328,7 +2328,7 @@ Initialize TextToImageGenerationInputs.
 class TextToImageGenerationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1791)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1793)
 
 Output parameters for TextToImageGeneration.
 
@@ -2338,7 +2338,7 @@ Output parameters for TextToImageGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1796)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1798)
 
 Initialize TextToImageGenerationOutputs.
 
@@ -2349,7 +2349,7 @@ class TextToImageGeneration(AssetNode[TextToImageGenerationInputs,
                                       TextToImageGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1802)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1804)
 
 TextToImageGeneration node.
 
@@ -2365,7 +2365,7 @@ OutputType: image
 class AutoMaskGenerationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1820)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1822)
 
 Input parameters for AutoMaskGeneration.
 
@@ -2375,7 +2375,7 @@ Input parameters for AutoMaskGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1825)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1827)
 
 Initialize AutoMaskGenerationInputs.
 
@@ -2385,7 +2385,7 @@ Initialize AutoMaskGenerationInputs.
 class AutoMaskGenerationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1831)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1833)
 
 Output parameters for AutoMaskGeneration.
 
@@ -2395,7 +2395,7 @@ Output parameters for AutoMaskGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1836)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1838)
 
 Initialize AutoMaskGenerationOutputs.
 
@@ -2406,7 +2406,7 @@ class AutoMaskGeneration(AssetNode[AutoMaskGenerationInputs,
                                    AutoMaskGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1842)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1844)
 
 AutoMaskGeneration node.
 
@@ -2425,7 +2425,7 @@ OutputType: label
 class AudioLanguageIdentificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1863)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1865)
 
 Input parameters for AudioLanguageIdentification.
 
@@ -2435,7 +2435,7 @@ Input parameters for AudioLanguageIdentification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1868)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1870)
 
 Initialize AudioLanguageIdentificationInputs.
 
@@ -2445,7 +2445,7 @@ Initialize AudioLanguageIdentificationInputs.
 class AudioLanguageIdentificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1874)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1876)
 
 Output parameters for AudioLanguageIdentification.
 
@@ -2455,7 +2455,7 @@ Output parameters for AudioLanguageIdentification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1879)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1881)
 
 Initialize AudioLanguageIdentificationOutputs.
 
@@ -2467,7 +2467,7 @@ class AudioLanguageIdentification(AssetNode[AudioLanguageIdentificationInputs,
                                   )
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1885)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1887)
 
 AudioLanguageIdentification node.
 
@@ -2483,7 +2483,7 @@ OutputType: label
 class FacialRecognitionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1903)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1905)
 
 Input parameters for FacialRecognition.
 
@@ -2493,7 +2493,7 @@ Input parameters for FacialRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1908)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1910)
 
 Initialize FacialRecognitionInputs.
 
@@ -2503,7 +2503,7 @@ Initialize FacialRecognitionInputs.
 class FacialRecognitionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1914)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1916)
 
 Output parameters for FacialRecognition.
 
@@ -2513,7 +2513,7 @@ Output parameters for FacialRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1919)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1921)
 
 Initialize FacialRecognitionOutputs.
 
@@ -2524,7 +2524,7 @@ class FacialRecognition(AssetNode[FacialRecognitionInputs,
                                   FacialRecognitionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1925)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1927)
 
 FacialRecognition node.
 
@@ -2540,7 +2540,7 @@ OutputType: label
 class QuestionAnsweringInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1943)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1945)
 
 Input parameters for QuestionAnswering.
 
@@ -2550,7 +2550,7 @@ Input parameters for QuestionAnswering.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1949)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1951)
 
 Initialize QuestionAnsweringInputs.
 
@@ -2560,7 +2560,7 @@ Initialize QuestionAnsweringInputs.
 class QuestionAnsweringOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1956)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1958)
 
 Output parameters for QuestionAnswering.
 
@@ -2570,7 +2570,7 @@ Output parameters for QuestionAnswering.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1961)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1963)
 
 Initialize QuestionAnsweringOutputs.
 
@@ -2581,7 +2581,7 @@ class QuestionAnswering(AssetNode[QuestionAnsweringInputs,
                                   QuestionAnsweringOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1967)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1969)
 
 QuestionAnswering node.
 
@@ -2597,7 +2597,7 @@ OutputType: text
 class ImageImpaintingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1985)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1987)
 
 Input parameters for ImageImpainting.
 
@@ -2607,7 +2607,7 @@ Input parameters for ImageImpainting.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1990)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1992)
 
 Initialize ImageImpaintingInputs.
 
@@ -2617,7 +2617,7 @@ Initialize ImageImpaintingInputs.
 class ImageImpaintingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1996)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L1998)
 
 Output parameters for ImageImpainting.
 
@@ -2627,7 +2627,7 @@ Output parameters for ImageImpainting.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2001)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2003)
 
 Initialize ImageImpaintingOutputs.
 
@@ -2638,7 +2638,7 @@ class ImageImpainting(AssetNode[ImageImpaintingInputs,
                                 ImageImpaintingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2007)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2009)
 
 ImageImpainting node.
 
@@ -2656,7 +2656,7 @@ OutputType: image
 class TextReconstructionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2027)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2029)
 
 Input parameters for TextReconstruction.
 
@@ -2666,7 +2666,7 @@ Input parameters for TextReconstruction.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2032)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2034)
 
 Initialize TextReconstructionInputs.
 
@@ -2676,7 +2676,7 @@ Initialize TextReconstructionInputs.
 class TextReconstructionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2038)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2040)
 
 Output parameters for TextReconstruction.
 
@@ -2686,7 +2686,7 @@ Output parameters for TextReconstruction.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2043)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2045)
 
 Initialize TextReconstructionOutputs.
 
@@ -2697,7 +2697,7 @@ class TextReconstruction(BaseReconstructor[TextReconstructionInputs,
                                            TextReconstructionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2049)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2051)
 
 TextReconstruction node.
 
@@ -2713,7 +2713,7 @@ OutputType: text
 class ScriptExecutionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2067)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2069)
 
 Input parameters for ScriptExecution.
 
@@ -2723,7 +2723,7 @@ Input parameters for ScriptExecution.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2072)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2074)
 
 Initialize ScriptExecutionInputs.
 
@@ -2733,7 +2733,7 @@ Initialize ScriptExecutionInputs.
 class ScriptExecutionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2078)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2080)
 
 Output parameters for ScriptExecution.
 
@@ -2743,7 +2743,7 @@ Output parameters for ScriptExecution.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2083)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2085)
 
 Initialize ScriptExecutionOutputs.
 
@@ -2754,7 +2754,7 @@ class ScriptExecution(AssetNode[ScriptExecutionInputs,
                                 ScriptExecutionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2089)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2091)
 
 ScriptExecution node.
 
@@ -2771,7 +2771,7 @@ OutputType: text
 class SemanticSegmentationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2108)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2110)
 
 Input parameters for SemanticSegmentation.
 
@@ -2781,7 +2781,7 @@ Input parameters for SemanticSegmentation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2113)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2115)
 
 Initialize SemanticSegmentationInputs.
 
@@ -2791,7 +2791,7 @@ Initialize SemanticSegmentationInputs.
 class SemanticSegmentationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2119)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2121)
 
 Output parameters for SemanticSegmentation.
 
@@ -2801,7 +2801,7 @@ Output parameters for SemanticSegmentation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2124)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2126)
 
 Initialize SemanticSegmentationOutputs.
 
@@ -2812,7 +2812,7 @@ class SemanticSegmentation(AssetNode[SemanticSegmentationInputs,
                                      SemanticSegmentationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2130)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2132)
 
 SemanticSegmentation node.
 
@@ -2829,7 +2829,7 @@ OutputType: label
 class AudioEmotionDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2149)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2151)
 
 Input parameters for AudioEmotionDetection.
 
@@ -2839,7 +2839,7 @@ Input parameters for AudioEmotionDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2154)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2156)
 
 Initialize AudioEmotionDetectionInputs.
 
@@ -2849,7 +2849,7 @@ Initialize AudioEmotionDetectionInputs.
 class AudioEmotionDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2160)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2162)
 
 Output parameters for AudioEmotionDetection.
 
@@ -2859,7 +2859,7 @@ Output parameters for AudioEmotionDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2165)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2167)
 
 Initialize AudioEmotionDetectionOutputs.
 
@@ -2870,7 +2870,7 @@ class AudioEmotionDetection(AssetNode[AudioEmotionDetectionInputs,
                                       AudioEmotionDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2171)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2173)
 
 AudioEmotionDetection node.
 
@@ -2887,7 +2887,7 @@ OutputType: label
 class ImageCaptioningInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2190)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2192)
 
 Input parameters for ImageCaptioning.
 
@@ -2897,7 +2897,7 @@ Input parameters for ImageCaptioning.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2195)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2197)
 
 Initialize ImageCaptioningInputs.
 
@@ -2907,7 +2907,7 @@ Initialize ImageCaptioningInputs.
 class ImageCaptioningOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2201)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2203)
 
 Output parameters for ImageCaptioning.
 
@@ -2917,7 +2917,7 @@ Output parameters for ImageCaptioning.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2206)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2208)
 
 Initialize ImageCaptioningOutputs.
 
@@ -2928,7 +2928,7 @@ class ImageCaptioning(AssetNode[ImageCaptioningInputs,
                                 ImageCaptioningOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2212)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2214)
 
 ImageCaptioning node.
 
@@ -2946,7 +2946,7 @@ OutputType: text
 class SplitOnLinebreakInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2232)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2234)
 
 Input parameters for SplitOnLinebreak.
 
@@ -2956,7 +2956,7 @@ Input parameters for SplitOnLinebreak.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2237)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2239)
 
 Initialize SplitOnLinebreakInputs.
 
@@ -2966,7 +2966,7 @@ Initialize SplitOnLinebreakInputs.
 class SplitOnLinebreakOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2243)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2245)
 
 Output parameters for SplitOnLinebreak.
 
@@ -2976,7 +2976,7 @@ Output parameters for SplitOnLinebreak.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2249)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2251)
 
 Initialize SplitOnLinebreakOutputs.
 
@@ -2987,7 +2987,7 @@ class SplitOnLinebreak(BaseSegmentor[SplitOnLinebreakInputs,
                                      SplitOnLinebreakOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2256)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2258)
 
 SplitOnLinebreak node.
 
@@ -3003,7 +3003,7 @@ OutputType: text
 class StyleTransferInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2274)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2276)
 
 Input parameters for StyleTransfer.
 
@@ -3013,7 +3013,7 @@ Input parameters for StyleTransfer.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2279)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2281)
 
 Initialize StyleTransferInputs.
 
@@ -3023,7 +3023,7 @@ Initialize StyleTransferInputs.
 class StyleTransferOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2285)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2287)
 
 Output parameters for StyleTransfer.
 
@@ -3033,7 +3033,7 @@ Output parameters for StyleTransfer.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2290)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2292)
 
 Initialize StyleTransferOutputs.
 
@@ -3043,7 +3043,7 @@ Initialize StyleTransferOutputs.
 class StyleTransfer(AssetNode[StyleTransferInputs, StyleTransferOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2296)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2298)
 
 StyleTransfer node.
 
@@ -3061,7 +3061,7 @@ OutputType: image
 class BaseModelInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2316)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2318)
 
 Input parameters for BaseModel.
 
@@ -3071,7 +3071,7 @@ Input parameters for BaseModel.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2322)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2324)
 
 Initialize BaseModelInputs.
 
@@ -3081,7 +3081,7 @@ Initialize BaseModelInputs.
 class BaseModelOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2329)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2331)
 
 Output parameters for BaseModel.
 
@@ -3091,7 +3091,7 @@ Output parameters for BaseModel.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2334)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2336)
 
 Initialize BaseModelOutputs.
 
@@ -3101,7 +3101,7 @@ Initialize BaseModelOutputs.
 class BaseModel(AssetNode[BaseModelInputs, BaseModelOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2340)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2342)
 
 BaseModel node.
 
@@ -3118,7 +3118,7 @@ OutputType: text
 class ImageManipulationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2359)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2361)
 
 Input parameters for ImageManipulation.
 
@@ -3128,7 +3128,7 @@ Input parameters for ImageManipulation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2365)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2367)
 
 Initialize ImageManipulationInputs.
 
@@ -3138,7 +3138,7 @@ Initialize ImageManipulationInputs.
 class ImageManipulationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2372)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2374)
 
 Output parameters for ImageManipulation.
 
@@ -3148,7 +3148,7 @@ Output parameters for ImageManipulation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2377)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2379)
 
 Initialize ImageManipulationOutputs.
 
@@ -3159,7 +3159,7 @@ class ImageManipulation(AssetNode[ImageManipulationInputs,
                                   ImageManipulationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2383)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2385)
 
 ImageManipulation node.
 
@@ -3176,7 +3176,7 @@ OutputType: image
 class VideoEmbeddingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2402)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2404)
 
 Input parameters for VideoEmbedding.
 
@@ -3186,7 +3186,7 @@ Input parameters for VideoEmbedding.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2408)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2410)
 
 Initialize VideoEmbeddingInputs.
 
@@ -3196,7 +3196,7 @@ Initialize VideoEmbeddingInputs.
 class VideoEmbeddingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2415)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2417)
 
 Output parameters for VideoEmbedding.
 
@@ -3206,7 +3206,7 @@ Output parameters for VideoEmbedding.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2420)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2422)
 
 Initialize VideoEmbeddingOutputs.
 
@@ -3216,7 +3216,7 @@ Initialize VideoEmbeddingOutputs.
 class VideoEmbedding(AssetNode[VideoEmbeddingInputs, VideoEmbeddingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2426)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2428)
 
 VideoEmbedding node.
 
@@ -3233,7 +3233,7 @@ OutputType: embedding
 class DialectDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2445)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2447)
 
 Input parameters for DialectDetection.
 
@@ -3243,7 +3243,7 @@ Input parameters for DialectDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2451)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2453)
 
 Initialize DialectDetectionInputs.
 
@@ -3253,7 +3253,7 @@ Initialize DialectDetectionInputs.
 class DialectDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2458)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2460)
 
 Output parameters for DialectDetection.
 
@@ -3263,7 +3263,7 @@ Output parameters for DialectDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2463)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2465)
 
 Initialize DialectDetectionOutputs.
 
@@ -3274,7 +3274,7 @@ class DialectDetection(AssetNode[DialectDetectionInputs,
                                  DialectDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2469)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2471)
 
 DialectDetection node.
 
@@ -3290,7 +3290,7 @@ OutputType: text
 class FillTextMaskInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2487)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2489)
 
 Input parameters for FillTextMask.
 
@@ -3300,7 +3300,7 @@ Input parameters for FillTextMask.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2495)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2497)
 
 Initialize FillTextMaskInputs.
 
@@ -3310,7 +3310,7 @@ Initialize FillTextMaskInputs.
 class FillTextMaskOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2504)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2506)
 
 Output parameters for FillTextMask.
 
@@ -3320,7 +3320,7 @@ Output parameters for FillTextMask.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2509)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2511)
 
 Initialize FillTextMaskOutputs.
 
@@ -3330,7 +3330,7 @@ Initialize FillTextMaskOutputs.
 class FillTextMask(AssetNode[FillTextMaskInputs, FillTextMaskOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2515)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2517)
 
 FillTextMask node.
 
@@ -3346,7 +3346,7 @@ OutputType: text
 class ActivityDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2533)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2535)
 
 Input parameters for ActivityDetection.
 
@@ -3356,7 +3356,7 @@ Input parameters for ActivityDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2538)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2540)
 
 Initialize ActivityDetectionInputs.
 
@@ -3366,7 +3366,7 @@ Initialize ActivityDetectionInputs.
 class ActivityDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2544)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2546)
 
 Output parameters for ActivityDetection.
 
@@ -3376,7 +3376,7 @@ Output parameters for ActivityDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2549)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2551)
 
 Initialize ActivityDetectionOutputs.
 
@@ -3387,7 +3387,7 @@ class ActivityDetection(AssetNode[ActivityDetectionInputs,
                                   ActivityDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2555)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2557)
 
 ActivityDetection node.
 
@@ -3403,7 +3403,7 @@ OutputType: label
 class SelectSupplierForTranslationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2573)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2575)
 
 Input parameters for SelectSupplierForTranslation.
 
@@ -3413,7 +3413,7 @@ Input parameters for SelectSupplierForTranslation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2579)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2581)
 
 Initialize SelectSupplierForTranslationInputs.
 
@@ -3423,7 +3423,7 @@ Initialize SelectSupplierForTranslationInputs.
 class SelectSupplierForTranslationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2586)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2588)
 
 Output parameters for SelectSupplierForTranslation.
 
@@ -3433,7 +3433,7 @@ Output parameters for SelectSupplierForTranslation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2591)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2593)
 
 Initialize SelectSupplierForTranslationOutputs.
 
@@ -3445,7 +3445,7 @@ class SelectSupplierForTranslation(
                   SelectSupplierForTranslationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2597)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2599)
 
 SelectSupplierForTranslation node.
 
@@ -3460,7 +3460,7 @@ OutputType: label
 class ExpressionDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2614)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2616)
 
 Input parameters for ExpressionDetection.
 
@@ -3470,7 +3470,7 @@ Input parameters for ExpressionDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2619)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2621)
 
 Initialize ExpressionDetectionInputs.
 
@@ -3480,7 +3480,7 @@ Initialize ExpressionDetectionInputs.
 class ExpressionDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2625)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2627)
 
 Output parameters for ExpressionDetection.
 
@@ -3490,7 +3490,7 @@ Output parameters for ExpressionDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2630)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2632)
 
 Initialize ExpressionDetectionOutputs.
 
@@ -3501,7 +3501,7 @@ class ExpressionDetection(AssetNode[ExpressionDetectionInputs,
                                     ExpressionDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2636)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2638)
 
 ExpressionDetection node.
 
@@ -3518,7 +3518,7 @@ OutputType: label
 class VideoGenerationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2655)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2657)
 
 Input parameters for VideoGeneration.
 
@@ -3528,7 +3528,7 @@ Input parameters for VideoGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2660)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2662)
 
 Initialize VideoGenerationInputs.
 
@@ -3538,7 +3538,7 @@ Initialize VideoGenerationInputs.
 class VideoGenerationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2666)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2668)
 
 Output parameters for VideoGeneration.
 
@@ -3548,7 +3548,7 @@ Output parameters for VideoGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2671)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2673)
 
 Initialize VideoGenerationOutputs.
 
@@ -3559,7 +3559,7 @@ class VideoGeneration(AssetNode[VideoGenerationInputs,
                                 VideoGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2677)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2679)
 
 VideoGeneration node.
 
@@ -3575,7 +3575,7 @@ OutputType: video
 class ImageAnalysisInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2695)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2697)
 
 Input parameters for ImageAnalysis.
 
@@ -3585,7 +3585,7 @@ Input parameters for ImageAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2700)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2702)
 
 Initialize ImageAnalysisInputs.
 
@@ -3595,7 +3595,7 @@ Initialize ImageAnalysisInputs.
 class ImageAnalysisOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2706)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2708)
 
 Output parameters for ImageAnalysis.
 
@@ -3605,7 +3605,7 @@ Output parameters for ImageAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2711)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2713)
 
 Initialize ImageAnalysisOutputs.
 
@@ -3615,7 +3615,7 @@ Initialize ImageAnalysisOutputs.
 class ImageAnalysis(AssetNode[ImageAnalysisInputs, ImageAnalysisOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2717)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2719)
 
 ImageAnalysis node.
 
@@ -3630,7 +3630,7 @@ OutputType: label
 class NoiseRemovalInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2734)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2736)
 
 Input parameters for NoiseRemoval.
 
@@ -3640,7 +3640,7 @@ Input parameters for NoiseRemoval.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2739)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2741)
 
 Initialize NoiseRemovalInputs.
 
@@ -3650,7 +3650,7 @@ Initialize NoiseRemovalInputs.
 class NoiseRemovalOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2745)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2747)
 
 Output parameters for NoiseRemoval.
 
@@ -3660,7 +3660,7 @@ Output parameters for NoiseRemoval.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2750)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2752)
 
 Initialize NoiseRemovalOutputs.
 
@@ -3670,7 +3670,7 @@ Initialize NoiseRemovalOutputs.
 class NoiseRemoval(AssetNode[NoiseRemovalInputs, NoiseRemovalOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2756)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2758)
 
 NoiseRemoval node.
 
@@ -3687,7 +3687,7 @@ OutputType: audio
 class ImageAndVideoAnalysisInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2775)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2777)
 
 Input parameters for ImageAndVideoAnalysis.
 
@@ -3697,7 +3697,7 @@ Input parameters for ImageAndVideoAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2780)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2782)
 
 Initialize ImageAndVideoAnalysisInputs.
 
@@ -3707,7 +3707,7 @@ Initialize ImageAndVideoAnalysisInputs.
 class ImageAndVideoAnalysisOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2786)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2788)
 
 Output parameters for ImageAndVideoAnalysis.
 
@@ -3717,7 +3717,7 @@ Output parameters for ImageAndVideoAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2791)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2793)
 
 Initialize ImageAndVideoAnalysisOutputs.
 
@@ -3728,7 +3728,7 @@ class ImageAndVideoAnalysis(AssetNode[ImageAndVideoAnalysisInputs,
                                       ImageAndVideoAnalysisOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2797)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2799)
 
 ImageAndVideoAnalysis node.
 
@@ -3741,7 +3741,7 @@ OutputType: text
 class KeywordExtractionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2812)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2814)
 
 Input parameters for KeywordExtraction.
 
@@ -3751,7 +3751,7 @@ Input parameters for KeywordExtraction.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2820)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2822)
 
 Initialize KeywordExtractionInputs.
 
@@ -3761,7 +3761,7 @@ Initialize KeywordExtractionInputs.
 class KeywordExtractionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2829)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2831)
 
 Output parameters for KeywordExtraction.
 
@@ -3771,7 +3771,7 @@ Output parameters for KeywordExtraction.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2834)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2836)
 
 Initialize KeywordExtractionOutputs.
 
@@ -3782,7 +3782,7 @@ class KeywordExtraction(AssetNode[KeywordExtractionInputs,
                                   KeywordExtractionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2840)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2842)
 
 KeywordExtraction node.
 
@@ -3799,7 +3799,7 @@ OutputType: label
 class SplitOnSilenceInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2859)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2861)
 
 Input parameters for SplitOnSilence.
 
@@ -3809,7 +3809,7 @@ Input parameters for SplitOnSilence.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2864)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2866)
 
 Initialize SplitOnSilenceInputs.
 
@@ -3819,7 +3819,7 @@ Initialize SplitOnSilenceInputs.
 class SplitOnSilenceOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2870)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2872)
 
 Output parameters for SplitOnSilence.
 
@@ -3829,7 +3829,7 @@ Output parameters for SplitOnSilence.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2875)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2877)
 
 Initialize SplitOnSilenceOutputs.
 
@@ -3839,7 +3839,7 @@ Initialize SplitOnSilenceOutputs.
 class SplitOnSilence(AssetNode[SplitOnSilenceInputs, SplitOnSilenceOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2881)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2883)
 
 SplitOnSilence node.
 
@@ -3856,7 +3856,7 @@ OutputType: audio
 class IntentRecognitionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2900)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2902)
 
 Input parameters for IntentRecognition.
 
@@ -3866,7 +3866,7 @@ Input parameters for IntentRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2907)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2909)
 
 Initialize IntentRecognitionInputs.
 
@@ -3876,7 +3876,7 @@ Initialize IntentRecognitionInputs.
 class IntentRecognitionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2915)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2917)
 
 Output parameters for IntentRecognition.
 
@@ -3886,7 +3886,7 @@ Output parameters for IntentRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2920)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2922)
 
 Initialize IntentRecognitionOutputs.
 
@@ -3897,7 +3897,7 @@ class IntentRecognition(AssetNode[IntentRecognitionInputs,
                                   IntentRecognitionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2926)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2928)
 
 IntentRecognition node.
 
@@ -3913,7 +3913,7 @@ OutputType: text
 class DepthEstimationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2944)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2946)
 
 Input parameters for DepthEstimation.
 
@@ -3923,7 +3923,7 @@ Input parameters for DepthEstimation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2950)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2952)
 
 Initialize DepthEstimationInputs.
 
@@ -3933,7 +3933,7 @@ Initialize DepthEstimationInputs.
 class DepthEstimationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2957)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2959)
 
 Output parameters for DepthEstimation.
 
@@ -3943,7 +3943,7 @@ Output parameters for DepthEstimation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2962)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2964)
 
 Initialize DepthEstimationOutputs.
 
@@ -3954,7 +3954,7 @@ class DepthEstimation(AssetNode[DepthEstimationInputs,
                                 DepthEstimationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2968)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2970)
 
 DepthEstimation node.
 
@@ -3971,7 +3971,7 @@ OutputType: text
 class ConnectorInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2987)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2989)
 
 Input parameters for Connector.
 
@@ -3981,7 +3981,7 @@ Input parameters for Connector.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2992)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2994)
 
 Initialize ConnectorInputs.
 
@@ -3991,7 +3991,7 @@ Initialize ConnectorInputs.
 class ConnectorOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L2998)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3000)
 
 Output parameters for Connector.
 
@@ -4001,7 +4001,7 @@ Output parameters for Connector.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3003)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3005)
 
 Initialize ConnectorOutputs.
 
@@ -4011,7 +4011,7 @@ Initialize ConnectorOutputs.
 class Connector(AssetNode[ConnectorInputs, ConnectorOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3009)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3011)
 
 Connector node.
 
@@ -4027,7 +4027,7 @@ OutputType: text
 class SpeakerRecognitionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3027)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3029)
 
 Input parameters for SpeakerRecognition.
 
@@ -4037,7 +4037,7 @@ Input parameters for SpeakerRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3035)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3037)
 
 Initialize SpeakerRecognitionInputs.
 
@@ -4047,7 +4047,7 @@ Initialize SpeakerRecognitionInputs.
 class SpeakerRecognitionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3044)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3046)
 
 Output parameters for SpeakerRecognition.
 
@@ -4057,7 +4057,7 @@ Output parameters for SpeakerRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3049)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3051)
 
 Initialize SpeakerRecognitionOutputs.
 
@@ -4068,7 +4068,7 @@ class SpeakerRecognition(AssetNode[SpeakerRecognitionInputs,
                                    SpeakerRecognitionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3055)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3057)
 
 SpeakerRecognition node.
 
@@ -4084,7 +4084,7 @@ OutputType: label
 class SyntaxAnalysisInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3073)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3075)
 
 Input parameters for SyntaxAnalysis.
 
@@ -4094,7 +4094,7 @@ Input parameters for SyntaxAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3080)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3082)
 
 Initialize SyntaxAnalysisInputs.
 
@@ -4104,7 +4104,7 @@ Initialize SyntaxAnalysisInputs.
 class SyntaxAnalysisOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3088)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3090)
 
 Output parameters for SyntaxAnalysis.
 
@@ -4114,7 +4114,7 @@ Output parameters for SyntaxAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3093)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3095)
 
 Initialize SyntaxAnalysisOutputs.
 
@@ -4124,7 +4124,7 @@ Initialize SyntaxAnalysisOutputs.
 class SyntaxAnalysis(AssetNode[SyntaxAnalysisInputs, SyntaxAnalysisOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3099)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3101)
 
 SyntaxAnalysis node.
 
@@ -4142,7 +4142,7 @@ OutputType: text
 class EntitySentimentAnalysisInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3119)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3121)
 
 Input parameters for EntitySentimentAnalysis.
 
@@ -4152,7 +4152,7 @@ Input parameters for EntitySentimentAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3124)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3126)
 
 Initialize EntitySentimentAnalysisInputs.
 
@@ -4162,7 +4162,7 @@ Initialize EntitySentimentAnalysisInputs.
 class EntitySentimentAnalysisOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3130)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3132)
 
 Output parameters for EntitySentimentAnalysis.
 
@@ -4172,7 +4172,7 @@ Output parameters for EntitySentimentAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3135)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3137)
 
 Initialize EntitySentimentAnalysisOutputs.
 
@@ -4183,7 +4183,7 @@ class EntitySentimentAnalysis(AssetNode[EntitySentimentAnalysisInputs,
                                         EntitySentimentAnalysisOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3141)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3143)
 
 EntitySentimentAnalysis node.
 
@@ -4200,7 +4200,7 @@ OutputType: label
 class ClassificationMetricInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3160)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3162)
 
 Input parameters for ClassificationMetric.
 
@@ -4210,7 +4210,7 @@ Input parameters for ClassificationMetric.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3169)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3171)
 
 Initialize ClassificationMetricInputs.
 
@@ -4220,7 +4220,7 @@ Initialize ClassificationMetricInputs.
 class ClassificationMetricOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3179)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3181)
 
 Output parameters for ClassificationMetric.
 
@@ -4230,7 +4230,7 @@ Output parameters for ClassificationMetric.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3184)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3186)
 
 Initialize ClassificationMetricOutputs.
 
@@ -4241,7 +4241,7 @@ class ClassificationMetric(BaseMetric[ClassificationMetricInputs,
                                       ClassificationMetricOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3190)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3192)
 
 ClassificationMetric node.
 
@@ -4257,7 +4257,7 @@ OutputType: text
 class TextDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3208)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3210)
 
 Input parameters for TextDetection.
 
@@ -4267,7 +4267,7 @@ Input parameters for TextDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3213)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3215)
 
 Initialize TextDetectionInputs.
 
@@ -4277,7 +4277,7 @@ Initialize TextDetectionInputs.
 class TextDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3219)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3221)
 
 Output parameters for TextDetection.
 
@@ -4287,7 +4287,7 @@ Output parameters for TextDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3224)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3226)
 
 Initialize TextDetectionOutputs.
 
@@ -4297,7 +4297,7 @@ Initialize TextDetectionOutputs.
 class TextDetection(AssetNode[TextDetectionInputs, TextDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3230)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3232)
 
 TextDetection node.
 
@@ -4313,7 +4313,7 @@ OutputType: text
 class GuardrailsInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3248)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3250)
 
 Input parameters for Guardrails.
 
@@ -4323,7 +4323,7 @@ Input parameters for Guardrails.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3253)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3255)
 
 Initialize GuardrailsInputs.
 
@@ -4333,7 +4333,7 @@ Initialize GuardrailsInputs.
 class GuardrailsOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3259)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3261)
 
 Output parameters for Guardrails.
 
@@ -4343,7 +4343,7 @@ Output parameters for Guardrails.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3264)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3266)
 
 Initialize GuardrailsOutputs.
 
@@ -4353,7 +4353,7 @@ Initialize GuardrailsOutputs.
 class Guardrails(AssetNode[GuardrailsInputs, GuardrailsOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3270)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3272)
 
 Guardrails node.
 
@@ -4370,7 +4370,7 @@ OutputType: text
 class EmotionDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3289)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3291)
 
 Input parameters for EmotionDetection.
 
@@ -4380,7 +4380,7 @@ Input parameters for EmotionDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3297)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3299)
 
 Initialize EmotionDetectionInputs.
 
@@ -4390,7 +4390,7 @@ Initialize EmotionDetectionInputs.
 class EmotionDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3306)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3308)
 
 Output parameters for EmotionDetection.
 
@@ -4400,7 +4400,7 @@ Output parameters for EmotionDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3311)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3313)
 
 Initialize EmotionDetectionOutputs.
 
@@ -4411,7 +4411,7 @@ class EmotionDetection(AssetNode[EmotionDetectionInputs,
                                  EmotionDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3317)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3319)
 
 EmotionDetection node.
 
@@ -4427,7 +4427,7 @@ OutputType: label
 class VideoForcedAlignmentInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3335)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3337)
 
 Input parameters for VideoForcedAlignment.
 
@@ -4437,7 +4437,7 @@ Input parameters for VideoForcedAlignment.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3344)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3346)
 
 Initialize VideoForcedAlignmentInputs.
 
@@ -4447,7 +4447,7 @@ Initialize VideoForcedAlignmentInputs.
 class VideoForcedAlignmentOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3354)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3356)
 
 Output parameters for VideoForcedAlignment.
 
@@ -4457,7 +4457,7 @@ Output parameters for VideoForcedAlignment.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3360)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3362)
 
 Initialize VideoForcedAlignmentOutputs.
 
@@ -4468,7 +4468,7 @@ class VideoForcedAlignment(AssetNode[VideoForcedAlignmentInputs,
                                      VideoForcedAlignmentOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3367)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3369)
 
 VideoForcedAlignment node.
 
@@ -4484,7 +4484,7 @@ OutputType: video
 class ImageContentModerationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3385)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3387)
 
 Input parameters for ImageContentModeration.
 
@@ -4494,7 +4494,7 @@ Input parameters for ImageContentModeration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3391)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3393)
 
 Initialize ImageContentModerationInputs.
 
@@ -4504,7 +4504,7 @@ Initialize ImageContentModerationInputs.
 class ImageContentModerationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3398)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3400)
 
 Output parameters for ImageContentModeration.
 
@@ -4514,7 +4514,7 @@ Output parameters for ImageContentModeration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3403)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3405)
 
 Initialize ImageContentModerationOutputs.
 
@@ -4525,7 +4525,7 @@ class ImageContentModeration(AssetNode[ImageContentModerationInputs,
                                        ImageContentModerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3409)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3411)
 
 ImageContentModeration node.
 
@@ -4541,7 +4541,7 @@ OutputType: label
 class TextSummarizationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3427)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3429)
 
 Input parameters for TextSummarization.
 
@@ -4551,7 +4551,7 @@ Input parameters for TextSummarization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3435)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3437)
 
 Initialize TextSummarizationInputs.
 
@@ -4561,7 +4561,7 @@ Initialize TextSummarizationInputs.
 class TextSummarizationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3444)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3446)
 
 Output parameters for TextSummarization.
 
@@ -4571,7 +4571,7 @@ Output parameters for TextSummarization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3449)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3451)
 
 Initialize TextSummarizationOutputs.
 
@@ -4582,7 +4582,7 @@ class TextSummarization(AssetNode[TextSummarizationInputs,
                                   TextSummarizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3455)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3457)
 
 TextSummarization node.
 
@@ -4598,7 +4598,7 @@ OutputType: text
 class ImageToVideoGenerationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3473)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3475)
 
 Input parameters for ImageToVideoGeneration.
 
@@ -4608,7 +4608,7 @@ Input parameters for ImageToVideoGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3479)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3481)
 
 Initialize ImageToVideoGenerationInputs.
 
@@ -4618,7 +4618,7 @@ Initialize ImageToVideoGenerationInputs.
 class ImageToVideoGenerationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3486)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3488)
 
 Output parameters for ImageToVideoGeneration.
 
@@ -4628,7 +4628,7 @@ Output parameters for ImageToVideoGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3491)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3493)
 
 Initialize ImageToVideoGenerationOutputs.
 
@@ -4639,7 +4639,7 @@ class ImageToVideoGeneration(AssetNode[ImageToVideoGenerationInputs,
                                        ImageToVideoGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3497)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3499)
 
 ImageToVideoGeneration node.
 
@@ -4657,7 +4657,7 @@ OutputType: video
 class VideoUnderstandingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3517)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3519)
 
 Input parameters for VideoUnderstanding.
 
@@ -4667,7 +4667,7 @@ Input parameters for VideoUnderstanding.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3526)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3528)
 
 Initialize VideoUnderstandingInputs.
 
@@ -4677,7 +4677,7 @@ Initialize VideoUnderstandingInputs.
 class VideoUnderstandingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3536)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3538)
 
 Output parameters for VideoUnderstanding.
 
@@ -4687,7 +4687,7 @@ Output parameters for VideoUnderstanding.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3541)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3543)
 
 Initialize VideoUnderstandingOutputs.
 
@@ -4698,7 +4698,7 @@ class VideoUnderstanding(AssetNode[VideoUnderstandingInputs,
                                    VideoUnderstandingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3547)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3549)
 
 VideoUnderstanding node.
 
@@ -4715,7 +4715,7 @@ OutputType: text
 class TextGenerationMetricDefaultInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3566)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3568)
 
 Input parameters for TextGenerationMetricDefault.
 
@@ -4725,7 +4725,7 @@ Input parameters for TextGenerationMetricDefault.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3574)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3576)
 
 Initialize TextGenerationMetricDefaultInputs.
 
@@ -4735,7 +4735,7 @@ Initialize TextGenerationMetricDefaultInputs.
 class TextGenerationMetricDefaultOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3583)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3585)
 
 Output parameters for TextGenerationMetricDefault.
 
@@ -4745,7 +4745,7 @@ Output parameters for TextGenerationMetricDefault.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3588)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3590)
 
 Initialize TextGenerationMetricDefaultOutputs.
 
@@ -4757,7 +4757,7 @@ class TextGenerationMetricDefault(
                    TextGenerationMetricDefaultOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3594)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3596)
 
 TextGenerationMetricDefault node.
 
@@ -4774,7 +4774,7 @@ OutputType: text
 class TextToVideoGenerationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3613)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3615)
 
 Input parameters for TextToVideoGeneration.
 
@@ -4784,7 +4784,7 @@ Input parameters for TextToVideoGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3619)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3621)
 
 Initialize TextToVideoGenerationInputs.
 
@@ -4794,7 +4794,7 @@ Initialize TextToVideoGenerationInputs.
 class TextToVideoGenerationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3626)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3628)
 
 Output parameters for TextToVideoGeneration.
 
@@ -4804,7 +4804,7 @@ Output parameters for TextToVideoGeneration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3631)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3633)
 
 Initialize TextToVideoGenerationOutputs.
 
@@ -4815,7 +4815,7 @@ class TextToVideoGeneration(AssetNode[TextToVideoGenerationInputs,
                                       TextToVideoGenerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3637)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3639)
 
 TextToVideoGeneration node.
 
@@ -4832,7 +4832,7 @@ OutputType: video
 class VideoLabelDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3656)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3658)
 
 Input parameters for VideoLabelDetection.
 
@@ -4842,7 +4842,7 @@ Input parameters for VideoLabelDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3662)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3664)
 
 Initialize VideoLabelDetectionInputs.
 
@@ -4852,7 +4852,7 @@ Initialize VideoLabelDetectionInputs.
 class VideoLabelDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3669)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3671)
 
 Output parameters for VideoLabelDetection.
 
@@ -4862,7 +4862,7 @@ Output parameters for VideoLabelDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3674)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3676)
 
 Initialize VideoLabelDetectionOutputs.
 
@@ -4873,7 +4873,7 @@ class VideoLabelDetection(AssetNode[VideoLabelDetectionInputs,
                                     VideoLabelDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3680)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3682)
 
 VideoLabelDetection node.
 
@@ -4889,7 +4889,7 @@ OutputType: label
 class TextSpamDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3698)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3700)
 
 Input parameters for TextSpamDetection.
 
@@ -4899,7 +4899,7 @@ Input parameters for TextSpamDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3706)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3708)
 
 Initialize TextSpamDetectionInputs.
 
@@ -4909,7 +4909,7 @@ Initialize TextSpamDetectionInputs.
 class TextSpamDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3715)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3717)
 
 Output parameters for TextSpamDetection.
 
@@ -4919,7 +4919,7 @@ Output parameters for TextSpamDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3720)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3722)
 
 Initialize TextSpamDetectionOutputs.
 
@@ -4930,7 +4930,7 @@ class TextSpamDetection(AssetNode[TextSpamDetectionInputs,
                                   TextSpamDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3726)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3728)
 
 TextSpamDetection node.
 
@@ -4947,7 +4947,7 @@ OutputType: label
 class TextContentModerationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3745)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3747)
 
 Input parameters for TextContentModeration.
 
@@ -4957,7 +4957,7 @@ Input parameters for TextContentModeration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3753)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3755)
 
 Initialize TextContentModerationInputs.
 
@@ -4967,7 +4967,7 @@ Initialize TextContentModerationInputs.
 class TextContentModerationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3762)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3764)
 
 Output parameters for TextContentModeration.
 
@@ -4977,7 +4977,7 @@ Output parameters for TextContentModeration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3767)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3769)
 
 Initialize TextContentModerationOutputs.
 
@@ -4988,7 +4988,7 @@ class TextContentModeration(AssetNode[TextContentModerationInputs,
                                       TextContentModerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3773)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3775)
 
 TextContentModeration node.
 
@@ -5004,7 +5004,7 @@ OutputType: label
 class AudioTranscriptImprovementInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3791)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3793)
 
 Input parameters for AudioTranscriptImprovement.
 
@@ -5014,7 +5014,7 @@ Input parameters for AudioTranscriptImprovement.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3801)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3803)
 
 Initialize AudioTranscriptImprovementInputs.
 
@@ -5024,7 +5024,7 @@ Initialize AudioTranscriptImprovementInputs.
 class AudioTranscriptImprovementOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3812)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3814)
 
 Output parameters for AudioTranscriptImprovement.
 
@@ -5034,7 +5034,7 @@ Output parameters for AudioTranscriptImprovement.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3817)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3819)
 
 Initialize AudioTranscriptImprovementOutputs.
 
@@ -5045,7 +5045,7 @@ class AudioTranscriptImprovement(AssetNode[AudioTranscriptImprovementInputs,
                                            AudioTranscriptImprovementOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3823)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3825)
 
 AudioTranscriptImprovement node.
 
@@ -5061,7 +5061,7 @@ OutputType: text
 class AudioTranscriptAnalysisInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3841)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3843)
 
 Input parameters for AudioTranscriptAnalysis.
 
@@ -5071,7 +5071,7 @@ Input parameters for AudioTranscriptAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3850)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3852)
 
 Initialize AudioTranscriptAnalysisInputs.
 
@@ -5081,7 +5081,7 @@ Initialize AudioTranscriptAnalysisInputs.
 class AudioTranscriptAnalysisOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3860)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3862)
 
 Output parameters for AudioTranscriptAnalysis.
 
@@ -5091,7 +5091,7 @@ Output parameters for AudioTranscriptAnalysis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3865)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3867)
 
 Initialize AudioTranscriptAnalysisOutputs.
 
@@ -5102,7 +5102,7 @@ class AudioTranscriptAnalysis(AssetNode[AudioTranscriptAnalysisInputs,
                                         AudioTranscriptAnalysisOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3871)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3873)
 
 AudioTranscriptAnalysis node.
 
@@ -5118,7 +5118,7 @@ OutputType: text
 class SpeechNonSpeechClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3889)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3891)
 
 Input parameters for SpeechNonSpeechClassification.
 
@@ -5128,7 +5128,7 @@ Input parameters for SpeechNonSpeechClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3897)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3899)
 
 Initialize SpeechNonSpeechClassificationInputs.
 
@@ -5138,7 +5138,7 @@ Initialize SpeechNonSpeechClassificationInputs.
 class SpeechNonSpeechClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3906)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3908)
 
 Output parameters for SpeechNonSpeechClassification.
 
@@ -5148,7 +5148,7 @@ Output parameters for SpeechNonSpeechClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3911)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3913)
 
 Initialize SpeechNonSpeechClassificationOutputs.
 
@@ -5160,7 +5160,7 @@ class SpeechNonSpeechClassification(
                   SpeechNonSpeechClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3917)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3919)
 
 SpeechNonSpeechClassification node.
 
@@ -5176,7 +5176,7 @@ OutputType: label
 class AudioGenerationMetricInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3937)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3939)
 
 Input parameters for AudioGenerationMetric.
 
@@ -5186,7 +5186,7 @@ Input parameters for AudioGenerationMetric.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3945)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3947)
 
 Initialize AudioGenerationMetricInputs.
 
@@ -5196,7 +5196,7 @@ Initialize AudioGenerationMetricInputs.
 class AudioGenerationMetricOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3954)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3956)
 
 Output parameters for AudioGenerationMetric.
 
@@ -5206,7 +5206,7 @@ Output parameters for AudioGenerationMetric.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3959)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3961)
 
 Initialize AudioGenerationMetricOutputs.
 
@@ -5217,7 +5217,7 @@ class AudioGenerationMetric(BaseMetric[AudioGenerationMetricInputs,
                                        AudioGenerationMetricOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3965)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3967)
 
 AudioGenerationMetric node.
 
@@ -5235,7 +5235,7 @@ OutputType: text
 class NamedEntityRecognitionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3985)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3987)
 
 Input parameters for NamedEntityRecognition.
 
@@ -5245,7 +5245,7 @@ Input parameters for NamedEntityRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3994)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L3996)
 
 Initialize NamedEntityRecognitionInputs.
 
@@ -5255,7 +5255,7 @@ Initialize NamedEntityRecognitionInputs.
 class NamedEntityRecognitionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4004)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4006)
 
 Output parameters for NamedEntityRecognition.
 
@@ -5265,7 +5265,7 @@ Output parameters for NamedEntityRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4009)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4011)
 
 Initialize NamedEntityRecognitionOutputs.
 
@@ -5276,7 +5276,7 @@ class NamedEntityRecognition(AssetNode[NamedEntityRecognitionInputs,
                                        NamedEntityRecognitionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4015)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4017)
 
 NamedEntityRecognition node.
 
@@ -5293,7 +5293,7 @@ OutputType: label
 class SpeechSynthesisInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4034)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4036)
 
 Input parameters for SpeechSynthesis.
 
@@ -5303,7 +5303,7 @@ Input parameters for SpeechSynthesis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4045)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4047)
 
 Initialize SpeechSynthesisInputs.
 
@@ -5313,7 +5313,7 @@ Initialize SpeechSynthesisInputs.
 class SpeechSynthesisOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4057)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4059)
 
 Output parameters for SpeechSynthesis.
 
@@ -5323,7 +5323,7 @@ Output parameters for SpeechSynthesis.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4062)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4064)
 
 Initialize SpeechSynthesisOutputs.
 
@@ -5334,7 +5334,7 @@ class SpeechSynthesis(AssetNode[SpeechSynthesisInputs,
                                 SpeechSynthesisOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4068)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4070)
 
 SpeechSynthesis node.
 
@@ -5350,7 +5350,7 @@ OutputType: audio
 class DocumentInformationExtractionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4086)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4088)
 
 Input parameters for DocumentInformationExtraction.
 
@@ -5360,7 +5360,7 @@ Input parameters for DocumentInformationExtraction.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4091)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4093)
 
 Initialize DocumentInformationExtractionInputs.
 
@@ -5370,7 +5370,7 @@ Initialize DocumentInformationExtractionInputs.
 class DocumentInformationExtractionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4097)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4099)
 
 Output parameters for DocumentInformationExtraction.
 
@@ -5380,7 +5380,7 @@ Output parameters for DocumentInformationExtraction.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4102)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4104)
 
 Initialize DocumentInformationExtractionOutputs.
 
@@ -5392,7 +5392,7 @@ class DocumentInformationExtraction(
                   DocumentInformationExtractionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4108)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4110)
 
 DocumentInformationExtraction node.
 
@@ -5410,7 +5410,7 @@ OutputType: text
 class OcrInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4130)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4132)
 
 Input parameters for Ocr.
 
@@ -5420,7 +5420,7 @@ Input parameters for Ocr.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4136)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4138)
 
 Initialize OcrInputs.
 
@@ -5430,7 +5430,7 @@ Initialize OcrInputs.
 class OcrOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4143)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4145)
 
 Output parameters for Ocr.
 
@@ -5440,7 +5440,7 @@ Output parameters for Ocr.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4148)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4150)
 
 Initialize OcrOutputs.
 
@@ -5450,7 +5450,7 @@ Initialize OcrOutputs.
 class Ocr(AssetNode[OcrInputs, OcrOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4154)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4156)
 
 Ocr node.
 
@@ -5466,7 +5466,7 @@ OutputType: text
 class SubtitlingTranslationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4172)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4174)
 
 Input parameters for SubtitlingTranslation.
 
@@ -5476,7 +5476,7 @@ Input parameters for SubtitlingTranslation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4181)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4183)
 
 Initialize SubtitlingTranslationInputs.
 
@@ -5486,7 +5486,7 @@ Initialize SubtitlingTranslationInputs.
 class SubtitlingTranslationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4191)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4193)
 
 Output parameters for SubtitlingTranslation.
 
@@ -5496,7 +5496,7 @@ Output parameters for SubtitlingTranslation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4196)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4198)
 
 Initialize SubtitlingTranslationOutputs.
 
@@ -5507,7 +5507,7 @@ class SubtitlingTranslation(AssetNode[SubtitlingTranslationInputs,
                                       SubtitlingTranslationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4202)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4204)
 
 SubtitlingTranslation node.
 
@@ -5523,7 +5523,7 @@ OutputType: text
 class TextToAudioInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4220)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4222)
 
 Input parameters for TextToAudio.
 
@@ -5533,7 +5533,7 @@ Input parameters for TextToAudio.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4226)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4228)
 
 Initialize TextToAudioInputs.
 
@@ -5543,7 +5543,7 @@ Initialize TextToAudioInputs.
 class TextToAudioOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4233)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4235)
 
 Output parameters for TextToAudio.
 
@@ -5553,7 +5553,7 @@ Output parameters for TextToAudio.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4238)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4240)
 
 Initialize TextToAudioOutputs.
 
@@ -5563,7 +5563,7 @@ Initialize TextToAudioOutputs.
 class TextToAudio(AssetNode[TextToAudioInputs, TextToAudioOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4244)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4246)
 
 TextToAudio node.
 
@@ -5579,7 +5579,7 @@ OutputType: audio
 class MultilingualSpeechRecognitionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4262)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4264)
 
 Input parameters for MultilingualSpeechRecognition.
 
@@ -5589,7 +5589,7 @@ Input parameters for MultilingualSpeechRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4268)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4270)
 
 Initialize MultilingualSpeechRecognitionInputs.
 
@@ -5599,7 +5599,7 @@ Initialize MultilingualSpeechRecognitionInputs.
 class MultilingualSpeechRecognitionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4275)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4277)
 
 Output parameters for MultilingualSpeechRecognition.
 
@@ -5609,7 +5609,7 @@ Output parameters for MultilingualSpeechRecognition.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4280)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4282)
 
 Initialize MultilingualSpeechRecognitionOutputs.
 
@@ -5621,7 +5621,7 @@ class MultilingualSpeechRecognition(
                   MultilingualSpeechRecognitionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4286)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4288)
 
 MultilingualSpeechRecognition node.
 
@@ -5638,7 +5638,7 @@ OutputType: text
 class OffensiveLanguageIdentificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4307)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4309)
 
 Input parameters for OffensiveLanguageIdentification.
 
@@ -5648,7 +5648,7 @@ Input parameters for OffensiveLanguageIdentification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4315)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4317)
 
 Initialize OffensiveLanguageIdentificationInputs.
 
@@ -5658,7 +5658,7 @@ Initialize OffensiveLanguageIdentificationInputs.
 class OffensiveLanguageIdentificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4324)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4326)
 
 Output parameters for OffensiveLanguageIdentification.
 
@@ -5668,7 +5668,7 @@ Output parameters for OffensiveLanguageIdentification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4329)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4331)
 
 Initialize OffensiveLanguageIdentificationOutputs.
 
@@ -5680,7 +5680,7 @@ class OffensiveLanguageIdentification(
                   OffensiveLanguageIdentificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4335)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4337)
 
 OffensiveLanguageIdentification node.
 
@@ -5696,7 +5696,7 @@ OutputType: label
 class BenchmarkScoringMtInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4355)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4357)
 
 Input parameters for BenchmarkScoringMt.
 
@@ -5706,7 +5706,7 @@ Input parameters for BenchmarkScoringMt.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4361)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4364)
 
 Initialize BenchmarkScoringMtInputs.
 
@@ -5716,7 +5716,7 @@ Initialize BenchmarkScoringMtInputs.
 class BenchmarkScoringMtOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4368)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4372)
 
 Output parameters for BenchmarkScoringMt.
 
@@ -5726,7 +5726,7 @@ Output parameters for BenchmarkScoringMt.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4373)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4377)
 
 Initialize BenchmarkScoringMtOutputs.
 
@@ -5737,7 +5737,7 @@ class BenchmarkScoringMt(AssetNode[BenchmarkScoringMtInputs,
                                    BenchmarkScoringMtOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4379)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4383)
 
 BenchmarkScoringMt node.
 
@@ -5754,7 +5754,7 @@ OutputType: label
 class SpeakerDiarizationAudioInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4398)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4402)
 
 Input parameters for SpeakerDiarizationAudio.
 
@@ -5764,7 +5764,7 @@ Input parameters for SpeakerDiarizationAudio.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4406)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4410)
 
 Initialize SpeakerDiarizationAudioInputs.
 
@@ -5774,7 +5774,7 @@ Initialize SpeakerDiarizationAudioInputs.
 class SpeakerDiarizationAudioOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4415)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4419)
 
 Output parameters for SpeakerDiarizationAudio.
 
@@ -5784,7 +5784,7 @@ Output parameters for SpeakerDiarizationAudio.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4421)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4425)
 
 Initialize SpeakerDiarizationAudioOutputs.
 
@@ -5795,7 +5795,7 @@ class SpeakerDiarizationAudio(BaseSegmentor[SpeakerDiarizationAudioInputs,
                                             SpeakerDiarizationAudioOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4428)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4432)
 
 SpeakerDiarizationAudio node.
 
@@ -5811,7 +5811,7 @@ OutputType: label
 class VoiceCloningInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4446)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4450)
 
 Input parameters for VoiceCloning.
 
@@ -5821,7 +5821,7 @@ Input parameters for VoiceCloning.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4457)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4461)
 
 Initialize VoiceCloningInputs.
 
@@ -5831,7 +5831,7 @@ Initialize VoiceCloningInputs.
 class VoiceCloningOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4469)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4473)
 
 Output parameters for VoiceCloning.
 
@@ -5841,7 +5841,7 @@ Output parameters for VoiceCloning.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4474)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4478)
 
 Initialize VoiceCloningOutputs.
 
@@ -5851,7 +5851,7 @@ Initialize VoiceCloningOutputs.
 class VoiceCloning(AssetNode[VoiceCloningInputs, VoiceCloningOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4480)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4484)
 
 VoiceCloning node.
 
@@ -5868,7 +5868,7 @@ OutputType: audio
 class SearchInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4499)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4503)
 
 Input parameters for Search.
 
@@ -5878,7 +5878,7 @@ Input parameters for Search.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4504)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4508)
 
 Initialize SearchInputs.
 
@@ -5888,7 +5888,7 @@ Initialize SearchInputs.
 class SearchOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4510)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4514)
 
 Output parameters for Search.
 
@@ -5898,7 +5898,7 @@ Output parameters for Search.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4515)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4519)
 
 Initialize SearchOutputs.
 
@@ -5908,7 +5908,7 @@ Initialize SearchOutputs.
 class Search(AssetNode[SearchInputs, SearchOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4521)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4525)
 
 Search node.
 
@@ -5925,7 +5925,7 @@ OutputType: text
 class ObjectDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4540)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4544)
 
 Input parameters for ObjectDetection.
 
@@ -5935,7 +5935,7 @@ Input parameters for ObjectDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4545)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4549)
 
 Initialize ObjectDetectionInputs.
 
@@ -5945,7 +5945,7 @@ Initialize ObjectDetectionInputs.
 class ObjectDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4551)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4555)
 
 Output parameters for ObjectDetection.
 
@@ -5955,7 +5955,7 @@ Output parameters for ObjectDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4556)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4560)
 
 Initialize ObjectDetectionOutputs.
 
@@ -5966,7 +5966,7 @@ class ObjectDetection(AssetNode[ObjectDetectionInputs,
                                 ObjectDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4562)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4566)
 
 ObjectDetection node.
 
@@ -5983,7 +5983,7 @@ OutputType: text
 class DiacritizationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4581)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4585)
 
 Input parameters for Diacritization.
 
@@ -5993,7 +5993,7 @@ Input parameters for Diacritization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4589)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4593)
 
 Initialize DiacritizationInputs.
 
@@ -6003,7 +6003,7 @@ Initialize DiacritizationInputs.
 class DiacritizationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4598)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4602)
 
 Output parameters for Diacritization.
 
@@ -6013,7 +6013,7 @@ Output parameters for Diacritization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4603)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4607)
 
 Initialize DiacritizationOutputs.
 
@@ -6023,7 +6023,7 @@ Initialize DiacritizationOutputs.
 class Diacritization(AssetNode[DiacritizationInputs, DiacritizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4609)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4613)
 
 Diacritization node.
 
@@ -6039,7 +6039,7 @@ OutputType: text
 class SpeakerDiarizationVideoInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4627)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4631)
 
 Input parameters for SpeakerDiarizationVideo.
 
@@ -6049,7 +6049,7 @@ Input parameters for SpeakerDiarizationVideo.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4635)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4639)
 
 Initialize SpeakerDiarizationVideoInputs.
 
@@ -6059,7 +6059,7 @@ Initialize SpeakerDiarizationVideoInputs.
 class SpeakerDiarizationVideoOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4644)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4648)
 
 Output parameters for SpeakerDiarizationVideo.
 
@@ -6069,7 +6069,7 @@ Output parameters for SpeakerDiarizationVideo.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4649)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4653)
 
 Initialize SpeakerDiarizationVideoOutputs.
 
@@ -6080,7 +6080,7 @@ class SpeakerDiarizationVideo(AssetNode[SpeakerDiarizationVideoInputs,
                                         SpeakerDiarizationVideoOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4655)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4659)
 
 SpeakerDiarizationVideo node.
 
@@ -6096,7 +6096,7 @@ OutputType: label
 class AudioForcedAlignmentInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4673)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4677)
 
 Input parameters for AudioForcedAlignment.
 
@@ -6106,7 +6106,7 @@ Input parameters for AudioForcedAlignment.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4682)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4686)
 
 Initialize AudioForcedAlignmentInputs.
 
@@ -6116,7 +6116,7 @@ Initialize AudioForcedAlignmentInputs.
 class AudioForcedAlignmentOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4692)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4696)
 
 Output parameters for AudioForcedAlignment.
 
@@ -6126,7 +6126,7 @@ Output parameters for AudioForcedAlignment.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4698)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4702)
 
 Initialize AudioForcedAlignmentOutputs.
 
@@ -6137,7 +6137,7 @@ class AudioForcedAlignment(AssetNode[AudioForcedAlignmentInputs,
                                      AudioForcedAlignmentOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4705)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4709)
 
 AudioForcedAlignment node.
 
@@ -6153,7 +6153,7 @@ OutputType: audio
 class TokenClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4723)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4727)
 
 Input parameters for TokenClassification.
 
@@ -6163,7 +6163,7 @@ Input parameters for TokenClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4730)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4734)
 
 Initialize TokenClassificationInputs.
 
@@ -6173,7 +6173,7 @@ Initialize TokenClassificationInputs.
 class TokenClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4738)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4742)
 
 Output parameters for TokenClassification.
 
@@ -6183,7 +6183,7 @@ Output parameters for TokenClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4743)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4747)
 
 Initialize TokenClassificationOutputs.
 
@@ -6194,7 +6194,7 @@ class TokenClassification(AssetNode[TokenClassificationInputs,
                                     TokenClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4749)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4753)
 
 TokenClassification node.
 
@@ -6211,7 +6211,7 @@ OutputType: label
 class TopicClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4768)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4772)
 
 Input parameters for TopicClassification.
 
@@ -6221,7 +6221,7 @@ Input parameters for TopicClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4776)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4780)
 
 Initialize TopicClassificationInputs.
 
@@ -6231,7 +6231,7 @@ Initialize TopicClassificationInputs.
 class TopicClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4785)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4789)
 
 Output parameters for TopicClassification.
 
@@ -6241,7 +6241,7 @@ Output parameters for TopicClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4790)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4794)
 
 Initialize TopicClassificationOutputs.
 
@@ -6252,7 +6252,7 @@ class TopicClassification(AssetNode[TopicClassificationInputs,
                                     TopicClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4796)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4800)
 
 TopicClassification node.
 
@@ -6268,7 +6268,7 @@ OutputType: label
 class IntentClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4814)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4818)
 
 Input parameters for IntentClassification.
 
@@ -6278,7 +6278,7 @@ Input parameters for IntentClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4820)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4824)
 
 Initialize IntentClassificationInputs.
 
@@ -6288,7 +6288,7 @@ Initialize IntentClassificationInputs.
 class IntentClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4827)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4831)
 
 Output parameters for IntentClassification.
 
@@ -6298,7 +6298,7 @@ Output parameters for IntentClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4832)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4836)
 
 Initialize IntentClassificationOutputs.
 
@@ -6309,7 +6309,7 @@ class IntentClassification(AssetNode[IntentClassificationInputs,
                                      IntentClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4838)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4842)
 
 IntentClassification node.
 
@@ -6327,7 +6327,7 @@ OutputType: label
 class VideoContentModerationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4858)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4862)
 
 Input parameters for VideoContentModeration.
 
@@ -6337,7 +6337,7 @@ Input parameters for VideoContentModeration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4864)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4868)
 
 Initialize VideoContentModerationInputs.
 
@@ -6347,7 +6347,7 @@ Initialize VideoContentModerationInputs.
 class VideoContentModerationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4871)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4875)
 
 Output parameters for VideoContentModeration.
 
@@ -6357,7 +6357,7 @@ Output parameters for VideoContentModeration.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4876)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4880)
 
 Initialize VideoContentModerationOutputs.
 
@@ -6368,7 +6368,7 @@ class VideoContentModeration(AssetNode[VideoContentModerationInputs,
                                        VideoContentModerationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4882)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4886)
 
 VideoContentModeration node.
 
@@ -6384,7 +6384,7 @@ OutputType: label
 class TextGenerationMetricInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4900)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4904)
 
 Input parameters for TextGenerationMetric.
 
@@ -6394,7 +6394,7 @@ Input parameters for TextGenerationMetric.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4908)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4912)
 
 Initialize TextGenerationMetricInputs.
 
@@ -6404,7 +6404,7 @@ Initialize TextGenerationMetricInputs.
 class TextGenerationMetricOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4917)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4921)
 
 Output parameters for TextGenerationMetric.
 
@@ -6414,7 +6414,7 @@ Output parameters for TextGenerationMetric.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4922)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4926)
 
 Initialize TextGenerationMetricOutputs.
 
@@ -6425,7 +6425,7 @@ class TextGenerationMetric(BaseMetric[TextGenerationMetricInputs,
                                       TextGenerationMetricOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4928)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4932)
 
 TextGenerationMetric node.
 
@@ -6443,7 +6443,7 @@ OutputType: text
 class ImageEmbeddingInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4948)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4952)
 
 Input parameters for ImageEmbedding.
 
@@ -6453,7 +6453,7 @@ Input parameters for ImageEmbedding.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4954)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4958)
 
 Initialize ImageEmbeddingInputs.
 
@@ -6463,7 +6463,7 @@ Initialize ImageEmbeddingInputs.
 class ImageEmbeddingOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4961)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4965)
 
 Output parameters for ImageEmbedding.
 
@@ -6473,7 +6473,7 @@ Output parameters for ImageEmbedding.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4966)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4970)
 
 Initialize ImageEmbeddingOutputs.
 
@@ -6483,7 +6483,7 @@ Initialize ImageEmbeddingOutputs.
 class ImageEmbedding(AssetNode[ImageEmbeddingInputs, ImageEmbeddingOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4972)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4976)
 
 ImageEmbedding node.
 
@@ -6501,7 +6501,7 @@ OutputType: text
 class ImageLabelDetectionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4992)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4996)
 
 Input parameters for ImageLabelDetection.
 
@@ -6511,7 +6511,7 @@ Input parameters for ImageLabelDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L4998)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5002)
 
 Initialize ImageLabelDetectionInputs.
 
@@ -6521,7 +6521,7 @@ Initialize ImageLabelDetectionInputs.
 class ImageLabelDetectionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5005)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5009)
 
 Output parameters for ImageLabelDetection.
 
@@ -6531,7 +6531,7 @@ Output parameters for ImageLabelDetection.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5010)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5014)
 
 Initialize ImageLabelDetectionOutputs.
 
@@ -6542,7 +6542,7 @@ class ImageLabelDetection(AssetNode[ImageLabelDetectionInputs,
                                     ImageLabelDetectionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5016)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5020)
 
 ImageLabelDetection node.
 
@@ -6558,7 +6558,7 @@ OutputType: label
 class ImageColorizationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5034)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5038)
 
 Input parameters for ImageColorization.
 
@@ -6568,7 +6568,7 @@ Input parameters for ImageColorization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5039)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5043)
 
 Initialize ImageColorizationInputs.
 
@@ -6578,7 +6578,7 @@ Initialize ImageColorizationInputs.
 class ImageColorizationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5045)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5049)
 
 Output parameters for ImageColorization.
 
@@ -6588,7 +6588,7 @@ Output parameters for ImageColorization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5050)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5054)
 
 Initialize ImageColorizationOutputs.
 
@@ -6599,7 +6599,7 @@ class ImageColorization(AssetNode[ImageColorizationInputs,
                                   ImageColorizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5056)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5060)
 
 ImageColorization node.
 
@@ -6617,7 +6617,7 @@ OutputType: image
 class MetricAggregationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5076)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5080)
 
 Input parameters for MetricAggregation.
 
@@ -6627,7 +6627,7 @@ Input parameters for MetricAggregation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5081)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5085)
 
 Initialize MetricAggregationInputs.
 
@@ -6637,7 +6637,7 @@ Initialize MetricAggregationInputs.
 class MetricAggregationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5087)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5091)
 
 Output parameters for MetricAggregation.
 
@@ -6647,7 +6647,7 @@ Output parameters for MetricAggregation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5092)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5096)
 
 Initialize MetricAggregationOutputs.
 
@@ -6658,7 +6658,7 @@ class MetricAggregation(BaseMetric[MetricAggregationInputs,
                                    MetricAggregationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5098)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5102)
 
 MetricAggregation node.
 
@@ -6676,7 +6676,7 @@ OutputType: text
 class InstanceSegmentationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5118)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5122)
 
 Input parameters for InstanceSegmentation.
 
@@ -6686,7 +6686,7 @@ Input parameters for InstanceSegmentation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5123)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5127)
 
 Initialize InstanceSegmentationInputs.
 
@@ -6696,7 +6696,7 @@ Initialize InstanceSegmentationInputs.
 class InstanceSegmentationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5129)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5133)
 
 Output parameters for InstanceSegmentation.
 
@@ -6706,7 +6706,7 @@ Output parameters for InstanceSegmentation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5134)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5138)
 
 Initialize InstanceSegmentationOutputs.
 
@@ -6717,7 +6717,7 @@ class InstanceSegmentation(AssetNode[InstanceSegmentationInputs,
                                      InstanceSegmentationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5140)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5144)
 
 InstanceSegmentation node.
 
@@ -6735,7 +6735,7 @@ OutputType: label
 class OtherMultipurposeInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5160)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5164)
 
 Input parameters for OtherMultipurpose.
 
@@ -6745,7 +6745,7 @@ Input parameters for OtherMultipurpose.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5166)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5170)
 
 Initialize OtherMultipurposeInputs.
 
@@ -6755,7 +6755,7 @@ Initialize OtherMultipurposeInputs.
 class OtherMultipurposeOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5173)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5177)
 
 Output parameters for OtherMultipurpose.
 
@@ -6765,7 +6765,7 @@ Output parameters for OtherMultipurpose.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5178)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5182)
 
 Initialize OtherMultipurposeOutputs.
 
@@ -6776,7 +6776,7 @@ class OtherMultipurpose(AssetNode[OtherMultipurposeInputs,
                                   OtherMultipurposeOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5184)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5188)
 
 OtherMultipurpose node.
 
@@ -6794,7 +6794,7 @@ OutputType: text
 class SpeechTranslationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5204)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5208)
 
 Input parameters for SpeechTranslation.
 
@@ -6804,7 +6804,7 @@ Input parameters for SpeechTranslation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5214)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5218)
 
 Initialize SpeechTranslationInputs.
 
@@ -6814,7 +6814,7 @@ Initialize SpeechTranslationInputs.
 class SpeechTranslationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5225)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5229)
 
 Output parameters for SpeechTranslation.
 
@@ -6824,7 +6824,7 @@ Output parameters for SpeechTranslation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5230)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5234)
 
 Initialize SpeechTranslationOutputs.
 
@@ -6835,7 +6835,7 @@ class SpeechTranslation(AssetNode[SpeechTranslationInputs,
                                   SpeechTranslationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5236)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5240)
 
 SpeechTranslation node.
 
@@ -6852,7 +6852,7 @@ OutputType: text
 class ReferencelessTextGenerationMetricDefaultInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5255)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5259)
 
 Input parameters for ReferencelessTextGenerationMetricDefault.
 
@@ -6862,7 +6862,7 @@ Input parameters for ReferencelessTextGenerationMetricDefault.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5262)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5266)
 
 Initialize ReferencelessTextGenerationMetricDefaultInputs.
 
@@ -6872,7 +6872,7 @@ Initialize ReferencelessTextGenerationMetricDefaultInputs.
 class ReferencelessTextGenerationMetricDefaultOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5270)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5274)
 
 Output parameters for ReferencelessTextGenerationMetricDefault.
 
@@ -6882,7 +6882,7 @@ Output parameters for ReferencelessTextGenerationMetricDefault.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5275)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5279)
 
 Initialize ReferencelessTextGenerationMetricDefaultOutputs.
 
@@ -6894,7 +6894,7 @@ class ReferencelessTextGenerationMetricDefault(
                    ReferencelessTextGenerationMetricDefaultOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5281)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5285)
 
 ReferencelessTextGenerationMetricDefault node.
 
@@ -6911,7 +6911,7 @@ OutputType: text
 class ReferencelessTextGenerationMetricInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5302)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5306)
 
 Input parameters for ReferencelessTextGenerationMetric.
 
@@ -6921,7 +6921,7 @@ Input parameters for ReferencelessTextGenerationMetric.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5309)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5313)
 
 Initialize ReferencelessTextGenerationMetricInputs.
 
@@ -6931,7 +6931,7 @@ Initialize ReferencelessTextGenerationMetricInputs.
 class ReferencelessTextGenerationMetricOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5317)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5321)
 
 Output parameters for ReferencelessTextGenerationMetric.
 
@@ -6941,7 +6941,7 @@ Output parameters for ReferencelessTextGenerationMetric.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5322)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5326)
 
 Initialize ReferencelessTextGenerationMetricOutputs.
 
@@ -6953,7 +6953,7 @@ class ReferencelessTextGenerationMetric(
                    ReferencelessTextGenerationMetricOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5328)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5332)
 
 ReferencelessTextGenerationMetric node.
 
@@ -6971,7 +6971,7 @@ OutputType: text
 class TextDenormalizationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5350)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5354)
 
 Input parameters for TextDenormalization.
 
@@ -6981,7 +6981,7 @@ Input parameters for TextDenormalization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5359)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5363)
 
 Initialize TextDenormalizationInputs.
 
@@ -6991,7 +6991,7 @@ Initialize TextDenormalizationInputs.
 class TextDenormalizationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5371)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5375)
 
 Output parameters for TextDenormalization.
 
@@ -7001,7 +7001,7 @@ Output parameters for TextDenormalization.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5376)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5380)
 
 Initialize TextDenormalizationOutputs.
 
@@ -7012,7 +7012,7 @@ class TextDenormalization(AssetNode[TextDenormalizationInputs,
                                     TextDenormalizationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5382)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5386)
 
 TextDenormalization node.
 
@@ -7028,7 +7028,7 @@ OutputType: label
 class ImageCompressionInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5400)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5404)
 
 Input parameters for ImageCompression.
 
@@ -7038,7 +7038,7 @@ Input parameters for ImageCompression.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5406)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5410)
 
 Initialize ImageCompressionInputs.
 
@@ -7048,7 +7048,7 @@ Initialize ImageCompressionInputs.
 class ImageCompressionOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5413)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5417)
 
 Output parameters for ImageCompression.
 
@@ -7058,7 +7058,7 @@ Output parameters for ImageCompression.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5418)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5422)
 
 Initialize ImageCompressionOutputs.
 
@@ -7069,7 +7069,7 @@ class ImageCompression(AssetNode[ImageCompressionInputs,
                                  ImageCompressionOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5424)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5428)
 
 ImageCompression node.
 
@@ -7085,7 +7085,7 @@ OutputType: image
 class TextClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5442)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5446)
 
 Input parameters for TextClassification.
 
@@ -7095,7 +7095,7 @@ Input parameters for TextClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5450)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5454)
 
 Initialize TextClassificationInputs.
 
@@ -7105,7 +7105,7 @@ Initialize TextClassificationInputs.
 class TextClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5459)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5463)
 
 Output parameters for TextClassification.
 
@@ -7115,7 +7115,7 @@ Output parameters for TextClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5464)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5468)
 
 Initialize TextClassificationOutputs.
 
@@ -7126,7 +7126,7 @@ class TextClassification(AssetNode[TextClassificationInputs,
                                    TextClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5470)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5474)
 
 TextClassification node.
 
@@ -7142,7 +7142,7 @@ OutputType: label
 class AsrAgeClassificationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5488)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5492)
 
 Input parameters for AsrAgeClassification.
 
@@ -7152,7 +7152,7 @@ Input parameters for AsrAgeClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5493)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5497)
 
 Initialize AsrAgeClassificationInputs.
 
@@ -7162,7 +7162,7 @@ Initialize AsrAgeClassificationInputs.
 class AsrAgeClassificationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5499)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5503)
 
 Output parameters for AsrAgeClassification.
 
@@ -7172,7 +7172,7 @@ Output parameters for AsrAgeClassification.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5504)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5508)
 
 Initialize AsrAgeClassificationOutputs.
 
@@ -7183,7 +7183,7 @@ class AsrAgeClassification(AssetNode[AsrAgeClassificationInputs,
                                      AsrAgeClassificationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5510)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5514)
 
 AsrAgeClassification node.
 
@@ -7200,7 +7200,7 @@ OutputType: label
 class AsrQualityEstimationInputs(Inputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5529)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5533)
 
 Input parameters for AsrQualityEstimation.
 
@@ -7210,7 +7210,7 @@ Input parameters for AsrQualityEstimation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5535)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5539)
 
 Initialize AsrQualityEstimationInputs.
 
@@ -7220,7 +7220,7 @@ Initialize AsrQualityEstimationInputs.
 class AsrQualityEstimationOutputs(Outputs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5542)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5546)
 
 Output parameters for AsrQualityEstimation.
 
@@ -7230,7 +7230,7 @@ Output parameters for AsrQualityEstimation.
 def __init__(node=None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5547)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5551)
 
 Initialize AsrQualityEstimationOutputs.
 
@@ -7241,7 +7241,7 @@ class AsrQualityEstimation(AssetNode[AsrQualityEstimationInputs,
                                      AsrQualityEstimationOutputs])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5553)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5557)
 
 AsrQualityEstimation node.
 
@@ -7258,7 +7258,7 @@ OutputType: label
 class Pipeline(DefaultPipeline)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5572)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5576)
 
 Pipeline class for creating and managing AI processing pipelines.
 
@@ -7269,7 +7269,7 @@ def text_normalization(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> TextNormalization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5575)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5579)
 
 Create a TextNormalization node.
 
@@ -7284,7 +7284,7 @@ def paraphrasing(asset_id: Union[str, asset.Asset], *args,
                  **kwargs) -> Paraphrasing
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5584)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5588)
 
 Create a Paraphrasing node.
 
@@ -7298,7 +7298,7 @@ def language_identification(asset_id: Union[str, asset.Asset], *args,
                             **kwargs) -> LanguageIdentification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5592)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5596)
 
 Create a LanguageIdentification node.
 
@@ -7312,7 +7312,7 @@ def benchmark_scoring_asr(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> BenchmarkScoringAsr
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5600)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5604)
 
 Create a BenchmarkScoringAsr node.
 
@@ -7327,7 +7327,7 @@ def multi_class_text_classification(asset_id: Union[str, asset.Asset], *args,
                                     **kwargs) -> MultiClassTextClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5609)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5613)
 
 Create a MultiClassTextClassification node.
 
@@ -7342,7 +7342,7 @@ def speech_embedding(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> SpeechEmbedding
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5620)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5624)
 
 Create a SpeechEmbedding node.
 
@@ -7357,7 +7357,7 @@ def document_image_parsing(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> DocumentImageParsing
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5629)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5633)
 
 Create a DocumentImageParsing node.
 
@@ -7372,7 +7372,7 @@ def translation(asset_id: Union[str, asset.Asset], *args,
                 **kwargs) -> Translation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5638)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5642)
 
 Create a Translation node.
 
@@ -7386,7 +7386,7 @@ def audio_source_separation(asset_id: Union[str, asset.Asset], *args,
                             **kwargs) -> AudioSourceSeparation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5646)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5650)
 
 Create a AudioSourceSeparation node.
 
@@ -7401,7 +7401,7 @@ def speech_recognition(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> SpeechRecognition
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5655)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5659)
 
 Create a SpeechRecognition node.
 
@@ -7415,7 +7415,7 @@ def keyword_spotting(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> KeywordSpotting
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5663)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5667)
 
 Create a KeywordSpotting node.
 
@@ -7430,7 +7430,7 @@ def part_of_speech_tagging(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> PartOfSpeechTagging
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5672)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5676)
 
 Create a PartOfSpeechTagging node.
 
@@ -7447,7 +7447,7 @@ def referenceless_audio_generation_metric(
         **kwargs) -> ReferencelessAudioGenerationMetric
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5682)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5686)
 
 Create a ReferencelessAudioGenerationMetric node.
 
@@ -7462,7 +7462,7 @@ def voice_activity_detection(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> VoiceActivityDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5693)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5697)
 
 Create a VoiceActivityDetection node.
 
@@ -7476,7 +7476,7 @@ def sentiment_analysis(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> SentimentAnalysis
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5701)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5705)
 
 Create a SentimentAnalysis node.
 
@@ -7490,7 +7490,7 @@ def subtitling(asset_id: Union[str, asset.Asset], *args,
                **kwargs) -> Subtitling
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5709)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5713)
 
 Create a Subtitling node.
 
@@ -7504,7 +7504,7 @@ def multi_label_text_classification(asset_id: Union[str, asset.Asset], *args,
                                     **kwargs) -> MultiLabelTextClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5717)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5721)
 
 Create a MultiLabelTextClassification node.
 
@@ -7520,7 +7520,7 @@ def viseme_generation(asset_id: Union[str, asset.Asset], *args,
                       **kwargs) -> VisemeGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5729)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5733)
 
 Create a VisemeGeneration node.
 
@@ -7535,7 +7535,7 @@ def text_segmenation(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> TextSegmenation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5738)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5742)
 
 Create a TextSegmenation node.
 
@@ -7550,7 +7550,7 @@ def zero_shot_classification(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> ZeroShotClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5747)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5751)
 
 Create a ZeroShotClassification node.
 
@@ -7561,7 +7561,7 @@ def text_generation(asset_id: Union[str, asset.Asset], *args,
                     **kwargs) -> TextGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5751)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5755)
 
 Create a TextGeneration node.
 
@@ -7576,7 +7576,7 @@ def audio_intent_detection(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> AudioIntentDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5760)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5764)
 
 Create a AudioIntentDetection node.
 
@@ -7592,7 +7592,7 @@ def entity_linking(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> EntityLinking
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5770)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5774)
 
 Create a EntityLinking node.
 
@@ -7606,7 +7606,7 @@ def connection(asset_id: Union[str, asset.Asset], *args,
                **kwargs) -> Connection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5778)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5782)
 
 Create a Connection node.
 
@@ -7620,7 +7620,7 @@ def visual_question_answering(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> VisualQuestionAnswering
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5786)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5790)
 
 Create a VisualQuestionAnswering node.
 
@@ -7635,7 +7635,7 @@ def loglikelihood(asset_id: Union[str, asset.Asset], *args,
                   **kwargs) -> Loglikelihood
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5795)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5799)
 
 Create a Loglikelihood node.
 
@@ -7651,7 +7651,7 @@ def language_identification_audio(asset_id: Union[str, asset.Asset], *args,
                                   **kwargs) -> LanguageIdentificationAudio
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5805)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5809)
 
 Create a LanguageIdentificationAudio node.
 
@@ -7665,7 +7665,7 @@ def fact_checking(asset_id: Union[str, asset.Asset], *args,
                   **kwargs) -> FactChecking
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5815)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5819)
 
 Create a FactChecking node.
 
@@ -7680,7 +7680,7 @@ def table_question_answering(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> TableQuestionAnswering
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5824)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5828)
 
 Create a TableQuestionAnswering node.
 
@@ -7695,7 +7695,7 @@ def speech_classification(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> SpeechClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5833)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5837)
 
 Create a SpeechClassification node.
 
@@ -7709,7 +7709,7 @@ def inverse_text_normalization(asset_id: Union[str, asset.Asset], *args,
                                **kwargs) -> InverseTextNormalization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5841)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5845)
 
 Create a InverseTextNormalization node.
 
@@ -7725,7 +7725,7 @@ def multi_class_image_classification(
         **kwargs) -> MultiClassImageClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5852)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5856)
 
 Create a MultiClassImageClassification node.
 
@@ -7740,7 +7740,7 @@ def asr_gender_classification(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> AsrGenderClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5863)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5867)
 
 Create a AsrGenderClassification node.
 
@@ -7754,7 +7754,7 @@ def summarization(asset_id: Union[str, asset.Asset], *args,
                   **kwargs) -> Summarization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5871)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5875)
 
 Create a Summarization node.
 
@@ -7769,7 +7769,7 @@ def topic_modeling(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> TopicModeling
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5880)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5884)
 
 Create a TopicModeling node.
 
@@ -7783,7 +7783,7 @@ def audio_reconstruction(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> AudioReconstruction
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5888)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5892)
 
 Create a AudioReconstruction node.
 
@@ -7798,7 +7798,7 @@ def text_embedding(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> TextEmbedding
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5897)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5901)
 
 Create a TextEmbedding node.
 
@@ -7814,7 +7814,7 @@ def detect_language_from_text(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> DetectLanguageFromText
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5907)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5911)
 
 Create a DetectLanguageFromText node.
 
@@ -7827,7 +7827,7 @@ def extract_audio_from_video(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> ExtractAudioFromVideo
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5914)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5918)
 
 Create a ExtractAudioFromVideo node.
 
@@ -7841,7 +7841,7 @@ def scene_detection(asset_id: Union[str, asset.Asset], *args,
                     **kwargs) -> SceneDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5922)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5926)
 
 Create a SceneDetection node.
 
@@ -7855,7 +7855,7 @@ def text_to_image_generation(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> TextToImageGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5930)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5934)
 
 Create a TextToImageGeneration node.
 
@@ -7869,7 +7869,7 @@ def auto_mask_generation(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> AutoMaskGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5938)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5942)
 
 Create a AutoMaskGeneration node.
 
@@ -7886,7 +7886,7 @@ def audio_language_identification(asset_id: Union[str, asset.Asset], *args,
                                   **kwargs) -> AudioLanguageIdentification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5949)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5953)
 
 Create a AudioLanguageIdentification node.
 
@@ -7900,7 +7900,7 @@ def facial_recognition(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> FacialRecognition
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5959)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5963)
 
 Create a FacialRecognition node.
 
@@ -7914,7 +7914,7 @@ def question_answering(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> QuestionAnswering
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5967)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5971)
 
 Create a QuestionAnswering node.
 
@@ -7928,7 +7928,7 @@ def image_impainting(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> ImageImpainting
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5975)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5979)
 
 Create a ImageImpainting node.
 
@@ -7944,7 +7944,7 @@ def text_reconstruction(asset_id: Union[str, asset.Asset], *args,
                         **kwargs) -> TextReconstruction
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5985)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5989)
 
 Create a TextReconstruction node.
 
@@ -7958,7 +7958,7 @@ def script_execution(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> ScriptExecution
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5993)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L5997)
 
 Create a ScriptExecution node.
 
@@ -7973,7 +7973,7 @@ def semantic_segmentation(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> SemanticSegmentation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6002)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6006)
 
 Create a SemanticSegmentation node.
 
@@ -7988,7 +7988,7 @@ def audio_emotion_detection(asset_id: Union[str, asset.Asset], *args,
                             **kwargs) -> AudioEmotionDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6011)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6015)
 
 Create a AudioEmotionDetection node.
 
@@ -8003,7 +8003,7 @@ def image_captioning(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> ImageCaptioning
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6020)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6024)
 
 Create a ImageCaptioning node.
 
@@ -8019,7 +8019,7 @@ def split_on_linebreak(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> SplitOnLinebreak
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6030)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6034)
 
 Create a SplitOnLinebreak node.
 
@@ -8033,7 +8033,7 @@ def style_transfer(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> StyleTransfer
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6038)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6042)
 
 Create a StyleTransfer node.
 
@@ -8049,7 +8049,7 @@ def base_model(asset_id: Union[str, asset.Asset], *args,
                **kwargs) -> BaseModel
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6048)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6052)
 
 Create a BaseModel node.
 
@@ -8064,7 +8064,7 @@ def image_manipulation(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> ImageManipulation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6057)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6061)
 
 Create a ImageManipulation node.
 
@@ -8079,7 +8079,7 @@ def video_embedding(asset_id: Union[str, asset.Asset], *args,
                     **kwargs) -> VideoEmbedding
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6066)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6070)
 
 Create a VideoEmbedding node.
 
@@ -8094,7 +8094,7 @@ def dialect_detection(asset_id: Union[str, asset.Asset], *args,
                       **kwargs) -> DialectDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6075)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6079)
 
 Create a DialectDetection node.
 
@@ -8108,7 +8108,7 @@ def fill_text_mask(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> FillTextMask
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6083)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6087)
 
 Create a FillTextMask node.
 
@@ -8122,7 +8122,7 @@ def activity_detection(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> ActivityDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6091)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6095)
 
 Create a ActivityDetection node.
 
@@ -8136,7 +8136,7 @@ def select_supplier_for_translation(asset_id: Union[str, asset.Asset], *args,
                                     **kwargs) -> SelectSupplierForTranslation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6099)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6103)
 
 Create a SelectSupplierForTranslation node.
 
@@ -8149,7 +8149,7 @@ def expression_detection(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> ExpressionDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6108)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6112)
 
 Create a ExpressionDetection node.
 
@@ -8164,7 +8164,7 @@ def video_generation(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> VideoGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6117)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6121)
 
 Create a VideoGeneration node.
 
@@ -8178,7 +8178,7 @@ def image_analysis(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> ImageAnalysis
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6125)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6129)
 
 Create a ImageAnalysis node.
 
@@ -8191,7 +8191,7 @@ def noise_removal(asset_id: Union[str, asset.Asset], *args,
                   **kwargs) -> NoiseRemoval
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6132)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6136)
 
 Create a NoiseRemoval node.
 
@@ -8206,7 +8206,7 @@ def image_and_video_analysis(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> ImageAndVideoAnalysis
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6141)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6145)
 
 Create a ImageAndVideoAnalysis node.
 
@@ -8217,7 +8217,7 @@ def keyword_extraction(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> KeywordExtraction
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6145)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6149)
 
 Create a KeywordExtraction node.
 
@@ -8232,7 +8232,7 @@ def split_on_silence(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> SplitOnSilence
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6154)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6158)
 
 Create a SplitOnSilence node.
 
@@ -8247,7 +8247,7 @@ def intent_recognition(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> IntentRecognition
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6163)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6167)
 
 Create a IntentRecognition node.
 
@@ -8261,7 +8261,7 @@ def depth_estimation(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> DepthEstimation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6171)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6175)
 
 Create a DepthEstimation node.
 
@@ -8275,7 +8275,7 @@ to create a three-dimensional understanding of a scene.
 def connector(asset_id: Union[str, asset.Asset], *args, **kwargs) -> Connector
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6180)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6184)
 
 Create a Connector node.
 
@@ -8289,7 +8289,7 @@ def speaker_recognition(asset_id: Union[str, asset.Asset], *args,
                         **kwargs) -> SpeakerRecognition
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6188)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6192)
 
 Create a SpeakerRecognition node.
 
@@ -8303,7 +8303,7 @@ def syntax_analysis(asset_id: Union[str, asset.Asset], *args,
                     **kwargs) -> SyntaxAnalysis
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6196)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6200)
 
 Create a SyntaxAnalysis node.
 
@@ -8319,7 +8319,7 @@ def entity_sentiment_analysis(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> EntitySentimentAnalysis
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6206)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6210)
 
 Create a EntitySentimentAnalysis node.
 
@@ -8334,7 +8334,7 @@ def classification_metric(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> ClassificationMetric
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6215)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6219)
 
 Create a ClassificationMetric node.
 
@@ -8348,7 +8348,7 @@ def text_detection(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> TextDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6223)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6227)
 
 Create a TextDetection node.
 
@@ -8362,7 +8362,7 @@ def guardrails(asset_id: Union[str, asset.Asset], *args,
                **kwargs) -> Guardrails
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6231)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6235)
 
 Create a Guardrails node.
 
@@ -8377,7 +8377,7 @@ def emotion_detection(asset_id: Union[str, asset.Asset], *args,
                       **kwargs) -> EmotionDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6240)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6244)
 
 Create a EmotionDetection node.
 
@@ -8391,7 +8391,7 @@ def video_forced_alignment(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> VideoForcedAlignment
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6248)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6252)
 
 Create a VideoForcedAlignment node.
 
@@ -8405,7 +8405,7 @@ def image_content_moderation(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> ImageContentModeration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6256)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6260)
 
 Create a ImageContentModeration node.
 
@@ -8419,7 +8419,7 @@ def text_summarization(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> TextSummarization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6264)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6268)
 
 Create a TextSummarization node.
 
@@ -8433,7 +8433,7 @@ def image_to_video_generation(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> ImageToVideoGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6272)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6276)
 
 Create a ImageToVideoGeneration node.
 
@@ -8449,7 +8449,7 @@ def video_understanding(asset_id: Union[str, asset.Asset], *args,
                         **kwargs) -> VideoUnderstanding
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6282)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6286)
 
 Create a VideoUnderstanding node.
 
@@ -8464,7 +8464,7 @@ def text_generation_metric_default(asset_id: Union[str, asset.Asset], *args,
                                    **kwargs) -> TextGenerationMetricDefault
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6291)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6295)
 
 Create a TextGenerationMetricDefault node.
 
@@ -8479,7 +8479,7 @@ def text_to_video_generation(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> TextToVideoGeneration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6302)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6306)
 
 Create a TextToVideoGeneration node.
 
@@ -8494,7 +8494,7 @@ def video_label_detection(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> VideoLabelDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6311)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6315)
 
 Create a VideoLabelDetection node.
 
@@ -8508,7 +8508,7 @@ def text_spam_detection(asset_id: Union[str, asset.Asset], *args,
                         **kwargs) -> TextSpamDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6319)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6323)
 
 Create a TextSpamDetection node.
 
@@ -8523,7 +8523,7 @@ def text_content_moderation(asset_id: Union[str, asset.Asset], *args,
                             **kwargs) -> TextContentModeration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6328)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6332)
 
 Create a TextContentModeration node.
 
@@ -8537,7 +8537,7 @@ def audio_transcript_improvement(asset_id: Union[str, asset.Asset], *args,
                                  **kwargs) -> AudioTranscriptImprovement
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6336)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6340)
 
 Create a AudioTranscriptImprovement node.
 
@@ -8551,7 +8551,7 @@ def audio_transcript_analysis(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> AudioTranscriptAnalysis
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6346)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6350)
 
 Create a AudioTranscriptAnalysis node.
 
@@ -8566,7 +8566,7 @@ def speech_non_speech_classification(
         **kwargs) -> SpeechNonSpeechClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6354)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6358)
 
 Create a SpeechNonSpeechClassification node.
 
@@ -8580,7 +8580,7 @@ def audio_generation_metric(asset_id: Union[str, asset.Asset], *args,
                             **kwargs) -> AudioGenerationMetric
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6364)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6368)
 
 Create a AudioGenerationMetric node.
 
@@ -8596,7 +8596,7 @@ def named_entity_recognition(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> NamedEntityRecognition
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6374)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6378)
 
 Create a NamedEntityRecognition node.
 
@@ -8611,7 +8611,7 @@ def speech_synthesis(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> SpeechSynthesis
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6383)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6387)
 
 Create a SpeechSynthesis node.
 
@@ -8625,7 +8625,7 @@ def document_information_extraction(asset_id: Union[str, asset.Asset], *args,
                                     **kwargs) -> DocumentInformationExtraction
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6391)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6395)
 
 Create a DocumentInformationExtraction node.
 
@@ -8640,7 +8640,7 @@ easier data management and analysis.
 def ocr(asset_id: Union[str, asset.Asset], *args, **kwargs) -> Ocr
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6403)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6407)
 
 Create a Ocr node.
 
@@ -8654,7 +8654,7 @@ def subtitling_translation(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> SubtitlingTranslation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6411)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6415)
 
 Create a SubtitlingTranslation node.
 
@@ -8668,7 +8668,7 @@ def text_to_audio(asset_id: Union[str, asset.Asset], *args,
                   **kwargs) -> TextToAudio
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6419)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6423)
 
 Create a TextToAudio node.
 
@@ -8682,7 +8682,7 @@ def multilingual_speech_recognition(asset_id: Union[str, asset.Asset], *args,
                                     **kwargs) -> MultilingualSpeechRecognition
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6427)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6431)
 
 Create a MultilingualSpeechRecognition node.
 
@@ -8698,7 +8698,7 @@ def offensive_language_identification(
         **kwargs) -> OffensiveLanguageIdentification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6438)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6442)
 
 Create a OffensiveLanguageIdentification node.
 
@@ -8712,7 +8712,7 @@ def benchmark_scoring_mt(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> BenchmarkScoringMt
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6448)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6452)
 
 Create a BenchmarkScoringMt node.
 
@@ -8727,7 +8727,7 @@ def speaker_diarization_audio(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> SpeakerDiarizationAudio
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6457)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6461)
 
 Create a SpeakerDiarizationAudio node.
 
@@ -8741,7 +8741,7 @@ def voice_cloning(asset_id: Union[str, asset.Asset], *args,
                   **kwargs) -> VoiceCloning
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6465)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6469)
 
 Create a VoiceCloning node.
 
@@ -8755,7 +8755,7 @@ considerations.
 def search(asset_id: Union[str, asset.Asset], *args, **kwargs) -> Search
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6474)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6478)
 
 Create a Search node.
 
@@ -8770,7 +8770,7 @@ def object_detection(asset_id: Union[str, asset.Asset], *args,
                      **kwargs) -> ObjectDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6483)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6487)
 
 Create a ObjectDetection node.
 
@@ -8785,7 +8785,7 @@ def diacritization(asset_id: Union[str, asset.Asset], *args,
                    **kwargs) -> Diacritization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6492)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6496)
 
 Create a Diacritization node.
 
@@ -8799,7 +8799,7 @@ def speaker_diarization_video(asset_id: Union[str, asset.Asset], *args,
                               **kwargs) -> SpeakerDiarizationVideo
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6500)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6504)
 
 Create a SpeakerDiarizationVideo node.
 
@@ -8813,7 +8813,7 @@ def audio_forced_alignment(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> AudioForcedAlignment
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6508)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6512)
 
 Create a AudioForcedAlignment node.
 
@@ -8827,7 +8827,7 @@ def token_classification(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> TokenClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6516)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6520)
 
 Create a TokenClassification node.
 
@@ -8842,7 +8842,7 @@ def topic_classification(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> TopicClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6525)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6529)
 
 Create a TopicClassification node.
 
@@ -8856,7 +8856,7 @@ def intent_classification(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> IntentClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6533)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6537)
 
 Create a IntentClassification node.
 
@@ -8872,7 +8872,7 @@ def video_content_moderation(asset_id: Union[str, asset.Asset], *args,
                              **kwargs) -> VideoContentModeration
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6543)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6547)
 
 Create a VideoContentModeration node.
 
@@ -8886,7 +8886,7 @@ def text_generation_metric(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> TextGenerationMetric
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6551)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6555)
 
 Create a TextGenerationMetric node.
 
@@ -8902,7 +8902,7 @@ def image_embedding(asset_id: Union[str, asset.Asset], *args,
                     **kwargs) -> ImageEmbedding
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6561)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6565)
 
 Create a ImageEmbedding node.
 
@@ -8918,7 +8918,7 @@ def image_label_detection(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> ImageLabelDetection
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6571)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6575)
 
 Create a ImageLabelDetection node.
 
@@ -8932,7 +8932,7 @@ def image_colorization(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> ImageColorization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6579)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6583)
 
 Create a ImageColorization node.
 
@@ -8948,7 +8948,7 @@ def metric_aggregation(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> MetricAggregation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6589)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6593)
 
 Create a MetricAggregation node.
 
@@ -8964,7 +8964,7 @@ def instance_segmentation(asset_id: Union[str, asset.Asset], *args,
                           **kwargs) -> InstanceSegmentation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6599)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6603)
 
 Create a InstanceSegmentation node.
 
@@ -8980,7 +8980,7 @@ def other__multipurpose_(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> OtherMultipurpose
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6609)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6613)
 
 Create a OtherMultipurpose node.
 
@@ -8996,7 +8996,7 @@ def speech_translation(asset_id: Union[str, asset.Asset], *args,
                        **kwargs) -> SpeechTranslation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6619)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6623)
 
 Create a SpeechTranslation node.
 
@@ -9012,7 +9012,7 @@ def referenceless_text_generation_metric_default(
         **kwargs) -> ReferencelessTextGenerationMetricDefault
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6628)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6632)
 
 Create a ReferencelessTextGenerationMetricDefault node.
 
@@ -9028,7 +9028,7 @@ def referenceless_text_generation_metric(
         **kwargs) -> ReferencelessTextGenerationMetric
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6639)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6643)
 
 Create a ReferencelessTextGenerationMetric node.
 
@@ -9044,7 +9044,7 @@ def text_denormalization(asset_id: Union[str, asset.Asset], *args,
                          **kwargs) -> TextDenormalization
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6651)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6655)
 
 Create a TextDenormalization node.
 
@@ -9058,7 +9058,7 @@ def image_compression(asset_id: Union[str, asset.Asset], *args,
                       **kwargs) -> ImageCompression
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6659)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6663)
 
 Create a ImageCompression node.
 
@@ -9072,7 +9072,7 @@ def text_classification(asset_id: Union[str, asset.Asset], *args,
                         **kwargs) -> TextClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6667)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6671)
 
 Create a TextClassification node.
 
@@ -9086,7 +9086,7 @@ def asr_age_classification(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> AsrAgeClassification
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6675)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6679)
 
 Create a AsrAgeClassification node.
 
@@ -9101,7 +9101,7 @@ def asr_quality_estimation(asset_id: Union[str, asset.Asset], *args,
                            **kwargs) -> AsrQualityEstimation
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6684)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/pipeline.py#L6688)
 
 Create a AsrQualityEstimation node.
 

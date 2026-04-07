@@ -49,8 +49,8 @@ model (LLM) with specialized tools to provide comprehensive task-solving capabil
 - `description` _Text, optional_ - Detailed description of the Agent&#x27;s capabilities.
   Defaults to &quot;&quot;.
 - `instructions` _Text_ - System instructions/prompt defining the Agent&#x27;s behavior.
-- `llm_id` _Text_ - ID of the large language model. Defaults to GPT-5 Mini
-  (6895d6d1d50c89537c1cf237).
+- `llm_id` _Text_ - ID of the large language model. Defaults to GPT-5.4
+  (69b7e5f1b2fe44704ab0e7d0).
 - `llm` _Optional[LLM]_ - The LLM instance used by the Agent.
 - `supplier` _Text_ - The provider/creator of the Agent.
 - `version` _Text_ - Version identifier of the Agent.
@@ -71,7 +71,7 @@ def __init__(id: Text,
              description: Text,
              instructions: Optional[Text] = None,
              tools: List[Union[Tool, Model]] = [],
-             llm_id: Text = "6895d6d1d50c89537c1cf237",
+             llm_id: Text = "69b7e5f1b2fe44704ab0e7d0",
              llm: Optional[LLM] = None,
              api_key: Optional[Text] = config.TEAM_API_KEY,
              supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -98,8 +98,8 @@ Initialize a new Agent instance.
   the Agent&#x27;s behavior. Defaults to None.
 - `tools` _List[Union[Tool, Model]], optional_ - Collection of tools and models
   the Agent can use. Defaults to empty list.
-- `llm_id` _Text, optional_ - ID of the large language model. Defaults to GPT-5 Mini
-  (6895d6d1d50c89537c1cf237).
+- `llm_id` _Text, optional_ - ID of the large language model. Defaults to GPT-5.4
+  (69b7e5f1b2fe44704ab0e7d0).
 - `llm` _Optional[LLM], optional_ - The LLM instance to use. If provided, takes
   precedence over llm_id. Defaults to None.
 - `api_key` _Optional[Text], optional_ - Authentication key for API access.
@@ -229,7 +229,7 @@ def run(data: Optional[Union[Dict, Text]] = None,
         max_iterations: int = 5,
         trace_request: bool = False,
         progress_verbosity: Optional[str] = "compact",
-        run_response_generation: bool = False,
+        run_response_generation: bool = True,
         **kwargs) -> AgentResponse
 ```
 
@@ -252,7 +252,7 @@ Runs an agent call.
 - `query`0 _int, optional_ - maximum number of iterations between the agent and the tools. Defaults to 10.
 - `query`1 _bool, optional_ - return the request id for tracing the request. Defaults to False.
 - `query`2 _Optional[str], optional_ - Progress display mode - &quot;full&quot; (detailed), &quot;compact&quot; (brief), or None (no progress). Defaults to &quot;compact&quot;.
-- `query`3 _bool, optional_ - Whether to run response generation. Defaults to False.
+- `query`3 _bool, optional_ - Whether to run response generation. Defaults to True.
 - `query`4 - Additional keyword arguments.
   
 
@@ -276,10 +276,10 @@ def run_async(data: Optional[Union[Dict, Text]] = None,
               expected_output: Optional[Union[BaseModel, Text, dict]] = None,
               evolve: Union[Dict[str, Any], EvolveParam, None] = None,
               trace_request: bool = False,
-              run_response_generation: bool = False) -> AgentResponse
+              run_response_generation: bool = True) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L725)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L721)
 
 Runs asynchronously an agent call.
 
@@ -298,7 +298,7 @@ Runs asynchronously an agent call.
 - `query`0 _Union[BaseModel, Text, dict], optional_ - expected output. Defaults to None.
 - `query`1 _Union[Dict[str, Any], EvolveParam, None], optional_ - evolve the agent configuration. Can be a dictionary, EvolveParam instance, or None.
 - `query`2 _bool, optional_ - return the request id for tracing the request. Defaults to False.
-- `query`3 _bool, optional_ - Whether to run response generation. Defaults to False.
+- `query`3 _bool, optional_ - Whether to run response generation. Defaults to True.
   
 
 **Returns**:
@@ -311,7 +311,7 @@ Runs asynchronously an agent call.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L871)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L867)
 
 Convert the Agent instance to a dictionary representation.
 
@@ -326,7 +326,7 @@ Convert the Agent instance to a dictionary representation.
 def from_dict(cls, data: Dict) -> "Agent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L908)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L904)
 
 Create an Agent instance from a dictionary representation.
 
@@ -345,7 +345,7 @@ Create an Agent instance from a dictionary representation.
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L983)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L979)
 
 Delete this Agent from the aiXplain platform.
 
@@ -366,7 +366,7 @@ Agent is being used by any team agents.
 def update() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1046)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1042)
 
 Update the Agent&#x27;s configuration on the aiXplain platform.
 
@@ -390,7 +390,7 @@ in favor of the save() method.
 def save() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1093)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1089)
 
 Save the Agent&#x27;s current configuration to the aiXplain platform.
 
@@ -407,7 +407,7 @@ It is the preferred method for updating an Agent&#x27;s settings.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1104)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1100)
 
 Return a string representation of the Agent.
 
@@ -426,7 +426,7 @@ def evolve_async(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
                  llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1112)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1108)
 
 Asynchronously evolve the Agent and return a polling URL in the AgentResponse.
 
@@ -455,7 +455,7 @@ def evolve(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
            llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1151)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1147)
 
 Synchronously evolve the Agent and poll for the result.
 

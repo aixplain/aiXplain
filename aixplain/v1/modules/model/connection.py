@@ -194,20 +194,30 @@ class ConnectionTool(Model):
             except Exception as e:
                 raise Exception(f"It was not possible to get the inputs for the action {action}. Error {e}")
 
-    def run(self, action: Union[ConnectAction, Text], inputs: Dict):
+    def run(
+        self,
+        action: Union[ConnectAction, Text],
+        inputs: Optional[Dict] = None,
+        *,
+        data: Optional[Dict] = None,
+    ):
         """Execute a specific action with the provided inputs.
 
         Args:
             action (Union[ConnectAction, Text]): The action to execute, either as a ConnectAction object
                 or as a string code.
-            inputs (Dict): The input parameters for the action.
+            inputs (Dict, optional): The input parameters for the action. Use this or ``data``.
+            data (Dict, optional): Alias for ``inputs`` for compatibility with examples/docs.
 
         Returns:
             Response: The response from the server after executing the action.
         """
+        payload = inputs if inputs is not None else data
+        if payload is None:
+            raise TypeError("run() missing required argument: 'inputs' or 'data'")
         if isinstance(action, ConnectAction):
             action = action.code
-        return super().run({"action": action, "data": inputs})
+        return super().run({"action": action, "data": payload})
 
     def get_parameters(self) -> List[Dict]:
         """Get the parameters for all actions in the current action scope.

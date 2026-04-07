@@ -1,9 +1,11 @@
 """aiXplain SDK v2 - Modern Python SDK for the aiXplain platform."""
 
 from .core import Aixplain
+from .rlm import RLM, RLMResult
 from .utility import Utility
 from .agent import Agent
 from .tool import Tool
+from .actions import Input, Inputs, Action, Actions
 from .file import Resource
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
 from .inspector import (
@@ -52,6 +54,8 @@ from .enums import (
 
 __all__ = [
     "Aixplain",
+    "RLM",
+    "RLMResult",
     "Utility",
     "Agent",
     "Tool",
@@ -111,4 +115,9 @@ __all__ = [
     "EvolveType",
     "CodeInterpreterModel",
     "SplittingOptions",
+    # Actions / Inputs hierarchy
+    "Input",
+    "Inputs",
+    "Action",
+    "Actions",
 ]
