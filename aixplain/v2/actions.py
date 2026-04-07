@@ -171,7 +171,13 @@ class Input:
     def from_action_input_spec(cls, spec: "ActionInputSpec") -> "Input":
         """Build an ``Input`` from a tool ``ActionInputSpec``."""
         code = spec.code or spec.name.lower().replace(" ", "_")
-        initial_value = spec.default_value[0] if spec.default_value else None
+        initial_value = None
+        if spec.default_value:
+            first = spec.default_value[0]
+            if isinstance(first, dict):
+                initial_value = first.get("value")
+            else:
+                initial_value = first
         default_for_reset = initial_value
 
         def _make_validator(s: "ActionInputSpec") -> Callable[[Any], bool]:

@@ -37,7 +37,7 @@ def tool(client, slack_integration_id):
     """Find a tool backed by the Slack integration that has actions."""
     results = client.Tool.search(page_size=20).results
     for t in results:
-        if t.actions_available and t.integration == slack_integration_id:
+        if t.actions_available and t.integration_id == slack_integration_id:
             return t
     # Fallback: just find any tool with actions
     for t in results:

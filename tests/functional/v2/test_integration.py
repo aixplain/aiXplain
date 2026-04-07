@@ -17,10 +17,9 @@ def validate_integration_structure(integration):
 
     # Test attributes if present
     if integration.attributes:
-        assert isinstance(integration.attributes, list)
-        for attr in integration.attributes:
-            assert hasattr(attr, "name")
-            assert hasattr(attr, "code")
+        assert isinstance(integration.attributes, dict)
+        for key in integration.attributes:
+            assert isinstance(key, str)
 
 
 def test_integration_list_actions(client, slack_integration_id):

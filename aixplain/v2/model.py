@@ -462,7 +462,7 @@ class Model(
     # Values can be: ["synchronous"], ["asynchronous"], or ["synchronous", "asynchronous"]
     connection_type: Optional[List[str]] = field(default=None, metadata=config(field_name="connectionType"))
 
-    # The backend returns attributes as a list for integrations/tools.
+    # The backend returns attributes as a plain key/value map.
     params: Optional[List[Parameter]] = None
     attributes: Optional[Dict[str, Any]] = None
 
@@ -472,6 +472,12 @@ class Model(
         run_action = Action(name="run", inputs=inputs)
         object.__setattr__(self, "_model_actions", Actions({"run": run_action}))
         object.__setattr__(self, "inputs", inputs)
+
+    def get_attribute(self, key: str, default: Any = None) -> Any:
+        """Return an attribute value from the backend attribute map."""
+        if self.attributes is None:
+            return default
+        return self.attributes.get(key, default)
 
     @property
     def actions(self) -> Actions:

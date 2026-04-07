@@ -94,6 +94,22 @@ def download_data(url_link: str, local_filename: Optional[str] = None) -> str:
     return local_filename
 
 
+def _build_s3_link_from_presigned_url(presigned_url: Text, path: Text) -> Text:
+    """Build an S3 URI from a presigned upload URL."""
+    bucket_match = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)
+    if bucket_match:
+        return f"s3://{bucket_match[0]}/{path}"
+
+    parsed_url = urlparse(presigned_url)
+    host_parts = parsed_url.netloc.split(".")
+    if host_parts and host_parts[0] and not host_parts[0].startswith("s3"):
+        return f"s3://{host_parts[0]}/{path}"
+
+    path_parts = parsed_url.path.lstrip("/").split("/", 1)
+    bucket_name = path_parts[0] if path_parts and path_parts[0] else "aixplain-uploads"
+    return f"s3://{bucket_name}/{path}"
+
+
 def upload_data(
     file_name: Union[Text, Path],
     tags: Optional[List[Text]] = None,
@@ -187,9 +203,7 @@ def upload_data(
             else:
                 raise Exception("File Uploading Error: Failure on Uploading to S3.")
         if return_download_link is False:
-            bucket_name = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)[0]
-            s3_link = f"s3://{bucket_name}/{path}"
-            return s3_link
+            return _build_s3_link_from_presigned_url(presigned_url, path)
         return download_link
     except Exception:
         if nattempts > 0:

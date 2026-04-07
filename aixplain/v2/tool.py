@@ -242,14 +242,13 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             m = self._AUTH_SCHEME_RE.search(self.description)
             if m:
                 return m.group(1)
-        if isinstance(self.attributes, dict):
-            auth_schemes_val = self.attributes.get("auth_schemes")
-            if auth_schemes_val:
-                schemes = re.findall(r"\w+", str(auth_schemes_val))
-                if "BEARER_TOKEN" in schemes:
-                    return "BEARER_TOKEN"
-                if schemes:
-                    return schemes[0]
+        auth_schemes_val = self.attributes.get("auth_schemes") if self.attributes else None
+        if auth_schemes_val:
+            schemes = re.findall(r"\w+", str(auth_schemes_val))
+            if "BEARER_TOKEN" in schemes:
+                return "BEARER_TOKEN"
+            if schemes:
+                return schemes[0]
         return None
 
     def _update(self, resource_path: str, payload: dict) -> None:
