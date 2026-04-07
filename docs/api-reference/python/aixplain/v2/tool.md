@@ -153,7 +153,7 @@ the agent is permitted to use.
 def run(*args: Any, **kwargs: Unpack[ModelRunParams]) -> ToolResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L373)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L375)
 
 Run the tool.
 
