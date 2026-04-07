@@ -439,7 +439,7 @@ class AgentProgressTracker:
             step_line += f" · ${step_credits:.6f}"
             token_text = self._format_token_usage_inline(step)
             if token_text:
-                step_line += f" · ⊘ {token_text}"
+                step_line += f" · {token_text}"
 
         step_line += f" · {agent_action_part}"
         return step_line
@@ -595,7 +595,7 @@ class AgentProgressTracker:
         """Print token usage for a step if available."""
         text = self._format_token_usage_inline(step)
         if text:
-            print(f"  ⊘ Tokens: {text}")
+            print(f"  Tokens:    {text}")
 
     def _format_token_usage_inline(self, step: Dict) -> str:
         """Format token usage as a compact inline string, or empty if unavailable."""
@@ -608,12 +608,12 @@ class AgentProgressTracker:
 
         parts = []
         if input_tok is not None:
-            parts.append(f"in={input_tok}")
+            parts.append(f"↓{input_tok}")
         if output_tok is not None:
-            parts.append(f"out={output_tok}")
+            parts.append(f"↑{output_tok}")
         if total_tok is not None:
-            parts.append(f"total={total_tok}")
-        return " · ".join(parts)
+            parts.append(f"({total_tok})")
+        return " ".join(parts)
 
     def _print_completion_message(self, status: str, steps: List[Dict]) -> None:
         """Print final completion message with stats."""
@@ -625,8 +625,9 @@ class AgentProgressTracker:
         token_suffix = ""
         total_input = getattr(self, "_total_input_tokens", 0)
         total_output = getattr(self, "_total_output_tokens", 0)
+        total_tokens = total_input + total_output
         if total_input or total_output:
-            token_suffix = f" · ⊘ {total_input}→{total_output} tokens"
+            token_suffix = f" · ↓{total_input} ↑{total_output} ({total_tokens})"
 
         if status == "SUCCESS":
             print(
