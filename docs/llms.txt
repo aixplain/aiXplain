@@ -1,0 +1,37 @@
+# aiXplain Docs
+
+> LLM-readable entrypoint for the aiXplain Python SDK v2 reference.
+
+Use `api-reference/python/aixplain/v2/llms-full.txt` when you want the complete SDK v2 reference in one context window.
+
+## Recommended
+
+- [SDK v2 full reference](api-reference/python/aixplain/v2/llms-full.txt): Complete concatenated aiXplain Python SDK v2 API reference.
+- [SDK v2 landing page](api-reference/python/aixplain/v2/init.md): Package overview for `aixplain.v2`.
+
+## SDK v2 Modules
+
+- [aixplain.v2](api-reference/python/aixplain/v2/init.md): aiXplain SDK v2 - Modern Python SDK for the aiXplain platform.
+- [aixplain.v2.agent](api-reference/python/aixplain/v2/agent.md): Agent module for aiXplain v2 SDK.
+- [aixplain.v2.agent_progress](api-reference/python/aixplain/v2/agent_progress.md): Agent progress tracking and display module.
+- [aixplain.v2.api_key](api-reference/python/aixplain/v2/api_key.md): API Key management module for aiXplain v2 API.
+- [aixplain.v2.client](api-reference/python/aixplain/v2/client.md): Client module for making HTTP requests to the aiXplain API.
+- [aixplain.v2.code_utils](api-reference/python/aixplain/v2/code_utils.md): Code parsing utilities for v2 utility models.
+- [aixplain.v2.core](api-reference/python/aixplain/v2/core.md): Core module for aiXplain v2 API.
+- [aixplain.v2.enums](api-reference/python/aixplain/v2/enums.md): V2 enums module - self-contained to avoid legacy dependencies.
+- [aixplain.v2.enums_include](api-reference/python/aixplain/v2/enums_include.md): Compatibility imports for legacy enums in v2.
+- [aixplain.v2.exceptions](api-reference/python/aixplain/v2/exceptions.md): Unified error hierarchy for v2 system.
+- [aixplain.v2.file](api-reference/python/aixplain/v2/file.md): Simple Resource class for file handling and S3 uploads.
+- [aixplain.v2.inspector](api-reference/python/aixplain/v2/inspector.md): Inspector module for v2 API - Team agent inspection and validation.
+- [aixplain.v2.integration](api-reference/python/aixplain/v2/integration.md): Integration module for managing external service integrations.
+- [aixplain.v2.meta_agents](api-reference/python/aixplain/v2/meta_agents.md): Meta agents module - Debugger and other meta-agent utilities.
+- [aixplain.v2.mixins](api-reference/python/aixplain/v2/mixins.md): Mixins for v2 API classes.
+- [aixplain.v2.model](api-reference/python/aixplain/v2/model.md): Model resource for v2 API.
+- [aixplain.v2.resource](api-reference/python/aixplain/v2/resource.md): Resource management module for v2 API.
+- [aixplain.v2.tool](api-reference/python/aixplain/v2/tool.md): Tool resource module for managing tools and their integrations.
+- [aixplain.v2.upload_utils](api-reference/python/aixplain/v2/upload_utils.md): File upload utilities for v2 Resource system.
+- [aixplain.v2.utility](api-reference/python/aixplain/v2/utility.md): Utility resource module for managing custom Python code utilities.
+
+## Regeneration
+
+- Run `python generate_llms_full.py` from the repository root.
