@@ -4,6 +4,8 @@ import time
 
 from aixplain.v2.integration import Integration
 
+TAVILY_TOOL_PATH = "tavily/tavily-web-search/tavily"
+
 
 @pytest.fixture(scope="module")
 def slack_integration_id():
@@ -14,7 +16,7 @@ def slack_integration_id():
 @pytest.fixture(scope="module")
 def single_action_test_agent(client):
     """Create a temporary agent using a single-action tool and clean it up."""
-    tool = client.Tool.get("tavily/tavily-web-search")
+    tool = client.Tool.get(TAVILY_TOOL_PATH)
     tool.allowed_actions = []
 
     agent = client.Agent(
@@ -100,10 +102,9 @@ def validate_tool_structure(tool):
         assert hasattr(tool.version, "id"), "Tool version should have id attribute"
 
     if tool.attributes is not None:
-        assert isinstance(tool.attributes, list), "Tool attributes should be a list"
-        for attr in tool.attributes:
-            assert hasattr(attr, "name"), "Each attribute should have name attribute"
-            assert hasattr(attr, "code"), "Each attribute should have code attribute"
+        assert isinstance(tool.attributes, dict), "Tool attributes should be a dictionary"
+        for key in tool.attributes:
+            assert isinstance(key, str), "Each attribute key should be a string"
 
     if tool.params is not None:
         assert isinstance(tool.params, list), "Tool params should be a list"
@@ -348,13 +349,16 @@ def test_tool_run_with_default_params(client):
     were sent as raw default dicts instead of extracted primitive values,
     causing the backend to reject the request.
     """
-    tavily_tool = client.Tool.get("tavily/tavily-web-search")
+    tavily_tool = client.Tool.get(TAVILY_TOOL_PATH)
 
     # Verify the action proxy stores extracted primitives, not raw dicts
     action_proxy = tavily_tool.actions["search"]
-    for key in action_proxy.keys():
-        value = action_proxy.get(key)
-        assert not isinstance(value, dict), f"Action input '{key}' default should be a primitive, got dict: {value}"
+    for key in action_proxy.inputs.keys():
+        value = action_proxy.inputs.get(key)
+        assert value is not None
+        assert not isinstance(value.value, dict), (
+            f"Action input '{key}' default should be a primitive, got dict: {value.value}"
+        )
 
     # Run with only the required 'query' param — all optional params should
     # fall back to their extracted defaults without errors.
@@ -511,7 +515,7 @@ def test_tool_update_preserves_allowed_actions(client, slack_integration_id, sla
 
 def test_tool_as_tool_auto_detects_single_action(client):
     """Test that as_tool() auto-includes the action when a tool has exactly one action."""
-    tool = client.Tool.get("tavily/tavily-web-search")
+    tool = client.Tool.get(TAVILY_TOOL_PATH)
     tool.allowed_actions = []
 
     tool_dict = tool.as_tool()
@@ -522,7 +526,7 @@ def test_tool_as_tool_auto_detects_single_action(client):
 
 def test_tool_as_tool_no_mutation(client):
     """Test that as_tool() does NOT mutate self.allowed_actions as a side effect."""
-    tool = client.Tool.get("tavily/tavily-web-search")
+    tool = client.Tool.get(TAVILY_TOOL_PATH)
     tool.allowed_actions = []
 
     tool.as_tool()
@@ -536,7 +540,7 @@ def test_tool_as_tool_caching(client):
     """Test that repeated as_tool() calls reuse cached actions instead of hitting the API again."""
     from unittest.mock import patch
 
-    tool = client.Tool.get("tavily/tavily-web-search")
+    tool = client.Tool.get(TAVILY_TOOL_PATH)
     tool.allowed_actions = []
 
     tool.as_tool()
@@ -560,7 +564,7 @@ def test_tool_as_tool_caching(client):
 
 def test_tool_run_auto_detects_single_action(client):
     """Test that run() auto-detects the action for single-action tools without explicit action kwarg."""
-    tool = client.Tool.get("tavily/tavily-web-search")
+    tool = client.Tool.get(TAVILY_TOOL_PATH)
     tool.allowed_actions = []
 
     result = tool.run(data={"query": "friendship paradox", "num_results": 1})
