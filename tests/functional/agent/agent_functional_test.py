@@ -665,7 +665,7 @@ def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
 def test_agent_llm_parameter_preservation(resource_tracker, AgentFactory):
     """Test that LLM parameters like temperature are preserved when creating agents."""
     # Get an LLM instance and customize its temperature
-    llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    llm = ModelFactory.get("6895d6d1d50c89537c1cf237")  # Anthropic Claude 3.5 Sonnet v1
     original_temperature = llm.temperature
     custom_temperature = 0.1
     llm.temperature = custom_temperature

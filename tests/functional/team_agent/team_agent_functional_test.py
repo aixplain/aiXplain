@@ -410,8 +410,8 @@ def test_team_agent_llm_parameter_preservation(resource_tracker, run_input_map, 
         resource_tracker.append(agent)
 
     # Get LLM instances and customize their temperatures
-    supervisor_llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
-    mentalist_llm = ModelFactory.get("671be4886eb56397e51f7541")  # Anthropic Claude 3.5 Sonnet v1
+    supervisor_llm = ModelFactory.get("6895d6d1d50c89537c1cf237")  # Anthropic Claude 3.5 Sonnet v1
+    mentalist_llm = ModelFactory.get("6895d6d1d50c89537c1cf237")  # Anthropic Claude 3.5 Sonnet v1
 
     # Set custom temperatures
     supervisor_llm.temperature = 0.1
@@ -424,7 +424,7 @@ def test_team_agent_llm_parameter_preservation(resource_tracker, run_input_map, 
         agents=agents,
         supervisor_llm=supervisor_llm,
         mentalist_llm=mentalist_llm,
-        llm_id="671be4886eb56397e51f7541",  # Still required even with custom LLMs
+        llm_id="6895d6d1d50c89537c1cf237",  # Still required even with custom LLMs
         description="A team agent for testing LLM parameter preservation",
         use_mentalist=True,
     )
