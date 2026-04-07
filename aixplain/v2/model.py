@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Union, List, Optional, Any, TYPE_CHECKING, Iterator
+from typing import Dict, Union, List, Optional, Any, TYPE_CHECKING, Iterator
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
 from dataclasses import dataclass, field
@@ -23,6 +23,7 @@ from .resource import (
 from .enums import Function, Supplier, Language, AssetStatus, ResponseStatus
 from .mixins import ToolableMixin, ToolDict
 from .exceptions import ValidationError
+from .actions import Actions, Action, Inputs
 
 if TYPE_CHECKING:
     import requests
@@ -47,20 +48,63 @@ class Message:
 class Detail:
     """Detail structure from the API response."""
 
-    index: int
-    message: Message
+    index: Optional[int] = None
+    message: Optional[Message] = None
     logprobs: Optional[Any] = None
     finish_reason: Optional[str] = field(default=None, metadata=config(field_name="finish_reason"))
+
+
+def _safe_token_count(val: Any) -> Optional[int]:
+    """Coerce a token count to int, returning None for unparseable values.
+
+    The model-serving backend returns token counts inconsistently:
+    valid ints, numeric strings (``"20"``), ``"NaN"``, ``null``, or ``"0"``.
+    This helper normalises all of those without raising.
+    """
+    if val is None:
+        return None
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
+        import math
+
+        return None if math.isnan(val) else int(val)
+    s = str(val).strip()
+    if not s or s.lower() == "nan" or s.lower() == "null" or s.lower() == "none":
+        return None
+    try:
+        return int(s)
+    except (ValueError, TypeError):
+        try:
+            import math
+
+            f = float(s)
+            return None if math.isnan(f) else int(f)
+        except (ValueError, TypeError):
+            return None
 
 
 @dataclass_json
 @dataclass
 class Usage:
-    """Usage structure from the API response."""
+    """Usage structure from the API response.
 
-    prompt_tokens: int = field(metadata=config(field_name="prompt_tokens"))
-    completion_tokens: int = field(metadata=config(field_name="completion_tokens"))
-    total_tokens: int = field(metadata=config(field_name="total_tokens"))
+    Token counts are nullable because some model providers (GPT-5.4, Claude,
+    Mistral Large) return ``"NaN"`` or ``null`` instead of integers.
+    """
+
+    prompt_tokens: Optional[int] = field(
+        default=None,
+        metadata=config(field_name="prompt_tokens", decoder=_safe_token_count),
+    )
+    completion_tokens: Optional[int] = field(
+        default=None,
+        metadata=config(field_name="completion_tokens", decoder=_safe_token_count),
+    )
+    total_tokens: Optional[int] = field(
+        default=None,
+        metadata=config(field_name="total_tokens", decoder=_safe_token_count),
+    )
 
 
 @dataclass_json
@@ -72,6 +116,7 @@ class ModelResult(Result):
     run_time: Optional[float] = field(default=None, metadata=config(field_name="runTime"))
     used_credits: Optional[float] = field(default=None, metadata=config(field_name="usedCredits"))
     usage: Optional[Usage] = None
+    asset: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -109,7 +154,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
     for proper resource cleanup.
 
     Example:
-        >>> model = aix.Model.get("6895d6d1d50c89537c1cf237")  # GPT-5 Mini
+        >>> model = aix.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
         >>> for chunk in model.run(text="Explain LLMs", stream=True):
         ...     print(chunk.data, end="", flush=True)
 
@@ -264,213 +309,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
         self.close()
 
 
-class InputsProxy:
-    """Proxy object that provides both dict-like and dot notation access to model parameters."""
-
-    def __init__(self, model):
-        """Initialize InputsProxy with a model instance."""
-        self._model = model
-        self._dynamic_attrs = {}
-        self._setup_dynamic_attributes()
-
-    def _setup_dynamic_attributes(self):
-        """Create dynamic attributes for all model parameters."""
-        if self._model.params:
-            for param in self._model.params:
-                # Create a dynamic attribute for each parameter
-                attr_name = param.name
-
-                # Set initial value from backend defaults if available
-                initial_value = None
-                if param.default_values:
-                    initial_value = param.default_values[0].get("value")
-
-                # Store the parameter metadata and value
-                self._dynamic_attrs[attr_name] = {
-                    "value": initial_value,
-                    "param": param,
-                    "required": param.required,
-                    "data_type": param.data_type,
-                    "data_sub_type": param.data_sub_type,
-                }
-
-    def __getitem__(self, key: str):
-        """Dict-like access: inputs['temperature']."""
-        if key in self._dynamic_attrs:
-            return self._dynamic_attrs[key]["value"]
-        raise KeyError(f"Parameter '{key}' not found")
-
-    def __setitem__(self, key: str, value):
-        """Dict-like assignment: inputs['temperature'] = 0.7."""
-        if key in self._dynamic_attrs:
-            # Validate the value against the parameter definition
-            param_info = self._dynamic_attrs[key]
-            param = param_info["param"]
-
-            if not self._validate_param_type(param, value):
-                raise ValueError(
-                    f"Invalid value type for parameter '{key}'. Expected {param.data_type}, got {type(value).__name__}"
-                )
-
-            # Store the value
-            self._dynamic_attrs[key]["value"] = value
-        else:
-            raise KeyError(f"Parameter '{key}' not found")
-
-    def __getattr__(self, name: str):
-        """Dot notation access: inputs.temperature."""
-        if name in self._dynamic_attrs:
-            return self._dynamic_attrs[name]["value"]
-        raise AttributeError(f"Parameter '{name}' not found")
-
-    def __setattr__(self, name: str, value):
-        """Dot notation assignment: inputs.temperature = 0.7."""
-        if name == "_model" or name == "_dynamic_attrs":
-            super().__setattr__(name, value)
-        elif name in self._dynamic_attrs:
-            # Validate the value against the parameter definition
-            param_info = self._dynamic_attrs[name]
-            param = param_info["param"]
-
-            if not self._validate_param_type(param, value):
-                raise ValueError(
-                    f"Invalid value type for parameter '{name}'. Expected {param.data_type}, got {type(value).__name__}"
-                )
-
-            # Store the value
-            self._dynamic_attrs[name]["value"] = value
-        else:
-            raise AttributeError(f"Parameter '{name}' not found")
-
-    def __contains__(self, key: str) -> bool:
-        """Check if parameter exists: 'temperature' in inputs."""
-        return key in self._dynamic_attrs
-
-    def __len__(self) -> int:
-        """Number of parameters."""
-        return len(self._dynamic_attrs)
-
-    def __iter__(self):
-        """Iterate over parameter names."""
-        return iter(self._dynamic_attrs.keys())
-
-    def keys(self):
-        """Get parameter names."""
-        return list(self._dynamic_attrs.keys())
-
-    def values(self):
-        """Get parameter values."""
-        return [info["value"] for info in self._dynamic_attrs.values()]
-
-    def items(self):
-        """Get parameter name-value pairs."""
-        return [(name, info["value"]) for name, info in self._dynamic_attrs.items()]
-
-    def get(self, key: str, default=None):
-        """Get parameter value with default."""
-        if key in self._dynamic_attrs:
-            return self._dynamic_attrs[key]["value"]
-        return default
-
-    def update(self, **kwargs):
-        """Update multiple parameters at once."""
-        for key, value in kwargs.items():
-            if key in self._dynamic_attrs:
-                self[key] = value  # This will trigger validation
-            else:
-                raise KeyError(f"Parameter '{key}' not found")
-
-    def clear(self):
-        """Reset all parameters to backend defaults."""
-        for param_name in self._dynamic_attrs:
-            self.reset_parameter(param_name)
-
-    def copy(self):
-        """Get a copy of current parameter values."""
-        return {name: info["value"] for name, info in self._dynamic_attrs.items()}
-
-    def has_parameter(self, param_name: str) -> bool:
-        """Check if a parameter exists."""
-        return param_name in self._dynamic_attrs
-
-    def get_parameter_names(self) -> list:
-        """Get a list of all available parameter names."""
-        return list(self._dynamic_attrs.keys())
-
-    def get_required_parameters(self) -> list:
-        """Get a list of required parameter names."""
-        return [name for name, info in self._dynamic_attrs.items() if info["required"]]
-
-    def get_parameter_info(self, param_name: str):
-        """Get information about a specific parameter."""
-        if param_name in self._dynamic_attrs:
-            return self._dynamic_attrs[param_name].copy()
-        return None
-
-    def get_all_parameters(self) -> dict:
-        """Get all current parameter values."""
-        return {name: info["value"] for name, info in self._dynamic_attrs.items()}
-
-    def reset_parameter(self, param_name: str):
-        """Reset a parameter to its backend default value."""
-        if param_name in self._dynamic_attrs:
-            param_info = self._dynamic_attrs[param_name]
-            param = param_info["param"]
-
-            if param.default_values:
-                self._dynamic_attrs[param_name]["value"] = param.default_values[0].get("value")
-            else:
-                self._dynamic_attrs[param_name]["value"] = None
-
-    def reset_all_parameters(self):
-        """Reset all parameters to their backend default values."""
-        for param_name in self._dynamic_attrs:
-            self.reset_parameter(param_name)
-
-    def _validate_param_type(self, param, value) -> bool:
-        """Validate parameter type based on the parameter definition."""
-        # Allow None values for all parameters
-        if value is None:
-            return True
-
-        # If data_type is not specified, accept any value
-        if param.data_type is None:
-            return True
-
-        # Check data_type first
-        if param.data_type == "text":
-            # For text type, check data_sub_type for more specific validation
-            if param.data_sub_type == "json":
-                # text/json should accept dict, list, or string
-                return isinstance(value, (dict, list, str))
-            elif param.data_sub_type == "number":
-                # text/number should accept int, float, or string
-                return isinstance(value, (int, float, str))
-            else:
-                # text/other should accept only string
-                return isinstance(value, str)
-        elif param.data_type == "json":
-            return isinstance(value, (dict, list, str))
-        elif param.data_type == "number":
-            return isinstance(value, (int, float))
-        elif param.data_type == "boolean":
-            return isinstance(value, bool)
-        elif param.data_type == "array":
-            return isinstance(value, list)
-        elif param.data_type == "label":
-            # label type should accept string or None
-            return isinstance(value, (str, type(None)))
-        elif param.data_type == "audio":
-            # audio type should accept string or None
-            return isinstance(value, (str, type(None)))
-        else:
-            # For unknown types, accept any value
-            return True
-
-    def __repr__(self):
-        """Return string representation of InputsProxy."""
-        params = self.get_all_parameters()
-        return f"InputsProxy({params})"
+InputsProxy = Inputs
 
 
 def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]:
@@ -502,16 +341,6 @@ def find_function_by_id(function_id: str) -> Optional[Function]:
         return Function(normalized)
     except ValueError:
         return None
-
-
-@dataclass_json
-@dataclass
-class Attribute:
-    """Common attribute structure from the API response."""
-
-    name: str
-    code: Optional[Any] = None
-    value: Optional[Any] = None
 
 
 @dataclass_json
@@ -608,7 +437,7 @@ class Model(
     vendor: Optional[VendorInfo] = None
     function: Optional[Function] = field(
         default=None,
-        metadata=config(decoder=lambda x: (find_function_by_id(x["id"]) if isinstance(x, dict) and "id" in x else x)),
+        metadata=config(decoder=lambda x: find_function_by_id(x["id"]) if isinstance(x, dict) and "id" in x else x),
     )
 
     # Pricing information
@@ -633,17 +462,27 @@ class Model(
     # Values can be: ["synchronous"], ["asynchronous"], or ["synchronous", "asynchronous"]
     connection_type: Optional[List[str]] = field(default=None, metadata=config(field_name="connectionType"))
 
-    # Attributes and parameters with proper types
-    attributes: Optional[List[Attribute]] = None
+    # The backend returns attributes as a plain key/value map.
     params: Optional[List[Parameter]] = None
-
-    # Dynamic parameter attributes for convenient access
-    # _dynamic_attrs: dict = field(default_factory=dict, init=False) # Removed
+    attributes: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
         """Initialize dynamic attributes based on backend parameters."""
-        # Initialize the inputs proxy
-        self.inputs = InputsProxy(self)
+        inputs = Inputs.from_parameters(self.params)
+        run_action = Action(name="run", inputs=inputs)
+        object.__setattr__(self, "_model_actions", Actions({"run": run_action}))
+        object.__setattr__(self, "inputs", inputs)
+
+    def get_attribute(self, key: str, default: Any = None) -> Any:
+        """Return an attribute value from the backend attribute map."""
+        if self.attributes is None:
+            return default
+        return self.attributes.get(key, default)
+
+    @property
+    def actions(self) -> Actions:
+        """Actions available on this model (always a single ``"run"`` action)."""
+        return self._model_actions
 
     @staticmethod
     def _normalize_param_name(name: str) -> str:
@@ -737,10 +576,8 @@ class Model(
     def __setattr__(self, name: str, value):
         """Handle bulk assignment to inputs."""
         if name == "inputs" and isinstance(value, dict):
-            # Handle bulk assignment to inputs
             self.inputs.update(**value)
         else:
-            # Handle regular attributes
             super().__setattr__(name, value)
 
     _SDK_ONLY_PARAMS = frozenset({"timeout", "wait_time", "show_progress", "stream"})
@@ -815,9 +652,10 @@ class Model(
                 raise ValueError(f"Parameter validation failed: {'; '.join(param_errors)}")
 
         if self.is_sync_only:
-            # Sync-only models: Call V2 endpoint directly (bypass run_async which would route to V1)
-            # V2 returns result directly for sync models, no polling needed
-            return self._run_sync_v2(**effective_params)
+            result = self._run_sync_v2(**effective_params)
+            if result.url and not result.completed:
+                result = self.sync_poll(result.url, **effective_params)
+            return result
         else:
             # Async-capable models: Use base run() which calls run_async() and polls
             return super().run(**effective_params)
@@ -955,7 +793,7 @@ class Model(
             ValueError: If required parameters are missing or have invalid types
 
         Example:
-            >>> model = aix.Model.get("6895d6d1d50c89537c1cf237")  # GPT-5 Mini
+            >>> model = aix.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
             >>> with model.run_stream(text="Explain quantum computing") as stream:
             ...     for chunk in stream:
             ...         print(chunk.data, end="", flush=True)
@@ -1005,7 +843,7 @@ class Model(
             Dictionary with all parameters, including dynamic attributes
         """
         # Start with current dynamic attribute values
-        merged = self.inputs.get_all_parameters()
+        merged = dict(self.inputs.items())
 
         # Override with explicitly provided parameters
         merged.update(kwargs)
@@ -1135,7 +973,8 @@ class Model(
         parameters = []
         if self.params:
             for param in self.params:
-                param_value = self.inputs.get(param.name)
+                inp = self.inputs.get(param.name)
+                param_value = inp.value if inp is not None else None
                 if param_value is not None:
                     parameters.append(
                         {

@@ -105,7 +105,7 @@ for proper resource cleanup.
 
 **Example**:
 
-  &gt;&gt;&gt; model = aix.Model.get(&quot;6895d6d1d50c89537c1cf237&quot;)  # GPT-5 Mini
+  &gt;&gt;&gt; model = aix.Model.get(&quot;69b7e5f1b2fe44704ab0e7d0&quot;)  # GPT-5.4
   &gt;&gt;&gt; for chunk in model.run(text=&quot;Explain LLMs&quot;, stream=True):
   ...     print(chunk.data, end=&quot;&quot;, flush=True)
   
@@ -780,7 +780,7 @@ or processing large responses incrementally.
 
 **Example**:
 
-  &gt;&gt;&gt; model = aix.Model.get(&quot;6895d6d1d50c89537c1cf237&quot;)  # GPT-5 Mini
+  &gt;&gt;&gt; model = aix.Model.get(&quot;69b7e5f1b2fe44704ab0e7d0&quot;)  # GPT-5.4
   &gt;&gt;&gt; with model.run_stream(text=&quot;Explain quantum computing&quot;) as stream:
   ...     for chunk in stream:
   ...         print(chunk.data, end=&quot;&quot;, flush=True)

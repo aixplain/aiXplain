@@ -63,7 +63,7 @@ def test_llm_run_stream():
     from aixplain.modules.model.response import ModelResponse, ResponseStatus
     from aixplain.modules.model.model_response_streamer import ModelResponseStreamer
 
-    llm_model = ModelFactory.get("6895d6d1d50c89537c1cf237")
+    llm_model = ModelFactory.get("69b7e5f1b2fe44704ab0e7d0")
 
     assert isinstance(llm_model, LLM)
     response = llm_model.run(

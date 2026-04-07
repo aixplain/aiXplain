@@ -3,7 +3,9 @@ repos:
     rev: v5.0.0 # Use the latest version
     hooks:
       - id: trailing-whitespace
+        exclude: ^docs/
       - id: end-of-file-fixer
+        exclude: ^docs/
       - id: check-merge-conflict
       - id: check-added-large-files
 
@@ -12,7 +14,9 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
+        files: ^aixplain/v2/
       - id: ruff-format
+        files: ^aixplain/v2/
 
   - repo: local
     hooks:

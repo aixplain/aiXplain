@@ -137,8 +137,8 @@ class AgentFactory:
         if llm is None and llm_id is not None:
             llm = get_llm_instance(llm_id, api_key=api_key, use_cache=True)
         elif llm is None:
-            # Use default GPT-4o if no LLM specified
-            llm = get_llm_instance("6895d6d1d50c89537c1cf237", api_key=api_key, use_cache=True)
+            # Use the default GPT-5.4 model if no LLM specified
+            llm = get_llm_instance("69b7e5f1b2fe44704ab0e7d0", api_key=api_key, use_cache=True)
 
         if output_format == OutputFormat.JSON:
             assert expected_output is not None and (

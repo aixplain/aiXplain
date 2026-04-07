@@ -1,0 +1,5321 @@
+# aiXplain SDK v2 Reference
+
+This file concatenates the aiXplain Python SDK v2 reference into one text bundle for LLM ingestion.
+
+Regenerate with `python generate_llms_full.py` from the repository root.
+
+---
+
+## aixplain.v2
+
+Source: `api-reference/python/aixplain/v2/init`
+
+aiXplain SDK v2 - Modern Python SDK for the aiXplain platform.
+
+---
+
+## aixplain.v2.agent
+
+Source: `api-reference/python/aixplain/v2/agent`
+
+Agent module for aiXplain v2 SDK.
+
+### ConversationMessage Objects
+
+```python
+class ConversationMessage(TypedDict)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L35)
+
+Type definition for a conversation message in agent history.
+
+**Attributes**:
+
+- `role` - The role of the message sender, either 'user' or 'assistant'
+- `content` - The text content of the message
+
+#### validate_history
+
+```python
+def validate_history(history: List[Dict[str, Any]]) -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L47)
+
+Validates conversation history for agent sessions.
+
+This function ensures that the history is properly formatted for agent conversations,
+with each message containing the required 'role' and 'content' fields and proper types.
+
+**Arguments**:
+
+- `history` - List of message dictionaries to validate
+  
+
+**Returns**:
+
+- `bool` - True if validation passes
+  
+
+**Raises**:
+
+- `ValueError` - If validation fails with detailed error messages
+  
+
+**Example**:
+
+  >>> history = [
+  ...     {"role": "user", "content": "Hello"},
+  ...     {"role": "assistant", "content": "Hi there!"}
+  ... ]
+  >>> validate_history(history)  # Returns True
+
+### OutputFormat Objects
+
+```python
+class OutputFormat(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L105)
+
+Output format options for agent responses.
+
+### AgentRunParams Objects
+
+```python
+class AgentRunParams(BaseRunParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L113)
+
+Parameters for running an agent.
+
+**Attributes**:
+
+- `sessionId` - Session ID for conversation continuity
+- `query` - The query to run
+- `variables` - Variables to replace {{variable}} placeholders in instructions and description.
+  The backend performs the actual substitution.
+- `allowHistoryAndSessionId` - Allow both history and session ID
+- `tasks` - List of tasks for the agent
+- `prompt` - Custom prompt override
+- `history` - Conversation history
+- `executionParams` - Execution parameters (maxTokens, etc.)
+- `criteria` - Criteria for evaluation
+- `evolve` - Evolution parameters
+- `query`0 - Inspector configurations
+- `query`1 - Whether to run response generation. Defaults to True.
+- `query`2 - Display format - "status" (single line) or "logs" (timeline).
+  If None (default), progress tracking is disabled.
+- `query`3 - Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
+- `query`4 - Whether to truncate long text in progress display
+
+### AgentResponseData Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class AgentResponseData()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L155)
+
+Data structure for agent response.
+
+### AgentRunResult Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class AgentRunResult(Result)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L168)
+
+Result from running an agent.
+
+#### data
+
+Override type from base class
+
+#### debug
+
+```python
+def debug(prompt: Optional[str] = None,
+          execution_id: Optional[str] = None,
+          **kwargs: Any) -> "DebugResult"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L186)
+
+Debug this agent response using the Debugger meta-agent.
+
+This is a convenience method for quickly analyzing agent responses
+to identify issues, errors, or areas for improvement.
+
+Note: This method requires the AgentRunResult to have been created
+through an Aixplain client context. If you have a standalone result,
+use the Debugger directly: aix.Debugger().debug_response(result)
+
+**Arguments**:
+
+- `prompt` - Optional custom prompt to guide the debugging analysis.
+- `Examples` - "Why did it take so long?", "Focus on error handling"
+- `execution_id` - Optional execution ID (poll ID) for the run. If not provided,
+  it will be extracted from the response's request_id or poll URL.
+  This allows the debugger to fetch additional logs and information.
+- `**kwargs` - Additional parameters to pass to the debugger.
+  
+
+**Returns**:
+
+- `DebugResult` - The debugging analysis result.
+  
+
+**Raises**:
+
+- `ValueError` - If no client context is available for debugging.
+  
+
+**Example**:
+
+  agent = aix.Agent.get("my_agent_id")
+  response = agent.run("Hello!")
+  debug_result = response.debug()  # Uses default prompt
+  debug_result = response.debug("Why did it take so long?")  # Custom prompt
+  debug_result = response.debug(execution_id="abc-123")  # With explicit ID
+  print(debug_result.analysis)
+
+### Task Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class Task()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L239)
+
+A task definition for agent workflows.
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L247)
+
+Initialize task dependencies after dataclass creation.
+
+### Agent Objects
+
+```python
+@dataclass_json
+
+@dataclass(repr=False)
+class Agent(BaseResource, SearchResourceMixin[BaseSearchParams, "Agent"],
+            GetResourceMixin[BaseGetParams,
+                             "Agent"], DeleteResourceMixin[BaseDeleteParams,
+                                                           "Agent"],
+            RunnableResourceMixin[AgentRunParams, AgentRunResult])
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L257)
+
+Agent resource class.
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L320)
+
+Initialize agent after dataclass creation.
+
+#### mark_as_deleted
+
+```python
+def mark_as_deleted() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L361)
+
+Mark the agent as deleted by setting status to DELETED and calling parent method.
+
+#### before_run
+
+```python
+def before_run(*args: Any,
+               **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L368)
+
+Hook called before running the agent to validate and prepare state.
+
+#### on_poll
+
+```python
+def on_poll(response: AgentRunResult,
+            **kwargs: Unpack[AgentRunParams]) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L409)
+
+Hook called after each poll to update progress display.
+
+**Arguments**:
+
+- `response` - The poll response containing progress information
+- `**kwargs` - Run parameters
+
+#### after_run
+
+```python
+def after_run(result: Union[AgentRunResult, Exception], *args: Any,
+              **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L421)
+
+Hook called after running the agent for result transformation.
+
+#### run
+
+```python
+def run(*args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L440)
+
+Run the agent with optional progress display.
+
+**Arguments**:
+
+- `*args` - Positional arguments (first arg is treated as query)
+- `query` - The query to run
+- `progress_format` - Display format - "status" or "logs". If None (default),
+  progress tracking is disabled.
+- `progress_verbosity` - Detail level 1-3 (default: 1)
+- `progress_truncate` - Truncate long text (default: True)
+- `**kwargs` - Additional run parameters
+  
+
+**Returns**:
+
+- `AgentRunResult` - The result of the agent execution
+
+#### run_async
+
+```python
+def run_async(*args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L468)
+
+Run the agent asynchronously.
+
+**Arguments**:
+
+- `*args` - Positional arguments (first arg is treated as query)
+- `query` - The query to run
+- `**kwargs` - Additional run parameters
+  
+
+**Returns**:
+
+- `AgentRunResult` - The result of the agent execution
+
+#### save
+
+```python
+def save(*args: Any, **kwargs: Any) -> "Agent"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L519)
+
+Save the agent with dependency management.
+
+This method extends the base save functionality to handle saving of dependent
+child components before the agent itself is saved.
+
+**Arguments**:
+
+- `*args` - Positional arguments passed to parent save method.
+- `save_subcomponents` - bool - If True, recursively save all unsaved child components (default: False)
+- `as_draft` - bool - If True, save agent as draft status (default: False)
+- `**kwargs` - Other attributes to set before saving
+  
+
+**Returns**:
+
+- `Agent` - The saved agent instance
+  
+
+**Raises**:
+
+- `ValueError` - If child components are not saved and save_subcomponents is False
+
+#### before_save
+
+```python
+def before_save(*args: Any, **kwargs: Any) -> Optional[dict]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L635)
+
+Callback to be called before the resource is saved.
+
+Handles status transitions based on save type.
+
+#### after_clone
+
+```python
+def after_clone(result: Union["Agent", Exception],
+                **kwargs: Any) -> Optional["Agent"]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L650)
+
+Callback called after the agent is cloned.
+
+Sets the cloned agent's status to DRAFT.
+
+#### search
+
+```python
+@classmethod
+def search(cls: type["Agent"],
+           query: Optional[str] = None,
+           **kwargs: Unpack[BaseSearchParams]) -> "Page[Agent]"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L660)
+
+Search agents with optional query and filtering.
+
+**Arguments**:
+
+- `query` - Optional search query string
+- `**kwargs` - Additional search parameters (ownership, status, etc.)
+  
+
+**Returns**:
+
+  Page of agents matching the search criteria
+
+#### build_save_payload
+
+```python
+def build_save_payload(**kwargs: Any) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L680)
+
+Build the payload for the save action.
+
+#### build_run_payload
+
+```python
+def build_run_payload(**kwargs: Unpack[AgentRunParams]) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L777)
+
+Build the payload for the run action.
+
+#### generate_session_id
+
+```python
+def generate_session_id(
+        history: Optional[List[ConversationMessage]] = None) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L850)
+
+Generate a unique session ID for agent conversations.
+
+Creates a unique session identifier based on the agent ID and current timestamp.
+If conversation history is provided, it attempts to initialize the session on the
+server to enable context-aware conversations.
+
+**Arguments**:
+
+- `history` - Previous conversation history. Each message should contain
+  'role' (either 'user' or 'assistant') and 'content' keys.
+  Defaults to None.
+  
+
+**Returns**:
+
+- `str` - A unique session identifier in the format "{agent_id}_{timestamp}".
+  
+
+**Raises**:
+
+- `ValueError` - If the history format is invalid.
+  
+
+**Example**:
+
+  >>> agent = Agent.get("my_agent_id")
+  >>> session_id = agent.generate_session_id()
+  >>> # Or with history
+  >>> history = [
+  ...     {"role": "user", "content": "Hello"},
+  ...     {"role": "assistant", "content": "Hi there!"}
+  ... ]
+  >>> session_id = agent.generate_session_id(history=history)
+
+---
+
+## aixplain.v2.agent_progress
+
+Source: `api-reference/python/aixplain/v2/agent_progress`
+
+Agent progress tracking and display module.
+
+This module provides real-time progress tracking and formatted display
+for agent execution, supporting multiple display formats and verbosity levels.
+
+The tracker supports two display modes:
+- Terminal mode: Uses a background thread for smooth 20 FPS spinner animation
+- Notebook mode: Updates synchronously on each poll to avoid race conditions
+  that can cause out-of-order output in Jupyter/Colab environments
+
+Both modes use carriage return (\r) for in-place line updates.
+
+### ProgressFormat Objects
+
+```python
+class ProgressFormat(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L56)
+
+Display format for agent progress.
+
+#### STATUS
+
+Single updating line
+
+#### LOGS
+
+Event timeline with details
+
+#### NONE
+
+No progress display
+
+### AgentProgressTracker Objects
+
+```python
+class AgentProgressTracker()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L64)
+
+Tracks and displays agent execution progress.
+
+This class handles real-time progress display during agent execution,
+supporting multiple display formats and verbosity levels.
+
+Display Modes:
+- Terminal: Background thread updates spinner at 20 FPS for smooth animation
+- Notebook: Synchronous updates on each poll (no background thread) to avoid
+race conditions that cause out-of-order output in Jupyter/Colab
+
+**Attributes**:
+
+- `poll_func` - Callable that polls for agent status
+- `poll_interval` - Time between polls in seconds
+- `max_polls` - Maximum number of polls (None for unlimited)
+- `format` - Display format (status, logs, none)
+- `verbosity` - Detail level (1=minimal, 2=thoughts, 3=full I/O)
+- `truncate` - Whether to truncate long text
+
+#### DISPLAY_REFRESH_RATE
+
+50ms = 20 FPS
+
+#### __init__
+
+```python
+def __init__(poll_func: Callable[[str], Any],
+             poll_interval: float = 0.05,
+             max_polls: Optional[int] = None)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L87)
+
+Initialize the progress tracker.
+
+**Arguments**:
+
+- `poll_func` - Function that takes a URL and returns poll response
+- `poll_interval` - Time in seconds between polls (default: 0.05)
+- `max_polls` - Maximum number of polls before stopping (default: None)
+
+#### start
+
+```python
+def start(format: ProgressFormat = ProgressFormat.STATUS,
+          verbosity: int = 1,
+          truncate: bool = True) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L626)
+
+Start progress tracking (call from before_run hook).
+
+**Arguments**:
+
+- `format` - Display format (status, logs, none)
+- `verbosity` - Detail level (1=minimal, 2=thoughts, 3=full I/O)
+- `truncate` - Whether to truncate long text
+
+#### update
+
+```python
+def update(response: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L764)
+
+Update progress with poll response (call from on_poll hook).
+
+**Arguments**:
+
+- `response` - Poll response from agent execution
+
+#### finish
+
+```python
+def finish(response: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L792)
+
+Finish progress tracking and print completion (call from after_run hook).
+
+**Arguments**:
+
+- `response` - Final response from agent execution
+
+#### stream_progress
+
+```python
+def stream_progress(url: str,
+                    format: ProgressFormat = ProgressFormat.STATUS,
+                    verbosity: int = 1,
+                    truncate: bool = True) -> Any
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L814)
+
+Stream agent progress until completion (standalone polling mode).
+
+This method implements its own polling loop and is used for standalone
+progress streaming. For integration with existing polling (via on_poll hook),
+use the start/update/finish methods instead.
+
+**Arguments**:
+
+- `url` - Polling URL to check for updates
+- `format` - Display format (status, logs, none)
+- `verbosity` - Detail level (1=minimal, 2=thoughts, 3=full I/O)
+- `truncate` - Whether to truncate long text
+  
+
+**Returns**:
+
+  Final response from the agent
+
+---
+
+## aixplain.v2.api_key
+
+Source: `api-reference/python/aixplain/v2/api_key`
+
+API Key management module for aiXplain v2 API.
+
+This module provides classes for managing API keys and their rate limits
+using the V2 SDK foundation with proper mixin usage.
+
+### TokenType Objects
+
+```python
+class TokenType(Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L47)
+
+Token type for rate limiting.
+
+### APIKeyLimits Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class APIKeyLimits()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L57)
+
+Rate limits configuration for an API key.
+
+**Arguments**:
+
+- `token_per_minute` - Maximum tokens per minute (maps to API ``tpm``).
+- `token_per_day` - Maximum tokens per day (maps to API ``tpd``).
+- `request_per_minute` - Maximum requests per minute (maps to API ``rpm``).
+- `request_per_day` - Maximum requests per day (maps to API ``rpd``).
+- ``2 - The model to rate-limit.  Accepts a model path string, a model
+  ID, or a :class:``3 object (maps to API ``assetId``).
+- ``6 - Which tokens to count (input, output, or total).
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L84)
+
+Handle string token_type conversion and model object resolution.
+
+#### validate
+
+```python
+def validate() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L91)
+
+Validate rate limit values are non-negative.
+
+### APIKeyUsageLimit Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class APIKeyUsageLimit()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L127)
+
+Usage statistics for an API key.
+
+All fields are Optional since the API may return null values.
+
+### APIKeySearchParams Objects
+
+```python
+class APIKeySearchParams(BaseSearchParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L154)
+
+Search parameters for API keys (not used - endpoint returns all keys).
+
+### APIKeyGetParams Objects
+
+```python
+class APIKeyGetParams(BaseGetParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L160)
+
+Get parameters for API keys.
+
+### APIKeyDeleteParams Objects
+
+```python
+class APIKeyDeleteParams(BaseDeleteParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L166)
+
+Delete parameters for API keys.
+
+### APIKey Objects
+
+```python
+@dataclass_json
+
+@dataclass(repr=False)
+class APIKey(BaseResource, SearchResourceMixin[APIKeySearchParams, "APIKey"],
+             GetResourceMixin[APIKeyGetParams, "APIKey"],
+             DeleteResourceMixin[APIKeyDeleteParams, DeleteResult])
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L174)
+
+An API key for accessing aiXplain services.
+
+Inherits from V2 foundation:
+- BaseResource: provides save() with _create/_update, clone(), _action()
+- SearchResourceMixin: provides search() for listing with pagination
+- GetResourceMixin: provides get() class method
+- DeleteResourceMixin: provides delete() instance method
+
+Configuration for non-paginated list endpoint:
+- PAGINATE_PATH = "": Direct GET to RESOURCE_PATH (no /paginate suffix)
+- PAGINATE_METHOD = "get": Use GET instead of POST
+- Override _populate_filters: Return empty dict (no pagination params)
+- Override _build_page: Fix page_total for non-paginated response
+
+#### PAGINATE_PATH
+
+No /paginate suffix - direct GET to RESOURCE_PATH
+
+#### PAGINATE_METHOD
+
+GET request instead of POST
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L218)
+
+Validate limits and restore cached model paths.
+
+#### __repr__
+
+```python
+def __repr__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L226)
+
+Return string representation.
+
+#### before_save
+
+```python
+def before_save(*args: Any, **kwargs: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L234)
+
+Switch to update mode when a key with the same name already exists.
+
+#### build_save_payload
+
+```python
+def build_save_payload(**kwargs: Any) -> Dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L246)
+
+Build the payload for save operations.
+
+Override because:
+1. Nested limits need manual serialization to API format.
+2. Default to_dict() excludes global_limits and asset_limits.
+3. Model paths must be resolved to IDs before sending to the backend.
+
+#### list
+
+```python
+@classmethod
+def list(cls, **kwargs) -> List["APIKey"]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L327)
+
+List all API keys.
+
+Convenience wrapper around search() that returns the results list directly.
+
+#### get_by_access_key
+
+```python
+@classmethod
+def get_by_access_key(cls, access_key: str, **kwargs) -> "APIKey"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L336)
+
+Find an API key by matching first/last 4 chars of access key.
+
+**Arguments**:
+
+- `access_key` - The full access key to match against (must be at least 8 chars)
+- `**kwargs` - Additional arguments passed to list()
+  
+
+**Returns**:
+
+  The matching APIKey instance
+  
+
+**Raises**:
+
+- `ValidationError` - If access_key is too short
+- `ResourceError` - If no matching key is found
+
+#### get_usage
+
+```python
+def get_usage(model: Optional[Any] = None) -> List[APIKeyUsageLimit]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L364)
+
+Get usage statistics for this API key.
+
+**Arguments**:
+
+- `model` - Optional model to filter usage by (string path/ID or Model object)
+  
+
+**Returns**:
+
+  List of usage limit objects
+
+#### get_usage_limits
+
+```python
+@classmethod
+def get_usage_limits(cls,
+                     model: Optional[Any] = None,
+                     **kwargs) -> List[APIKeyUsageLimit]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L385)
+
+Get usage limits for the current API key (the one used for authentication).
+
+**Arguments**:
+
+- `model` - Optional model to filter usage by (string path/ID or Model object)
+- `**kwargs` - Additional arguments (unused, for API consistency)
+  
+
+**Returns**:
+
+  List of usage limit objects
+
+#### set_token_per_day
+
+```python
+def set_token_per_day(value: int, model: Optional[Any] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L413)
+
+Set token per day limit.
+
+#### set_token_per_minute
+
+```python
+def set_token_per_minute(value: int, model: Optional[Any] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L417)
+
+Set token per minute limit.
+
+#### set_request_per_day
+
+```python
+def set_request_per_day(value: int, model: Optional[Any] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L421)
+
+Set request per day limit.
+
+#### set_request_per_minute
+
+```python
+def set_request_per_minute(value: int, model: Optional[Any] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L425)
+
+Set request per minute limit.
+
+#### create
+
+```python
+@classmethod
+def create(cls,
+           name: str,
+           budget: float,
+           global_limits: Union[Dict, APIKeyLimits],
+           asset_limits: Optional[List[Union[Dict, APIKeyLimits]]] = None,
+           expires_at: Optional[Union[datetime, str]] = None,
+           **kwargs) -> "APIKey"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/api_key.py#L434)
+
+Create a new API key with specified limits and budget.
+
+**Arguments**:
+
+- `name` - Name for the API key
+- `budget` - Budget limit
+- `global_limits` - Global rate limits (dict or APIKeyLimits)
+- `asset_limits` - Optional per-asset rate limits
+- `expires_at` - Optional expiration datetime
+- `**kwargs` - Additional arguments passed to save()
+  
+
+**Returns**:
+
+  The created APIKey instance
+
+---
+
+## aixplain.v2.client
+
+Source: `api-reference/python/aixplain/v2/client`
+
+Client module for making HTTP requests to the aiXplain API.
+
+#### create_retry_session
+
+```python
+def create_retry_session(total: Optional[int] = None,
+                         backoff_factor: Optional[float] = None,
+                         status_forcelist: Optional[List[int]] = None,
+                         **kwargs: Any) -> requests.Session
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L19)
+
+Creates a requests.Session with a specified retry strategy.
+
+**Arguments**:
+
+- `total` _int, optional_ - Total number of retries allowed. Defaults to 5.
+- `backoff_factor` _float, optional_ - Backoff factor to apply between retry attempts. Defaults to 0.1.
+- `status_forcelist` _list, optional_ - List of HTTP status codes to force a retry on. Defaults to [500, 502, 503, 504].
+- `kwargs` _dict, optional_ - Additional keyword arguments for internal Retry object.
+  
+
+**Returns**:
+
+- `requests.Session` - A requests.Session object with the specified retry strategy.
+
+### AixplainClient Objects
+
+```python
+class AixplainClient()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L53)
+
+HTTP client for aiXplain API with retry support.
+
+#### __init__
+
+```python
+def __init__(
+    base_url: str,
+    aixplain_api_key: Optional[str] = None,
+    team_api_key: Optional[str] = None,
+    retry_total: int = DEFAULT_RETRY_TOTAL,
+    retry_backoff_factor: float = DEFAULT_RETRY_BACKOFF_FACTOR,
+    retry_status_forcelist: List[int] = DEFAULT_RETRY_STATUS_FORCELIST
+) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L56)
+
+Initialize AixplainClient with authentication and retry configuration.
+
+**Arguments**:
+
+- `base_url` _str_ - The base URL for the API.
+- `aixplain_api_key` _str, optional_ - The individual API key.
+- `team_api_key` _str, optional_ - The team API key.
+- `retry_total` _int_ - Total number of retries allowed. Defaults to 5.
+- `retry_backoff_factor` _float_ - Backoff factor between retry attempts. Defaults to 0.1.
+- `retry_status_forcelist` _list_ - HTTP status codes that trigger a retry. Defaults to [500, 502, 503, 504].
+
+#### request_raw
+
+```python
+def request_raw(method: str, path: str, **kwargs: Any) -> requests.Response
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L99)
+
+Sends an HTTP request.
+
+**Arguments**:
+
+- `method` _str_ - HTTP method (e.g. 'GET', 'POST')
+- `path` _str_ - URL path or full URL
+- `kwargs` _dict, optional_ - Additional keyword arguments for the request
+  
+
+**Returns**:
+
+- `requests.Response` - The response from the request
+
+#### request
+
+```python
+def request(method: str, path: str, **kwargs: Any) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L138)
+
+Sends an HTTP request.
+
+**Arguments**:
+
+- `method` _str_ - HTTP method (e.g. 'GET', 'POST')
+- `path` _str_ - URL path
+- `kwargs` _dict, optional_ - Additional keyword arguments for the request
+  
+
+**Returns**:
+
+- `dict` - The response from the request
+
+#### get
+
+```python
+def get(path: str, **kwargs: Any) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L152)
+
+Sends an HTTP GET request.
+
+**Arguments**:
+
+- `path` _str_ - URL path
+- `kwargs` _dict, optional_ - Additional keyword arguments for the request
+  
+
+**Returns**:
+
+- `dict` - The JSON response from the request
+
+#### post
+
+```python
+def post(path: str, **kwargs: Any) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L164)
+
+Sends an HTTP POST request.
+
+**Arguments**:
+
+- `path` _str_ - URL path
+- `kwargs` _dict, optional_ - Additional keyword arguments for the request
+  
+
+**Returns**:
+
+- `dict` - The JSON response from the request
+
+#### request_stream
+
+```python
+def request_stream(method: str, path: str, **kwargs: Any) -> requests.Response
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L176)
+
+Sends a streaming HTTP request.
+
+This method is similar to request_raw but enables streaming mode,
+which is necessary for Server-Sent Events (SSE) responses.
+
+**Arguments**:
+
+- `method` _str_ - HTTP method (e.g. 'GET', 'POST')
+- `path` _str_ - URL path or full URL
+- `kwargs` _dict, optional_ - Additional keyword arguments for the request
+  
+
+**Returns**:
+
+- `requests.Response` - The streaming response (not consumed)
+  
+
+**Raises**:
+
+- `APIError` - If the request fails
+
+---
+
+## aixplain.v2.code_utils
+
+Source: `api-reference/python/aixplain/v2/code_utils`
+
+Code parsing utilities for v2 utility models.
+
+Adapted from aixplain.modules.model.utils to avoid v1 import chain
+that triggers env var validation.
+
+### UtilityModelInput Objects
+
+```python
+@dataclass
+class UtilityModelInput()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L26)
+
+Input parameter for a utility model.
+
+**Attributes**:
+
+- `name` - The name of the input parameter.
+- `description` - A description of what this input parameter represents.
+- `type` - The data type of the input parameter.
+
+#### validate
+
+```python
+def validate()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L39)
+
+Validate that the input type is one of TEXT, BOOLEAN, or NUMBER.
+
+#### to_dict
+
+```python
+def to_dict()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L44)
+
+Convert to dictionary representation.
+
+#### parse_code
+
+```python
+def parse_code(
+        code: Union[Text, Callable],
+        api_key: Optional[Text] = None,
+        backend_url: Optional[Text] = None) -> Tuple[Text, List, Text, Text]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L141)
+
+Parse and process code for utility model creation.
+
+**Arguments**:
+
+- `code` - The code to parse (callable, file path, URL, or raw code string).
+- `api_key` - API key for authentication when uploading code.
+- `backend_url` - Backend URL for file upload.
+  
+
+**Returns**:
+
+  Tuple of (code_url, inputs, description, name).
+
+#### parse_code_decorated
+
+```python
+def parse_code_decorated(
+        code: Union[Text, Callable],
+        api_key: Optional[Text] = None,
+        backend_url: Optional[Text] = None) -> Tuple[Text, List, Text, Text]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L207)
+
+Parse and process code that may be decorated with @utility_tool.
+
+**Arguments**:
+
+- `code` - The code to parse (decorated/non-decorated callable, file path, URL, or raw string).
+- `api_key` - API key for authentication when uploading code.
+- `backend_url` - Backend URL for file upload.
+  
+
+**Returns**:
+
+  Tuple of (code_url, inputs, description, name).
+
+---
+
+## aixplain.v2.core
+
+Source: `api-reference/python/aixplain/v2/core`
+
+Core module for aiXplain v2 API.
+
+### Aixplain Objects
+
+```python
+class Aixplain()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L30)
+
+Main class for the Aixplain API.
+
+This class can be instantiated multiple times with different API keys,
+allowing for multi-instance usage with different authentication contexts.
+
+#### __init__
+
+```python
+def __init__(api_key: Optional[str] = None,
+             backend_url: Optional[str] = None,
+             pipeline_url: Optional[str] = None,
+             model_url: Optional[str] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L74)
+
+Initialize the Aixplain class.
+
+**Arguments**:
+
+- `api_key` _str, optional_ - The API key. Falls back to TEAM_API_KEY env var.
+- `backend_url` _str, optional_ - The backend URL. Falls back to BACKEND_URL env var.
+- `pipeline_url` _str, optional_ - The pipeline execution URL. Falls back to PIPELINES_RUN_URL env var.
+- `model_url` _str, optional_ - The model execution URL. Falls back to MODELS_RUN_URL env var.
+
+#### init_client
+
+```python
+def init_client() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L102)
+
+Initialize the client.
+
+#### init_resources
+
+```python
+def init_resources() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L109)
+
+Initialize the resources.
+
+We're dynamically creating the classes here to avoid potential race
+conditions when using class level attributes
+
+---
+
+## aixplain.v2.enums
+
+Source: `api-reference/python/aixplain/v2/enums`
+
+V2 enums module - self-contained to avoid legacy dependencies.
+
+This module provides all enum types used throughout the v2 SDK.
+
+### AuthenticationScheme Objects
+
+```python
+class AuthenticationScheme(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L9)
+
+Authentication schemes supported by integrations.
+
+### FileType Objects
+
+```python
+class FileType(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L20)
+
+File types supported by the platform.
+
+### Function Objects
+
+```python
+class Function(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L33)
+
+AI functions supported by the platform.
+
+#### UTILITIES
+
+Add the missing utilities function
+
+### Language Objects
+
+```python
+class Language(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L48)
+
+Languages supported by the platform.
+
+### License Objects
+
+```python
+class License(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L65)
+
+Licenses supported by the platform.
+
+### AssetStatus Objects
+
+```python
+class AssetStatus(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L77)
+
+Asset status values.
+
+### Privacy Objects
+
+```python
+class Privacy(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L100)
+
+Privacy settings.
+
+### OnboardStatus Objects
+
+```python
+class OnboardStatus(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L108)
+
+Onboarding status values.
+
+### OwnershipType Objects
+
+```python
+class OwnershipType(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L117)
+
+Ownership types.
+
+### SortBy Objects
+
+```python
+class SortBy(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L125)
+
+Sort options.
+
+### SortOrder Objects
+
+```python
+class SortOrder(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L133)
+
+Sort order options.
+
+### ErrorHandler Objects
+
+```python
+class ErrorHandler(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L140)
+
+Error handling strategies.
+
+### ResponseStatus Objects
+
+```python
+class ResponseStatus(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L147)
+
+Response status values.
+
+### StorageType Objects
+
+```python
+class StorageType(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L155)
+
+Storage type options.
+
+### Supplier Objects
+
+```python
+class Supplier(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L164)
+
+AI model suppliers.
+
+### FunctionType Objects
+
+```python
+class FunctionType(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L176)
+
+Function type categories.
+
+### EvolveType Objects
+
+```python
+class EvolveType(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L187)
+
+Evolution types.
+
+### CodeInterpreterModel Objects
+
+```python
+class CodeInterpreterModel(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L195)
+
+Code interpreter models.
+
+### DataType Objects
+
+```python
+class DataType(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L202)
+
+Enumeration of supported data types in the aiXplain system.
+
+**Attributes**:
+
+- `AUDIO` - Audio data type.
+- `FLOAT` - Floating-point number data type.
+- `IMAGE` - Image data type.
+- `INTEGER` - Integer number data type.
+- `LABEL` - Label/category data type.
+- `TENSOR` - Tensor/multi-dimensional array data type.
+- `TEXT` - Text data type.
+- `VIDEO` - Video data type.
+- `EMBEDDING` - Vector embedding data type.
+- `NUMBER` - Generic number data type.
+- `FLOAT`0 - Boolean data type.
+
+#### __str__
+
+```python
+def __str__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L231)
+
+Return the string representation of the data type.
+
+### SplittingOptions Objects
+
+```python
+class SplittingOptions(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L236)
+
+Enumeration of possible splitting options for text chunking.
+
+This enum defines the different ways that text can be split into chunks,
+including by word, sentence, passage, page, and line.
+
+---
+
+## aixplain.v2.enums_include
+
+Source: `api-reference/python/aixplain/v2/enums_include`
+
+Compatibility imports for legacy enums in v2.
+
+This is an auto generated module. PLEASE DO NOT EDIT.
+
+---
+
+## aixplain.v2.exceptions
+
+Source: `api-reference/python/aixplain/v2/exceptions`
+
+Unified error hierarchy for v2 system.
+
+This module provides a comprehensive set of error types for consistent
+error handling across all v2 components.
+
+### AixplainV2Error Objects
+
+```python
+class AixplainV2Error(Exception)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L10)
+
+Base exception for all v2 errors.
+
+#### __init__
+
+```python
+def __init__(message: Union[str, List[str]],
+             details: Optional[Dict[str, Any]] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L13)
+
+Initialize the exception with a message and optional details.
+
+**Arguments**:
+
+- `message` - Error message string or list of error messages.
+- `details` - Optional dictionary with additional error details.
+
+### ResourceError Objects
+
+```python
+class ResourceError(AixplainV2Error)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L27)
+
+Raised when resource operations fail.
+
+### APIError Objects
+
+```python
+class APIError(AixplainV2Error)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L33)
+
+Raised when API calls fail.
+
+#### __init__
+
+```python
+def __init__(message: Union[str, List[str]],
+             status_code: int = 0,
+             response_data: Optional[Dict[str, Any]] = None,
+             error: Optional[str] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L36)
+
+Initialize APIError with HTTP status and response details.
+
+**Arguments**:
+
+- `message` - Error message string or list of error messages.
+- `status_code` - HTTP status code from the API response.
+- `response_data` - Optional dictionary containing the raw API response.
+- `error` - Optional error string override.
+
+### ValidationError Objects
+
+```python
+class ValidationError(AixplainV2Error)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L64)
+
+Raised when validation fails.
+
+### TimeoutError Objects
+
+```python
+class TimeoutError(AixplainV2Error)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L70)
+
+Raised when operations timeout.
+
+### FileUploadError Objects
+
+```python
+class FileUploadError(AixplainV2Error)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L76)
+
+Raised when file upload operations fail.
+
+#### create_operation_failed_error
+
+```python
+def create_operation_failed_error(response: Dict[str, Any]) -> APIError
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L101)
+
+Create an operation failed error from API response.
+
+---
+
+## aixplain.v2.file
+
+Source: `api-reference/python/aixplain/v2/file`
+
+Simple Resource class for file handling and S3 uploads.
+
+### ResourceGetParams Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class ResourceGetParams()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L21)
+
+Parameters for getting resources.
+
+### Resource Objects
+
+```python
+@dataclass_json
+
+@dataclass(repr=False)
+class Resource(BaseResource)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L30)
+
+Simple resource class for file handling and S3 uploads.
+
+This class provides the basic functionality needed for the requirements:
+- File path handling
+- S3 upload via save()
+- URL access after upload
+
+#### __post_init__
+
+```python
+def __post_init__()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L45)
+
+Initialize the resource.
+
+#### build_save_payload
+
+```python
+def build_save_payload(**kwargs) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L75)
+
+Build the payload for saving the resource.
+
+#### save
+
+```python
+def save(is_temp: Optional[bool] = None, **kwargs) -> "Resource"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L89)
+
+Save the resource, uploading file to S3 if needed.
+
+**Arguments**:
+
+- `is_temp` - Whether this is a temporary upload. If None, uses the resource's is_temp setting.
+- `**kwargs` - Additional parameters for saving.
+
+#### url
+
+```python
+@property
+def url() -> Optional[str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L124)
+
+Get the presigned/public URL of the uploaded file.
+
+#### create_from_file
+
+```python
+@classmethod
+def create_from_file(cls,
+                     file_path: str,
+                     is_temp: bool = True,
+                     **kwargs) -> "Resource"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L129)
+
+Create a resource from a file path.
+
+**Arguments**:
+
+- `file_path` - Path to the file to upload.
+- `is_temp` - Whether this is a temporary upload (default: True).
+- `**kwargs` - Additional parameters for initialization.
+
+#### __init__
+
+```python
+def __init__(file_path: Optional[str] = None, is_temp: bool = True, **kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L139)
+
+Initialize the resource with file path.
+
+**Arguments**:
+
+- `file_path` - Path to the file to upload.
+- `is_temp` - Whether this is a temporary upload (default: True).
+- `**kwargs` - Additional parameters for initialization.
+
+---
+
+## aixplain.v2.inspector
+
+Source: `api-reference/python/aixplain/v2/inspector`
+
+Inspector module for v2 API - Team agent inspection and validation.
+
+This module provides inspector functionality for validating team agent operations
+at different stages (input, steps, output) with custom policies.
+
+### InspectorTarget Objects
+
+```python
+class InspectorTarget(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L25)
+
+Target stages for inspector validation in the team agent pipeline.
+
+#### __str__
+
+```python
+def __str__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L32)
+
+Return the string value of the enum.
+
+### InspectorAction Objects
+
+```python
+class InspectorAction(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L37)
+
+Actions an inspector can take when evaluating content.
+
+### InspectorOnExhaust Objects
+
+```python
+class InspectorOnExhaust(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L46)
+
+Action to take when max retries are exhausted.
+
+### InspectorSeverity Objects
+
+```python
+class InspectorSeverity(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L53)
+
+Severity level for inspector findings.
+
+### EvaluatorType Objects
+
+```python
+class EvaluatorType(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L62)
+
+Type of evaluator or editor.
+
+### InspectorActionConfig Objects
+
+```python
+@dataclass
+class InspectorActionConfig()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L70)
+
+Inspector action configuration.
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L77)
+
+Validate that max_retries and on_exhaust are only used with RERUN.
+
+#### to_dict
+
+```python
+def to_dict() -> Dict[str, Any]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L87)
+
+Convert the action config to a dictionary for API serialization.
+
+#### from_dict
+
+```python
+@classmethod
+def from_dict(cls, data: Dict[str, Any]) -> "InspectorActionConfig"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L97)
+
+Create an InspectorActionConfig from a dictionary.
+
+### EvaluatorConfig Objects
+
+```python
+@dataclass
+class EvaluatorConfig()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L107)
+
+Evaluator configuration for an inspector.
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L115)
+
+Validate and convert callable functions to source strings.
+
+#### to_dict
+
+```python
+def to_dict() -> Dict[str, Any]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L124)
+
+Convert to a dictionary for API serialization.
+
+#### from_dict
+
+```python
+@classmethod
+def from_dict(cls, data: Dict[str, Any]) -> "EvaluatorConfig"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L136)
+
+Create an EvaluatorConfig from a dictionary.
+
+### EditorConfig Objects
+
+```python
+@dataclass
+class EditorConfig()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L147)
+
+Editor configuration for an inspector.
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L155)
+
+Validate and convert callable functions to source strings.
+
+#### to_dict
+
+```python
+def to_dict() -> Dict[str, Any]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L160)
+
+Convert to a dictionary for API serialization.
+
+#### from_dict
+
+```python
+@classmethod
+def from_dict(cls, data: Dict[str, Any]) -> "EditorConfig"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L172)
+
+Create an EditorConfig from a dictionary.
+
+### Inspector Objects
+
+```python
+@dataclass
+class Inspector()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L183)
+
+Inspector v2 configuration object.
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L195)
+
+Validate inspector configuration after initialization.
+
+#### to_dict
+
+```python
+def to_dict() -> Dict[str, Any]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L203)
+
+Convert the inspector to a dictionary for API serialization.
+
+#### from_dict
+
+```python
+@classmethod
+def from_dict(cls, data: Dict[str, Any]) -> "Inspector"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L220)
+
+Create an Inspector from a dictionary.
+
+---
+
+## aixplain.v2.integration
+
+Source: `api-reference/python/aixplain/v2/integration`
+
+Integration module for managing external service integrations.
+
+### ActionInputsProxy Objects
+
+```python
+class ActionInputsProxy()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L17)
+
+Proxy object that provides both dict-like and dot notation access to action input parameters.
+
+This proxy dynamically fetches action input specifications from the container resource
+when needed, allowing for runtime discovery and validation of action inputs.
+
+#### __init__
+
+```python
+def __init__(container, action_name: str)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L24)
+
+Initialize ActionInputsProxy with container and action name.
+
+#### __getitem__
+
+```python
+def __getitem__(key: str)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L93)
+
+Get input value by key.
+
+#### __setitem__
+
+```python
+def __setitem__(key: str, value)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L97)
+
+Set input value by key.
+
+#### __contains__
+
+```python
+def __contains__(key: str) -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L101)
+
+Check if input parameter exists.
+
+#### __len__
+
+```python
+def __len__() -> int
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L109)
+
+Return the number of input parameters.
+
+#### __iter__
+
+```python
+def __iter__()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L114)
+
+Iterate over input parameter keys.
+
+#### __getattr__
+
+```python
+def __getattr__(name: str)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L120)
+
+Get input value by attribute name.
+
+#### __setattr__
+
+```python
+def __setattr__(name: str, value)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L127)
+
+Set input value by attribute name.
+
+#### get
+
+```python
+def get(key: str, default=None)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L138)
+
+Get input value with optional default.
+
+#### update
+
+```python
+def update(**kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L145)
+
+Update multiple inputs at once.
+
+#### keys
+
+```python
+def keys()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L150)
+
+Get input parameter codes.
+
+#### values
+
+```python
+def values()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L155)
+
+Get input parameter values.
+
+#### items
+
+```python
+def items()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L160)
+
+Get input parameter code-value pairs.
+
+#### reset_input
+
+```python
+def reset_input(input_code: str)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L169)
+
+Reset an input parameter to its backend default value.
+
+#### reset_all_inputs
+
+```python
+def reset_all_inputs()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L175)
+
+Reset all input parameters to their backend default values.
+
+#### __repr__
+
+```python
+def __repr__()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L180)
+
+Return string representation of the proxy.
+
+### Input Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class Input()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L188)
+
+Input parameter for an action.
+
+### Action Objects
+
+```python
+@dataclass_json
+
+@dataclass(repr=False)
+class Action()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L206)
+
+Container for tool action information and inputs.
+
+#### __repr__
+
+```python
+def __repr__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L224)
+
+Return a string representation showing name and input parameters.
+
+#### get_inputs_proxy
+
+```python
+def get_inputs_proxy(container) -> ActionInputsProxy
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L240)
+
+Get an ActionInputsProxy for this action from a container.
+
+**Arguments**:
+
+- `container` - The container resource (Tool or Integration) that can fetch action specs
+  
+
+**Returns**:
+
+- `ActionInputsProxy` - A proxy object for accessing action inputs
+
+### ToolId Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class ToolId()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L254)
+
+Result for tool operations.
+
+### IntegrationResult Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class IntegrationResult(Result)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L263)
+
+Result for connection operations.
+
+The backend returns the connection ID in data.id.
+
+### IntegrationSearchParams Objects
+
+```python
+class IntegrationSearchParams(BaseSearchParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L272)
+
+Parameters for listing integrations.
+
+### ActionMixin Objects
+
+```python
+class ActionMixin()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L278)
+
+Mixin class providing action-related functionality for integrations and tools.
+
+#### list_actions
+
+```python
+def list_actions() -> List[Action]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L284)
+
+List available actions for the integration.
+
+#### list_inputs
+
+```python
+def list_inputs(*actions: str) -> List[Action]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L311)
+
+List available inputs for the integration.
+
+#### actions
+
+```python
+@cached_property
+def actions()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L336)
+
+Get a proxy object that provides access to actions with their inputs.
+
+This enables the syntax: mytool.actions['ACTION_NAME'].channel = 'value'
+
+**Returns**:
+
+- `ActionsProxy` - A proxy object for accessing actions and their inputs
+
+#### set_inputs
+
+```python
+def set_inputs(inputs_dict: Dict[str, Dict[str, Any]]) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L346)
+
+Set multiple action inputs in bulk using a dictionary tree structure.
+
+This method allows you to set inputs for multiple actions at once.
+Action names are automatically converted to lowercase for consistent lookup.
+
+**Arguments**:
+
+- `inputs_dict` - Dictionary in the format:
+  {
+- `"ACTION_NAME"` - {
+- `"input_param1"` - "value1",
+- `"input_param2"` - "value2",
+  ...
+  },
+- `"ANOTHER_ACTION"` - {
+- `"input_param1"` - "value1",
+  ...
+  }
+  }
+  
+
+**Example**:
+
+  tool.set_inputs({
+- `'slack_send_message'` - {  # Will work regardless of case
+- `'channel'` - '`general`',
+- `'text'` - 'Hello from bulk set!',
+- `"ACTION_NAME"`0 - 'MyBot'
+  },
+- `"ACTION_NAME"`1 - {  # Will also work
+- `'channel'` - '`general`',
+- `'text'` - 'Hello from bulk set!',
+- `"ACTION_NAME"`0 - 'MyBot'
+  },
+- `"ACTION_NAME"`6 - {  # Will also work
+- `"ACTION_NAME"`7 - '`general`',
+- `"ACTION_NAME"`9 - 'document.pdf'
+  }
+  })
+  
+
+**Raises**:
+
+- `"input_param1"`0 - If an action name is not found or invalid
+- `"input_param1"`1 - If an input parameter is not found for an action
+
+### ActionsProxy Objects
+
+```python
+class ActionsProxy()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L412)
+
+Proxy object that provides access to actions with their inputs.
+
+This enables the syntax: mytool.actions['ACTION_NAME'].channel = 'value'
+
+#### __init__
+
+```python
+def __init__(container)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L418)
+
+Initialize ActionsProxy with container resource.
+
+#### __getitem__
+
+```python
+def __getitem__(action_name: str)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L446)
+
+Get an action with its inputs proxy.
+
+Converts action name to lowercase for consistent lookup.
+
+#### __getattr__
+
+```python
+def __getattr__(attr_name: str)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L466)
+
+Get an action with its inputs proxy using attribute notation.
+
+Converts attribute name to lowercase for consistent lookup.
+
+#### __contains__
+
+```python
+def __contains__(action_name: str) -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L480)
+
+Check if an action exists.
+
+#### get_available_actions
+
+```python
+def get_available_actions() -> List[str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L489)
+
+Get a list of available action names.
+
+#### refresh_cache
+
+```python
+def refresh_cache()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L494)
+
+Clear the actions cache to force re-fetching.
+
+### Integration Objects
+
+```python
+class Integration(Model, ActionMixin)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L500)
+
+Resource for integrations.
+
+Integrations are a subtype of models with Function.CONNECTOR.
+All connection logic is centralized here.
+
+#### run
+
+```python
+def run(**kwargs: Any) -> IntegrationResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L526)
+
+Run the integration with validation.
+
+#### connect
+
+```python
+def connect(**kwargs: Any) -> "Tool"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L530)
+
+Connect the integration.
+
+For OAuth-based integrations, the backend may return a redirect URL
+that the user must visit to complete authentication before using the tool.
+
+**Returns**:
+
+- `Tool` - The created tool. If OAuth authentication is required,
+  ``tool.redirect_url`` will contain the URL the user must visit.
+
+#### handle_run_response
+
+```python
+def handle_run_response(response: dict, **kwargs: Any) -> IntegrationResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L549)
+
+Handle the response from the integration.
+
+---
+
+## aixplain.v2.meta_agents
+
+Source: `api-reference/python/aixplain/v2/meta_agents`
+
+Meta agents module - Debugger and other meta-agent utilities.
+
+This module provides meta-agents that operate on top of other agents,
+such as the Debugger for analyzing agent responses.
+
+Example usage:
+    from aixplain import Aixplain
+
+    # Initialize the client
+    aix = Aixplain("<api_key>")
+
+    # Standalone usage
+    debugger = aix.Debugger()
+    result = debugger.run("Analyze this agent output: ...")
+
+    # Or with custom prompt
+    result = debugger.run(content="...", prompt="Focus on error handling")
+
+    # From agent response (chained)
+    agent = aix.Agent.get("my_agent_id")
+    response = agent.run("Hello!")
+    debug_result = response.debug()  # Uses default prompt
+    debug_result = response.debug("Why did it take so long?")  # Custom prompt
+
+### DebugResult Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class DebugResult(Result)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L42)
+
+Result from running the Debugger meta-agent.
+
+**Attributes**:
+
+- `data` - The debugging analysis output.
+- `session_id` - Session ID for conversation continuity.
+- `request_id` - Request ID for tracking.
+- `used_credits` - Credits consumed by the debugging operation.
+- `run_time` - Time taken to run the debugging analysis.
+- `analysis` - The main debugging analysis text (extracted from data output).
+
+#### analysis
+
+```python
+@property
+def analysis() -> Optional[str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L61)
+
+Extract the debugging analysis text from the result data.
+
+**Returns**:
+
+  The analysis text if available, None otherwise.
+
+### Debugger Objects
+
+```python
+class Debugger()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L82)
+
+Meta-agent for debugging and analyzing agent responses.
+
+The Debugger uses a pre-configured aiXplain agent to provide insights into
+agent runs, errors, and potential improvements.
+
+**Attributes**:
+
+- `context` - The Aixplain client context for API access.
+  
+
+**Example**:
+
+  # Create a debugger through the client
+  aix = Aixplain("<api_key>")
+  debugger = aix.Debugger()
+  
+  # Analyze content directly
+  result = debugger.run("Agent returned: 'Error 500'")
+  
+  # Debug an agent response
+  agent_result = agent.run("Hello!")
+  debug_result = debugger.debug_response(agent_result)
+
+#### __init__
+
+```python
+def __init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L106)
+
+Initialize the Debugger.
+
+The context is set as a class attribute by the Aixplain client
+when creating the Debugger class dynamically.
+
+#### run
+
+```python
+def run(content: Optional[str] = None,
+        prompt: Optional[str] = None,
+        **kwargs: Any) -> DebugResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L130)
+
+Run the debugger on provided content.
+
+This is the standalone usage mode where you can analyze any content
+or agent output directly.
+
+**Arguments**:
+
+- `content` - The content to analyze/debug. Can be agent output,
+  error messages, or any text requiring analysis.
+- `prompt` - Optional custom prompt to guide the debugging analysis.
+  If not provided, uses a default debugging prompt.
+- `**kwargs` - Additional parameters to pass to the underlying agent.
+  
+
+**Returns**:
+
+- `DebugResult` - The debugging analysis result.
+  
+
+**Example**:
+
+  debugger = aix.Debugger()
+  result = debugger.run("Agent returned: 'Error 500'")
+  print(result.analysis)
+
+#### debug_response
+
+```python
+def debug_response(response: "AgentRunResult",
+                   prompt: Optional[str] = None,
+                   execution_id: Optional[str] = None,
+                   **kwargs: Any) -> DebugResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L166)
+
+Debug an agent response.
+
+This method is designed to analyze AgentRunResult objects to provide
+insights into what happened during the agent execution.
+
+**Arguments**:
+
+- `response` - The AgentRunResult to analyze.
+- `prompt` - Optional custom prompt to guide the debugging analysis.
+- `execution_id` - Optional execution ID override. If not provided, will be
+  extracted from the response's request_id or poll URL.
+  The execution_id allows the debugger to fetch additional
+  information like logs from the backend.
+- `**kwargs` - Additional parameters to pass to the underlying agent.
+  
+
+**Returns**:
+
+- `DebugResult` - The debugging analysis result.
+  
+
+**Example**:
+
+  agent_result = agent.run("Hello!")
+  debug_result = debugger.debug_response(agent_result, prompt="Why is it slow?")
+  
+  # Or with explicit execution ID
+  debug_result = debugger.debug_response(agent_result, execution_id="abc-123")
+
+---
+
+## aixplain.v2.mixins
+
+Source: `api-reference/python/aixplain/v2/mixins`
+
+Mixins for v2 API classes.
+
+### ParameterInput Objects
+
+```python
+class ParameterInput(TypedDict)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/mixins.py#L8)
+
+TypedDict for individual parameter input configuration.
+
+### ParameterDefinition Objects
+
+```python
+class ParameterDefinition(TypedDict)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/mixins.py#L21)
+
+TypedDict for parameter definition structure.
+
+### ToolDict Objects
+
+```python
+class ToolDict(TypedDict)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/mixins.py#L30)
+
+TypedDict defining the expected structure for tool serialization.
+
+This provides type safety and documentation for the as_tool() method return value.
+
+### ToolableMixin Objects
+
+```python
+class ToolableMixin(ABC)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/mixins.py#L56)
+
+Mixin that enforces the as_tool() interface for classes that can be used as tools.
+
+Any class that inherits from this mixin must implement the as_tool() method,
+which serializes the object into a format suitable for agent tool usage.
+
+#### as_tool
+
+```python
+@abstractmethod
+def as_tool() -> ToolDict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/mixins.py#L64)
+
+Serialize this object as a tool for agent creation.
+
+This method converts the object into a dictionary format that can be used
+as a tool when creating agents. The format is strictly typed using ToolDict.
+
+**Returns**:
+
+- `ToolDict` - A typed dictionary representing this object as a tool with:
+  - id: The tool's unique identifier
+  - name: The tool's display name
+  - description: The tool's description
+  - supplier: The supplier code (e.g., "aixplain")
+  - parameters: Optional list of parameter configurations
+  - function: The tool's function type (e.g., "utilities")
+  - type: The tool type (e.g., "model")
+  - version: The tool's version as a string
+  - asset_id: The tool's asset ID (usually same as id)
+  
+
+**Raises**:
+
+- `NotImplementedError` - If the subclass doesn't implement this method
+
+---
+
+## aixplain.v2.model
+
+Source: `api-reference/python/aixplain/v2/model`
+
+Model resource for v2 API.
+
+### Message Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class Message()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L35)
+
+Message structure from the API response.
+
+### Detail Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class Detail()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L47)
+
+Detail structure from the API response.
+
+### Usage Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class Usage()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L58)
+
+Usage structure from the API response.
+
+### ModelResult Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class ModelResult(Result)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L68)
+
+Result for model runs with specific fields from the backend response.
+
+### StreamChunk Objects
+
+```python
+@dataclass
+class StreamChunk()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L78)
+
+A chunk of streamed response data.
+
+**Attributes**:
+
+- `status` - The current status of the streaming operation (IN_PROGRESS or SUCCESS)
+- `data` - The content/token of this chunk
+- `tool_calls` - Tool call deltas when stream uses OpenAI-style chunk format
+- `usage` - Usage payload when provided in a stream chunk
+- `finish_reason` - Completion reason for the current choice, when provided
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L95)
+
+Ensure data remains a text chunk.
+
+### ModelResponseStreamer Objects
+
+```python
+class ModelResponseStreamer(Iterator[StreamChunk])
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L101)
+
+A streamer for model responses that yields chunks as they arrive.
+
+This class provides an iterator interface for streaming model responses.
+It handles the conversion of Server-Sent Events (SSE) into StreamChunk objects
+and manages the response status.
+
+The streamer can be used directly in a for loop or as a context manager
+for proper resource cleanup.
+
+**Example**:
+
+  >>> model = aix.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
+  >>> for chunk in model.run(text="Explain LLMs", stream=True):
+  ...     print(chunk.data, end="", flush=True)
+  
+  >>> # With context manager for proper cleanup
+  >>> with model.run_stream(text="Hello") as stream:
+  ...     for chunk in stream:
+  ...         print(chunk.data, end="", flush=True)
+
+#### __init__
+
+```python
+def __init__(response: "requests.Response")
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L122)
+
+Initialize a new ModelResponseStreamer instance.
+
+**Arguments**:
+
+- `response` - A requests.Response object with streaming enabled
+
+#### __iter__
+
+```python
+def __iter__() -> Iterator[StreamChunk]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L134)
+
+Return the iterator for the ModelResponseStreamer.
+
+#### __next__
+
+```python
+def __next__() -> StreamChunk
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L138)
+
+Return the next chunk of the response.
+
+**Returns**:
+
+- `StreamChunk` - A StreamChunk object containing the next chunk of the response.
+  
+
+**Raises**:
+
+- `StopIteration` - When the stream is complete
+
+#### close
+
+```python
+def close() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L253)
+
+Close the underlying response connection.
+
+#### __enter__
+
+```python
+def __enter__() -> "ModelResponseStreamer"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L258)
+
+Context manager entry.
+
+#### __exit__
+
+```python
+def __exit__(exc_type, exc_val, exc_tb) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L262)
+
+Context manager exit - ensures response is closed.
+
+### InputsProxy Objects
+
+```python
+class InputsProxy()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L267)
+
+Proxy object that provides both dict-like and dot notation access to model parameters.
+
+#### __init__
+
+```python
+def __init__(model)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L270)
+
+Initialize InputsProxy with a model instance.
+
+#### __getitem__
+
+```python
+def __getitem__(key: str)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L297)
+
+Dict-like access: inputs['temperature'].
+
+#### __setitem__
+
+```python
+def __setitem__(key: str, value)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L303)
+
+Dict-like assignment: inputs['temperature'] = 0.7.
+
+#### __getattr__
+
+```python
+def __getattr__(name: str)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L320)
+
+Dot notation access: inputs.temperature.
+
+#### __setattr__
+
+```python
+def __setattr__(name: str, value)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L326)
+
+Dot notation assignment: inputs.temperature = 0.7.
+
+#### __contains__
+
+```python
+def __contains__(key: str) -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L345)
+
+Check if parameter exists: 'temperature' in inputs.
+
+#### __len__
+
+```python
+def __len__() -> int
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L349)
+
+Number of parameters.
+
+#### __iter__
+
+```python
+def __iter__()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L353)
+
+Iterate over parameter names.
+
+#### keys
+
+```python
+def keys()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L357)
+
+Get parameter names.
+
+#### values
+
+```python
+def values()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L361)
+
+Get parameter values.
+
+#### items
+
+```python
+def items()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L365)
+
+Get parameter name-value pairs.
+
+#### get
+
+```python
+def get(key: str, default=None)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L369)
+
+Get parameter value with default.
+
+#### update
+
+```python
+def update(**kwargs)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L375)
+
+Update multiple parameters at once.
+
+#### clear
+
+```python
+def clear()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L383)
+
+Reset all parameters to backend defaults.
+
+#### copy
+
+```python
+def copy()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L388)
+
+Get a copy of current parameter values.
+
+#### has_parameter
+
+```python
+def has_parameter(param_name: str) -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L392)
+
+Check if a parameter exists.
+
+#### get_parameter_names
+
+```python
+def get_parameter_names() -> list
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L396)
+
+Get a list of all available parameter names.
+
+#### get_required_parameters
+
+```python
+def get_required_parameters() -> list
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L400)
+
+Get a list of required parameter names.
+
+#### get_parameter_info
+
+```python
+def get_parameter_info(param_name: str)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L404)
+
+Get information about a specific parameter.
+
+#### get_all_parameters
+
+```python
+def get_all_parameters() -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L410)
+
+Get all current parameter values.
+
+#### reset_parameter
+
+```python
+def reset_parameter(param_name: str)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L414)
+
+Reset a parameter to its backend default value.
+
+#### reset_all_parameters
+
+```python
+def reset_all_parameters()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L425)
+
+Reset all parameters to their backend default values.
+
+#### __repr__
+
+```python
+def __repr__()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L470)
+
+Return string representation of InputsProxy.
+
+#### find_supplier_by_id
+
+```python
+def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L476)
+
+Find supplier enum by ID.
+
+#### find_function_by_id
+
+```python
+def find_function_by_id(function_id: str) -> Optional[Function]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L485)
+
+Find function enum by ID.
+
+### Attribute Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class Attribute()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L495)
+
+Common attribute structure from the API response.
+
+### Parameter Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class Parameter()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L505)
+
+Common parameter structure from the API response.
+
+### Version Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class Version()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L521)
+
+Version structure from the API response.
+
+### Pricing Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class Pricing()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L530)
+
+Pricing structure from the API response.
+
+### VendorInfo Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class VendorInfo()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L540)
+
+Supplier information structure from the API response.
+
+### ModelSearchParams Objects
+
+```python
+class ModelSearchParams(BaseSearchParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L548)
+
+Search parameters for model queries.
+
+#### q
+
+Search query parameter as per Swagger spec
+
+#### host
+
+Filter by host (e.g., "openai", "aiXplain")
+
+#### developer
+
+Filter by developer (e.g., "OpenAI")
+
+#### path
+
+Filter by path prefix (e.g., "openai/gpt-4")
+
+### ModelRunParams Objects
+
+```python
+class ModelRunParams(BaseRunParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L564)
+
+Parameters for running models.
+
+**Attributes**:
+
+- `stream` - If True, returns a ModelResponseStreamer for streaming responses.
+  The model must support streaming (check supports_streaming attribute).
+
+### Model Objects
+
+```python
+@dataclass_json
+
+@dataclass(repr=False)
+class Model(BaseResource, SearchResourceMixin[ModelSearchParams, "Model"],
+            GetResourceMixin[BaseGetParams, "Model"],
+            RunnableResourceMixin[ModelRunParams, ModelResult], ToolableMixin)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L577)
+
+Resource for models.
+
+#### __post_init__
+
+```python
+def __post_init__()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L629)
+
+Initialize dynamic attributes based on backend parameters.
+
+#### supports_tool_calling
+
+```python
+@property
+def supports_tool_calling() -> Optional[bool]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L672)
+
+Return whether this LLM supports tool calling, inferred from backend params.
+
+#### supports_structured_output
+
+```python
+@property
+def supports_structured_output() -> Optional[bool]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L687)
+
+Return whether this LLM supports structured output, inferred from backend params.
+
+#### is_sync_only
+
+```python
+@property
+def is_sync_only() -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L702)
+
+Check if the model only supports synchronous execution.
+
+**Returns**:
+
+- `bool` - True if the model only supports synchronous execution
+
+#### is_async_capable
+
+```python
+@property
+def is_async_capable() -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L713)
+
+Check if the model supports asynchronous execution.
+
+**Returns**:
+
+- `bool` - True if the model supports asynchronous execution
+
+#### __setattr__
+
+```python
+def __setattr__(name: str, value)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L723)
+
+Handle bulk assignment to inputs.
+
+#### build_run_url
+
+```python
+def build_run_url(**kwargs: Unpack[ModelRunParams]) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L732)
+
+Build the URL for running the model.
+
+#### mark_as_deleted
+
+```python
+def mark_as_deleted() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L737)
+
+Mark the model as deleted by setting status to DELETED and calling parent method.
+
+#### get
+
+```python
+@classmethod
+def get(cls: type["Model"], id: str,
+        **kwargs: Unpack[BaseGetParams]) -> "Model"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L745)
+
+Get a model by ID.
+
+#### search
+
+```python
+@classmethod
+def search(cls: type["Model"],
+           query: Optional[str] = None,
+           **kwargs: Unpack[ModelSearchParams]) -> Page["Model"]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L754)
+
+Search with optional query and filtering.
+
+**Arguments**:
+
+- `query` - Optional search query string
+- `**kwargs` - Additional search parameters (functions, suppliers, etc.)
+  
+
+**Returns**:
+
+  Page of items matching the search criteria
+
+#### run
+
+```python
+def run(**kwargs: Unpack[ModelRunParams]) -> ModelResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L775)
+
+Run the model with dynamic parameter validation and default handling.
+
+This method routes the execution based on the model's connection type:
+- Sync models: Uses V2 endpoint directly (returns result immediately)
+- Async models: Uses V2 endpoint and polls until completion
+
+#### run_async
+
+```python
+def run_async(**kwargs: Unpack[ModelRunParams]) -> ModelResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L816)
+
+Run the model asynchronously.
+
+This method routes the execution based on the model's connection type:
+- Sync models: Falls back to V1 endpoint (V2 doesn't support async for sync models)
+- Async models: Uses V2 endpoint directly (returns polling URL)
+
+**Returns**:
+
+- `ModelResult` - Result with polling URL for async models,
+  or immediate result via V1 for sync-only models
+
+#### run_stream
+
+```python
+def run_stream(**kwargs: Unpack[ModelRunParams]) -> ModelResponseStreamer
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L912)
+
+Run the model with streaming response.
+
+This method executes the model and returns a streamer that yields response
+chunks as they are generated. This is useful for real-time output display
+or processing large responses incrementally.
+
+**Arguments**:
+
+- `**kwargs` - Model-specific parameters (same as run() without stream parameter)
+  
+
+**Returns**:
+
+- `ModelResponseStreamer` - A streamer that yields StreamChunk objects. Can be
+  iterated directly or used as a context manager.
+  
+
+**Raises**:
+
+- `ValidationError` - If the model explicitly does not support streaming
+  (supports_streaming is False)
+  
+
+**Example**:
+
+  >>> model = aix.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
+  >>> with model.run_stream(text="Explain quantum computing") as stream:
+  ...     for chunk in stream:
+  ...         print(chunk.data, end="", flush=True)
+  
+  >>> # Or without context manager
+  >>> for chunk in model.run_stream(text="Hello"):
+  ...     print(chunk.data, end="", flush=True)
+
+#### as_tool
+
+```python
+def as_tool() -> ToolDict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L1044)
+
+Serialize this model as a tool for agent creation.
+
+This method converts the model into a dictionary format that can be used
+as a tool when creating agents. The format matches what the agent factory
+expects for model tools.
+
+**Returns**:
+
+- `dict` - A dictionary representing this model as a tool with the following structure:
+  - id: The model's ID
+  - name: The model's name
+  - description: The model's description
+  - supplier: The supplier code
+  - parameters: Current parameter values
+  - function: The model's function type
+  - type: Always "model"
+  - version: The model's version
+  - assetId: The model's ID (same as id)
+  
+
+**Example**:
+
+  >>> model = aix.Model.get("some-model-id")
+  >>> agent = aix.Agent(..., tools=[model.as_tool()])
+
+#### get_parameters
+
+```python
+def get_parameters() -> List[dict]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L1102)
+
+Get current parameter values for this model.
+
+**Returns**:
+
+- `List[dict]` - List of parameter dictionaries with current values
+
+---
+
+## aixplain.v2.resource
+
+Source: `api-reference/python/aixplain/v2/resource`
+
+Resource management module for v2 API.
+
+#### with_hooks
+
+```python
+def with_hooks(func: Callable) -> Callable
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L46)
+
+Generic decorator to add before/after hooks to resource operations.
+
+This decorator automatically infers the operation name from the function name
+and provides a consistent pattern for all operations:
+- Before hooks can return early to bypass the operation
+- After hooks can transform the result
+- Error handling is consistent across all operations
+- Supports both positional and keyword arguments
+
+Usage:
+    @with_hooks
+    def save(self, **kwargs):
+        # operation implementation
+
+    @with_hooks
+    def run(self, *args, **kwargs):
+        # operation implementation with positional args
+
+#### encode_resource_id
+
+```python
+def encode_resource_id(resource_id: str) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L103)
+
+URL encode a resource ID for use in API paths.
+
+**Arguments**:
+
+- `resource_id` - The resource ID to encode
+  
+
+**Returns**:
+
+  The URL-encoded resource ID
+
+### HasContext Objects
+
+```python
+@runtime_checkable
+class HasContext(Protocol)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L117)
+
+Protocol for classes that have a context attribute.
+
+### HasResourcePath Objects
+
+```python
+@runtime_checkable
+class HasResourcePath(Protocol)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L124)
+
+Protocol for classes that have a RESOURCE_PATH attribute.
+
+### HasFromDict Objects
+
+```python
+@runtime_checkable
+class HasFromDict(Protocol)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L131)
+
+Protocol for classes that have a from_dict method.
+
+#### from_dict
+
+```python
+@classmethod
+def from_dict(cls: type, data: dict) -> Any
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L135)
+
+Create an instance from a dictionary.
+
+### HasToDict Objects
+
+```python
+@runtime_checkable
+class HasToDict(Protocol)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L141)
+
+Protocol for classes that have a to_dict method.
+
+#### to_dict
+
+```python
+def to_dict() -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L144)
+
+Convert instance to dictionary.
+
+### BaseMixin Objects
+
+```python
+class BaseMixin()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L169)
+
+Base mixin with meta capabilities for resource operations.
+
+#### __init_subclass__
+
+```python
+def __init_subclass__(cls: type, **kwargs: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L172)
+
+Initialize subclass with validation.
+
+### BaseResource Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class BaseResource()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L183)
+
+Base class for all resources.
+
+**Attributes**:
+
+- `context` - The Aixplain client instance (hidden from serialization).
+- `RESOURCE_PATH` - The API resource path.
+- `id` - The resource ID.
+- `name` - The resource name.
+- `description` - The resource description.
+- `path` - Full path identifier (e.g., "openai/whisper-large/groq").
+
+#### path
+
+Full path e.g. "openai/whisper-large/groq"
+
+#### is_modified
+
+```python
+@property
+def is_modified() -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L262)
+
+Check if the resource has been modified since last save.
+
+**Returns**:
+
+- `bool` - True if the resource has been modified, False otherwise
+
+#### is_deleted
+
+```python
+@property
+def is_deleted() -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L271)
+
+Check if the resource has been deleted.
+
+**Returns**:
+
+- `bool` - True if the resource has been deleted, False otherwise
+
+#### before_save
+
+```python
+def before_save(*args: Any, **kwargs: Any) -> Optional[dict]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L287)
+
+Optional callback called before the resource is saved.
+
+Override this method to add custom logic before saving.
+
+**Arguments**:
+
+- `*args` - Positional arguments passed to the save operation
+- `**kwargs` - Keyword arguments passed to the save operation
+  
+
+**Returns**:
+
+- `Optional[dict]` - If not None, this result will be returned early,
+  bypassing the actual save operation. If None, the
+  save operation will proceed normally.
+
+#### after_save
+
+```python
+def after_save(result: Union[dict, Exception], *args: Any,
+               **kwargs: Any) -> Optional[dict]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L303)
+
+Optional callback called after the resource is saved.
+
+Override this method to add custom logic after saving.
+
+**Arguments**:
+
+- `result` - The result from the save operation (dict on success,
+  Exception on failure)
+- `*args` - Positional arguments that were passed to the save operation
+- `**kwargs` - Keyword arguments that were passed to the save operation
+  
+
+**Returns**:
+
+- `Optional[dict]` - If not None, this result will be returned instead
+  of the original result. If None, the original result
+  will be returned.
+
+#### build_save_payload
+
+```python
+def build_save_payload(**kwargs: Any) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L321)
+
+Build the payload for the save action.
+
+#### save
+
+```python
+@with_hooks
+def save(*args: Any, **kwargs: Any) -> "BaseResource"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L348)
+
+Save the resource with attribute shortcuts.
+
+This generic implementation provides consistent save behavior across all resources:
+- Supports attribute shortcuts: resource.save(name="new_name", description="...")
+- Lets the backend handle validation (name uniqueness, ID existence, etc.)
+- If the resource has an ID, it will be updated, otherwise it will be created.
+
+**Arguments**:
+
+- `*args` - Positional arguments (not used, but kept for compatibility)
+- `id` - Optional[str] - Set resource ID before saving
+- `name` - Optional[str] - Set resource name before saving
+- `description` - Optional[str] - Set resource description before saving
+- `**kwargs` - Other attributes to set before saving
+  
+
+**Returns**:
+
+- `BaseResource` - The saved resource instance
+  
+
+**Raises**:
+
+  Backend validation errors as appropriate
+
+#### clone
+
+```python
+@with_hooks
+def clone(**kwargs: Any) -> "BaseResource"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L389)
+
+Clone the resource and return a copy with id=None.
+
+This generic implementation provides consistent clone behavior across all resources:
+- Creates deep copy of the resource
+- Resets id=None and _saved_state=None
+- Supports attribute shortcuts: resource.clone(name="new_name", version="2.0")
+- Uses hook system for subclass-specific logic (status handling, etc.)
+
+**Arguments**:
+
+- `name` - Optional[str] - Set name on cloned resource
+- `description` - Optional[str] - Set description on cloned resource
+- `**kwargs` - Other attributes to set on cloned resource
+  
+
+**Returns**:
+
+- `BaseResource` - New resource instance with id=None
+
+#### __repr__
+
+```python
+def __repr__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L453)
+
+Return a string representation using path > id priority.
+
+#### __str__
+
+```python
+def __str__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L460)
+
+Return string representation of the resource.
+
+#### encoded_id
+
+```python
+@property
+def encoded_id() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L465)
+
+Get the URL-encoded version of the resource ID.
+
+**Returns**:
+
+  The URL-encoded resource ID, or empty string if no ID exists
+
+### BaseParams Objects
+
+```python
+class BaseParams(TypedDict)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L476)
+
+Base class for parameters that include API key and resource path.
+
+**Attributes**:
+
+- `api_key` - str: The API key for authentication.
+- `resource_path` - str: Custom resource path for actions (optional).
+
+### BaseSearchParams Objects
+
+```python
+class BaseSearchParams(BaseParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L488)
+
+Base class for all search parameters.
+
+**Attributes**:
+
+- `query` - str: The query string.
+- `ownership` - Tuple[OwnershipType, List[OwnershipType]]: The ownership
+  type.
+- `sort_by` - SortBy: The attribute to sort by.
+- `sort_order` - SortOrder: The order to sort by.
+- `page_number` - int: The page number.
+- `page_size` - int: The page size.
+- `resource_path` - str: Optional custom resource path to override
+  RESOURCE_PATH.
+- `paginate_items_key` - str: Optional key name for items in paginated
+  response (overrides PAGINATE_ITEMS_KEY).
+
+### BaseGetParams Objects
+
+```python
+class BaseGetParams(BaseParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L515)
+
+Base class for all get parameters.
+
+**Attributes**:
+
+- `host` - The host URL for the request (optional).
+
+### BaseDeleteParams Objects
+
+```python
+class BaseDeleteParams(BaseParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L525)
+
+Base class for all delete parameters.
+
+### BaseRunParams Objects
+
+```python
+class BaseRunParams(BaseParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L531)
+
+Base class for all run parameters.
+
+**Attributes**:
+
+- `timeout` - Maximum time in seconds to wait for completion.
+- `wait_time` - Initial interval in seconds between poll attempts.
+
+### BaseResult Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class BaseResult()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L545)
+
+Abstract base class for running results.
+
+This class provides a minimal interface that concrete result classes
+should implement. Subclasses are responsible for defining their own
+fields and handling their specific data structures.
+
+### Result Objects
+
+```python
+@dataclass_json
+
+@dataclass(repr=False)
+class Result(BaseResult)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L560)
+
+Default implementation of running results with common fields.
+
+#### __getattr__
+
+```python
+def __getattr__(name: str) -> Any
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L572)
+
+Allow access to any field from the raw response data.
+
+#### __repr__
+
+```python
+def __repr__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L578)
+
+Return a formatted string representation with truncated data.
+
+### DeleteResult Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class DeleteResult(Result)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L640)
+
+Result for delete operations.
+
+### Page Objects
+
+```python
+class Page(Generic[ResourceT])
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L656)
+
+A paginated page of resources.
+
+**Attributes**:
+
+- `results` - The list of resources in this page.
+- `page_number` - Current page number (0-indexed).
+- `page_total` - Total number of pages.
+- `total` - Total number of resources across all pages.
+
+#### __init__
+
+```python
+def __init__(results: List[ResourceT], page_number: int, page_total: int,
+             total: int)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L671)
+
+Initialize a Page instance.
+
+**Arguments**:
+
+- `results` - List of resource instances in this page
+- `page_number` - Current page number (0-indexed)
+- `page_total` - Total number of pages
+- `total` - Total number of resources across all pages
+
+#### __repr__
+
+```python
+def __repr__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L685)
+
+Return JSON representation of the page.
+
+#### __getitem__
+
+```python
+def __getitem__(key: str)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L691)
+
+Allow dictionary-like access to page attributes.
+
+### SearchResourceMixin Objects
+
+```python
+class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT])
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L696)
+
+Mixin for listing resources with pagination and search functionality.
+
+**Attributes**:
+
+- `PAGINATE_PATH` - str: The path for pagination.
+- `PAGINATE_METHOD` - str: The method for pagination.
+- `PAGINATE_ITEMS_KEY` - str: The key for the response.
+- `PAGINATE_TOTAL_KEY` - str: The key for the total number of resources.
+- `PAGINATE_PAGE_TOTAL_KEY` - str: The key for the total number of pages.
+- `PAGINATE_DEFAULT_PAGE_NUMBER` - int: The default page number.
+- `PAGINATE_DEFAULT_PAGE_SIZE` - int: The default page size.
+
+#### PAGINATE_ITEMS_KEY
+
+Default to match backend
+
+#### search
+
+```python
+@classmethod
+def search(cls: type, **kwargs: Unpack[SearchParamsT]) -> Page[ResourceT]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L774)
+
+Search resources across the first n pages with optional filtering.
+
+**Arguments**:
+
+- `kwargs` - The keyword arguments.
+  
+
+**Returns**:
+
+- `Page[ResourceT]` - Page of BaseResource instances
+
+### GetResourceMixin Objects
+
+```python
+class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT])
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L882)
+
+Mixin for getting a resource.
+
+#### get
+
+```python
+@classmethod
+def get(cls: type,
+        id: Any,
+        host: Optional[str] = None,
+        **kwargs: Unpack[GetParamsT]) -> ResourceT
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L886)
+
+Retrieve a single resource by its ID (or other get parameters).
+
+**Arguments**:
+
+- `id` - Any: The ID of the resource to get.
+- `host` - str, optional: The host parameter to pass to the backend (default: None).
+- `kwargs` - Get parameters to pass to the request.
+  
+
+**Returns**:
+
+- `BaseResource` - Instance of the BaseResource class.
+  
+
+**Raises**:
+
+- `ValueError` - If 'RESOURCE_PATH' is not defined by the subclass.
+
+### DeleteResourceMixin Objects
+
+```python
+class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT])
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L927)
+
+Mixin for deleting a resource.
+
+#### DELETE_RESPONSE_CLASS
+
+Default response class
+
+#### build_delete_payload
+
+```python
+def build_delete_payload(**kwargs: Unpack[DeleteParamsT]) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L932)
+
+Build the payload for the delete action.
+
+This method can be overridden by subclasses to provide custom payload
+construction for delete operations.
+
+#### build_delete_url
+
+```python
+def build_delete_url(**kwargs: Unpack[DeleteParamsT]) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L941)
+
+Build the URL for the delete action.
+
+This method can be overridden by subclasses to provide custom URL
+construction. The default implementation uses the resource path with
+the resource ID.
+
+**Returns**:
+
+- `str` - The URL to use for the delete action
+
+#### handle_delete_response
+
+```python
+def handle_delete_response(response: Any,
+                           **kwargs: Unpack[DeleteParamsT]) -> DeleteResultT
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L958)
+
+Handle the response from a delete request.
+
+This method can be overridden by subclasses to handle different
+response patterns. The default implementation creates a simple
+success response.
+
+**Arguments**:
+
+- `response` - The raw response from the API (may be Response object or dict)
+- `**kwargs` - Delete parameters
+  
+
+**Returns**:
+
+  DeleteResult instance from the configured response class
+
+#### before_delete
+
+```python
+def before_delete(*args: Any,
+                  **kwargs: Unpack[DeleteParamsT]) -> Optional[DeleteResultT]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L995)
+
+Optional callback called before the resource is deleted.
+
+Override this method to add custom logic before deleting.
+
+**Arguments**:
+
+- `*args` - Positional arguments passed to the delete operation
+- `**kwargs` - Keyword arguments passed to the delete operation
+  
+
+**Returns**:
+
+- `Optional[DeleteResultT]` - If not None, this result will be returned early,
+  bypassing the actual delete operation. If None, the
+  delete operation will proceed normally.
+
+#### after_delete
+
+```python
+def after_delete(result: Union[DeleteResultT, Exception], *args: Any,
+                 **kwargs: Unpack[DeleteParamsT]) -> Optional[DeleteResultT]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1011)
+
+Optional callback called after the resource is deleted.
+
+Override this method to add custom logic after deleting.
+
+**Arguments**:
+
+- `result` - The result from the delete operation (DeleteResultT on success,
+  Exception on failure)
+- `*args` - Positional arguments that were passed to the delete operation
+- `**kwargs` - Keyword arguments that were passed to the delete operation
+  
+
+**Returns**:
+
+- `Optional[DeleteResultT]` - If not None, this result will be returned instead
+  of the original result. If None, the original result
+  will be returned.
+
+#### delete
+
+```python
+@with_hooks
+def delete(*args: Any, **kwargs: Unpack[DeleteParamsT]) -> DeleteResultT
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1035)
+
+Delete a resource.
+
+**Returns**:
+
+- `DeleteResultT` - The result of the delete operation
+
+#### mark_as_deleted
+
+```python
+def mark_as_deleted() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1052)
+
+Mark the resource as deleted by clearing its ID and setting deletion flag.
+
+### RunnableResourceMixin Objects
+
+```python
+class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT])
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1058)
+
+Mixin for runnable resources.
+
+#### RESPONSE_CLASS
+
+Default response class
+
+#### build_run_payload
+
+```python
+def build_run_payload(**kwargs: Unpack[RunParamsT]) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1064)
+
+Build the payload for the run action.
+
+This method automatically handles dataclass serialization if the run
+parameters are dataclasses with @dataclass_json decorator.
+
+#### build_run_url
+
+```python
+def build_run_url(**kwargs: Unpack[RunParamsT]) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1073)
+
+Build the URL for the run action.
+
+This method can be overridden by subclasses to provide custom URL
+construction. The default implementation uses the resource path with
+the run action.
+
+**Returns**:
+
+- `str` - The URL to use for the run action
+
+#### handle_run_response
+
+```python
+def handle_run_response(response: dict,
+                        **kwargs: Unpack[RunParamsT]) -> ResultT
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1094)
+
+Handle the response from a run request.
+
+This method can be overridden by subclasses to handle different
+response patterns. The default implementation assumes a polling URL
+in the 'data' field.
+
+**Arguments**:
+
+- `response` - The raw response from the API
+- `**kwargs` - Run parameters
+  
+
+**Returns**:
+
+  Response instance from the configured response class
+
+#### before_run
+
+```python
+def before_run(*args: Any, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1142)
+
+Optional callback called before the resource is run.
+
+Override this method to add custom logic before running.
+
+**Arguments**:
+
+- `*args` - Positional arguments passed to the run operation
+- `**kwargs` - Keyword arguments passed to the run operation
+  
+
+**Returns**:
+
+- `Optional[ResultT]` - If not None, this result will be returned early,
+  bypassing the actual run operation. If None, the
+  run operation will proceed normally.
+
+#### after_run
+
+```python
+def after_run(result: Union[ResultT, Exception], *args: Any,
+              **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1158)
+
+Optional callback called after the resource is run.
+
+Override this method to add custom logic after running.
+
+**Arguments**:
+
+- `result` - The result from the run operation (ResultT on success,
+  Exception on failure)
+- `*args` - Positional arguments that were passed to the run operation
+- `**kwargs` - Keyword arguments that were passed to the run operation
+  
+
+**Returns**:
+
+- `Optional[ResultT]` - If not None, this result will be returned instead
+  of the original result. If None, the original result
+  will be returned.
+
+#### run
+
+```python
+def run(*args: Any, **kwargs: Unpack[RunParamsT]) -> ResultT
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1181)
+
+Run the resource synchronously with automatic polling.
+
+**Arguments**:
+
+- `*args` - Positional arguments (converted to kwargs by subclasses)
+- `**kwargs` - Run parameters including timeout and wait_time
+  
+
+**Returns**:
+
+  Response instance from the configured response class
+  
+
+**Notes**:
+
+  The before_run hook is called via run_async(), not here, to avoid
+  double invocation since run() delegates to run_async().
+
+#### run_async
+
+```python
+def run_async(**kwargs: Unpack[RunParamsT]) -> ResultT
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1211)
+
+Run the resource asynchronously.
+
+**Arguments**:
+
+- `**kwargs` - Run parameters specific to the resource type
+  
+
+**Returns**:
+
+  Response instance from the configured RESPONSE_CLASS
+
+#### poll
+
+```python
+def poll(poll_url: str) -> ResultT
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1239)
+
+Poll for the result of an asynchronous operation.
+
+**Arguments**:
+
+- `poll_url` - URL to poll for results
+  
+
+**Returns**:
+
+  Response instance from the configured RESPONSE_CLASS
+  
+
+**Raises**:
+
+- `APIError` - If the polling request fails
+- `OperationFailedError` - If the operation has failed
+
+#### on_poll
+
+```python
+def on_poll(response: ResultT, **kwargs: Unpack[RunParamsT]) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1295)
+
+Hook called after each successful poll with the poll response.
+
+Override this method in subclasses to handle poll responses,
+such as displaying progress updates or logging status changes.
+
+**Arguments**:
+
+- `response` - The response from the poll operation
+- `**kwargs` - Run parameters including show_progress, timeout, wait_time, etc.
+
+#### sync_poll
+
+```python
+def sync_poll(poll_url: str, **kwargs: Unpack[RunParamsT]) -> ResultT
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1307)
+
+Keep polling until an asynchronous operation is complete.
+
+**Arguments**:
+
+- `poll_url` - URL to poll for results
+- `**kwargs` - Run parameters including timeout and wait_time
+  
+
+**Returns**:
+
+  Response instance from the configured RESPONSE_CLASS
+  
+
+**Raises**:
+
+- `TimeoutError` - If the operation exceeds the timeout duration
+
+---
+
+## aixplain.v2.tool
+
+Source: `api-reference/python/aixplain/v2/tool`
+
+Tool resource module for managing tools and their integrations.
+
+### ToolResult Objects
+
+```python
+@dataclass_json
+
+@dataclass(repr=False)
+class ToolResult(Result)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L21)
+
+Result for a tool.
+
+### Tool Objects
+
+```python
+@dataclass_json
+
+@dataclass(repr=False)
+class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult],
+           ActionMixin)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L29)
+
+Resource for tools.
+
+This class represents a tool resource that matches the backend structure.
+Tools can be integrations, utilities, or other specialized resources.
+Inherits from Model to reuse shared attributes and functionality.
+
+#### DEFAULT_INTEGRATION_ID
+
+Script integration
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L50)
+
+Initialize tool after dataclass creation.
+
+Sets up default integration for utility tools if no integration is provided.
+Validates integration type if provided.
+
+#### list_actions
+
+```python
+def list_actions() -> List[Action]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L107)
+
+List available actions for the tool.
+
+Overrides parent method to add fallback to base integration.
+
+**Returns**:
+
+  List of Action objects available for this tool. Falls back to
+  integration's list_actions() if tool's own method fails.
+
+#### list_inputs
+
+```python
+def list_inputs(*actions: str) -> List["Action"]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L126)
+
+List available inputs for specified actions.
+
+Overrides parent method to add fallback to base integration.
+
+**Arguments**:
+
+- `*actions` - Variable number of action names to get inputs for.
+  
+
+**Returns**:
+
+  List of Action objects with their input specifications. Falls back to
+  integration's list_inputs() if tool's own method fails.
+
+#### validate_allowed_actions
+
+```python
+def validate_allowed_actions() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L211)
+
+Validate that all allowed actions are available for this tool.
+
+Checks that:
+- Integration is available (attempts lazy resolution)
+- All actions in allowed_actions list exist in the integration
+
+Skips validation gracefully when integration cannot be resolved
+(e.g. tools fetched via search/get without integration data).
+
+**Raises**:
+
+- `AssertionError` - If integration is available but actions don't match.
+
+#### get_parameters
+
+```python
+def get_parameters() -> List[dict]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L238)
+
+Get parameters for the tool in the format expected by agent saving.
+
+This method includes both static backend values and dynamically set values
+from the ActionInputsProxy instances, ensuring agents get the current
+configured action inputs.
+
+#### as_tool
+
+```python
+def as_tool() -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L300)
+
+Serialize this tool for agent creation.
+
+This method extends the base Model.as_tool() to include tool-specific
+fields like actions, which tells the backend which actions
+the agent is permitted to use.
+
+**Returns**:
+
+- `dict` - A dictionary representing this tool with:
+  - All fields from Model.as_tool()
+  - actions: Explicit list of actions (filtered to allowed only)
+
+#### run
+
+```python
+def run(*args: Any, **kwargs: Unpack[ModelRunParams]) -> ToolResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L373)
+
+Run the tool.
+
+---
+
+## aixplain.v2.upload_utils
+
+Source: `api-reference/python/aixplain/v2/upload_utils`
+
+File upload utilities for v2 Resource system.
+
+This module provides comprehensive file upload functionality that ports the exact
+logic from the legacy FileFactory while maintaining a clean, modular architecture.
+
+### FileValidator Objects
+
+```python
+class FileValidator()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L17)
+
+Handles file validation logic.
+
+#### validate_file_exists
+
+```python
+@classmethod
+def validate_file_exists(cls, file_path: str) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L31)
+
+Validate that the file exists.
+
+#### validate_file_size
+
+```python
+@classmethod
+def validate_file_size(cls, file_path: str, file_type: str) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L37)
+
+Validate file size against type-specific limits.
+
+#### get_file_size_mb
+
+```python
+@classmethod
+def get_file_size_mb(cls, file_path: str) -> float
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L48)
+
+Get file size in MB.
+
+### MimeTypeDetector Objects
+
+```python
+class MimeTypeDetector()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L53)
+
+Handles MIME type detection with fallback support.
+
+#### detect_mime_type
+
+```python
+@classmethod
+def detect_mime_type(cls, file_path: str) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L75)
+
+Detect MIME type with fallback support.
+
+#### classify_file_type
+
+```python
+@classmethod
+def classify_file_type(cls, file_path: str, mime_type: str) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L92)
+
+Classify file type for size limit enforcement.
+
+### RequestManager Objects
+
+```python
+class RequestManager()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L108)
+
+Handles HTTP requests with retry logic.
+
+#### create_session
+
+```python
+@classmethod
+def create_session(cls) -> requests.Session
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L112)
+
+Create a requests session with retry configuration.
+
+#### request_with_retry
+
+```python
+@classmethod
+def request_with_retry(cls, method: str, url: str,
+                       **kwargs) -> requests.Response
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L119)
+
+Make HTTP request with retry logic.
+
+### PresignedUrlManager Objects
+
+```python
+class PresignedUrlManager()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L125)
+
+Handles pre-signed URL requests to aiXplain backend.
+
+#### get_temp_upload_url
+
+```python
+@classmethod
+def get_temp_upload_url(cls, backend_url: str) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L129)
+
+Get temporary upload URL endpoint.
+
+#### get_perm_upload_url
+
+```python
+@classmethod
+def get_perm_upload_url(cls, backend_url: str) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L134)
+
+Get permanent upload URL endpoint.
+
+#### build_temp_payload
+
+```python
+@classmethod
+def build_temp_payload(cls, content_type: str,
+                       file_name: str) -> Dict[str, str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L139)
+
+Build payload for temporary upload request.
+
+#### build_perm_payload
+
+```python
+@classmethod
+def build_perm_payload(cls, content_type: str, file_path: str, tags: List[str],
+                       license: str) -> Dict[str, str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L147)
+
+Build payload for permanent upload request.
+
+#### request_presigned_url
+
+```python
+@classmethod
+def request_presigned_url(cls, url: str, payload: Dict[str, str],
+                          api_key: str) -> Dict[str, Any]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L157)
+
+Request pre-signed URL from backend.
+
+### S3Uploader Objects
+
+```python
+class S3Uploader()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L169)
+
+Handles S3 file uploads using pre-signed URLs.
+
+#### upload_file
+
+```python
+@classmethod
+def upload_file(cls, file_path: str, presigned_url: str,
+                content_type: str) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L173)
+
+Upload file to S3 using pre-signed URL.
+
+#### construct_s3_url
+
+```python
+@classmethod
+def construct_s3_url(cls, presigned_url: str, path: str) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L190)
+
+Construct S3 URL from pre-signed URL and path.
+
+### ConfigManager Objects
+
+```python
+class ConfigManager()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L202)
+
+Handles configuration and environment variables.
+
+#### get_backend_url
+
+```python
+@classmethod
+def get_backend_url(cls, custom_url: Optional[str] = None) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L206)
+
+Get backend URL from custom value or environment.
+
+#### get_api_key
+
+```python
+@classmethod
+def get_api_key(cls,
+                custom_key: Optional[str] = None,
+                required: bool = True) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L211)
+
+Get API key from custom value or environment.
+
+### FileUploader Objects
+
+```python
+class FileUploader()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L219)
+
+Main file upload orchestrator.
+
+#### __init__
+
+```python
+def __init__(backend_url: Optional[str] = None,
+             api_key: Optional[str] = None,
+             require_api_key: bool = True)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L222)
+
+Initialize file uploader with configuration.
+
+#### upload
+
+```python
+def upload(file_path: str,
+           tags: Optional[List[str]] = None,
+           license: str = "MIT",
+           is_temp: bool = True,
+           return_download_link: bool = False) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L232)
+
+Upload a file to S3 using the same logic as legacy FileFactory.
+
+**Arguments**:
+
+- `file_path` - Path to the file to upload
+- `tags` - Tags to associate with the file
+- `license` - License type for the file
+- `is_temp` - Whether this is a temporary upload
+- `return_download_link` - Whether to return download link instead of S3 path
+  
+
+**Returns**:
+
+  S3 path (s3://bucket/key) or download URL
+  
+
+**Raises**:
+
+- `FileUploadError` - If upload fails
+
+#### upload_file
+
+```python
+def upload_file(file_path: str,
+                tags: Optional[List[str]] = None,
+                license: str = "MIT",
+                is_temp: bool = True,
+                return_download_link: bool = False,
+                backend_url: Optional[str] = None,
+                api_key: Optional[str] = None) -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L293)
+
+Convenience function to upload a file.
+
+**Arguments**:
+
+- `file_path` - Path to the file to upload
+- `tags` - Tags to associate with the file
+- `license` - License type for the file
+- `is_temp` - Whether this is a temporary upload
+- `return_download_link` - Whether to return download link instead of S3 path
+- `backend_url` - Custom backend URL (optional)
+- `api_key` - Custom API key (optional)
+  
+
+**Returns**:
+
+  S3 path (s3://bucket/key) or download URL
+
+#### validate_file_for_upload
+
+```python
+def validate_file_for_upload(file_path: str) -> Dict[str, Any]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L326)
+
+Validate a file for upload without actually uploading.
+
+**Arguments**:
+
+- `file_path` - Path to the file to validate
+  
+
+**Returns**:
+
+  Dictionary with validation results
+  
+
+**Raises**:
+
+- `FileUploadError` - If validation fails
+
+---
+
+## aixplain.v2.utility
+
+Source: `api-reference/python/aixplain/v2/utility`
+
+Utility resource module for managing custom Python code utilities.
+
+### UtilitySearchParams Objects
+
+```python
+class UtilitySearchParams(BaseSearchParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L23)
+
+Parameters for listing utilities.
+
+**Attributes**:
+
+- `function` - The function type to filter by (e.g., Function.UTILITIES).
+- `status` - The status of the utility to filter by.
+
+### UtilityRunParams Objects
+
+```python
+class UtilityRunParams(BaseRunParams)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L35)
+
+Parameters for running utilities.
+
+**Attributes**:
+
+- `data` - str: The data to run the utility on.
+
+### Utility Objects
+
+```python
+@dataclass_json
+
+@dataclass(repr=False)
+class Utility(BaseResource, SearchResourceMixin[UtilitySearchParams,
+                                                "Utility"],
+              GetResourceMixin[BaseGetParams, "Utility"],
+              DeleteResourceMixin[BaseDeleteParams, "Utility"],
+              RunnableResourceMixin[UtilityRunParams, Result])
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L47)
+
+Resource for utilities.
+
+Utilities are standalone assets that can be created and managed
+independently of models. They represent custom functions that can be
+executed on the platform.
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L67)
+
+Parse code and validate description for new utility instances.
+
+#### build_save_payload
+
+```python
+def build_save_payload(**kwargs: Any) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L91)
+
+Build the payload for the save action.
+
+#### get
+
+```python
+@classmethod
+def get(cls: type["Utility"], id: str,
+        **kwargs: Unpack[BaseGetParams]) -> "Utility"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L98)
+
+Get a utility by ID.
+
+**Arguments**:
+
+- `id` - The utility ID.
+- `**kwargs` - Additional parameters for the get request.
+  
+
+**Returns**:
+
+  The retrieved Utility instance.
+
+#### run
+
+```python
+@classmethod
+def run(cls: type["Utility"], **kwargs: Unpack[UtilityRunParams]) -> Result
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L111)
+
+Run the utility with provided parameters.
+
+**Arguments**:
+
+- `**kwargs` - Run parameters including data to process.
+  
+
+**Returns**:
+
+  Result of the utility execution.
+
+#### search
+
+```python
+@classmethod
+def search(cls: type["Utility"],
+           query: Optional[str] = None,
+           **kwargs: Unpack[UtilitySearchParams]) -> "Page[Utility]"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L123)
+
+Search utilities with optional query and filtering.
+
+**Arguments**:
+
+- `query` - Optional search query string
+- `**kwargs` - Additional search parameters (function, status, etc.)
+  
+
+**Returns**:
+
+  Page of utilities matching the search criteria

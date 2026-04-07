@@ -49,8 +49,8 @@ model (LLM) with specialized tools to provide comprehensive task-solving capabil
 - `description` _Text, optional_ - Detailed description of the Agent&#x27;s capabilities.
   Defaults to &quot;&quot;.
 - `instructions` _Text_ - System instructions/prompt defining the Agent&#x27;s behavior.
-- `llm_id` _Text_ - ID of the large language model. Defaults to GPT-5 Mini
-  (6895d6d1d50c89537c1cf237).
+- `llm_id` _Text_ - ID of the large language model. Defaults to GPT-5.4
+  (69b7e5f1b2fe44704ab0e7d0).
 - `llm` _Optional[LLM]_ - The LLM instance used by the Agent.
 - `supplier` _Text_ - The provider/creator of the Agent.
 - `version` _Text_ - Version identifier of the Agent.
@@ -71,7 +71,7 @@ def __init__(id: Text,
              description: Text,
              instructions: Optional[Text] = None,
              tools: List[Union[Tool, Model]] = [],
-             llm_id: Text = "6895d6d1d50c89537c1cf237",
+             llm_id: Text = "69b7e5f1b2fe44704ab0e7d0",
              llm: Optional[LLM] = None,
              api_key: Optional[Text] = config.TEAM_API_KEY,
              supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -98,8 +98,8 @@ Initialize a new Agent instance.
   the Agent&#x27;s behavior. Defaults to None.
 - `tools` _List[Union[Tool, Model]], optional_ - Collection of tools and models
   the Agent can use. Defaults to empty list.
-- `llm_id` _Text, optional_ - ID of the large language model. Defaults to GPT-5 Mini
-  (6895d6d1d50c89537c1cf237).
+- `llm_id` _Text, optional_ - ID of the large language model. Defaults to GPT-5.4
+  (69b7e5f1b2fe44704ab0e7d0).
 - `llm` _Optional[LLM], optional_ - The LLM instance to use. If provided, takes
   precedence over llm_id. Defaults to None.
 - `api_key` _Optional[Text], optional_ - Authentication key for API access.
