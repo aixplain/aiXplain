@@ -394,7 +394,6 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                 if action_obj:
                     inp = action_obj.inputs.get(input_code)
                     current_value = inp.value if inp is not None else None
-
                 if current_value is None and input_param.default_value:
                     current_value = input_param.default_value[0] if input_param.default_value else None
 
