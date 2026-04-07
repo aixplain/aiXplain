@@ -10,7 +10,7 @@ namespaces = true
 
 [project]
 name = "aiXplain"
-version = "0.2.42"
+version = "0.2.43"
 description = "aiXplain SDK adds AI functions to software."
 readme = "README.md"
 requires-python = ">=3.9, <4"
@@ -19,7 +19,7 @@ authors = [
   {email = "ahmet@aixplain.com"},
   {email = "hadi@aixplain.com"},
   {email = "kadir.pekel@aixplain.com"},
-  {email = "aina.abushaban@aixplain.com"}
+  {email = "zaina.abushaban@aixplain.com"}
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
