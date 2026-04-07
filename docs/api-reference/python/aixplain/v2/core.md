@@ -11,7 +11,7 @@ Core module for aiXplain v2 API.
 class Aixplain()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L30)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L33)
 
 Main class for the Aixplain API.
 
@@ -27,13 +27,13 @@ def __init__(api_key: Optional[str] = None,
              model_url: Optional[str] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L74)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L78)
 
 Initialize the Aixplain class.
 
 **Arguments**:
 
-- `api_key` _str, optional_ - The API key. Falls back to TEAM_API_KEY env var.
+- `api_key` _str, optional_ - The API key. Falls back to TEAM_API_KEY or AIXPLAIN_API_KEY env var.
 - `backend_url` _str, optional_ - The backend URL. Falls back to BACKEND_URL env var.
 - `pipeline_url` _str, optional_ - The pipeline execution URL. Falls back to PIPELINES_RUN_URL env var.
 - `model_url` _str, optional_ - The model execution URL. Falls back to MODELS_RUN_URL env var.
@@ -44,7 +44,7 @@ Initialize the Aixplain class.
 def init_client() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L102)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L113)
 
 Initialize the client.
 
@@ -54,7 +54,7 @@ Initialize the client.
 def init_resources() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L109)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L120)
 
 Initialize the resources.
 
