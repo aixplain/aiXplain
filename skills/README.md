@@ -45,34 +45,23 @@ That's it — no pip installs, no config files, no environment setup.
 
 #### How it works under the hood
 
-- **One key, every provider.** The aiXplain API key is pay-as-you-go and pre-paid — a single key unlocks every model, tool, and integration on the marketplace. No per-provider billing, no separate vendor accounts.
-- **Plan before build.** The skill searches the marketplace for the right models, tools, and integrations, then shows a pre-build plan: proposed architecture, tools to connect, output format, and any OAuth links you'll need to authorize. Nothing is created until you approve.
-- **Deploy + smoke test.** On approval it creates the agent, wires the tools, runs a smoke test, and hands back a working agent ID — reusing existing agents instead of creating silent duplicates.
-- **Two Studio links, always.** `studio.aixplain.com/build/<AGENT_ID>/schema` to edit the graph, tools, instructions, and inspect step-by-step traces; `studio.aixplain.com/dashboard/analytics/?agent=<AGENT_ID>` to monitor runs, latency, token usage, and errors over time.
-- **Missing integration? No problem.** If a required tool isn't in the marketplace, the skill falls back to **Python Sandbox** — it writes a Python function for the missing capability, deploys it as a sandboxed tool, and attaches it to the agent automatically.
-- **Safe key handling.** Keys are auto-discovered from `~/.env` → repo `.env` → environment variables, and always set as env vars — never hardcoded into generated files.
+- **Plan contents.** The pre-build plan shows the proposed architecture, tools to connect, output format, and any OAuth links you'll need to authorize.
+- **Reuses existing agents.** Matches by name and updates in place instead of creating silent duplicates.
+- **Two Studio links, always.** `studio.aixplain.com/build/<AGENT_ID>/schema` for the visual editor and step traces; `studio.aixplain.com/dashboard/analytics/?agent=<AGENT_ID>` for runs, latency, tokens, and errors.
+- **Key discovery order.** `~/.env` → repo `.env` → environment variables → prompts you.
 
 ### What you can build
 
 | Mode | What you say | What the skill does |
 | --- | --- | --- |
-| **Build** | *"Build an agent that searches the web and summarizes competitor pricing into a markdown report"* | Drafts the plan, tools, output format, and guardrails before creating anything |
-| **Build** | *"Create a support triage agent connected to our knowledge base and Jira"* | Finds the right integrations, proposes the architecture, waits for approval |
-| **Build** | *"Make a real-estate evaluator that looks up location data and computes cap rate"* | Picks models + tools, writes any missing logic as a Python Sandbox function |
-| **Run / Debug** | *"Run agent 69ce064f44eef3c9e3850d95 with query: Austin TX, 450k asking price"* | Executes, inspects the step trace, and explains the result |
-| **Run / Debug** | *"Debug why the agent isn't using the knowledge base"* | Inspects recent runs, diagnoses tool selection, suggests fixes |
-| **Deploy** | *"Deploy this customer support agent and test it with a ticket triage prompt"* | Creates/updates the agent, connects tools, runs a smoke test |
+| **Build — Web research** | *"Build an agent that searches the web and summarizes competitor pricing into a markdown report"* | Drafts a plan with the right tools, output format, and guardrails |
+| **Build — Support triage** | *"Create a support agent that searches our KB, checks Jira ticket history, and classifies by severity"* | Finds the integrations, proposes the architecture, waits for approval |
+| **Build — Data analyst** | *"Build an agent that runs Python on uploaded CSVs and produces charts"* | Picks models + tools, writes missing logic as a Python Sandbox function |
+| **Build — Email assistant** | *"Make an agent that reads my Gmail inbox on demand, groups by topic, and drafts replies"* | Wires OAuth, scopes Gmail actions, runs a smoke test |
+| **Build — Real estate** | *"Make a real-estate evaluator that looks up location data and computes cap rate"* | Combines marketplace tools with custom Python for the math |
+| **Run** | *"Run agent 69ce064f44eef3c9e3850d95 with: Austin TX, 450k asking price"* | Executes, inspects the step trace, and explains the result |
+| **Debug** | *"Why isn't the agent using the knowledge base?"* | Inspects recent runs, diagnoses tool selection, suggests fixes |
 | **Export** | *"Export agent 69abc… back to Python"* | Reverse-engineers a deployed agent into runnable SDK code |
-
-### Sample queries to try
-
-- **Web research agent** — *"Build an agent that searches the web and summarizes findings into a markdown report"*
-- **Support triage** — *"Create a support agent that searches our KB, checks ticket history in Jira, and classifies by severity"*
-- **Data analyst** — *"Build an agent that runs Python on uploaded CSVs and produces charts"*
-- **Email assistant** — *"Make an agent that reads my Gmail inbox on demand, groups by topic, and drafts replies"*
-- **Deploy** — *"Build this agent, deploy it to my workspace, and validate the first run"*
-- **Debug** — *"Why did agent 69abc… return a hallucinated answer instead of using the KB?"*
-- **Knowledge base** — *"Create an agent connected to our product docs KB that answers support questions"*
 
 ### Integrations supported
 
