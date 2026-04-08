@@ -29,7 +29,7 @@ Drop this skill into any skill-compatible AI coding agent and start describing w
 
 ### Quick start
 
-1. Get an aiXplain API key.
+1. [Get an aiXplain API key](https://studio.aixplain.com/settings/keys) — one pay-as-you-go, pre-paid key unlocks every model, tool, and integration on the aiXplain marketplace. No per-provider billing, no separate vendor accounts.
 2. Download or clone the [`aixplain-agent-builder/`](./aixplain-agent-builder) folder and add it to your AI coding agent (Claude Code, Cursor, etc.) as a skill.
 3. Ask it to build something — for example: *"Build an agent that monitors competitor pricing and emails me a weekly summary."*
 4. The skill searches the aiXplain marketplace for the right models, tools, and integrations, then hands you a **pre-build plan**: proposed architecture, tools to connect, output format, and any OAuth links you'll need to authorize.
