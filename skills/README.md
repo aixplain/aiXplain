@@ -18,6 +18,17 @@ Drop this skill into any skill-compatible AI coding agent and start describing w
 
 > **SDK version:** `aixplain==0.2.44`
 
+### Why aiXplain Agent Builder
+
+1. **Natural language, no code.** Describe it → plan → approve → build → test.
+2. **Deploy instantly, free.** No infra bill — pay only for runtime usage.
+3. **Agents live on a platform.** Edit, trace, monitor, and version in aiXplain Studio.
+4. **One marketplace, one key.** Models, tools, integrations, and MCPs behind a single API key.
+5. **Never blocked by missing tools.** Falls back to Python Sandbox and wires it in automatically.
+6. **Best practices baked in.** Strong instructions, scoped actions, smart iteration limits, speed/quality tuning.
+7. **Safe key handling.** Auto-discovered from env, never hardcoded into generated files.
+8. **Portable skill.** Runs in any skill-compatible agent — Claude Code, Cursor, and more.
+
 ### Who it's for
 
 Built for **non-technical builders**, **developers**, **power users**, and **AI teams** who want working agents without boilerplate.
@@ -52,19 +63,6 @@ That's it — no pip installs, no config files, no environment setup.
 | **Run / Debug** | *"Debug why the agent isn't using the knowledge base"* | Inspects recent runs, diagnoses tool selection, suggests fixes |
 | **Deploy** | *"Deploy this customer support agent and test it with a ticket triage prompt"* | Creates/updates the agent, connects tools, runs a smoke test |
 | **Export** | *"Export agent 69abc… back to Python"* | Reverse-engineers a deployed agent into runnable SDK code |
-
-### Best practices baked in
-
-- Uses a strong instruction format: `ROLE`, `CONSTRAINTS`, and `OUTPUT RULES`
-- Keeps tool descriptions short and action-oriented for better selection
-- Picks practical iteration limits for lookup vs. deep research tasks
-- Scopes tool actions to the minimum required set
-- Chooses speed vs. quality settings based on the use case
-
-```text
-runResponseGeneration=False + output_format="text"     ->  ~30-40% faster
-runResponseGeneration=True  + output_format="markdown" ->  richest output
-```
 
 ### Sample queries to try
 
