@@ -34,8 +34,8 @@ Drop this skill into any skill-compatible AI coding agent and start describing w
 3. Ask it to build something — for example: *"Build an agent that monitors competitor pricing and emails me a weekly summary."*
 4. The skill searches the aiXplain marketplace for the right models, tools, and integrations, then hands you a **pre-build plan**: proposed architecture, tools to connect, output format, and any OAuth links you'll need to authorize.
 5. **Approve the plan** (or tweak it) — the skill then creates the agent, wires up the tools, runs a smoke test, and gives you back a deployed agent ID.
-6. Open the agent in [aiXplain Studio](https://studio.aixplain.com) using the two links the skill returns:
-   - **Visual builder** (`studio.aixplain.com/build/<AGENT_ID>/schema`) — inspect or edit the agent graph, tools, instructions, and run traces.
+6. The skill returns two aiXplain Studio links for the deployed agent:
+   - **Visual builder & traces** (`studio.aixplain.com/build/<AGENT_ID>/schema`) — edit the agent graph, tools, and instructions, and inspect step-by-step run traces.
    - **Analytics dashboard** (`studio.aixplain.com/dashboard/analytics/?agent=<AGENT_ID>`) — monitor runs, latency, token usage, and errors over time.
 
 > **Note:** If a required tool or integration isn't in the marketplace, the skill falls back to **Python Sandbox** — it writes a Python function for the missing capability, deploys it as a sandboxed tool, and attaches it to the agent automatically. No manual glue code required.
