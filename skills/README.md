@@ -27,15 +27,20 @@ Drop this skill into any skill-compatible AI coding agent and start describing w
 | **Power users** | Export any deployed agent back to Python, reverse-engineer team architectures, add inspectors and governance |
 | **AI teams** | Safe API key handling, pre-build approval gates, no silent duplicates |
 
-### Zero-setup requirements
+### Quick start
 
 1. Get an aiXplain API key.
-2. Download or clone the [`aixplain-agent-builder/`](./aixplain-agent-builder) folder.
-3. Drag it into your AI coding agent's chat window (Claude Code, Cursor, etc.) or point it to the folder path.
-4. Say: **"Add this as a skill"**
-5. Open the deployed agent in [aiXplain Studio](https://studio.aixplain.com) to inspect traces and runtime behavior.
+2. Download or clone the [`aixplain-agent-builder/`](./aixplain-agent-builder) folder and add it to your AI coding agent (Claude Code, Cursor, etc.) as a skill.
+3. Ask it to build something — for example: *"Build an agent that monitors competitor pricing and emails me a weekly summary."*
+4. The skill searches the aiXplain marketplace for the right models, tools, and integrations, then hands you a **pre-build plan**: proposed architecture, tools to connect, output format, and any OAuth links you'll need to authorize.
+5. **Approve the plan** (or tweak it) — the skill then creates the agent, wires up the tools, runs a smoke test, and gives you back a deployed agent ID.
+6. Open the agent in [aiXplain Studio](https://studio.aixplain.com) using the two links the skill returns:
+   - **Visual builder** (`studio.aixplain.com/build/<AGENT_ID>/schema`) — inspect or edit the agent graph, tools, instructions, and run traces.
+   - **Analytics dashboard** (`studio.aixplain.com/dashboard/analytics/?agent=<AGENT_ID>`) — monitor runs, latency, token usage, and errors over time.
 
-That's it. No pip installs, no config files, no environment setup — the skill auto-discovers your API key and walks you through anything it can't find.
+> **Note:** If a required tool or integration isn't in the marketplace, the skill falls back to **Python Sandbox** — it writes a Python function for the missing capability, deploys it as a sandboxed tool, and attaches it to the agent automatically. No manual glue code required.
+
+No pip installs, no config files, no environment setup — the skill auto-discovers your API key and walks you through anything it can't find.
 
 ### What you can build
 
