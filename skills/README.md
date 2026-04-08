@@ -52,16 +52,14 @@ That's it — no pip installs, no config files, no environment setup.
 
 ### What you can build
 
-| Mode | What you say | What the skill does |
-| --- | --- | --- |
-| **Build — Web research** | *"Build an agent that searches the web and summarizes competitor pricing into a markdown report"* | Drafts a plan with the right tools, output format, and guardrails |
-| **Build — Support triage** | *"Create a support agent that searches our KB, checks Jira ticket history, and classifies by severity"* | Finds the integrations, proposes the architecture, waits for approval |
-| **Build — Data analyst** | *"Build an agent that runs Python on uploaded CSVs and produces charts"* | Picks models + tools, writes missing logic as a Python Sandbox function |
-| **Build — Email assistant** | *"Make an agent that reads my Gmail inbox on demand, groups by topic, and drafts replies"* | Wires OAuth, scopes Gmail actions, runs a smoke test |
-| **Build — Real estate** | *"Make a real-estate evaluator that looks up location data and computes cap rate"* | Combines marketplace tools with custom Python for the math |
-| **Run** | *"Run agent 69ce064f44eef3c9e3850d95 with: Austin TX, 450k asking price"* | Executes, inspects the step trace, and explains the result |
-| **Debug** | *"Why isn't the agent using the knowledge base?"* | Inspects recent runs, diagnoses tool selection, suggests fixes |
-| **Export** | *"Export agent 69abc… back to Python"* | Reverse-engineers a deployed agent into runnable SDK code |
+- **Build — Web research.** *"Build an agent that searches the web and summarizes competitor pricing into a markdown report"* → drafts a plan with the right tools, output format, and guardrails.
+- **Build — Support triage.** *"Create a support agent that searches our KB, checks Jira ticket history, and classifies by severity"* → finds the integrations, proposes the architecture, waits for approval.
+- **Build — Data analyst.** *"Build an agent that runs Python on uploaded CSVs and produces charts"* → picks models + tools, writes missing logic as a Python Sandbox function.
+- **Build — Email assistant.** *"Make an agent that reads my Gmail inbox on demand, groups by topic, and drafts replies"* → wires OAuth, scopes Gmail actions, runs a smoke test.
+- **Build — Real estate.** *"Make a real-estate evaluator that looks up location data and computes cap rate"* → combines marketplace tools with custom Python for the math.
+- **Run.** *"Run agent 69ce064f44eef3c9e3850d95 with: Austin TX, 450k asking price"* → executes, inspects the step trace, and explains the result.
+- **Debug.** *"Why isn't the agent using the knowledge base?"* → inspects recent runs, diagnoses tool selection, suggests fixes.
+- **Export.** *"Export agent 69abc… back to Python"* → reverse-engineers a deployed agent into runnable SDK code.
 
 ### Integrations supported
 
