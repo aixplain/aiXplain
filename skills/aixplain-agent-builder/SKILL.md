@@ -71,6 +71,19 @@ print(match.id, match.name)
 
 When the user asks for an integration/tool/model that isn't in the Quick Asset IDs table, **run the matching `.search()` first**. Only report "not found" after the search returns no match.
 
+## Fallback: Python Sandbox for missing tools
+
+**Never tell the user "this tool is not available" and stop.** If `.search()` returns no marketplace tool or integration for a needed capability, fall back to **Python Sandbox**: implement the missing capability as a Python function and wire it as a tool.
+
+Required behavior:
+
+1. **Announce it in the plan.** Before building, tell the user explicitly: *"`<capability>` is not available as a marketplace tool/integration. I will build it as a Python Sandbox function and wire it into the agent as part of the plan."*
+2. **Wait for plan approval** as usual.
+3. **Build the Python Sandbox tool** following `references/integration-playbooks.md` → Python Sandbox (exact `config={...}` shape, authoring constraints, type rules).
+4. **Only ask the user when external inputs are required** — API keys, credentials, file paths, schemas. Do not invent placeholders.
+
+The only acceptable "cannot build" case is when the capability fundamentally requires an external credentialed service the user has not provided (and even then, ask first).
+
 ## Build Agent
 
 Apply the search-first principle:
