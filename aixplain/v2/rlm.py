@@ -46,13 +46,13 @@ _SYSTEM_PROMPT = """You are tasked with answering a query with associated contex
 
 The REPL environment is initialized with:
 1. A `context` variable that contains extremely important information about your query. You should check the content of the `context` variable to understand what you are working with. Make sure you look through it sufficiently as you answer your query.
-2. A `llm_query` function that allows you to query an LLM (that can handle around 500K chars) inside your REPL environment.
+2. A `llm_query` function that allows you to query an LLM with a context window of {worker_context_window} inside your REPL environment. You must take this context window into consideration when deciding how much text to pass in each call.
 3. The ability to use `print()` statements to view the output of your REPL code and continue your reasoning.
 
 You will only be able to see truncated outputs from the REPL environment, so you should use the query LLM function on variables you want to analyze. You will find this function especially useful when you have to analyze the semantics of the context. Use these variables as buffers to build up your final answer.
 Make sure to explicitly look through the entire context in REPL before answering your query. An example strategy is to first look at the context and figure out a chunking strategy, then break up the context into smart chunks, and query an LLM per chunk with a particular question and save the answers to a buffer, then query an LLM with all the buffers to produce your final answer.
 
-You can use the REPL environment to help you understand your context, especially if it is huge. Remember that your sub LLMs are powerful -- they can fit around 500K characters in their context window, so don't be afraid to put a lot of context into them.
+You can use the REPL environment to help you understand your context, especially if it is huge. Remember that your sub LLMs are powerful -- they have a context window of {worker_context_window}, so don't be afraid to put a lot of context into them.
 
 When you want to execute Python code in the REPL environment, wrap it in triple backticks with the 'repl' language identifier:
 ```repl
@@ -96,8 +96,8 @@ _DEFAULT_QUERY = (
 # Prompt Helpers
 
 
-def _build_system_messages() -> List[Dict[str, str]]:
-    return [{"role": "system", "content": _SYSTEM_PROMPT}]
+def _build_system_messages(worker_context_window: str) -> List[Dict[str, str]]:
+    return [{"role": "system", "content": _SYSTEM_PROMPT.format(worker_context_window=worker_context_window)}]
 
 
 def _next_action_message(query: str, iteration: int, force_final: bool = False) -> Dict[str, str]:
@@ -151,11 +151,14 @@ class RLMResult(Result):
 
     Attributes:
         iterations_used: Number of orchestrator iterations consumed.
+        used_credits: Total credits consumed across all orchestrator calls,
+            sandbox executions, and worker ``llm_query()`` invocations.
         repl_logs: Per-iteration REPL execution log (excluded from
             serialization; present only on live instances).
     """
 
     iterations_used: int = field(default=0)
+    used_credits: float = field(default=0.0, metadata=dj_config(field_name="usedCredits"))
     repl_logs: List[Dict] = field(
         default_factory=list,
         repr=False,
@@ -257,6 +260,13 @@ class RLM(BaseResource, ToolableMixin):
         metadata=dj_config(exclude=lambda x: True),
         init=False,
     )
+    _used_credits: float = field(
+        default=0.0,
+        repr=False,
+        compare=False,
+        metadata=dj_config(exclude=lambda x: True),
+        init=False,
+    )
 
     def __post_init__(self) -> None:
         """Auto-assign a UUID when no id is provided."""
@@ -342,6 +352,25 @@ class RLM(BaseResource, ToolableMixin):
             self._sandbox_tool = self.context.Tool.get(_SANDBOX_TOOL_ID)
             logger.debug("RLM: sandbox tool resolved.")
         return self._sandbox_tool
+
+    # Worker Context Window
+
+    def _get_worker_context_window(self) -> str:
+        """Return a human-readable description of the worker model's context window."""
+        worker = self._get_worker()
+        attrs = getattr(worker, "attributes", None) or {}
+        raw = attrs.get("max_context_length", None)
+        if raw is not None:
+            try:
+                tokens = int(raw)
+                if tokens >= 1_000_000:
+                    return f"{tokens / 1_000_000:.1f}M tokens"
+                if tokens >= 1_000:
+                    return f"{tokens / 1_000:.0f}K tokens"
+                return f"{tokens} tokens"
+            except (ValueError, TypeError):
+                return str(raw)
+        return "a large context window"
 
     # Sandbox Setup
 
@@ -470,7 +499,10 @@ with __requests.get(_url, stream=True) as _r:
 import time as __time
 import json as __json
 
+_total_llm_query_credits = 0.0
+
 def llm_query(prompt):
+    global _total_llm_query_credits
     _headers = {{"x-api-key": "{self.context.api_key}", "Content-Type": "application/json"}}
     _payload = __json.dumps({{"data": prompt, "max_tokens": 8192}})
     try:
@@ -485,6 +517,7 @@ def llm_query(prompt):
                 _r = __requests.get(_poll_url, headers=_headers, timeout=30)
                 _result = _r.json()
                 _wait = min(_wait * 1.1, 60)
+        _total_llm_query_credits += float(_result.get("usedCredits", 0) or 0)
         return str(_result.get("data", "Error: no data in worker response"))
     except Exception as _e:
         return f"Error: llm_query failed \u2014 {{_e}}"
@@ -496,10 +529,12 @@ def llm_query(prompt):
 
     def _run_sandbox(self, sandbox: Any, code: str) -> Any:
         """Execute code in the sandbox and return the raw ToolResult."""
-        return sandbox.run(
+        result = sandbox.run(
             data={"code": code, "sessionId": self._session_id},
             action="run",
         )
+        self._used_credits += float(getattr(result, "used_credits", 0) or 0)
+        return result
 
     def _execute_code(self, code: str) -> str:
         """Execute a code block in the sandbox and return formatted output.
@@ -551,6 +586,23 @@ def llm_query(prompt):
             return None
         return stdout.strip() if stdout else None
 
+    # Credit Tracking
+
+    def _collect_llm_query_credits(self) -> None:
+        """Retrieve accumulated ``llm_query`` worker credits from the sandbox.
+
+        The injected ``llm_query`` function tracks per-call ``usedCredits``
+        from the worker model API in a global ``_total_llm_query_credits``
+        variable inside the sandbox session. This method reads that variable
+        and adds it to ``self._used_credits``.
+        """
+        try:
+            raw = self._get_repl_variable("_total_llm_query_credits")
+            if raw is not None:
+                self._used_credits += float(raw)
+        except Exception:
+            logger.debug("RLM: could not retrieve llm_query credits from sandbox.")
+
     # Orchestrator
 
     def _orchestrator_completion(self, messages: List[Dict[str, str]]) -> str:
@@ -569,6 +621,7 @@ def llm_query(prompt):
             ResourceError: If the orchestrator model call fails or returns an error.
         """
         response = self._get_orchestrator().run(text=_messages_to_prompt(messages), max_tokens=8192)
+        self._used_credits += float(getattr(response, "used_credits", 0) or 0)
         if response.completed or response.status == "SUCCESS":
             return str(response.data)
         raise ResourceError(
@@ -617,6 +670,8 @@ def llm_query(prompt):
             - ``data``: Final answer string.
             - ``status``: ``"SUCCESS"`` or ``"FAILED"``.
             - ``completed``: ``True``.
+            - ``used_credits``: Total credits consumed across all orchestrator
+              calls, sandbox executions, and worker ``llm_query()`` invocations.
             - ``iterations_used``: Number of orchestrator iterations consumed.
             - ``repl_logs``: Per-iteration execution log (not serialized).
 
@@ -655,11 +710,12 @@ def llm_query(prompt):
         iterations_used = 0
         final_answer: Optional[str] = None
         repl_logs: List[Dict] = []
+        self._used_credits = 0.0
 
         # Resolve file-path context, initialise sandbox + conversation
         context = self._resolve_context(context)
         self._setup_repl(context)
-        self._messages = _build_system_messages()
+        self._messages = _build_system_messages(self._get_worker_context_window())
 
         try:
             for iteration in range(self.max_iterations):
@@ -715,6 +771,7 @@ def llm_query(prompt):
         except Exception as exc:
             error_msg = f"RLM run error: {exc}"
             logger.error(error_msg)
+            self._collect_llm_query_credits()
             result = RLMResult(
                 status="FAILED",
                 completed=True,
@@ -722,9 +779,11 @@ def llm_query(prompt):
                 data=None,
             )
             result.iterations_used = iterations_used
+            result.used_credits = self._used_credits
             result.repl_logs = repl_logs
             return result
 
+        self._collect_llm_query_credits()
         run_time = time.time() - start_time
         logger.info(f"RLM '{name}': done in {iterations_used} iteration(s), {run_time:.1f}s.")
 
@@ -734,6 +793,7 @@ def llm_query(prompt):
             data=final_answer or "",
         )
         result.iterations_used = iterations_used
+        result.used_credits = self._used_credits
         result.repl_logs = repl_logs
         result._raw_data = {"run_time": run_time}
         return result
