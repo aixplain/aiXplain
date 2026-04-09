@@ -74,8 +74,10 @@ print(answer)
 ```
 
 IMPORTANT: When you are done with the iterative process, you MUST provide a final answer using one of these two forms (NOT inside a code block):
-1. FINAL(your final answer here) — to provide the answer as literal text
+1. FINAL(your final answer here) — to provide the answer as literal text. Use `FINAL(...)` only when you are completely finished and will make no further REPL calls, request no further inspection, and need no additional intermediate outputs.
 2. FINAL_VAR(variable_name) — to return a variable you created in the REPL as your final answer
+
+Do not use `FINAL(...)` or `FINAL_VAR(...)` for intermediate status updates, plans, requests to inspect REPL output, or statements such as needing more information; those must be written as normal assistant text instead.
 
 Think step by step carefully, plan, and execute this plan immediately — do not just say what you will do.
 """
