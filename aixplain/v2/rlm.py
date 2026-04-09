@@ -58,7 +58,7 @@ When you want to execute Python code in the REPL environment, wrap it in triple 
 ```repl
 # your Python code here
 chunk = context[:10000]
-answer = llm_query(f"What is the key finding in this text?\\n{chunk}")
+answer = llm_query(f"What is the key finding in this text?\\n{{chunk}}")
 print(answer)
 ```
 
