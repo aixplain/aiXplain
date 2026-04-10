@@ -3,7 +3,7 @@
 from .core import Aixplain
 from .rlm import RLM, RLMResult
 from .utility import Utility
-from .agent import Agent
+from .agent import Agent, ContextOverflowStrategy
 from .tool import Tool
 from .actions import Input, Inputs, Action, Actions
 from .file import Resource
@@ -18,6 +18,7 @@ from .inspector import (
     EvaluatorType,
     EvaluatorConfig,
     EditorConfig,
+    PrebuiltInspector,
 )
 from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
@@ -58,6 +59,7 @@ __all__ = [
     "RLMResult",
     "Utility",
     "Agent",
+    "ContextOverflowStrategy",
     "Tool",
     "Resource",
     "FileUploader",
@@ -73,6 +75,7 @@ __all__ = [
     "EvaluatorType",
     "EvaluatorConfig",
     "EditorConfig",
+    "PrebuiltInspector",
     "ModelResponse",
     # Meta-agents
     "Debugger",
