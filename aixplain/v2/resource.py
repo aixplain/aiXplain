@@ -2,6 +2,7 @@
 
 import requests
 import logging
+import time
 import reprlib
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
@@ -534,10 +535,14 @@ class BaseRunParams(BaseParams):
     Attributes:
         timeout: Maximum time in seconds to wait for completion.
         wait_time: Initial interval in seconds between poll attempts.
+        run_retries: Extra attempts after the first failure (total attempts = 1 + run_retries).
+        run_retry_wait: Seconds to wait between retry attempts (default 1.0).
     """
 
     timeout: NotRequired[int]
     wait_time: NotRequired[int]
+    run_retries: NotRequired[int]
+    run_retry_wait: NotRequired[float]
 
 
 @dataclass_json
@@ -1072,6 +1077,63 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     RUN_ACTION_PATH: str = "run"
     RESPONSE_CLASS: type = Result  # Default response class
 
+    # SDK-only keys: never forwarded to build_run_payload / build_run_url.
+    _RUN_CONTROL_KEYS: frozenset[str] = frozenset(
+        {
+            "run_retries",
+            "run_retry_wait",
+            "timeout",
+            "wait_time",
+            "show_progress",
+        }
+    )
+
+    @staticmethod
+    def _is_retryable_run_error(exc: BaseException) -> bool:
+        """Return True if a failed run may succeed on retry."""
+        if not isinstance(exc, APIError):
+            return False
+        code = exc.status_code
+        return code == 0 or code == 429 or code >= 500
+
+    @staticmethod
+    def _run_retry_settings(kwargs: dict) -> tuple[int, float]:
+        """Parse run_retries and run_retry_wait from run kwargs."""
+        run_retries = max(0, int(kwargs.get("run_retries", 0) or 0))
+        run_retry_wait = float(kwargs.get("run_retry_wait", 1.0) or 0.0)
+        return run_retries, max(run_retry_wait, 0.0)
+
+    def _begin_run(self, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
+        """Invoke before_run; return early result or None to continue."""
+        before_method = getattr(self, "before_run", None)
+        if before_method:
+            early_result = before_method(**kwargs)
+            if early_result is not None:
+                return early_result
+        return None
+
+    def _payload_kwargs_for_run(self, kwargs: dict) -> dict:
+        """Kwargs for payload/URL builders excluding SDK orchestration keys."""
+        return {k: v for k, v in kwargs.items() if k not in self._RUN_CONTROL_KEYS}
+
+    def _post_and_handle_run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
+        """Single POST + handle_run_response (no retries, no before_run)."""
+        self._ensure_valid_state()
+        payload_input = self._payload_kwargs_for_run(kwargs)
+        payload = self.build_run_payload(**payload_input)
+        run_url = self.build_run_url(**payload_input)
+        response = self.context.client.request("post", run_url, json=payload)
+        return self.handle_run_response(response, **kwargs)
+
+    def _apply_after_run(self, result: ResultT, **kwargs: Unpack[RunParamsT]) -> ResultT:
+        """Invoke after_run hook when present."""
+        after_method = getattr(self, "after_run", None)
+        if after_method:
+            custom_result = after_method(result, **kwargs)
+            if custom_result is not None:
+                return custom_result
+        return result
+
     def build_run_payload(self, **kwargs: Unpack[RunParamsT]) -> dict:
         """Build the payload for the run action.
 
@@ -1194,58 +1256,58 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         Args:
             *args: Positional arguments (converted to kwargs by subclasses)
-            **kwargs: Run parameters including timeout and wait_time
+            **kwargs: Run parameters including timeout, wait_time, run_retries, run_retry_wait
 
         Returns:
             Response instance from the configured response class
 
         Note:
-            The before_run hook is called via run_async(), not here, to avoid
-            double invocation since run() delegates to run_async().
+            ``before_run`` runs once per ``run()`` call. Retries (if configured)
+            restart POST and polling without invoking ``before_run`` again.
         """
-        # Start async execution (before_run hook is called inside run_async)
-        result = self.run_async(**kwargs)
+        early = self._begin_run(**kwargs)
+        if early is not None:
+            return self._apply_after_run(early, **kwargs)
 
-        # Check if we need to poll
-        if result.url and not result.completed:
-            result = self.sync_poll(result.url, **kwargs)
+        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
+        for attempt in range(run_retries + 1):
+            try:
+                result = self._post_and_handle_run(**kwargs)
+                if result.url and not result.completed:
+                    result = self.sync_poll(result.url, **kwargs)
+                return self._apply_after_run(result, **kwargs)
+            except APIError as e:
+                if not self._is_retryable_run_error(e) or attempt >= run_retries:
+                    raise
+                time.sleep(run_retry_wait)
 
-        # Call after_run hook for synchronous completion
-        after_method = getattr(self, "after_run", None)
-        if after_method:
-            custom_result = after_method(result, **kwargs)
-            if custom_result is not None:
-                return custom_result
-
-        return result
+        raise RuntimeError("run() retry loop exhausted without return")
 
     def run_async(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Run the resource asynchronously.
 
         Args:
-            **kwargs: Run parameters specific to the resource type
+            **kwargs: Run parameters specific to the resource type, including
+                optional ``run_retries`` and ``run_retry_wait`` for failed POST
+                or immediate FAILED responses.
 
         Returns:
             Response instance from the configured RESPONSE_CLASS
         """
-        # Call before_run hook to allow subclasses to prepare (e.g., auto-save drafts)
-        before_method = getattr(self, "before_run", None)
-        if before_method:
-            early_result = before_method(**kwargs)
-            if early_result is not None:
-                return early_result
+        early = self._begin_run(**kwargs)
+        if early is not None:
+            return early
 
-        self._ensure_valid_state()
+        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
+        for attempt in range(run_retries + 1):
+            try:
+                return self._post_and_handle_run(**kwargs)
+            except APIError as e:
+                if not self._is_retryable_run_error(e) or attempt >= run_retries:
+                    raise
+                time.sleep(run_retry_wait)
 
-        payload = self.build_run_payload(**kwargs)
-
-        # Build the run URL using the extensible method
-        run_url = self.build_run_url(**kwargs)
-
-        response = self.context.client.request("post", run_url, json=payload)
-
-        # Use the extensible response handler
-        return self.handle_run_response(response, **kwargs)
+        raise RuntimeError("run_async() retry loop exhausted without return")
 
     def poll(self, poll_url: str) -> ResultT:
         """Poll for the result of an asynchronous operation.
@@ -1346,8 +1408,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Raises:
             TimeoutError: If the operation exceeds the timeout duration
         """
-        import time
-
         timeout = kwargs.get("timeout", 300)
         wait_time = kwargs.get("wait_time", 0.5)
         show_progress = kwargs.get("show_progress", False)

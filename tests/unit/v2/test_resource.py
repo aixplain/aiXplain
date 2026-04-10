@@ -26,7 +26,7 @@ from aixplain.v2.resource import (
     encode_resource_id,
     _flatten_asset_info,
 )
-from aixplain.v2.exceptions import ResourceError, ValidationError, TimeoutError
+from aixplain.v2.exceptions import APIError, ResourceError, ValidationError, TimeoutError
 
 
 # =============================================================================
@@ -828,6 +828,70 @@ class TestRunnableResourceMixin:
         resource.context.client.get.assert_called()
         assert result.completed is True
         assert result.status == "SUCCESS"
+
+    def test_run_async_retries_on_retryable_api_error(self):
+        """run_async should retry POST when APIError is retryable (e.g. status_code 0)."""
+        resource = self._create_runnable_resource()
+        ok = {"status": "SUCCESS", "completed": True, "data": "ok"}
+        resource.context.client.request = Mock(
+            side_effect=[
+                APIError("transient", status_code=0, response_data={}),
+                ok,
+            ]
+        )
+
+        with patch("aixplain.v2.resource.time.sleep") as mock_sleep:
+            result = resource.run_async(run_retries=2, run_retry_wait=0.01)
+
+        assert result.status == "SUCCESS"
+        assert resource.context.client.request.call_count == 2
+        mock_sleep.assert_called_once()
+
+    def test_run_async_exhausts_retries(self):
+        """run_async should raise after 1 + run_retries failed attempts."""
+        resource = self._create_runnable_resource()
+        resource.context.client.request = Mock(
+            side_effect=APIError("failed", status_code=0, response_data={}),
+        )
+
+        with patch("aixplain.v2.resource.time.sleep"):
+            with pytest.raises(APIError):
+                resource.run_async(run_retries=2, run_retry_wait=0.01)
+
+        assert resource.context.client.request.call_count == 3
+
+    def test_run_retries_after_sync_poll_failure(self):
+        """run() should retry full POST + poll when poll raises retryable APIError."""
+        resource = self._create_runnable_resource()
+        in_progress = {"status": "IN_PROGRESS", "data": "https://poll.url/job"}
+        final = {"status": "SUCCESS", "completed": True, "data": "done"}
+        resource.context.client.request = Mock(side_effect=[in_progress, final])
+        resource.context.client.get = Mock(
+            side_effect=[
+                APIError("poll failed", status_code=503, response_data={}),
+            ]
+        )
+
+        with patch("aixplain.v2.resource.time.sleep"):
+            result = resource.run(run_retries=2, run_retry_wait=0.01)
+
+        assert result.status == "SUCCESS"
+        assert resource.context.client.request.call_count == 2
+        resource.context.client.get.assert_called_once()
+
+    def test_run_no_retry_on_non_retryable_api_error(self):
+        """run_async should not retry on client errors (e.g. HTTP 400)."""
+        resource = self._create_runnable_resource()
+        resource.context.client.request = Mock(
+            side_effect=APIError("bad request", status_code=400, response_data={}),
+        )
+
+        with patch("aixplain.v2.resource.time.sleep") as mock_sleep:
+            with pytest.raises(APIError):
+                resource.run_async(run_retries=5, run_retry_wait=0.01)
+
+        resource.context.client.request.assert_called_once()
+        mock_sleep.assert_not_called()
 
 
 # =============================================================================
