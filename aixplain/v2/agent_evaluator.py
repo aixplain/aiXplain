@@ -16,8 +16,7 @@ import pandas as pd
 from dataclasses_json import config as dj_config, dataclass_json
 
 from .agent import Agent, AgentResponseData, AgentRunResult
-from .exceptions import ValidationError, create_operation_failed_error
-from .model import ModelRunParams
+from .exceptions import AixplainV2Error, ValidationError, create_operation_failed_error
 from .resource import Result
 from .tool import Tool
 
@@ -108,7 +107,7 @@ class MetricTool(Tool):
             "prompt": prompt_template,
             "llmId": llm_path,
         }
-        metric =  cls(
+        metric = cls(
             name=name,
             description=metric_description,
             integration="aixplain/custom-llm-prompt/aixplain",
@@ -118,7 +117,6 @@ class MetricTool(Tool):
         )
         metric.save()
         return metric
-
 
     @staticmethod
     def _normalize_metric_run_data(data: Any) -> dict:
@@ -162,7 +160,6 @@ class MetricTool(Tool):
         metric_payload = {"data": metric_input}
         return self.run(data=metric_payload)
 
-
     def _preprocess_before_create(self, payload: dict) -> dict:
         """Preprocess create payload. Placeholder: returns payload unchanged."""
         return payload
@@ -179,7 +176,6 @@ class MetricTool(Tool):
         """Clean up and normalize the run response dict."""
         response_dict = self.trim_and_load_json(response)
         return response_dict
-
 
     def handle_run_response(self, response: MetricToolResponse, **kwargs: Any) -> MetricToolResponse:
         """Validate and cleanup response, then return a MetricToolResponse."""
@@ -207,8 +203,6 @@ class EvalCase:
     query: Any
     reference: Optional[Any] = None
     metadata: Optional[Dict[str, Any]] = None
-
-
 
 
 def _extract_agent_output(result: AgentRunResult) -> Any:
@@ -242,13 +236,43 @@ def _merge_metric_columns(row: Dict[str, Any], prefix: str, metric_result: Metri
         row[f"{prefix}__value"] = data
 
 
+def _eval_exception_message(exc: Exception) -> str:
+    """Human-readable message for a row ``error_message`` column."""
+    if isinstance(exc, AixplainV2Error):
+        return str(exc.message)
+    return str(exc)
+
+
+def _eval_agent_error_details(exc: Exception) -> Optional[Dict[str, Any]]:
+    """Structured details for API/SDK errors; ``None`` if not available."""
+    if isinstance(exc, AixplainV2Error) and exc.details:
+        return dict(exc.details)
+    return None
+
+
+def _record_metric_failure(row: Dict[str, Any], prefix: str, exc: Exception) -> None:
+    """Record a metric tool failure without aborting the evaluation row."""
+    row[f"{prefix}__metric_status"] = "FAILED"
+    row[f"{prefix}__metric_completed"] = False
+    row[f"{prefix}__metric_error"] = _eval_exception_message(exc)
+    row[f"{prefix}__metric_error_type"] = type(exc).__name__
+
+
+def _record_metrics_skipped_for_agent_failure(row: Dict[str, Any], prefix: str) -> None:
+    """Record that metrics were not run because the agent run failed."""
+    row[f"{prefix}__metric_skipped"] = True
+    row[f"{prefix}__metric_skip_reason"] = "agent_run_failed"
+
+
 def _normalize_agents(agents: Union[Agent, Sequence[Agent]]) -> List[Agent]:
     if isinstance(agents, Agent):
         return [agents]
-    agent_list = list(agents)
-    if not agent_list:
-        raise ValueError("At least one agent is required")
-    return agent_list
+    if isinstance(agents, (list, tuple)):
+        agent_list = list(agents)
+        if not agent_list:
+            raise ValueError("At least one agent is required")
+        return agent_list
+    return [agents]
 
 
 class AgentEvaluationExecutor:
@@ -272,7 +296,7 @@ class AgentEvaluationExecutor:
         agents: Union[Agent, Sequence[Agent]],
         cases: Sequence[EvalCase],
         metrics: Optional[Sequence[MetricTool]] = None,
-        **agent_run_kwargs: Any
+        **agent_run_kwargs: Any,
     ) -> pd.DataFrame:
         """Execute all cases against all agents and build a result DataFrame.
 
@@ -284,12 +308,14 @@ class AgentEvaluationExecutor:
 
         Returns:
             A DataFrame with one row per (case, agent); metric columns use the
-            ``<prefix>__<key>`` pattern. Empty ``cases`` yields an empty DataFrame
-            with the standard column set.
+            ``<prefix>__<key>`` pattern. Agent or metric failures are recorded per
+            row (``agent_run_failed``, ``<prefix>__metric_error``, etc.) instead
+            of aborting the batch. Empty ``cases`` yields an empty DataFrame with
+            the standard column set.
         """
         rows: List[Dict[str, Any]] = []
         metrics_list: List[MetricTool] = list(metrics) if metrics is not None else []
-        agents_list: List[Agent] = list(agents) if isinstance(agents, Sequence) else [agents]
+        agents_list: List[Agent] = _normalize_agents(agents)
 
         for case_index, case in enumerate(cases):
             for agent in agents_list:
@@ -297,19 +323,36 @@ class AgentEvaluationExecutor:
                     "case_index": case_index,
                     "query": case.query,
                     "reference": case.reference,
-                    "agent_name": agent.name,
+                    "agent_name": getattr(agent, "name", None),
                 }
 
-                result = agent.run(case.query, **agent_run_kwargs)
-                output = _extract_agent_output(result)
-
-                row["output"] = output
-                row["agent_response"] = result.data
-                row["status"] = result.status
-                row["completed"] = result.completed
-                row["error_message"] = result.error_message
-                row["run_time"] = result.run_time
-                row["used_credits"] = result.used_credits
+                agent_run_failed = False
+                try:
+                    result = agent.run(case.query, **agent_run_kwargs)
+                except Exception as exc:
+                    agent_run_failed = True
+                    row["output"] = None
+                    row["agent_response"] = None
+                    row["status"] = "FAILED"
+                    row["completed"] = False
+                    row["error_message"] = _eval_exception_message(exc)
+                    row["run_time"] = 0.0
+                    row["used_credits"] = 0.0
+                    row["agent_run_failed"] = True
+                    row["agent_error_type"] = type(exc).__name__
+                    row["agent_error_details"] = _eval_agent_error_details(exc)
+                else:
+                    output = _extract_agent_output(result)
+                    row["output"] = output
+                    row["agent_response"] = result.data
+                    row["status"] = result.status
+                    row["completed"] = result.completed
+                    row["error_message"] = result.error_message
+                    row["run_time"] = result.run_time
+                    row["used_credits"] = result.used_credits
+                    row["agent_run_failed"] = False
+                    row["agent_error_type"] = None
+                    row["agent_error_details"] = None
 
                 if case.metadata:
                     for meta_key, meta_val in case.metadata.items():
@@ -317,8 +360,14 @@ class AgentEvaluationExecutor:
 
                 for metric_index, metric_tool in enumerate(metrics_list):
                     prefix = _metric_tool_prefix(metric_tool, metric_index)
-                    metric_result = metric_tool.measure(result.data)
-                    _merge_metric_columns(row, prefix, metric_result)
+                    if agent_run_failed:
+                        _record_metrics_skipped_for_agent_failure(row, prefix)
+                    else:
+                        try:
+                            metric_result = metric_tool.measure(result.data)
+                            _merge_metric_columns(row, prefix, metric_result)
+                        except Exception as exc:
+                            _record_metric_failure(row, prefix, exc)
 
                 rows.append(row)
 
@@ -334,6 +383,9 @@ class AgentEvaluationExecutor:
                     "status",
                     "completed",
                     "error_message",
+                    "agent_run_failed",
+                    "agent_error_type",
+                    "agent_error_details",
                 ]
             )
 
