@@ -62,7 +62,7 @@ Connect using `.db` file URL via `config={"url": "<download_url_to_db_file>"}`.
 from aixplain.v2.upload_utils import FileUploader
 
 integration = aix.Integration.get("689e06ed3ce71f58d73cc999")
-uploader = FileUploader(api_key=TEAM_API_KEY, backend_url=aix.backend_url)
+uploader = FileUploader(api_key=api_key, backend_url=aix.backend_url)
 db_url = uploader.upload("/absolute/path/to/data.db", is_temp=True, return_download_link=True)
 
 sqlite_tool = aix.Tool(
@@ -82,24 +82,11 @@ Connect with `.py` file or inline source code and set `function_name` for the ex
 
 ### Authoring Constraints
 
-Empirically verified against aiXplain SDK v0.2.44 on 2026-04-07. The previously documented 8-rule list has been largely relaxed server-side. Only the following constraints are still active:
+Verified against aiXplain SDK v0.2.44. Follow these authoring constraints:
 
 1. **`function_name` must match a function defined in `code`.** If you include multiple functions in one code block, only the one whose name equals `function_name` is registered as the tool.
-2. **`bool` parameters are broken** — the runtime serializer emits JSON `true`/`false` (lowercase) which then fails inside Python with `NameError: name 'true' is not defined`. Use `int` (0/1) as a workaround until the serializer is fixed.
-3. **Tuple / multi-value returns are lossy** — a `return a, b` will round-trip as the string `"(a, b)"`, not structured data. If you need structured output, return a `dict` or `list`.
-
-The following **old** rules are **no longer enforced** (verified by creating and running tools that violate each one):
-
-| Old rule | Status |
-|---|---|
-| Single-line `def` signature | ❌ No longer enforced — multi-line signatures work |
-| Parameter names ≥ 3 characters | ❌ No longer enforced — `a`, `b` work |
-| No default parameter values | ❌ No longer enforced — defaults work |
-| Type hints required | ❌ No longer enforced — untyped params work |
-| Inputs restricted to `str`/`int`/`list`/`dict` | ❌ Relaxed — `float` works (may be int-coerced in serializer). `bool` is the only exception, see rule 2 above |
-| At least one input parameter | ❌ No longer enforced — zero-arg functions work |
-| All imports inside function body | ❌ No longer enforced — top-level `import` works |
-| File must have `.py` extension | N/A for inline `config={"code": ...}` — only relevant when uploading a `.py` file |
+2. **Use `int` (0/1) instead of `bool` parameters.** The runtime serializer passes JSON `true`/`false` (lowercase), which Python interprets as undefined names. Using `int` avoids this.
+3. **Return `dict` or `list`, not tuples.** A `return a, b` round-trips as the string `"(a, b)"`. For structured output, always return a `dict` or `list`.
 
 ### v2 Notes
 
@@ -123,117 +110,30 @@ result = tool.run(action="sum_then_square", data={"first_number": 2, "second_num
 
 ---
 
-## 5. MCP Server (`686eb9cd26480723d0634d3e`)
+## 5. OAuth Integrations (Gmail, Slack, Jira, Google Drive)
 
-Connect with authenticated MCP server URL (often includes token).
-
-After connect, inspect full action list and disable destructive actions by default. Keep scoped action set minimal.
-
-### Studio Flow
-
-1. Integrations -> MCP Server -> Connect
-2. Enter integration name + MCP URL
-3. Connect and inspect `Actions`
-4. Enable only required actions
-5. Save agent
-
-### SDK Flow
+The workflow is described in SKILL.md § 3 (Create Tools, Path C). This section provides the code.
 
 ```python
-mcp_tool = aix.Tool(
-    integration="aixplain/mcp-server",
-    name="Remote MCP Tool",
-    description="Remote MCP integration tool",
-    config={"url": "<mcp_server_url>"},
-    allowed_actions=["fetch"],
-).save()
+import warnings
 
-# Optional direct test
-mcp_tool.run(action="fetch", data={"url": "https://www.aixplain.com"})
+integration = aix.Integration.get("6864328d1223092cb4294d30")  # Gmail
+actions = integration.list_actions()
 
-# Attach to agent
+with warnings.catch_warnings(record=True) as w:
+    warnings.simplefilter("always")
+    gmail_tool = aix.Tool(
+        name="My Gmail Tool",
+        description="Send emails",
+        integration=integration,
+        allowed_actions=["GMAIL_SEND_EMAIL"],
+    ).save()
+    oauth_url = next((str(x.message) for x in w if "http" in str(x.message)), None)
+
+print(f"Connect Gmail: {oauth_url}")
+# User completes OAuth, then attach to agent:
 agent = aix.Agent(
-    name="MCP Agent",
-    description="Fetches URL content via MCP.",
-    instructions="Use the MCP fetch tool to retrieve webpage content.",
-    output_format="markdown",
-    tools=[mcp_tool.as_tool()],
+    name="Gmail Agent", instructions="Use Gmail to send emails.",
+    tools=[gmail_tool], output_format="markdown",
 ).save()
 ```
-
-### Apify-Specific URL Pattern
-
-- Token-based auth: `https://actors-mcp-server.apify.actor/mcp?token=<APIFY_TOKEN>`
-- Endpoint must include `/mcp` for aiXplain MCP connect path.
-- Available actions include: `fetch-actor-details`, `search-actors`, `call-actor`, `search-apify-docs`, `fetch-apify-docs`, `apify-slash-rag-web-browser`, `get-actor-output`.
-
-### Troubleshooting
-
-- Error `There is nothing at route POST /...` -> wrong MCP endpoint path (missing `/mcp` or incompatible route).
-- Tool not invoked -> make instructions explicit about when to use MCP and which action to prefer.
-- Too many parameters/actions -> scope `allowed_actions` to a narrow vetted set.
-
----
-
-## 6. OAuth Integrations (Gmail, Slack, Jira, Google Drive)
-
-**CRITICAL:** The entire SDK Tool/Integration pipeline is broken for OAuth integrations.
-`Integration.get()`, `Tool.get()`, and `Tool.search()` all crash with `AttributeError: 'str' object has no attribute 'items'` due to `dataclasses_json` deserialization failures. **Use REST throughout.**
-
-### REST-First Pattern (the only reliable path)
-
-```python
-import requests
-
-BACKEND_URL = "https://platform-api.aixplain.com"
-MODELS_RUN_URL = "https://models.aixplain.com/api/v2/execute"
-H = {"x-api-key": API_KEY, "Content-Type": "application/json"}
-
-# ── Step 1: Create OAuth tool via integration run endpoint ──
-INTEGRATION_ID = "6864328d1223092cb4294d30"  # Gmail
-resp = requests.post(f"{MODELS_RUN_URL}/{INTEGRATION_ID}", headers=H,
-    json={"name": "My Gmail Tool", "description": "Read and draft emails"})
-data = resp.json()
-
-if data.get("status") == "FAILED" and "already exists" in data.get("supplierError", ""):
-    # Name collision — search via REST or use timestamped name
-    search = requests.get(f"{BACKEND_URL}/sdk/models",
-        headers=H, params={"query": "My Gmail Tool", "pageSize": 50, "function": "utilities"})
-    items = search.json().get("items", [])
-    tool_id = next((i["id"] for i in items if i["name"] == "My Gmail Tool"), None)
-else:
-    tool_id = data["data"]["id"]
-    redirect_url = data["data"].get("redirectURL")
-    if redirect_url:
-        print(f"⚠️ OAuth required — user must visit: {redirect_url}")
-
-# ── Step 2: Fetch tool metadata via REST ──
-# IMPORTANT: OAuth tools live under /sdk/models/, NOT /sdk/tools/
-model_data = requests.get(f"{BACKEND_URL}/sdk/models/{tool_id}", headers=H).json()
-
-# ── Step 3: Build agent-compatible payload ──
-tool_payload = {
-    "id": tool_id,
-    "assetId": tool_id,
-    "name": model_data["name"],
-    "description": model_data.get("description", ""),
-    "supplier": model_data.get("supplier", {}).get("code", "aixplain"),
-    "parameters": model_data.get("params", []),
-    "function": model_data.get("function", {}).get("id", "utilities"),
-    "type": "tool",       # MUST be "tool" — "model" fails API validation
-    "version": model_data.get("version", {}).get("id"),
-    "actions": ["GMAIL_FETCH_EMAILS", "GMAIL_CREATE_EMAIL_DRAFT"],  # scoped actions
-}
-```
-
-### Key Gotchas
-
-1. **`type` must be `"tool"`** — `Model.as_tool()` returns `"model"` which fails validation for OAuth tools.
-2. **REST endpoint is `/sdk/models/`** — `/sdk/tools/{id}` returns 404 for OAuth tools.
-3. **Name collisions return no ID** — you must search or use timestamped names.
-4. **OAuth redirect URL** — returned at creation time only. Capture and present to user.
-5. **Agent update via REST** — if SDK `agent.save()` drops tool scopes, use `PUT /sdk/agents/{id}` directly.
-
-### Pre-Connected Tools (from dashboard)
-
-If a tool was already connected via the platform dashboard, skip creation and go straight to Step 2 (fetch metadata by known tool ID) and Step 3 (build payload).
