@@ -5,40 +5,7 @@ Linked from the main skill — consult when adding inspectors.
 
 ---
 
-## Inspector Policy Pattern (v2-compatible)
-
-```python
-from aixplain import Aixplain
-from aixplain.modules.team_agent import InspectorTarget
-from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy, InspectorAuto
-
-aix = Aixplain(api_key="YOUR_TEAM_API_KEY")
-team = aix.TeamAgent.get("TEAM_AGENT_ID")
-
-input_rbac_inspector = Inspector(
-    name="RBAC Input Gate",
-    auto=InspectorAuto.ALIGNMENT,
-    model_params={
-        "prompt": (
-            "Validate input has requester role and allowed scope. "
-            "If missing role/scope or requesting restricted PII, fail the check."
-        )
-    },
-    policy=InspectorPolicy.ABORT,
-)
-
-team.inspectors = [input_rbac_inspector]
-team.inspector_targets = [InspectorTarget.INPUT]
-team.save()
-```
-
-### Canonical Imports
-
-- `from aixplain import Aixplain`
-- `from aixplain.modules.team_agent.inspector import Inspector, InspectorPolicy, InspectorAuto`
-- `from aixplain.modules.team_agent import InspectorTarget`
-
-### Policy Guidelines
+## Policy Guidelines
 
 - Prefer `InspectorPolicy.ABORT` for hard policy violations.
 - Prefer `InspectorPolicy.ADAPTIVE` for recoverable quality issues.
