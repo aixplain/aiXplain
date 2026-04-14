@@ -302,6 +302,7 @@ class PrebuiltInspector:
     config: Optional[Dict[str, Any]] = None
 
     def __post_init__(self) -> None:
+        """Validate the inspector configuration after initialization."""
         if self.preset_id not in _PREBUILT_REGISTRY:
             available = ", ".join(sorted(_PREBUILT_REGISTRY))
             raise ValueError(
