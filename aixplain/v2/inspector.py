@@ -305,15 +305,9 @@ class PrebuiltInspector:
         """Validate the inspector configuration after initialization."""
         if self.preset_id not in _PREBUILT_REGISTRY:
             available = ", ".join(sorted(_PREBUILT_REGISTRY))
-            raise ValueError(
-                f"Unknown inspector preset '{self.preset_id}'. "
-                f"Available presets: {available}"
-            )
+            raise ValueError(f"Unknown inspector preset '{self.preset_id}'. Available presets: {available}")
         if self.targets is not None:
-            self.targets = [
-                t.value if isinstance(t, InspectorTarget) else str(t).lower()
-                for t in self.targets
-            ]
+            self.targets = [t.value if isinstance(t, InspectorTarget) else str(t).lower() for t in self.targets]
         if self.action is not None:
             action_type = self.action.get("type", "")
             supported = _PREBUILT_REGISTRY[self.preset_id]["supported_actions"]
