@@ -112,6 +112,18 @@ class OutputFormat(str, Enum):
     JSON = "json"
 
 
+class ContextOverflowStrategy(str, Enum):
+    """Strategy applied when input messages exceed the model's context window.
+
+    Attributes:
+        TRUNCATE: Remove the oldest chat-history messages until the context fits.
+        SUMMARIZE: Replace the full chat history with an LLM-generated summary.
+    """
+
+    TRUNCATE = "truncate"
+    SUMMARIZE = "summarize"
+
+
 class AgentRunParams(BaseRunParams):
     """Parameters for running an agent.
 
@@ -295,6 +307,7 @@ class Agent(
     RESPONSE_CLASS = AgentRunResult
     Task = Task
     OutputFormat = OutputFormat
+    ContextOverflowStrategy = ContextOverflowStrategy
 
     # Core fields from Swagger
     instructions: Optional[str] = None
@@ -339,6 +352,10 @@ class Agent(
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
     max_iterations: Optional[int] = field(default=5, metadata=config(field_name="maxIterations"))
     max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
+    context_overflow_strategy: Optional[str] = field(
+        default=None,
+        metadata=config(field_name="contextOverflowStrategy"),
+    )
 
     # Internal state for progress tracking (excluded from serialization)
     _progress_tracker: Optional[Any] = field(
@@ -371,6 +388,9 @@ class Agent(
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
+
+        if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
+            self.context_overflow_strategy = self.context_overflow_strategy.value
 
         if isinstance(self.llm, Model):
             self.llm = self.llm.id
@@ -491,6 +511,7 @@ class Agent(
         "max_iterations": "maxIterations",
         "max_time": "maxTime",
         "expected_output": "expectedOutput",
+        "context_overflow_strategy": "contextOverflowStrategy",
     }
 
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
@@ -858,21 +879,19 @@ class Agent(
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
-        from .inspector import Inspector
+        from .inspector import Inspector, PrebuiltInspector
 
         # Pre-serialize inspectors before to_dict() to avoid dataclass_json issues
         original_inspectors = self.inspectors
         if self.inspectors:
             serialized_inspectors = []
             for inspector in self.inspectors:
-                if isinstance(inspector, Inspector):
-                    # Use Inspector's to_dict method which handles callable policy serialization
+                if isinstance(inspector, (Inspector, PrebuiltInspector)):
                     serialized_inspectors.append(inspector.to_dict())
                 elif isinstance(inspector, dict):
-                    # Already serialized
                     serialized_inspectors.append(inspector)
                 else:
-                    raise ValueError(f"Inspector must be Inspector instance or dict, got {type(inspector)}")
+                    raise ValueError(f"Inspector must be Inspector, PrebuiltInspector, or dict, got {type(inspector)}")
             self.inspectors = serialized_inspectors
 
         # Pre-serialize inspector_targets to strings (enum values)
@@ -964,6 +983,7 @@ class Agent(
             "maxTokens": getattr(self, "max_tokens", 2048),
             "maxIterations": getattr(self, "max_iterations", 5),
             "maxTime": 300,
+            "contextOverflowStrategy": getattr(self, "context_overflow_strategy", None),
         }
 
         for k, v in defaults.items():
