@@ -152,6 +152,7 @@ def build_team_agent(payload: Dict, agents: List[Agent] = None, api_key: Text = 
         status=AssetStatus(payload["status"]),
         output_format=OutputFormat(payload.get("outputFormat", OutputFormat.TEXT)),
         expected_output=payload.get("expectedOutput", None),
+        context_overflow_strategy=payload.get("contextOverflowStrategy"),
     )
     team_agent.url = urljoin(config.BACKEND_URL, f"sdk/agent-communities/{team_agent.id}/run")
 

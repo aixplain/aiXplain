@@ -26,7 +26,7 @@ from urllib.parse import urljoin
 
 from aixplain.enums.supplier import Supplier
 from aixplain.modules.agent import Agent
-from aixplain.modules.team_agent import TeamAgent
+from aixplain.modules.team_agent import TeamAgent, ContextOverflowStrategy
 from aixplain.utils import config
 from aixplain.factories.team_agent_factory.utils import build_team_agent
 from aixplain.utils.convert_datatype_utils import normalize_expected_output
@@ -60,6 +60,7 @@ class TeamAgentFactory:
         instructions: Optional[Text] = None,
         output_format: Optional[OutputFormat] = None,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        context_overflow_strategy: Optional[Union["ContextOverflowStrategy", Text]] = None,
         **kwargs,
     ) -> TeamAgent:
         """Create a new team agent in the platform.
@@ -76,6 +77,7 @@ class TeamAgentFactory:
             instructions: The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
             output_format: The output format to be used for the team agent.
             expected_output: The expected output to be used for the team agent.
+            context_overflow_strategy: Strategy for handling context window overflow. Defaults to None (disabled).
             **kwargs: Additional keyword arguments for backward compatibility (deprecated parameters).
 
         Returns:
@@ -257,6 +259,12 @@ class TeamAgentFactory:
             if isinstance(output_format, OutputFormat):
                 output_format = output_format.value
             payload["outputFormat"] = output_format
+        if context_overflow_strategy is not None:
+            from aixplain.modules.team_agent import ContextOverflowStrategy
+
+            if isinstance(context_overflow_strategy, ContextOverflowStrategy):
+                context_overflow_strategy = context_overflow_strategy.value
+            payload["contextOverflowStrategy"] = context_overflow_strategy
 
         team_agent = build_team_agent(payload=internal_payload, agents=agent_list, api_key=api_key)
         team_agent.validate(raise_exception=True)
