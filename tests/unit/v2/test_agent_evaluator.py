@@ -2,9 +2,18 @@
 
 from unittest.mock import MagicMock
 
+import pandas as pd
+import pytest
+
 from aixplain.v2.agent import AgentResponseData
-from aixplain.v2.agent_evaluator import AgentEvaluationExecutor, EvalCase, MetricTool
-from aixplain.v2.exceptions import APIError
+from aixplain.v2.agent_evaluator import (
+    AgentEvaluationExecutor,
+    EvalCase,
+    MetricTool,
+    compare_agents_side_by_side,
+    normalize_eval_results_dataframe,
+)
+from aixplain.v2.exceptions import APIError, ValidationError
 
 
 def _successful_run_result(ard: AgentResponseData) -> MagicMock:
@@ -114,3 +123,69 @@ def test_evaluate_continues_after_agent_failure() -> None:
     assert df.iloc[0]["agent_run_failed"] == True  # noqa: E712
     assert df.iloc[1]["agent_run_failed"] == False  # noqa: E712
     assert df.iloc[1]["output"] == "ok"
+
+
+def test_normalize_eval_results_dataframe_csv_like_strings() -> None:
+    """After CSV round-trip, booleans and numeric metrics are coerced back."""
+    raw = pd.DataFrame(
+        [
+            {
+                "case_index": "0",
+                "agent_name": "a",
+                "agent_run_failed": "False",
+                "completed": "True",
+                "run_time": "0.5",
+                "used_credits": "0.1",
+                "m__score": "0.9",
+                "m__label": "ok",
+            }
+        ]
+    )
+    norm = normalize_eval_results_dataframe(raw)
+    assert norm["case_index"].dtype.name == "Int64"
+    assert norm.iloc[0]["agent_run_failed"] is False
+    assert norm.iloc[0]["completed"] is True
+    assert norm.iloc[0]["run_time"] == 0.5
+    assert norm.iloc[0]["used_credits"] == 0.1
+    assert norm.iloc[0]["m__score"] == 0.9
+    assert norm.iloc[0]["m__label"] == "ok"
+
+
+def test_compare_agents_side_by_side_two_agents() -> None:
+    """Wide view has one row per case and output/score columns per agent."""
+    long_df = pd.DataFrame(
+        [
+            {
+                "case_index": 0,
+                "query": "q1",
+                "reference": None,
+                "agent_name": "Agent A",
+                "output": "out a",
+                "m__score": 0.8,
+                "m__reasoning": "because",
+            },
+            {
+                "case_index": 0,
+                "query": "q1",
+                "reference": None,
+                "agent_name": "Agent B",
+                "output": "out b",
+                "m__score": 0.9,
+                "m__reasoning": "other",
+            },
+        ]
+    )
+    wide = compare_agents_side_by_side(long_df, include_reference=False)
+    assert len(wide) == 1
+    assert wide.iloc[0]["case_index"] == 0
+    assert wide.iloc[0]["query"] == "q1"
+    assert wide.iloc[0]["output__Agent A"] == "out a"
+    assert wide.iloc[0]["output__Agent B"] == "out b"
+    assert wide.iloc[0]["m__score__Agent A"] == 0.8
+    assert wide.iloc[0]["m__score__Agent B"] == 0.9
+    assert "m__reasoning__Agent A" not in wide.columns
+
+
+def test_compare_agents_side_by_side_requires_columns() -> None:
+    with pytest.raises(ValidationError, match="case_index"):
+        compare_agents_side_by_side(pd.DataFrame({"agent_name": ["x"]}))

@@ -16,6 +16,7 @@ import pandas as pd
 from dataclasses_json import config as dj_config, dataclass_json
 
 from .agent import Agent, AgentResponseData, AgentRunResult
+from .eval_results_display import _is_metric_data_column
 from .exceptions import AixplainV2Error, ValidationError, create_operation_failed_error
 from .resource import Result
 from .tool import Tool
@@ -273,6 +274,145 @@ def _normalize_agents(agents: Union[Agent, Sequence[Agent]]) -> List[Agent]:
             raise ValueError("At least one agent is required")
         return agent_list
     return [agents]
+
+
+def _coerce_object_bool(series: pd.Series) -> pd.Series:
+    """Parse common string boolean forms produced by CSV export."""
+    return series.map(lambda x: str(x).lower() in ("true", "1", "yes"))
+
+
+def normalize_eval_results_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy of evaluator results with stable dtypes after CSV round-trip.
+
+    :meth:`AgentEvaluationExecutor.evaluate` returns typed columns, but
+    ``DataFrame.to_csv`` followed by :func:`pandas.read_csv` often yields object
+    dtypes for booleans and occasionally mis-typed integers. Use this on frames
+    loaded from disk (for example ``results.csv`` from ``df.to_csv``) before
+    calling helpers such as :func:`~aixplain.v2.eval_results_display.pivot_agents_wide`
+    or :func:`~aixplain.v2.eval_results_display.summarize_by_agent`.
+
+    Only columns that exist are touched; unknown columns are left unchanged.
+
+    Args:
+        df: Long-format evaluation results.
+
+    Returns:
+        A new DataFrame; the input is not modified.
+    """
+    out = df.copy()
+    if "case_index" in out.columns:
+        out["case_index"] = pd.to_numeric(out["case_index"], errors="coerce").astype("Int64")
+    for col in ("agent_run_failed", "completed"):
+        if col not in out.columns:
+            continue
+        s = out[col]
+        if pd.api.types.is_bool_dtype(s):
+            continue
+        if pd.api.types.is_numeric_dtype(s):
+            out[col] = s.astype(bool)
+        else:
+            out[col] = _coerce_object_bool(s.astype("object"))
+    for col in ("run_time", "used_credits"):
+        if col in out.columns:
+            out[col] = pd.to_numeric(out[col], errors="coerce")
+    for col in out.columns:
+        if col in ("case_index", "agent_run_failed", "completed", "run_time", "used_credits"):
+            continue
+        if col.startswith("case_meta__"):
+            continue
+        if not _is_metric_data_column(col):
+            continue
+        s = out[col]
+        if pd.api.types.is_object_dtype(s) or pd.api.types.is_string_dtype(s):
+            numeric = pd.to_numeric(s, errors="coerce")
+            if numeric.notna().all():
+                out[col] = numeric
+    return out
+
+
+def _default_side_by_side_value_columns(df: pd.DataFrame) -> List[str]:
+    """Pick ``output`` plus metric columns that look like scores (not reasoning text)."""
+    out: List[str] = []
+    if "output" in df.columns:
+        out.append("output")
+    for col in df.columns:
+        if col == "output":
+            continue
+        if not _is_metric_data_column(col):
+            continue
+        lower = str(col).lower()
+        if lower.endswith("__score") or lower.endswith("__scores"):
+            out.append(col)
+        elif pd.api.types.is_numeric_dtype(df[col]):
+            out.append(col)
+    return out
+
+
+def compare_agents_side_by_side(
+    df: pd.DataFrame,
+    *,
+    value_columns: Optional[Sequence[str]] = None,
+    include_query: bool = True,
+    include_reference: bool = False,
+) -> pd.DataFrame:
+    """Pivot long evaluator results so each case is one row and agents are columns.
+
+    Typical long output (one row per case per agent, as from
+    :meth:`AgentEvaluationExecutor.evaluate` or ``results.csv`` from
+    ``df.to_csv``) is normalized with :func:`normalize_eval_results_dataframe`,
+    then pivoted. By default only ``output`` and metric **score** fields are
+    included (columns ending with ``__score`` / ``__scores``, or other numeric
+    metric payload columns such as ``m1__bleu``). Pass ``value_columns`` to
+    override.
+
+    Result columns look like ``output__<agent_name>`` and
+    ``aws-correctness__score__<agent_name>``. Optional ``query`` / ``reference``
+    are one column each per case (not split by agent).
+
+    Args:
+        df: Long-format evaluation results.
+        value_columns: Fields to spread by ``agent_name``; default is score-like
+            columns only plus ``output``.
+        include_query: If True and ``query`` is present, add a single ``query``
+            column per ``case_index``.
+        include_reference: Same for ``reference``.
+
+    Returns:
+        Wide DataFrame with ``case_index`` as the first column. Empty input
+        yields an empty DataFrame.
+
+    Raises:
+        ValidationError: If required columns are missing or ``value_columns``
+            references absent columns.
+    """
+    for required in ("case_index", "agent_name"):
+        if required not in df.columns:
+            raise ValidationError(f"DataFrame must include column {required!r}")
+    work = normalize_eval_results_dataframe(df)
+    if work.empty:
+        return pd.DataFrame()
+    cols = list(value_columns) if value_columns is not None else _default_side_by_side_value_columns(work)
+    if not cols:
+        raise ValidationError(
+            "No value columns to compare; add output/metric scores or pass value_columns.",
+        )
+    for col in cols:
+        if col not in work.columns:
+            raise ValidationError(f"Missing value column {col!r}")
+    meta_frames: List[pd.DataFrame] = []
+    if include_query and "query" in work.columns:
+        q = work.drop_duplicates(subset=["case_index"]).set_index("case_index")["query"]
+        meta_frames.append(q.to_frame())
+    if include_reference and "reference" in work.columns:
+        r = work.drop_duplicates(subset=["case_index"]).set_index("case_index")["reference"]
+        meta_frames.append(r.to_frame())
+    pivoted: List[pd.DataFrame] = []
+    for col in cols:
+        pt = work.pivot_table(index="case_index", columns="agent_name", values=col, aggfunc="first")
+        pt = pt.rename(columns=lambda a: f"{col}__{a}")
+        pivoted.append(pt)
+    wide = pd.concat(meta_frames + pivoted, axis=1)
+    return wide.reset_index()
 
 
 class AgentEvaluationExecutor:

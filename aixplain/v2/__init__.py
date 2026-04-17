@@ -21,7 +21,14 @@ from .inspector import (
 )
 from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
-from .agent_evaluator import AgentEvaluationExecutor, EvalCase, MetricTool, MetricToolResponse
+from .agent_evaluator import (
+    AgentEvaluationExecutor,
+    EvalCase,
+    MetricTool,
+    MetricToolResponse,
+    compare_agents_side_by_side,
+    normalize_eval_results_dataframe,
+)
 from .eval_results_display import (
     case_comparison_html,
     case_rows,
@@ -94,6 +101,8 @@ __all__ = [
     "EvalCase",
     "MetricTool",
     "MetricToolResponse",
+    "compare_agents_side_by_side",
+    "normalize_eval_results_dataframe",
     "case_comparison_html",
     "case_rows",
     "guess_compare_value_columns",
