@@ -25,6 +25,7 @@ from aixplain.v2.resource import (
     with_hooks,
     encode_resource_id,
     _flatten_asset_info,
+    _extract_run_time_and_used_credits,
 )
 from aixplain.v2.exceptions import APIError, ResourceError, ValidationError, TimeoutError
 
@@ -628,6 +629,47 @@ class TestDeleteResourceMixin:
         # The hook decorator wraps ValidationError in ResourceError
         with pytest.raises(ResourceError, match="deleted"):
             resource.delete()
+
+
+# =============================================================================
+# Run / poll usage extraction
+# =============================================================================
+
+
+def test_extract_run_time_and_credits_snake_case_top_level() -> None:
+    raw = {"run_time": 1.5, "used_credits": 0.02}
+    rt, uc = _extract_run_time_and_used_credits(raw)
+    assert rt == 1.5
+    assert uc == 0.02
+
+
+def test_extract_run_time_and_credits_from_execution_stats() -> None:
+    raw = {"data": {"executionStats": {"runtime": 3.0, "credits": 0.5}}}
+    rt, uc = _extract_run_time_and_used_credits(raw)
+    assert rt == 3.0
+    assert uc == 0.5
+
+
+def test_extract_run_time_and_credits_from_steps() -> None:
+    raw = {
+        "data": {
+            "steps": [
+                {
+                    "start_time": "2026-01-01T10:00:00",
+                    "end_time": "2026-01-01T10:00:02",
+                    "usedCredits": 0.01,
+                },
+                {
+                    "start_time": "2026-01-01T10:00:02",
+                    "end_time": "2026-01-01T10:00:05",
+                    "used_credits": 0.02,
+                },
+            ]
+        }
+    }
+    rt, uc = _extract_run_time_and_used_credits(raw)
+    assert uc == pytest.approx(0.03)
+    assert rt == pytest.approx(5.0)
 
 
 # =============================================================================

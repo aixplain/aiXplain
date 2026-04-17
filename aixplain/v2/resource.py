@@ -4,6 +4,7 @@ import requests
 import logging
 import time
 import reprlib
+from datetime import datetime
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
 from urllib.parse import quote
@@ -1071,6 +1072,106 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         self._deleted = True
 
 
+def _float_from_mapping(mapping: dict, *keys: str) -> Optional[float]:
+    """Return the first *keys* entry in *mapping* that coerces to float, else None."""
+    for key in keys:
+        if key not in mapping:
+            continue
+        value = mapping[key]
+        if value is None:
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _sum_step_credits(steps: List[Any]) -> Optional[float]:
+    """Sum per-step credit fields when present on agent step dicts."""
+    total = 0.0
+    found = False
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        part = _float_from_mapping(step, "usedCredits", "used_credits", "credits")
+        if part is not None:
+            found = True
+            total += part
+    return total if found else None
+
+
+def _runtime_from_step_timestamps(steps: List[Any]) -> Optional[float]:
+    """Approximate wall time from first step ``start_time`` to last ``end_time``."""
+    first_start = None
+    last_end = None
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        start_val = step.get("start_time") or step.get("startTime")
+        end_val = step.get("end_time") or step.get("endTime")
+        if start_val is not None and first_start is None:
+            try:
+                first_start = datetime.fromisoformat(str(start_val).replace("Z", "+00:00"))
+            except ValueError:
+                pass
+        if end_val is not None:
+            try:
+                last_end = datetime.fromisoformat(str(end_val).replace("Z", "+00:00"))
+            except ValueError:
+                pass
+    if first_start is not None and last_end is not None:
+        delta = (last_end - first_start).total_seconds()
+        return float(delta) if delta >= 0 else None
+    return None
+
+
+def _extract_run_time_and_used_credits(raw: dict) -> Tuple[float, float]:
+    """Resolve ``run_time`` and ``used_credits`` from heterogeneous run/poll JSON.
+
+    Some backends omit top-level ``runTime`` / ``usedCredits`` or use snake_case.
+    Metrics may appear under ``data.executionStats`` (``runtime`` / ``credits``) or
+    on individual steps (``usedCredits`` / ``used_credits``).
+    """
+    run_time = _float_from_mapping(raw, "runTime", "run_time")
+    used_credits = _float_from_mapping(raw, "usedCredits", "used_credits")
+
+    data = raw.get("data")
+    if isinstance(data, dict):
+        stats = data.get("executionStats") or data.get("execution_stats")
+        if isinstance(stats, dict):
+            es_rt = _float_from_mapping(stats, "runtime", "runTime", "run_time", "duration")
+            es_uc = _float_from_mapping(
+                stats,
+                "credits",
+                "usedCredits",
+                "used_credits",
+                "totalCredits",
+                "total_credits",
+            )
+            if es_rt is not None:
+                if run_time is None or (run_time == 0.0 and es_rt != 0.0):
+                    run_time = es_rt
+            if es_uc is not None:
+                if used_credits is None or (used_credits == 0.0 and es_uc != 0.0):
+                    used_credits = es_uc
+
+        steps = data.get("steps")
+        if isinstance(steps, list) and steps:
+            step_uc = _sum_step_credits(steps)
+            if step_uc is not None and (used_credits is None or (used_credits == 0.0 and step_uc != 0.0)):
+                used_credits = step_uc
+            step_rt = _runtime_from_step_timestamps(steps)
+            if step_rt is not None and (run_time is None or (run_time == 0.0 and step_rt != 0.0)):
+                run_time = step_rt
+
+    if run_time is None:
+        run_time = 0.0
+    if used_credits is None:
+        used_credits = 0.0
+    return float(run_time), float(used_credits)
+
+
 class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     """Mixin for runnable resources."""
 
@@ -1207,7 +1308,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 raise create_operation_failed_error(response)
 
             response_class = getattr(self, "RESPONSE_CLASS", Result)
-            result = response_class.from_dict(response)
+            resp_for_parse = dict(response)
+            rt, uc = _extract_run_time_and_used_credits(resp_for_parse)
+            top_usage_keys = ("runTime", "run_time", "usedCredits", "used_credits")
+            if any(k in response for k in top_usage_keys) or rt != 0.0 or uc != 0.0:
+                resp_for_parse["runTime"] = rt
+                resp_for_parse["usedCredits"] = uc
+            result = response_class.from_dict(resp_for_parse)
             result._raw_data = response
             return result
 
@@ -1335,6 +1442,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         # Handle polling response - use camelCase keys (what backend sends)
         # dataclass_json with config(field_name=...) handles mapping to snake_case
+        run_time, used_credits = _extract_run_time_and_used_credits(response)
         filtered_response = {
             "status": response.get("status", "IN_PROGRESS"),
             "completed": response.get("completed", False),
@@ -1344,8 +1452,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "supplierError": response.get("supplierError"),
             "data": response.get("data") or {},
             "sessionId": response.get("sessionId"),
-            "usedCredits": response.get("usedCredits", 0.0),
-            "runTime": response.get("runTime", 0.0),
+            "usedCredits": used_credits,
+            "runTime": run_time,
             "requestId": response.get("requestId"),
             "usage": response.get("usage"),
             "asset": response.get("asset"),
