@@ -1,11 +1,11 @@
 import pytest
 import requests_mock
-from datetime import datetime
 from aixplain.factories import AgentFactory
 from aixplain.enums.asset_status import AssetStatus
 from aixplain.modules import Agent, Model
 from aixplain.modules.agent import OutputFormat
 from aixplain.utils import config
+from aixplain.utils import user_info_utils
 from aixplain.modules.agent.tool.pipeline_tool import PipelineTool
 from aixplain.modules.agent.tool.model_tool import ModelTool
 from aixplain.modules.agent.tool.python_interpreter_tool import PythonInterpreterTool
@@ -553,7 +553,8 @@ def test_run_success():
     assert response["url"] == ref_response["data"]
 
 
-def test_run_async_includes_user_info_datetime():
+def test_run_async_includes_run_metadata():
+    user_info_utils._fetch_ipinfo.cache_clear()
     agent = Agent(
         "123",
         "Test Agent(-)",
@@ -563,17 +564,30 @@ def test_run_async_includes_user_info_datetime():
     run_url = urljoin(config.BACKEND_URL, f"sdk/agents/{agent.id}/run")
     agent.url = run_url
 
+    ipinfo_payload = {
+        "ip": "192.168.1.1",
+        "country": "US",
+        "loc": "37.7749,-122.4194",
+        "timezone": "America/Los_Angeles",
+    }
+
     with requests_mock.Mocker() as mock:
+        mock.get("https://ipinfo.io/json", json=ipinfo_payload)
         headers = {"x-api-key": config.AIXPLAIN_API_KEY, "Content-Type": "application/json"}
         mock.post(run_url, headers=headers, json={"data": "www.aixplain.com", "status": "IN_PROGRESS"})
 
         agent.run_async(data={"query": "Hello, how are you?"})
 
         sent = mock.last_request.json()
-        assert "userInfo" in sent
-        assert "datetime" in sent["userInfo"]
-        assert isinstance(sent["userInfo"]["datetime"], str)
-        datetime.fromisoformat(sent["userInfo"]["datetime"])
+        assert "metaData" in sent
+        md = sent["metaData"]
+        assert md["userAgent"] == "sdk"
+        assert md["region"] == "en-US"
+        assert md["language"] == "en"
+        assert md["timezone"] == "America/Los_Angeles"
+        assert md["ipAddress"] == "192.168.1.1"
+        assert md["latitude"] == pytest.approx(37.7749)
+        assert md["longitude"] == pytest.approx(-122.4194)
 
 
 def test_run_variable_missing():

@@ -15,12 +15,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from __future__ import annotations
+
 import logging
-from datetime import datetime
 from functools import lru_cache
-from typing import Dict
+from typing import Any, Dict, Optional, Tuple
 
 import requests
+from babel.languages import get_official_languages
 
 
 logger = logging.getLogger(__name__)
@@ -30,38 +32,83 @@ _IPINFO_TIMEOUT = 2.0
 
 
 @lru_cache(maxsize=1)
-def get_user_location() -> Dict[str, str]:
-    """Fetch and cache the user's region and country from ipinfo.io."""
+def _fetch_ipinfo() -> Dict[str, Any]:
+    """Fetch and cache the ipinfo.io payload for the current public IP."""
     try:
         response = requests.get(_IPINFO_URL, timeout=_IPINFO_TIMEOUT)
         response.raise_for_status()
         payload = response.json()
     except (requests.RequestException, ValueError) as exc:
-        logger.debug("Failed to fetch user location from ipinfo.io: %s", exc)
+        logger.debug("Failed to fetch ipinfo.io payload: %s", exc)
         return {}
 
     if not isinstance(payload, dict):
         return {}
 
-    location: Dict[str, str] = {}
-
-    region = payload.get("region")
-    if isinstance(region, str) and region.strip():
-        location["region"] = region.strip()
-
-    country = payload.get("country")
-    if isinstance(country, str) and country.strip():
-        location["country"] = country.strip()
-
-    return location
+    return payload
 
 
-def build_user_info() -> Dict[str, str]:
-    """Build user metadata for execution payloads.
+def _primary_language_for_territory(cc: str) -> Optional[str]:
+    """Most preferred official language for the country code"""
+    langs = get_official_languages(cc, de_facto=True)
+    if not langs:
+        langs = get_official_languages(cc)
+    if not langs:
+        return None
+    return langs[0].split("_")[0].lower()
+
+
+def _region_and_language_from_country(country: str) -> Tuple[Optional[str], Optional[str]]:
+    """Build region and language from ipinfo country or (None, None) if unknown."""
+    cc = country.strip().upper()
+    if len(cc) != 2:
+        return (None, None)
+    lang = _primary_language_for_territory(cc)
+    if not lang:
+        return (None, None)
+    return (f"{lang}-{cc}", lang)
+
+
+def build_run_metadata() -> Dict[str, Any]:
+    """Build metaData for agent run payloads.
 
     Returns:
-        Dict[str, str]: User metadata derived from the local client system.
+        Dict[str, Any]: Metadata suitable for the metaData JSON field.
     """
-    user_info = {"datetime": datetime.now().astimezone().isoformat()}
-    user_info.update(get_user_location())
-    return user_info
+    meta: Dict[str, Any] = {
+        "userAgent": "sdk",
+        "region": None,
+        "language": None,
+        "ipAddress": None,
+        "latitude": None,
+        "longitude": None,
+        "timezone": None,
+    }
+
+    info = _fetch_ipinfo()
+
+    country = info.get("country")
+    if isinstance(country, str) and len(country.strip()) == 2:
+        region, language = _region_and_language_from_country(country.strip())
+        meta["region"] = region
+        meta["language"] = language
+
+    ip = info.get("ip")
+    if isinstance(ip, str) and ip.strip():
+        meta["ipAddress"] = ip.strip()
+
+    loc = info.get("loc")
+    if isinstance(loc, str) and "," in loc:
+        try:
+            lat_s, lon_s = loc.split(",", 1)
+            meta["latitude"] = float(lat_s.strip())
+            meta["longitude"] = float(lon_s.strip())
+        except ValueError:
+            pass
+
+    tz = info.get("timezone")
+    if isinstance(tz, str) and tz.strip():
+        meta["timezone"] = tz.strip()
+
+    return meta
+
