@@ -351,7 +351,7 @@ class Agent(
     inspectors: Optional[List[Any]] = field(default_factory=list)
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
     max_iterations: Optional[int] = field(default=5, metadata=config(field_name="maxIterations"))
-    max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
+    max_tokens: Optional[int] = field(default=None, metadata=config(field_name="maxTokens"))
     context_overflow_strategy: Optional[str] = field(
         default=None,
         metadata=config(field_name="contextOverflowStrategy"),
@@ -978,9 +978,10 @@ class Agent(
         execution_params = {self._EXEC_PARAMS_MAP.get(k, k): v for k, v in execution_params.items()}
 
         # Set default values for execution_params if not provided
+        _platform_default_max_tokens = 4096
         defaults = {
             "outputFormat": self.output_format,
-            "maxTokens": getattr(self, "max_tokens", 2048),
+            "maxTokens": self.max_tokens if self.max_tokens is not None else _platform_default_max_tokens,
             "maxIterations": getattr(self, "max_iterations", 5),
             "maxTime": 300,
             "contextOverflowStrategy": getattr(self, "context_overflow_strategy", None),
@@ -1094,7 +1095,7 @@ class Agent(
                 session_id=session_id,
                 history=history,
                 execution_params={
-                    "max_tokens": 2048,
+                    "max_tokens": self.max_tokens if self.max_tokens is not None else 4096,
                     "max_iterations": 10,
                     "output_format": OutputFormat.TEXT.value,
                     "expected_output": None,
