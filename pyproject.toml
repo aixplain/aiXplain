@@ -73,5 +73,6 @@ test = [
     "docker>=6.1.3",
     "requests-mock>=1.11.0",
     "pytest-mock>=3.10.0",
-    "pytest-rerunfailures>=16.0"
+    "pytest-rerunfailures>=16.0",
+    "pytest-xdist",
 ]
