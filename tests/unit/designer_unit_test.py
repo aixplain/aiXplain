@@ -842,12 +842,7 @@ def test_pipeline_serialize():
     )
     pipeline.add_link(link1)
 
-    link2 = Link(
-        from_node=node1,
-        to_node=node2,
-        from_param="output2",
-        to_param="input2"
-    )
+    link2 = Link(from_node=node1, to_node=node2, from_param="output2", to_param="input2")
     pipeline.add_link(link2)
 
     serialized = pipeline.serialize()

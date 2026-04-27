@@ -90,7 +90,9 @@ def test_create_sql_tool_source_type_handling(tmp_path):
     assert isinstance(tool_enum, SQLTool)
 
     # Test invalid type
-    with pytest.raises(SQLToolError, match="Source type must be either a string or DatabaseSourceType enum, got <class 'int'>"):
+    with pytest.raises(
+        SQLToolError, match="Source type must be either a string or DatabaseSourceType enum, got <class 'int'>"
+    ):
         AgentFactory.create_sql_tool(
             name="Test SQL", description="Test", source=db_path, source_type=123, schema="test"
         )

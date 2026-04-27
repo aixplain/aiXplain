@@ -57,7 +57,12 @@ def test_create_sql_tool(mocker, tmp_path):
 
     # Test SQLite source type
     tool = AgentFactory.create_sql_tool(
-        name="Test SQL", description="Test", source=db_path, source_type="sqlite", schema="test", tables=["test", "test2"]
+        name="Test SQL",
+        description="Test",
+        source=db_path,
+        source_type="sqlite",
+        schema="test",
+        tables=["test", "test2"],
     )
     assert isinstance(tool, SQLTool)
     assert tool.description == "Test"
@@ -186,12 +191,16 @@ def test_sql_tool_validation_errors(tmp_path):
 
     # Test non-existent SQLite database
     with pytest.raises(SQLToolError, match="Database .* does not exist"):
-        tool = AgentFactory.create_sql_tool(name="Test SQL", description="Test", source="nonexistent.db", source_type="sqlite")
+        tool = AgentFactory.create_sql_tool(
+            name="Test SQL", description="Test", source="nonexistent.db", source_type="sqlite"
+        )
         tool.validate()
 
     # Test non-existent CSV file
     with pytest.raises(SQLToolError, match="CSV file .* does not exist"):
-        tool = AgentFactory.create_sql_tool(name="Test SQL", description="Test", source="nonexistent.csv", source_type="csv")
+        tool = AgentFactory.create_sql_tool(
+            name="Test SQL", description="Test", source="nonexistent.csv", source_type="csv"
+        )
         tool.validate()
 
     # Test PostgreSQL (not supported)

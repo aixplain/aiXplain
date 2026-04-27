@@ -27,7 +27,9 @@ def test_utility_model():
                 assert utility_model.description == "utility_model_test"
                 assert utility_model.code == "utility_model_test"
                 assert utility_model.inputs == [
-                    UtilityModelInput(name="input_string", description="The input_string input is a text", type=DataType.TEXT)
+                    UtilityModelInput(
+                        name="input_string", description="The input_string input is a text", type=DataType.TEXT
+                    )
                 ]
                 assert utility_model.output_examples == "output_description"
 
@@ -250,7 +252,10 @@ def test_parse_code():
 
     with pytest.raises(Exception) as exc_info:
         parse_code(main)
-    assert str(exc_info.value) == "Utility Model Error: Input type is required. For instance def main(a: int, b: int) -> int:"
+    assert (
+        str(exc_info.value)
+        == "Utility Model Error: Input type is required. For instance def main(a: int, b: int) -> int:"
+    )
 
     # Unsupported input type
     code = "def main(originCode: list) -> str:\n    return originCode"
@@ -455,7 +460,9 @@ def test_utility_model_creation_warning():
                 mock.get(urljoin(config.BACKEND_URL, f"sdk/models/{model_id}"), status_code=200)
 
                 # Create the utility model and check for warning during creation
-                with pytest.warns(UserWarning, match="WARNING: Non-deployed utility models .* will expire after 24 hours.*"):
+                with pytest.warns(
+                    UserWarning, match="WARNING: Non-deployed utility models .* will expire after 24 hours.*"
+                ):
                     utility_model = ModelFactory.create_utility_model(
                         name="utility_model_test",
                         description="utility_model_test",

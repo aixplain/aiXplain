@@ -123,7 +123,9 @@ def test_get_pipeline_error_response():
         with pytest.raises(Exception) as excinfo:
             PipelineFactory.get(pipeline_id=pipeline_id)
 
-        assert "Pipeline GET Error: Failed to retrieve pipeline test-pipeline-id. Status Code: 404" in str(excinfo.value)
+        assert "Pipeline GET Error: Failed to retrieve pipeline test-pipeline-id. Status Code: 404" in str(
+            excinfo.value
+        )
 
 
 @pytest.fixture

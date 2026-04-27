@@ -141,7 +141,9 @@ def test_list_finetunable_models(is_finetunable):
         print(f"is_finetunable: {is_finetunable}")
         url = f"{config.BACKEND_URL}/sdk/models/paginate"
         mock.post(url, headers=FIXED_HEADER, json=list_map)
-        result = ModelFactory.list(function=Function.TRANSLATION, is_finetunable=is_finetunable, page_number=0, page_size=5)
+        result = ModelFactory.list(
+            function=Function.TRANSLATION, is_finetunable=is_finetunable, page_number=0, page_size=5
+        )
         print(result)
     assert result["page_total"] == 5
     assert result["page_number"] == 0

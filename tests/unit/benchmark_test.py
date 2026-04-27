@@ -18,4 +18,6 @@ def test_get_benchmark_error():
         with pytest.raises(Exception) as excinfo:
             BenchmarkFactory.get(benchmark_id)
 
-        assert "Benchmark GET Error: Status 404 - {'statusCode': 404, 'message': 'Benchmark not found'}" in str(excinfo.value)
+        assert "Benchmark GET Error: Status 404 - {'statusCode': 404, 'message': 'Benchmark not found'}" in str(
+            excinfo.value
+        )

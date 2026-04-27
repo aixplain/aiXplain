@@ -33,14 +33,11 @@ def _setup_python_sandbox_mocks(mock, connection_id="693026cc427d05e696f3c7db"):
         "authentication_methods": ["no-auth"],
         "params": [],
         "attributes": [
-            {
-                "name": "auth_schemes",
-                "code": '["NO_AUTH"]'
-            },
+            {"name": "auth_schemes", "code": '["NO_AUTH"]'},
             {
                 "name": "NO_AUTH-inputs",
-                "code": '[{"name":"code","displayName":"Python Code","type":"string","description":"","required":true, "subtype": "file", "fileConfiguration": { "limit": 1, "extensions": ["py"] }}, {"name":"function_name","displayName":"Main Function Name","type":"string","description":"","required":true}]'
-            }
+                "code": '[{"name":"code","displayName":"Python Code","type":"string","description":"","required":true, "subtype": "file", "fileConfiguration": { "limit": 1, "extensions": ["py"] }}, {"name":"function_name","displayName":"Main Function Name","type":"string","description":"","required":true}]',
+            },
         ],
     }
     mock.get(url, headers=python_sandbox_headers, json=python_sandbox_response)
@@ -83,13 +80,7 @@ def _setup_python_sandbox_mocks(mock, connection_id="693026cc427d05e696f3c7db"):
     list_actions_response = {
         "status": "SUCCESS",
         "completed": True,
-        "data": [
-            {
-                "name": "test_function",
-                "displayName": "test_function",
-                "description": "Test function"
-            }
-        ],
+        "data": [{"name": "test_function", "displayName": "test_function", "description": "Test function"}],
     }
     mock.post(list_actions_url, headers=list_actions_headers, json=list_actions_response)
 
@@ -102,11 +93,7 @@ def test_create_custom_python_code_tool_with_string_code():
         connection_id = _setup_python_sandbox_mocks(mock)
 
         code = "def test_function(input_string: str) -> str:\n    return 'Hello, world!'\n"
-        tool = ModelFactory.create_script_connection_tool(
-            name="Test Tool",
-            code=code,
-            description="Test description"
-        )
+        tool = ModelFactory.create_script_connection_tool(name="Test Tool", code=code, description="Test description")
 
         assert isinstance(tool, ConnectionTool)
         assert tool.id == connection_id
@@ -126,9 +113,7 @@ def test_create_custom_python_code_tool_with_callable():
             return x * 2
 
         tool = ModelFactory.create_script_connection_tool(
-            name="Test Tool",
-            code=my_function,
-            description="Test description"
+            name="Test Tool", code=my_function, description="Test description"
         )
 
         assert isinstance(tool, ConnectionTool)
@@ -143,11 +128,7 @@ def test_create_custom_python_code_tool_no_functions():
         code = "x = 5\ny = 10\nprint(x + y)"
 
         with pytest.raises(Exception) as exc_info:
-            ModelFactory.create_script_connection_tool(
-                name="Test Tool",
-                code=code,
-                description="Test description"
-            )
+            ModelFactory.create_script_connection_tool(name="Test Tool", code=code, description="Test description")
 
         assert "No functions found in the code" in str(exc_info.value)
 
@@ -165,11 +146,7 @@ def function2(y: str) -> str:
 """
 
         with pytest.raises(Exception) as exc_info:
-            AgentFactory.create_custom_python_code_tool(
-                name="Test Tool",
-                code=code,
-                description="Test description"
-            )
+            AgentFactory.create_custom_python_code_tool(name="Test Tool", code=code, description="Test description")
 
         assert "Multiple functions found in the code" in str(exc_info.value)
         assert "function1" in str(exc_info.value)
@@ -189,10 +166,7 @@ def function2(y: str) -> str:
 """
 
         tool = AgentFactory.create_custom_python_code_tool(
-            name="Test Tool",
-            code=code,
-            description="Test description",
-            function_name="function1"
+            name="Test Tool", code=code, description="Test description", function_name="function1"
         )
 
         assert isinstance(tool, ConnectionTool)
@@ -208,10 +182,7 @@ def test_create_custom_python_code_tool_invalid_function_name():
 
         with pytest.raises(Exception) as exc_info:
             AgentFactory.create_custom_python_code_tool(
-                name="Test Tool",
-                code=code,
-                description="Test description",
-                function_name="invalid_function"
+                name="Test Tool", code=code, description="Test description", function_name="invalid_function"
             )
 
         assert "Function name invalid_function not found in the code" in str(exc_info.value)
@@ -225,11 +196,7 @@ def test_create_custom_python_code_tool_single_function_auto_detection():
 
         code = "def my_single_function(input_string: str) -> str:\n    return 'Hello!'\n"
 
-        tool = AgentFactory.create_custom_python_code_tool(
-            name="Test Tool",
-            code=code,
-            description="Test description"
-        )
+        tool = AgentFactory.create_custom_python_code_tool(name="Test Tool", code=code, description="Test description")
 
         assert isinstance(tool, ConnectionTool)
         assert tool.id == connection_id
@@ -242,29 +209,17 @@ def test_create_custom_python_code_tool_with_different_function_signatures():
 
         # Test with no parameters
         code1 = "def no_params() -> str:\n    return 'test'\n"
-        tool1 = AgentFactory.create_custom_python_code_tool(
-            name="Tool 1",
-            code=code1,
-            description="No params"
-        )
+        tool1 = AgentFactory.create_custom_python_code_tool(name="Tool 1", code=code1, description="No params")
         assert isinstance(tool1, ConnectionTool)
 
         # Test with multiple parameters
         code2 = "def multi_params(a: int, b: str, c: float) -> dict:\n    return {'a': a, 'b': b, 'c': c}\n"
-        tool2 = AgentFactory.create_custom_python_code_tool(
-            name="Tool 2",
-            code=code2,
-            description="Multiple params"
-        )
+        tool2 = AgentFactory.create_custom_python_code_tool(name="Tool 2", code=code2, description="Multiple params")
         assert isinstance(tool2, ConnectionTool)
 
         # Test with optional parameters
         code3 = "def optional_params(x: int, y: int = 10) -> int:\n    return x + y\n"
-        tool3 = AgentFactory.create_custom_python_code_tool(
-            name="Tool 3",
-            code=code3,
-            description="Optional params"
-        )
+        tool3 = AgentFactory.create_custom_python_code_tool(name="Tool 3", code=code3, description="Optional params")
         assert isinstance(tool3, ConnectionTool)
 
 
@@ -292,14 +247,11 @@ def test_create_custom_python_code_tool_actions_retrieval():
             "authentication_methods": ["no-auth"],
             "params": [],
             "attributes": [
-                {
-                    "name": "auth_schemes",
-                    "code": '["NO_AUTH"]'
-                },
+                {"name": "auth_schemes", "code": '["NO_AUTH"]'},
                 {
                     "name": "NO_AUTH-inputs",
-                    "code": '[{"name":"code","displayName":"Python Code","type":"string","description":"","required":true, "subtype": "file", "fileConfiguration": { "limit": 1, "extensions": ["py"] }}, {"name":"function_name","displayName":"Main Function Name","type":"string","description":"","required":true}]'
-                }
+                    "code": '[{"name":"code","displayName":"Python Code","type":"string","description":"","required":true, "subtype": "file", "fileConfiguration": { "limit": 1, "extensions": ["py"] }}, {"name":"function_name","displayName":"Main Function Name","type":"string","description":"","required":true}]',
+                },
             ],
         }
         mock.get(url, headers=python_sandbox_headers, json=python_sandbox_response)
@@ -343,26 +295,14 @@ def test_create_custom_python_code_tool_actions_retrieval():
             "status": "SUCCESS",
             "completed": True,
             "data": [
-                {
-                    "name": "action1",
-                    "displayName": "Action 1",
-                    "description": "First action"
-                },
-                {
-                    "name": "action2",
-                    "displayName": "Action 2",
-                    "description": "Second action"
-                }
+                {"name": "action1", "displayName": "Action 1", "description": "First action"},
+                {"name": "action2", "displayName": "Action 2", "description": "Second action"},
             ],
         }
         mock.post(list_actions_url, headers=list_actions_headers, json=list_actions_response)
 
         code = "def action1(x: int) -> int:\n    return x * 2\n"
-        tool = AgentFactory.create_custom_python_code_tool(
-            name="Test Tool",
-            code=code,
-            description="Test description"
-        )
+        tool = AgentFactory.create_custom_python_code_tool(name="Test Tool", code=code, description="Test description")
 
         assert len(tool.actions) == 2
         assert tool.actions[0].name == "Action 1"
@@ -390,9 +330,7 @@ def process_data(data: Dict[str, List[int]]) -> str:
 """
 
         tool = AgentFactory.create_custom_python_code_tool(
-            name="Complex Tool",
-            code=code,
-            description="Processes complex data structures"
+            name="Complex Tool", code=code, description="Processes complex data structures"
         )
 
         assert isinstance(tool, ConnectionTool)
@@ -406,10 +344,7 @@ def test_create_custom_python_code_tool_minimal_parameters():
 
         code = "def simple() -> str:\n    return 'simple'\n"
 
-        tool = AgentFactory.create_custom_python_code_tool(
-            code=code,
-            name="Minimal Tool"
-        )
+        tool = AgentFactory.create_custom_python_code_tool(code=code, name="Minimal Tool")
 
         assert isinstance(tool, ConnectionTool)
         assert tool.id == connection_id
@@ -427,9 +362,7 @@ def test_create_custom_python_code_tool_with_nested_functions():
 """
 
         tool = AgentFactory.create_custom_python_code_tool(
-            name="Nested Tool",
-            code=code,
-            description="Has nested functions"
+            name="Nested Tool", code=code, description="Has nested functions"
         )
 
         assert isinstance(tool, ConnectionTool)
@@ -452,11 +385,7 @@ def test_create_custom_python_code_tool_with_class():
 """
 
         with pytest.raises(Exception) as exc_info:
-            AgentFactory.create_custom_python_code_tool(
-                name="Test Tool",
-                code=code,
-                description="Test description"
-            )
+            AgentFactory.create_custom_python_code_tool(name="Test Tool", code=code, description="Test description")
 
         # Methods inside classes are not detected as top-level functions
         assert "No functions found in the code" in str(exc_info.value)
@@ -483,12 +412,7 @@ def test_create_custom_python_code_tool_error_handling():
             "pricing": {"currency": "USD", "value": 0.0},
             "authentication_methods": ["no-auth"],
             "params": [],
-            "attributes": [
-                {
-                    "name": "auth_schemes",
-                    "code": '["NO_AUTH"]'
-                }
-            ],
+            "attributes": [{"name": "auth_schemes", "code": '["NO_AUTH"]'}],
         }
         mock.get(url, headers=python_sandbox_headers, json=python_sandbox_response)
 
@@ -498,15 +422,16 @@ def test_create_custom_python_code_tool_error_handling():
             "x-api-key": config.TEAM_API_KEY,
             "Content-Type": "application/json",
         }
-        mock.post(run_url, headers=run_headers, json={"status": "FAILED", "error_message": "Connection failed"}, status_code=500)
+        mock.post(
+            run_url,
+            headers=run_headers,
+            json={"status": "FAILED", "error_message": "Connection failed"},
+            status_code=500,
+        )
 
         code = "def test_function(x: int) -> int:\n    return x * 2\n"
 
         with pytest.raises(Exception) as exc_info:
-            AgentFactory.create_custom_python_code_tool(
-                name="Test Tool",
-                code=code,
-                description="Test description"
-            )
+            AgentFactory.create_custom_python_code_tool(name="Test Tool", code=code, description="Test description")
 
         assert "Failed to create" in str(exc_info.value)

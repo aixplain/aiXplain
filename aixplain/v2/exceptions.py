@@ -61,6 +61,12 @@ class APIError(AixplainV2Error):
         )
 
 
+class AixplainIssueError(APIError):
+    """Raised when SDK issue reporting fails."""
+
+    pass
+
+
 class ValidationError(AixplainV2Error):
     """Raised when validation fails."""
 
