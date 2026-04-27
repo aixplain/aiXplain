@@ -52,6 +52,7 @@ from aixplain.modules.team_agent.evolver_response_data import EvolverResponseDat
 from aixplain.utils.convert_datatype_utils import normalize_expected_output
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
+from aixplain.utils.user_info_utils import build_run_metadata
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.mixins import DeployableMixin
 from pydantic import BaseModel
@@ -282,6 +283,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 "query": "/",
                 "sessionId": session_id,
                 "history": history,
+                "metaData": build_run_metadata(),
                 "executionParams": {
                     "maxTokens": 2048,
                     "maxIterations": 30,
@@ -829,6 +831,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "query": input_data,
             "sessionId": session_id,
             "history": history,
+            "metaData": build_run_metadata(),
             "executionParams": {
                 "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
                 "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
