@@ -3,10 +3,11 @@
 import json
 import logging
 import re
+import warnings
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import ClassVar, List, Optional, Any, Dict, Union, Text
+from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
 from dataclasses_json import dataclass_json, config
 
@@ -15,6 +16,7 @@ from pydantic import BaseModel
 from .enums import AssetStatus, ResponseStatus
 from .model import Model
 from .mixins import ToolableMixin
+from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
     BaseResource,
@@ -28,7 +30,14 @@ from .resource import (
     Result,
     RunnableResourceMixin,
     Page,
+    with_hooks,
 )
+
+if TYPE_CHECKING:
+    from .session import ExecutionConfig, Session
+
+
+logger = logging.getLogger(__name__)
 
 
 # Type definitions for conversation history
@@ -114,6 +123,18 @@ class OutputFormat(str, Enum):
     JSON = "json"
 
 
+class ContextOverflowStrategy(str, Enum):
+    """Strategy applied when input messages exceed the model's context window.
+
+    Attributes:
+        TRUNCATE: Remove the oldest chat-history messages until the context fits.
+        SUMMARIZE: Replace the full chat history with an LLM-generated summary.
+    """
+
+    TRUNCATE = "truncate"
+    SUMMARIZE = "summarize"
+
+
 class AgentRunParams(BaseRunParams):
     """Parameters for running an agent.
 
@@ -147,8 +168,10 @@ class AgentRunParams(BaseRunParams):
     execution_params: NotRequired[Optional[Dict[str, Any]]]
     criteria: NotRequired[Optional[Text]]
     evolve: NotRequired[Optional[Text]]
+    identifier: NotRequired[Optional[Text]]
     inspectors: NotRequired[Optional[List[Dict]]]
     run_response_generation: NotRequired[Optional[bool]]
+    via_session: NotRequired[Optional[bool]]
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
@@ -291,12 +314,13 @@ class Agent(
     RESOURCE_PATH = "v2/agents"
     POLL_URL_TEMPLATE = "sdk/agents/{execution_id}/result"
 
-    DEFAULT_LLM = "6895d6d1d50c89537c1cf237"
+    DEFAULT_LLM = "69b7e5f1b2fe44704ab0e7d0"
     SUPPLIER = "aiXplain"
 
     RESPONSE_CLASS = AgentRunResult
     Task = Task
     OutputFormat = OutputFormat
+    ContextOverflowStrategy = ContextOverflowStrategy
 
     # Core fields from Swagger
     instructions: Optional[str] = None
@@ -314,7 +338,15 @@ class Agent(
 
     # Task fields
     tasks: Optional[List[Task]] = field(default_factory=list)
-    subagents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
+    agents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
+
+    # Deprecated alias for `agents` — will be removed in a future release
+    subagents: Optional[List[Union[str, "Agent"]]] = field(
+        default=None,
+        repr=False,
+        compare=False,
+        metadata=config(exclude=lambda x: True),
+    )
 
     # Output and execution fields
     output_format: Optional[Union[str, OutputFormat]] = field(
@@ -333,6 +365,10 @@ class Agent(
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
     max_iterations: Optional[int] = field(default=5, metadata=config(field_name="maxIterations"))
     max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
+    context_overflow_strategy: Optional[str] = field(
+        default=None,
+        metadata=config(field_name="contextOverflowStrategy"),
+    )
 
     # Internal state for progress tracking (excluded from serialization)
     _progress_tracker: Optional[Any] = field(
@@ -347,15 +383,27 @@ class Agent(
         """Initialize agent after dataclass creation."""
         self.tasks = [Task.from_dict(task) for task in self.tasks]
 
-        # Store original subagent objects to resolve IDs at save time
-        self._original_subagents = list(self.subagents)
+        if self.subagents is not None:
+            warnings.warn(
+                "The 'subagents' parameter is deprecated. Use 'agents' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if self.agents:
+                raise ValueError("Cannot specify both 'agents' and 'subagents'.")
+            self.agents = self.subagents
+            self.subagents = None
+
+        # Store original agent objects to resolve IDs at save time
+        self._original_agents = list(self.agents)
         # Convert to IDs for serialization (to_dict), using None as placeholder for unsaved agents
-        self.subagents = [
-            a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.subagents
-        ]
+        self.agents = [a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.agents]
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
+
+        if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
+            self.context_overflow_strategy = self.context_overflow_strategy.value
 
         if isinstance(self.llm, Model):
             self.llm = self.llm.id
@@ -379,7 +427,7 @@ class Agent(
             self.inspector_targets = normalized_targets
 
         # TODO: Re-enable this validation after backend data consistency is fixed
-        # if self.subagents and (self.tasks or self.tools):
+        # if self.agents and (self.tasks or self.tools):
         #     raise ValueError(
         #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
         #     )
@@ -390,6 +438,37 @@ class Agent(
 
         self.status = AssetStatus.DELETED
         super().mark_as_deleted()
+
+    def _start_progress_tracker(self, kwargs: Dict[str, Any]) -> None:
+        """Initialize ``self._progress_tracker`` from progress kwargs (no-op if disabled)."""
+        progress_format = kwargs.get("progress_format")
+        if progress_format is None:
+            self._progress_tracker = None
+            return
+
+        from .agent_progress import AgentProgressTracker, ProgressFormat
+
+        progress_verbosity = kwargs.get("progress_verbosity", 1)
+        progress_truncate = kwargs.get("progress_truncate", True)
+        fmt = ProgressFormat(progress_format)
+
+        self._progress_tracker = AgentProgressTracker(
+            poll_func=lambda url: self.poll(url),
+            poll_interval=0.05,
+            max_polls=None,
+        )
+        self._progress_tracker.start(
+            format=fmt,
+            verbosity=progress_verbosity,
+            truncate=progress_truncate,
+        )
+
+    def _finish_progress_tracker(self, result: Union[AgentRunResult, Exception]) -> None:
+        """Finalize the progress tracker; safe to call even if it was never started."""
+        if self._progress_tracker is not None:
+            if not isinstance(result, Exception):
+                self._progress_tracker.finish(result)
+            self._progress_tracker = None
 
     def before_run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]:
         """Hook called before running the agent to validate and prepare state."""
@@ -406,30 +485,7 @@ class Agent(
             if self.is_modified:
                 raise ValueError("Agent is onboarded and cannot be modified unless you explicitly save it.")
 
-        # Initialize progress tracker if progress_format is provided
-        # progress_format being None (default) means no progress tracking
-        progress_format = kwargs.get("progress_format")
-        if progress_format is not None:
-            from .agent_progress import AgentProgressTracker, ProgressFormat
-
-            progress_verbosity = kwargs.get("progress_verbosity", 1)
-            progress_truncate = kwargs.get("progress_truncate", True)
-
-            fmt = ProgressFormat(progress_format)
-
-            self._progress_tracker = AgentProgressTracker(
-                poll_func=lambda url: self.poll(url),
-                poll_interval=0.05,
-                max_polls=None,
-            )
-            self._progress_tracker.start(
-                format=fmt,
-                verbosity=progress_verbosity,
-                truncate=progress_truncate,
-            )
-        else:
-            self._progress_tracker = None
-
+        self._start_progress_tracker(kwargs)
         return None
 
     def on_poll(self, response: AgentRunResult, **kwargs: Unpack[AgentRunParams]) -> None:
@@ -452,10 +508,7 @@ class Agent(
     ) -> Optional[AgentRunResult]:
         """Hook called after running the agent for result transformation."""
         # Finish progress tracking if enabled
-        if self._progress_tracker is not None:
-            if not isinstance(result, Exception):
-                self._progress_tracker.finish(result)
-            self._progress_tracker = None
+        self._finish_progress_tracker(result)
 
         # Set the context on the result for debug() method support
         if not isinstance(result, Exception):
@@ -476,6 +529,7 @@ class Agent(
         "max_iterations": "maxIterations",
         "max_time": "maxTime",
         "expected_output": "expectedOutput",
+        "context_overflow_strategy": "contextOverflowStrategy",
     }
 
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
@@ -484,6 +538,15 @@ class Agent(
         Args:
             *args: Positional arguments (first arg is treated as query)
             query: The query to run
+            via_session: When True, opt into the new sessions+messages
+                run path: a Session is created (or reused via
+                ``session_id``) carrying the supplied execution params
+                as its ``executionConfig``, the user message is posted,
+                and the run is awaited via session message polling.
+                Default False keeps the legacy
+                ``/v2/agents/{id}/run`` path. Sessions auto-created by
+                ``via_session=True`` persist; clean up via
+                ``agent.list_sessions()`` and ``session.delete()``.
             progress_format: Display format - "status" or "logs". If None (default),
                            progress tracking is disabled.
             progress_verbosity: Detail level 1-3 (default: 1)
@@ -496,6 +559,9 @@ class Agent(
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
+
+        if kwargs.pop("via_session", False):
+            return self._run_via_session(**kwargs)
 
         return super().run(*args, **kwargs)
 
@@ -517,6 +583,12 @@ class Agent(
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
+
+        if kwargs.get("via_session"):
+            raise NotImplementedError(
+                "via_session=True is sync-only for now; use agent.run(...) or "
+                "session.add_message() + session.messages() directly."
+            )
 
         return super().run_async(**kwargs)
 
@@ -644,17 +716,17 @@ class Agent(
                         tool_name = getattr(tool, "name", f"tool_{i}")
                         failed_components.append(("tool", tool_name, str(e)))
 
-        # Save subagents (recursively)
-        if hasattr(self, "_original_subagents") and self._original_subagents:
-            for i, subagent in enumerate(self._original_subagents):
-                if isinstance(subagent, (str, dict)):  # Already an ID
+        # Save agents (recursively)
+        if hasattr(self, "_original_agents") and self._original_agents:
+            for i, agent in enumerate(self._original_agents):
+                if isinstance(agent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(subagent, "save") and hasattr(subagent, "id") and not subagent.id:
+                if hasattr(agent, "save") and hasattr(agent, "id") and not agent.id:
                     try:
-                        subagent.save(save_subcomponents=True)
+                        agent.save(save_subcomponents=True)
                     except Exception as e:
-                        subagent_name = getattr(subagent, "name", f"subagent_{i}")
-                        failed_components.append(("subagent", subagent_name, str(e)))
+                        agent_name = getattr(agent, "name", f"agent_{i}")
+                        failed_components.append(("agent", agent_name, str(e)))
 
         if failed_components:
             error_details = "; ".join(
@@ -672,14 +744,14 @@ class Agent(
                 if hasattr(tool, "id") and not tool.id:
                     unsaved_components.append(f"tool '{tool.name}'")
 
-        # Check subagents
-        if hasattr(self, "_original_subagents") and self._original_subagents:
-            for subagent in self._original_subagents:
-                if isinstance(subagent, (str, dict)):  # Already an ID
+        # Check agents
+        if hasattr(self, "_original_agents") and self._original_agents:
+            for agent in self._original_agents:
+                if isinstance(agent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(subagent, "id") and not subagent.id:
-                    subagent_name = getattr(subagent, "name", "unnamed")
-                    unsaved_components.append(f"subagent '{subagent_name}'")
+                if hasattr(agent, "id") and not agent.id:
+                    agent_name = getattr(agent, "name", "unnamed")
+                    unsaved_components.append(f"agent '{agent_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -700,14 +772,14 @@ class Agent(
                     tool_name = getattr(tool, "name", "unnamed")
                     unsaved_components.append(f"tool '{tool_name}'")
 
-        # Check subagents
-        if hasattr(self, "_original_subagents") and self._original_subagents:
-            for subagent in self._original_subagents:
-                if isinstance(subagent, (str, dict)):  # Already an ID
+        # Check agents
+        if hasattr(self, "_original_agents") and self._original_agents:
+            for agent in self._original_agents:
+                if isinstance(agent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(subagent, "id") and not subagent.id:
-                    subagent_name = getattr(subagent, "name", "unnamed")
-                    unsaved_components.append(f"subagent '{subagent_name}'")
+                if hasattr(agent, "id") and not agent.id:
+                    agent_name = getattr(agent, "name", "unnamed")
+                    unsaved_components.append(f"agent '{agent_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -731,14 +803,53 @@ class Agent(
 
         return None
 
-    def after_clone(self, result: Union["Agent", Exception], **kwargs: Any) -> Optional["Agent"]:
-        """Callback called after the agent is cloned.
+    def after_duplicate(self, result: Union["Agent", Exception], **kwargs: Any) -> Optional["Agent"]:
+        """Callback called after the agent is duplicated.
 
-        Sets the cloned agent's status to DRAFT.
+        Sets the duplicated agent's status to DRAFT.
         """
         if isinstance(result, Agent):
             result.status = AssetStatus.DRAFT
         return None
+
+    @with_hooks
+    def duplicate(self, duplicate_subagents: bool = False, name: Optional[str] = None) -> "Agent":
+        """Duplicate this agent on the aiXplain platform (server-side).
+
+        Creates a server-side copy of this agent with a clean usage baseline.
+        The duplicate inherits the original's ownership, team, and permissions
+        but resets all usage and cost metrics.
+
+        Args:
+            duplicate_subagents: If True, recursively duplicates referenced subagents
+                so the duplicate has independent copies. If False, the duplicate
+                keeps references to the original subagents. Defaults to False.
+            name: Custom name for the duplicate. If None, a unique name is
+                auto-generated by the platform. Defaults to None.
+
+        Returns:
+            Agent: The newly created duplicate agent.
+
+        Raises:
+            ResourceError: If the duplication request fails.
+        """
+        from .resource import _flatten_asset_info
+
+        payload = {
+            "cloneSubagents": duplicate_subagents,
+        }
+        if name is not None:
+            payload["name"] = name
+
+        response_data = self._action(method="post", action_paths=["duplicate"], json=payload)
+
+        response_data = _flatten_asset_info(dict(response_data)) if isinstance(response_data, dict) else response_data
+
+        duplicated = Agent.from_dict(response_data)
+        duplicated.context = self.context
+        duplicated._update_saved_state()
+
+        return duplicated
 
     @classmethod
     def search(
@@ -804,21 +915,19 @@ class Agent(
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
-        from .inspector import Inspector
+        from .inspector import Inspector, PrebuiltInspector
 
         # Pre-serialize inspectors before to_dict() to avoid dataclass_json issues
         original_inspectors = self.inspectors
         if self.inspectors:
             serialized_inspectors = []
             for inspector in self.inspectors:
-                if isinstance(inspector, Inspector):
-                    # Use Inspector's to_dict method which handles callable policy serialization
+                if isinstance(inspector, (Inspector, PrebuiltInspector)):
                     serialized_inspectors.append(inspector.to_dict())
                 elif isinstance(inspector, dict):
-                    # Already serialized
                     serialized_inspectors.append(inspector)
                 else:
-                    raise ValueError(f"Inspector must be Inspector instance or dict, got {type(inspector)}")
+                    raise ValueError(f"Inspector must be Inspector, PrebuiltInspector, or dict, got {type(inspector)}")
             self.inspectors = serialized_inspectors
 
         # Pre-serialize inspector_targets to strings (enum values)
@@ -868,10 +977,10 @@ class Agent(
 
         payload["model"] = {"id": self.llm}
 
-        # Convert subagents to API format, resolving IDs from original objects
-        if hasattr(self, "_original_subagents") and self._original_subagents:
+        # Convert agents to API format, resolving IDs from original objects
+        if hasattr(self, "_original_agents") and self._original_agents:
             converted_agents = []
-            for agent in self._original_subagents:
+            for agent in self._original_agents:
                 if isinstance(agent, str):
                     agent_id = agent
                 elif isinstance(agent, dict):
@@ -879,7 +988,7 @@ class Agent(
                 else:
                     agent_id = agent.id  # Get current ID from Agent object
                 if not agent_id:
-                    raise ValueError("All subagents must be saved before saving the team agent.")
+                    raise ValueError("All agents must be saved before saving the team agent.")
                 converted_agents.append({"id": agent_id, "inspectors": []})
             payload["agents"] = converted_agents
 
@@ -910,6 +1019,7 @@ class Agent(
             "maxTokens": getattr(self, "max_tokens", 2048),
             "maxIterations": getattr(self, "max_iterations", 5),
             "maxTime": 300,
+            "contextOverflowStrategy": getattr(self, "context_overflow_strategy", None),
         }
 
         for k, v in defaults.items():
@@ -959,6 +1069,7 @@ class Agent(
             "id": self.id,
             "executionParams": execution_params,
             "runResponseGeneration": run_response_generation,
+            "metaData": build_run_metadata(),
         }
 
         # Add query back if present
@@ -977,6 +1088,12 @@ class Agent(
         self,
         name: Optional[str] = None,
         history: Optional[List[ConversationMessage]] = None,
+        execution_config: Optional[Union["ExecutionConfig", Dict[str, Any]]] = None,
+        execution_params: Optional[Dict[str, Any]] = None,
+        criteria: Optional[str] = None,
+        evolve: Optional[str] = None,
+        identifier: Optional[str] = None,
+        run_response_generation: Optional[bool] = None,
     ) -> "Session":
         """Create a new backend-managed session for this agent.
 
@@ -987,18 +1104,36 @@ class Agent(
                 Messages may also include optional 'attachments'
                 (pre-built dicts with url/name/type) and/or 'files'
                 (local file paths to upload).
+            execution_config: Full ExecutionConfig (or equivalent dict) to
+                attach to the session. Subsequent user messages will run
+                the agent with these parameters. Mutually exclusive with
+                the individual ``execution_params``/``criteria``/etc.
+                shortcuts below.
+            execution_params: Backend execution params (output format, max
+                tokens, etc.). Mirrors the ``execution_params`` argument
+                accepted by ``agent.run()``.
+            criteria: Free-form evaluation criteria sent to the agent.
+            evolve: Evolution config as a JSON string.
+            identifier: Free-form identifier the backend can echo back on
+                messages.
+            run_response_generation: Whether the agent should run its
+                final response-generation step.
 
         Returns:
             Session: The created Session instance, pre-populated with
             history messages when provided.
 
         Raises:
-            ValueError: If the agent has not been saved yet or if history
-                format is invalid.
+            ValueError: If the agent has not been saved yet, if history
+                format is invalid, or if both ``execution_config`` and
+                shortcut kwargs are provided.
 
         Example:
             >>> session = agent.create_session(
             ...     name="My Chat",
+            ...     execution_params={"max_tokens": 1024, "max_iterations": 10},
+            ...     criteria="Be concise",
+            ...     run_response_generation=True,
             ...     history=[
             ...         {"role": "user", "content": "Analyze this",
             ...          "files": ["/tmp/data.csv"]},
@@ -1012,7 +1147,16 @@ class Agent(
         if history:
             validate_history(history)
 
-        session = self.context.Session(agent_id=self.id, name=name)
+        config = self._resolve_execution_config(
+            execution_config=execution_config,
+            execution_params=execution_params,
+            criteria=criteria,
+            evolve=evolve,
+            identifier=identifier,
+            run_response_generation=run_response_generation,
+        )
+
+        session = self.context.Session(agent_id=self.id, name=name, execution_config=config)
         session.save()
 
         if history:
@@ -1025,6 +1169,135 @@ class Agent(
                 )
 
         return session
+
+    @staticmethod
+    def _resolve_execution_config(
+        execution_config: Optional[Union["ExecutionConfig", Dict[str, Any]]] = None,
+        execution_params: Optional[Dict[str, Any]] = None,
+        criteria: Optional[str] = None,
+        evolve: Optional[str] = None,
+        identifier: Optional[str] = None,
+        run_response_generation: Optional[bool] = None,
+    ) -> Optional["ExecutionConfig"]:
+        """Combine the explicit and shortcut forms into one ExecutionConfig.
+
+        Returns ``None`` when neither form supplies any value so the
+        Session save payload omits ``executionConfig`` entirely.
+        """
+        from .session import ExecutionConfig
+
+        shortcut_values = {
+            "execution_params": execution_params,
+            "criteria": criteria,
+            "evolve": evolve,
+            "identifier": identifier,
+            "run_response_generation": run_response_generation,
+        }
+        has_shortcut = any(v is not None for v in shortcut_values.values())
+
+        if execution_config is not None and has_shortcut:
+            raise ValueError(
+                "Pass either 'execution_config' or the individual shortcut "
+                "kwargs (execution_params, criteria, evolve, identifier, "
+                "run_response_generation), not both."
+            )
+
+        if execution_config is not None:
+            return ExecutionConfig.coerce(execution_config)
+
+        if has_shortcut:
+            return ExecutionConfig(**shortcut_values)
+
+        return None
+
+    _LEGACY_ONLY_RUN_KWARGS: ClassVar[tuple] = (
+        "tasks",
+        "prompt",
+        "inspectors",
+        "history",
+        "variables",
+        "allow_history_and_session_id",
+    )
+
+    def _run_via_session(self, **kwargs: Any) -> AgentRunResult:
+        """Run the agent through a session, using the legacy result endpoint.
+
+        Flow:
+        1. Get-or-create a Session carrying the supplied ``executionConfig``.
+        2. POST a ``role="user"`` message via ``session.add_message`` — this
+           triggers the agent run on the backend with the session's
+           ``executionConfig``.
+        3. Pull the agent run's ``requestId`` off the user message and
+           hand it to ``self.sync_poll`` (the legacy
+           ``/sdk/agents/{request_id}/result`` endpoint), which returns a
+           fully populated ``AgentRunResult`` including ``data.steps``,
+           ``execution_stats``, ``used_credits``, and ``run_time``.
+
+        We don't poll session messages for the assistant reply — the
+        backend's session→assistant-message persistence is incomplete on
+        dev today, but the legacy result endpoint is fully populated for
+        the run that the user message triggered.
+        """
+        self._validate_run_dependencies()
+
+        offending = [k for k in self._LEGACY_ONLY_RUN_KWARGS if kwargs.get(k) is not None]
+        if offending:
+            raise ValueError(
+                f"via_session=True does not support legacy run kwargs: {offending}. "
+                "Drop them or run without via_session=True."
+            )
+
+        query = kwargs.get("query")
+        if query is None:
+            raise ValueError("via_session=True requires a query.")
+        if not isinstance(query, str):
+            raise ValueError("via_session=True only supports string queries.")
+
+        session_id = kwargs.get("session_id")
+        if session_id:
+            session = self.context.Session.get(session_id)
+        else:
+            session = self.create_session(
+                execution_params=kwargs.get("execution_params"),
+                criteria=kwargs.get("criteria"),
+                evolve=kwargs.get("evolve"),
+                identifier=kwargs.get("identifier"),
+                run_response_generation=kwargs.get("run_response_generation"),
+            )
+
+        user_msg = session.add_message(role="user", content=query)
+        if not user_msg.request_id:
+            raise ValueError(
+                f"Backend did not return a requestId on the user message for "
+                f"session '{session.id}'; cannot poll the agent run result."
+            )
+
+        # Same progress-tracker plumbing as the legacy path: sync_poll calls
+        # self.on_poll(...) on every iteration, which forwards to the tracker.
+        self._start_progress_tracker(kwargs)
+        try:
+            result = self.sync_poll(
+                user_msg.request_id,
+                timeout=kwargs.get("timeout", 300),
+                wait_time=kwargs.get("wait_time", 0.5),
+            )
+        except Exception as e:
+            self._finish_progress_tracker(e)
+            raise
+        self._finish_progress_tracker(result)
+
+        # The legacy /sdk/agents/{id}/result response doesn't always echo
+        # back identifiers at the top level — back-fill from what we know
+        # locally so result.session_id / result.request_id are not None
+        # for via_session callers.
+        if not result.session_id:
+            result.session_id = session.id
+        if result.data is not None and getattr(result.data, "session_id", None) in (None, ""):
+            result.data.session_id = session.id
+        if not result.request_id:
+            result.request_id = user_msg.request_id
+        result._context = self.context
+        return result
 
     def list_sessions(self, status: Optional[str] = None) -> list:
         """List sessions for this agent.

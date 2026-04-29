@@ -48,16 +48,16 @@ def normalize_expected_output(obj):
             if hasattr(obj, "model_json_schema")
             else obj.schema()
         )
-        return json.dumps(schema)  
+        return json.dumps(schema)
 
     if isinstance(obj, BaseModel):
         return (
             obj.model_dump_json() if hasattr(obj, "model_dump_json") else obj.json()
-        )  
+        )
 
     if isinstance(obj, (dict, str)) or obj is None:
         return (
             obj if isinstance(obj, str) else json.dumps(obj) if obj is not None else obj
         )
 
-    return json.dumps(obj) 
+    return json.dumps(obj)

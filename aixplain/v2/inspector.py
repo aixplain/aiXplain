@@ -235,6 +235,214 @@ class Inspector:
         )
 
 
+PROMPT_INJECTION_GUARDRAIL_ASSET_ID = "69a9974367d506543103ca18"
+PII_REDACTION_GUARDRAIL_ASSET_ID = "69cbf63cd74e334a6bacfeb1"
+
+_PREBUILT_REGISTRY: Dict[str, Dict[str, Any]] = {
+    "prompt_injection_guard": {
+        "name": "Prompt Injection Guard",
+        "category": "protection",
+        "description": "Detects prompt attacks before they influence planning or execution.",
+        "default_targets": [InspectorTarget.INPUT.value],
+        "default_action": {"type": InspectorAction.ABORT.value},
+        "evaluator_asset_id": PROMPT_INJECTION_GUARDRAIL_ASSET_ID,
+        "supported_actions": [
+            InspectorAction.CONTINUE.value,
+            InspectorAction.RERUN.value,
+            InspectorAction.ABORT.value,
+        ],
+        "vendor": "aws",
+    },
+    "pii_redaction": {
+        "name": "PII Redaction",
+        "category": "redaction",
+        "description": "Finds sensitive information and returns redacted content from the guardrail evaluator.",
+        "default_targets": [InspectorTarget.INPUT.value],
+        "default_action": {"type": InspectorAction.EDIT.value},
+        "evaluator_asset_id": PII_REDACTION_GUARDRAIL_ASSET_ID,
+        "supported_actions": [
+            InspectorAction.CONTINUE.value,
+            InspectorAction.EDIT.value,
+            InspectorAction.ABORT.value,
+        ],
+        "vendor": "aws",
+    },
+}
+
+
+@dataclass
+class PrebuiltInspector:
+    """A lightweight preset reference that the backend resolves into a full Inspector.
+
+    Instead of manually configuring an evaluator, action, and editor, users can
+    reference one of the platform's pre-built inspector presets by ID.  The
+    backend's ``normalize_prebuilt_inspectors`` validator expands the reference
+    before the agent graph is constructed.
+
+    Example::
+
+        from aixplain.v2 import PrebuiltInspector, InspectorTarget
+
+        team = client.Agent(
+            name="Safe Agent",
+            agents=[agent1, agent2],
+            inspectors=[
+                PrebuiltInspector.prompt_injection_guard(),
+                PrebuiltInspector.pii_redaction(targets=[InspectorTarget.OUTPUT]),
+            ],
+        )
+    """
+
+    preset_id: str
+    targets: Optional[List[str]] = None
+    action: Optional[Dict[str, Any]] = None
+    severity: Optional[InspectorSeverity] = None
+    description: Optional[str] = None
+    name: Optional[str] = None
+    config: Optional[Dict[str, Any]] = None
+
+    def __post_init__(self) -> None:
+        """Validate the inspector configuration after initialization."""
+        if self.preset_id not in _PREBUILT_REGISTRY:
+            available = ", ".join(sorted(_PREBUILT_REGISTRY))
+            raise ValueError(f"Unknown inspector preset '{self.preset_id}'. Available presets: {available}")
+        if self.targets is not None:
+            self.targets = [t.value if isinstance(t, InspectorTarget) else str(t).lower() for t in self.targets]
+        if self.action is not None:
+            action_type = self.action.get("type", "")
+            supported = _PREBUILT_REGISTRY[self.preset_id]["supported_actions"]
+            if str(action_type).lower() not in supported:
+                raise ValueError(
+                    f"Action '{action_type}' is not supported by preset '{self.preset_id}'. "
+                    f"Supported actions: {supported}"
+                )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to the lightweight reference format expected by the backend."""
+        d: Dict[str, Any] = {"presetId": self.preset_id}
+        if self.name is not None:
+            d["name"] = self.name
+        if self.description is not None:
+            d["description"] = self.description
+        if self.targets is not None:
+            d["targets"] = list(self.targets)
+        if self.action is not None:
+            d["action"] = dict(self.action)
+        if self.severity is not None:
+            d["severity"] = self.severity.value
+        if self.config is not None:
+            d["config"] = dict(self.config)
+        return d
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "PrebuiltInspector":
+        """Create a PrebuiltInspector from a dictionary."""
+        severity_raw = data.get("severity")
+        return cls(
+            preset_id=data["presetId"],
+            name=data.get("name"),
+            description=data.get("description"),
+            targets=data.get("targets"),
+            action=data.get("action"),
+            severity=InspectorSeverity(severity_raw) if severity_raw else None,
+            config=data.get("config"),
+        )
+
+    @staticmethod
+    def prompt_injection_guard(
+        *,
+        targets: Optional[List[Any]] = None,
+        action: Optional[Dict[str, Any]] = None,
+        severity: Optional[InspectorSeverity] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> "PrebuiltInspector":
+        """Create a Prompt Injection Guard inspector.
+
+        Detects prompt injection attacks before they influence planning or
+        execution.  Defaults to ``ABORT`` on ``INPUT``.
+
+        Args:
+            targets: Override default targets (default: ``[InspectorTarget.INPUT]``).
+            action: Override default action dict (default: ``{"type": "abort"}``).
+            severity: Optional severity level.
+            name: Optional custom name for the inspector node.
+            description: Optional custom description.
+
+        Returns:
+            A PrebuiltInspector configured for prompt injection detection.
+        """
+        return PrebuiltInspector(
+            preset_id="prompt_injection_guard",
+            targets=targets,
+            action=action,
+            severity=severity,
+            name=name,
+            description=description,
+        )
+
+    @staticmethod
+    def pii_redaction(
+        *,
+        targets: Optional[List[Any]] = None,
+        action: Optional[Dict[str, Any]] = None,
+        severity: Optional[InspectorSeverity] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> "PrebuiltInspector":
+        """Create a PII Redaction inspector.
+
+        Finds sensitive information (PII) and returns redacted content from the
+        guardrail evaluator.  Defaults to ``EDIT`` on ``INPUT``.
+
+        Args:
+            targets: Override default targets (default: ``[InspectorTarget.INPUT]``).
+            action: Override default action dict (default: ``{"type": "edit"}``).
+            severity: Optional severity level.
+            name: Optional custom name for the inspector node.
+            description: Optional custom description.
+
+        Returns:
+            A PrebuiltInspector configured for PII redaction.
+        """
+        return PrebuiltInspector(
+            preset_id="pii_redaction",
+            targets=targets,
+            action=action,
+            severity=severity,
+            name=name,
+            description=description,
+        )
+
+    @staticmethod
+    def list_presets() -> Dict[str, Dict[str, Any]]:
+        """Return metadata for all available pre-built inspector presets.
+
+        Returns:
+            A dict mapping preset IDs to their metadata (name, category,
+            description, default targets/action, supported actions, vendor).
+        """
+        return {
+            pid: {
+                "name": meta["name"],
+                "category": meta["category"],
+                "description": meta["description"],
+                "default_targets": list(meta["default_targets"]),
+                "default_action": dict(meta["default_action"]),
+                "supported_actions": list(meta["supported_actions"]),
+                "vendor": meta.get("vendor"),
+            }
+            for pid, meta in _PREBUILT_REGISTRY.items()
+        }
+
+
+def is_prebuilt_inspector(obj: Any) -> bool:
+    """Return True if *obj* is a PrebuiltInspector or a dict preset reference."""
+    if isinstance(obj, PrebuiltInspector):
+        return True
+    return isinstance(obj, dict) and isinstance(obj.get("presetId"), str)
+
+
 __all__ = [
     "Inspector",
     "InspectorTarget",
@@ -245,4 +453,6 @@ __all__ = [
     "EvaluatorType",
     "EvaluatorConfig",
     "EditorConfig",
+    "PrebuiltInspector",
+    "is_prebuilt_inspector",
 ]

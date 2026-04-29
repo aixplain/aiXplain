@@ -48,6 +48,7 @@ from aixplain.modules.agent.evolve_param import EvolveParam, validate_evolve_par
 from urllib.parse import urljoin
 from aixplain.modules.model.llm_model import LLM
 from aixplain.utils.convert_datatype_utils import normalize_expected_output
+from aixplain.utils.user_info_utils import build_run_metadata
 
 from aixplain.utils import config
 from aixplain.modules.mixins import DeployableMixin
@@ -68,8 +69,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         description (Text, optional): Detailed description of the Agent's capabilities.
             Defaults to "".
         instructions (Text): System instructions/prompt defining the Agent's behavior.
-        llm_id (Text): ID of the large language model. Defaults to GPT-5 Mini
-            (6895d6d1d50c89537c1cf237).
+        llm_id (Text): ID of the large language model. Defaults to GPT-5.4
+            (69b7e5f1b2fe44704ab0e7d0).
         llm (Optional[LLM]): The LLM instance used by the Agent.
         supplier (Text): The provider/creator of the Agent.
         version (Text): Version identifier of the Agent.
@@ -92,7 +93,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         description: Text,
         instructions: Optional[Text] = None,
         tools: List[Union[Tool, Model]] = [],
-        llm_id: Text = "6895d6d1d50c89537c1cf237",
+        llm_id: Text = "69b7e5f1b2fe44704ab0e7d0",
         llm: Optional[LLM] = None,
         api_key: Optional[Text] = config.TEAM_API_KEY,
         supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
@@ -115,8 +116,8 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 the Agent's behavior. Defaults to None.
             tools (List[Union[Tool, Model]], optional): Collection of tools and models
                 the Agent can use. Defaults to empty list.
-            llm_id (Text, optional): ID of the large language model. Defaults to GPT-5 Mini
-                (6895d6d1d50c89537c1cf237).
+            llm_id (Text, optional): ID of the large language model. Defaults to GPT-5.4
+                (69b7e5f1b2fe44704ab0e7d0).
             llm (Optional[LLM], optional): The LLM instance to use. If provided, takes
                 precedence over llm_id. Defaults to None.
             api_key (Optional[Text], optional): Authentication key for API access.
@@ -266,6 +267,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 "query": "/",
                 "sessionId": session_id,
                 "history": history,
+                "metaData": build_run_metadata(),
                 "executionParams": {
                     "maxTokens": 2048,
                     "maxIterations": 10,
@@ -835,6 +837,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             "query": input_data,
             "sessionId": session_id,
             "history": history,
+            "metaData": build_run_metadata(),
             "executionParams": {
                 "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
                 "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
@@ -946,7 +949,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 from aixplain.factories.model_factory import ModelFactory
 
                 try:
-                    llm = ModelFactory.get(data.get("llmId", "6895d6d1d50c89537c1cf237"))
+                    llm = ModelFactory.get(data.get("llmId", "69b7e5f1b2fe44704ab0e7d0"))
                     if llm_tool.get("parameters"):
                         # Apply stored parameters to LLM
                         llm.set_parameters(llm_tool["parameters"])
@@ -968,7 +971,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             description=data["description"],
             instructions=data.get("instructions"),
             tools=tools,
-            llm_id=data.get("llmId", "6895d6d1d50c89537c1cf237"),
+            llm_id=data.get("llmId", "69b7e5f1b2fe44704ab0e7d0"),
             llm=llm,
             api_key=data.get("api_key"),
             supplier=data.get("supplier", "aiXplain"),

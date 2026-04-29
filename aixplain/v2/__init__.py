@@ -1,9 +1,11 @@
 """aiXplain SDK v2 - Modern Python SDK for the aiXplain platform."""
 
 from .core import Aixplain
+from .rlm import RLM, RLMResult
 from .utility import Utility
-from .agent import Agent
+from .agent import Agent, ContextOverflowStrategy
 from .tool import Tool
+from .actions import Input, Inputs, Action, Actions
 from .file import Resource
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
 from .inspector import (
@@ -16,8 +18,14 @@ from .inspector import (
     EvaluatorType,
     EvaluatorConfig,
     EditorConfig,
+    PrebuiltInspector,
 )
-from .session import Session, SessionMessage, SessionMessageAttachment
+from .session import (
+    ExecutionConfig,
+    Session,
+    SessionMessage,
+    SessionMessageAttachment,
+)
 from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
 from .api_key import APIKey, APIKeyLimits, APIKeyUsageLimit, TokenType
@@ -58,8 +66,11 @@ from .enums import (
 
 __all__ = [
     "Aixplain",
+    "RLM",
+    "RLMResult",
     "Utility",
     "Agent",
+    "ContextOverflowStrategy",
     "Tool",
     "Resource",
     "FileUploader",
@@ -69,6 +80,7 @@ __all__ = [
     "Session",
     "SessionMessage",
     "SessionMessageAttachment",
+    "ExecutionConfig",
     # Inspector classes
     "Inspector",
     "InspectorTarget",
@@ -79,6 +91,7 @@ __all__ = [
     "EvaluatorType",
     "EvaluatorConfig",
     "EditorConfig",
+    "PrebuiltInspector",
     "ModelResponse",
     # Meta-agents
     "Debugger",
@@ -126,4 +139,9 @@ __all__ = [
     "MessageRole",
     "Reaction",
     "AttachmentType",
+    # Actions / Inputs hierarchy
+    "Input",
+    "Inputs",
+    "Action",
+    "Actions",
 ]

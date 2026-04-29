@@ -273,8 +273,10 @@ def test_run_sync():
         "completed": True,
         "status": "SUCCESS",
         "data": "Test Model Result",
-        "usedCredits": 0,
-        "runTime": 0,
+        "usedCredits": 0.05,
+        "runTime": 1.2,
+        "usage": {"prompt_tokens": 15, "completion_tokens": 25, "total_tokens": 40},
+        "asset": {"assetId": "test-model-id", "id": "openai/gpt-5-mini/openai"},
     }
 
     with requests_mock.Mocker() as mock:
@@ -292,9 +294,13 @@ def test_run_sync():
     assert response.status == ResponseStatus.SUCCESS
     assert response.data == "Test Model Result"
     assert response.completed is True
-    assert response.used_credits == 0
-    assert response.run_time == 0
-    assert response.usage is None
+    assert response.used_credits == 0.05
+    assert response.run_time == 1.2
+    assert response.usage == {"prompt_tokens": 15, "completion_tokens": 25, "total_tokens": 40}
+    assert response.usage["prompt_tokens"] == 15
+    assert response.usage["completion_tokens"] == 25
+    assert response.usage["total_tokens"] == 40
+    assert response.asset == {"assetId": "test-model-id", "id": "openai/gpt-5-mini/openai"}
 
 
 def test_sync_poll():

@@ -90,15 +90,15 @@ def mark_empty_init_files(docs_dir='docs/api-reference/python'):
 				# If empty, add draft: true to frontmatter
 				if len(content_without_frontmatter) == 0 or content_without_frontmatter.isspace():
 					modified_content = re.sub(
-						r'^(---\n)', r'\1draft: true\n', 
-						content, 
-						count=1, 
+						r'^(---\n)', r'\1draft: true\n',
+						content,
+						count=1,
 						flags=re.MULTILINE
 					)
 
 					with open(file_path, 'w') as f:
 						f.write(modified_content)
-					
+
 					modified_files += 1
 
 	print(f"Marked {modified_files} empty init files as drafts")

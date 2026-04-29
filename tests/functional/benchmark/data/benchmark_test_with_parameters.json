@@ -2,14 +2,14 @@
     "Translation With LLMs": {
         "models_with_parameters": [
             {
-                "model_id": "6895d6d1d50c89537c1cf237",
+                "model_id": "69b7e5f1b2fe44704ab0e7d0",
                 "display_name": "EnHi LLM",
                 "configuration": {
                     "prompt": "Translate the following text into Hindi."
                 }
             },
             {
-                "model_id": "6895d6d1d50c89537c1cf237",
+                "model_id": "69b7e5f1b2fe44704ab0e7d0",
                 "display_name": "EnEs LLM",
                 "configuration": {
                     "prompt": "Translate the following text into Spanish."

@@ -65,4 +65,3 @@ def test_get_functions():
         mock.get(url, headers=AUTH_FIXED_HEADER, json=mock_json)
         functions = ModelFactory.list_functions(config.TEAM_API_KEY)
     assert functions == mock_json
-

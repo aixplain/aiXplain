@@ -158,6 +158,7 @@ class Debugger:
 
         # Get the debugger agent and run
         agent = self._get_debugger_agent()
+        kwargs.setdefault("run_response_generation", True)
         agent_result = agent.run(query=query, **kwargs)
 
         # Convert AgentRunResult to DebugResult
@@ -286,12 +287,14 @@ class Debugger:
             debug_info["execution_id"] = execution_id
 
         # Add core status info
-        debug_info.update({
-            "status": response.status,
-            "completed": response.completed,
-            "run_time": response.run_time,
-            "used_credits": response.used_credits,
-        })
+        debug_info.update(
+            {
+                "status": response.status,
+                "completed": response.completed,
+                "run_time": response.run_time,
+                "used_credits": response.used_credits,
+            }
+        )
 
         # Add error information if present
         if response.error_message:

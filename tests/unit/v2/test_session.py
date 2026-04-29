@@ -10,10 +10,13 @@ from unittest.mock import Mock, patch, call
 import pytest
 
 from aixplain.v2.session import (
+    EXECUTION_PARAMS_MAP,
+    ExecutionConfig,
     Session,
     SessionMessage,
     SessionMessageAttachment,
     _mime_to_attachment_type,
+    _normalize_execution_params,
 )
 from aixplain.v2.enums import (
     SessionStatus,
@@ -851,7 +854,7 @@ class TestAgentCreateSession:
 
         session = agent.create_session(name="Chat 1")
 
-        MockSession.assert_called_once_with(agent_id="agent_99", name="Chat 1")
+        MockSession.assert_called_once_with(agent_id="agent_99", name="Chat 1", execution_config=None)
         mock_session_instance.save.assert_called_once()
         assert session is mock_session_instance
 
@@ -867,7 +870,7 @@ class TestAgentCreateSession:
 
         agent.create_session()
 
-        MockSession.assert_called_once_with(agent_id="agent_99", name=None)
+        MockSession.assert_called_once_with(agent_id="agent_99", name=None, execution_config=None)
 
     def test_create_session_with_history(self):
         ctx = _make_mock_context()
@@ -1008,3 +1011,234 @@ class TestCoreSessionRegistration:
         assert Aixplain.MessageRole is MessageRole
         assert Aixplain.Reaction is Reaction
         assert Aixplain.AttachmentType is AttachmentType
+
+
+# =========================================================================
+# ExecutionConfig
+# =========================================================================
+
+
+class TestExecutionConfig:
+    """Tests for the ExecutionConfig dataclass."""
+
+    def test_defaults_are_none(self):
+        cfg = ExecutionConfig()
+        assert cfg.execution_params is None
+        assert cfg.criteria is None
+        assert cfg.evolve is None
+        assert cfg.identifier is None
+        assert cfg.run_response_generation is None
+
+    def test_to_api_dict_empty(self):
+        # An empty ExecutionConfig produces {} so callers can omit it.
+        assert ExecutionConfig().to_api_dict() == {}
+
+    def test_to_api_dict_full(self):
+        cfg = ExecutionConfig(
+            execution_params={"max_tokens": 1024, "max_iterations": 30, "max_time": 300},
+            criteria="Be concise",
+            evolve='{"toEvolve": true, "type": "adaptive"}',
+            identifier="user-abc",
+            run_response_generation=True,
+        )
+        assert cfg.to_api_dict() == {
+            "executionParams": {
+                "maxTokens": 1024,
+                "maxIterations": 30,
+                "maxTime": 300,
+            },
+            "criteria": "Be concise",
+            "evolve": '{"toEvolve": true, "type": "adaptive"}',
+            "identifier": "user-abc",
+            "runResponseGeneration": True,
+        }
+
+    def test_to_api_dict_passes_camel_case_through(self):
+        # If callers already pass camelCase, they're left alone.
+        cfg = ExecutionConfig(execution_params={"outputFormat": "text", "maxTokens": 256})
+        assert cfg.to_api_dict() == {"executionParams": {"outputFormat": "text", "maxTokens": 256}}
+
+    def test_to_api_dict_omits_unset_fields(self):
+        cfg = ExecutionConfig(criteria="x")
+        out = cfg.to_api_dict()
+        assert out == {"criteria": "x"}
+        assert "executionParams" not in out
+        assert "runResponseGeneration" not in out
+
+    def test_run_response_generation_false_is_kept(self):
+        # Explicit False must be sent (it's meaningfully different from unset).
+        cfg = ExecutionConfig(run_response_generation=False)
+        assert cfg.to_api_dict() == {"runResponseGeneration": False}
+
+    def test_coerce_from_dict(self):
+        cfg = ExecutionConfig.coerce(
+            {
+                "execution_params": {"max_tokens": 100},
+                "criteria": "x",
+            }
+        )
+        assert isinstance(cfg, ExecutionConfig)
+        assert cfg.execution_params == {"max_tokens": 100}
+        assert cfg.criteria == "x"
+
+    def test_coerce_passthrough(self):
+        original = ExecutionConfig(criteria="x")
+        assert ExecutionConfig.coerce(original) is original
+
+    def test_coerce_none(self):
+        assert ExecutionConfig.coerce(None) is None
+
+    def test_coerce_rejects_other_types(self):
+        with pytest.raises(TypeError, match="execution_config must be"):
+            ExecutionConfig.coerce("invalid")
+
+    def test_normalize_execution_params_helper(self):
+        assert _normalize_execution_params(None) is None
+        assert _normalize_execution_params({}) == {}
+        # All known snake_case keys in the map should normalize
+        snake = {k: i for i, k in enumerate(EXECUTION_PARAMS_MAP)}
+        normalized = _normalize_execution_params(snake)
+        assert set(normalized) == set(EXECUTION_PARAMS_MAP.values())
+
+
+class TestSessionExecutionConfigPayload:
+    """Tests that Session save payload carries executionConfig."""
+
+    def test_payload_omits_execution_config_when_unset(self):
+        session = Session(agent_id="a1", name="N")
+        payload = session.build_save_payload()
+        assert "executionConfig" not in payload
+
+    def test_payload_includes_execution_config(self):
+        cfg = ExecutionConfig(
+            execution_params={"output_format": "text", "max_tokens": 512},
+            criteria="be helpful",
+            evolve='{"toEvolve": true}',
+            identifier="abc",
+            run_response_generation=True,
+        )
+        session = Session(agent_id="a1", name="N", execution_config=cfg)
+        payload = session.build_save_payload()
+        assert payload["executionConfig"] == {
+            "executionParams": {"outputFormat": "text", "maxTokens": 512},
+            "criteria": "be helpful",
+            "evolve": '{"toEvolve": true}',
+            "identifier": "abc",
+            "runResponseGeneration": True,
+        }
+
+    def test_session_accepts_dict_execution_config(self):
+        # Session(execution_config={...}) should coerce to ExecutionConfig
+        # so callers don't need to import the dataclass.
+        session = Session(
+            agent_id="a1",
+            execution_config={"criteria": "x", "execution_params": {"max_tokens": 8}},
+        )
+        assert isinstance(session.execution_config, ExecutionConfig)
+        payload = session.build_save_payload()
+        assert payload["executionConfig"] == {
+            "executionParams": {"maxTokens": 8},
+            "criteria": "x",
+        }
+
+    def test_save_sends_execution_config_to_api(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = {**SAMPLE_SESSION_DICT, "id": "new_sess"}
+        BoundSession = _bound_session_class(ctx)
+        cfg = ExecutionConfig(
+            execution_params={"max_iterations": 10},
+            run_response_generation=True,
+        )
+        session = BoundSession(agent_id="a1", name="N", execution_config=cfg)
+
+        session.save()
+
+        _, kwargs = ctx.client.request.call_args
+        assert kwargs["json"]["executionConfig"] == {
+            "executionParams": {"maxIterations": 10},
+            "runResponseGeneration": True,
+        }
+
+
+class TestAgentCreateSessionExecutionConfig:
+    """Tests for execution config plumbing in Agent.create_session()."""
+
+    def _setup(self):
+        ctx = _make_mock_context()
+        mock_session_instance = Mock()
+        mock_session_instance.save.return_value = mock_session_instance
+        mock_session_instance.id = "new_sess"
+        MockSession = Mock(return_value=mock_session_instance)
+        ctx.Session = MockSession
+        BoundAgent = _bound_agent_class(ctx)
+        agent = BoundAgent(id="agent_99", name="Test Agent")
+        return agent, MockSession, mock_session_instance
+
+    def test_shortcut_kwargs_build_execution_config(self):
+        agent, MockSession, _ = self._setup()
+
+        agent.create_session(
+            name="With Config",
+            execution_params={"output_format": "text", "max_tokens": 1024},
+            criteria="Be helpful",
+            evolve='{"toEvolve": true}',
+            identifier="user-abc",
+            run_response_generation=True,
+        )
+
+        _, kwargs = MockSession.call_args
+        assert kwargs["agent_id"] == "agent_99"
+        assert kwargs["name"] == "With Config"
+        cfg = kwargs["execution_config"]
+        assert isinstance(cfg, ExecutionConfig)
+        assert cfg.execution_params == {"output_format": "text", "max_tokens": 1024}
+        assert cfg.criteria == "Be helpful"
+        assert cfg.evolve == '{"toEvolve": true}'
+        assert cfg.identifier == "user-abc"
+        assert cfg.run_response_generation is True
+
+    def test_explicit_execution_config_object(self):
+        agent, MockSession, _ = self._setup()
+        explicit = ExecutionConfig(criteria="explicit")
+
+        agent.create_session(execution_config=explicit)
+
+        cfg = MockSession.call_args.kwargs["execution_config"]
+        # The explicit object passes through unchanged.
+        assert cfg is explicit
+
+    def test_explicit_execution_config_dict_is_coerced(self):
+        agent, MockSession, _ = self._setup()
+
+        agent.create_session(execution_config={"criteria": "x"})
+
+        cfg = MockSession.call_args.kwargs["execution_config"]
+        assert isinstance(cfg, ExecutionConfig)
+        assert cfg.criteria == "x"
+
+    def test_no_execution_config_when_kwargs_omitted(self):
+        agent, MockSession, _ = self._setup()
+
+        agent.create_session(name="plain")
+
+        assert MockSession.call_args.kwargs["execution_config"] is None
+
+    def test_explicit_and_shortcut_kwargs_conflict(self):
+        agent, _, _ = self._setup()
+
+        with pytest.raises(ValueError, match="not both"):
+            agent.create_session(
+                execution_config={"criteria": "x"},
+                criteria="y",
+            )
+
+    def test_run_response_generation_false_still_builds_config(self):
+        # False is a meaningful explicit choice (default behavior is False),
+        # so passing it must still flow through to the session.
+        agent, MockSession, _ = self._setup()
+
+        agent.create_session(run_response_generation=False)
+
+        cfg = MockSession.call_args.kwargs["execution_config"]
+        assert isinstance(cfg, ExecutionConfig)
+        assert cfg.run_response_generation is False

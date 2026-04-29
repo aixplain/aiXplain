@@ -84,7 +84,7 @@ def _make_team_agent(client, timestamp: str, agents, inspectors):
     team_agent = client.Agent(
         name="InspectortestTeam_" + timestamp,
         description="Team agent with Inspector v2 functional test",
-        subagents=agents,
+        agents=agents,
         inspectors=inspectors,
     )
     team_agent.save()
