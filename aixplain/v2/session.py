@@ -21,6 +21,25 @@ from .resource import (
 logger = logging.getLogger(__name__)
 
 
+# Maps snake_case execution param keys to the camelCase the backend accepts.
+# Kept in this module (not on Agent) so Session create/update — which carries
+# the same params as legacy agent.run — uses the same normalization.
+EXECUTION_PARAMS_MAP: Dict[str, str] = {
+    "output_format": "outputFormat",
+    "max_tokens": "maxTokens",
+    "max_iterations": "maxIterations",
+    "max_time": "maxTime",
+    "expected_output": "expectedOutput",
+}
+
+
+def _normalize_execution_params(params: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Translate snake_case execution param keys to camelCase for the API."""
+    if not params:
+        return params
+    return {EXECUTION_PARAMS_MAP.get(k, k): v for k, v in params.items()}
+
+
 def _mime_to_attachment_type(mime_type: str) -> str:
     """Map a MIME type string to an AttachmentType value."""
     if not mime_type:
@@ -141,6 +160,68 @@ class SessionMessage:
 
 
 @dataclass_json
+@dataclass
+class ExecutionConfig:
+    """Per-session execution configuration.
+
+    Mirrors the run-time agent parameters historically passed to
+    ``agent.run`` so that messages posted to a session execute the agent
+    with the same configuration. The backend reads ``executionConfig``
+    on session create/update and applies it when subsequent user
+    messages trigger agent runs.
+
+    Attributes:
+        execution_params: Backend execution params (output format, max
+            tokens, etc.). Both snake_case and camelCase keys are
+            accepted; snake_case is normalized to camelCase on send.
+        criteria: Free-form evaluation criteria sent to the agent.
+        evolve: Evolution config as a JSON string (kept as a string to
+            match the backend contract).
+        identifier: Free-form identifier the backend can echo back on
+            messages (e.g. for client-side correlation).
+        run_response_generation: Whether the agent should run its final
+            response-generation step.
+    """
+
+    execution_params: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionParams"))
+    criteria: Optional[str] = None
+    evolve: Optional[str] = None
+    identifier: Optional[str] = None
+    run_response_generation: Optional[bool] = field(default=None, metadata=config(field_name="runResponseGeneration"))
+
+    def to_api_dict(self) -> Dict[str, Any]:
+        """Build the camelCase API payload, normalizing nested params.
+
+        Only fields the caller set are included so the backend keeps
+        existing values on partial updates.
+        """
+        out: Dict[str, Any] = {}
+        normalized = _normalize_execution_params(self.execution_params)
+        if normalized is not None:
+            out["executionParams"] = normalized
+        if self.criteria is not None:
+            out["criteria"] = self.criteria
+        if self.evolve is not None:
+            out["evolve"] = self.evolve
+        if self.identifier is not None:
+            out["identifier"] = self.identifier
+        if self.run_response_generation is not None:
+            out["runResponseGeneration"] = self.run_response_generation
+        return out
+
+    @classmethod
+    def coerce(cls, value: Any) -> Optional["ExecutionConfig"]:
+        """Accept an ExecutionConfig, dict, or None and return a config or None."""
+        if value is None:
+            return None
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        raise TypeError(f"execution_config must be ExecutionConfig, dict, or None; got {type(value).__name__}")
+
+
+@dataclass_json
 @dataclass(repr=False)
 class Session(
     BaseResource,
@@ -161,16 +242,24 @@ class Session(
     last_message_at: Optional[str] = field(default=None, metadata=config(field_name="lastMessageAt"))
     created_at: str = field(default="", metadata=config(field_name="createdAt"))
     updated_at: str = field(default="", metadata=config(field_name="updatedAt"))
+    execution_config: Optional[ExecutionConfig] = field(default=None, metadata=config(field_name="executionConfig"))
+
+    def __post_init__(self) -> None:
+        """Coerce dict execution_config (e.g. from kwargs) into ExecutionConfig."""
+        if self.execution_config is not None and not isinstance(self.execution_config, ExecutionConfig):
+            self.execution_config = ExecutionConfig.coerce(self.execution_config)
 
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build payload with only mutable fields."""
-        payload = {}
+        payload: Dict[str, Any] = {}
         if self.agent_id:
             payload["agentId"] = self.agent_id
         if self.name is not None:
             payload["name"] = self.name
         if self.status:
             payload["status"] = self.status
+        if self.execution_config is not None:
+            payload["executionConfig"] = self.execution_config.to_api_dict()
         return payload
 
     @classmethod

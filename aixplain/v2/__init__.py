@@ -17,7 +17,12 @@ from .inspector import (
     EvaluatorConfig,
     EditorConfig,
 )
-from .session import Session, SessionMessage, SessionMessageAttachment
+from .session import (
+    ExecutionConfig,
+    Session,
+    SessionMessage,
+    SessionMessageAttachment,
+)
 from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
 from .api_key import APIKey, APIKeyLimits, APIKeyUsageLimit, TokenType
@@ -69,6 +74,7 @@ __all__ = [
     "Session",
     "SessionMessage",
     "SessionMessageAttachment",
+    "ExecutionConfig",
     # Inspector classes
     "Inspector",
     "InspectorTarget",
