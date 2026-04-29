@@ -7,7 +7,7 @@ import warnings
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import ClassVar, List, Optional, Any, Dict, Union, Text
+from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
 from dataclasses_json import dataclass_json, config
 
@@ -33,6 +33,12 @@ from .resource import (
     with_hooks,
 )
 
+if TYPE_CHECKING:
+    from .session import ExecutionConfig, Session
+
+
+logger = logging.getLogger(__name__)
+
 
 # Type definitions for conversation history
 class ConversationMessage(TypedDict):
@@ -41,10 +47,14 @@ class ConversationMessage(TypedDict):
     Attributes:
         role: The role of the message sender, either 'user' or 'assistant'
         content: The text content of the message
+        attachments: Optional pre-built attachment dicts (url, name, type)
+        files: Optional local file paths to upload and attach
     """
 
     role: Literal["user", "assistant"]
     content: str
+    attachments: NotRequired[Optional[List[Dict[str, Any]]]]
+    files: NotRequired[Optional[List[Any]]]
 
 
 def validate_history(history: List[Dict[str, Any]]) -> bool:
@@ -158,8 +168,10 @@ class AgentRunParams(BaseRunParams):
     execution_params: NotRequired[Optional[Dict[str, Any]]]
     criteria: NotRequired[Optional[Text]]
     evolve: NotRequired[Optional[Text]]
+    identifier: NotRequired[Optional[Text]]
     inspectors: NotRequired[Optional[List[Dict]]]
     run_response_generation: NotRequired[Optional[bool]]
+    via_session: NotRequired[Optional[bool]]
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
@@ -427,6 +439,37 @@ class Agent(
         self.status = AssetStatus.DELETED
         super().mark_as_deleted()
 
+    def _start_progress_tracker(self, kwargs: Dict[str, Any]) -> None:
+        """Initialize ``self._progress_tracker`` from progress kwargs (no-op if disabled)."""
+        progress_format = kwargs.get("progress_format")
+        if progress_format is None:
+            self._progress_tracker = None
+            return
+
+        from .agent_progress import AgentProgressTracker, ProgressFormat
+
+        progress_verbosity = kwargs.get("progress_verbosity", 1)
+        progress_truncate = kwargs.get("progress_truncate", True)
+        fmt = ProgressFormat(progress_format)
+
+        self._progress_tracker = AgentProgressTracker(
+            poll_func=lambda url: self.poll(url),
+            poll_interval=0.05,
+            max_polls=None,
+        )
+        self._progress_tracker.start(
+            format=fmt,
+            verbosity=progress_verbosity,
+            truncate=progress_truncate,
+        )
+
+    def _finish_progress_tracker(self, result: Union[AgentRunResult, Exception]) -> None:
+        """Finalize the progress tracker; safe to call even if it was never started."""
+        if self._progress_tracker is not None:
+            if not isinstance(result, Exception):
+                self._progress_tracker.finish(result)
+            self._progress_tracker = None
+
     def before_run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]:
         """Hook called before running the agent to validate and prepare state."""
         # First, validate that all dependencies are saved before allowing run
@@ -442,30 +485,7 @@ class Agent(
             if self.is_modified:
                 raise ValueError("Agent is onboarded and cannot be modified unless you explicitly save it.")
 
-        # Initialize progress tracker if progress_format is provided
-        # progress_format being None (default) means no progress tracking
-        progress_format = kwargs.get("progress_format")
-        if progress_format is not None:
-            from .agent_progress import AgentProgressTracker, ProgressFormat
-
-            progress_verbosity = kwargs.get("progress_verbosity", 1)
-            progress_truncate = kwargs.get("progress_truncate", True)
-
-            fmt = ProgressFormat(progress_format)
-
-            self._progress_tracker = AgentProgressTracker(
-                poll_func=lambda url: self.poll(url),
-                poll_interval=0.05,
-                max_polls=None,
-            )
-            self._progress_tracker.start(
-                format=fmt,
-                verbosity=progress_verbosity,
-                truncate=progress_truncate,
-            )
-        else:
-            self._progress_tracker = None
-
+        self._start_progress_tracker(kwargs)
         return None
 
     def on_poll(self, response: AgentRunResult, **kwargs: Unpack[AgentRunParams]) -> None:
@@ -488,10 +508,7 @@ class Agent(
     ) -> Optional[AgentRunResult]:
         """Hook called after running the agent for result transformation."""
         # Finish progress tracking if enabled
-        if self._progress_tracker is not None:
-            if not isinstance(result, Exception):
-                self._progress_tracker.finish(result)
-            self._progress_tracker = None
+        self._finish_progress_tracker(result)
 
         # Set the context on the result for debug() method support
         if not isinstance(result, Exception):
@@ -521,6 +538,15 @@ class Agent(
         Args:
             *args: Positional arguments (first arg is treated as query)
             query: The query to run
+            via_session: When True, opt into the new sessions+messages
+                run path: a Session is created (or reused via
+                ``session_id``) carrying the supplied execution params
+                as its ``executionConfig``, the user message is posted,
+                and the run is awaited via session message polling.
+                Default False keeps the legacy
+                ``/v2/agents/{id}/run`` path. Sessions auto-created by
+                ``via_session=True`` persist; clean up via
+                ``agent.list_sessions()`` and ``session.delete()``.
             progress_format: Display format - "status" or "logs". If None (default),
                            progress tracking is disabled.
             progress_verbosity: Detail level 1-3 (default: 1)
@@ -533,6 +559,9 @@ class Agent(
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
+
+        if kwargs.pop("via_session", False):
+            return self._run_via_session(**kwargs)
 
         return super().run(*args, **kwargs)
 
@@ -554,6 +583,12 @@ class Agent(
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
+
+        if kwargs.get("via_session"):
+            raise NotImplementedError(
+                "via_session=True is sync-only for now; use agent.run(...) or "
+                "session.add_message() + session.messages() directly."
+            )
 
         return super().run_async(**kwargs)
 
@@ -1049,74 +1084,234 @@ class Agent(
 
         return payload
 
-    def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
-        """Generate a unique session ID for agent conversations.
-
-        Creates a unique session identifier based on the agent ID and current timestamp.
-        If conversation history is provided, it attempts to initialize the session on the
-        server to enable context-aware conversations.
+    def create_session(
+        self,
+        name: Optional[str] = None,
+        history: Optional[List[ConversationMessage]] = None,
+        execution_config: Optional[Union["ExecutionConfig", Dict[str, Any]]] = None,
+        execution_params: Optional[Dict[str, Any]] = None,
+        criteria: Optional[str] = None,
+        evolve: Optional[str] = None,
+        identifier: Optional[str] = None,
+        run_response_generation: Optional[bool] = None,
+    ) -> "Session":
+        """Create a new backend-managed session for this agent.
 
         Args:
-            history: Previous conversation history. Each message should contain
-                'role' (either 'user' or 'assistant') and 'content' keys.
-                Defaults to None.
+            name: Optional human-readable name for the session.
+            history: Optional conversation history to seed the session with.
+                Each message must have 'role' and 'content' keys.
+                Messages may also include optional 'attachments'
+                (pre-built dicts with url/name/type) and/or 'files'
+                (local file paths to upload).
+            execution_config: Full ExecutionConfig (or equivalent dict) to
+                attach to the session. Subsequent user messages will run
+                the agent with these parameters. Mutually exclusive with
+                the individual ``execution_params``/``criteria``/etc.
+                shortcuts below.
+            execution_params: Backend execution params (output format, max
+                tokens, etc.). Mirrors the ``execution_params`` argument
+                accepted by ``agent.run()``.
+            criteria: Free-form evaluation criteria sent to the agent.
+            evolve: Evolution config as a JSON string.
+            identifier: Free-form identifier the backend can echo back on
+                messages.
+            run_response_generation: Whether the agent should run its
+                final response-generation step.
 
         Returns:
-            str: A unique session identifier in the format "{agent_id}_{timestamp}".
+            Session: The created Session instance, pre-populated with
+            history messages when provided.
 
         Raises:
-            ValueError: If the history format is invalid.
+            ValueError: If the agent has not been saved yet, if history
+                format is invalid, or if both ``execution_config`` and
+                shortcut kwargs are provided.
 
         Example:
-            >>> agent = Agent.get("my_agent_id")
-            >>> session_id = agent.generate_session_id()
-            >>> # Or with history
-            >>> history = [
-            ...     {"role": "user", "content": "Hello"},
-            ...     {"role": "assistant", "content": "Hi there!"}
-            ... ]
-            >>> session_id = agent.generate_session_id(history=history)
+            >>> session = agent.create_session(
+            ...     name="My Chat",
+            ...     execution_params={"max_tokens": 1024, "max_iterations": 10},
+            ...     criteria="Be concise",
+            ...     run_response_generation=True,
+            ...     history=[
+            ...         {"role": "user", "content": "Analyze this",
+            ...          "files": ["/tmp/data.csv"]},
+            ...         {"role": "assistant", "content": "Here are the results..."},
+            ...     ],
+            ... )
         """
         if not self.id:
-            self.save(as_draft=True)
+            raise ValueError("Agent must be saved before creating a session. Call agent.save() first.")
 
         if history:
             validate_history(history)
 
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        session_id = f"{self.id}_{timestamp}"
+        config = self._resolve_execution_config(
+            execution_config=execution_config,
+            execution_params=execution_params,
+            criteria=criteria,
+            evolve=evolve,
+            identifier=identifier,
+            run_response_generation=run_response_generation,
+        )
 
-        if not history:
-            return session_id
+        session = self.context.Session(agent_id=self.id, name=name, execution_config=config)
+        session.save()
 
-        try:
-            # Use the existing run infrastructure to initialize the session
-            result = self.run_async(
-                query="/",
-                session_id=session_id,
-                history=history,
-                execution_params={
-                    "max_tokens": 2048,
-                    "max_iterations": 10,
-                    "output_format": OutputFormat.TEXT.value,
-                    "expected_output": None,
-                },
-                allow_history_and_session_id=True,
+        if history:
+            for message in history:
+                session.add_message(
+                    role=message["role"],
+                    content=message["content"],
+                    attachments=message.get("attachments"),
+                    files=message.get("files"),
+                )
+
+        return session
+
+    @staticmethod
+    def _resolve_execution_config(
+        execution_config: Optional[Union["ExecutionConfig", Dict[str, Any]]] = None,
+        execution_params: Optional[Dict[str, Any]] = None,
+        criteria: Optional[str] = None,
+        evolve: Optional[str] = None,
+        identifier: Optional[str] = None,
+        run_response_generation: Optional[bool] = None,
+    ) -> Optional["ExecutionConfig"]:
+        """Combine the explicit and shortcut forms into one ExecutionConfig.
+
+        Returns ``None`` when neither form supplies any value so the
+        Session save payload omits ``executionConfig`` entirely.
+        """
+        from .session import ExecutionConfig
+
+        shortcut_values = {
+            "execution_params": execution_params,
+            "criteria": criteria,
+            "evolve": evolve,
+            "identifier": identifier,
+            "run_response_generation": run_response_generation,
+        }
+        has_shortcut = any(v is not None for v in shortcut_values.values())
+
+        if execution_config is not None and has_shortcut:
+            raise ValueError(
+                "Pass either 'execution_config' or the individual shortcut "
+                "kwargs (execution_params, criteria, evolve, identifier, "
+                "run_response_generation), not both."
             )
 
-            # If we got a polling URL, poll for completion
-            if result.url and not result.completed:
-                final_result = self.sync_poll(result.url, timeout=300, wait_time=0.5)
+        if execution_config is not None:
+            return ExecutionConfig.coerce(execution_config)
 
-                if final_result.status == ResponseStatus.SUCCESS:
-                    return session_id
-                else:
-                    logging.error(f"Session {session_id} initialization failed: {final_result}")
-                    return session_id
-            else:
-                # Direct completion or no polling needed
-                return session_id
+        if has_shortcut:
+            return ExecutionConfig(**shortcut_values)
 
+        return None
+
+    _LEGACY_ONLY_RUN_KWARGS: ClassVar[tuple] = (
+        "tasks",
+        "prompt",
+        "inspectors",
+        "history",
+        "variables",
+        "allow_history_and_session_id",
+    )
+
+    def _run_via_session(self, **kwargs: Any) -> AgentRunResult:
+        """Run the agent through a session, using the legacy result endpoint.
+
+        Flow:
+        1. Get-or-create a Session carrying the supplied ``executionConfig``.
+        2. POST a ``role="user"`` message via ``session.add_message`` — this
+           triggers the agent run on the backend with the session's
+           ``executionConfig``.
+        3. Pull the agent run's ``requestId`` off the user message and
+           hand it to ``self.sync_poll`` (the legacy
+           ``/sdk/agents/{request_id}/result`` endpoint), which returns a
+           fully populated ``AgentRunResult`` including ``data.steps``,
+           ``execution_stats``, ``used_credits``, and ``run_time``.
+
+        We don't poll session messages for the assistant reply — the
+        backend's session→assistant-message persistence is incomplete on
+        dev today, but the legacy result endpoint is fully populated for
+        the run that the user message triggered.
+        """
+        self._validate_run_dependencies()
+
+        offending = [k for k in self._LEGACY_ONLY_RUN_KWARGS if kwargs.get(k) is not None]
+        if offending:
+            raise ValueError(
+                f"via_session=True does not support legacy run kwargs: {offending}. "
+                "Drop them or run without via_session=True."
+            )
+
+        query = kwargs.get("query")
+        if query is None:
+            raise ValueError("via_session=True requires a query.")
+        if not isinstance(query, str):
+            raise ValueError("via_session=True only supports string queries.")
+
+        session_id = kwargs.get("session_id")
+        if session_id:
+            session = self.context.Session.get(session_id)
+        else:
+            session = self.create_session(
+                execution_params=kwargs.get("execution_params"),
+                criteria=kwargs.get("criteria"),
+                evolve=kwargs.get("evolve"),
+                identifier=kwargs.get("identifier"),
+                run_response_generation=kwargs.get("run_response_generation"),
+            )
+
+        user_msg = session.add_message(role="user", content=query)
+        if not user_msg.request_id:
+            raise ValueError(
+                f"Backend did not return a requestId on the user message for "
+                f"session '{session.id}'; cannot poll the agent run result."
+            )
+
+        # Same progress-tracker plumbing as the legacy path: sync_poll calls
+        # self.on_poll(...) on every iteration, which forwards to the tracker.
+        self._start_progress_tracker(kwargs)
+        try:
+            result = self.sync_poll(
+                user_msg.request_id,
+                timeout=kwargs.get("timeout", 300),
+                wait_time=kwargs.get("wait_time", 0.5),
+            )
         except Exception as e:
-            logging.error(f"Failed to initialize session {session_id}: {e}")
-            return session_id
+            self._finish_progress_tracker(e)
+            raise
+        self._finish_progress_tracker(result)
+
+        # The legacy /sdk/agents/{id}/result response doesn't always echo
+        # back identifiers at the top level — back-fill from what we know
+        # locally so result.session_id / result.request_id are not None
+        # for via_session callers.
+        if not result.session_id:
+            result.session_id = session.id
+        if result.data is not None and getattr(result.data, "session_id", None) in (None, ""):
+            result.data.session_id = session.id
+        if not result.request_id:
+            result.request_id = user_msg.request_id
+        result._context = self.context
+        return result
+
+    def list_sessions(self, status: Optional[str] = None) -> list:
+        """List sessions for this agent.
+
+        Args:
+            status: Optional status filter (e.g. "active", "completed").
+
+        Returns:
+            List of Session instances belonging to this agent.
+
+        Raises:
+            ValueError: If the agent has not been saved yet.
+        """
+        if not self.id:
+            raise ValueError("Agent must be saved before listing sessions. Call agent.save() first.")
+
+        return self.context.Session.list(agent_id=self.id, status=status)

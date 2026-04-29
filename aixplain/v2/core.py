@@ -14,6 +14,7 @@ from .file import Resource
 from .inspector import Inspector
 from .meta_agents import Debugger
 from .api_key import APIKey
+from .session import Session
 from .rlm import RLM, RLMResult
 from . import enums
 
@@ -27,6 +28,7 @@ ResourceType = TypeVar("ResourceType", bound=Resource)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
 DebuggerType = TypeVar("DebuggerType", bound=Debugger)
 APIKeyType = TypeVar("APIKeyType", bound=APIKey)
+SessionType = TypeVar("SessionType", bound=Session)
 RLMType = TypeVar("RLMType", bound=RLM)
 
 
@@ -52,6 +54,7 @@ class Aixplain:
     Inspector: InspectorType = None
     Debugger: DebuggerType = None
     APIKey: APIKeyType = None
+    Session: SessionType = None
     RLM: RLMType = None
 
     Function = enums.Function
@@ -69,6 +72,12 @@ class Aixplain:
     SortBy = enums.SortBy
     SortOrder = enums.SortOrder
     StorageType = enums.StorageType
+
+    SessionStatus = enums.SessionStatus
+    RunStatus = enums.RunStatus
+    MessageRole = enums.MessageRole
+    Reaction = enums.Reaction
+    AttachmentType = enums.AttachmentType
 
     BACKEND_URL = "https://platform-api.aixplain.com"
     BENCHMARKS_BACKEND_URL = "https://platform-api.aixplain.com"
@@ -132,4 +141,5 @@ class Aixplain:
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
         self.Debugger = type("Debugger", (Debugger,), {"context": self})
         self.APIKey = type("APIKey", (APIKey,), {"context": self})
+        self.Session = type("Session", (Session,), {"context": self})
         self.RLM = type("RLM", (RLM,), {"context": self})

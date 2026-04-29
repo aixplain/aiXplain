@@ -33,12 +33,17 @@ _IPINFO_TIMEOUT = 2.0
 
 @lru_cache(maxsize=1)
 def _fetch_ipinfo() -> Dict[str, Any]:
-    """Fetch and cache the ipinfo.io payload for the current public IP."""
+    """Fetch and cache the ipinfo.io payload for the current public IP.
+
+    All errors degrade silently to ``{}`` — this is auxiliary metadata
+    and an outage / network-isolation / test-mock should never break a
+    caller's run.
+    """
     try:
         response = requests.get(_IPINFO_URL, timeout=_IPINFO_TIMEOUT)
         response.raise_for_status()
         payload = response.json()
-    except (requests.RequestException, ValueError) as exc:
+    except Exception as exc:
         logger.debug("Failed to fetch ipinfo.io payload: %s", exc)
         return {}
 
@@ -111,4 +116,3 @@ def build_run_metadata() -> Dict[str, Any]:
         meta["timezone"] = tz.strip()
 
     return meta
-
