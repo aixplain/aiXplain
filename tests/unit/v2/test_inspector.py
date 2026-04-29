@@ -12,6 +12,8 @@ from aixplain.v2.inspector import (
     EvaluatorType,
     EvaluatorConfig,
     EditorConfig,
+    PrebuiltInspector,
+    is_prebuilt_inspector,
 )
 
 
@@ -293,3 +295,131 @@ class TestInspector:
         assert "description" not in payload
         assert "severity" not in payload
         assert "editor" not in payload
+
+
+# ---------------------------------------------------------------------------
+# PrebuiltInspector
+# ---------------------------------------------------------------------------
+
+
+class TestPrebuiltInspector:
+    def test_prompt_injection_guard_defaults(self):
+        inspector = PrebuiltInspector.prompt_injection_guard()
+        payload = inspector.to_dict()
+        assert payload == {"presetId": "prompt_injection_guard"}
+
+    def test_pii_redaction_defaults(self):
+        inspector = PrebuiltInspector.pii_redaction()
+        payload = inspector.to_dict()
+        assert payload == {"presetId": "pii_redaction"}
+
+    def test_prompt_injection_guard_with_overrides(self):
+        inspector = PrebuiltInspector.prompt_injection_guard(
+            targets=[InspectorTarget.OUTPUT],
+            severity=InspectorSeverity.CRITICAL,
+            name="my_guard",
+            description="Custom guard",
+        )
+        payload = inspector.to_dict()
+        assert payload == {
+            "presetId": "prompt_injection_guard",
+            "name": "my_guard",
+            "description": "Custom guard",
+            "targets": ["output"],
+            "severity": "critical",
+        }
+
+    def test_pii_redaction_with_action_override(self):
+        inspector = PrebuiltInspector.pii_redaction(
+            action={"type": "abort"},
+            targets=[InspectorTarget.INPUT, InspectorTarget.OUTPUT],
+        )
+        payload = inspector.to_dict()
+        assert payload == {
+            "presetId": "pii_redaction",
+            "targets": ["input", "output"],
+            "action": {"type": "abort"},
+        }
+
+    def test_unknown_preset_rejected(self):
+        with pytest.raises(ValueError, match="Unknown inspector preset"):
+            PrebuiltInspector(preset_id="nonexistent")
+
+    def test_unsupported_action_rejected(self):
+        with pytest.raises(ValueError, match="not supported by preset"):
+            PrebuiltInspector.prompt_injection_guard(action={"type": "edit"})
+
+    def test_pii_redaction_rejects_rerun(self):
+        with pytest.raises(ValueError, match="not supported by preset"):
+            PrebuiltInspector.pii_redaction(action={"type": "rerun"})
+
+    def test_targets_normalized_from_enums(self):
+        inspector = PrebuiltInspector.pii_redaction(
+            targets=[InspectorTarget.STEPS, InspectorTarget.OUTPUT],
+        )
+        assert inspector.targets == ["steps", "output"]
+
+    def test_targets_normalized_from_strings(self):
+        inspector = PrebuiltInspector.prompt_injection_guard(
+            targets=["INPUT", "Steps"],
+        )
+        assert inspector.targets == ["input", "steps"]
+
+    def test_from_dict_roundtrip(self):
+        original = PrebuiltInspector.prompt_injection_guard(
+            targets=[InspectorTarget.INPUT],
+            severity=InspectorSeverity.HIGH,
+            name="custom_name",
+        )
+        restored = PrebuiltInspector.from_dict(original.to_dict())
+        assert restored.to_dict() == original.to_dict()
+
+    def test_from_dict_minimal(self):
+        data = {"presetId": "pii_redaction"}
+        inspector = PrebuiltInspector.from_dict(data)
+        assert inspector.preset_id == "pii_redaction"
+        assert inspector.targets is None
+        assert inspector.action is None
+
+    def test_list_presets_returns_both(self):
+        presets = PrebuiltInspector.list_presets()
+        assert "prompt_injection_guard" in presets
+        assert "pii_redaction" in presets
+        assert presets["prompt_injection_guard"]["category"] == "protection"
+        assert presets["pii_redaction"]["category"] == "redaction"
+
+    def test_list_presets_contains_expected_fields(self):
+        presets = PrebuiltInspector.list_presets()
+        for preset_id, meta in presets.items():
+            assert "name" in meta
+            assert "description" in meta
+            assert "default_targets" in meta
+            assert "default_action" in meta
+            assert "supported_actions" in meta
+
+
+# ---------------------------------------------------------------------------
+# is_prebuilt_inspector helper
+# ---------------------------------------------------------------------------
+
+
+class TestIsPrebuiltInspector:
+    def test_prebuilt_instance(self):
+        assert is_prebuilt_inspector(PrebuiltInspector.pii_redaction()) is True
+
+    def test_preset_dict(self):
+        assert is_prebuilt_inspector({"presetId": "prompt_injection_guard"}) is True
+
+    def test_regular_inspector_instance(self):
+        inspector = Inspector(
+            name="custom",
+            action=InspectorActionConfig(type=InspectorAction.ABORT),
+            evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id="x"),
+        )
+        assert is_prebuilt_inspector(inspector) is False
+
+    def test_regular_dict(self):
+        assert is_prebuilt_inspector({"name": "foo", "action": {"type": "abort"}}) is False
+
+    def test_none(self):
+        assert is_prebuilt_inspector(None) is False

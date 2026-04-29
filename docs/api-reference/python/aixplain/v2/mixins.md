@@ -75,7 +75,7 @@ as a tool when creating agents. The format is strictly typed using ToolDict.
   - function: The tool&#x27;s function type (e.g., &quot;utilities&quot;)
   - type: The tool type (e.g., &quot;model&quot;)
   - version: The tool&#x27;s version as a string
-  - assetId: The tool&#x27;s asset ID (usually same as id)
+  - asset_id: The tool&#x27;s asset ID (usually same as id)
   
 
 **Raises**:

@@ -10,7 +10,7 @@ namespaces = true
 
 [project]
 name = "aiXplain"
-version = "0.2.42"
+version = "0.2.45rc1"
 description = "aiXplain SDK adds AI functions to software."
 readme = "README.md"
 requires-python = ">=3.9, <4"
@@ -19,7 +19,7 @@ authors = [
   {email = "ahmet@aixplain.com"},
   {email = "hadi@aixplain.com"},
   {email = "kadir.pekel@aixplain.com"},
-  {email = "aina.abushaban@aixplain.com"}
+  {email = "zaina.abushaban@aixplain.com"}
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -40,6 +40,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
+    "Babel>=2.12.0",
     "requests>=2.1.0",
     "tqdm>=4.1.0",
     "pandas>=2.0.0",
@@ -73,5 +74,6 @@ test = [
     "docker>=6.1.3",
     "requests-mock>=1.11.0",
     "pytest-mock>=3.10.0",
-    "pytest-rerunfailures>=16.0"
+    "pytest-rerunfailures>=16.0",
+    "pytest-xdist",
 ]

@@ -437,6 +437,9 @@ class AgentProgressTracker:
             step_line += f" · API {api_calls:2d}"
             step_credits = step.get("used_credits") or step.get("usedCredits") or 0
             step_line += f" · ${step_credits:.6f}"
+            token_text = self._format_token_usage_inline(step)
+            if token_text:
+                step_line += f" · {token_text}"
 
         step_line += f" · {agent_action_part}"
         return step_line
@@ -588,6 +591,30 @@ class AgentProgressTracker:
                 else:
                     print(f"    {self._format_multiline(str(output_data))}")
 
+    def _print_token_usage(self, step: Dict) -> None:
+        """Print token usage for a step if available."""
+        text = self._format_token_usage_inline(step)
+        if text:
+            print(f"  Tokens:    {text}")
+
+    def _format_token_usage_inline(self, step: Dict) -> str:
+        """Format token usage as a compact inline string, or empty if unavailable."""
+        input_tok = step.get("input_tokens")
+        output_tok = step.get("output_tokens")
+        total_tok = step.get("total_tokens")
+
+        if input_tok is None and output_tok is None and total_tok is None:
+            return ""
+
+        parts = []
+        if input_tok is not None:
+            parts.append(f"↓{input_tok}")
+        if output_tok is not None:
+            parts.append(f"↑{output_tok}")
+        if total_tok is not None:
+            parts.append(f"({total_tok})")
+        return " ".join(parts)
+
     def _print_completion_message(self, status: str, steps: List[Dict]) -> None:
         """Print final completion message with stats."""
         total_steps = len(steps) if steps else 0
@@ -595,12 +622,19 @@ class AgentProgressTracker:
 
         prefix = "\n" if self._format == ProgressFormat.STATUS else ""
 
+        token_suffix = ""
+        total_input = getattr(self, "_total_input_tokens", 0)
+        total_output = getattr(self, "_total_output_tokens", 0)
+        total_tokens = total_input + total_output
+        if total_input or total_output:
+            token_suffix = f" · ↓{total_input} ↑{total_output} ({total_tokens})"
+
         if status == "SUCCESS":
             print(
                 f"{prefix}✓ Completed {total_steps} steps · "
                 f"⏱ {self._format_elapsed(total_elapsed)} · "
                 f"API {self._total_api_calls} · "
-                f"${self._total_credits:.6f}"
+                f"${self._total_credits:.6f}{token_suffix}"
             )
         elif status in {"FAILED", "ABORTED", "CANCELLED", "ERROR"}:
             print(
@@ -608,7 +642,7 @@ class AgentProgressTracker:
                 f"{total_steps} steps · "
                 f"⏱ {self._format_elapsed(total_elapsed)} · "
                 f"API {self._total_api_calls} · "
-                f"${self._total_credits:.6f}"
+                f"${self._total_credits:.6f}{token_suffix}"
             )
         else:
             print(
@@ -616,7 +650,7 @@ class AgentProgressTracker:
                 f"{total_steps} steps · "
                 f"⏱ {self._format_elapsed(total_elapsed)} · "
                 f"API {self._total_api_calls} · "
-                f"${self._total_credits:.6f}"
+                f"${self._total_credits:.6f}{token_suffix}"
             )
 
     # =========================================================================
@@ -667,6 +701,8 @@ class AgentProgressTracker:
         """Update tracking metrics from steps data."""
         self._total_credits = 0.0
         self._total_api_calls = 0
+        self._total_input_tokens = 0
+        self._total_output_tokens = 0
         for idx, s in enumerate(steps):
             sid = s.get("_progress_id")
             if sid not in self._first_seen:
@@ -680,6 +716,20 @@ class AgentProgressTracker:
             api_calls = s.get("api_calls") or 0
             if api_calls:
                 self._total_api_calls += int(api_calls)
+
+            input_tokens = s.get("input_tokens")
+            if input_tokens is not None:
+                try:
+                    self._total_input_tokens += int(input_tokens)
+                except (ValueError, TypeError):
+                    pass
+
+            output_tokens = s.get("output_tokens")
+            if output_tokens is not None:
+                try:
+                    self._total_output_tokens += int(output_tokens)
+                except (ValueError, TypeError):
+                    pass
 
     def _display_logs_format(self, steps: List[Dict]) -> None:
         """Handle display for LOGS format (event timeline)."""

@@ -52,9 +52,22 @@ from aixplain.modules.team_agent.evolver_response_data import EvolverResponseDat
 from aixplain.utils.convert_datatype_utils import normalize_expected_output
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
+from aixplain.utils.user_info_utils import build_run_metadata
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.mixins import DeployableMixin
 from pydantic import BaseModel
+
+
+class ContextOverflowStrategy(str, Enum):
+    """Strategy applied when input messages exceed the model's context window.
+
+    Attributes:
+        TRUNCATE: Remove the oldest chat-history messages until the context fits.
+        SUMMARIZE: Replace the full chat history with an LLM-generated summary.
+    """
+
+    TRUNCATE = "truncate"
+    SUMMARIZE = "summarize"
 
 
 class InspectorTarget(str, Enum):
@@ -107,6 +120,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         use_mentalist (bool): DEPRECATED. Whether to use Mentalist agent for pre-planning.
     """
 
+    ContextOverflowStrategy = ContextOverflowStrategy
+
     is_valid: bool
 
     def __init__(
@@ -125,6 +140,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         instructions: Optional[Text] = None,
         output_format: OutputFormat = OutputFormat.TEXT,
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+        context_overflow_strategy: Optional[Union[ContextOverflowStrategy, Text]] = None,
         **additional_info,
     ) -> None:
         """Initialize a TeamAgent instance.
@@ -144,10 +160,12 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             instructions (Optional[Text], optional): Instructions for the team agent. Defaults to None.
             output_format (OutputFormat, optional): Output format. Defaults to OutputFormat.TEXT.
             expected_output (Optional[Union[BaseModel, Text, dict]], optional): Expected output format. Defaults to None.
+            context_overflow_strategy (Optional[Union[ContextOverflowStrategy, Text]], optional):
+                Strategy for handling context window overflow. Defaults to None (disabled).
             **additional_info: Additional keyword arguments.
 
         Deprecated Args:
-            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "6895d6d1d50c89537c1cf237".
+            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "69b7e5f1b2fe44704ab0e7d0".
             mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
             use_mentalist (bool, optional): DEPRECATED. Whether to use mentalist/planner. Defaults to True.
         """
@@ -171,7 +189,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 stacklevel=2,
             )
         else:
-            llm_id = "6895d6d1d50c89537c1cf237"
+            llm_id = "69b7e5f1b2fe44704ab0e7d0"
 
         if "mentalist_llm" in additional_info:
             mentalist_llm = additional_info.pop("mentalist_llm")
@@ -213,7 +231,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             **additional_info: Additional keyword arguments.
 
         Deprecated Args:
-            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "6895d6d1d50c89537c1cf237".
+            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "69b7e5f1b2fe44704ab0e7d0".
             mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
             use_mentalist (bool, optional): DEPRECATED. Whether to use mentalist/planner. Defaults to True.
         """
@@ -237,6 +255,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         self.is_valid = True
         self.output_format = output_format
         self.expected_output = expected_output
+        if isinstance(context_overflow_strategy, ContextOverflowStrategy):
+            context_overflow_strategy = context_overflow_strategy.value
+        self.context_overflow_strategy = context_overflow_strategy
 
     def generate_session_id(self, history: list = None) -> str:
         """Generate a new session ID for the team agent.
@@ -262,6 +283,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 "query": "/",
                 "sessionId": session_id,
                 "history": history,
+                "metaData": build_run_metadata(),
                 "executionParams": {
                     "maxTokens": 2048,
                     "maxIterations": 30,
@@ -580,6 +602,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         max_iterations: int = 30,
         trace_request: bool = False,
         progress_verbosity: Optional[str] = "compact",
+        context_overflow_strategy: Optional[Union[ContextOverflowStrategy, Text]] = None,
         **kwargs,
     ) -> AgentResponse:
         """Runs a team agent call.
@@ -646,6 +669,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 output_format=output_format,
                 expected_output=expected_output,
                 trace_request=trace_request,
+                context_overflow_strategy=context_overflow_strategy,
             )
             if response["status"] == ResponseStatus.FAILED:
                 end = time.time()
@@ -711,6 +735,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         expected_output: Optional[Union[BaseModel, Text, dict]] = None,
         evolve: Union[Dict[str, Any], EvolveParam, None] = None,
         trace_request: bool = False,
+        context_overflow_strategy: Optional[Union[ContextOverflowStrategy, Text]] = None,
     ) -> AgentResponse:
         """Runs asynchronously a Team Agent call.
 
@@ -796,16 +821,23 @@ class TeamAgent(Model, DeployableMixin[Agent]):
         if isinstance(output_format, OutputFormat):
             output_format = output_format.value
 
+        if context_overflow_strategy is None:
+            context_overflow_strategy = self.context_overflow_strategy
+        if isinstance(context_overflow_strategy, ContextOverflowStrategy):
+            context_overflow_strategy = context_overflow_strategy.value
+
         payload = {
             "id": self.id,
             "query": input_data,
             "sessionId": session_id,
             "history": history,
+            "metaData": build_run_metadata(),
             "executionParams": {
                 "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
                 "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
                 "outputFormat": output_format,
                 "expectedOutput": expected_output,
+                "contextOverflowStrategy": context_overflow_strategy,
             },
             "evolve": json.dumps(evolve_dict),
         }
@@ -1016,6 +1048,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "instructions": self.instructions,
             "outputFormat": self.output_format.value,
             "expectedOutput": self.expected_output,
+            "contextOverflowStrategy": self.context_overflow_strategy,
         }
 
     @classmethod
@@ -1095,8 +1128,9 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             instructions=data.get("instructions"),
             output_format=OutputFormat(data.get("outputFormat", OutputFormat.TEXT)),
             expected_output=data.get("expectedOutput"),
+            context_overflow_strategy=data.get("contextOverflowStrategy"),
             # Pass deprecated params via kwargs
-            llm_id=data.get("llmId", "6895d6d1d50c89537c1cf237"),
+            llm_id=data.get("llmId", "69b7e5f1b2fe44704ab0e7d0"),
             mentalist_llm=mentalist_llm,
             use_mentalist=use_mentalist,
         )

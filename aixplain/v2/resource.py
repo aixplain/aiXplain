@@ -688,6 +688,10 @@ class Page(Generic[ResourceT]):
 
         return json.dumps(self.__dict__, indent=2, default=str)
 
+    def __iter__(self):
+        """Iterate over the results in this page."""
+        return iter(self.results)
+
     def __getitem__(self, key: str):
         """Allow dictionary-like access to page attributes."""
         return getattr(self, key)
@@ -741,7 +745,11 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
             # This will automatically map API field names to dataclass field
             # names
             if isinstance(cls, HasFromDict):
-                obj = cls.from_dict(item)
+                try:
+                    obj = cls.from_dict(item)
+                except Exception as e:
+                    logger.warning("Skipping item during %s deserialization: %s", cls.__name__, e)
+                    continue
             else:
                 # Fallback for classes without from_dict
                 obj = cls(**item)  # type: ignore[call-arg]
@@ -915,7 +923,10 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         obj = _flatten_asset_info(dict(obj)) if isinstance(obj, dict) else obj
 
         if isinstance(cls, HasFromDict):
-            instance = cls.from_dict(obj)
+            try:
+                instance = cls.from_dict(obj)
+            except Exception as e:
+                raise ResourceError(f"Failed to deserialize {cls.__name__} (id={id}): {e}") from e
         else:
             instance = cls(**obj)  # type: ignore[call-arg]
         setattr(instance, "context", context)
@@ -1274,6 +1285,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "usedCredits": response.get("usedCredits", 0.0),
             "runTime": response.get("runTime", 0.0),
             "requestId": response.get("requestId"),
+            "usage": response.get("usage"),
+            "asset": response.get("asset"),
         }
         status = response.get("status", "IN_PROGRESS")
 
@@ -1286,7 +1299,20 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         try:
             result = response_class.from_dict(filtered_response)
         except Exception:
-            raise
+            if filtered_response.get("completed"):
+                logger.warning(
+                    "Poll response deserialization failed for a completed response. "
+                    "Building fallback result from raw data."
+                )
+                result = response_class.from_dict(
+                    {
+                        "status": filtered_response["status"],
+                        "completed": True,
+                        "data": filtered_response.get("data") or {},
+                    }
+                )
+            else:
+                raise
 
         # Attach raw response
         result._raw_data = response

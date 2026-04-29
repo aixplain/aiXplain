@@ -205,6 +205,7 @@ class LLM(Model):
             used_credits=response.pop("usedCredits", 0),
             run_time=response.pop("runTime", 0),
             usage=response.pop("usage", None),
+            asset=response.pop("asset", None),
             error_code=response.get("error_code", None),
             **response,
         )

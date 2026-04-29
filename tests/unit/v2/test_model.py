@@ -11,7 +11,38 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from aixplain.v2.enums import Function, ResponseStatus
-from aixplain.v2.model import Message, Model, ModelResponseStreamer, ModelResult, StreamChunk
+from aixplain.v2.model import Message, Model, ModelResponseStreamer, ModelResult, StreamChunk, Usage, find_function_by_id
+
+
+# =============================================================================
+# Function Decoder Tests
+# =============================================================================
+
+
+class TestFindFunctionById:
+    """Tests for find_function_by_id normalisation across backend ID formats."""
+
+    def test_exact_enum_value(self):
+        """Direct enum value like TEXT_GENERATION should resolve."""
+        assert find_function_by_id("TEXT_GENERATION") == Function.TEXT_GENERATION
+
+    def test_kebab_case_backend_format(self):
+        """Backend-style kebab-case IDs (text-generation) should resolve."""
+        assert find_function_by_id("text-generation") == Function.TEXT_GENERATION
+
+    def test_mixed_case_kebab(self):
+        """Mixed-case kebab IDs should still resolve."""
+        assert find_function_by_id("Speech-Recognition") == Function.SPEECH_RECOGNITION
+
+    def test_unknown_id_returns_none(self):
+        """Completely unknown IDs should return None, not raise."""
+        assert find_function_by_id("nonexistent-function") is None
+
+    def test_all_enum_members_resolve_via_kebab(self):
+        """Every Function member should be reachable via its kebab-case form."""
+        for member in Function:
+            kebab = member.value.lower().replace("_", "-")
+            assert find_function_by_id(kebab) == member, f"{kebab} did not resolve to {member}"
 
 
 # =============================================================================
@@ -29,7 +60,7 @@ class TestModelConnectionTypeProperties:
         model.name = "Test Model"
         model.connection_type = connection_type
         model.params = None
-        model._dynamic_attrs = {}
+        model.__post_init__()
         return model
 
     # is_sync_only tests
@@ -87,8 +118,14 @@ class TestModelCapabilityInference:
 
     @staticmethod
     def _param(name: str):
-        """Create a lightweight parameter-like object."""
-        return SimpleNamespace(name=name)
+        """Create a lightweight parameter-like object compatible with Inputs."""
+        return SimpleNamespace(
+            name=name,
+            required=False,
+            data_type="text",
+            data_sub_type="text",
+            default_values=[],
+        )
 
     def _create_model(self, function=Function.TEXT_GENERATION, params=None, function_type="ai"):
         """Helper to create a Model with capability-related fields."""
@@ -98,7 +135,7 @@ class TestModelCapabilityInference:
         model.function = function
         model.function_type = function_type
         model.params = params
-        model._dynamic_attrs = {}
+        model.__post_init__()
         return model
 
     def test_supports_tool_calling_true_with_tools_param(self):
@@ -182,7 +219,7 @@ class TestModelRunRouting:
         model.name = "Test Model"
         model.connection_type = connection_type
         model.params = None
-        model._dynamic_attrs = {}
+        model.__post_init__()
         model.context = Mock()
         return model
 
@@ -236,6 +273,21 @@ class TestModelRunRouting:
         mock_super_run_async.assert_called_once()
         assert result.status == "IN_PROGRESS"
 
+    def test_build_run_payload_strips_sdk_params(self):
+        """build_run_payload should exclude timeout, wait_time, show_progress, stream."""
+        model = self._create_model_with_mocks(connection_type=["asynchronous"])
+        payload = model.build_run_payload(
+            text="hello",
+            temperature=0.7,
+            timeout=90,
+            wait_time=0.5,
+            show_progress=True,
+            stream=True,
+        )
+        assert payload == {"text": "hello", "temperature": 0.7}
+        for key in ("timeout", "wait_time", "show_progress", "stream"):
+            assert key not in payload
+
 
 # =============================================================================
 # V1 Fallback Tests
@@ -252,7 +304,7 @@ class TestModelV1Fallback:
         model.name = "Test Model"
         model.connection_type = ["synchronous"]
         model.params = None
-        model._dynamic_attrs = {}
+        model.__post_init__()
         model.context = Mock()
         model.context.model_url = "https://models.aixplain.com/api/v2/execute"
         model.context.api_key = "test-api-key"
@@ -392,7 +444,7 @@ class TestModelStreaming:
         model.name = "Test Model"
         model.supports_streaming = True
         model.params = None
-        model._dynamic_attrs = {}
+        model.__post_init__()
         model.context = Mock()
         model.context.client = Mock()
         return model
@@ -598,7 +650,7 @@ class TestModelIntegrationGaps:
         model.name = "Test Model"
         model.connection_type = ["synchronous"]
         model.params = None
-        model._dynamic_attrs = {}
+        model.__post_init__()
         model.context = Mock()
         model.context.client = Mock()
         return model
@@ -678,6 +730,35 @@ class TestModelIntegrationGaps:
 
         assert result._raw_data == direct_response
         assert result.model == "openai/gpt-5.2"
+
+    def test_run_sync_v2_preserves_usage_and_asset(self):
+        """_run_sync_v2() should deserialize usage and asset from direct response."""
+        model = self._create_sync_model()
+        direct_response = {
+            "status": "SUCCESS",
+            "completed": True,
+            "data": "2 + 2 = 4.",
+            "runTime": 1.766,
+            "usedCredits": 3.725e-05,
+            "usage": {"prompt_tokens": 13, "completion_tokens": 17, "total_tokens": 30},
+            "asset": {"assetId": "test-model-id", "id": "openai/gpt-5-mini/openai"},
+        }
+        model.context.client.request = Mock(return_value=direct_response)
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value={"data": "What is 2+2?"}):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    result = model._run_sync_v2(data="What is 2+2?")
+
+        assert isinstance(result, ModelResult)
+        assert result.usage is not None
+        assert isinstance(result.usage, Usage)
+        assert result.usage.prompt_tokens == 13
+        assert result.usage.completion_tokens == 17
+        assert result.usage.total_tokens == 30
+        assert result.used_credits == 3.725e-05
+        assert result.run_time == 1.766
+        assert result.asset == {"assetId": "test-model-id", "id": "openai/gpt-5-mini/openai"}
 
     def test_stream_chunk_coerces_non_string_data(self):
         """StreamChunk should enforce text chunks even when data is non-string."""

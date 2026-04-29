@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+import warnings
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
@@ -15,6 +16,7 @@ from pydantic import BaseModel
 from .enums import AssetStatus, ResponseStatus
 from .model import Model
 from .mixins import ToolableMixin
+from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
     BaseResource,
@@ -28,6 +30,7 @@ from .resource import (
     Result,
     RunnableResourceMixin,
     Page,
+    with_hooks,
 )
 
 if TYPE_CHECKING:
@@ -118,6 +121,18 @@ class OutputFormat(str, Enum):
     MARKDOWN = "markdown"
     TEXT = "text"
     JSON = "json"
+
+
+class ContextOverflowStrategy(str, Enum):
+    """Strategy applied when input messages exceed the model's context window.
+
+    Attributes:
+        TRUNCATE: Remove the oldest chat-history messages until the context fits.
+        SUMMARIZE: Replace the full chat history with an LLM-generated summary.
+    """
+
+    TRUNCATE = "truncate"
+    SUMMARIZE = "summarize"
 
 
 class AgentRunParams(BaseRunParams):
@@ -299,12 +314,13 @@ class Agent(
     RESOURCE_PATH = "v2/agents"
     POLL_URL_TEMPLATE = "sdk/agents/{execution_id}/result"
 
-    DEFAULT_LLM = "6895d6d1d50c89537c1cf237"
+    DEFAULT_LLM = "69b7e5f1b2fe44704ab0e7d0"
     SUPPLIER = "aiXplain"
 
     RESPONSE_CLASS = AgentRunResult
     Task = Task
     OutputFormat = OutputFormat
+    ContextOverflowStrategy = ContextOverflowStrategy
 
     # Core fields from Swagger
     instructions: Optional[str] = None
@@ -322,7 +338,15 @@ class Agent(
 
     # Task fields
     tasks: Optional[List[Task]] = field(default_factory=list)
-    subagents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
+    agents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
+
+    # Deprecated alias for `agents` — will be removed in a future release
+    subagents: Optional[List[Union[str, "Agent"]]] = field(
+        default=None,
+        repr=False,
+        compare=False,
+        metadata=config(exclude=lambda x: True),
+    )
 
     # Output and execution fields
     output_format: Optional[Union[str, OutputFormat]] = field(
@@ -341,6 +365,10 @@ class Agent(
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
     max_iterations: Optional[int] = field(default=5, metadata=config(field_name="maxIterations"))
     max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
+    context_overflow_strategy: Optional[str] = field(
+        default=None,
+        metadata=config(field_name="contextOverflowStrategy"),
+    )
 
     # Internal state for progress tracking (excluded from serialization)
     _progress_tracker: Optional[Any] = field(
@@ -355,15 +383,27 @@ class Agent(
         """Initialize agent after dataclass creation."""
         self.tasks = [Task.from_dict(task) for task in self.tasks]
 
-        # Store original subagent objects to resolve IDs at save time
-        self._original_subagents = list(self.subagents)
+        if self.subagents is not None:
+            warnings.warn(
+                "The 'subagents' parameter is deprecated. Use 'agents' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if self.agents:
+                raise ValueError("Cannot specify both 'agents' and 'subagents'.")
+            self.agents = self.subagents
+            self.subagents = None
+
+        # Store original agent objects to resolve IDs at save time
+        self._original_agents = list(self.agents)
         # Convert to IDs for serialization (to_dict), using None as placeholder for unsaved agents
-        self.subagents = [
-            a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.subagents
-        ]
+        self.agents = [a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.agents]
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
+
+        if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
+            self.context_overflow_strategy = self.context_overflow_strategy.value
 
         if isinstance(self.llm, Model):
             self.llm = self.llm.id
@@ -387,7 +427,7 @@ class Agent(
             self.inspector_targets = normalized_targets
 
         # TODO: Re-enable this validation after backend data consistency is fixed
-        # if self.subagents and (self.tasks or self.tools):
+        # if self.agents and (self.tasks or self.tools):
         #     raise ValueError(
         #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
         #     )
@@ -489,6 +529,7 @@ class Agent(
         "max_iterations": "maxIterations",
         "max_time": "maxTime",
         "expected_output": "expectedOutput",
+        "context_overflow_strategy": "contextOverflowStrategy",
     }
 
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
@@ -675,17 +716,17 @@ class Agent(
                         tool_name = getattr(tool, "name", f"tool_{i}")
                         failed_components.append(("tool", tool_name, str(e)))
 
-        # Save subagents (recursively)
-        if hasattr(self, "_original_subagents") and self._original_subagents:
-            for i, subagent in enumerate(self._original_subagents):
-                if isinstance(subagent, (str, dict)):  # Already an ID
+        # Save agents (recursively)
+        if hasattr(self, "_original_agents") and self._original_agents:
+            for i, agent in enumerate(self._original_agents):
+                if isinstance(agent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(subagent, "save") and hasattr(subagent, "id") and not subagent.id:
+                if hasattr(agent, "save") and hasattr(agent, "id") and not agent.id:
                     try:
-                        subagent.save(save_subcomponents=True)
+                        agent.save(save_subcomponents=True)
                     except Exception as e:
-                        subagent_name = getattr(subagent, "name", f"subagent_{i}")
-                        failed_components.append(("subagent", subagent_name, str(e)))
+                        agent_name = getattr(agent, "name", f"agent_{i}")
+                        failed_components.append(("agent", agent_name, str(e)))
 
         if failed_components:
             error_details = "; ".join(
@@ -703,14 +744,14 @@ class Agent(
                 if hasattr(tool, "id") and not tool.id:
                     unsaved_components.append(f"tool '{tool.name}'")
 
-        # Check subagents
-        if hasattr(self, "_original_subagents") and self._original_subagents:
-            for subagent in self._original_subagents:
-                if isinstance(subagent, (str, dict)):  # Already an ID
+        # Check agents
+        if hasattr(self, "_original_agents") and self._original_agents:
+            for agent in self._original_agents:
+                if isinstance(agent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(subagent, "id") and not subagent.id:
-                    subagent_name = getattr(subagent, "name", "unnamed")
-                    unsaved_components.append(f"subagent '{subagent_name}'")
+                if hasattr(agent, "id") and not agent.id:
+                    agent_name = getattr(agent, "name", "unnamed")
+                    unsaved_components.append(f"agent '{agent_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -731,14 +772,14 @@ class Agent(
                     tool_name = getattr(tool, "name", "unnamed")
                     unsaved_components.append(f"tool '{tool_name}'")
 
-        # Check subagents
-        if hasattr(self, "_original_subagents") and self._original_subagents:
-            for subagent in self._original_subagents:
-                if isinstance(subagent, (str, dict)):  # Already an ID
+        # Check agents
+        if hasattr(self, "_original_agents") and self._original_agents:
+            for agent in self._original_agents:
+                if isinstance(agent, (str, dict)):  # Already an ID
                     continue
-                if hasattr(subagent, "id") and not subagent.id:
-                    subagent_name = getattr(subagent, "name", "unnamed")
-                    unsaved_components.append(f"subagent '{subagent_name}'")
+                if hasattr(agent, "id") and not agent.id:
+                    agent_name = getattr(agent, "name", "unnamed")
+                    unsaved_components.append(f"agent '{agent_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -762,14 +803,53 @@ class Agent(
 
         return None
 
-    def after_clone(self, result: Union["Agent", Exception], **kwargs: Any) -> Optional["Agent"]:
-        """Callback called after the agent is cloned.
+    def after_duplicate(self, result: Union["Agent", Exception], **kwargs: Any) -> Optional["Agent"]:
+        """Callback called after the agent is duplicated.
 
-        Sets the cloned agent's status to DRAFT.
+        Sets the duplicated agent's status to DRAFT.
         """
         if isinstance(result, Agent):
             result.status = AssetStatus.DRAFT
         return None
+
+    @with_hooks
+    def duplicate(self, duplicate_subagents: bool = False, name: Optional[str] = None) -> "Agent":
+        """Duplicate this agent on the aiXplain platform (server-side).
+
+        Creates a server-side copy of this agent with a clean usage baseline.
+        The duplicate inherits the original's ownership, team, and permissions
+        but resets all usage and cost metrics.
+
+        Args:
+            duplicate_subagents: If True, recursively duplicates referenced subagents
+                so the duplicate has independent copies. If False, the duplicate
+                keeps references to the original subagents. Defaults to False.
+            name: Custom name for the duplicate. If None, a unique name is
+                auto-generated by the platform. Defaults to None.
+
+        Returns:
+            Agent: The newly created duplicate agent.
+
+        Raises:
+            ResourceError: If the duplication request fails.
+        """
+        from .resource import _flatten_asset_info
+
+        payload = {
+            "cloneSubagents": duplicate_subagents,
+        }
+        if name is not None:
+            payload["name"] = name
+
+        response_data = self._action(method="post", action_paths=["duplicate"], json=payload)
+
+        response_data = _flatten_asset_info(dict(response_data)) if isinstance(response_data, dict) else response_data
+
+        duplicated = Agent.from_dict(response_data)
+        duplicated.context = self.context
+        duplicated._update_saved_state()
+
+        return duplicated
 
     @classmethod
     def search(
@@ -835,21 +915,19 @@ class Agent(
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
-        from .inspector import Inspector
+        from .inspector import Inspector, PrebuiltInspector
 
         # Pre-serialize inspectors before to_dict() to avoid dataclass_json issues
         original_inspectors = self.inspectors
         if self.inspectors:
             serialized_inspectors = []
             for inspector in self.inspectors:
-                if isinstance(inspector, Inspector):
-                    # Use Inspector's to_dict method which handles callable policy serialization
+                if isinstance(inspector, (Inspector, PrebuiltInspector)):
                     serialized_inspectors.append(inspector.to_dict())
                 elif isinstance(inspector, dict):
-                    # Already serialized
                     serialized_inspectors.append(inspector)
                 else:
-                    raise ValueError(f"Inspector must be Inspector instance or dict, got {type(inspector)}")
+                    raise ValueError(f"Inspector must be Inspector, PrebuiltInspector, or dict, got {type(inspector)}")
             self.inspectors = serialized_inspectors
 
         # Pre-serialize inspector_targets to strings (enum values)
@@ -899,10 +977,10 @@ class Agent(
 
         payload["model"] = {"id": self.llm}
 
-        # Convert subagents to API format, resolving IDs from original objects
-        if hasattr(self, "_original_subagents") and self._original_subagents:
+        # Convert agents to API format, resolving IDs from original objects
+        if hasattr(self, "_original_agents") and self._original_agents:
             converted_agents = []
-            for agent in self._original_subagents:
+            for agent in self._original_agents:
                 if isinstance(agent, str):
                     agent_id = agent
                 elif isinstance(agent, dict):
@@ -910,7 +988,7 @@ class Agent(
                 else:
                     agent_id = agent.id  # Get current ID from Agent object
                 if not agent_id:
-                    raise ValueError("All subagents must be saved before saving the team agent.")
+                    raise ValueError("All agents must be saved before saving the team agent.")
                 converted_agents.append({"id": agent_id, "inspectors": []})
             payload["agents"] = converted_agents
 
@@ -941,6 +1019,7 @@ class Agent(
             "maxTokens": getattr(self, "max_tokens", 2048),
             "maxIterations": getattr(self, "max_iterations", 5),
             "maxTime": 300,
+            "contextOverflowStrategy": getattr(self, "context_overflow_strategy", None),
         }
 
         for k, v in defaults.items():
@@ -990,6 +1069,7 @@ class Agent(
             "id": self.id,
             "executionParams": execution_params,
             "runResponseGeneration": run_response_generation,
+            "metaData": build_run_metadata(),
         }
 
         # Add query back if present
