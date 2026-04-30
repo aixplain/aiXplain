@@ -111,4 +111,3 @@ def build_run_metadata() -> Dict[str, Any]:
         meta["timezone"] = tz.strip()
 
     return meta
-

@@ -98,6 +98,7 @@ def test_fail_key_not_found():
 
 
 def test_success_query_content():
+    user_info_utils._fetch_ipinfo.cache_clear()
     agent = Agent(
         "123",
         "Test Agent(-)",
@@ -108,6 +109,7 @@ def test_success_query_content():
         url = agent.url
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {"data": "Hello, how are you?", "status": "IN_PROGRESS"}
+        mock.get("https://ipinfo.io/json", json={})
         mock.post(url, headers=headers, json=ref_response)
 
         response = agent.run_async(
@@ -511,6 +513,7 @@ def test_save_success(mock_model_factory_get):
 
 
 def test_run_success():
+    user_info_utils._fetch_ipinfo.cache_clear()
     agent = Agent(
         "123",
         "Test Agent(-)",
@@ -526,6 +529,7 @@ def test_run_success():
         }
 
         ref_response = {"data": "www.aixplain.com", "status": "IN_PROGRESS"}
+        mock.get("https://ipinfo.io/json", json={})
         mock.post(url, headers=headers, json=ref_response)
 
         response = agent.run_async(
