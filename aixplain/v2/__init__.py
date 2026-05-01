@@ -23,11 +23,22 @@ from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
 from .agent_evaluator import (
     AgentEvaluationExecutor,
+    AgentEvaluationResultsChatbot,
+    AgentEvaluationRow,
+    AgentEvaluationRun,
     EvalCase,
     MetricTool,
     MetricToolResponse,
     compare_agents_side_by_side,
     normalize_eval_results_dataframe,
+)
+from .eval_experiment import (
+    EXPERIMENT_COMPARISON_COL_RUN_CREATED_AT,
+    EXPERIMENT_COMPARISON_COL_RUN_INDEX,
+    Experiment,
+    ExperimentLocalCache,
+    ExperimentRun,
+    default_experiment_cache_dir,
 )
 from .eval_results_display import (
     case_comparison_html,
@@ -98,11 +109,20 @@ __all__ = [
     "ProgressFormat",
     # Agent evaluation
     "AgentEvaluationExecutor",
+    "AgentEvaluationRow",
+    "AgentEvaluationRun",
+    "AgentEvaluationResultsChatbot",
     "EvalCase",
     "MetricTool",
     "MetricToolResponse",
     "compare_agents_side_by_side",
     "normalize_eval_results_dataframe",
+    "Experiment",
+    "ExperimentRun",
+    "ExperimentLocalCache",
+    "default_experiment_cache_dir",
+    "EXPERIMENT_COMPARISON_COL_RUN_INDEX",
+    "EXPERIMENT_COMPARISON_COL_RUN_CREATED_AT",
     "case_comparison_html",
     "case_rows",
     "guess_compare_value_columns",

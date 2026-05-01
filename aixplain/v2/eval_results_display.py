@@ -1,7 +1,8 @@
-"""Display helpers for :class:`~aixplain.v2.agent_evaluator.AgentEvaluationExecutor` results.
+"""Display helpers for :class:`~aixplain.v2.agent_evaluator.AgentEvaluationRun` results.
 
-Load CSV exports of evaluation DataFrames, pivot long rows into side-by-side wide
-tables, summarize metrics by agent, and build simple HTML for notebook widgets.
+Load CSV exports (from :meth:`~aixplain.v2.agent_evaluator.AgentEvaluationRun.to_dataframe`),
+pivot long rows into side-by-side wide tables, summarize metrics by agent, and build
+simple HTML for notebook widgets.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ _SKIP_METRIC_SUFFIXES = (
     "__metric_error_type",
     "__metric_skipped",
     "__metric_skip_reason",
+    "__metric_pass",
 )
 
 
@@ -50,12 +52,15 @@ def guess_compare_value_columns(df: pd.DataFrame) -> List[str]:
 def load_eval_csv(path: Union[str, Path], **read_csv_kwargs: Any) -> pd.DataFrame:
     """Load a CSV written from evaluator results (e.g. ``df.to_csv(...)``).
 
+    For a structured :class:`~aixplain.v2.agent_evaluator.AgentEvaluationRun`, use
+    :meth:`~aixplain.v2.agent_evaluator.AgentEvaluationExecutor.load_from_csv` instead.
+
     Args:
         path: Path to the CSV file.
         **read_csv_kwargs: Forwarded to :func:`pandas.read_csv`.
 
     Returns:
-        DataFrame in the same long shape as :meth:`AgentEvaluationExecutor.evaluate`.
+        DataFrame in the same long shape as :meth:`AgentEvaluationRun.to_dataframe`.
     """
     return pd.read_csv(Path(path), **read_csv_kwargs)
 
@@ -119,10 +124,29 @@ def pivot_agents_wide(
     return wide
 
 
+def _coerce_metric_pass_cell(value: Any) -> Optional[bool]:
+    """Parse ``<prefix>__metric_pass`` cells for pass-rate aggregation."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        s = value.strip().lower()
+        if s in ("true", "1", "yes", "pass"):
+            return True
+        if s in ("false", "0", "no", "fail"):
+            return False
+    return None
+
+
 def summarize_by_agent(df: pd.DataFrame) -> pd.DataFrame:
     """Per-agent row counts, failure counts, and means of numeric metric columns.
 
     Non-numeric metric columns (e.g. string scores) are omitted from means.
+    Columns ending with ``__metric_pass`` add ``pass_rate__``, ``n_passed__``,
+    and ``n_evaluated__`` fields (threshold pass/fail) per agent.
     ``agent_run_failed`` is coerced from strings when loaded from CSV.
 
     Args:
@@ -153,7 +177,20 @@ def summarize_by_agent(df: pd.DataFrame) -> pd.DataFrame:
                 continue
             if col.startswith("case_meta__"):
                 continue
-            if not (_is_metric_data_column(col) or col in ("run_time", "used_credits")):
+            if str(col).endswith("__metric_pass"):
+                bools = sub[col].map(_coerce_metric_pass_cell)
+                valid = bools.notna()
+                if not valid.any():
+                    continue
+                passed = bools[valid].astype(bool)
+                row[f"pass_rate__{col}"] = float(passed.mean())
+                row[f"n_passed__{col}"] = int(passed.sum())
+                row[f"n_evaluated__{col}"] = int(valid.sum())
+                continue
+            if not (
+                _is_metric_data_column(col)
+                or col in ("run_time", "used_credits", "total_tool_calls")
+            ):
                 continue
             if not pd.api.types.is_numeric_dtype(sub[col]):
                 continue
