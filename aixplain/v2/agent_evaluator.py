@@ -2019,7 +2019,11 @@ class AgentEvaluationRun:
 _DEFAULT_EVAL_CHATBOT_SYSTEM_PROMPT = (
     "You are an analyst answering questions strictly about the agent evaluation "
     "results provided below. Use only facts present in the evaluation excerpt; "
-    "if something is unknown or missing, say so. Be concise and accurate."
+    "if something is unknown or missing, say so. Be concise and accurate. "
+    "When multiple agents are evaluated, the leading "
+    "\"All evaluation rows (timing and status)\" section lists every "
+    "(case, agent) row—use it for latency/cost comparisons before reading "
+    "truncated row details below."
 )
 
 def _default_insight_model() -> Optional[Model]:
@@ -2141,6 +2145,25 @@ def _reply_text_from_model_result(result: ModelResult) -> str:
     return ""
 
 
+def _chatbot_row_overview_markdown(rows: Sequence[AgentEvaluationRow]) -> str:
+    """Compact per-row timing/status lines so every agent survives prompt truncation."""
+    lines = [
+        "## All evaluation rows (timing and status)",
+        "Use this section for cross-agent comparisons (latency, cost, failures). "
+        "Detailed outputs for each row appear after metric summaries below.",
+        "",
+    ]
+    ordered = sorted(rows, key=lambda r: (r.case_index, str(r.agent_name or "")))
+    for r in ordered:
+        lines.append(
+            f"- **case {r.case_index}** · **{r.agent_name}**: "
+            f"run_time={r.run_time}, used_credits={r.used_credits}, "
+            f"status={r.status!s}, completed={r.completed}, agent_run_failed={r.agent_run_failed}",
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
 @dataclass
 class AgentEvaluationResultsChatbot:
     """LLM-backed Q&A over a single :class:`AgentEvaluationRun`.
@@ -2164,10 +2187,22 @@ class AgentEvaluationResultsChatbot:
     def _evaluation_context_block(self) -> str:
         if not self.run.rows:
             return "(no evaluation rows)"
-        ctx = self.run.to_llm_context(layout="markdown", max_output_chars=None)
-        if len(ctx) > self.max_context_chars:
-            return ctx[: self.max_context_chars] + "\n\n[... evaluation context truncated ...]"
-        return ctx
+        spine = _chatbot_row_overview_markdown(self.run.rows)
+        n_rows = len(self.run.rows)
+        reserved = len(spine) + 400
+        detail_budget = self.max_context_chars - reserved
+        if detail_budget < 1200:
+            detail_budget = max(1200, self.max_context_chars - 200)
+        # Share budget across rows so prefix truncation does not drop entire agents
+        # (unbounded output/agent_response with ctx[:N] kept only the first agent).
+        max_out = max(400, detail_budget // max(n_rows * 6, 1))
+        detail = self.run.to_llm_context(layout="markdown", max_output_chars=max_out)
+        combined = f"{spine}\n{detail}"
+        if len(combined) <= self.max_context_chars:
+            return combined
+        trim_budget = max(400, self.max_context_chars - len(spine) - 120)
+        trimmed = detail[:trim_budget] + "\n\n[... row details truncated ...]"
+        return f"{spine}\n{trimmed}"
 
     def _compose_prompt(self, question: str) -> str:
         qg_cap = max(4000, self.max_context_chars // 4)
