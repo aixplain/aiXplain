@@ -1358,7 +1358,12 @@ class AgentEvaluationRun:
             out.append(d)
         return out
 
-    def _executive_summary_template(self) -> str:
+    def _executive_summary_template(
+        self,
+        *,
+        quality_gates_report: Optional[Mapping[str, Any]] = None,
+        quality_gates_max_chars: int = 8000,
+    ) -> str:
         """Deterministic summary template used when no LLM summary is requested."""
         summary = self.run_summary(include_executive_summary=False)
         if summary["rows_evaluated"] == 0:
@@ -1398,6 +1403,12 @@ class AgentEvaluationRun:
             lines.append("")
             lines.append("Threshold pass rates (metric_pass):")
             lines.append(_format_metric_pass_rates_for_llm(mpr, markdown=False))
+
+        qg_txt = _format_quality_gates_report_text(quality_gates_report, max_chars=quality_gates_max_chars)
+        if qg_txt:
+            lines.append("")
+            lines.append("Quality gates (evaluate_quality_gates by_agent):")
+            lines.append(qg_txt)
 
         actions: List[str] = []
         if summary["agent_failure_rate"] > 0:
@@ -1465,6 +1476,7 @@ class AgentEvaluationRun:
         *,
         prompt_input_kw: Optional[str] = None,
         max_context_chars: int = 24_000,
+        quality_gates_report: Optional[Mapping[str, Any]] = None,
         **model_run_kwargs: Any,
     ) -> str:
         """Generate an executive summary, optionally using an LLM for dynamic insights.
@@ -1480,46 +1492,64 @@ class AgentEvaluationRun:
                 from model parameters.
             max_context_chars: Maximum size of embedded evaluation context passed
                 to the model.
+            quality_gates_report: Optional mapping from :meth:`evaluate_quality_gates`
+                (or its ``by_agent`` slice only); embedded as JSON for LLM/template context.
+                ``debug_dataframe`` is stripped automatically.
             **model_run_kwargs: Extra kwargs forwarded to ``model.run`` when
                 ``model`` is provided.
         """
+        qg_cap = max(4000, max_context_chars // 4)
         if model is None:
             model = _default_insight_model()
         if model is None:
-            return self._executive_summary_template()
+            return self._executive_summary_template(
+                quality_gates_report=quality_gates_report,
+                quality_gates_max_chars=qg_cap,
+            )
 
         stats = self.run_summary(include_executive_summary=False)
         ctx = self.to_llm_context(layout="markdown", max_output_chars=2500)
         if len(ctx) > max_context_chars:
             ctx = ctx[:max_context_chars] + "\n\n[... evaluation context truncated ...]"
 
-        prompt = "\n".join(
+        qg_txt = _format_quality_gates_report_text(quality_gates_report, max_chars=qg_cap)
+
+        prompt_parts: List[str] = [
+            "You are a senior evaluation analyst. Write an executive summary of this agent evaluation run.",
+            "Be specific, data-grounded, and actionable. Do not invent values.",
+            "",
+            "Requirements:",
+            "- Briefly cover run scope, quality, reliability, cost, and latency.",
+            "- Highlight strongest/weakest agents and key metric spreads.",
+            "- When metric_pass_rates is present, cite overall and per-agent pass rates.",
+            "- When quality_gates_report JSON is present (below, before row-level context), cite per-agent overall_pass, metric_gates, and aggregate_gates.",
+            "- Include concrete next actions prioritized by impact.",
+            "- Keep it concise but detailed enough for an engineering/product decision.",
+            "",
+            "=== run_summary_stats_json ===",
+            json.dumps(stats, default=str),
+            "",
+        ]
+        if qg_txt:
+            prompt_parts.extend(["=== quality_gates_report ===", qg_txt, ""])
+        prompt_parts.extend(
             [
-                "You are a senior evaluation analyst. Write an executive summary of this agent evaluation run.",
-                "Be specific, data-grounded, and actionable. Do not invent values.",
-                "",
-                "Requirements:",
-                "- Briefly cover run scope, quality, reliability, cost, and latency.",
-                "- Highlight strongest/weakest agents and key metric spreads.",
-                "- When metric_pass_rates is present, cite overall and per-agent pass rates.",
-                "- Include concrete next actions prioritized by impact.",
-                "- Keep it concise but detailed enough for an engineering/product decision.",
-                "",
-                "=== run_summary_stats_json ===",
-                json.dumps(stats, default=str),
-                "",
                 "=== compact_run_context ===",
                 ctx,
                 "",
                 "Return plain text only.",
-            ]
+            ],
         )
+        prompt = "\n".join(prompt_parts)
         kw = prompt_input_kw if prompt_input_kw is not None else _infer_prompt_input_field_name(model)
         result = model.run(**{kw: prompt}, **model_run_kwargs)
         text = _reply_text_from_model_result(result).strip()
         if text:
             return text
-        return self._executive_summary_template()
+        return self._executive_summary_template(
+            quality_gates_report=quality_gates_report,
+            quality_gates_max_chars=qg_cap,
+        )
 
     def run_summary(
         self,
@@ -1528,6 +1558,7 @@ class AgentEvaluationRun:
         summary_model: Optional[Model] = None,
         summary_prompt_input_kw: Optional[str] = None,
         summary_max_context_chars: int = 24_000,
+        quality_gates_report: Optional[Mapping[str, Any]] = None,
         **summary_model_run_kwargs: Any,
     ) -> Dict[str, Any]:
         """Return aggregate run statistics and optional executive summary text.
@@ -1535,7 +1566,13 @@ class AgentEvaluationRun:
         When ``include_executive_summary`` is true and ``summary_model`` is not
         provided, :attr:`AgentEvaluationRun.DEFAULT_INSIGHT_MODEL_PATH` is resolved
         using the client from :meth:`AgentEvaluationRun.configure_insights` when set.
+
+        Args:
+            quality_gates_report: Optional :meth:`evaluate_quality_gates` result (or ``by_agent``
+                only); copied into ``quality_gates`` on the returned dict (without
+                ``debug_dataframe``) and passed into :meth:`executive_summary` when enabled.
         """
+        slim_qg = _slim_quality_gates_report_for_llm(quality_gates_report)
         rows = list(self.rows)
         if not rows:
             out = {
@@ -1554,11 +1591,14 @@ class AgentEvaluationRun:
                 "metric_highlights": {},
                 "metric_pass_rates": {},
             }
+            if slim_qg:
+                out["quality_gates"] = slim_qg
             if include_executive_summary:
                 out["executive_summary"] = self.executive_summary(
                     model=summary_model,
                     prompt_input_kw=summary_prompt_input_kw,
                     max_context_chars=summary_max_context_chars,
+                    quality_gates_report=quality_gates_report,
                     **summary_model_run_kwargs,
                 )
             return out
@@ -1657,11 +1697,14 @@ class AgentEvaluationRun:
             "metric_highlights": metric_highlights,
             "metric_pass_rates": mpr_global,
         }
+        if slim_qg:
+            out["quality_gates"] = slim_qg
         if include_executive_summary:
             out["executive_summary"] = self.executive_summary(
                 model=summary_model,
                 prompt_input_kw=summary_prompt_input_kw,
                 max_context_chars=summary_max_context_chars,
+                quality_gates_report=quality_gates_report,
                 **summary_model_run_kwargs,
             )
         return out
@@ -1929,6 +1972,7 @@ class AgentEvaluationRun:
         system_prompt: Optional[str] = None,
         max_context_chars: int = 48_000,
         prompt_input_kw: Optional[str] = None,
+        quality_gates_report: Optional[Mapping[str, Any]] = None,
     ) -> AgentEvaluationResultsChatbot:
         """Build an LLM-backed helper that answers questions about this evaluation run.
 
@@ -1946,6 +1990,9 @@ class AgentEvaluationRun:
             max_context_chars: Truncate embedded evaluation context to this size.
             prompt_input_kw: Explicit keyword for :meth:`~aixplain.v2.model.Model.run`
                 (e.g. ``\"data\"`` for some utilities). ``None`` selects automatically.
+            quality_gates_report: Optional :meth:`evaluate_quality_gates` result (or ``by_agent``
+                only); appended as JSON after the evaluation excerpt on each turn.
+                ``debug_dataframe`` is stripped automatically.
 
         Returns:
             :class:`AgentEvaluationResultsChatbot` with :meth:`~AgentEvaluationResultsChatbot.ask`.
@@ -1965,6 +2012,7 @@ class AgentEvaluationRun:
             system_prompt=system_prompt or _DEFAULT_EVAL_CHATBOT_SYSTEM_PROMPT,
             max_context_chars=max_context_chars,
             prompt_input_kw=resolved_kw,
+            quality_gates_report=quality_gates_report,
         )
 
 
@@ -2006,6 +2054,34 @@ def _infer_prompt_input_field_name(model: Model) -> str:
         if dt == "text":
             return str(p.name)
     return str(params[0].name)
+
+
+def _slim_quality_gates_report_for_llm(report: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Normalize :meth:`~AgentEvaluationRun.evaluate_quality_gates` output for summaries / chatbot."""
+    if report is None:
+        return {}
+    if not isinstance(report, Mapping):
+        raise ValidationError("quality_gates_report must be a mapping (e.g. evaluate_quality_gates result) or None.")
+    rep = dict(report)
+    rep.pop("debug_dataframe", None)
+    if "by_agent" in rep:
+        out: Dict[str, Any] = {}
+        for key in ("all_agents_pass", "agents", "criteria", "by_agent"):
+            if key in rep:
+                out[key] = rep[key]
+        return out
+    return {"by_agent": dict(report)}
+
+
+def _format_quality_gates_report_text(report: Optional[Mapping[str, Any]], *, max_chars: Optional[int]) -> str:
+    """JSON text for embedding in prompts; optional truncation."""
+    slim = _slim_quality_gates_report_for_llm(report)
+    if not slim:
+        return ""
+    text = json.dumps(slim, default=str, indent=2)
+    if max_chars is not None and len(text) > max_chars:
+        return text[:max_chars] + "\n... [quality_gates_report truncated] ..."
+    return text
 
 
 def _reply_text_from_model_result(result: ModelResult) -> str:
@@ -2078,6 +2154,7 @@ class AgentEvaluationResultsChatbot:
     system_prompt: str = field(default=_DEFAULT_EVAL_CHATBOT_SYSTEM_PROMPT)
     max_context_chars: int = 48_000
     prompt_input_kw: str = "text"
+    quality_gates_report: Optional[Mapping[str, Any]] = None
     conversation_history: List[Dict[str, str]] = field(default_factory=list, repr=False)
 
     def reset_conversation(self) -> None:
@@ -2093,13 +2170,27 @@ class AgentEvaluationResultsChatbot:
         return ctx
 
     def _compose_prompt(self, question: str) -> str:
+        qg_cap = max(4000, self.max_context_chars // 4)
+        qg_txt = _format_quality_gates_report_text(self.quality_gates_report, max_chars=qg_cap)
         parts: List[str] = [
             self.system_prompt,
             "",
-            "=== evaluation_results ===",
-            self._evaluation_context_block(),
-            "",
         ]
+        if qg_txt:
+            parts.extend(
+                [
+                    "=== quality_gates_report ===",
+                    qg_txt,
+                    "",
+                ],
+            )
+        parts.extend(
+            [
+                "=== evaluation_results ===",
+                self._evaluation_context_block(),
+                "",
+            ],
+        )
         if self.conversation_history:
             parts.append("=== prior_conversation ===")
             for turn in self.conversation_history:
