@@ -15,7 +15,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Iterator, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Iterator, List, Mapping, Optional, Sequence, Union
 
 if TYPE_CHECKING:
     from .eval_experiment import Experiment, ExperimentLocalCache
@@ -280,6 +280,434 @@ def _apply_metric_pass_for_threshold(
         return
     score = metric_bucket.get("score")
     metric_bucket["metric_pass"] = _metric_threshold_passes(threshold, score)
+
+
+_QUALITY_GATE_NUMERIC_OPERATORS = frozenset({"lt", "le", "gt", "ge", "eq"})
+
+_QUALITY_GATE_RUN_AGGREGATE_KEYS = frozenset(
+    {
+        "agent_failure_rate",
+        "total_time_seconds",
+        "total_cost",
+        "n_agent_failures",
+        "total_tool_calls",
+        "rows_evaluated",
+    },
+)
+
+# Map overall :meth:`run_summary` gate field → per-agent stats key (see ``_stats_from_agent_rows``).
+_QUALITY_GATE_RUN_TO_PER_AGENT_STAT: Dict[str, str] = {
+    "agent_failure_rate": "failure_rate",
+    "total_time_seconds": "total_time_seconds",
+    "total_cost": "total_cost",
+    "n_agent_failures": "n_failures",
+    "total_tool_calls": "total_tool_calls",
+    "rows_evaluated": "rows",
+}
+
+# Accepted gate field names that map to :meth:`run_summary` keys.
+_QUALITY_GATE_RUN_FIELD_ALIASES: Dict[str, str] = {
+    "credits_used": "total_cost",
+    "run_time": "total_time_seconds",
+}
+
+# Reserved names in ``metric_score_criteria`` for per-row :class:`AgentEvaluationRow` scalars.
+_ROW_SAMPLE_METRIC_CRITERIA_FIELDS: Dict[str, str] = {
+    "run_time": "run_time",
+    "latency": "run_time",
+    "used_credits": "used_credits",
+    "credits_used": "used_credits",
+    "cost": "used_credits",
+}
+
+
+def _numeric_quality_compare(actual: float, bound: float, operator: str) -> bool:
+    """Compare ``actual`` to ``bound`` using ``operator`` (``lt``/``le``/``gt``/``ge``/``eq``)."""
+    op = operator.strip().lower()
+    if op == "lt":
+        return actual < bound
+    if op == "le":
+        return actual <= bound
+    if op == "gt":
+        return actual > bound
+    if op == "ge":
+        return actual >= bound
+    if op == "eq":
+        return actual == bound
+    raise ValidationError(
+        f"Unsupported comparison operator {operator!r}; expected one of "
+        f"{sorted(_QUALITY_GATE_NUMERIC_OPERATORS)}.",
+    )
+
+
+def _parse_aggregate_gate_spec(spec: Any, *, context: str) -> tuple[float, str]:
+    """Parse ``{\"bound\": float, \"operator\": \"lt\"}`` style gate specs."""
+    if not isinstance(spec, Mapping):
+        raise ValidationError(f"{context} gate must be a mapping with 'bound' and 'operator'.")
+    bound_raw = spec.get("bound")
+    try:
+        bound = float(bound_raw)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(f"{context} gate requires numeric 'bound'.") from exc
+    op = str(spec.get("operator", "lt")).strip().lower()
+    if op not in _QUALITY_GATE_NUMERIC_OPERATORS:
+        raise ValidationError(
+            f"{context}: unsupported operator {spec.get('operator')!r}; "
+            f"expected one of {sorted(_QUALITY_GATE_NUMERIC_OPERATORS)}.",
+        )
+    return bound, op
+
+
+def _parse_metric_score_criterion(spec: Any) -> tuple[Any, str, str]:
+    """Normalize custom metric score criteria.
+
+    Returns:
+        Tuple of ``(threshold_or_passing_values, operator, score_key)``. For enum-style
+        metrics, ``operator`` is ``\"in\"`` and the first element is a list of passing values.
+    """
+    score_key_default = "score"
+    if isinstance(spec, bool):
+        raise ValidationError("Metric score criterion must not be a boolean.")
+    if isinstance(spec, (list, tuple)):
+        return (list(spec), "in", score_key_default)
+    if isinstance(spec, (int, float)) and not isinstance(spec, bool):
+        return (float(spec), "gt", score_key_default)
+    if isinstance(spec, dict):
+        score_key = str(spec.get("score_key", score_key_default))
+        threshold = spec.get("threshold")
+        if isinstance(threshold, (list, tuple)):
+            return (list(threshold), "in", score_key)
+        if threshold is None:
+            raise ValidationError("Metric score criterion dict requires a 'threshold' value.")
+        if isinstance(threshold, bool):
+            raise ValidationError("Metric score threshold must not be a boolean.")
+        if isinstance(threshold, (int, float)) and not isinstance(threshold, bool):
+            op_raw = spec.get("operator", "gt")
+            op = str(op_raw).strip().lower()
+            if op not in _QUALITY_GATE_NUMERIC_OPERATORS:
+                raise ValidationError(
+                    f"Unsupported metric score operator {op_raw!r}; "
+                    f"expected one of {sorted(_QUALITY_GATE_NUMERIC_OPERATORS)}.",
+                )
+            return (float(threshold), op, score_key)
+        raise ValidationError(
+            "Metric score 'threshold' must be a number or a list/tuple of passing enum values.",
+        )
+    raise ValidationError(
+        f"Unsupported metric score criterion type {type(spec).__name__}; "
+        "use a number, list of passing strings, or a dict with 'threshold' and optional 'operator'.",
+    )
+
+
+def _row_sample_field_passes(
+    row: "AgentEvaluationRow",
+    field: str,
+    threshold_part: Any,
+    operator: str,
+) -> bool:
+    """Apply numeric criterion to ``row.run_time`` or ``row.used_credits``."""
+    raw = getattr(row, field, None)
+    try:
+        val = float(raw)
+    except (TypeError, ValueError):
+        return False
+    try:
+        bound = float(threshold_part)
+    except (TypeError, ValueError):
+        return False
+    return _numeric_quality_compare(val, bound, operator)
+
+
+def _agent_row_group_key(row: "AgentEvaluationRow") -> str:
+    """Stable bucket for grouping evaluation rows by agent."""
+    return "__unnamed__" if row.agent_name is None else str(row.agent_name)
+
+
+def _stats_from_agent_rows(sub: Sequence["AgentEvaluationRow"]) -> Dict[str, Any]:
+    """Per-agent slice stats aligned with :meth:`AgentEvaluationRun.run_summary` ``per_agent``."""
+    if not sub:
+        return {
+            "rows": 0,
+            "n_failures": 0,
+            "failure_rate": 0.0,
+            "total_cost": 0.0,
+            "total_time_seconds": 0.0,
+            "total_tool_calls": 0,
+        }
+    n = len(sub)
+    nf = sum(1 for r in sub if r.agent_run_failed)
+    return {
+        "rows": n,
+        "n_failures": nf,
+        "failure_rate": (float(nf) / float(n)) if n else 0.0,
+        "total_cost": float(sum(float(r.used_credits or 0.0) for r in sub)),
+        "total_time_seconds": float(sum(float(r.run_time or 0.0) for r in sub)),
+        "total_tool_calls": int(sum(int(r.total_tool_calls or 0) for r in sub)),
+    }
+
+
+def _metric_gate_entry_for_rows(
+    rows: Sequence["AgentEvaluationRow"],
+    pfx: str,
+    raw_spec: Any,
+) -> Dict[str, Any]:
+    """Evaluate one ``metric_score_criteria`` entry over ``rows`` (same rules as :meth:`evaluate_quality_gates`)."""
+    sample_attr = _ROW_SAMPLE_METRIC_CRITERIA_FIELDS.get(pfx)
+    thr_part, op, score_key = _parse_metric_score_criterion(raw_spec)
+    evaluated = 0
+    passed_n = 0
+    if sample_attr is not None:
+        if op == "in":
+            raise ValidationError(
+                f"metric_score_criteria[{pfx!r}]: enum/list criteria are not supported "
+                f"for per-row field {sample_attr!r}; use a numeric threshold and operator.",
+            )
+        for r in rows:
+            evaluated += 1
+            if _row_sample_field_passes(r, sample_attr, thr_part, op):
+                passed_n += 1
+    else:
+        for r in rows:
+            bucket = r.metrics.get(pfx)
+            if not isinstance(bucket, dict):
+                continue
+            if bucket.get("metric_skipped"):
+                continue
+            if bucket.get(score_key) is None:
+                continue
+            evaluated += 1
+            if _metric_row_passes_custom_criterion(bucket, thr_part, op, score_key):
+                passed_n += 1
+    gate_pass = evaluated > 0 and passed_n == evaluated
+    entry: Dict[str, Any] = {
+        "passed": gate_pass,
+        "evaluated_rows": evaluated,
+        "passed_rows": passed_n,
+        "pass_rate": (float(passed_n) / float(evaluated)) if evaluated else 0.0,
+        "operator": op,
+        "threshold": thr_part,
+    }
+    if sample_attr is not None:
+        entry["row_field"] = sample_attr
+    else:
+        entry["score_key"] = score_key
+    return entry
+
+
+_DEBUG_METRIC_BUCKET_KEYS: Sequence[str] = (
+    "score",
+    "metric_pass",
+    "metric_status",
+    "metric_completed",
+    "metric_error",
+    "metric_error_type",
+    "metric_skip_reason",
+    "metric_skipped",
+)
+
+
+def _row_quality_gate_criteria_detail(row: "AgentEvaluationRow", pfx: str, raw_spec: Any) -> Dict[str, Any]:
+    """Evaluate ``metric_score_criteria`` for one row; return ``gate_pass`` and ``gate_reason``."""
+    sample_attr = _ROW_SAMPLE_METRIC_CRITERIA_FIELDS.get(pfx)
+    thr_part, op, score_key = _parse_metric_score_criterion(raw_spec)
+    if sample_attr is not None:
+        if op == "in":
+            raise ValidationError(
+                f"metric_score_criteria[{pfx!r}]: enum/list criteria are not supported "
+                f"for per-row field {sample_attr!r}; use a numeric threshold and operator.",
+            )
+        raw_val = getattr(row, sample_attr, None)
+        try:
+            val_f = float(raw_val)
+        except (TypeError, ValueError):
+            return {
+                "gate_pass": False,
+                "gate_reason": f"{sample_attr} missing or non-numeric ({raw_val!r})",
+            }
+        ok = _row_sample_field_passes(row, sample_attr, thr_part, op)
+        if ok:
+            return {"gate_pass": True, "gate_reason": "ok"}
+        return {
+            "gate_pass": False,
+            "gate_reason": f"{sample_attr}={val_f} failed {op} {thr_part}",
+        }
+
+    bucket = row.metrics.get(pfx)
+    if not isinstance(bucket, dict):
+        return {
+            "gate_pass": False,
+            "gate_reason": f"no metric bucket for prefix {pfx!r}",
+        }
+    if bucket.get("metric_skipped"):
+        sr = bucket.get("metric_skip_reason") or "metric_skipped"
+        return {"gate_pass": False, "gate_reason": f"skipped: {sr}"}
+    score = bucket.get(score_key)
+    if score is None:
+        return {"gate_pass": False, "gate_reason": f"missing {score_key!r}"}
+    ok = _metric_row_passes_custom_criterion(bucket, thr_part, op, score_key)
+    if ok:
+        return {"gate_pass": True, "gate_reason": "ok"}
+    if op == "in":
+        return {
+            "gate_pass": False,
+            "gate_reason": f"{score_key}={score!r} not in passing values {thr_part!r}",
+        }
+    try:
+        sf = float(score)
+        tb = float(thr_part)
+    except (TypeError, ValueError):
+        return {
+            "gate_pass": False,
+            "gate_reason": f"{score_key}={score!r} failed criterion ({op} {thr_part!r})",
+        }
+    return {
+        "gate_pass": False,
+        "gate_reason": f"{score_key}={sf} failed {op} {tb}",
+    }
+
+
+def _quality_gates_debug_dataframe(
+    rows: Sequence["AgentEvaluationRow"],
+    m_crit: Mapping[str, Any],
+) -> pd.DataFrame:
+    """One row per evaluation sample with inputs, outputs, metric fields, and optional criteria columns."""
+    crit = dict(m_crit)
+    crit_metric_prefixes = {str(k) for k in crit if not _ROW_SAMPLE_METRIC_CRITERIA_FIELDS.get(str(k))}
+    prefixes_seen: set[str] = set()
+    for r in rows:
+        prefixes_seen.update(r.metrics.keys())
+    all_metric_prefixes = sorted(prefixes_seen | crit_metric_prefixes)
+
+    base_cols = (
+        "case_index",
+        "query",
+        "input",
+        "agent_name",
+        "reference",
+        "output",
+        "agent_response",
+        "status",
+        "completed",
+        "agent_run_failed",
+        "error_message",
+        "agent_error_type",
+        "run_time",
+        "used_credits",
+    )
+
+    if not rows:
+        return pd.DataFrame(columns=list(base_cols))
+
+    records: List[Dict[str, Any]] = []
+    for r in rows:
+        rec: Dict[str, Any] = {
+            "case_index": r.case_index,
+            "query": r.query,
+            "input": r.query,
+            "agent_name": r.agent_name,
+            "reference": r.reference,
+            "output": r.output,
+            "agent_response": r.agent_response,
+            "status": r.status,
+            "completed": r.completed,
+            "agent_run_failed": r.agent_run_failed,
+            "error_message": r.error_message,
+            "agent_error_type": r.agent_error_type,
+            "run_time": r.run_time,
+            "used_credits": r.used_credits,
+        }
+        for pfx in all_metric_prefixes:
+            bucket = r.metrics.get(pfx)
+            if not isinstance(bucket, dict):
+                bucket = {}
+            for mk in _DEBUG_METRIC_BUCKET_KEYS:
+                rec[f"{pfx}__{mk}"] = bucket.get(mk)
+            if pfx in crit:
+                detail = _row_quality_gate_criteria_detail(r, pfx, crit[pfx])
+                rec[f"{pfx}__criteria_pass"] = detail["gate_pass"]
+                rec[f"{pfx}__criteria_reason"] = detail["gate_reason"]
+
+        for pfx_raw, raw_spec in crit.items():
+            pfx = str(pfx_raw)
+            if not _ROW_SAMPLE_METRIC_CRITERIA_FIELDS.get(pfx):
+                continue
+            if pfx in all_metric_prefixes:
+                continue
+            detail = _row_quality_gate_criteria_detail(r, pfx, raw_spec)
+            rec[f"{pfx}__criteria_pass"] = detail["gate_pass"]
+            rec[f"{pfx}__criteria_reason"] = detail["gate_reason"]
+
+        records.append(rec)
+
+    return pd.DataFrame(records)
+
+
+def _aggregate_gates_for_stats(
+    stats: Mapping[str, Any],
+    r_gates: Mapping[str, Any],
+    *,
+    context_prefix: str,
+) -> tuple[Dict[str, Any], bool]:
+    """Apply ``run_aggregate_gates`` to a per-agent stats mapping; return results and all-pass."""
+    run_allowed = _QUALITY_GATE_RUN_AGGREGATE_KEYS | set(_QUALITY_GATE_RUN_FIELD_ALIASES.keys())
+    run_results: Dict[str, Any] = {}
+    all_pass = True
+    for key, spec in r_gates.items():
+        k = str(key)
+        if k not in run_allowed:
+            raise ValidationError(
+                f"Unknown run aggregate gate key {k!r}. "
+                f"Allowed: {sorted(run_allowed)}.",
+            )
+        canonical = _QUALITY_GATE_RUN_FIELD_ALIASES.get(k, k)
+        stat_field = _QUALITY_GATE_RUN_TO_PER_AGENT_STAT.get(canonical)
+        if stat_field is None:
+            raise ValidationError(
+                f"run_aggregate_gates[{k!r}]: internal mapping missing for {canonical!r}.",
+            )
+        bound, op = _parse_aggregate_gate_spec(spec, context=f"{context_prefix}[{k!r}]")
+        actual_raw = stats.get(stat_field)
+        try:
+            actual_f = float(actual_raw)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError(
+                f"{context_prefix}: field {stat_field!r} is not numeric (got {actual_raw!r}).",
+            ) from exc
+        ok = _numeric_quality_compare(actual_f, bound, op)
+        if not ok:
+            all_pass = False
+        run_results[k] = {
+            "passed": ok,
+            "actual": actual_f,
+            "bound": bound,
+            "operator": op,
+            "canonical_field": canonical,
+            "per_agent_stat_field": stat_field,
+        }
+    return run_results, all_pass
+
+
+def _metric_row_passes_custom_criterion(
+    bucket: Dict[str, Any],
+    threshold_part: Any,
+    operator: str,
+    score_key: str,
+) -> bool:
+    """Return whether ``bucket[score_key]`` passes under the parsed criterion."""
+    if bucket.get("metric_skipped"):
+        return False
+    score = bucket.get(score_key)
+    if score is None:
+        return False
+    if operator == "in":
+        passing = {str(x).strip() for x in threshold_part}
+        return str(score).strip() in passing
+    try:
+        bound = float(threshold_part)
+        val = float(score)
+    except (TypeError, ValueError):
+        return False
+    return _numeric_quality_compare(val, bound, operator)
 
 
 def _coerce_metric_pass_value(value: Any) -> Optional[bool]:
@@ -664,6 +1092,118 @@ class AgentEvaluationRun:
             were applied. See :func:`metric_pass_rates_from_rows`.
         """
         return metric_pass_rates_from_rows(self.rows)
+
+    def evaluate_quality_gates(
+        self,
+        *,
+        metric_score_criteria: Optional[Mapping[str, Any]] = None,
+        run_aggregate_gates: Optional[Mapping[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Assess pass/fail against custom metric score rules and run-level aggregates.
+
+        **Metric scores** (per :class:`MetricTool` prefix in :attr:`rows` ``metrics``):
+
+        - A bare number uses the same rule as :attr:`MetricTool.threshold` for numeric scores
+          (pass when ``score > threshold``).
+        - A list/tuple of strings passes when the score string is in that set (enum-style).
+        - A dict supports ``threshold``, optional ``operator`` (``lt`` / ``le`` / ``gt`` / ``ge`` /
+          ``eq``), and optional ``score_key`` (defaults to ``\"score\"``).
+
+        Rows with ``metric_skipped`` or missing ``score_key`` are omitted from that metric's
+        evaluation count. If every row is omitted, that metric gate **fails** (nothing to verify).
+
+        **Per-sample latency and cost** use the same criterion shapes as numeric metrics but
+        reserved criterion names (not metric prefixes): ``run_time`` / ``latency`` compare
+        :attr:`AgentEvaluationRow.run_time`; ``used_credits`` / ``credits_used`` / ``cost``
+        compare :attr:`AgentEvaluationRow.used_credits`. Every row is evaluated; list/enum
+        criteria are not allowed for these fields.
+
+        **Run aggregate gates** use the same **field names** as overall :meth:`run_summary`
+        (``agent_failure_rate``, ``total_time_seconds``, ``total_cost``, ``n_agent_failures``,
+        ``total_tool_calls``, ``rows_evaluated``, plus aliases ``credits_used``, ``run_time``).
+        They are evaluated **per agent** against that agent's slice (sums / counts / failure
+        rate for that agent's rows only).
+
+        Each gate is ``{\"bound\": float, \"operator\": \"lt\"}`` (default operator ``lt``).
+
+        Args:
+            metric_score_criteria: Map metric prefix or reserved per-row field name → criterion.
+            run_aggregate_gates: Map run-summary-style field → ``{\"bound\", \"operator\"}``.
+
+        Returns:
+            Dict with ``by_agent`` (each agent's ``overall_pass``, ``metric_gates``,
+            ``aggregate_gates``), ``all_agents_pass`` (conjunction across agents), ``agents``,
+            ``criteria`` echoing inputs, and ``debug_dataframe`` — a long-format
+            :class:`pandas.DataFrame` with ``query`` / ``input``, ``agent_name``, ``output``,
+            ``agent_response``, core row fields, ``<metric_prefix>__<metric_field>`` columns
+            (``score``, ``metric_pass``, ``metric_status``, ``metric_error``, skip fields, etc.),
+            plus ``<key>__criteria_pass`` / ``<key>__criteria_reason`` when the corresponding
+            ``metric_score_criteria`` entry applies to that row. Rows with missing ``agent_name``
+            are grouped under ``\"__unnamed__\"`` in ``by_agent``; the debug frame lists raw
+            ``agent_name`` values.
+        """
+        m_crit = dict(metric_score_criteria or {})
+        r_gates = dict(run_aggregate_gates or {})
+
+        groups: Dict[str, List[AgentEvaluationRow]] = {}
+        for r in self.rows:
+            groups.setdefault(_agent_row_group_key(r), []).append(r)
+        agent_keys = sorted(groups.keys())
+
+        by_agent: Dict[str, Any] = {}
+        all_agents_pass = True
+        no_gates = not m_crit and not r_gates
+
+        for agent_key in agent_keys:
+            sub = groups[agent_key]
+            metric_gates: Dict[str, Any] = {}
+            metrics_all_pass = True
+            if m_crit:
+                for prefix, raw_spec in m_crit.items():
+                    pfx = str(prefix)
+                    entry = _metric_gate_entry_for_rows(sub, pfx, raw_spec)
+                    metric_gates[pfx] = entry
+                    if not entry["passed"]:
+                        metrics_all_pass = False
+            else:
+                metrics_all_pass = True
+
+            stats = _stats_from_agent_rows(sub)
+            agg_results: Dict[str, Any] = {}
+            agg_all_pass = True
+            if r_gates:
+                agg_results, agg_all_pass = _aggregate_gates_for_stats(
+                    stats,
+                    r_gates,
+                    context_prefix=f"by_agent[{agent_key!r}]",
+                )
+
+            slice_pass = (metrics_all_pass and agg_all_pass) if not no_gates else True
+            if not slice_pass:
+                all_agents_pass = False
+
+            by_agent[agent_key] = {
+                "overall_pass": slice_pass,
+                "metric_gates": metric_gates,
+                "aggregate_gates": agg_results,
+                "stats": stats,
+            }
+
+        if no_gates:
+            all_agents_pass = True
+        elif not agent_keys:
+            all_agents_pass = False
+
+        return {
+            "by_agent": by_agent,
+            "agents": agent_keys,
+            "all_agents_pass": all_agents_pass,
+            "debug_dataframe": _quality_gates_debug_dataframe(self.rows, m_crit),
+            "criteria": {
+                "metric_score_criteria": dict(m_crit),
+                "run_aggregate_gates": dict(r_gates),
+            },
+        }
 
     def to_llm_context(
         self,
