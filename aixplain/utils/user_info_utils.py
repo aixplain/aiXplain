@@ -18,6 +18,7 @@ limitations under the License.
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, Optional, Tuple
 
@@ -77,6 +78,7 @@ def build_run_metadata() -> Dict[str, Any]:
     """
     meta: Dict[str, Any] = {
         "userAgent": "sdk",
+        "datetime": datetime.now().isoformat(),
         "region": None,
         "language": None,
         "ipAddress": None,
