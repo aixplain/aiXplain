@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 import requests_mock
 from aixplain.factories import AgentFactory
@@ -571,6 +573,8 @@ def test_run_async_includes_run_metadata():
         assert "metaData" in sent
         md = sent["metaData"]
         assert md["userAgent"] == "sdk"
+        assert isinstance(md["datetime"], str)
+        datetime.fromisoformat(md["datetime"])
         assert md["region"] == "en-US"
         assert md["language"] == "en"
         assert md["timezone"] == "America/Los_Angeles"
