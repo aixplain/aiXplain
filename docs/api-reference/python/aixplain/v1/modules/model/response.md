@@ -30,6 +30,7 @@ def __init__(status: ResponseStatus,
              usage: Optional[Dict] = None,
              url: Optional[Text] = None,
              error_code: Optional[ErrorCode] = None,
+             asset: Optional[Dict] = None,
              **kwargs)
 ```
 
@@ -46,10 +47,12 @@ Initialize a new ModelResponse instance.
 - `error_message` _Text_ - The error message if the response is not successful.
 - `used_credits` _float_ - The amount of credits used for the response.
 - `run_time` _float_ - The time taken to generate the response.
-- `usage` _Optional[Dict]_ - Usage information about the response.
+- `usage` _Optional[Dict]_ - Usage information about the response (prompt_tokens,
+  completion_tokens, total_tokens).
 - `url` _Optional[Text]_ - The URL of the response.
 - `error_code` _Optional[ErrorCode]_ - The error code if the response is not successful.
-- `data`0 - Additional keyword arguments.
+- `data`0 _Optional[Dict]_ - Asset information (assetId, id) from model serving.
+- `data`1 - Additional keyword arguments.
 
 #### \_\_getitem\_\_
 
@@ -57,7 +60,7 @@ Initialize a new ModelResponse instance.
 def __getitem__(key: Text) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L59)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L63)
 
 Get an item from the ModelResponse.
 
@@ -81,7 +84,7 @@ Get an item from the ModelResponse.
 def get(key: Text, default: Optional[Any] = None) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L81)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L85)
 
 Get an item from the ModelResponse with a default value.
 
@@ -101,7 +104,7 @@ Get an item from the ModelResponse with a default value.
 def __setitem__(key: Text, value: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L96)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L100)
 
 Set an item in the ModelResponse.
 
@@ -121,7 +124,7 @@ Set an item in the ModelResponse.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L117)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L121)
 
 Return a string representation of the ModelResponse.
 
@@ -135,7 +138,7 @@ Return a string representation of the ModelResponse.
 def __contains__(key: Text) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L148)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L154)
 
 Check if a key is in the ModelResponse.
 
@@ -154,7 +157,7 @@ Check if a key is in the ModelResponse.
 def to_dict() -> Dict[Text, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L163)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/response.py#L169)
 
 Convert the ModelResponse to a dictionary.
 
