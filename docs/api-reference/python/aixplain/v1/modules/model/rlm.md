@@ -34,7 +34,7 @@ Description:
 class RLM(Model)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L155)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L157)
 
 Recursive Language Model — long-context analysis via an iterative REPL sandbox.
 
@@ -86,7 +86,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L194)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L196)
 
 Initialize a new RLM instance.
 
@@ -117,7 +117,7 @@ def run(data: Union[Text, Dict],
         stream: bool = False) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L541)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L583)
 
 Run the RLM orchestration loop over a (potentially large) context.
 
@@ -160,15 +160,18 @@ declare a final answer via ``FINAL(...)`` or ``FINAL_VAR(...)``.
   - ``data``: The final answer string.
   - ``completed``: True on success.
   - ``run_time``: Total elapsed seconds.
+  - ``used_credits``: Total credits consumed across all
+  orchestrator calls, sandbox executions, and worker
+  ``llm_query()`` invocations.
   - ``iterations_used``: Number of orchestrator iterations (via
   ``response[&quot;iterations_used&quot;]``).
   
 
 **Raises**:
 
-- `data`7 - If ``orchestrator`` or ``worker`` models are not set,
+- ``1 - If ``orchestrator`` or ``worker`` models are not set,
   or if ``stream=True``.
-- ``4 - If ``data`` is a dict missing the ``&quot;context&quot;`` key,
+- ``8 - If ``data`` is a dict missing the ``&quot;context&quot;`` key,
   or an unsupported type.
 
 #### run\_async
@@ -179,7 +182,7 @@ def run_async(data: Union[Text, Dict],
               parameters: Optional[Dict] = None) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L714)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L764)
 
 Not supported for RLM.
 
@@ -193,7 +196,7 @@ Not supported for RLM.
 def run_stream(data: Union[Text, Dict], parameters: Optional[Dict] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L727)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L777)
 
 Not supported for RLM.
 
@@ -208,7 +211,7 @@ Not supported for RLM.
 def from_dict(cls, data: Dict) -> "RLM"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L736)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L786)
 
 Create an RLM instance from a dictionary representation.
 
@@ -247,7 +250,7 @@ required.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L786)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L836)
 
 Convert the RLM instance to a dictionary representation.
 
@@ -270,7 +273,7 @@ reconstruct the instance via ``ModelFactory.create_rlm()``.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L807)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L857)
 
 Return a string representation of this RLM instance.
 

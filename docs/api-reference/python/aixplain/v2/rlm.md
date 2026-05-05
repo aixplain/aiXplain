@@ -19,7 +19,7 @@ injected into the sandbox session.
 class RLMResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L146)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L148)
 
 Result returned by :meth:`RLM.run`.
 
@@ -29,6 +29,8 @@ RLM-specific fields.
 **Attributes**:
 
 - `iterations_used` - Number of orchestrator iterations consumed.
+- `used_credits` - Total credits consumed across all orchestrator calls,
+  sandbox executions, and worker ``llm_query()`` invocations.
 - `repl_logs` - Per-iteration REPL execution log (excluded from
   serialization; present only on live instances).
 
@@ -41,7 +43,7 @@ RLM-specific fields.
 class RLM(BaseResource, ToolableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L172)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L177)
 
 Recursive Language Model — long-context analysis via an iterative REPL sandbox.
 
@@ -91,7 +93,7 @@ print(f&quot;Completed in \{result.iterations_used} iteration(s).&quot;)
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L261)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L273)
 
 Auto-assign a UUID when no id is provided.
 
@@ -104,7 +106,7 @@ def run(data: Union[str, dict, pathlib.Path],
         **kwargs: Any) -> RLMResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L580)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L635)
 
 Run the RLM orchestration loop over a (potentially large) context.
 
@@ -142,15 +144,17 @@ a final answer via ``FINAL(...)`` or ``FINAL_VAR(...)``.
   - ``data``: Final answer string.
   - ``status``: ``&quot;SUCCESS&quot;`` or ``&quot;FAILED&quot;``.
   - ``completed``: ``True``.
+  - ``used_credits``: Total credits consumed across all orchestrator
+  calls, sandbox executions, and worker ``llm_query()`` invocations.
   - ``iterations_used``: Number of orchestrator iterations consumed.
   - ``repl_logs``: Per-iteration execution log (not serialized).
   
 
 **Raises**:
 
-- ``9 - If ``orchestrator_id`` or ``worker_id`` are unset,
+- `data`3 - If ``orchestrator_id`` or ``worker_id`` are unset,
   or if the orchestrator model call fails.
-- `data`4 - If ``data`` is a dict missing ``&quot;context&quot;``, or an
+- `data`8 - If ``data`` is a dict missing ``&quot;context&quot;``, or an
   unsupported type.
 
 #### as\_tool
@@ -159,7 +163,7 @@ a final answer via ``FINAL(...)`` or ``FINAL_VAR(...)``.
 def as_tool() -> ToolDict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L743)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L805)
 
 Serialize this RLM as a tool for agent creation.
 
@@ -177,7 +181,7 @@ argument.
 def run_async(*args: Any, **kwargs: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L767)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L829)
 
 Not supported — raises :exc:`NotImplementedError`.
 
@@ -187,7 +191,7 @@ Not supported — raises :exc:`NotImplementedError`.
 def run_stream(*args: Any, **kwargs: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L771)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L833)
 
 Not supported — raises :exc:`NotImplementedError`.
 
@@ -197,7 +201,7 @@ Not supported — raises :exc:`NotImplementedError`.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L777)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L839)
 
 Return string representation of this RLM instance.
 
