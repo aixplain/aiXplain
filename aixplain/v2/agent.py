@@ -304,6 +304,9 @@ class Agent(
 
     DEFAULT_LLM = "69b7e5f1b2fe44704ab0e7d0"
     SUPPLIER = "aiXplain"
+    LLM_ROLE_SUPERVISOR: ClassVar[str] = "supervisor"
+    LLM_ROLE_MENTALIST: ClassVar[str] = "mentalist"
+    LLM_ROLE_RESPONSE_GENERATOR: ClassVar[str] = "responseGenerator"
 
     RESPONSE_CLASS = AgentRunResult
     Task = Task
@@ -316,6 +319,10 @@ class Agent(
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
     llm: Union[str, "Model"] = field(default=DEFAULT_LLM, metadata=config(exclude=lambda x: True))
 
+    llms: Optional[Dict[str, Union[str, "Model"]]] = field(
+        default=None,
+        metadata=config(exclude=lambda x: True),
+    )
     # Asset and tool fields
     tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
 
@@ -392,10 +399,6 @@ class Agent(
 
         if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
             self.context_overflow_strategy = self.context_overflow_strategy.value
-
-        if isinstance(self.llm, Model):
-            self.llm = self.llm.id
-
         # Normalize inspector_targets to support both strings and InspectorTarget enums
         if self.inspector_targets:
             from .inspector import InspectorTarget
@@ -877,6 +880,74 @@ class Agent(
                 result[api_key] = v
         return result
 
+    @staticmethod
+    def _input_values_for_api(inputs: Any) -> Dict[str, Any]:
+        """Extract changed/non-null model input values into a plain dict."""
+        if inputs is None:
+            return {}
+
+        # If inputs behaves like a dict
+        if hasattr(inputs, "items"):
+            raw = dict(inputs.items())
+        else:
+            # If inputs is an object with dynamic attributes, like:
+            # llm.inputs.reasoning_effort = "low"
+            raw = {
+                key: value
+                for key, value in vars(inputs).items()
+                if not key.startswith("_")
+            }
+
+        return {
+            Agent._snake_to_camel(key): value
+            for key, value in raw.items()
+            if value is not None
+        }
+
+    @staticmethod
+    def _snake_to_camel(name: str) -> str:
+        """Convert reasoning_effort -> reasoningEffort."""
+        if "_" not in name:
+            return name
+
+        parts = name.split("_")
+        return parts[0] + "".join(part[:1].upper() + part[1:] for part in parts[1:])
+
+    @classmethod
+    def _llm_ref_to_manifest(cls, ref: Union[str, "Model"]) -> Dict[str, Any]:
+        """Convert an LLM string/Model into API shape."""
+        if isinstance(ref, str):
+            return {"id": ref}
+
+        if isinstance(ref, Model):
+            payload: Dict[str, Any] = {"id": ref.id}
+
+            params = cls._input_values_for_api(getattr(ref, "inputs", None))
+            if params:
+                payload["parameters"] = params
+
+            return payload
+
+        raise TypeError(f"LLM must be a string id or Model, got {type(ref)}")
+
+    def _apply_llm_fields_to_payload(self, payload: Dict[str, Any]) -> None:
+        """Add API-shaped model/llms fields to a payload."""
+        payload["model"] = self._llm_ref_to_manifest(self.llm)
+
+        if self.llms:
+            payload["llms"] = {
+                role: self._llm_ref_to_manifest(ref)
+                for role, ref in self.llms.items()
+            }
+
+    @property
+    def llm_id(self) -> str:
+        """Return main LLM id whether llm is a string or Model."""
+        if isinstance(self.llm, str):
+            return self.llm
+        if isinstance(self.llm, Model):
+            return self.llm.id
+        raise TypeError(f"LLM must be a string id or Model, got {type(self.llm)}")
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
@@ -940,7 +1011,7 @@ class Agent(
         # Update the payload with converted assets
         payload["tools"] = converted_assets
 
-        payload["model"] = {"id": self.llm}
+        self._apply_llm_fields_to_payload(payload)
 
         # Convert agents to API format, resolving IDs from original objects
         if hasattr(self, "_original_agents") and self._original_agents:
@@ -1120,3 +1191,8 @@ class Agent(
         except Exception as e:
             logging.error(f"Failed to initialize session {session_id}: {e}")
             return session_id
+
+    def to_dict(self, encode_json: bool = False) -> Dict[str, Any]:
+        payload = super().to_dict(encode_json)
+        self._apply_llm_fields_to_payload(payload)
+        return payload
