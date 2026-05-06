@@ -112,6 +112,20 @@ def encode_resource_id(resource_id: str) -> str:
     return quote(str(resource_id), safe="")
 
 
+def _is_excluded_from_serialization(field_def: Any) -> bool:
+    """Return True if a dataclass field is excluded from JSON serialization.
+
+    Detects the ``dataclasses_json`` ``exclude`` marker added via
+    ``metadata=config(exclude=...)`` on the field definition. Fields that
+    are never serialized to the backend cannot be reliably reconstructed
+    from a backend response either, so callers (e.g. :meth:`_create`) use
+    this to avoid clobbering locally-held values with stale defaults.
+    """
+    metadata = getattr(field_def, "metadata", {}) or {}
+    dj_meta = metadata.get("dataclasses_json", {})
+    return "exclude" in dj_meta
+
+
 # Protocol classes for better type safety
 @runtime_checkable
 class HasContext(Protocol):
@@ -332,8 +346,11 @@ class BaseResource:
         # Update the object from the full response
         if isinstance(self, HasFromDict):
             updated = self.from_dict(result)
-            # Update all fields from the response
-            for field_name in self.__dataclass_fields__:
+            # Update fields from the response, skipping any field that is
+            # excluded from JSON serialization.
+            for field_name, field_def in self.__dataclass_fields__.items():
+                if _is_excluded_from_serialization(field_def):
+                    continue
                 if hasattr(updated, field_name):
                     setattr(self, field_name, getattr(updated, field_name))
         else:
