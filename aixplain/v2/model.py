@@ -171,6 +171,9 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
             response: A requests.Response object with streaming enabled
         """
         self._response = response
+        encoding = getattr(response, "encoding", None)
+        if encoding is None or encoding.lower() == "iso-8859-1":
+            response.encoding = "utf-8"
         self._iterator = response.iter_lines(decode_unicode=True)
         self.status = ResponseStatus.IN_PROGRESS
         self._done = False
