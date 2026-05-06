@@ -247,6 +247,18 @@ class SplittingOptions(str, Enum):
     LINE = "line"
 
 
+class ServiceVersion(str, Enum):
+    """Agent run service version selector.
+
+    Sent as the ``serviceVersion`` field in the run request payload to
+    select which backend run service handles the execution.
+    """
+
+    V1 = "V1"
+    V2 = "V2"
+    V3 = "V3"
+
+
 __all__ = [
     "AuthenticationScheme",
     "FileType",
@@ -268,4 +280,5 @@ __all__ = [
     "CodeInterpreterModel",
     "DataType",
     "SplittingOptions",
+    "ServiceVersion",
 ]

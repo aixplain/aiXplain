@@ -13,7 +13,7 @@ from dataclasses_json import dataclass_json, config
 
 from pydantic import BaseModel
 
-from .enums import AssetStatus, ResponseStatus
+from .enums import AssetStatus, ResponseStatus, ServiceVersion
 from .model import Model
 from .mixins import ToolableMixin
 from ..utils.user_info_utils import build_run_metadata
@@ -146,6 +146,9 @@ class AgentRunParams(BaseRunParams):
                         If None (default), progress tracking is disabled.
         progress_verbosity: Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
         progress_truncate: Whether to truncate long text in progress display
+        service_version: Backend run service version. Accepts a ``ServiceVersion``
+            enum or a string ("V1", "V2", "V3"; case-insensitive). Defaults to
+            ``ServiceVersion.V2``.
     """
 
     session_id: NotRequired[Optional[Text]]
@@ -163,6 +166,7 @@ class AgentRunParams(BaseRunParams):
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
+    service_version: NotRequired[Optional[Union[Text, ServiceVersion]]]
 
 
 @dataclass_json
@@ -877,6 +881,25 @@ class Agent(
                 result[api_key] = v
         return result
 
+    @staticmethod
+    def _resolve_service_version(value: Any) -> ServiceVersion:
+        """Normalize a user-supplied service_version to a ServiceVersion enum.
+
+        Accepts None (default V2), a ServiceVersion enum, or a string
+        (case-insensitive). Raises ValueError on unknown values.
+        """
+        if value is None:
+            return ServiceVersion.V2
+        if isinstance(value, ServiceVersion):
+            return value
+        if isinstance(value, str):
+            try:
+                return ServiceVersion(value.upper())
+            except ValueError:
+                pass
+        allowed = ", ".join(v.value for v in ServiceVersion)
+        raise ValueError(f"service_version must be one of: {allowed}, got {value!r}")
+
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
@@ -1010,6 +1033,11 @@ class Agent(
         # Handle run_response_generation with default value of False
         run_response_generation = kwargs.pop("run_response_generation", False)
 
+        # Resolve service_version (accepts enum or string; defaults to V2).
+        # Pop it out so the generic camelCase translation below does not
+        # double-emit it.
+        service_version = self._resolve_service_version(kwargs.pop("service_version", None))
+
         # Process variables for instruction/description placeholders (sent to backend for substitution)
         variables = kwargs.pop("variables", None) or {}
         query = kwargs.pop("query", None)
@@ -1034,6 +1062,7 @@ class Agent(
             "id": self.id,
             "executionParams": execution_params,
             "runResponseGeneration": run_response_generation,
+            "serviceVersion": service_version.value,
             "metaData": build_run_metadata(),
         }
 
