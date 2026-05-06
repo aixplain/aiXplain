@@ -948,6 +948,7 @@ class Agent(
         if isinstance(self.llm, Model):
             return self.llm.id
         raise TypeError(f"LLM must be a string id or Model, got {type(self.llm)}")
+
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
@@ -1118,6 +1119,8 @@ class Agent(
                 api_key = self._SNAKE_TO_CAMEL.get(key, key)
                 payload[api_key] = value
 
+        self._apply_llm_fields_to_payload(payload)
+
         return payload
 
     def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
@@ -1191,8 +1194,3 @@ class Agent(
         except Exception as e:
             logging.error(f"Failed to initialize session {session_id}: {e}")
             return session_id
-
-    def to_dict(self, encode_json: bool = False) -> Dict[str, Any]:
-        payload = super().to_dict(encode_json)
-        self._apply_llm_fields_to_payload(payload)
-        return payload

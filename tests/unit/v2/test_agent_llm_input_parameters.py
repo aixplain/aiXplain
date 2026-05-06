@@ -1,11 +1,12 @@
-"""Unit tests for propagating Model input overrides into Agent save payloads.
+"""Unit tests for propagating Model input overrides into Agent save and run payloads.
 
 Covers the workflows exercised manually when tuning LLM parameters on a
 :class:`~aixplain.v2.model.Model` and attaching that model to an
 :class:`~aixplain.v2.agent.Agent` (primary ``llm`` or team ``llms``): values
 set via ``inputs.reasoning_effort = ...`` or ``inputs["reasoning_effort"] = ...``
-must appear under API ``parameters`` (camelCase keys) when building the save
-payload.
+must appear under API ``parameters`` (camelCase keys) when building either
+the save or the run payload, and must survive the implicit save that the
+runtime performs before a draft agent is executed.
 """
 
 from typing import Any, List, Optional
@@ -123,4 +124,69 @@ class TestAgentLlmInputParametersInSavePayload:
         assert payload["model"]["parameters"] == {
             "reasoningEffort": "high",
             "temperature": "0.5",
+        }
+
+
+class TestAgentLlmInputParametersInRunPayload:
+    """Model input mutations must also flow into ``build_run_payload()`` API shape."""
+
+    def test_run_payload_contains_llm_parameters(self):
+        """``build_run_payload`` includes camelCase ``parameters`` for the primary LLM."""
+        llm = _reasoning_model()
+        agent = _agent_for_save_payload(name="n", description="d", llm=llm)
+        agent.llm.inputs["reasoning_effort"] = "medium"
+
+        payload = agent.build_run_payload(query="Hello")
+
+        assert payload["model"] == {
+            "id": llm.id,
+            "parameters": {"reasoningEffort": "medium"},
+        }
+
+    def test_run_payload_contains_team_llms_parameters(self):
+        """Team ``llms`` parameters appear in run payload too."""
+        supervisor = _reasoning_model("supervisor-id")
+        supervisor.inputs.reasoning_effort = "low"
+
+        agent = _agent_for_save_payload(
+            name="n",
+            description="d",
+            llms={"supervisor": supervisor, "mentalist": "mentalist-id"},
+        )
+
+        payload = agent.build_run_payload(query="Hello")
+
+        assert payload["llms"]["supervisor"] == {
+            "id": "supervisor-id",
+            "parameters": {"reasoningEffort": "low"},
+        }
+        assert payload["llms"]["mentalist"] == {"id": "mentalist-id"}
+
+    def test_run_payload_after_create_preserves_llm_model(self):
+        """The user's LLM ``Model`` (and its parameters) must survive ``_create``.
+
+        ``Agent.run`` implicitly saves a draft agent before executing it. The
+        save response cannot reconstruct the ``llm`` field (it is excluded
+        from serialization and the API exposes it as ``model``). ``_create``
+        must therefore not overwrite a locally-held LLM ``Model`` with the
+        default value coming out of ``from_dict(response)``.
+        """
+        llm = _reasoning_model("my-custom-llm")
+        agent = _agent_for_save_payload(name="n", description="d", llm=llm)
+        agent.llm.inputs["reasoning_effort"] = "medium"
+
+        # Simulate what `Agent.save(as_draft=True)` does on a draft agent.
+        agent.context.client.request = Mock(
+            return_value={"id": "agent-id-123", "name": "n", "description": "d", "status": "draft"}
+        )
+        agent._create("v2/agents", payload={})
+
+        assert isinstance(agent.llm, Model)
+        assert agent.llm.id == "my-custom-llm"
+        assert agent.llm.inputs["reasoning_effort"].value == "medium"
+
+        payload = agent.build_run_payload(query="Hello")
+        assert payload["model"] == {
+            "id": "my-custom-llm",
+            "parameters": {"reasoningEffort": "medium"},
         }
