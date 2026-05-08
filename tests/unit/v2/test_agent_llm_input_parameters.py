@@ -1,13 +1,11 @@
 """Unit tests for propagating Model input overrides into Agent save payloads.
 
-Covers the workflows exercised manually when tuning LLM parameters on a
-:class:`~aixplain.v2.model.Model` and attaching that model to an
-:class:`~aixplain.v2.agent.Agent` (primary ``llm`` or team ``llms``): values
-set via ``inputs.reasoning_effort = ...`` or ``inputs["reasoning_effort"] = ...``
-must appear under API ``parameters`` (camelCase keys) when building the save
-payload.
+Covers :class:`~aixplain.v2.model.Model` bound to :class:`~aixplain.v2.agent.Agent`:
+primary ``llm`` manifests and ``supervisor`` / ``planner`` (team wiring) serialized
+as strings for ``supervisorId`` / ``plannerId``.
 """
 
+import json
 from typing import Any, List, Optional
 
 from unittest.mock import Mock
@@ -28,7 +26,7 @@ def _agent_for_save_payload(**kwargs: Any) -> Agent:
 
 
 def _reasoning_model(model_id: str = "test-model-1", *, params: Optional[List[Parameter]] = None) -> Model:
-    """Build a minimal Model; by default only ``reasoning_effort`` exists (no implicit defaults in payload)."""
+    """Build a minimal Model; by default only ``reasoning_effort`` exists."""
     model = Model.__new__(Model)
     model.id = model_id
     model.name = "Test LLM"
@@ -72,27 +70,36 @@ class TestAgentLlmInputParametersInSavePayload:
         payload = agent.build_save_payload()
         assert payload["model"]["parameters"] == {"reasoningEffort": "medium"}
 
-    def test_team_llms_mixed_model_and_string_ids(self):
-        """Team ``llms`` carries parameters only for embedded :class:`Model` refs."""
+    def test_planner_supervisor_string_dict_and_model_refs(self):
+        """``planner`` / ``supervisor`` become ``plannerId`` / ``supervisorId`` strings."""
         supervisor = _reasoning_model("supervisor-id")
         supervisor.inputs.reasoning_effort = "low"
-        mentalist_id = "mentalist-model-id"
+        mentalist_plain = "mentalist-model-id"
 
         agent = _agent_for_save_payload(
             name="team",
             description="team",
-            llms={
-                "supervisor": supervisor,
-                "mentalist": mentalist_id,
-            },
+            supervisor=supervisor,
+            planner=mentalist_plain,
         )
         payload = agent.build_save_payload()
 
-        assert payload["llms"]["supervisor"] == {
-            "id": "supervisor-id",
-            "parameters": {"reasoningEffort": "low"},
-        }
-        assert payload["llms"]["mentalist"] == {"id": mentalist_id}
+        assert payload["supervisorId"] == json.dumps(
+            {"id": "supervisor-id", "parameters": {"reasoningEffort": "low"}},
+            separators=(",", ":"),
+        )
+        assert payload["plannerId"] == mentalist_plain
+        assert "llms" not in payload
+
+    def test_planner_dict_serialized_to_json_string(self):
+        """A dict ``planner`` is JSON-encoded into ``plannerId``."""
+        agent = _agent_for_save_payload(
+            name="a",
+            description="d",
+            planner={"id": "p1", "parameters": {"temperature": "0.2"}},
+        )
+        payload = agent.build_save_payload()
+        assert payload["plannerId"] == '{"id":"p1","parameters":{"temperature":"0.2"}}'
 
     def test_multiple_non_none_parameters_are_merged(self):
         """Several set inputs appear together under ``parameters``."""

@@ -125,6 +125,9 @@ class ContextOverflowStrategy(str, Enum):
     SUMMARIZE = "summarize"
 
 
+RoleModelRef = Union[str, Dict[str, Any], Model]
+
+
 class AgentRunParams(BaseRunParams):
     """Parameters for running an agent.
 
@@ -323,13 +326,20 @@ class Agent(
         default=None,
         metadata=config(exclude=lambda x: True),
     )
+
     # Asset and tool fields
     tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
 
-    # Inspector and supervisor fields
+    # Inspector and team mentalist/planner/supervisor (API: plannerId, supervisorId as strings).
     inspector_id: Optional[str] = field(default=None, metadata=config(field_name="inspectorId"))
-    supervisor_id: Optional[str] = field(default=None, metadata=config(field_name="supervisorId"))
-    planner_id: Optional[str] = field(default=None, metadata=config(field_name="plannerId"))
+    planner: Optional[RoleModelRef] = field(
+        default=None,
+        metadata=config(field_name="plannerId", exclude=lambda x: True),
+    )
+    supervisor: Optional[RoleModelRef] = field(
+        default=None,
+        metadata=config(field_name="supervisorId", exclude=lambda x: True),
+    )
 
     # Task fields
     tasks: Optional[List[Task]] = field(default_factory=list)
@@ -399,6 +409,7 @@ class Agent(
 
         if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
             self.context_overflow_strategy = self.context_overflow_strategy.value
+
         # Normalize inspector_targets to support both strings and InspectorTarget enums
         if self.inspector_targets:
             from .inspector import InspectorTarget
@@ -886,23 +897,12 @@ class Agent(
         if inputs is None:
             return {}
 
-        # If inputs behaves like a dict
         if hasattr(inputs, "items"):
             raw = dict(inputs.items())
         else:
-            # If inputs is an object with dynamic attributes, like:
-            # llm.inputs.reasoning_effort = "low"
-            raw = {
-                key: value
-                for key, value in vars(inputs).items()
-                if not key.startswith("_")
-            }
+            raw = {key: value for key, value in vars(inputs).items() if not key.startswith("_")}
 
-        return {
-            Agent._snake_to_camel(key): value
-            for key, value in raw.items()
-            if value is not None
-        }
+        return {Agent._snake_to_camel(key): value for key, value in raw.items() if value is not None}
 
     @staticmethod
     def _snake_to_camel(name: str) -> str:
@@ -920,25 +920,41 @@ class Agent(
             return {"id": ref}
 
         if isinstance(ref, Model):
-            payload: Dict[str, Any] = {"id": ref.id}
+            payload_llm: Dict[str, Any] = {"id": ref.id}
 
             params = cls._input_values_for_api(getattr(ref, "inputs", None))
             if params:
-                payload["parameters"] = params
+                payload_llm["parameters"] = params
 
-            return payload
+            return payload_llm
 
         raise TypeError(f"LLM must be a string id or Model, got {type(ref)}")
 
-    def _apply_llm_fields_to_payload(self, payload: Dict[str, Any]) -> None:
-        """Add API-shaped model/llms fields to a payload."""
-        payload["model"] = self._llm_ref_to_manifest(self.llm)
+    @classmethod
+    def _role_model_ref_to_api_string(cls, ref: RoleModelRef) -> str:
+        """Encode ``planner`` / ``supervisor`` for plannerId/supervisorId wire strings."""
+        if isinstance(ref, str):
+            return ref
+        if isinstance(ref, dict):
+            return json.dumps(ref, separators=(",", ":"))
+        if isinstance(ref, Model):
+            return json.dumps(cls._llm_ref_to_manifest(ref), separators=(",", ":"))
+        raise TypeError(f"planner/supervisor must be str, dict, or Model, got {type(ref)}")
 
-        if self.llms:
-            payload["llms"] = {
-                role: self._llm_ref_to_manifest(ref)
-                for role, ref in self.llms.items()
-            }
+    def _apply_llm_fields_to_payload(self, payload: Dict[str, Any]) -> None:
+        """Set ``model`` and string ``plannerId`` / ``supervisorId``; omit legacy ``llms``."""
+        payload["model"] = self._llm_ref_to_manifest(self.llm)
+        payload.pop("llms", None)
+
+        if self.supervisor is not None:
+            payload["supervisorId"] = self._role_model_ref_to_api_string(self.supervisor)
+        else:
+            payload.pop("supervisorId", None)
+
+        if self.planner is not None:
+            payload["plannerId"] = self._role_model_ref_to_api_string(self.planner)
+        else:
+            payload.pop("plannerId", None)
 
     @property
     def llm_id(self) -> str:
@@ -948,6 +964,7 @@ class Agent(
         if isinstance(self.llm, Model):
             return self.llm.id
         raise TypeError(f"LLM must be a string id or Model, got {type(self.llm)}")
+
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
