@@ -945,9 +945,7 @@ class Agent(
         raise TypeError(f"planner/supervisor must be str, dict, or Model, got {type(ref)}")
 
     def _apply_llm_fields_to_payload(self, payload: Dict[str, Any]) -> None:
-        """Emit ``llmId`` / ``supervisorId`` / ``plannerId`` / ``responseGeneratorId``
-        as ``{id, parameters?}`` dicts.
-        """
+        """Emit ``llmId``/``supervisorId``/``plannerId``/``responseGeneratorId`` as ``{id, parameters?}`` dicts."""
         payload["llmId"] = self._llm_ref_to_manifest(self.llm)
 
         if self.supervisor is not None:
