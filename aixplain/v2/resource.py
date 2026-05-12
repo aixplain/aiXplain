@@ -111,6 +111,7 @@ def encode_resource_id(resource_id: str) -> str:
     """
     return quote(str(resource_id), safe="")
 
+
 def _is_excluded_from_serialization(field_def: Any) -> bool:
     """Return True if a dataclass field is excluded from JSON serialization.
 
@@ -123,6 +124,7 @@ def _is_excluded_from_serialization(field_def: Any) -> bool:
     metadata = getattr(field_def, "metadata", {}) or {}
     dj_meta = metadata.get("dataclasses_json", {})
     return "exclude" in dj_meta
+
 
 # Protocol classes for better type safety
 @runtime_checkable
