@@ -1,11 +1,10 @@
 """Unit tests for propagating Model input overrides into Agent save payloads.
 
 Covers :class:`~aixplain.v2.model.Model` bound to :class:`~aixplain.v2.agent.Agent`:
-primary ``llm`` manifests and ``supervisor`` / ``planner`` (team wiring) serialized
-as strings for ``supervisorId`` / ``plannerId``.
+primary ``llm`` manifests and ``supervisor`` / ``planner`` (team wiring) emitted
+as ``{id, parameters}`` dicts for ``supervisorId`` / ``plannerId``.
 """
 
-import json
 from typing import Any, List, Optional
 
 from unittest.mock import Mock
@@ -55,7 +54,7 @@ class TestAgentLlmInputParametersInSavePayload:
         agent = _agent_for_save_payload(name="n", description="d", llm=llm)
         payload = agent.build_save_payload()
 
-        assert payload["model"] == {
+        assert payload["llmId"] == {
             "id": llm.id,
             "parameters": {"reasoningEffort": "low"},
         }
@@ -68,7 +67,7 @@ class TestAgentLlmInputParametersInSavePayload:
 
         assert llm.inputs["reasoning_effort"].value == "medium"
         payload = agent.build_save_payload()
-        assert payload["model"]["parameters"] == {"reasoningEffort": "medium"}
+        assert payload["llmId"]["parameters"] == {"reasoningEffort": "medium"}
 
     def test_planner_supervisor_string_dict_and_model_refs(self):
         """``planner`` / ``supervisor`` become ``plannerId`` / ``supervisorId`` strings."""
@@ -84,22 +83,61 @@ class TestAgentLlmInputParametersInSavePayload:
         )
         payload = agent.build_save_payload()
 
-        assert payload["supervisorId"] == json.dumps(
-            {"id": "supervisor-id", "parameters": {"reasoningEffort": "low"}},
-            separators=(",", ":"),
-        )
-        assert payload["plannerId"] == mentalist_plain
+        assert payload["supervisorId"] == {
+            "id": "supervisor-id",
+            "parameters": {"reasoningEffort": "low"},
+        }
+        assert payload["plannerId"] == {"id": mentalist_plain}
         assert "llms" not in payload
 
-    def test_planner_dict_serialized_to_json_string(self):
-        """A dict ``planner`` is JSON-encoded into ``plannerId``."""
+    def test_planner_dict_emitted_as_manifest(self):
+        """A dict ``planner`` is emitted as ``{id, parameters}``."""
         agent = _agent_for_save_payload(
             name="a",
             description="d",
             planner={"id": "p1", "parameters": {"temperature": "0.2"}},
         )
         payload = agent.build_save_payload()
-        assert payload["plannerId"] == '{"id":"p1","parameters":{"temperature":"0.2"}}'
+        assert payload["plannerId"] == {
+            "id": "p1",
+            "parameters": {"temperature": "0.2"},
+        }
+
+    def test_response_generator_string_dict_and_model_refs(self):
+        """``response_generator`` becomes ``responseGeneratorId`` as ``{id, parameters?}``."""
+        rg_model = _reasoning_model("response-gen-id")
+        rg_model.inputs.reasoning_effort = "high"
+        agent_from_model = _agent_for_save_payload(
+            name="rg-model", description="d", response_generator=rg_model
+        )
+        payload = agent_from_model.build_save_payload()
+        assert payload["responseGeneratorId"] == {
+            "id": "response-gen-id",
+            "parameters": {"reasoningEffort": "high"},
+        }
+
+        agent_from_string = _agent_for_save_payload(
+            name="rg-str", description="d", response_generator="response-gen-id"
+        )
+        assert agent_from_string.build_save_payload()["responseGeneratorId"] == {
+            "id": "response-gen-id"
+        }
+
+        agent_from_dict = _agent_for_save_payload(
+            name="rg-dict",
+            description="d",
+            response_generator={"id": "rg2", "parameters": {"temperature": "0.5"}},
+        )
+        assert agent_from_dict.build_save_payload()["responseGeneratorId"] == {
+            "id": "rg2",
+            "parameters": {"temperature": "0.5"},
+        }
+
+    def test_response_generator_omitted_when_unset(self):
+        """``responseGeneratorId`` is absent from the payload when ``response_generator`` is None."""
+        agent = _agent_for_save_payload(name="n", description="d")
+        payload = agent.build_save_payload()
+        assert "responseGeneratorId" not in payload
 
     def test_multiple_non_none_parameters_are_merged(self):
         """Several set inputs appear together under ``parameters``."""
@@ -127,7 +165,7 @@ class TestAgentLlmInputParametersInSavePayload:
         agent = _agent_for_save_payload(name="n", description="d", llm=llm)
         payload = agent.build_save_payload()
 
-        assert payload["model"]["parameters"] == {
+        assert payload["llmId"]["parameters"] == {
             "reasoningEffort": "high",
             "temperature": "0.5",
         }

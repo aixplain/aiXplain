@@ -307,9 +307,6 @@ class Agent(
 
     DEFAULT_LLM = "69b7e5f1b2fe44704ab0e7d0"
     SUPPLIER = "aiXplain"
-    LLM_ROLE_SUPERVISOR: ClassVar[str] = "supervisor"
-    LLM_ROLE_MENTALIST: ClassVar[str] = "mentalist"
-    LLM_ROLE_RESPONSE_GENERATOR: ClassVar[str] = "responseGenerator"
 
     RESPONSE_CLASS = AgentRunResult
     Task = Task
@@ -322,15 +319,13 @@ class Agent(
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
     llm: Union[str, "Model"] = field(default=DEFAULT_LLM, metadata=config(exclude=lambda x: True))
 
-    llms: Optional[Dict[str, Union[str, "Model"]]] = field(
-        default=None,
-        metadata=config(exclude=lambda x: True),
-    )
-
     # Asset and tool fields
     tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
 
-    # Inspector and team mentalist/planner/supervisor (API: plannerId, supervisorId as strings).
+    # Inspector and team mentalist/planner/supervisor/response-generator. The
+    # API fields (``plannerId`` / ``supervisorId`` / ``responseGeneratorId``)
+    # accept either a Mongo id string or ``{id, parameters}``; emission is
+    # handled by ``_apply_llm_fields_to_payload``.
     inspector_id: Optional[str] = field(default=None, metadata=config(field_name="inspectorId"))
     planner: Optional[RoleModelRef] = field(
         default=None,
@@ -339,6 +334,10 @@ class Agent(
     supervisor: Optional[RoleModelRef] = field(
         default=None,
         metadata=config(field_name="supervisorId", exclude=lambda x: True),
+    )
+    response_generator: Optional[RoleModelRef] = field(
+        default=None,
+        metadata=config(field_name="responseGeneratorId", exclude=lambda x: True),
     )
 
     # Task fields
@@ -931,30 +930,40 @@ class Agent(
         raise TypeError(f"LLM must be a string id or Model, got {type(ref)}")
 
     @classmethod
-    def _role_model_ref_to_api_string(cls, ref: RoleModelRef) -> str:
-        """Encode ``planner`` / ``supervisor`` for plannerId/supervisorId wire strings."""
+    def _role_model_ref_to_manifest(cls, ref: RoleModelRef) -> Dict[str, Any]:
+        """Encode ``planner`` / ``supervisor`` for the wire as ``{id, parameters?}``."""
         if isinstance(ref, str):
-            return ref
+            return {"id": ref}
         if isinstance(ref, dict):
-            return json.dumps(ref, separators=(",", ":"))
+            payload: Dict[str, Any] = {"id": ref.get("id")}
+            params = ref.get("parameters")
+            if params:
+                payload["parameters"] = params
+            return payload
         if isinstance(ref, Model):
-            return json.dumps(cls._llm_ref_to_manifest(ref), separators=(",", ":"))
+            return cls._llm_ref_to_manifest(ref)
         raise TypeError(f"planner/supervisor must be str, dict, or Model, got {type(ref)}")
 
     def _apply_llm_fields_to_payload(self, payload: Dict[str, Any]) -> None:
-        """Set ``model`` and string ``plannerId`` / ``supervisorId``; omit legacy ``llms``."""
-        payload["model"] = self._llm_ref_to_manifest(self.llm)
-        payload.pop("llms", None)
+        """Emit ``llmId`` / ``supervisorId`` / ``plannerId`` / ``responseGeneratorId``
+        as ``{id, parameters?}`` dicts.
+        """
+        payload["llmId"] = self._llm_ref_to_manifest(self.llm)
 
         if self.supervisor is not None:
-            payload["supervisorId"] = self._role_model_ref_to_api_string(self.supervisor)
+            payload["supervisorId"] = self._role_model_ref_to_manifest(self.supervisor)
         else:
             payload.pop("supervisorId", None)
 
         if self.planner is not None:
-            payload["plannerId"] = self._role_model_ref_to_api_string(self.planner)
+            payload["plannerId"] = self._role_model_ref_to_manifest(self.planner)
         else:
             payload.pop("plannerId", None)
+
+        if self.response_generator is not None:
+            payload["responseGeneratorId"] = self._role_model_ref_to_manifest(self.response_generator)
+        else:
+            payload.pop("responseGeneratorId", None)
 
     @property
     def llm_id(self) -> str:
@@ -1128,13 +1137,13 @@ class Agent(
         # Add query back if present
         if query is not None:
             payload["query"] = query
-
         # Translate remaining snake_case kwargs to camelCase for the API
         for key, value in kwargs.items():
             if value is not None:
                 api_key = self._SNAKE_TO_CAMEL.get(key, key)
                 payload[api_key] = value
 
+        self._apply_llm_fields_to_payload(payload)
         return payload
 
     def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
@@ -1208,8 +1217,3 @@ class Agent(
         except Exception as e:
             logging.error(f"Failed to initialize session {session_id}: {e}")
             return session_id
-
-    def to_dict(self, encode_json: bool = False) -> Dict[str, Any]:
-        payload = super().to_dict(encode_json)
-        self._apply_llm_fields_to_payload(payload)
-        return payload
