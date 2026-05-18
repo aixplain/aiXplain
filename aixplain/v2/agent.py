@@ -301,7 +301,7 @@ class Agent(
     RESOURCE_PATH = "v2/agents"
     POLL_URL_TEMPLATE = "sdk/agents/{execution_id}/result"
 
-    DEFAULT_LLM = "69b7e5f1b2fe44704ab0e7d0"
+    DEFAULT_LLM = "69960b6d6103733bc067e088"
     SUPPLIER = "aiXplain"
 
     RESPONSE_CLASS = AgentRunResult
