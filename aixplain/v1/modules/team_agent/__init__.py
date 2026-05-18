@@ -164,7 +164,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             **additional_info: Additional keyword arguments.
 
         Deprecated Args:
-            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "69b7e5f1b2fe44704ab0e7d0".
+            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "69960b6d6103733bc067e088".
             mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
             use_mentalist (bool, optional): DEPRECATED. Whether to use mentalist/planner. Defaults to True.
         """
@@ -188,7 +188,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 stacklevel=2,
             )
         else:
-            llm_id = "69b7e5f1b2fe44704ab0e7d0"
+            llm_id = "69960b6d6103733bc067e088"
 
         if "mentalist_llm" in additional_info:
             mentalist_llm = additional_info.pop("mentalist_llm")
@@ -230,7 +230,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             **additional_info: Additional keyword arguments.
 
         Deprecated Args:
-            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "69b7e5f1b2fe44704ab0e7d0".
+            llm_id (Text, optional): DEPRECATED. Use 'llm' parameter instead. ID of the language model. Defaults to "69960b6d6103733bc067e088".
             mentalist_llm (Optional[LLM], optional): DEPRECATED. Mentalist/Planner LLM instance. Defaults to None.
             use_mentalist (bool, optional): DEPRECATED. Whether to use mentalist/planner. Defaults to True.
         """
@@ -1127,7 +1127,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             expected_output=data.get("expectedOutput"),
             context_overflow_strategy=data.get("contextOverflowStrategy"),
             # Pass deprecated params via kwargs
-            llm_id=data.get("llmId", "69b7e5f1b2fe44704ab0e7d0"),
+            llm_id=data.get("llmId", "69960b6d6103733bc067e088"),
             mentalist_llm=mentalist_llm,
             use_mentalist=use_mentalist,
         )
