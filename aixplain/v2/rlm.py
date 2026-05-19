@@ -238,7 +238,7 @@ def _chunk_text(text: str, budget_chars: int, overlap: int = _CHUNK_OVERLAP_CHAR
     step = max(budget_chars - overlap, 1)
     i = 0
     while i < len(text):
-        chunks.append(text[i:i + budget_chars])
+        chunks.append(text[i : i + budget_chars])
         if i + budget_chars >= len(text):
             break
         i += step
@@ -869,9 +869,7 @@ def llm_query(prompt):
             self._used_credits += credits
         if response.completed or response.status == "SUCCESS":
             return str(response.data)
-        raise ResourceError(
-            f"RLM: worker model failed — {getattr(response, 'error_message', None) or response.status}"
-        )
+        raise ResourceError(f"RLM: worker model failed — {getattr(response, 'error_message', None) or response.status}")
 
     @staticmethod
     def _resolve_url_context(context: Union[str, dict, list]) -> Union[str, dict, list]:
@@ -884,6 +882,7 @@ def llm_query(prompt):
         if not (isinstance(context, str) and (context.startswith("http://") or context.startswith("https://"))):
             return context
         import requests
+
         r = requests.get(context, timeout=60)
         r.raise_for_status()
         ct = r.headers.get("Content-Type", "")
@@ -934,7 +933,7 @@ def llm_query(prompt):
         level, until a single answer remains. log(N) depth.
         """
         while len(answers) > 1:
-            groups = [answers[i:i + _REDUCE_FAN_IN] for i in range(0, len(answers), _REDUCE_FAN_IN)]
+            groups = [answers[i : i + _REDUCE_FAN_IN] for i in range(0, len(answers), _REDUCE_FAN_IN)]
 
             def _reduce_group(group: List[str]) -> str:
                 formatted = "\n\n".join(f"[Part]: {a}" for a in group)
