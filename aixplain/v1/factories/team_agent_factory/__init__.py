@@ -115,7 +115,7 @@ class TeamAgentFactory:
                 stacklevel=2,
             )
         else:
-            llm_id = "69960b6d6103733bc067e088"
+            llm_id = "69b7e5f1b2fe44704ab0e7d0"
 
         if "mentalist_llm" in kwargs:
             mentalist_llm = kwargs.pop("mentalist_llm")

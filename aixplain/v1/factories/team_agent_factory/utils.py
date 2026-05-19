@@ -17,7 +17,7 @@ from aixplain.factories.model_factory import ModelFactory
 from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.modules.agent.output_format import OutputFormat
 
-GPT_5_4_ID = "69960b6d6103733bc067e088"
+GPT_5_4_ID = "69b7e5f1b2fe44704ab0e7d0"
 SUPPORTED_TOOLS = ["llm", "website_search", "website_scrape", "website_crawl", "serper_search"]
 
 
