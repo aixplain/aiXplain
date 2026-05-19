@@ -1,9 +1,9 @@
 """Agent evaluation utilities for aiXplain v2 SDK.
 
-Provides a minimal executor that runs evaluation cases through one or more
-:class:`~aixplain.v2.agent.Agent` instances, runs optional :class:`MetricTool`
-instances, and returns a structured :class:`AgentEvaluationRun`. Use
-:meth:`AgentEvaluationRun.to_dataframe` for tabular export and
+Provides a minimal executor that runs a :class:`Dataset` of :class:`EvalCase`
+rows through one or more :class:`~aixplain.v2.agent.Agent` instances, runs optional
+:class:`MetricTool` instances, and returns a structured :class:`AgentEvaluationRun`.
+Use :meth:`AgentEvaluationRun.to_dataframe` for tabular export and
 :meth:`AgentEvaluationExecutor.load_from_csv` to reload from disk.
 """
 
@@ -13,6 +13,7 @@ import ast
 import enum
 import json
 import re
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Iterator, List, Mapping, Optional, Sequence, Union
@@ -29,6 +30,27 @@ from .model import Model, ModelResult
 from .exceptions import AixplainV2Error, ValidationError, create_operation_failed_error
 from .resource import Result
 from .tool import Tool
+
+
+BASE_METRIC_PROMPT_TEMPLATE = """
+<INSTRUCTION>
+
+## Evaluation Rubric
+
+<RUBRIC>
+
+As an example, for the schema {{"properties": {{"foo": {{"title": "Foo", "description": "a list of strings", "type": "array", "items": {{"type": "string"}}}}}}, "required": ["foo"]}}
+the object {{"foo": ["bar", "baz"]}} is a well-formatted instance of the schema. The object {{"properties": {{"foo": ["bar", "baz"]}}}} is not well-formatted.
+
+Here is the output JSON schema:
+```json
+<OUTPUT_JSON>
+```
+
+Do not return any preamble or explanations, return only a pure JSON string surrounded by triple backticks (```).
+
+Return only the pure JSON string, surrounded by triple backticks (```). Do not include any preamble or explanations.
+"""
 
 
 def _plotly_layout_size(figsize: Optional[tuple[float, float]]) -> Dict[str, int]:
@@ -119,6 +141,142 @@ class MetricTool(Tool):
             _validate_metric_tool_threshold(self.threshold)
 
     @classmethod
+    def _generate_prompt_template(
+        cls,
+        score_type: str,
+        instruction: str,
+        start_number: Optional[float] = None,
+        end_number: Optional[float] = None,
+        categories: Optional[list[str]] = None,
+        detailed_rubric: Optional[dict] = None,
+        auto_complete: bool = False,
+    ) -> str:
+        del auto_complete  # Reserved for future prompt customization.
+
+        custom_prompt_template = BASE_METRIC_PROMPT_TEMPLATE.replace("<INSTRUCTION>", instruction)
+        if score_type == "numeric":
+            rubric = f"On a scale from {start_number} to {end_number}, where {end_number} is best, provide a score for the output according to the rubric as a single float."
+            output_json = f"""{{"properties": {{"reasoning": {{"description": "step by step reasoning to derive the final answer, using no more than 250 words", "title": "Reasoning", "type": "string"}}, "score": {{"description": "numerical score from {start_number} to {end_number}", "minimum": {start_number}, "maximum": {end_number}, "title": "Score", "type": "number"}}}}, "required": ["reasoning", "score"]}}"""
+        elif score_type == "categorical":
+            rubric = f"Choose from the following categories: {', '.join(categories)}. Provide a category for the output according to the rubric."
+            output_json = f"""{{"properties": {{"reasoning": {{"description": "step by step reasoning to derive the final answer, using no more than 250 words", "title": "Reasoning", "type": "string"}}, "score": {{"description": "categorical score from {', '.join(categories)}", "enum": {categories}, "title": "Score", "type": "string"}}}}, "required": ["reasoning", "score"]}}"""
+        elif score_type == "boolean":
+            rubric = (
+                "Decide if the output is correct or not. Judge correctness according to the rubric; "
+                "the final score must be the string 'true' or 'false'."
+            )
+            output_json = f"""{{"properties": {{"reasoning": {{"description": "step by step reasoning to derive the final answer, using no more than 250 words", "title": "Reasoning", "type": "string"}}, "score": {{"description": "boolean score", "enum": ["true", "false"], "title": "Score", "type": "string"}}}}, "required": ["reasoning", "score"]}}"""
+        else:
+            raise ValueError(f"Invalid score type: {score_type}. Expected one of: 'numeric', 'categorical', 'boolean'.")
+
+        if detailed_rubric is not None:
+            for key, value in detailed_rubric.items():
+                rubric += f"\n- {key}: {value}"
+
+        custom_prompt_template = custom_prompt_template.replace("<RUBRIC>", rubric)
+        custom_prompt_template = custom_prompt_template.replace("<OUTPUT_JSON>", output_json)
+
+        return custom_prompt_template
+
+    @classmethod
+    def create(
+        cls,
+        name: str,
+        llm_path: str,
+        metric_description: str = "",
+        prompt_template: Optional[str] = None,
+        score_type: Optional[str] = None,
+        instruction: Optional[str] = None,
+        start_number: Optional[float] = None,
+        end_number: Optional[float] = None,
+        categories: Optional[list[str]] = None,
+        detailed_rubric: Optional[dict] = None,
+        auto_complete: bool = False,
+        allowed_actions: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> "MetricTool":
+        """Create and persist a :class:`MetricTool` backed by the custom LLM prompt integration.
+
+        Provide either a ready-made ``prompt_template`` **or** generation parameters
+        (``score_type``, ``instruction``, and type-specific fields). When
+        ``prompt_template`` is a non-empty string, it is used as-is and generation
+        parameters are ignored.
+
+        Args:
+            name: Name of the metric tool.
+            llm_path: The path or ID of the LLM to use.
+            metric_description: Optional description of the metric tool.
+            prompt_template: Full prompt template for the LLM. If omitted or blank,
+                a template is built via :meth:`_generate_prompt_template`.
+            score_type: One of ``numeric``, ``categorical``, or ``boolean`` (required
+                when ``prompt_template`` is not set).
+            instruction: Task instruction embedded in the generated template (required
+                when ``prompt_template`` is not set).
+            start_number: Scale lower bound for ``numeric`` metrics.
+            end_number: Scale upper bound for ``numeric`` metrics.
+            categories: Allowed labels for ``categorical`` metrics.
+            detailed_rubric: Optional extra rubric lines appended to the rubric section.
+            auto_complete: Reserved for future use; passed through to template generation.
+            allowed_actions: Optional list of allowed actions (currently unused).
+            **kwargs: Reserved for future :class:`Tool` construction options.
+
+        Returns:
+            The saved :class:`MetricTool` instance.
+
+        Raises:
+            ValidationError: When neither a usable template nor valid generation inputs are given.
+        """
+        del allowed_actions, kwargs
+
+        explicit = prompt_template is not None and str(prompt_template).strip() != ""
+        if explicit:
+            resolved_prompt = str(prompt_template).strip()
+        else:
+            if not score_type or not str(score_type).strip():
+                raise ValidationError(
+                    "MetricTool.create requires either a non-empty prompt_template or score_type "
+                    "(with instruction) to generate one."
+                )
+            if instruction is None or not str(instruction).strip():
+                raise ValidationError(
+                    "MetricTool.create requires instruction when prompt_template is not provided."
+                )
+            st = str(score_type).strip()
+            if st == "numeric":
+                if start_number is None or end_number is None:
+                    raise ValidationError("start_number and end_number are required when score_type is 'numeric'.")
+            elif st == "categorical":
+                if not categories:
+                    raise ValidationError("categories must be a non-empty list when score_type is 'categorical'.")
+            elif st != "boolean":
+                raise ValidationError(
+                    f"Invalid score_type {st!r}; expected 'numeric', 'categorical', or 'boolean'."
+                )
+
+            resolved_prompt = cls._generate_prompt_template(
+                score_type=st,
+                instruction=str(instruction).strip(),
+                start_number=start_number,
+                end_number=end_number,
+                categories=categories,
+                detailed_rubric=detailed_rubric,
+                auto_complete=auto_complete,
+            )
+
+        config = {
+            "prompt": resolved_prompt,
+            "llmId": llm_path,
+        }
+        metric = cls(
+            name=name,
+            description=metric_description,
+            integration="aixplain/custom-llm-prompt/aixplain",
+            config=config,
+        )
+        metric.save()
+        return metric
+
+    @classmethod
     def initialize(
         cls,
         name: str,
@@ -128,32 +286,23 @@ class MetricTool(Tool):
         allowed_actions: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> "MetricTool":
-        """Initialize a MetricTool instance with common LLM metric tool configuration.
+        """Deprecated. Use :meth:`create` instead.
 
-        Args:
-            name: Name of the metric tool.
-            prompt_template: The prompt template string for the LLM.
-            llm_path: The path or ID of the LLM to use.
-            metric_description: Optional description of the metric tool.
-            **kwargs: Additional keyword arguments for Tool initialization.
-
-        Returns:
-            MetricTool: The initialized MetricTool instance.
+        Preserves the historical argument order ``(name, prompt_template, llm_path)``.
         """
-        config = {
-            "prompt": prompt_template,
-            "llmId": llm_path,
-        }
-        metric = cls(
-            name=name,
-            description=metric_description,
-            integration="aixplain/custom-llm-prompt/aixplain",
-            config=config,
-            # allowed_actions=allowed_actions,
-            # **kwargs,
+        warnings.warn(
+            "MetricTool.initialize is deprecated; use MetricTool.create instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
-        metric.save()
-        return metric
+        return cls.create(
+            name=name,
+            llm_path=llm_path,
+            metric_description=metric_description,
+            prompt_template=prompt_template,
+            allowed_actions=allowed_actions,
+            **kwargs,
+        )
 
     @staticmethod
     def _normalize_metric_run_data(data: Any) -> dict:
@@ -282,7 +431,11 @@ def _apply_metric_pass_for_threshold(
     metric_bucket["metric_pass"] = _metric_threshold_passes(threshold, score)
 
 
-_QUALITY_GATE_NUMERIC_OPERATORS = frozenset({"lt", "le", "gt", "ge", "eq"})
+_QUALITY_GATE_NUMERIC_OPERATORS = frozenset({"lt", "le", "gt", "ge", "eq", "ne"})
+
+_ROW_FILTER_OPERATORS = frozenset({"lt", "le", "gt", "ge", "eq", "ne", "in"})
+
+_FILTER_VALUE_UNSPECIFIED = object()
 
 _QUALITY_GATE_RUN_AGGREGATE_KEYS = frozenset(
     {
@@ -322,7 +475,7 @@ _ROW_SAMPLE_METRIC_CRITERIA_FIELDS: Dict[str, str] = {
 
 
 def _numeric_quality_compare(actual: float, bound: float, operator: str) -> bool:
-    """Compare ``actual`` to ``bound`` using ``operator`` (``lt``/``le``/``gt``/``ge``/``eq``)."""
+    """Compare ``actual`` to ``bound`` using ``operator`` (``lt``/``le``/``gt``/``ge``/``eq``/``ne``)."""
     op = operator.strip().lower()
     if op == "lt":
         return actual < bound
@@ -334,6 +487,8 @@ def _numeric_quality_compare(actual: float, bound: float, operator: str) -> bool
         return actual >= bound
     if op == "eq":
         return actual == bound
+    if op == "ne":
+        return actual != bound
     raise ValidationError(
         f"Unsupported comparison operator {operator!r}; expected one of "
         f"{sorted(_QUALITY_GATE_NUMERIC_OPERATORS)}.",
@@ -687,6 +842,20 @@ def _aggregate_gates_for_stats(
     return run_results, all_pass
 
 
+def _coerce_filter_scalar_float(x: Any) -> Optional[float]:
+    """Coerce ``x`` to float for filter / gate comparisons; reject bool and non-numeric strings."""
+    if isinstance(x, bool):
+        return None
+    if isinstance(x, (int, float)):
+        return float(x)
+    if isinstance(x, str):
+        try:
+            return float(x.strip())
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def _metric_row_passes_custom_criterion(
     bucket: Dict[str, Any],
     threshold_part: Any,
@@ -700,6 +869,19 @@ def _metric_row_passes_custom_criterion(
     if score is None:
         return False
     if operator == "in":
+        if not isinstance(threshold_part, (list, tuple)) or not threshold_part:
+            return False
+        score_f = _coerce_filter_scalar_float(score)
+        numeric_members: List[float] = []
+        if score_f is not None:
+            for x in threshold_part:
+                xf = _coerce_filter_scalar_float(x)
+                if xf is None:
+                    numeric_members = []
+                    break
+                numeric_members.append(xf)
+        if numeric_members:
+            return score_f in set(numeric_members)
         passing = {str(x).strip() for x in threshold_part}
         return str(score).strip() in passing
     try:
@@ -708,6 +890,78 @@ def _metric_row_passes_custom_criterion(
     except (TypeError, ValueError):
         return False
     return _numeric_quality_compare(val, bound, operator)
+
+
+def _normalize_row_filter_op(op: str) -> str:
+    o = str(op).strip().lower()
+    if o not in _ROW_FILTER_OPERATORS:
+        raise ValidationError(
+            f"Unsupported filter operator {op!r}; expected one of {sorted(_ROW_FILTER_OPERATORS)}.",
+        )
+    return o
+
+
+def _row_matches_metric_filter(
+    row: "AgentEvaluationRow",
+    *,
+    metric: str,
+    op: str,
+    value: Any,
+    inner_key: str,
+) -> bool:
+    """Return whether ``row`` matches a single metric or reserved per-row field filter."""
+    op_n = _normalize_row_filter_op(op)
+    sample_attr = _ROW_SAMPLE_METRIC_CRITERIA_FIELDS.get(metric)
+    if sample_attr is not None:
+        if op_n == "in":
+            if not isinstance(value, (list, tuple)) or not value:
+                raise ValidationError(
+                    f"filter(metric={metric!r}, op='in') requires a non-empty list or tuple for value.",
+                )
+            raw = getattr(row, sample_attr, None)
+            try:
+                actual = float(raw)
+            except (TypeError, ValueError):
+                return False
+            allowed: List[float] = []
+            for x in value:
+                try:
+                    allowed.append(float(x))
+                except (TypeError, ValueError) as exc:
+                    raise ValidationError(
+                        f"filter(metric={metric!r}, op='in'): each value must be numeric; got {x!r}.",
+                    ) from exc
+            return actual in set(allowed)
+        return _row_sample_field_passes(row, sample_attr, value, op_n)
+
+    bucket = row.metrics.get(metric)
+    if not isinstance(bucket, dict) or bucket.get("metric_skipped"):
+        return False
+    cell = bucket.get(inner_key)
+    if cell is None:
+        return False
+
+    if op_n == "in":
+        if not isinstance(value, (list, tuple)) or not value:
+            raise ValidationError(
+                f"filter(metric={metric!r}, op='in') requires a non-empty list or tuple for value.",
+            )
+        sub = dict(bucket)
+        sub[inner_key] = cell
+        return _metric_row_passes_custom_criterion(sub, value, op_n, inner_key)
+
+    if op_n in ("eq", "ne"):
+        cf = _coerce_filter_scalar_float(cell)
+        vf = _coerce_filter_scalar_float(value)
+        if cf is not None and vf is not None:
+            return (cf == vf) if op_n == "eq" else (cf != vf)
+        sc, sv = str(cell).strip(), str(value).strip() if value is not None else ""
+        return (sc == sv) if op_n == "eq" else (sc != sv)
+
+    try:
+        return _numeric_quality_compare(float(cell), float(value), op_n)
+    except (TypeError, ValueError):
+        return False
 
 
 def _coerce_metric_pass_value(value: Any) -> Optional[bool]:
@@ -843,6 +1097,101 @@ class EvalCase:
     query: Any
     reference: Optional[Any] = None
     metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class Dataset:
+    """Named evaluation dataset: a list of :class:`EvalCase` with optional description.
+
+    Use :meth:`from_csv` or :meth:`from_queries` to build common shapes, or construct
+    with ``Dataset(name=..., cases=[EvalCase(...), ...])``.
+    """
+
+    name: str
+    cases: List[EvalCase] = field(default_factory=list)
+    description: Optional[str] = None
+
+    def __iter__(self) -> Iterator[EvalCase]:
+        return iter(self.cases)
+
+    def __len__(self) -> int:
+        return len(self.cases)
+
+    @classmethod
+    def from_queries(
+        cls,
+        queries: Sequence[str],
+        *,
+        name: str,
+        description: Optional[str] = None,
+    ) -> Dataset:
+        """Build a dataset from plain query strings (one :class:`EvalCase` per string)."""
+        return cls(
+            name=name,
+            cases=[EvalCase(query=q) for q in queries],
+            description=description,
+        )
+
+    @classmethod
+    def from_csv(
+        cls,
+        path: Union[str, Path, Any],
+        *,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        query_column: str = "query",
+        reference_column: Optional[str] = "reference",
+        metadata_columns: Optional[Sequence[str]] = None,
+        **read_csv_kwargs: Any,
+    ) -> Dataset:
+        """Build a :class:`Dataset` from a CSV with at least a query column.
+
+        Args:
+            path: CSV path or file-like accepted by :func:`pandas.read_csv`.
+            name: Human-readable name; defaults to the path stem when ``path`` is
+                a :class:`str` or :class:`pathlib.Path`, otherwise ``"dataset"``.
+            description: Optional longer description of the dataset.
+            query_column: Column name used as :attr:`EvalCase.query`.
+            reference_column: Column for :attr:`EvalCase.reference`, or ``None`` to skip.
+            metadata_columns: Optional column names merged into each case's ``metadata``.
+            **read_csv_kwargs: Forwarded to :func:`pandas.read_csv`.
+
+        Returns:
+            Dataset with ``cases`` populated; header-only CSV yields an empty ``cases`` list.
+
+        Raises:
+            ValidationError: If the query column is missing or a row has an empty query.
+        """
+        if isinstance(path, (str, Path)):
+            resolved_name = name if name is not None else Path(path).stem
+            df = pd.read_csv(Path(path), **read_csv_kwargs)
+        else:
+            resolved_name = name if name is not None else "dataset"
+            df = pd.read_csv(path, **read_csv_kwargs)
+        if df.empty:
+            return cls(name=resolved_name, cases=[], description=description)
+        if query_column not in df.columns:
+            raise ValidationError(f"CSV must include query column {query_column!r}")
+        meta_cols = list(metadata_columns) if metadata_columns else []
+        out: List[EvalCase] = []
+        for _, row in df.iterrows():
+            raw_q = row[query_column]
+            if pd.isna(raw_q):
+                raise ValidationError("Empty query row in dataset CSV.")
+            q = raw_q.strip() if isinstance(raw_q, str) else raw_q
+            if isinstance(q, str) and not q:
+                raise ValidationError("Empty query row in dataset CSV.")
+            ref: Optional[Any] = None
+            if reference_column is not None and reference_column in df.columns:
+                v = row[reference_column]
+                ref = None if pd.isna(v) else v
+            meta: Dict[str, Any] = {}
+            for col in meta_cols:
+                if col in df.columns:
+                    v = row[col]
+                    meta[col] = None if pd.isna(v) else v
+            out.append(EvalCase(query=q, reference=ref, metadata=meta if meta else None))
+        return cls(name=resolved_name, cases=out, description=description)
 
 
 @dataclass
@@ -1054,14 +1403,18 @@ class AgentEvaluationRun:
             include_reference=include_reference,
         )
 
-    def filter(
+    def filter_base(
         self,
         *,
         case_indices: Optional[Sequence[int]] = None,
         agent_names: Optional[Sequence[str]] = None,
         agent_run_failed: Optional[bool] = None,
     ) -> AgentEvaluationRun:
-        """Return a new run containing only rows matching all supplied filters."""
+        """Return a new run containing only rows matching structural filters.
+
+        Filters by evaluation case index, agent name, and/or agent run failure flag.
+        For metric score, latency, or credits filters use :meth:`filter` instead.
+        """
         want_cases = set(case_indices) if case_indices is not None else None
         want_agents = set(agent_names) if agent_names is not None else None
         out: List[AgentEvaluationRow] = []
@@ -1074,6 +1427,79 @@ class AgentEvaluationRun:
                 continue
             out.append(r)
         return AgentEvaluationRun(rows=out)
+
+    def filter(
+        self,
+        *,
+        case_indices: Optional[Sequence[int]] = None,
+        agent_names: Optional[Sequence[str]] = None,
+        agent_run_failed: Optional[bool] = None,
+        metric: Optional[str] = None,
+        op: Optional[str] = None,
+        value: Any = _FILTER_VALUE_UNSPECIFIED,
+        inner_key: str = "score",
+    ) -> AgentEvaluationRun:
+        """Return a new run after structural filters and an optional metric clause.
+
+        Structural arguments (``case_indices``, ``agent_names``, ``agent_run_failed``)
+        are applied first via :meth:`filter_base`, then rows are kept that satisfy the
+        metric clause when ``metric`` is set.
+
+        ``metric`` is either a key under :attr:`AgentEvaluationRow.metrics` (the same
+        prefix used by :meth:`~aixplain.v2.eval_experiment.Experiment.diff` and
+        ``metrics[prefix]['score']`` in :func:`~aixplain.v2.eval_experiment._read_metric_score`),
+        or a reserved per-row field alias: ``run_time`` / ``latency`` (row latency),
+        ``used_credits`` / ``credits_used`` / ``cost`` (row credits).
+
+        ``op`` supports ``lt``, ``le``, ``gt``, ``ge``, ``eq``, ``ne``, and ``in``.
+        For ``in``, pass ``value`` as a non-empty list or tuple (numeric membership for
+        numeric scores and row-level metrics; string membership otherwise).
+
+        Args:
+            case_indices: Optional set of case indices to keep.
+            agent_names: Optional set of agent names to keep.
+            agent_run_failed: When set, keep only rows with this failure flag.
+            metric: Metric tool prefix or reserved row field name.
+            op: Comparison operator (required when ``metric`` is set).
+            value: Right-hand side: scalar for numeric/string compare, or sequence for ``in``.
+            inner_key: Bucket field to read when ``metric`` is a tool prefix (default ``score``).
+
+        Returns:
+            New :class:`AgentEvaluationRun` with matching rows.
+
+        Raises:
+            ValidationError: When ``metric``, ``op``, and ``value`` are inconsistent.
+        """
+        base = self.filter_base(
+            case_indices=case_indices,
+            agent_names=agent_names,
+            agent_run_failed=agent_run_failed,
+        )
+        if metric is None:
+            if op is not None:
+                raise ValidationError(
+                    "filter(...): op=... requires metric=.... "
+                    "Use filter_base(...) for structural filters only.",
+                )
+            if value is not _FILTER_VALUE_UNSPECIFIED:
+                raise ValidationError(
+                    "filter(...): value=... requires metric=.... "
+                    "Use filter_base(...) for structural filters only.",
+                )
+            return base
+        if op is None:
+            raise ValidationError("filter(...): metric=... requires op=....")
+        if value is _FILTER_VALUE_UNSPECIFIED:
+            raise ValidationError(
+                "filter(...): metric=... requires value=... (use a list/tuple when op='in').",
+            )
+        mkey = str(metric)
+        rows_out = [
+            r
+            for r in base.rows
+            if _row_matches_metric_filter(r, metric=mkey, op=op, value=value, inner_key=inner_key)
+        ]
+        return AgentEvaluationRun(rows=rows_out)
 
     def filter_where(self, predicate: Callable[[AgentEvaluationRow], bool]) -> AgentEvaluationRun:
         """Return a new run with rows for which ``predicate(row)`` is true."""
@@ -2844,7 +3270,7 @@ class AgentEvaluationExecutor:
     def create_experiment(
         self,
         agents: Union[Agent, Sequence[Agent]],
-        cases: Sequence[EvalCase],
+        dataset: Dataset,
         metrics: Optional[Sequence[MetricTool]] = None,
         *,
         metadata: Optional[Dict[str, Any]] = None,
@@ -2856,8 +3282,8 @@ class AgentEvaluationExecutor:
         append an :class:`~aixplain.v2.eval_experiment.ExperimentRun`.
 
         Args:
-            agents: Agent or sequence evaluated against ``cases``.
-            cases: Evaluation cases (dataset).
+            agents: Agent or sequence evaluated against ``dataset``.
+            dataset: Named evaluation dataset (:class:`Dataset`).
             metrics: Optional metric tools.
             metadata: Arbitrary JSON-serializable metadata stored on the experiment.
 
@@ -2875,7 +3301,7 @@ class AgentEvaluationExecutor:
             id=str(uuid.uuid4()),
             created_at=datetime.now(timezone.utc),
             metadata=dict(metadata or {}),
-            dataset=list(cases),
+            dataset=dataset,
             agents_snapshot=[_agent_snapshot(a) for a in agents_list],
             metrics_snapshot=[_metric_snapshot(m) for m in metrics_list],
             runs=[],
@@ -2894,65 +3320,6 @@ class AgentEvaluationExecutor:
     def load_cached_experiment(self, experiment_id: str) -> Experiment:
         """Load a cached experiment and bind this executor for subsequent :meth:`~aixplain.v2.eval_experiment.Experiment.run` calls."""
         return self._experiment_cache_store().load_experiment(experiment_id, executor=self)
-
-    @classmethod
-    def create_dataset_from_list(cls, query_list: List[str]) -> List[EvalCase]:
-        """Create a list of evaluation cases from a list of query strings."""
-        return [EvalCase(query=query) for query in query_list]
-
-    @classmethod
-    def create_dataset_from_csv(
-        cls,
-        path: Union[str, Path, Any],
-        *,
-        query_column: str = "query",
-        reference_column: Optional[str] = "reference",
-        metadata_columns: Optional[Sequence[str]] = None,
-        **read_csv_kwargs: Any,
-    ) -> List[EvalCase]:
-        """Build :class:`EvalCase` rows from a CSV with at least a query column.
-
-        Args:
-            path: CSV path or file-like accepted by :func:`pandas.read_csv`.
-            query_column: Column name used as ``EvalCase.query``.
-            reference_column: Column for ``EvalCase.reference``, or ``None`` to skip.
-            metadata_columns: Optional column names merged into each case's ``metadata``.
-            **read_csv_kwargs: Forwarded to :func:`pandas.read_csv`.
-
-        Returns:
-            List of cases; header-only CSV yields an empty list.
-
-        Raises:
-            ValidationError: If the query column is missing or a row has an empty query.
-        """
-        if isinstance(path, (str, Path)):
-            df = pd.read_csv(Path(path), **read_csv_kwargs)
-        else:
-            df = pd.read_csv(path, **read_csv_kwargs)
-        if df.empty:
-            return []
-        if query_column not in df.columns:
-            raise ValidationError(f"CSV must include query column {query_column!r}")
-        meta_cols = list(metadata_columns) if metadata_columns else []
-        out: List[EvalCase] = []
-        for _, row in df.iterrows():
-            raw_q = row[query_column]
-            if pd.isna(raw_q):
-                raise ValidationError("Empty query row in dataset CSV.")
-            q = raw_q.strip() if isinstance(raw_q, str) else raw_q
-            if isinstance(q, str) and not q:
-                raise ValidationError("Empty query row in dataset CSV.")
-            ref: Optional[Any] = None
-            if reference_column is not None and reference_column in df.columns:
-                v = row[reference_column]
-                ref = None if pd.isna(v) else v
-            meta: Dict[str, Any] = {}
-            for col in meta_cols:
-                if col in df.columns:
-                    v = row[col]
-                    meta[col] = None if pd.isna(v) else v
-            out.append(EvalCase(query=q, reference=ref, metadata=meta if meta else None))
-        return out
 
     @classmethod
     def load_from_csv(
@@ -2999,7 +3366,7 @@ class AgentEvaluationExecutor:
     def evaluate(
         self,
         agents: Union[Agent, Sequence[Agent]],
-        cases: Sequence[EvalCase],
+        dataset: Dataset,
         metrics: Optional[Sequence[MetricTool]] = None,
         **agent_run_kwargs: Any,
     ) -> AgentEvaluationRun:
@@ -3007,7 +3374,7 @@ class AgentEvaluationExecutor:
 
         Args:
             agents: A single :class:`~aixplain.v2.agent.Agent` or a sequence of agents.
-            cases: Evaluation cases to run.
+            dataset: Named evaluation dataset whose :attr:`Dataset.cases` are executed.
             metrics: Optional sequence of :class:`MetricTool` instances. When a
                 tool sets :attr:`MetricTool.threshold`, each successful metric row
                 includes ``metric_pass`` (boolean) from the score and threshold.
@@ -3016,13 +3383,13 @@ class AgentEvaluationExecutor:
         Returns:
             :class:`AgentEvaluationRun` with one :class:`AgentEvaluationRow` per
             (case, agent). Agent or metric failures are recorded per row instead of
-            aborting the batch. Empty ``cases`` yields an empty run.
+            aborting the batch. Empty ``dataset.cases`` yields an empty run.
         """
         out_rows: List[AgentEvaluationRow] = []
         metrics_list: List[MetricTool] = list(metrics) if metrics is not None else []
         agents_list: List[Agent] = _normalize_agents(agents)
 
-        for case_index, case in enumerate(cases):
+        for case_index, case in enumerate(dataset.cases):
             for agent in agents_list:
                 case_metadata = dict(case.metadata) if case.metadata else {}
                 metrics_by_prefix: Dict[str, Dict[str, Any]] = {}

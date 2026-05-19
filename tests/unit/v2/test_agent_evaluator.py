@@ -1,9 +1,10 @@
 """Unit tests for AgentEvaluationExecutor and eval row aggregation."""
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, List
+from typing import Any, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -13,7 +14,9 @@ from aixplain.v2.agent import AgentResponseData
 from aixplain.v2.agent_evaluator import (
     AgentEvaluationExecutor,
     AgentEvaluationResultsChatbot,
+    AgentEvaluationRow,
     AgentEvaluationRun,
+    Dataset,
     EvalCase,
     MetricTool,
     _infer_prompt_input_field_name,
@@ -26,9 +29,15 @@ from aixplain.v2.eval_experiment import (
     EXPERIMENT_COMPARISON_COL_RUN_INDEX,
     Experiment,
     ExperimentLocalCache,
+    ExperimentRun,
 )
 from aixplain.v2.model import Detail, Message, ModelResult
 from aixplain.v2.exceptions import APIError, ValidationError
+
+
+def _eval_ds(*cases: EvalCase) -> Dataset:
+    """Minimal :class:`Dataset` for unit tests."""
+    return Dataset(name="unit_test", cases=list(cases))
 
 
 def _successful_run_result(ard: AgentResponseData) -> MagicMock:
@@ -55,7 +64,7 @@ def test_agent_run_failure_records_row_and_skips_metrics() -> None:
     metric = MagicMock(spec=MetricTool)
     metric.name = "quality"
 
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="hello")], metrics=[metric])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="hello")), metrics=[metric])
 
     assert len(run) == 1
     row = run.rows[0]
@@ -85,7 +94,7 @@ def test_metric_failure_records_metric_columns() -> None:
     metric.name = "m1"
     metric.measure.side_effect = ValueError("invalid json")
 
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")], metrics=[metric])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
 
     assert len(run) == 1
     row = run.rows[0]
@@ -111,7 +120,7 @@ def test_success_merges_metric_columns() -> None:
     mr.validated_data = {"score": 0.9}
     metric.measure.return_value = mr
 
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")], metrics=[metric])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
     row = run.rows[0]
     assert row.agent_run_failed is False
     assert row.output == "ans"
@@ -135,13 +144,13 @@ def test_metric_numeric_threshold_sets_metric_pass() -> None:
     mr.validated_data = {"score": 0.9}
     metric.measure.return_value = mr
 
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")], metrics=[metric])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
     row = run.rows[0]
     assert row.metric_value("m1", "metric_pass") is True
 
     mr.validated_data = {"score": 0.3}
     metric.measure.return_value = mr
-    run2 = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")], metrics=[metric])
+    run2 = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
     assert run2.rows[0].metric_value("m1", "metric_pass") is False
 
 
@@ -161,7 +170,7 @@ def test_metric_pass_rates_in_run_summary_llm_context_and_summarize() -> None:
     mr.validated_data = {"score": 0.9}
     metric.measure.return_value = mr
 
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")], metrics=[metric])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
     mpr = run.metric_pass_rates()
     assert "m1" in mpr
     assert mpr["m1"]["evaluated"] == 1 and mpr["m1"]["passed"] == 1 and mpr["m1"]["pass_rate"] == 1.0
@@ -198,12 +207,12 @@ def test_metric_enum_threshold_sets_metric_pass() -> None:
     mr.validated_data = {"score": "PASS"}
     metric.measure.return_value = mr
 
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")], metrics=[metric])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
     assert run.rows[0].metric_value("m1", "metric_pass") is True
 
     mr.validated_data = {"score": "FAIL"}
     metric.measure.return_value = mr
-    run2 = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")], metrics=[metric])
+    run2 = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
     assert run2.rows[0].metric_value("m1", "metric_pass") is False
 
 
@@ -222,7 +231,7 @@ def test_evaluate_continues_after_agent_failure() -> None:
 
     run = AgentEvaluationExecutor().evaluate(
         agent,
-        [EvalCase(query="bad"), EvalCase(query="good")],
+        _eval_ds(EvalCase(query="bad"), EvalCase(query="good")),
     )
     assert len(run) == 2
     assert run.rows[0].agent_run_failed is True
@@ -312,7 +321,7 @@ def test_execution_insights_row_dataframe_and_csv_roundtrip(tmp_path: object) ->
     }
     ard = AgentResponseData(input="q", output="ans", steps=steps, execution_stats=stats)
     agent.run.return_value = _successful_run_result(ard)
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")))
     row = run.rows[0]
     assert row.request_id == "req-uuid-1"
     assert row.assets_used == ["agent:Web Agent", "tool:Tavily Web Search"]
@@ -363,7 +372,7 @@ def test_execution_insights_runtime_credit_breakdown_without_steps() -> None:
         },
     )
     agent.run.return_value = _successful_run_result(ard)
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")))
     row = run.rows[0]
     assert row.per_asset_stats["Agent A"]["run_time"] == 10.5
     assert row.per_asset_stats["Agent A"]["used_credits"] == 0.25
@@ -384,7 +393,7 @@ def test_eval_run_to_dataframe_matches_flat_columns() -> None:
     mr.completed = True
     mr.validated_data = {"score": 0.9}
     metric.measure.return_value = mr
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")], metrics=[metric])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
     df = run.to_dataframe()
     assert df.iloc[0]["m1__score"] == 0.9
     assert isinstance(run, AgentEvaluationRun)
@@ -403,7 +412,7 @@ def test_load_agent_evaluation_run_from_csv_roundtrip(tmp_path: object) -> None:
     mr.completed = True
     mr.validated_data = {"score": 0.9}
     metric.measure.return_value = mr
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")], metrics=[metric])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
     csv_path = tmp_path / "eval.csv"
     run.to_dataframe().to_csv(csv_path, index=False)
     loaded = AgentEvaluationExecutor.load_from_csv(csv_path)
@@ -430,7 +439,7 @@ def test_compare_agents_side_by_side_accepts_eval_run() -> None:
     ard_b = AgentResponseData(input="q", output="out_b", steps=[])
     a1.run.return_value = _successful_run_result(ard_a)
     a2.run.return_value = _successful_run_result(ard_b)
-    run = AgentEvaluationExecutor().evaluate([a1, a2], [EvalCase(query="q")])
+    run = AgentEvaluationExecutor().evaluate([a1, a2], _eval_ds(EvalCase(query="q")))
     wide = compare_agents_side_by_side(run, include_reference=False)
     assert wide.iloc[0]["output__A"] == "out_a"
     assert wide.iloc[0]["output__B"] == "out_b"
@@ -448,14 +457,100 @@ def test_run_filter_subset_and_filter_where() -> None:
     a2.run.return_value = _successful_run_result(ard)
     run = AgentEvaluationExecutor().evaluate(
         [a1, a2],
-        [EvalCase(query="q0"), EvalCase(query="q1")],
+        _eval_ds(EvalCase(query="q0"), EvalCase(query="q1")),
     )
     assert len(run.filter(case_indices=[0])) == 2
+    assert len(run.filter_base(case_indices=[0])) == 2
     assert len(run.filter(agent_names=["A"])) == 2
     assert len(run.subset_for_case(1)) == 2
     only_a = run.filter_where(lambda r: r.agent_name == "A")
     assert len(only_a) == 2
     assert all(r.agent_name == "A" for r in only_a.rows)
+
+
+def _sample_eval_row(
+    *,
+    case_index: int = 0,
+    agent_name: str = "A",
+    run_time: float = 5.0,
+    used_credits: float = 0.1,
+    metrics: Optional[dict] = None,
+) -> AgentEvaluationRow:
+    return AgentEvaluationRow(
+        case_index=case_index,
+        query="q",
+        reference=None,
+        agent_name=agent_name,
+        output="o",
+        agent_response=None,
+        status="SUCCESS",
+        completed=True,
+        error_message=None,
+        run_time=run_time,
+        used_credits=used_credits,
+        agent_run_failed=False,
+        agent_error_type=None,
+        agent_error_details=None,
+        case_metadata={},
+        metrics=dict(metrics or {}),
+    )
+
+
+def test_filter_metric_numeric_and_latency_chain() -> None:
+    r1 = _sample_eval_row(
+        metrics={"correctness-score": {"score": 2.5, "metric_skipped": False}},
+        run_time=15.0,
+    )
+    r2 = _sample_eval_row(
+        case_index=1,
+        metrics={"correctness-score": {"score": 3.5, "metric_skipped": False}},
+        run_time=5.0,
+    )
+    run = AgentEvaluationRun(rows=[r1, r2])
+    bad = run.filter(metric="correctness-score", op="lt", value=3.0)
+    assert len(bad) == 1 and bad.rows[0].case_index == 0
+    slow = run.filter(metric="latency", op="gt", value=10.0)
+    assert len(slow) == 1 and slow.rows[0].case_index == 0
+    chained = run.filter(metric="correctness-score", op="lt", value=3.0).filter(metric="latency", op="gt", value=10.0)
+    assert len(chained) == 1
+    assert chained.rows[0].case_index == 0
+
+
+def test_filter_metric_string_eq_and_in() -> None:
+    r1 = _sample_eval_row(metrics={"harmfulness": {"score": "Harmful", "metric_skipped": False}})
+    r2 = _sample_eval_row(
+        case_index=1,
+        metrics={"harmfulness": {"score": "Benign", "metric_skipped": False}},
+    )
+    run = AgentEvaluationRun(rows=[r1, r2])
+    harmful = run.filter(metric="harmfulness", op="eq", value="Harmful")
+    assert len(harmful) == 1 and harmful.rows[0].metrics["harmfulness"]["score"] == "Harmful"
+    either = run.filter(metric="harmfulness", op="in", value=["Harmful", "Benign"])
+    assert len(either) == 2
+
+
+def test_filter_metric_numeric_in_and_ne() -> None:
+    r1 = _sample_eval_row(metrics={"m": {"score": 2.0, "metric_skipped": False}})
+    r2 = _sample_eval_row(case_index=1, metrics={"m": {"score": 4.0, "metric_skipped": False}})
+    run = AgentEvaluationRun(rows=[r1, r2])
+    ins = run.filter(metric="m", op="in", value=[2.0, 3.0])
+    assert len(ins) == 1 and ins.rows[0].case_index == 0
+    neq = run.filter(metric="m", op="ne", value=2.0)
+    assert len(neq) == 1 and neq.rows[0].case_index == 1
+
+
+def test_filter_metric_validation_errors() -> None:
+    run = AgentEvaluationRun(rows=[_sample_eval_row()])
+    with pytest.raises(ValidationError, match="op=.*requires metric"):
+        run.filter(op="lt", value=1.0)
+    with pytest.raises(ValidationError, match="value=.*requires metric"):
+        run.filter(value=1.0)
+    with pytest.raises(ValidationError, match="metric=.*requires op"):
+        run.filter(metric="m", value=1.0)
+    with pytest.raises(ValidationError, match="metric=.*requires value"):
+        run.filter(metric="m", op="lt")
+    with pytest.raises(ValidationError, match="Unsupported filter operator"):
+        run.filter(metric="m", op="bogus", value=1.0)
 
 
 def test_run_to_llm_context_and_json_records() -> None:
@@ -470,7 +565,7 @@ def test_run_to_llm_context_and_json_records() -> None:
     mr.completed = True
     mr.validated_data = {"score": 1.0}
     metric.measure.return_value = mr
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="qq")], metrics=[metric])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="qq")), metrics=[metric])
     txt = run.to_llm_context(layout="text", max_output_chars=100)
     assert "qq" in txt and "hello" in txt and "m1" in txt
     assert "run_time" in txt and "used_credits" in txt and "0.5" in txt and "0.1" in txt
@@ -514,7 +609,7 @@ def test_run_summary_and_executive_summary() -> None:
     mr.validated_data = {"score": 0.9}
     m.measure.return_value = mr
 
-    run = AgentEvaluationExecutor().evaluate([a1, a2], [EvalCase(query="q0"), EvalCase(query="q1")], metrics=[m])
+    run = AgentEvaluationExecutor().evaluate([a1, a2], _eval_ds(EvalCase(query="q0"), EvalCase(query="q1")), metrics=[m])
     summary = run.run_summary()
     assert summary["total_samples"] == 2
     assert summary["n_agents"] == 2
@@ -556,7 +651,7 @@ def test_executive_summary_uses_llm_when_model_is_provided() -> None:
     agent.name = "A"
     ard = AgentResponseData(input="q", output="o", steps=[])
     agent.run.return_value = _successful_run_result(ard)
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")))
 
     model = MagicMock()
     model.params = [SimpleNamespace(name="data", required=True, data_type="text")]
@@ -577,7 +672,7 @@ def test_executive_summary_uses_model_when_text_only_in_details() -> None:
     agent.name = "A"
     ard = AgentResponseData(input="q", output="o", steps=[])
     agent.run.return_value = _successful_run_result(ard)
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")))
 
     model = MagicMock()
     model.params = [SimpleNamespace(name="data", required=True, data_type="text")]
@@ -599,7 +694,7 @@ def test_run_summary_uses_llm_executive_summary_when_requested() -> None:
     agent.name = "A"
     ard = AgentResponseData(input="q", output="o", steps=[])
     agent.run.return_value = _successful_run_result(ard)
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")))
 
     model = MagicMock()
     model.params = [SimpleNamespace(name="data", required=True, data_type="text")]
@@ -617,7 +712,7 @@ def test_executive_summary_uses_default_model_when_none_passed() -> None:
     agent.name = "A"
     ard = AgentResponseData(input="q", output="o", steps=[])
     agent.run.return_value = _successful_run_result(ard)
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")))
 
     default_model = MagicMock()
     default_model.params = [SimpleNamespace(name="data", required=True, data_type="text")]
@@ -695,7 +790,7 @@ def test_run_summarize_by_agent_and_pivot_wrappers() -> None:
     ard = AgentResponseData(input="q", output="x", steps=[])
     a1.run.return_value = _successful_run_result(ard)
     a2.run.return_value = _successful_run_result(ard)
-    run = AgentEvaluationExecutor().evaluate([a1, a2], [EvalCase(query="q")])
+    run = AgentEvaluationExecutor().evaluate([a1, a2], _eval_ds(EvalCase(query="q")))
     summary = run.summarize_by_agent()
     assert "agent_name" in summary.columns and len(summary) == 2
     wide = run.pivot_agents_wide(include_reference=False)
@@ -707,7 +802,7 @@ def test_run_to_llm_context_invalid_layout() -> None:
     agent.name = "a"
     ard = AgentResponseData(input="q", output="o", steps=[])
     agent.run.return_value = _successful_run_result(ard)
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")))
     with pytest.raises(ValidationError, match="layout"):
         run.to_llm_context(layout="xml")
 
@@ -717,7 +812,7 @@ def test_run_case_comparison_html() -> None:
     agent.name = "a"
     ard = AgentResponseData(input="q", output="o", steps=[])
     agent.run.return_value = _successful_run_result(ard)
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="qq")])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="qq")))
     html = run.case_comparison_html(0)
     assert "case_index=0" in html and "qq" in html
 
@@ -734,7 +829,7 @@ def test_run_metric_tool_prefixes() -> None:
     mr.completed = True
     mr.validated_data = {"score": 0.5}
     m.measure.return_value = mr
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")], metrics=[m])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[m])
     assert run.metric_tool_prefixes() == ["m1"]
 
 
@@ -746,7 +841,7 @@ def test_run_case_rows_dataframe() -> None:
     ard = AgentResponseData(input="q", output="x", steps=[])
     a1.run.return_value = _successful_run_result(ard)
     a2.run.return_value = _successful_run_result(ard)
-    run = AgentEvaluationExecutor().evaluate([a1, a2], [EvalCase(query="q")])
+    run = AgentEvaluationExecutor().evaluate([a1, a2], _eval_ds(EvalCase(query="q")))
     sub = run.case_rows(0)
     assert len(sub) == 2 and set(sub["agent_name"]) == {"A", "B"}
 
@@ -767,7 +862,7 @@ def test_run_plot_mean_metric_by_agent() -> None:
     mr.completed = True
     mr.validated_data = {"score": 0.2}
     m.measure.return_value = mr
-    run = AgentEvaluationExecutor().evaluate([a1, a2], [EvalCase(query="q")], metrics=[m])
+    run = AgentEvaluationExecutor().evaluate([a1, a2], _eval_ds(EvalCase(query="q")), metrics=[m])
     fig = run.plot_mean_metric_by_agent("score", tool_prefix="m1")
     assert (fig.layout.title.text or "") != ""
 
@@ -785,7 +880,7 @@ def test_run_chatbot_ask_uses_model() -> None:
     mr.completed = True
     mr.validated_data = {"score": 0.9}
     metric.measure.return_value = mr
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="qq")], metrics=[metric])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="qq")), metrics=[metric])
 
     model = MagicMock()
     model.params = [SimpleNamespace(name="data", required=True, data_type="text")]
@@ -846,7 +941,7 @@ def test_run_plot_mean_metric_requires_prefix_when_ambiguous() -> None:
     mr.validated_data = {"score": 0.5}
     m1.measure.return_value = mr
     m2.measure.return_value = mr
-    run = AgentEvaluationExecutor().evaluate(agent, [EvalCase(query="q")], metrics=[m1, m2])
+    run = AgentEvaluationExecutor().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[m1, m2])
     with pytest.raises(ValidationError, match="Multiple metric"):
         run.plot_mean_metric_by_agent("score")
 
@@ -863,10 +958,10 @@ def test_run_metric_inner_key_is_numeric() -> None:
     mr.completed = True
     mr.validated_data = {"label": "x"}
     m.measure.return_value = mr
-    run = AgentEvaluationExecutor().evaluate(a1, [EvalCase(query="q")], metrics=[m])
+    run = AgentEvaluationExecutor().evaluate(a1, _eval_ds(EvalCase(query="q")), metrics=[m])
     assert run.metric_inner_key_is_numeric("label", tool_prefix="m1") is False
     mr.validated_data = {"label": 0.5}
-    run = AgentEvaluationExecutor().evaluate(a1, [EvalCase(query="q")], metrics=[m])
+    run = AgentEvaluationExecutor().evaluate(a1, _eval_ds(EvalCase(query="q")), metrics=[m])
     assert run.metric_inner_key_is_numeric("label", tool_prefix="m1") is True
 
 
@@ -896,7 +991,7 @@ def test_run_plot_enum_and_plot_metric_by_agent_dispatch() -> None:
         return mr
 
     m.measure.side_effect = _measure
-    run = AgentEvaluationExecutor().evaluate([a1, a2], [EvalCase(query="q")], metrics=[m])
+    run = AgentEvaluationExecutor().evaluate([a1, a2], _eval_ds(EvalCase(query="q")), metrics=[m])
     fig_enum = run.plot_enum_metric_by_agent("verdict", tool_prefix="m1")
     assert (fig_enum.layout.title.text or "") != ""
     fig_wrap = run.plot_metric_by_agent("verdict", tool_prefix="m1")
@@ -908,66 +1003,67 @@ def test_run_plot_enum_and_plot_metric_by_agent_dispatch() -> None:
     mr_num.validated_data = {"score": 0.8}
     m.measure.side_effect = None
     m.measure.return_value = mr_num
-    run_num = AgentEvaluationExecutor().evaluate([a1, a2], [EvalCase(query="q")], metrics=[m])
+    run_num = AgentEvaluationExecutor().evaluate([a1, a2], _eval_ds(EvalCase(query="q")), metrics=[m])
     fig_num = run_num.plot_metric_by_agent("score", tool_prefix="m1")
     assert "Mean" in (fig_num.layout.title.text or "")
 
 
-def test_create_dataset_from_csv_basic(tmp_path: Path) -> None:
+def test_dataset_from_csv_basic(tmp_path: Path) -> None:
     p = tmp_path / "cases.csv"
     p.write_text("query,reference\nq1,r1\nq2,\n", encoding="utf-8")
-    cases = AgentEvaluationExecutor.create_dataset_from_csv(p)
-    assert len(cases) == 2
-    assert cases[0].query == "q1" and cases[0].reference == "r1"
-    assert cases[1].query == "q2" and cases[1].reference is None
+    ds = Dataset.from_csv(p)
+    assert ds.name == "cases"
+    assert len(ds.cases) == 2
+    assert ds.cases[0].query == "q1" and ds.cases[0].reference == "r1"
+    assert ds.cases[1].query == "q2" and ds.cases[1].reference is None
 
 
-def test_create_dataset_from_csv_no_reference_column(tmp_path: Path) -> None:
+def test_dataset_from_csv_no_reference_column(tmp_path: Path) -> None:
     p = tmp_path / "cases.csv"
     p.write_text("query\nq1\n", encoding="utf-8")
-    cases = AgentEvaluationExecutor.create_dataset_from_csv(p)
-    assert len(cases) == 1 and cases[0].reference is None
+    ds = Dataset.from_csv(p)
+    assert len(ds.cases) == 1 and ds.cases[0].reference is None
 
 
-def test_create_dataset_from_csv_metadata_columns(tmp_path: Path) -> None:
+def test_dataset_from_csv_metadata_columns(tmp_path: Path) -> None:
     p = tmp_path / "cases.csv"
     p.write_text("query,id,note\na,1,hello\n", encoding="utf-8")
-    cases = AgentEvaluationExecutor.create_dataset_from_csv(p, metadata_columns=["id", "note"])
-    assert cases[0].metadata == {"id": 1, "note": "hello"}
+    ds = Dataset.from_csv(p, metadata_columns=["id", "note"])
+    assert ds.cases[0].metadata == {"id": 1, "note": "hello"}
 
 
-def test_create_dataset_from_csv_reference_column_none(tmp_path: Path) -> None:
+def test_dataset_from_csv_reference_column_none(tmp_path: Path) -> None:
     p = tmp_path / "cases.csv"
     p.write_text("query,reference\nq,r\n", encoding="utf-8")
-    cases = AgentEvaluationExecutor.create_dataset_from_csv(p, reference_column=None)
-    assert cases[0].reference is None
+    ds = Dataset.from_csv(p, reference_column=None)
+    assert ds.cases[0].reference is None
 
 
-def test_create_dataset_from_csv_custom_query_column(tmp_path: Path) -> None:
+def test_dataset_from_csv_custom_query_column(tmp_path: Path) -> None:
     p = tmp_path / "cases.csv"
     p.write_text("prompt\nhello\n", encoding="utf-8")
-    cases = AgentEvaluationExecutor.create_dataset_from_csv(p, query_column="prompt")
-    assert cases[0].query == "hello"
+    ds = Dataset.from_csv(p, query_column="prompt")
+    assert ds.cases[0].query == "hello"
 
 
-def test_create_dataset_from_csv_missing_query_column_raises(tmp_path: Path) -> None:
+def test_dataset_from_csv_missing_query_column_raises(tmp_path: Path) -> None:
     p = tmp_path / "cases.csv"
     p.write_text("foo\nbar\n", encoding="utf-8")
     with pytest.raises(ValidationError, match="query"):
-        AgentEvaluationExecutor.create_dataset_from_csv(p)
+        Dataset.from_csv(p)
 
 
-def test_create_dataset_from_csv_empty_header_only(tmp_path: Path) -> None:
+def test_dataset_from_csv_empty_header_only(tmp_path: Path) -> None:
     p = tmp_path / "cases.csv"
     p.write_text("query\n", encoding="utf-8")
-    assert AgentEvaluationExecutor.create_dataset_from_csv(p) == []
+    assert Dataset.from_csv(p).cases == []
 
 
-def test_create_dataset_from_csv_empty_query_raises(tmp_path: Path) -> None:
+def test_dataset_from_csv_empty_query_raises(tmp_path: Path) -> None:
     p = tmp_path / "cases.csv"
     p.write_text("query,reference\n  ,\n", encoding="utf-8")
     with pytest.raises(ValidationError, match="Empty"):
-        AgentEvaluationExecutor.create_dataset_from_csv(p)
+        Dataset.from_csv(p)
 
 
 def test_experiment_run_appends_and_cache_roundtrip(tmp_path: Path) -> None:
@@ -980,7 +1076,7 @@ def test_experiment_run_appends_and_cache_roundtrip(tmp_path: Path) -> None:
 
     cache_dir = tmp_path / "exp_cache"
     ex = AgentEvaluationExecutor(cache_experiments=True, experiment_cache_dir=cache_dir)
-    exp = ex.create_experiment(agent, [EvalCase(query="hello")], metadata={"label": "e1"})
+    exp = ex.create_experiment(agent, _eval_ds(EvalCase(query="hello")), metadata={"label": "e1"})
     assert exp.id
     assert exp.agents_snapshot == [{"id": "agent-1", "name": "agent_a"}]
     assert exp.metadata == {"label": "e1"}
@@ -1014,7 +1110,7 @@ def test_experiment_cache_disabled_skips_write(tmp_path: Path) -> None:
     agent.run.return_value = _successful_run_result(ard)
 
     ex = AgentEvaluationExecutor(cache_experiments=False, experiment_cache_dir=tmp_path)
-    exp = ex.create_experiment(agent, [EvalCase(query="q")])
+    exp = ex.create_experiment(agent, _eval_ds(EvalCase(query="q")))
     assert not list(tmp_path.glob("*.json"))
     exp.run()
     assert not list(tmp_path.glob("*.json"))
@@ -1029,7 +1125,7 @@ def test_experiment_local_cache_list_and_load(tmp_path: Path) -> None:
     agent.run.return_value = _successful_run_result(ard)
 
     ex = AgentEvaluationExecutor(cache_experiments=True, experiment_cache_dir=tmp_path)
-    exp = ex.create_experiment(agent, [EvalCase(query="x")])
+    exp = ex.create_experiment(agent, _eval_ds(EvalCase(query="x")))
     exp.run()
     listed = store.list_experiments()
     assert len(listed) >= 1
@@ -1056,7 +1152,7 @@ def test_experiment_runs_comparison_dataframe_and_regression_plot(tmp_path: Path
     agent.run.side_effect = run_side_effect
 
     ex = AgentEvaluationExecutor(cache_experiments=False, experiment_cache_dir=tmp_path)
-    exp = ex.create_experiment(agent, [EvalCase(query="hello")])
+    exp = ex.create_experiment(agent, _eval_ds(EvalCase(query="hello")))
     assert isinstance(exp, Experiment)
     exp.run()
     exp.run()
@@ -1095,8 +1191,254 @@ def test_experiment_runs_comparison_includes_metric_pass_rate(tmp_path: Path) ->
     metric.measure.return_value = mr
 
     ex = AgentEvaluationExecutor(cache_experiments=False, experiment_cache_dir=tmp_path)
-    exp = ex.create_experiment(agent, [EvalCase(query="q")], metrics=[metric])
+    exp = ex.create_experiment(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
     exp.run()
     df = exp.runs_comparison_dataframe()
     assert "Pass rate (m1)" in df.columns
     assert float(df.iloc[0]["Pass rate (m1)"]) == 1.0
+
+
+def _diff_eval_row(
+    case_index: int,
+    score: Any,
+    *,
+    metric_prefix: str = "m1",
+    agent_name: str = "agent_a",
+    output: Optional[Any] = None,
+    agent_response: Optional[Any] = None,
+) -> AgentEvaluationRow:
+    return AgentEvaluationRow(
+        case_index=case_index,
+        query=f"q{case_index}",
+        reference=None,
+        agent_name=agent_name,
+        output=output,
+        agent_response=agent_response,
+        status="SUCCESS",
+        completed=True,
+        error_message=None,
+        run_time=0.0,
+        used_credits=0.0,
+        agent_run_failed=False,
+        agent_error_type=None,
+        agent_error_details=None,
+        metrics={metric_prefix: {"score": score}},
+    )
+
+
+def _diff_bare_experiment(*, n_cases: int = 3) -> Experiment:
+    cases = [EvalCase(query=f"q{i}") for i in range(n_cases)]
+    return Experiment(
+        id="exp-diff-test",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        dataset=Dataset(name="diff_test", cases=cases),
+        agents_snapshot=[],
+        metrics_snapshot=[],
+        runs=[],
+    )
+
+
+def test_experiment_diff_numeric_classifies_cases() -> None:
+    exp = _diff_bare_experiment(n_cases=3)
+    baseline = ExperimentRun(
+        id="r-base",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp,
+        results=AgentEvaluationRun(
+            rows=[
+                _diff_eval_row(0, 1.0, output="base0"),
+                _diff_eval_row(1, 2.0, output="base1"),
+                _diff_eval_row(2, 3.0, output="base2"),
+            ],
+        ),
+    )
+    candidate = ExperimentRun(
+        id="r-new",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp,
+        results=AgentEvaluationRun(
+            rows=[
+                _diff_eval_row(0, 0.5, output="cand0"),
+                _diff_eval_row(1, 2.0, output="cand1"),
+                _diff_eval_row(2, 5.0, output="cand2"),
+            ],
+        ),
+    )
+    diff = exp.diff(baseline=baseline, candidate=candidate, metric_prefix="m1")
+    assert diff.metric_prefix == "m1"
+    assert diff.summary() == "1 regression, 1 improvement, 1 unchanged"
+    assert [c.case_index for c in diff.regressions] == [0]
+    assert diff.regressions[0].baseline_output == "base0"
+    assert diff.regressions[0].candidate_output == "cand0"
+    assert [c.case_index for c in diff.improvements] == [2]
+    assert diff.improvements[0].baseline_output == "base2"
+    assert diff.improvements[0].candidate_output == "cand2"
+    assert [c.case_index for c in diff.unchanged] == [1]
+    assert diff.unchanged[0].baseline_output == "base1"
+    assert diff.unchanged[0].candidate_output == "cand1"
+    udf = diff.unchanged.to_dataframe()
+    assert list(udf.columns) == [
+        "case_index",
+        "baseline_value",
+        "candidate_value",
+        "baseline_output",
+        "candidate_output",
+    ]
+    assert len(udf) == 1
+    assert int(udf.iloc[0]["case_index"]) == 1
+
+
+def test_experiment_diff_categorical_order_worst_to_best() -> None:
+    exp = _diff_bare_experiment(n_cases=2)
+    order = ["bad", "ok", "great"]
+    baseline = ExperimentRun(
+        id="rb",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp,
+        results=AgentEvaluationRun(rows=[_diff_eval_row(0, "ok"), _diff_eval_row(1, "ok")]),
+    )
+    candidate = ExperimentRun(
+        id="rc",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp,
+        results=AgentEvaluationRun(rows=[_diff_eval_row(0, "bad"), _diff_eval_row(1, "great")]),
+    )
+    diff = exp.diff(baseline=baseline, candidate=candidate, metric_prefix="m1", categorical_order=order)
+    assert [c.case_index for c in diff.regressions] == [0]
+    assert [c.case_index for c in diff.improvements] == [1]
+    assert diff.unchanged == []
+    empty_unchanged = diff.unchanged.to_dataframe()
+    assert empty_unchanged.empty
+    assert list(empty_unchanged.columns) == [
+        "case_index",
+        "baseline_value",
+        "candidate_value",
+        "baseline_output",
+        "candidate_output",
+    ]
+
+
+def test_experiment_diff_requires_same_experiment_parent() -> None:
+    exp_a = _diff_bare_experiment()
+    exp_b = _diff_bare_experiment()
+    run_a = ExperimentRun(
+        id="ra",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp_a,
+        results=AgentEvaluationRun(rows=[_diff_eval_row(0, 1.0)]),
+    )
+    run_b = ExperimentRun(
+        id="rb",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp_b,
+        results=AgentEvaluationRun(rows=[_diff_eval_row(0, 2.0)]),
+    )
+    with pytest.raises(ValidationError, match="parent must be this Experiment"):
+        exp_a.diff(baseline=run_a, candidate=run_b, metric_prefix="m1")
+
+
+def test_experiment_diff_mismatched_case_indices_raises() -> None:
+    exp = _diff_bare_experiment(n_cases=2)
+    b = ExperimentRun(
+        id="b",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp,
+        results=AgentEvaluationRun(rows=[_diff_eval_row(0, 1.0)]),
+    )
+    c = ExperimentRun(
+        id="c",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp,
+        results=AgentEvaluationRun(
+            rows=[_diff_eval_row(0, 1.0), _diff_eval_row(1, 1.0)],
+        ),
+    )
+    with pytest.raises(ValidationError, match="same case_index set"):
+        exp.diff(baseline=b, candidate=c, metric_prefix="m1")
+
+
+def test_experiment_diff_multiple_rows_per_case_raises() -> None:
+    exp = _diff_bare_experiment(n_cases=1)
+    row = _diff_eval_row(0, 1.0)
+    dup = _diff_eval_row(0, 2.0)
+    dup.agent_name = "other"
+    r = ExperimentRun(
+        id="r",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp,
+        results=AgentEvaluationRun(rows=[row, dup]),
+    )
+    with pytest.raises(ValidationError, match="pass agent_name"):
+        exp.diff(baseline=r, candidate=r, metric_prefix="m1")
+
+
+def test_experiment_diff_agent_name_disambiguates_multi_agent() -> None:
+    exp = _diff_bare_experiment(n_cases=2)
+    baseline = ExperimentRun(
+        id="rb",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp,
+        results=AgentEvaluationRun(
+            rows=[
+                _diff_eval_row(0, 1.0, agent_name="agent_a"),
+                _diff_eval_row(0, 10.0, agent_name="agent_b"),
+                _diff_eval_row(1, 2.0, agent_name="agent_a"),
+                _diff_eval_row(1, 20.0, agent_name="agent_b"),
+            ],
+        ),
+    )
+    candidate = ExperimentRun(
+        id="rc",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp,
+        results=AgentEvaluationRun(
+            rows=[
+                _diff_eval_row(0, 0.5, agent_name="agent_a"),
+                _diff_eval_row(0, 10.0, agent_name="agent_b"),
+                _diff_eval_row(1, 2.0, agent_name="agent_a"),
+                _diff_eval_row(1, 99.0, agent_name="agent_b"),
+            ],
+        ),
+    )
+    diff = exp.diff(baseline=baseline, candidate=candidate, metric_prefix="m1", agent_name="agent_a")
+    assert [c.case_index for c in diff.regressions] == [0]
+    assert diff.improvements == []
+    assert [c.case_index for c in diff.unchanged] == [1]
+    diff_b = exp.diff(baseline=baseline, candidate=candidate, metric_prefix="m1", agent_name="agent_b")
+    assert diff_b.regressions == []
+    assert [c.case_index for c in diff_b.improvements] == [1]
+    assert [c.case_index for c in diff_b.unchanged] == [0]
+
+
+def test_experiment_diff_case_falls_back_to_agent_response_for_output() -> None:
+    exp = _diff_bare_experiment(n_cases=1)
+    baseline = ExperimentRun(
+        id="rb",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp,
+        results=AgentEvaluationRun(rows=[_diff_eval_row(0, 1.0, agent_response="from_agent")]),
+    )
+    candidate = ExperimentRun(
+        id="rc",
+        created_at=datetime.now(timezone.utc),
+        metadata={},
+        parent=exp,
+        results=AgentEvaluationRun(rows=[_diff_eval_row(0, 0.5, agent_response="from_agent2")]),
+    )
+    diff = exp.diff(baseline=baseline, candidate=candidate, metric_prefix="m1")
+    assert len(diff.regressions) == 1
+    assert diff.regressions[0].baseline_output == "from_agent"
+    assert diff.regressions[0].candidate_output == "from_agent2"

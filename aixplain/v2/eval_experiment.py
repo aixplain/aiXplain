@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 import uuid
-from dataclasses import dataclass, field
+from collections import UserList
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -19,7 +21,9 @@ from .exceptions import ValidationError
 from .eval_results_display import _is_metric_data_column
 
 from .agent_evaluator import (
+    AgentEvaluationRow,
     AgentEvaluationRun,
+    Dataset,
     EvalCase,
     MetricTool,
     _agent_evaluation_row_from_csv_record,
@@ -104,6 +108,36 @@ def _eval_case_from_dict(d: Dict[str, Any]) -> EvalCase:
         query=d["query"],
         reference=d.get("reference"),
         metadata=dict(d["metadata"]) if d.get("metadata") else None,
+    )
+
+
+def _dataset_to_dict(ds: Dataset) -> Dict[str, Any]:
+    return {
+        "name": ds.name,
+        "description": ds.description,
+        "cases": [_eval_case_to_dict(c) for c in ds.cases],
+    }
+
+
+def _dataset_from_payload(raw: Any) -> Dataset:
+    """Build :class:`Dataset` from cache JSON (new dict shape or legacy list of cases)."""
+    if isinstance(raw, list):
+        return Dataset(
+            name="dataset",
+            cases=[_eval_case_from_dict(x) for x in raw],
+            description=None,
+        )
+    if not isinstance(raw, dict):
+        raise ValidationError("Experiment dataset must be a dict or a list of case records.")
+    name = raw.get("name") or "dataset"
+    desc = raw.get("description")
+    cases_raw = raw.get("cases")
+    if not isinstance(cases_raw, list):
+        raise ValidationError("Experiment dataset dict must include a 'cases' list.")
+    return Dataset(
+        name=str(name),
+        cases=[_eval_case_from_dict(x) for x in cases_raw],
+        description=None if desc is None else str(desc),
     )
 
 
@@ -272,17 +306,173 @@ def _experiment_run_trend_row(run: ExperimentRun, run_index: int, *, human_colum
 
 
 @dataclass
+class ExperimentRunDiffCase:
+    """One ``case_index`` outcome from :meth:`Experiment.diff`.
+
+    Attributes:
+        case_index: Dataset row index for the compared sample.
+        baseline_value: Metric score on the baseline run.
+        candidate_value: Metric score on the candidate run.
+        baseline_output: Primary agent output on the baseline run (``output``, else ``agent_response``).
+        candidate_output: Primary agent output on the candidate run.
+    """
+
+    case_index: int
+    baseline_value: Any
+    candidate_value: Any
+    baseline_output: Optional[Any] = None
+    candidate_output: Optional[Any] = None
+
+
+_EXPERIMENT_RUN_DIFF_DF_COLUMNS: Tuple[str, ...] = (
+    "case_index",
+    "baseline_value",
+    "candidate_value",
+    "baseline_output",
+    "candidate_output",
+)
+
+
+class ExperimentRunDiffCaseList(UserList):
+    """List-like container of :class:`ExperimentRunDiffCase` with :meth:`to_dataframe`."""
+
+    def to_dataframe(self) -> pd.DataFrame:
+        """One row per case (columns match :class:`ExperimentRunDiffCase` fields)."""
+        if not self.data:
+            return pd.DataFrame(columns=list(_EXPERIMENT_RUN_DIFF_DF_COLUMNS))
+        return pd.DataFrame([asdict(c) for c in self.data])
+
+
+def _count_label(n: int, singular: str, plural: str) -> str:
+    return f"{n} {singular if n == 1 else plural}"
+
+
+@dataclass
+class ExperimentRunDiff:
+    """Per-case comparison of two :class:`ExperimentRun` results on one metric (see :meth:`Experiment.diff`).
+
+    ``regressions``, ``improvements``, and ``unchanged`` are :class:`ExperimentRunDiffCaseList` instances
+    (list-like) with :meth:`~ExperimentRunDiffCaseList.to_dataframe` for each bucket, for example
+    ``experiment_diff.unchanged.to_dataframe()``.
+    """
+
+    metric_prefix: str
+    regressions: ExperimentRunDiffCaseList = field(default_factory=ExperimentRunDiffCaseList)
+    improvements: ExperimentRunDiffCaseList = field(default_factory=ExperimentRunDiffCaseList)
+    unchanged: ExperimentRunDiffCaseList = field(default_factory=ExperimentRunDiffCaseList)
+
+    def summary(self) -> str:
+        """Return a short human-readable tally (for example ``3 regressions, 1 improvement, 196 unchanged``)."""
+        return (
+            f"{_count_label(len(self.regressions), 'regression', 'regressions')}, "
+            f"{_count_label(len(self.improvements), 'improvement', 'improvements')}, "
+            f"{len(self.unchanged)} unchanged"
+        )
+
+
+def _rows_by_unique_case_index(
+    results: AgentEvaluationRun,
+    *,
+    agent_name: Optional[str] = None,
+) -> Dict[int, AgentEvaluationRow]:
+    """Map ``case_index`` to a single row after optional ``agent_name`` filter.
+
+    Multi-agent evaluations emit multiple rows per ``case_index``. Pass ``agent_name`` to
+    keep rows for that agent only (string match on :attr:`~aixplain.v2.agent_evaluator.AgentEvaluationRow.agent_name`).
+    """
+    rows_in = list(results.rows)
+    if agent_name is not None:
+        want = str(agent_name)
+        rows_in = [r for r in rows_in if r.agent_name is not None and str(r.agent_name) == want]
+        if not rows_in:
+            raise ValidationError(
+                f"diff(agent_name={agent_name!r}) matched no evaluation rows; check agent names on the run.",
+            )
+    buckets: Dict[int, List[AgentEvaluationRow]] = {}
+    for row in rows_in:
+        buckets.setdefault(row.case_index, []).append(row)
+    ambiguous = {idx: len(rs) for idx, rs in buckets.items() if len(rs) != 1}
+    if ambiguous:
+        if agent_name is None:
+            raise ValidationError(
+                "diff() requires exactly one evaluation row per case_index, or pass agent_name=... "
+                "when the run has multiple agents per case. "
+                f"Ambiguous case_index keys: {sorted(ambiguous)!r}.",
+            )
+        raise ValidationError(
+            f"diff(agent_name={agent_name!r}) still has multiple rows for the same case_index: "
+            f"{sorted(ambiguous)!r}.",
+        )
+    return {idx: rs[0] for idx, rs in buckets.items()}
+
+
+def _read_metric_score(row: AgentEvaluationRow, metric_prefix: str) -> Any:
+    bucket = row.metrics.get(metric_prefix)
+    if not isinstance(bucket, dict) or "score" not in bucket:
+        raise ValidationError(
+            f"Row case_index={row.case_index} has no metric score for prefix {metric_prefix!r} "
+            "(expected metrics[prefix]['score']).",
+        )
+    return bucket["score"]
+
+
+def _primary_agent_output(row: AgentEvaluationRow) -> Optional[Any]:
+    """Prefer :attr:`~aixplain.v2.agent_evaluator.AgentEvaluationRow.output`, else ``agent_response``."""
+    if row.output is not None:
+        return row.output
+    return row.agent_response
+
+
+def _float_score_for_numeric_path(value: Any) -> float:
+    if isinstance(value, bool):
+        raise ValidationError(
+            "Boolean metric score is not comparable on the numeric path; pass categorical_order=... .",
+        )
+    if isinstance(value, (int, float)):
+        out = float(value)
+    elif isinstance(value, str):
+        try:
+            out = float(str(value).strip())
+        except ValueError as exc:
+            raise ValidationError(
+                f"Expected a numeric metric score; got non-numeric string {value!r}. "
+                "Pass categorical_order for categorical metrics.",
+            ) from exc
+    else:
+        raise ValidationError(
+            f"Expected a numeric metric score; got {type(value).__name__} {value!r}. "
+            "Pass categorical_order for categorical metrics.",
+        )
+    if math.isnan(out) or math.isinf(out):
+        raise ValidationError(f"Metric score is not finite: {value!r}.")
+    return out
+
+
+def _rank_in_categorical_order(value: Any, categorical_order: Sequence[Any]) -> int:
+    order_list = list(categorical_order)
+    if len(order_list) != len(set(order_list)):
+        raise ValidationError("categorical_order must not contain duplicate values.")
+    try:
+        return order_list.index(value)
+    except ValueError as exc:
+        raise ValidationError(
+            f"Metric score {value!r} is not present in categorical_order.",
+        ) from exc
+
+
+@dataclass
 class Experiment:
     """Definition of an evaluation (dataset, agent snapshots, metric snapshots) plus appended runs.
 
     Use :meth:`runs_comparison_dataframe` to tabulate each :class:`ExperimentRun`, and
     :meth:`plot_runs_regression` for a line chart (with optional polynomial trend) across runs.
+    Use :meth:`diff` to classify per-case changes between two runs on one metric.
     """
 
     id: str
     created_at: datetime
     metadata: Dict[str, Any]
-    dataset: List[EvalCase]
+    dataset: Dataset
     agents_snapshot: List[Dict[str, Any]]
     metrics_snapshot: List[Dict[str, Any]]
     runs: List[ExperimentRun] = field(default_factory=list)
@@ -296,6 +486,8 @@ class Experiment:
             raise ValidationError("Experiment.id must be non-empty.")
         if not isinstance(self.metadata, dict):
             raise ValidationError("Experiment.metadata must be a dict.")
+        if not isinstance(self.dataset, Dataset):
+            raise ValidationError("Experiment.dataset must be a Dataset instance.")
 
     def bind_executor(self, executor: Any) -> None:
         """Attach an :class:`~aixplain.v2.agent_evaluator.AgentEvaluationExecutor` (e.g. after loading from cache)."""
@@ -346,6 +538,95 @@ class Experiment:
             if store is not None:
                 store.save(self)
         return run
+
+    def diff(
+        self,
+        *,
+        baseline: ExperimentRun,
+        candidate: ExperimentRun,
+        metric_prefix: str,
+        categorical_order: Optional[Sequence[Any]] = None,
+        agent_name: Optional[str] = None,
+    ) -> ExperimentRunDiff:
+        """Compare two runs of this experiment on one metric, keyed by ``case_index``.
+
+        Each ``case_index`` must map to exactly one row **after** optional filtering. Baseline and
+        candidate must belong to this :class:`Experiment` (``run.parent is self``). Agent run
+        failures are not treated specially; missing metric scores still raise.
+
+        When an evaluation uses multiple agents per case, there are multiple rows per
+        ``case_index``; pass ``agent_name`` to restrict the diff to one agent (matched as a string
+        against :attr:`~aixplain.v2.agent_evaluator.AgentEvaluationRow.agent_name`).
+
+        Numeric mode (default): reads ``metrics[metric_prefix]['score']`` on each side and
+        compares as floats (strings are parsed when possible). Lower is worse, higher is better.
+
+        Categorical mode: pass ``categorical_order`` as a sequence from **worst to best**; scores
+        must appear in that list. Better means a higher index in ``categorical_order``.
+
+        Args:
+            baseline: Earlier :class:`ExperimentRun`.
+            candidate: Later :class:`ExperimentRun`.
+            metric_prefix: Key under :attr:`~aixplain.v2.agent_evaluator.AgentEvaluationRow.metrics`.
+            categorical_order: When set, compare categorical scores by rank in this list
+                (first element = worst, last = best).
+            agent_name: When set, only rows for this agent name are compared per case.
+
+        Returns:
+            :class:`ExperimentRunDiff` with ``regressions``, ``improvements``, and ``unchanged``.
+        """
+        if baseline.parent is not self or candidate.parent is not self:
+            raise ValidationError(
+                "baseline and candidate must be ExperimentRun instances from this experiment "
+                "(their parent must be this Experiment).",
+            )
+        base_by = _rows_by_unique_case_index(baseline.results, agent_name=agent_name)
+        cand_by = _rows_by_unique_case_index(candidate.results, agent_name=agent_name)
+        if set(base_by) != set(cand_by):
+            raise ValidationError(
+                "baseline and candidate runs must contain the same case_index set; "
+                f"baseline_only={sorted(set(base_by) - set(cand_by))!r}, "
+                f"candidate_only={sorted(set(cand_by) - set(base_by))!r}.",
+            )
+        regressions: List[ExperimentRunDiffCase] = []
+        improvements: List[ExperimentRunDiffCase] = []
+        unchanged: List[ExperimentRunDiffCase] = []
+        for ci in sorted(base_by.keys()):
+            b_row = base_by[ci]
+            c_row = cand_by[ci]
+            b_val = _read_metric_score(b_row, metric_prefix)
+            c_val = _read_metric_score(c_row, metric_prefix)
+            entry = ExperimentRunDiffCase(
+                case_index=ci,
+                baseline_value=b_val,
+                candidate_value=c_val,
+                baseline_output=_primary_agent_output(b_row),
+                candidate_output=_primary_agent_output(c_row),
+            )
+            if categorical_order is not None:
+                br = _rank_in_categorical_order(b_val, categorical_order)
+                cr = _rank_in_categorical_order(c_val, categorical_order)
+                if cr < br:
+                    regressions.append(entry)
+                elif cr > br:
+                    improvements.append(entry)
+                else:
+                    unchanged.append(entry)
+            else:
+                bf = _float_score_for_numeric_path(b_val)
+                cf = _float_score_for_numeric_path(c_val)
+                if cf < bf:
+                    regressions.append(entry)
+                elif cf > bf:
+                    improvements.append(entry)
+                else:
+                    unchanged.append(entry)
+        return ExperimentRunDiff(
+            metric_prefix=metric_prefix,
+            regressions=ExperimentRunDiffCaseList(regressions),
+            improvements=ExperimentRunDiffCaseList(improvements),
+            unchanged=ExperimentRunDiffCaseList(unchanged),
+        )
 
     def runs_comparison_dataframe(self, *, human_column_names: bool = True) -> pd.DataFrame:
         """Tabular view of each :class:`ExperimentRun` for trend / regression plots.
@@ -509,7 +790,7 @@ class Experiment:
                 "id": self.id,
                 "created_at": _iso(self.created_at),
                 "metadata": dict(self.metadata),
-                "dataset": [_eval_case_to_dict(c) for c in self.dataset],
+                "dataset": _dataset_to_dict(self.dataset),
                 "agents_snapshot": list(self.agents_snapshot),
                 "metrics_snapshot": list(self.metrics_snapshot),
                 "runs": [
@@ -535,7 +816,7 @@ class Experiment:
             id=str(raw["id"]),
             created_at=_parse_dt(str(raw["created_at"])),
             metadata=dict(raw.get("metadata") or {}),
-            dataset=[_eval_case_from_dict(x) for x in raw["dataset"]],
+            dataset=_dataset_from_payload(raw["dataset"]),
             agents_snapshot=list(raw.get("agents_snapshot") or []),
             metrics_snapshot=list(raw.get("metrics_snapshot") or []),
             runs=[],

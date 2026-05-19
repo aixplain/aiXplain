@@ -1,4 +1,5 @@
 from aixplain import Aixplain
+from aixplain.v2 import Dataset
 
 prompt = """You are evaluating the correctness of the Assistant's response.You are given a task and a candidate response. Is this a correct and accurate response to the task?   
   
@@ -33,7 +34,7 @@ my_agent = aix.Agent.get("aixplain-benchmarking/web-serach-agent/aixplain")
 # metric_result = my_metric.measure(agent_response.data)
 
 query_list = ["Where did the inauguration programme take place for the Kolkata metro flag-off on August 22, 2025?"]*2
-dataset = aix.AgentEvaluationExecutor.create_dataset_from_list(query_list)
+dataset = Dataset.from_queries(query_list, name="queries")
 
 evaluator = aix.AgentEvaluationExecutor()
 agents = [my_agent]
