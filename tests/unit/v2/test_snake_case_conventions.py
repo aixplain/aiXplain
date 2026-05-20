@@ -230,6 +230,71 @@ class TestBuildRunPayload:
 
 
 # =============================================================================
+# build_run_payload: serviceVersion handling
+# =============================================================================
+
+
+class TestBuildRunPayloadServiceVersion:
+    """Verify that build_run_payload emits serviceVersion correctly."""
+
+    def _make_agent(self):
+        agent = Agent.__new__(Agent)
+        agent.id = "agent-123"
+        agent.output_format = "text"
+        agent.max_tokens = 2048
+        agent.max_iterations = 5
+        agent.expected_output = ""
+        agent.context_overflow_strategy = None
+        return agent
+
+    def test_default_is_v2(self):
+        agent = self._make_agent()
+        payload = agent.build_run_payload(query="hello")
+        assert payload["serviceVersion"] == "V2"
+        assert "service_version" not in payload
+
+    def test_explicit_string_v3(self):
+        agent = self._make_agent()
+        payload = agent.build_run_payload(query="hello", service_version="V3")
+        assert payload["serviceVersion"] == "V3"
+        assert "service_version" not in payload
+
+    def test_enum_v3(self):
+        from aixplain.v2.enums import ServiceVersion
+
+        agent = self._make_agent()
+        payload = agent.build_run_payload(query="hello", service_version=ServiceVersion.V3)
+        assert payload["serviceVersion"] == "V3"
+
+    def test_enum_v1(self):
+        from aixplain.v2.enums import ServiceVersion
+
+        agent = self._make_agent()
+        payload = agent.build_run_payload(query="hello", service_version=ServiceVersion.V1)
+        assert payload["serviceVersion"] == "V1"
+
+    def test_lowercase_string_normalized(self):
+        agent = self._make_agent()
+        payload = agent.build_run_payload(query="hello", service_version="v3")
+        assert payload["serviceVersion"] == "V3"
+
+    def test_invalid_string_raises(self):
+        agent = self._make_agent()
+        with pytest.raises(ValueError, match="service_version must be one of"):
+            agent.build_run_payload(query="hello", service_version="V4")
+
+    def test_invalid_type_raises(self):
+        agent = self._make_agent()
+        with pytest.raises(ValueError, match="service_version must be one of"):
+            agent.build_run_payload(query="hello", service_version=99)
+
+    def test_typeddict_has_service_version(self):
+        hints = AgentRunParams.__annotations__
+        assert "service_version" in hints
+        assert "serviceVersion" not in hints
+
+
+# =============================================================================
 # _normalize_tool_dict_for_api: snake_case → camelCase at API boundary
 # =============================================================================
 

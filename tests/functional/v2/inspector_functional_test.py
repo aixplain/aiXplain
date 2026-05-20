@@ -30,6 +30,7 @@ from tests.functional.team_agent.test_utils import (
     read_data,
     verify_response_generator,
 )
+from tests.functional.v2.conftest import is_v3_run
 
 _DEFAULT_INPUT_TARGET = "input"
 _DEFAULT_OUTPUT_TARGET = "output"
@@ -114,21 +115,22 @@ def verify_inspector_steps(
         a = step.get("agent") or {}
         return (a.get("name") or "").lower()
 
-    rg_indices = [i for i, s in enumerate(steps) if agent_id(s) == "response_generator"]
-    assert len(rg_indices) == 1, f"Expected exactly one response_generator step, got {len(rg_indices)}"
-    rg_idx = rg_indices[0]
-
     inspector_indices = [i for i, s in enumerate(steps) if _is_inspector_step(s)]
     assert inspector_indices, "Expected at least one inspector step"
 
-    if InspectorTarget.OUTPUT in inspector_targets:
-        after = [i for i in inspector_indices if i > rg_idx]
-        assert after, "Expected inspector steps after response_generator for OUTPUT target"
+    if not is_v3_run():
+        rg_indices = [i for i, s in enumerate(steps) if agent_id(s) == "response_generator"]
+        assert len(rg_indices) == 1, f"Expected exactly one response_generator step, got {len(rg_indices)}"
+        rg_idx = rg_indices[0]
 
-        last_steps = steps[rg_idx + 1 :]
-        assert all(_is_inspector_step(s) for s in last_steps), (
-            "Not all steps after response_generator are inspector steps"
-        )
+        if InspectorTarget.OUTPUT in inspector_targets:
+            after = [i for i in inspector_indices if i > rg_idx]
+            assert after, "Expected inspector steps after response_generator for OUTPUT target"
+
+            last_steps = steps[rg_idx + 1 :]
+            assert all(_is_inspector_step(s) for s in last_steps), (
+                "Not all steps after response_generator are inspector steps"
+            )
 
     expected_n = len(inspector_names)
     actual_n = len(inspector_indices)
@@ -187,16 +189,19 @@ def test_output_inspector_abort(client, run_input_map, resource_tracker):
 
     _, steps = _run_and_get_steps(team_agent, "What's the biggest city in the world?")
 
-    response_generator_steps = [
-        s for s in steps if (s.get("agent") or {}).get("id", "").lower() == "response_generator"
-    ]
-    assert len(response_generator_steps) == 1, (
-        f"Expected exactly one response_generator step, got {len(response_generator_steps)}"
-    )
-    response_generator_index = steps.index(response_generator_steps[0])
+    if is_v3_run():
+        inspector_steps = [s for s in steps if _is_inspector_step(s)]
+    else:
+        response_generator_steps = [
+            s for s in steps if (s.get("agent") or {}).get("id", "").lower() == "response_generator"
+        ]
+        assert len(response_generator_steps) == 1, (
+            f"Expected exactly one response_generator step, got {len(response_generator_steps)}"
+        )
+        response_generator_index = steps.index(response_generator_steps[0])
+        inspector_steps = [s for s in steps[response_generator_index + 1 :] if _is_inspector_step(s)]
 
-    inspector_steps = [s for s in steps[response_generator_index + 1 :] if _is_inspector_step(s)]
-    assert len(inspector_steps) > 0, "Expected inspector step(s) after response_generator"
+    assert len(inspector_steps) > 0, "Expected at least one inspector step"
 
     assert (inspector_steps[-1].get("action") or "").lower() == "abort", (
         f"Expected abort, got {inspector_steps[-1].get('action')}"
@@ -234,12 +239,15 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_trac
 
     assert "John" in (getattr(response.data, "output", "") or "")
 
-    rg_steps = [s for s in steps if (s.get("agent") or {}).get("id", "").lower() == "response_generator"]
-    assert len(rg_steps) == 2
-    rg_idx = steps.index(rg_steps[0])
+    if is_v3_run():
+        inspector_steps = [s for s in steps if _is_inspector_step(s)]
+    else:
+        rg_steps = [s for s in steps if (s.get("agent") or {}).get("id", "").lower() == "response_generator"]
+        assert len(rg_steps) == 2
+        rg_idx = steps.index(rg_steps[0])
+        inspector_steps = [s for s in steps[rg_idx + 1 :] if _is_inspector_step(s)]
 
-    inspector_steps = [s for s in steps[rg_idx + 1 :] if _is_inspector_step(s)]
-    assert inspector_steps, "Expected inspector steps after response_generator"
+    assert inspector_steps, "Expected at least one inspector step"
 
     assert any((s.get("action") or "").lower() == "rerun" for s in inspector_steps), (
         f"Expected at least one rerun action, got actions: {[s.get('action') for s in inspector_steps]}"

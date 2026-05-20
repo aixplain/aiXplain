@@ -23,7 +23,7 @@ repos:
       - id: pytest-check
         name: pytest-check
         entry: coverage run --source=. -m pytest tests/unit
-        language: python
+        language: system
         pass_filenames: false
         types: [python]
         always_run: true

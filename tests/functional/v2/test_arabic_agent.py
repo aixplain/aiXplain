@@ -313,16 +313,22 @@ def test_arabic_inspector_agent_across_llms(client, resource_tracker, model_name
     resource_tracker.extend(resources)
     team_agent = resources[-1]
 
+    from tests.functional.v2.conftest import is_v3_run
+
     response = team_agent.run(ARABIC_QUERIES["pure_arabic"])
     output, steps = _assert_success_response(response)
-    response_generator_steps = [
-        step for step in steps if ((step.get("agent") or {}).get("id") or "").lower() == "response_generator"
-    ]
-    assert len(response_generator_steps) == 1, "Expected exactly one response_generator step"
 
-    response_generator_index = steps.index(response_generator_steps[0])
-    inspector_steps = [step for step in steps[response_generator_index + 1 :] if _is_inspector_step(step)]
-    assert inspector_steps, "Expected inspector step(s) after response_generator"
+    if is_v3_run():
+        inspector_steps = [step for step in steps if _is_inspector_step(step)]
+    else:
+        response_generator_steps = [
+            step for step in steps if ((step.get("agent") or {}).get("id") or "").lower() == "response_generator"
+        ]
+        assert len(response_generator_steps) == 1, "Expected exactly one response_generator step"
+        response_generator_index = steps.index(response_generator_steps[0])
+        inspector_steps = [step for step in steps[response_generator_index + 1 :] if _is_inspector_step(step)]
+
+    assert inspector_steps, "Expected at least one inspector step"
 
     if _is_inspector_abort_message(output):
         return
