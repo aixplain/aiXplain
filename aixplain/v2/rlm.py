@@ -97,12 +97,12 @@ _DEFAULT_QUERY = (
 )
 
 
-# Map-Reduce Mode
+# Parallel Mode
 
 # Context rot mitigation: attention quality degrades well before the official
-# model window is hit. Sizing chunks to ~25% of the worker window keeps each
+# model window is hit. Sizing chunks to ~80% of the worker window keeps each
 # map call inside the "comfortable" zone where recall stays high.
-_CONTEXT_ROT_FRACTION = 0.25
+_CONTEXT_ROT_FRACTION = 0.80
 
 # Rough char→token conversion. English text averages ~4 chars per token.
 _CHARS_PER_TOKEN = 4
@@ -126,7 +126,7 @@ _MAX_PARALLEL_WORKERS = 8
 _REDUCE_FAN_IN = 8
 
 # Query keywords that suggest 'recursive' mode is the better choice (multi-hop
-# or cross-chunk reasoning that a single map+reduce pass would likely miss).
+# or cross-chunk reasoning that a single parallel pass would likely miss).
 _RECURSIVE_QUERY_HINTS = (
     "compare across",
     "compare between",
@@ -168,6 +168,43 @@ Context:
 {context}
 
 Answer the user's query using the context above. Be complete and accurate."""
+
+
+# RAG Mode (aIR-backed retrieval)
+
+# aiXplain aiR vector database integration ID — used to create RAG indexes.
+_AIR_INTEGRATION_ID = "6904bcf672a6e36b68bb72fb"
+
+# Fraction of the worker's context window allocated to the assembled
+# retrieved chunks in the synthesis call. Chunk size is derived as
+#     (worker_window_tokens × _RAG_ASSEMBLY_FRACTION × _CHARS_PER_TOKEN) / rag_top_k
+# so the top_k retrieved chunks together fit comfortably in the worker call.
+_RAG_ASSEMBLY_FRACTION = 0.80
+
+# Floor for derived chunk size (chars). Very tiny chunks lose too much
+# surrounding context to embed well.
+_RAG_MIN_CHUNK_CHARS = 500
+
+# Upper bound on chunk size (chars) imposed by the embedding model's input
+# limit. The aIR-backing model's actual token limit isn't known to this
+# code, so the default is a generic middle ground (~30K chars ≈ 7.5K tokens)
+# that fits the 8K-token family (ada-002, text-embedding-3, BGE-M3) without
+# being needlessly small. Override per-instance via `rag_max_chunk_chars`
+# when you know the backing model's limit — e.g. ~2K chars for 512-token
+# models (multilingual-E5, Jina CLIP), or larger when the model supports it.
+_RAG_DEFAULT_MAX_CHUNK_CHARS = 30_000
+
+# Default number of chunks retrieved from the index per query.
+_RAG_DEFAULT_TOP_K = 10
+
+_RAG_SYNTHESIS_PROMPT = """User's query: {query}
+
+Below are excerpts retrieved from a larger document, ordered by their position in the original document. Use these excerpts to answer the user's query as completely and accurately as possible.
+
+Retrieved excerpts:
+{chunks}
+
+Answer the user's query using only the excerpts above. Be complete and accurate."""
 
 
 # Prompt Helpers
@@ -215,7 +252,7 @@ def _truncate(text: str, max_chars: int = _REPL_OUTPUT_MAX_CHARS) -> str:
     return text
 
 
-# Map-Reduce Helpers
+# Chunking Helpers (shared by parallel and rag modes)
 
 
 def _compute_chunk_budget_chars(worker_window_tokens: int) -> int:
@@ -317,14 +354,14 @@ def _chunk_context(context: Union[str, dict, list], budget_chars: int) -> List[s
 def _select_mode(query: str) -> str:
     """Pick a mode automatically based on query characteristics.
 
-    Defaults to the cheap, fast 'map_reduce' path. Falls back to 'recursive'
+    Defaults to the cheap, fast 'parallel' path. Falls back to 'recursive'
     only when the query hints at multi-hop or cross-chunk reasoning that a
     single map-then-reduce pass would likely miss.
     """
     q = query.lower()
     if any(hint in q for hint in _RECURSIVE_QUERY_HINTS):
         return "recursive"
-    return "map_reduce"
+    return "parallel"
 
 
 # Result
@@ -355,6 +392,14 @@ class RLMResult(Result):
         metadata=dj_config(exclude=lambda x: True),
     )
 
+    def __repr__(self) -> str:
+        """Render the base ``Result`` repr plus RLM-specific fields."""
+        # Base Result.__repr__ only renders fields it knows about, so RLM-specific
+        # fields would otherwise be invisible. Inject them before the closing ")".
+        base = super().__repr__()
+        extras = f",\n  iterations_used={self.iterations_used},\n  used_credits={self.used_credits}"
+        return base[:-2] + extras + "\n)" if base.endswith("\n)") else base
+
 
 # RLM
 
@@ -370,21 +415,31 @@ class RLM(BaseResource, ToolableMixin):
       explore the context iteratively in a managed sandbox environment.
       Used by ``mode="recursive"``.
     - A **worker** (fast, cheap): called per chunk in both modes. In recursive
-      mode it's invoked via ``llm_query()`` inside the sandbox; in map-reduce
-      mode it's called directly in parallel.
+      mode it's invoked via ``llm_query()`` inside the sandbox; in parallel
+      mode it's called directly, concurrently across chunks.
 
-    Two run modes are available via the ``mode`` argument to ``run()``:
+    Three run modes are available via the ``mode`` argument to ``run()``:
 
-    - ``"map_reduce"`` (cheap, fast, deterministic): chunk the context to ~25%
-      of the worker's window (to mitigate context rot), call the worker in
-      parallel on every chunk, then reduce the partial answers into a final
-      answer. No orchestrator, no sandbox. Best for summarize/extract queries.
+    - ``"parallel"`` (cheap, fast, deterministic): chunk the context to a
+      comfortable fraction of the worker's window (to mitigate context rot),
+      call the worker in parallel on every chunk, then reduce the partial
+      answers into a final answer. No orchestrator, no sandbox. Best for
+      summarize/extract queries.
+    - ``"rag"`` (cheapest at query time): chunk the context into small
+      retrieval-grade pieces, upsert them into an aIR vector index, retrieve
+      the top-k most relevant chunks for the query, then make a single worker
+      call to synthesize an answer. The win is amortizing the upfront index
+      build across many queries: set ``rag_index_id`` to reuse a pre-built
+      index and skip create + upsert + delete on each call. Best for
+      needle-in-haystack questions on very large contexts.
     - ``"recursive"`` (adaptive, expensive): the original iterative REPL loop
       where the orchestrator drives chunking and analysis. Best for multi-hop
       reasoning or queries that need to compare information across chunks.
     - ``"auto"`` (default): picks ``"recursive"`` if the query reads like
       multi-hop reasoning (e.g., contains words like "compare across",
-      "inconsistencies", "verify against"); otherwise ``"map_reduce"``.
+      "inconsistencies", "verify against"); otherwise ``"parallel"``.
+      ``"rag"`` is opt-in only — auto never picks it because it only beats
+      ``parallel`` when the index is reused across many calls.
 
     The recursive mode's sandbox is an aiXplain managed Python execution
     environment. Each recursive ``run()`` call gets its own isolated session
@@ -428,6 +483,19 @@ class RLM(BaseResource, ToolableMixin):
     worker_id: str = field(default="")
     max_iterations: int = field(default=10)
     timeout: float = field(default=600.0)
+
+    # RAG mode — optional pre-built aIR index. When empty, mode="rag" creates
+    # an ephemeral index per run and deletes it afterwards. When set, the
+    # index is reused (skipping create + upsert + delete) — the cheap path.
+    rag_index_id: str = field(default="")
+    rag_top_k: int = field(default=_RAG_DEFAULT_TOP_K)
+    # Upper bound on a single RAG chunk (chars), to stay under the embedding
+    # model's input limit. Default is a generic middle ground that fits the
+    # 8K-token family (ada-002, text-embedding-3, BGE-M3). Tune down for
+    # 512-token models (multilingual-E5, Jina CLIP) or up when the backing
+    # model supports it. The assembly-budget formula caps below this when
+    # smaller.
+    rag_max_chunk_chars: int = field(default=_RAG_DEFAULT_MAX_CHUNK_CHARS)
 
     # Runtime state — excluded from serialization
     _session_id: Optional[str] = field(
@@ -476,8 +544,8 @@ class RLM(BaseResource, ToolableMixin):
     def __post_init__(self) -> None:
         """Auto-assign a UUID when no id is provided.
 
-        Also initializes the thread-safe credit lock used by map-reduce mode's
-        parallel worker calls. Stored as a plain instance attribute (not a
+        Also initializes the thread-safe credit lock used by parallel mode's
+        concurrent worker calls. Stored as a plain instance attribute (not a
         dataclass field) so it's not serialized.
         """
         if not self.id:
@@ -855,7 +923,7 @@ def llm_query(prompt):
             f"RLM: orchestrator model failed — {getattr(response, 'error_message', None) or response.status}"
         )
 
-    # Map-Reduce Mode
+    # Parallel Mode
 
     def _worker_call(self, prompt: str) -> str:
         """Call the worker model once and return its text output.
@@ -875,7 +943,7 @@ def llm_query(prompt):
     def _resolve_url_context(context: Union[str, dict, list]) -> Union[str, dict, list]:
         """If `context` is an HTTP/HTTPS URL, fetch it locally and return parsed content.
 
-        Map-reduce mode skips the sandbox, so URL contexts have to be resolved
+        Parallel mode skips the sandbox, so URL contexts have to be resolved
         in-process. JSON content (by header or extension) is parsed; everything
         else is returned as text.
         """
@@ -916,7 +984,7 @@ def llm_query(prompt):
                 try:
                     answers[i] = f.result()
                 except Exception as exc:
-                    logger.warning(f"RLM map_reduce: chunk {i} failed: {exc}")
+                    logger.warning(f"RLM parallel: chunk {i} failed: {exc}")
                     answers[i] = f"[Error analyzing this part: {exc}]"
 
         return [a if a is not None else "NONE" for a in answers]
@@ -967,7 +1035,7 @@ def llm_query(prompt):
 
         return self._hierarchical_reduce([a for _, a in meaningful], query)
 
-    def _run_map_reduce(
+    def _run_parallel(
         self,
         context: Union[str, dict, list],
         query: str,
@@ -987,7 +1055,7 @@ def llm_query(prompt):
             chunks = _chunk_context(context, budget_chars)
             n_chunks = len(chunks)
             logger.info(
-                f"RLM '{name}' map_reduce: {n_chunks} chunk(s), ~{budget_chars} chars/chunk "
+                f"RLM '{name}' parallel: {n_chunks} chunk(s), ~{budget_chars} chars/chunk "
                 f"(worker={worker_tokens} tokens, "
                 f"{int(_CONTEXT_ROT_FRACTION * 100)}% utilization to mitigate context rot)."
             )
@@ -1002,7 +1070,7 @@ def llm_query(prompt):
                 final_answer = self._reduce(chunk_answers, query, budget_chars)
                 iterations_used = n_chunks
         except Exception as exc:
-            error_msg = f"RLM map_reduce error: {exc}"
+            error_msg = f"RLM parallel error: {exc}"
             logger.error(error_msg)
             result = RLMResult(
                 status="FAILED",
@@ -1015,7 +1083,153 @@ def llm_query(prompt):
             return result
 
         run_time = time.time() - start_time
-        logger.info(f"RLM '{name}' map_reduce: done in {run_time:.1f}s ({iterations_used} worker call(s)).")
+        logger.info(f"RLM '{name}' parallel: done in {run_time:.1f}s ({iterations_used} worker call(s)).")
+        result = RLMResult(
+            status="SUCCESS",
+            completed=True,
+            data=final_answer,
+        )
+        result.iterations_used = iterations_used
+        result.used_credits = self._used_credits
+        result._raw_data = {"run_time": run_time}
+        return result
+
+    # RAG Mode (aIR-backed retrieval)
+
+    @staticmethod
+    def _parse_rag_search_response(response: Any) -> List[Dict[str, Any]]:
+        """Normalize an aIR search response into a list of ``{text, position, score}``.
+
+        The aIR search payload shape isn't strictly typed, so this handles
+        common variations: ``response.data`` may be a list of records, a dict
+        with a ``results``/``documents``/``matches`` key, or a JSON string.
+        Missing fields default to safe values so downstream sorting still works.
+        """
+        data = response.data if hasattr(response, "data") else response
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except Exception:
+                return []
+        if isinstance(data, dict):
+            for key in ("results", "documents", "records", "matches", "data"):
+                if key in data and isinstance(data[key], list):
+                    data = data[key]
+                    break
+        if not isinstance(data, list):
+            return []
+
+        out: List[Dict[str, Any]] = []
+        for r in data:
+            if not isinstance(r, dict):
+                continue
+            text = r.get("text") or r.get("data") or r.get("value") or ""
+            meta = r.get("metadata") or r.get("attributes") or {}
+            position = meta.get("position", 0) if isinstance(meta, dict) else 0
+            try:
+                position = int(position)
+            except (ValueError, TypeError):
+                position = 0
+            out.append({"text": str(text), "position": position, "score": r.get("score", 0)})
+        return out
+
+    def _run_rag(
+        self,
+        context: Union[str, dict, list],
+        query: str,
+        name: str,
+        start_time: float,
+    ) -> RLMResult:
+        """RAG path: chunk → upsert to aIR → retrieve top-k → single worker call.
+
+        If ``self.rag_index_id`` is set, reuse that pre-built index and skip
+        create/upsert/delete entirely (just retrieve + synthesize). Otherwise
+        an ephemeral index is created for this run and deleted in ``finally``.
+        """
+        iterations_used = 0
+        ephemeral_index = None
+        try:
+            context = self._resolve_url_context(context)
+            self._get_worker()  # warm cache before any potential parallelism
+
+            # Size chunks so that the top_k retrieved chunks together fit
+            # comfortably in the synthesis call (assembly_fraction × window),
+            # but never exceed the embedding model's input limit.
+            worker_tokens = self._get_worker_context_tokens()
+            top_k = max(self.rag_top_k, 1)
+            assembly_budget = int(worker_tokens * _RAG_ASSEMBLY_FRACTION * _CHARS_PER_TOKEN / top_k)
+            rag_budget = min(assembly_budget, self.rag_max_chunk_chars)
+            rag_budget = max(rag_budget, _RAG_MIN_CHUNK_CHARS)
+            chunks = _chunk_context(context, rag_budget)
+            n_chunks = len(chunks)
+            bound_by = "embedding cap" if rag_budget < assembly_budget else "assembly budget"
+            logger.info(
+                f"RLM '{name}' rag: {n_chunks} chunk(s), ~{rag_budget} chars/chunk "
+                f"(worker={worker_tokens} tokens, top_k={top_k}, bound by {bound_by})."
+            )
+
+            # Resolve or create the index.
+            if self.rag_index_id:
+                index = self.context.Tool.get(self.rag_index_id)
+                logger.info(f"RLM '{name}' rag: using existing index id={self.rag_index_id!r}.")
+            else:
+                index = self.context.Tool(
+                    name=f"RLM-rag-{uuid.uuid4().hex[:8]}",
+                    description="Ephemeral aIR index for an RLM rag-mode run.",
+                    integration=_AIR_INTEGRATION_ID,
+                )
+                index.save()
+                ephemeral_index = index
+                logger.info(f"RLM '{name}' rag: created ephemeral index (id={getattr(index, 'id', '?')}).")
+
+                records = [
+                    {"id": f"chunk_{i}", "text": chunks[i], "metadata": {"position": i}} for i in range(n_chunks)
+                ]
+                upsert_resp = index.run(action="upsert", data={"records": records})
+                self._used_credits += float(getattr(upsert_resp, "used_credits", 0) or 0)
+                logger.debug(f"RLM '{name}' rag: upserted {n_chunks} chunks.")
+
+            # Retrieve. Clamp top_k to available chunks so we never ask for more.
+            top_k = min(top_k, max(n_chunks, 1))
+            search_resp = index.run(action="search", data={"query": query, "top_k": top_k})
+            self._used_credits += float(getattr(search_resp, "used_credits", 0) or 0)
+
+            retrieved = self._parse_rag_search_response(search_resp)
+            logger.info(f"RLM '{name}' rag: retrieved {len(retrieved)} chunk(s) (top_k={top_k}).")
+
+            if not retrieved:
+                final_answer = "No information relevant to the query was found in the document."
+            else:
+                # Re-order by original document position so the worker sees coherent flow.
+                retrieved.sort(key=lambda x: x["position"])
+                formatted = "\n\n---\n\n".join(r["text"] for r in retrieved)
+                prompt = _RAG_SYNTHESIS_PROMPT.format(query=query, chunks=formatted)
+                final_answer = self._worker_call(prompt)
+
+            # One synthesis call (or zero if nothing retrieved).
+            iterations_used = 1
+        except Exception as exc:
+            error_msg = f"RLM rag error: {exc}"
+            logger.error(error_msg)
+            result = RLMResult(
+                status="FAILED",
+                completed=True,
+                error_message=error_msg,
+                data=None,
+            )
+            result.iterations_used = iterations_used
+            result.used_credits = self._used_credits
+            return result
+        finally:
+            if ephemeral_index is not None:
+                try:
+                    ephemeral_index.delete()
+                    logger.debug(f"RLM '{name}' rag: deleted ephemeral index.")
+                except Exception as exc:
+                    logger.warning(f"RLM '{name}' rag: failed to delete ephemeral index: {exc}")
+
+        run_time = time.time() - start_time
+        logger.info(f"RLM '{name}' rag: done in {run_time:.1f}s.")
         result = RLMResult(
             status="SUCCESS",
             completed=True,
@@ -1040,17 +1254,22 @@ def llm_query(prompt):
 
         ``mode`` selects the execution strategy:
 
-        - ``"map_reduce"``: deterministic chunk + parallel worker calls + reduce.
+        - ``"parallel"``: deterministic chunk + parallel worker calls + reduce.
           Cheap, fast, predictable. Only the worker is required — no orchestrator
           or sandbox. Best for summarize/extract queries. Chunks are sized to
-          ~25% of the worker's window to mitigate context rot.
+          a comfortable fraction of the worker's window to mitigate context rot.
+        - ``"rag"``: chunk + upsert to an aIR vector index + top-k retrieve +
+          single worker synthesis. If ``self.rag_index_id`` is set, the index
+          is reused (cheapest path); otherwise a temporary index is created
+          and deleted per run. Best for needle-in-haystack queries on very
+          large reusable contexts.
         - ``"recursive"``: the iterative REPL loop where the orchestrator drives
           chunking and analysis in a sandbox. Expensive but adaptive. Best for
           multi-hop reasoning that needs to compare information across chunks.
         - ``"auto"`` (default): picks ``"recursive"`` when the query reads like
           multi-hop reasoning (keywords such as "compare across",
           "inconsistencies", "verify against", "step by step"); otherwise
-          ``"map_reduce"``.
+          ``"parallel"``. ``"rag"`` is opt-in only.
 
         Args:
             data: Input context. Accepted forms:
@@ -1070,7 +1289,7 @@ def llm_query(prompt):
             name: Identifier used in log messages. Defaults to ``"rlm_process"``.
             timeout: Maximum wall-clock seconds. Applies to ``"recursive"`` mode
                 only. Overrides ``self.timeout`` when provided.
-            mode: ``"auto"``, ``"map_reduce"``, or ``"recursive"``. Defaults to
+            mode: ``"auto"``, ``"parallel"``, or ``"recursive"``. Defaults to
                 ``"auto"``.
             **kwargs: Ignored; kept for API compatibility.
 
@@ -1082,10 +1301,10 @@ def llm_query(prompt):
             - ``completed``: ``True``.
             - ``used_credits``: Total credits across all model calls.
             - ``iterations_used``: Recursive mode → orchestrator iterations.
-              Map-reduce mode → worker calls in the map step (= number of
+              Parallel mode → worker calls in the map step (= number of
               chunks), or 1 for the single-call fast path.
             - ``repl_logs``: Per-iteration execution log (recursive mode only;
-              empty for map-reduce). Not serialized.
+              empty for parallel). Not serialized.
 
         Raises:
             ResourceError: If ``worker_id`` is unset, or ``recursive`` mode is
@@ -1093,8 +1312,8 @@ def llm_query(prompt):
             ValueError: If ``data`` is a dict missing ``"context"``, ``mode``
                 is invalid, or ``data`` is an unsupported type.
         """
-        if mode not in ("auto", "map_reduce", "recursive"):
-            raise ValueError(f"Invalid mode: {mode!r}. Choose 'auto', 'map_reduce', or 'recursive'.")
+        if mode not in ("auto", "parallel", "recursive", "rag"):
+            raise ValueError(f"Invalid mode: {mode!r}. Choose 'auto', 'parallel', 'recursive', or 'rag'.")
         if not self.worker_id:
             raise ResourceError("RLM requires a worker_id. Pass worker_id= when constructing aix.RLM(...).")
 
@@ -1131,8 +1350,11 @@ def llm_query(prompt):
 
         context = self._resolve_context(context)
 
-        if mode == "map_reduce":
-            return self._run_map_reduce(context, query, name, start_time)
+        if mode == "parallel":
+            return self._run_parallel(context, query, name, start_time)
+
+        if mode == "rag":
+            return self._run_rag(context, query, name, start_time)
 
         # recursive — requires orchestrator
         self._assert_ready()
