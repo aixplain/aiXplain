@@ -677,6 +677,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 progress_verbosity=progress_verbosity,
             )
             result_data = result.get("data") or {}
+            error_codes = result_data.get("errorCodes", [])
             if result.status == ResponseStatus.FAILED:
                 return AgentResponse(
                     status=ResponseStatus.FAILED,
@@ -691,6 +692,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     ),
                     used_credits=result_data.get("usedCredits", 0.0),
                     run_time=result_data.get("runTime", end - start),
+                    error_codes=error_codes,
                 )
 
             return AgentResponse(
@@ -706,6 +708,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
                 run_time=result_data.get("runTime", end - start),
+                error_codes=error_codes,
             )
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"

@@ -679,6 +679,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             end = time.time()
             result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             result_data = result.data or {}
+            error_codes = result_data.get("errorCodes", [])
             if result.status == ResponseStatus.FAILED:
                 return AgentResponse(
                     status=ResponseStatus.FAILED,
@@ -694,6 +695,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     ),
                     used_credits=result_data.get("usedCredits", 0.0),
                     run_time=result_data.get("runTime", end - start),
+                    error_codes=error_codes,
                 )
 
             return AgentResponse(
@@ -710,6 +712,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
                 run_time=result_data.get("runTime", end - start),
+                error_codes=error_codes,
             )
         except Exception as e:
             logging.error(f"Team Agent Run: Error in running for {name}: {e}")

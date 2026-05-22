@@ -24,6 +24,9 @@ class AgentResponse(ModelResponse):
         run_time (float): Total execution time in seconds.
         usage (Optional[Dict]): Resource usage information.
         url (Optional[Text]): URL for asynchronous result polling.
+        error_codes (List[str]): Aggregated, deduplicated diagnostic error codes
+            observed during execution (e.g. MAX_TOKENS_REACHED, TOOL_FAILED).
+            Does not affect run status.
     """
 
     def __init__(
@@ -37,6 +40,7 @@ class AgentResponse(ModelResponse):
         run_time: float = 0.0,
         usage: Optional[Dict] = None,
         url: Optional[Text] = None,
+        error_codes: Optional[List[str]] = None,
         **kwargs,
     ):
         """Initialize a new AgentResponse instance.
@@ -60,6 +64,8 @@ class AgentResponse(ModelResponse):
                 Defaults to None.
             url (Optional[Text], optional): URL for asynchronous result polling.
                 Defaults to None.
+            error_codes (Optional[List[str]], optional): Aggregated diagnostic error
+                codes observed during execution. Defaults to [].
             **kwargs: Additional keyword arguments passed to ModelResponse.
         """
         super().__init__(
@@ -75,6 +81,7 @@ class AgentResponse(ModelResponse):
             **kwargs,
         )
         self.data = data or AgentResponseData()
+        self.error_codes = error_codes if error_codes is not None else []
 
     def __getitem__(self, key: Text) -> Any:
         """Get a response attribute using dictionary-style access.
@@ -123,6 +130,7 @@ class AgentResponse(ModelResponse):
         """
         base_dict = super().to_dict()
         base_dict["data"] = self.data.to_dict()
+        base_dict["error_codes"] = self.error_codes
         return base_dict
 
     def __repr__(self) -> str:
@@ -133,4 +141,6 @@ class AgentResponse(ModelResponse):
                 with the class name changed from ModelResponse to AgentResponse.
         """
         fields = super().__repr__()[len("ModelResponse(") : -1]
+        if self.error_codes:
+            fields += f", error_codes={self.error_codes}"
         return f"AgentResponse({fields})"

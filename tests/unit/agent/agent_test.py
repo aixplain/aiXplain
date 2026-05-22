@@ -958,6 +958,36 @@ def test_agent_response():
     assert response["data"]["output"] == "new_output"
 
 
+def test_agent_response_error_codes_default_empty():
+    from aixplain.modules.agent.agent_response import AgentResponse
+
+    response = AgentResponse(status="SUCCESS", completed=True)
+    assert response.error_codes == []
+    assert response["error_codes"] == []
+    assert response.to_dict()["error_codes"] == []
+
+
+def test_agent_response_error_codes_populated():
+    from aixplain.modules.agent.agent_response import AgentResponse
+
+    response = AgentResponse(
+        status="SUCCESS",
+        completed=True,
+        error_codes=["MAX_TOKENS_REACHED", "TOOL_FAILED"],
+    )
+    assert response.error_codes == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+    assert response["error_codes"] == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+    assert response.to_dict()["error_codes"] == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+
+
+def test_agent_response_error_codes_in_repr():
+    from aixplain.modules.agent.agent_response import AgentResponse
+
+    response = AgentResponse(status="SUCCESS", completed=True, error_codes=["INVALID_JSON"])
+    assert "error_codes" in repr(response)
+    assert "INVALID_JSON" in repr(response)
+
+
 @patch("aixplain.factories.model_factory.ModelFactory.get")
 def test_create_agent_with_model_instance(mock_model_factory_get):
     from aixplain.enums import Supplier, Function
