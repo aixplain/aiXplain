@@ -51,6 +51,8 @@ from .enums import (
     EvolveType,
     CodeInterpreterModel,
     SplittingOptions,
+    GovernanceStatus,
+    DiagnosticErrorCode,
 )
 
 __all__ = [
@@ -118,6 +120,8 @@ __all__ = [
     "EvolveType",
     "CodeInterpreterModel",
     "SplittingOptions",
+    "GovernanceStatus",
+    "DiagnosticErrorCode",
     # Actions / Inputs hierarchy
     "Input",
     "Inputs",

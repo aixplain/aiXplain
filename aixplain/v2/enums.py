@@ -247,6 +247,51 @@ class SplittingOptions(str, Enum):
     LINE = "line"
 
 
+class GovernanceStatus(str, Enum):
+    """Governance intervention status for agent runs.
+
+    Separates policy/inspector outcomes from runtime execution status.
+    """
+
+    ALLOWED = "ALLOWED"
+    BLOCKED_BY_INSPECTOR = "BLOCKED_BY_INSPECTOR"
+    BLOCKED_BY_POLICY = "BLOCKED_BY_POLICY"
+
+
+class DiagnosticErrorCode(str, Enum):
+    """Structured diagnostic codes for non-runtime issues observed during agent execution.
+
+    These codes are aggregated at the run level and do not affect run_status.
+    They power observability, analytics, and debugging.
+    """
+
+    # Runtime / Resource
+    MAX_TOKENS_REACHED = "MAX_TOKENS_REACHED"
+    MAX_ITERATIONS_REACHED = "MAX_ITERATIONS_REACHED"
+    MODEL_TIMEOUT = "MODEL_TIMEOUT"
+    RATE_LIMITED = "RATE_LIMITED"
+
+    # Tool / Integration
+    TOOL_FAILED = "TOOL_FAILED"
+    TOOL_TIMEOUT = "TOOL_TIMEOUT"
+    TOOL_AUTH_FAILED = "TOOL_AUTH_FAILED"
+    TOOL_BAD_RESPONSE = "TOOL_BAD_RESPONSE"
+
+    # Output / Quality
+    INVALID_JSON = "INVALID_JSON"
+    WRONG_LANGUAGE = "WRONG_LANGUAGE"
+    EMPTY_OUTPUT = "EMPTY_OUTPUT"
+    OUTPUT_TRUNCATED = "OUTPUT_TRUNCATED"
+
+    # Governance
+    INSPECTOR_ABORT = "INSPECTOR_ABORT"
+    POLICY_BLOCKED = "POLICY_BLOCKED"
+
+    # Configuration / Builder
+    INVALID_AGENT_CONFIGURATION = "INVALID_AGENT_CONFIGURATION"
+    MISSING_TOOL_CONFIGURATION = "MISSING_TOOL_CONFIGURATION"
+
+
 __all__ = [
     "AuthenticationScheme",
     "FileType",
@@ -268,4 +313,6 @@ __all__ = [
     "CodeInterpreterModel",
     "DataType",
     "SplittingOptions",
+    "GovernanceStatus",
+    "DiagnosticErrorCode",
 ]

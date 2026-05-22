@@ -176,6 +176,10 @@ class AgentResponseData:
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
     critiques: Optional[str] = ""
+    error_codes: List[str] = field(default_factory=list)
+    governance_status: Optional[str] = None
+    governance_source: Optional[str] = None
+    governance_reason: Optional[str] = None
 
 
 @dataclass_json
