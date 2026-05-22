@@ -2,9 +2,9 @@
 
 Provides a minimal executor that runs a :class:`Dataset` of :class:`EvalCase`
 rows through one or more :class:`~aixplain.v2.agent.Agent` instances, runs optional
-:class:`MetricTool` instances, and returns a structured :class:`AgentEvaluationRun`.
+:class:`Metric` instances, and returns a structured :class:`AgentEvaluationRun`.
 Use :meth:`AgentEvaluationRun.to_dataframe` for tabular export and
-:meth:`AgentEvaluationExecutor.load_from_csv` to reload from disk.
+:meth:`Eval.load_from_csv` to reload from disk.
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ def _plot_title_case(text: str) -> str:
 
 @dataclass_json
 @dataclass(repr=False)
-class MetricToolResponse(Result):
+class MetricResponse(Result):
     """Result for a metric tool run after validation and cleanup.
 
     Extends Result with optional metric-specific fields populated by
@@ -113,7 +113,7 @@ class AgentResponseDataFields:
 
 @dataclass_json
 @dataclass(repr=False)
-class MetricTool(Tool):
+class Metric(Tool):
     """Tool wrapper for creating a tool from a metric integration.
 
     Adds optional pre-processing before creation (placeholder) and
@@ -124,7 +124,7 @@ class MetricTool(Tool):
     use a single float (pass when ``score > threshold``).
     """
 
-    RESPONSE_CLASS = MetricToolResponse
+    RESPONSE_CLASS = MetricResponse
     prompt_template: Optional[str] = field(default=None, metadata=dj_config(field_name="promptTemplate"))
     llm_path: Optional[str] = field(default=None, metadata=dj_config(field_name="llmPath"))
     agent_response_data_fields: AgentResponseDataFields = field(
@@ -138,7 +138,7 @@ class MetricTool(Tool):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.threshold is not None:
-            _validate_metric_tool_threshold(self.threshold)
+            _validate_metric_threshold(self.threshold)
 
     @classmethod
     def _generate_prompt_template(
@@ -194,8 +194,8 @@ class MetricTool(Tool):
         auto_complete: bool = False,
         allowed_actions: Optional[List[str]] = None,
         **kwargs: Any,
-    ) -> "MetricTool":
-        """Create and persist a :class:`MetricTool` backed by the custom LLM prompt integration.
+    ) -> "Metric":
+        """Create and persist a :class:`Metric` backed by the custom LLM prompt integration.
 
         Provide either a ready-made ``prompt_template`` **or** generation parameters
         (``score_type``, ``instruction``, and type-specific fields). When
@@ -221,7 +221,7 @@ class MetricTool(Tool):
             **kwargs: Reserved for future :class:`Tool` construction options.
 
         Returns:
-            The saved :class:`MetricTool` instance.
+            The saved :class:`Metric` instance.
 
         Raises:
             ValidationError: When neither a usable template nor valid generation inputs are given.
@@ -234,12 +234,12 @@ class MetricTool(Tool):
         else:
             if not score_type or not str(score_type).strip():
                 raise ValidationError(
-                    "MetricTool.create requires either a non-empty prompt_template or score_type "
+                    "Metric.create requires either a non-empty prompt_template or score_type "
                     "(with instruction) to generate one."
                 )
             if instruction is None or not str(instruction).strip():
                 raise ValidationError(
-                    "MetricTool.create requires instruction when prompt_template is not provided."
+                    "Metric.create requires instruction when prompt_template is not provided."
                 )
             st = str(score_type).strip()
             if st == "numeric":
@@ -285,13 +285,13 @@ class MetricTool(Tool):
         metric_description: str = "",
         allowed_actions: Optional[List[str]] = None,
         **kwargs: Any,
-    ) -> "MetricTool":
+    ) -> "Metric":
         """Deprecated. Use :meth:`create` instead.
 
         Preserves the historical argument order ``(name, prompt_template, llm_path)``.
         """
         warnings.warn(
-            "MetricTool.initialize is deprecated; use MetricTool.create instead.",
+            "Metric.initialize is deprecated; use Metric.create instead.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -310,7 +310,7 @@ class MetricTool(Tool):
 
         The custom-llm-prompt integration expects ``data`` to be an object (e.g. with
         ``output`` / ``reference``). Bare strings from ``run("...")`` are wrapped as
-        ``{"output": ...}`` to match :class:`AgentEvaluationExecutor` payloads.
+        ``{"output": ...}`` to match :class:`Eval` payloads.
         """
         if data is None:
             return {}
@@ -339,7 +339,7 @@ class MetricTool(Tool):
         except Exception as e:
             raise Exception(f"An unexpected error occurred: {str(e)}")
 
-    def measure(self, agent_response: AgentResponseData) -> MetricToolResponse:
+    def measure(self, agent_response: AgentResponseData) -> MetricResponse:
         metric_input = self.agent_response_data_fields.give_metric_input(agent_response)
         if self.additional_input_prompt:
             metric_input = self.additional_input_prompt + "\n\n" + metric_input
@@ -363,29 +363,29 @@ class MetricTool(Tool):
         response_dict = self.trim_and_load_json(response)
         return response_dict
 
-    def handle_run_response(self, response: MetricToolResponse, **kwargs: Any) -> MetricToolResponse:
-        """Validate and cleanup response, then return a MetricToolResponse."""
+    def handle_run_response(self, response: MetricResponse, **kwargs: Any) -> MetricResponse:
+        """Validate and cleanup response, then return a MetricResponse."""
         self._validate_run_response(response)
-        result = MetricToolResponse.from_dict(response)
+        result = MetricResponse.from_dict(response)
         result.data = self._cleanup_run_response(result.data)
         result._raw_data = response
         result.validated_data = result.data
         return result
 
 
-MetricTool.AgentResponseDataFields = AgentResponseDataFields
+Metric.AgentResponseDataFields = AgentResponseDataFields
 
 
-def _validate_metric_tool_threshold(threshold: Any) -> None:
-    """Ensure :attr:`MetricTool.threshold` is a float or a list/tuple of passing enum strings."""
+def _validate_metric_threshold(threshold: Any) -> None:
+    """Ensure :attr:`Metric.threshold` is a float or a list/tuple of passing enum strings."""
     if isinstance(threshold, bool):
-        raise ValidationError("MetricTool.threshold must not be a boolean; use a float or a list of strings.")
+        raise ValidationError("Metric.threshold must not be a boolean; use a float or a list of strings.")
     if isinstance(threshold, (int, float)):
         return
     if isinstance(threshold, (list, tuple)):
         return
     raise ValidationError(
-        "MetricTool.threshold must be None, a float for numeric metrics, "
+        "Metric.threshold must be None, a float for numeric metrics, "
         f"or a list of passing enum strings; got {type(threshold).__name__}."
     )
 
@@ -415,12 +415,12 @@ def _metric_threshold_passes(threshold: Union[Sequence[str], float, int], score:
 
 def _apply_metric_pass_for_threshold(
     metric_bucket: Dict[str, Any],
-    metric_tool: Optional[MetricTool],
+    metric: Optional[Metric],
 ) -> None:
-    """Set ``metric_pass`` on ``metric_bucket`` when ``metric_tool.threshold`` is configured."""
-    if metric_tool is None:
+    """Set ``metric_pass`` on ``metric_bucket`` when ``metric.threshold`` is configured."""
+    if metric is None:
         return
-    threshold = getattr(metric_tool, "threshold", None)
+    threshold = getattr(metric, "threshold", None)
     if threshold is None:
         return
     if isinstance(threshold, bool):
@@ -1198,9 +1198,9 @@ class Dataset:
 class AgentEvaluationRow:
     """One evaluated (case, agent) pair including nested metric tool fields.
 
-    ``metrics`` maps each metric tool prefix (see :func:`_metric_tool_prefix`) to
+    ``metrics`` maps each metric tool prefix (see :func:`_metric_prefix`) to
     a dict of flattened keys (for example ``metric_status``, ``score``,
-    ``metric_pass`` when the tool defines a :attr:`~MetricTool.threshold`) matching
+    ``metric_pass`` when the tool defines a :attr:`~Metric.threshold`) matching
     the former ``<prefix>__<key>`` column names without the ``<prefix>__`` prefix.
 
     ``per_asset_stats`` maps a stable asset label (``type`` and ``name`` from each
@@ -1237,7 +1237,7 @@ class AgentEvaluationRow:
 
 @dataclass
 class AgentEvaluationRun:
-    """Structured output of :meth:`AgentEvaluationExecutor.evaluate`.
+    """Structured output of :meth:`Eval.evaluate`.
 
     Convenience methods (filtering, LLM-ready text, summaries, HTML, optional plots,
     and :meth:`chatbot`) build on :meth:`to_dataframe` and
@@ -1527,9 +1527,9 @@ class AgentEvaluationRun:
     ) -> Dict[str, Any]:
         """Assess pass/fail against custom metric score rules and run-level aggregates.
 
-        **Metric scores** (per :class:`MetricTool` prefix in :attr:`rows` ``metrics``):
+        **Metric scores** (per :class:`Metric` prefix in :attr:`rows` ``metrics``):
 
-        - A bare number uses the same rule as :attr:`MetricTool.threshold` for numeric scores
+        - A bare number uses the same rule as :attr:`Metric.threshold` for numeric scores
           (pass when ``score > threshold``).
         - A list/tuple of strings passes when the score string is in that set (enum-style).
         - A dict supports ``threshold``, optional ``operator`` (``lt`` / ``le`` / ``gt`` / ``ge`` /
@@ -2173,18 +2173,18 @@ class AgentEvaluationRun:
 
         return case_rows(self.to_dataframe(), case_index)
 
-    def metric_tool_prefixes(self) -> List[str]:
+    def metric_prefixes(self) -> List[str]:
         """Sorted union of metric tool prefixes present across rows."""
         keys: set[str] = set()
         for r in self.rows:
             keys.update(r.metrics.keys())
         return sorted(keys)
 
-    def _resolve_single_metric_tool_prefix(self, tool_prefix: Optional[str]) -> str:
+    def _resolve_single_metric_prefix(self, tool_prefix: Optional[str]) -> str:
         """Resolve ``tool_prefix`` when omitted (single prefix on the run) or return explicit prefix."""
         if tool_prefix is not None:
             return tool_prefix
-        prefixes = self.metric_tool_prefixes()
+        prefixes = self.metric_prefixes()
         if not prefixes:
             raise ValidationError("No metric data present; nothing to plot.")
         if len(prefixes) > 1:
@@ -2215,7 +2215,7 @@ class AgentEvaluationRun:
         Raises:
             ValidationError: If there is no data for this metric key after resolving ``tool_prefix``.
         """
-        tool_prefix = self._resolve_single_metric_tool_prefix(tool_prefix)
+        tool_prefix = self._resolve_single_metric_prefix(tool_prefix)
         values: List[Any] = []
         for r in self.rows:
             raw = r.metrics.get(tool_prefix, {}).get(inner_key)
@@ -2256,7 +2256,7 @@ class AgentEvaluationRun:
                 "Install with: pip install plotly",
             ) from exc
 
-        tool_prefix = self._resolve_single_metric_tool_prefix(tool_prefix)
+        tool_prefix = self._resolve_single_metric_prefix(tool_prefix)
 
         records: List[Dict[str, Any]] = []
         for r in self.rows:
@@ -2319,7 +2319,7 @@ class AgentEvaluationRun:
                 "Install with: pip install plotly",
             ) from exc
 
-        tool_prefix = self._resolve_single_metric_tool_prefix(tool_prefix)
+        tool_prefix = self._resolve_single_metric_prefix(tool_prefix)
         records: List[Dict[str, Any]] = []
         for r in self.rows:
             raw = r.metrics.get(tool_prefix, {}).get(inner_key)
@@ -2984,7 +2984,7 @@ def _extract_agent_output(result: AgentRunResult) -> Any:
     return data
 
 
-def _metric_tool_prefix(tool: MetricTool, index: int) -> str:
+def _metric_prefix(tool: Metric, index: int) -> str:
     """Stable column prefix for a metric tool."""
     if tool.name:
         return str(tool.name)
@@ -3001,8 +3001,8 @@ def _metric_bucket(metrics: Dict[str, Dict[str, Any]], prefix: str) -> Dict[str,
 def _merge_metric_columns(
     metrics: Dict[str, Dict[str, Any]],
     prefix: str,
-    metric_result: MetricToolResponse,
-    metric_tool: Optional[MetricTool] = None,
+    metric_result: MetricResponse,
+    metric: Optional[Metric] = None,
 ) -> None:
     """Write metric tool output into ``metrics[prefix]`` (legacy flat keys: ``prefix__*``)."""
     b = _metric_bucket(metrics, prefix)
@@ -3014,7 +3014,7 @@ def _merge_metric_columns(
             b[key] = val
     elif data is not None:
         b["value"] = data
-    _apply_metric_pass_for_threshold(b, metric_tool)
+    _apply_metric_pass_for_threshold(b, metric)
 
 
 def _eval_exception_message(exc: Exception) -> str:
@@ -3222,11 +3222,11 @@ def compare_agents_side_by_side(
     return wide.reset_index()
 
 
-class AgentEvaluationExecutor:
+class Eval:
     """Runs eval cases across agents, runs metric tools, returns :class:`AgentEvaluationRun`.
 
     For each pair of (case, agent) the executor calls ``agent.run`` with the
-    case's ``query``. Each :class:`MetricTool` is invoked with ``run`` payload
+    case's ``query``. Each :class:`Metric` is invoked with ``run`` payload
     ``data`` containing at least ``output`` (agent output) and ``reference``
     (from the case, may be ``None``). Metric results are nested under
     ``AgentEvaluationRow.metrics[prefix]`` using the tool's ``name``, ``id``, or
@@ -3271,7 +3271,7 @@ class AgentEvaluationExecutor:
         self,
         agents: Union[Agent, Sequence[Agent]],
         dataset: Dataset,
-        metrics: Optional[Sequence[MetricTool]] = None,
+        metrics: Optional[Sequence[Metric]] = None,
         *,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Experiment:
@@ -3367,7 +3367,7 @@ class AgentEvaluationExecutor:
         self,
         agents: Union[Agent, Sequence[Agent]],
         dataset: Dataset,
-        metrics: Optional[Sequence[MetricTool]] = None,
+        metrics: Optional[Sequence[Metric]] = None,
         **agent_run_kwargs: Any,
     ) -> AgentEvaluationRun:
         """Execute all cases against all agents and build a structured result.
@@ -3375,8 +3375,8 @@ class AgentEvaluationExecutor:
         Args:
             agents: A single :class:`~aixplain.v2.agent.Agent` or a sequence of agents.
             dataset: Named evaluation dataset whose :attr:`Dataset.cases` are executed.
-            metrics: Optional sequence of :class:`MetricTool` instances. When a
-                tool sets :attr:`MetricTool.threshold`, each successful metric row
+            metrics: Optional sequence of :class:`Metric` instances. When a
+                tool sets :attr:`Metric.threshold`, each successful metric row
                 includes ``metric_pass`` (boolean) from the score and threshold.
             **agent_run_kwargs: Forwarded to each ``agent.run`` call.
 
@@ -3386,7 +3386,7 @@ class AgentEvaluationExecutor:
             aborting the batch. Empty ``dataset.cases`` yields an empty run.
         """
         out_rows: List[AgentEvaluationRow] = []
-        metrics_list: List[MetricTool] = list(metrics) if metrics is not None else []
+        metrics_list: List[Metric] = list(metrics) if metrics is not None else []
         agents_list: List[Agent] = _normalize_agents(agents)
 
         for case_index, case in enumerate(dataset.cases):
@@ -3421,8 +3421,8 @@ class AgentEvaluationExecutor:
                             per_asset_stats={},
                         )
                     )
-                    for metric_index, metric_tool in enumerate(metrics_list):
-                        prefix = _metric_tool_prefix(metric_tool, metric_index)
+                    for metric_index, metric in enumerate(metrics_list):
+                        prefix = _metric_prefix(metric, metric_index)
                         _record_metrics_skipped_for_agent_failure(metrics_by_prefix, prefix)
                     continue
 
@@ -3454,11 +3454,11 @@ class AgentEvaluationExecutor:
                     )
                 )
                 current = out_rows[-1]
-                for metric_index, metric_tool in enumerate(metrics_list):
-                    prefix = _metric_tool_prefix(metric_tool, metric_index)
+                for metric_index, metric in enumerate(metrics_list):
+                    prefix = _metric_prefix(metric, metric_index)
                     try:
-                        metric_result = metric_tool.measure(result.data)
-                        _merge_metric_columns(current.metrics, prefix, metric_result, metric_tool)
+                        metric_result = metric.measure(result.data)
+                        _merge_metric_columns(current.metrics, prefix, metric_result, metric)
                     except Exception as exc:
                         _record_metric_failure(current.metrics, prefix, exc)
 

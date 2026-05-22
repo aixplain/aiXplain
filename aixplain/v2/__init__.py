@@ -22,14 +22,14 @@ from .inspector import (
 from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
 from .agent_evaluator import (
-    AgentEvaluationExecutor,
+    Eval,
     AgentEvaluationResultsChatbot,
     AgentEvaluationRow,
     AgentEvaluationRun,
     Dataset,
     EvalCase,
-    MetricTool,
-    MetricToolResponse,
+    Metric,
+    MetricResponse,
     compare_agents_side_by_side,
     normalize_eval_results_dataframe,
 )
@@ -112,14 +112,14 @@ __all__ = [
     "AgentProgressTracker",
     "ProgressFormat",
     # Agent evaluation
-    "AgentEvaluationExecutor",
+    "Eval",
     "AgentEvaluationRow",
     "AgentEvaluationRun",
     "AgentEvaluationResultsChatbot",
     "EvalCase",
     "Dataset",
-    "MetricTool",
-    "MetricToolResponse",
+    "Metric",
+    "MetricResponse",
     "compare_agents_side_by_side",
     "normalize_eval_results_dataframe",
     "Experiment",

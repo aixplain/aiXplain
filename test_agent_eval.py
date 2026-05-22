@@ -25,8 +25,8 @@ aix = Aixplain(
     model_url="https://dev-models.aixplain.com/api/v2/execute"
 )
 
-my_metric = aix.MetricTool.get("aixplain-benchmarking/test-run-metric/aixplain")
-my_metric.agent_response_data_fields = aix.MetricTool.AgentResponseDataFields(query=True, trace=True, output=True)
+my_metric = aix.Metric.get("aixplain-benchmarking/test-run-metric/aixplain")
+my_metric.agent_response_data_fields = aix.Metric.AgentResponseDataFields(query=True, trace=True, output=True)
 my_metric.additional_input_prompt = prompt
 
 my_agent = aix.Agent.get("aixplain-benchmarking/web-serach-agent/aixplain") 
@@ -36,7 +36,7 @@ my_agent = aix.Agent.get("aixplain-benchmarking/web-serach-agent/aixplain")
 query_list = ["Where did the inauguration programme take place for the Kolkata metro flag-off on August 22, 2025?"]*2
 dataset = Dataset.from_queries(query_list, name="queries")
 
-evaluator = aix.AgentEvaluationExecutor()
+evaluator = aix.Eval()
 agents = [my_agent]
 metrics = [my_metric]
 results = evaluator.evaluate(agents, dataset, metrics)

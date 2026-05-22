@@ -53,7 +53,7 @@ def load_eval_csv(path: Union[str, Path], **read_csv_kwargs: Any) -> pd.DataFram
     """Load a CSV written from evaluator results (e.g. ``df.to_csv(...)``).
 
     For a structured :class:`~aixplain.v2.agent_evaluator.AgentEvaluationRun`, use
-    :meth:`~aixplain.v2.agent_evaluator.AgentEvaluationExecutor.load_from_csv` instead.
+    :meth:`~aixplain.v2.agent_evaluator.Eval.load_from_csv` instead.
 
     Args:
         path: Path to the CSV file.

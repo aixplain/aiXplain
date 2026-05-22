@@ -25,7 +25,7 @@ from .agent_evaluator import (
     AgentEvaluationRun,
     Dataset,
     EvalCase,
-    MetricTool,
+    Metric,
     _agent_evaluation_row_from_csv_record,
     _normalize_agents,
     normalize_eval_results_dataframe,
@@ -148,7 +148,7 @@ def _agent_snapshot(agent: Agent) -> Dict[str, Any]:
     raise ValidationError("Each agent must provide a to_dict() method for experiment snapshots.")
 
 
-def _metric_snapshot(tool: MetricTool) -> Dict[str, Any]:
+def _metric_snapshot(tool: Metric) -> Dict[str, Any]:
     to_dict = getattr(tool, "to_dict", None)
     if callable(to_dict):
         return to_dict()
@@ -477,7 +477,7 @@ class Experiment:
     metrics_snapshot: List[Dict[str, Any]]
     runs: List[ExperimentRun] = field(default_factory=list)
     _agents: Optional[Sequence[Agent]] = field(default=None, repr=False, compare=False)
-    _metrics: Optional[Sequence[MetricTool]] = field(default=None, repr=False, compare=False)
+    _metrics: Optional[Sequence[Metric]] = field(default=None, repr=False, compare=False)
     _executor: Any = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -490,14 +490,14 @@ class Experiment:
             raise ValidationError("Experiment.dataset must be a Dataset instance.")
 
     def bind_executor(self, executor: Any) -> None:
-        """Attach an :class:`~aixplain.v2.agent_evaluator.AgentEvaluationExecutor` (e.g. after loading from cache)."""
+        """Attach an :class:`~aixplain.v2.agent_evaluator.Eval` (e.g. after loading from cache)."""
         self._executor = executor
 
     def run(
         self,
         *,
         agents: Optional[Union[Agent, Sequence[Agent]]] = None,
-        metrics: Optional[Sequence[MetricTool]] = None,
+        metrics: Optional[Sequence[Metric]] = None,
         run_metadata: Optional[Dict[str, Any]] = None,
         **agent_run_kwargs: Any,
     ) -> ExperimentRun:
@@ -515,9 +515,9 @@ class Experiment:
         if not agents_effective:
             raise ValidationError(
                 "No agents available to run. Pass agents=... for experiments loaded from cache, "
-                "or create the experiment via AgentEvaluationExecutor.create_experiment.",
+                "or create the experiment via Eval.create_experiment.",
             )
-        metrics_effective: Optional[Sequence[MetricTool]]
+        metrics_effective: Optional[Sequence[Metric]]
         if metrics is not None:
             metrics_effective = list(metrics)
         else:

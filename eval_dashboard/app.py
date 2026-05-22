@@ -39,7 +39,7 @@ import pandas as pd
 import streamlit as st
 
 from aixplain import Aixplain
-from aixplain.v2.agent_evaluator import AgentEvaluationExecutor, AgentEvaluationRun
+from aixplain.v2.agent_evaluator import Eval, AgentEvaluationRun
 from aixplain.v2.eval_results_display import summarize_by_agent
 from aixplain.v2.exceptions import ValidationError
 
@@ -63,7 +63,7 @@ def _failure_rate_by_agent(work: pd.DataFrame) -> Optional[pd.DataFrame]:
 
 def _load_run(source: Any) -> AgentEvaluationRun:
     """Load CSV from path, ``Path``, or file-like object."""
-    return AgentEvaluationExecutor.load_from_csv(source, normalize=True)
+    return Eval.load_from_csv(source, normalize=True)
 
 
 def _init_insights_if_possible() -> bool:
@@ -224,7 +224,7 @@ def main() -> None:
             else:
                 st.caption("Column `total_tool_calls` not present.")
 
-        prefixes = run.metric_tool_prefixes()
+        prefixes = run.metric_prefixes()
         if prefixes:
             st.subheader("Metric by agent (Plotly)")
             st.caption(
