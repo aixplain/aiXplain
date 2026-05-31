@@ -15,11 +15,11 @@
   <a href="https://discord.gg/aixplain"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
-**The operating system for autonomous AI — multi-agent orchestration and runtime governance across cloud, on-prem, edge, and fully air-gapped environments.**
+**Build, deploy, and govern autonomous AI agents — in a few lines of Python.**
 
-aixplain is the operations layer over your AI stack, spanning **development → evaluation → deployment → monitoring → evolution** — so you ship faster instead of stitching tools together. Agents plan, call models and tools, run code, and adapt at runtime, with governance enforced on every execution.
+aixplain is the operating system for autonomous AI — **multi-agent orchestration and runtime governance across cloud, on-prem, edge, and fully air-gapped environments**. It spans the full lifecycle — **development → evaluation → deployment → monitoring → evolution** — so you ship faster instead of stitching tools together. Agents plan, call models and tools, run code, and adapt at runtime, with **agents-in-the-loop** governance enforced on every execution.
 
-**Build any kind of agent on one runtime** — knowledge (RAG), data, custom-logic, integration, and team agents — with built-in multimodality and file handling.
+**Build any kind of agent on one runtime** — knowledge (RAG), data, custom-logic, integration, and team agents — with built-in memory, multimodality, and file handling.
 
 Develop your way — **SDK, API, CLI, and MCP** environments all run on the same runtime layer, backed by an integrated marketplace of **900+ AI models, tools, and integrations from 70+ vendors** (OpenAI, Anthropic, Gemini, Firecrawl, Tavily, SerpAPI, a code-execution sandbox, and more). **One API key, one bill**, pay as you go — no per-vendor keys or contracts.
 
