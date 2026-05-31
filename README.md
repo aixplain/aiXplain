@@ -206,8 +206,7 @@ aixplain applies runtime governance and enterprise controls by default:
 - **We do not train on your data** — your data is not used to train foundation models.
 - **No data retained by default** — agent memory is opt-in (short-term and long-term).
 - **SOC 2 Type II certified** — enterprise security and compliance posture.
-- **Runtime policy enforcement** — Inspector and Bodyguard govern every agent execution (e.g. block pip installs or network access during code runs).
-- **Granular access controls** — allow-lists for assets and actions, per-asset permissions, rate and usage limits, and RBAC for enterprise.
+- **Runtime policy enforcement** — Inspector and Bodyguard govern every agent execution, with allow-lists for assets and actions, per-asset permissions, rate and usage limits, and enterprise RBAC.
 - **Portable deployment options** — Cloud (instant) or on-prem (including VPC and air-gapped environments).
 - **Encryption** — TLS 1.2+ in transit and encrypted storage at rest.
 
