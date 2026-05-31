@@ -25,13 +25,13 @@ Develop your way — **SDK, API, CLI, and MCP** environments all run on the same
 
 ## Why aixplain
 
-- **Ship faster** — one runtime spans the full lifecycle (build, evaluate, deploy, monitor, evolve); no glue code to assemble.
-- **Multi-agent orchestration** — delegate work to specialized subagents that plan, reflect, and adapt at runtime.
-- **Runtime governance by default** — allow-list assets and per-asset actions, set rate and usage limits, enforce enterprise RBAC, and block pip installs or network access mid-execution.
-- **One key, one bill** — [900+ models, tools, and integrations](#mcp-server-marketplace) from 70+ vendors, billed in one place.
-- **Production observability** — step-level traces, tool calls, and outcomes for fast debugging.
-- **Develop your way** — SDK, API, CLI, and MCP clients on the same runtime layer.
-- **Deploy anywhere** — the same agent definition runs serverless, on-prem, at the edge, or fully air-gapped.
+Less to build, less to operate:
+
+- **Deploy with one call** — `agent.save()` promotes an agent to a persistent, versioned endpoint; no Dockerfiles, queues, or autoscaling to manage.
+- **No integration glue** — reach [900+ models, tools, and integrations](#mcp-server-marketplace) through one key; skip per-provider SDKs, auth, and rate-limit handling.
+- **Governance you don't have to code** — allow-lists, per-asset permissions, rate and usage limits, and enterprise RBAC enforced at runtime.
+- **Self-debugging** — step-level traces of every plan, tool call, and outcome.
+- **Run it anywhere** — the same definition runs serverless, on-prem, at the edge, or fully air-gapped.
 
 | | aixplain SDK | Other agent frameworks |
 |---|---|---|
