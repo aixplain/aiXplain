@@ -15,13 +15,13 @@
   <a href="https://discord.gg/aixplain"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
-**The operations layer for autonomous AI — multi-agent orchestration and runtime governance across cloud, on-prem, edge, and fully air-gapped environments.**
+**The operating system for autonomous AI — multi-agent orchestration and runtime governance across cloud, on-prem, edge, and fully air-gapped environments.**
 
-aixplain is the operations layer over your AI stack. One runtime takes a multi-agent system through its entire lifecycle — **development → evaluation → deployment → monitoring → evolution** — so you ship faster instead of stitching tools together. The SDK gives you Python and REST access to that runtime: agents that plan, call models and tools, run code, and adapt at runtime, with governance enforced on every execution.
+aixplain is the operations layer over your AI stack, spanning **development → evaluation → deployment → monitoring → evolution** — so you ship faster instead of stitching tools together. The SDK gives you Python and REST access to that runtime: agents that plan, call models and tools, run code, and adapt at runtime, with governance enforced on every execution.
 
-Develop your way — **SDK, API, CLI, and MCP** environments all run on the same runtime layer, backed by an integrated marketplace of **900+ AI models, tools, and integrations from 70+ vendors**.
+Develop your way — **SDK, API, CLI, and MCP** environments all run on the same runtime layer, backed by an ecosystem of models, tools, and services: an integrated marketplace of **900+ AI models, tools, and integrations from 70+ vendors**.
 
-**One API key. One bill.** Pay as you go across every provider and tool — OpenAI, Anthropic, Gemini, Firecrawl, Tavily, SerpAPI, and a sandbox for code execution — with no per-vendor keys or contracts.
+**One API key. One bill.** Pay as you go across every provider and tool — OpenAI, Anthropic, Gemini, Firecrawl, Tavily, SerpAPI, RAG data ingestion, and a sandbox for code execution — with no per-vendor keys or contracts.
 
 ## Why aixplain
 
@@ -39,11 +39,17 @@ Develop your way — **SDK, API, CLI, and MCP** environments all run on the same
 | Models and tools | 900+ models and tools with one API key | Provider-by-provider setup |
 | Deployment | Cloud (instant) or on-prem | Usually self-assembled runtime and infra |
 | Observability | Built-in traces and dashboards | Varies by framework |
-| Coding-agent workflows | Works natively with MCP-compatible coding agents and IDEs | Usually not a first-class workflow target |
+| [Coding-agent workflows](TODO-agent-builder-skill-url) | Works natively with MCP-compatible coding agents and IDEs | Usually not a first-class workflow target |
 
 ## Agentic OS
 
-Agentic OS is the portable runtime platform behind aixplain agents. AgentEngine orchestrates planning, execution, and delegation for autonomous agents. AssetServing connects agents to models, tools, and data through a governed runtime layer. Observability captures traces, metrics, and monitoring for every production run across Cloud (instant) and on-prem deployments.
+Agentic OS is the portable runtime platform behind aixplain agents:
+
+- **Agent Engine** — orchestrates planning, execution, and delegation for autonomous agents.
+- **Asset Serving** — connects agents to models, tools, and data through a governed runtime layer.
+- **Observability** — captures traces, metrics, and monitoring for every production run.
+
+It runs across Cloud (instant) and on-prem deployments.
 
 ---
 
