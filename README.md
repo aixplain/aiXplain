@@ -11,7 +11,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square" alt="License"></a>
   <a href="https://studio.aixplain.com/browse"><img src="https://img.shields.io/badge/Marketplace-900%2B%20models%20%26%20tools-0b74de?style=flat-square" alt="Marketplace size"></a>
-  <a href="https://console.aixplain.com/settings/keys"><img src="https://img.shields.io/badge/%F0%9F%94%91%20PAYG%20API%20key-Console-0b74de?style=flat-square" alt="PAYG API key"></a>
+  <a href="https://console.aixplain.com/settings/keys"><img src="https://img.shields.io/badge/%F0%9F%94%91%20PAYG%20API%20key-Settings-0b74de?style=flat-square" alt="PAYG API key"></a>
   <a href="https://discord.gg/aixplain"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
@@ -22,6 +22,8 @@ aixplain is the operations layer over your AI stack, spanning **development → 
 Develop your way — **SDK, API, CLI, and MCP** environments all run on the same runtime layer, backed by an ecosystem of models, tools, and services: an integrated marketplace of **900+ AI models, tools, and integrations from 70+ vendors**.
 
 **One API key. One bill.** Pay as you go across every provider and tool — OpenAI, Anthropic, Gemini, Firecrawl, Tavily, SerpAPI, RAG data ingestion, and a sandbox for code execution — with no per-vendor keys or contracts.
+
+Build the full range on one runtime — **multi-step agents**, **managed agents**, and **deployed agents**.
 
 ## Why aixplain
 
