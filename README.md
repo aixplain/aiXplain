@@ -23,7 +23,7 @@ Develop your way — **SDK, API, CLI, and MCP** environments all run on the same
 
 **One API key. One bill.** Pay as you go across every provider and tool — OpenAI, Anthropic, Gemini, Firecrawl, Tavily, SerpAPI, and a sandbox for code execution — with no per-vendor keys or contracts.
 
-**Build any kind of agent on one runtime** — with built-in database access, RAG and data ingestion, multimodality, and file handling.
+**Build any kind of agent on one runtime** — knowledge (RAG), data, custom-logic, integration, and team agents — with built-in multimodality and file handling.
 
 ## Why aixplain
 
