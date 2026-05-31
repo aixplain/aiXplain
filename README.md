@@ -15,7 +15,7 @@
   <a href="https://discord.gg/aixplain"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
-**Build, deploy, and govern autonomous AI agents — in a few lines of Python.**
+**The fastest way to deploy managed, multi-agent systems with runtime governance — on any infrastructure.**
 
 aixplain is the operating system for autonomous AI — **multi-agent orchestration and runtime governance across cloud, on-prem, edge, and fully air-gapped environments**. It spans the full lifecycle — **development → evaluation → deployment → monitoring → evolution** — so you ship faster instead of stitching tools together. Agents plan, call models and tools, run code, and adapt at runtime, with **agents-in-the-loop** governance enforced on every execution.
 
