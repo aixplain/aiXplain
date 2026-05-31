@@ -2,11 +2,11 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/aixplain-logo-light.png">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/aixplain-logo-dark.png">
-    <img src="docs/assets/aixplain-logo-dark.png" alt="aiXplain" width="520">
+    <img src="docs/assets/aixplain-logo-dark.png" alt="aixplain" width="520">
   </picture>
 </p>
 
-<h1 align="center">aiXplain SDK</h1>
+<h1 align="center">aixplain SDK</h1>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square" alt="License"></a>
@@ -17,25 +17,25 @@
 
 **Build, deploy, and govern autonomous AI agents for your business operations.**
 
-aiXplain SDK provides Python and REST APIs for agents that plan, use tools, call models and data, run code, and adapt at runtime. It also works natively with MCP-compatible coding agents and IDEs.
+aixplain SDK provides Python and REST APIs for agents that plan, use tools, call models and data, run code, and adapt at runtime. It also works natively with MCP-compatible coding agents and IDEs.
 
 > **Become an agentic-first organization**
 >
 > Designed for business operations: autonomous, governed, MCP-compatible, and built for context management. Your interactive AI assistant is [a click away](https://auth.aixplain.com/).
 >
-> _We operate our business with aiXplain agents, using them across product, business development, and marketing._
+> _We operate our business with aixplain agents, using them across product, business development, and marketing._
 
-## Why aiXplain
+## Why aixplain
 
 - **Autonomous runtime loop** — plan, call tools and models, reflect, and continue without fixed flowcharts.
 - **Multi-agent execution** — delegate work to specialized subagents at runtime.
 - **Governance by default** — runtime access and policy enforcement on every run.
 - **Production observability** — inspect step-level traces, tool calls, and outcomes for debugging.
 - **Model and tool portability** — swap assets without rewriting application glue code.
-- **MCP-native access** — connect MCP clients to [900+ aiXplain-hosted assets](#mcp-servers) with one PAYG API key.
+- **MCP-native access** — connect MCP clients to [900+ aixplain-hosted assets](#mcp-servers) with one PAYG API key.
 - **Flexible deployment** — run the same agent definition serverless or private.
 
-| | aiXplain SDK | Other agent frameworks |
+| | aixplain SDK | Other agent frameworks |
 |---|---|---|
 | Governance | Runtime access and policy enforcement built in | Usually custom code or external guardrails |
 | Models and tools | 900+ models and tools with one API key | Provider-by-provider setup |
@@ -43,19 +43,15 @@ aiXplain SDK provides Python and REST APIs for agents that plan, use tools, call
 | Observability | Built-in traces and dashboards | Varies by framework |
 | Coding-agent workflows | Works natively with MCP-compatible coding agents and IDEs | Usually not a first-class workflow target |
 
-## AgenticOS
+## Agentic OS
 
-AgenticOS is the portable runtime platform behind aiXplain agents. AgentEngine orchestrates planning, execution, and delegation for autonomous agents. AssetServing connects agents to models, tools, and data through a governed runtime layer. Observability captures traces, metrics, and monitoring for every production run across Cloud (instant) and on-prem deployments.
-
-<div align="center">
-  <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aiXplain AgenticOS architecture" title="aiXplain"/>
-</div>
+Agentic OS is the portable runtime platform behind aixplain agents. AgentEngine orchestrates planning, execution, and delegation for autonomous agents. AssetServing connects agents to models, tools, and data through a governed runtime layer. Observability captures traces, metrics, and monitoring for every production run across Cloud (instant) and on-prem deployments.
 
 ---
 
 ## MCP Server Marketplace
 
-[aiXplain Marketplace](https://studio.aixplain.com/browse) now also exposes MCP servers for **900+ models and tools**, allowing external clients to access selected **tool, integration, and model assets**, for example **Opus 4.6, Kimi, Qwen, Airtable, and Slack**, through **aiXplain-hosted MCP endpoints** with a single API key 🔑.
+[aixplain Marketplace](https://studio.aixplain.com/browse) now also exposes MCP servers for **900+ models and tools**, allowing external clients to access selected **tool, integration, and model assets**, for example **Opus 4.6, Kimi, Qwen, Airtable, and Slack**, through **aixplain-hosted MCP endpoints** with a single API key 🔑.
 
 Read the full MCP setup guide in the [MCP servers docs](https://docs.aixplain.com/api-reference/mcp-servers).
 
@@ -75,22 +71,25 @@ Read the full MCP setup guide in the [MCP servers docs](https://docs.aixplain.co
 
 ## Quick start
 
+> **This is the aixplain SDK 2.** SDK 1 (the legacy factory API) keeps running until **end of July 2026**; after that, SDK 2 is the only supported surface. <!-- TODO: confirm SDK 2 release version/date -->
+
 ```bash
 pip install aixplain
 ```
 
-Get your API key from your [aiXplain account](https://console.aixplain.com/settings/keys).
+Get your API key from your [aixplain account](https://console.aixplain.com/settings/keys), then expose it to the SDK:
 
-<details open>
-  <summary><strong>v2 (default)</strong></summary>
+```bash
+export AIXPLAIN_API_KEY=<your-key>
+```
 
-### Create and run your first agent (v2)
+### Create and run your first agent
 
 ```python
 from uuid import uuid4
 from aixplain import Aixplain
 
-aix = Aixplain(api_key="<AIXPLAIN_API_KEY>")
+aix = Aixplain()  # reads AIXPLAIN_API_KEY from the environment
 
 search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
 search_tool.allowed_actions = ["search"]
@@ -109,14 +108,16 @@ result = agent.run(
 print(result.data.output)
 ```
 
-### Build a multi-agent team (v2)
+> Runs return typed objects — read outputs with `result.data.output`, not dict indexing.
+
+### Build a multi-agent team
 
 ```python
 from uuid import uuid4
 from aixplain import Aixplain
 from aixplain.v2 import EditorConfig, EvaluatorConfig, EvaluatorType, Inspector, InspectorAction, InspectorActionConfig, InspectorSeverity, InspectorTarget
 
-aix = Aixplain(api_key="<AIXPLAIN_API_KEY>")
+aix = Aixplain()  # reads AIXPLAIN_API_KEY from the environment
 search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
 search_tool.allowed_actions = ["search"]
 
@@ -162,7 +163,7 @@ print(response.data.output)
 ```
 
 <div align="center">
-  <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aiXplain team-agent runtime flow" title="aiXplain"/>
+  <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aixplain team-agent runtime flow" title="aixplain"/>
 </div>
 
 Execution order:
@@ -179,38 +180,29 @@ Team agent
 ├── Orchestrator: decides whether another pass is needed
 └── Responder: returns one final answer
 ```
-</details>
 
-<details>
-  <summary><strong>v1 (legacy)</strong></summary>
+> **SDK 1 (legacy):** available until end of July 2026 — see the [SDK 1 docs](https://docs.aixplain.com/1.0/).
 
-### Create and run your first agent (v1)
+---
 
-```python
-from aixplain.factories import AgentFactory, ModelFactory
+## Core concepts
 
-weather_tool = ModelFactory.get("66f83c216eb563266175e201")
+| Concept | What it is |
+|---|---|
+| **Agent** | An autonomous entity that reasons, plans, and uses tools to complete a task. |
+| **Team agent** | Multiple specialized agents coordinated by a planner and orchestrator at runtime. |
+| **Tool** | A capability an agent can invoke — a model, a pipeline, an integration, or code (Python/SQL). |
+| **Model** | An LLM, utility, or index asset from the [marketplace](https://studio.aixplain.com/browse). |
+| **Pipeline** | A fixed-order workflow connecting models and tools. |
+| **Microagents** | Built-in governance components: Mentalist (planning), Orchestrator (routing), Inspector (validation), Bodyguard (security), Responder (formatting). |
 
-agent = AgentFactory.create(
-    name="Weather Agent",
-    description="Answers weather queries.",
-    instructions="Use the weather tool to answer user questions.",
-    tools=[weather_tool],
-)
-
-result = agent.run("What is the weather in Liverpool, UK?")
-print(result["data"]["output"])
-```
-
-You can still access legacy docs at [docs.aixplain.com/1.0](https://docs.aixplain.com/1.0/).
-
-</details>
+See the [documentation](https://docs.aixplain.com) for the full API reference.
 
 ---
 
 ## Data handling and deployment
 
-aiXplain applies runtime governance and enterprise controls by default:
+aixplain applies runtime governance and enterprise controls by default:
 
 - **We do not train on your data** — your data is not used to train foundation models.
 - **No data retained by default** — agent memory is opt-in (short-term and long-term).
@@ -219,7 +211,7 @@ aiXplain applies runtime governance and enterprise controls by default:
 - **Portable deployment options** — Cloud (instant) or on-prem (including VPC and air-gapped environments).
 - **Encryption** — TLS 1.2+ in transit and encrypted storage at rest.
 
-Learn more at aiXplain [Security](https://aixplain.com/security/) and aiXplain [pricing](https://aixplain.com/pricing/).
+Learn more at aixplain [Security](https://aixplain.com/security/) and aixplain [pricing](https://aixplain.com/pricing/).
 
 ---
 
@@ -231,7 +223,7 @@ Start free, then scale with usage-based pricing.
 - **Subscription plans** — reduce effective consumption-based rates.
 - **Custom enterprise pricing** — available for advanced scale and deployment needs.
 
-Learn more at aiXplain [pricing](https://aixplain.com/pricing/).
+Learn more at aixplain [pricing](https://aixplain.com/pricing/).
 
 ---
 
