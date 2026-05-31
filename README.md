@@ -39,7 +39,7 @@ Less to build, less to operate:
 | Models and tools | 900+ models and tools with one API key | Provider-by-provider setup |
 | Deployment | Cloud (instant) or on-prem | Usually self-assembled runtime and infra |
 | Observability | Built-in traces and dashboards | Varies by framework |
-| [Coding-agent workflows](TODO-agent-builder-skill-url) | Works natively with MCP-compatible coding agents and IDEs | Usually not a first-class workflow target |
+| [Coding-agent workflows](https://github.com/aixplain/aiXplain/tree/main/skills/aixplain-agent-builder) | Works natively with MCP-compatible coding agents and IDEs | Usually not a first-class workflow target |
 
 ## Agentic OS
 
