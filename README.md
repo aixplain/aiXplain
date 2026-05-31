@@ -49,7 +49,7 @@ Agentic OS is the portable runtime platform behind aixplain agents — orchestra
 
 ## Quick start
 
-> **This is the aixplain SDK 2.** SDK 1 (the legacy factory API) keeps running until **end of July 2026**; after that, SDK 2 is the only supported surface. <!-- TODO: confirm SDK 2 release version/date -->
+> **This README documents SDK v2, the default API.** SDK v1 (the legacy factory API) keeps working until **end of July 2026**, after which v2 is the only supported surface.
 
 ```bash
 pip install aixplain
