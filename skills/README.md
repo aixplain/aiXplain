@@ -47,24 +47,46 @@ The agent reads `SKILL.md` first and pulls in the reference files only when it n
 
 ## Installation
 
-### Option A — Claude Code (recommended)
+### Step 1 — Download the skill
 
-Copy the skill folder into your Claude Code skills directory:
+Get the skill folder onto your machine in either way.
+
+**Clone the whole repo:**
 
 ```bash
 git clone https://github.com/aixplain/aiXplain.git
+```
+
+**Or download just the skill folder:**
+
+1. Copy the skill folder URL from this GitHub repo (e.g. the `aixplain-agent-builder` folder).
+2. Go to [download-directory.github.io](https://download-directory.github.io).
+3. Paste the URL and press Enter to download the ZIP, then unzip it.
+
+> **Note:** `download-directory.github.io` is a third-party helper, not affiliated with or provided by aiXplain.
+
+### Step 2 — Install the skill
+
+**Claude Code (recommended).** Copy the skill folder into your Claude Code skills directory:
+
+```bash
 cp -r aiXplain/skills/aixplain-agent-builder ~/.claude/skills/
 ```
 
-The skill is now available in any Claude Code session. Trigger it explicitly with `/aixplain-agent-builder`, or just describe your task ("build an aiXplain agent that…") and the agent loads it automatically.
+The skill is now available in any Claude Code session. Trigger it explicitly with `/aixplain-agent-builder`, or just describe your task ("build an aiXplain agent that…") and the agent loads it automatically. To scope a skill to a single project instead of globally, copy it into that project's `.claude/skills/` directory.
 
-To scope a skill to a single project instead of globally, copy it into that project's `.claude/skills/` directory.
+**Claude Desktop.** Open **Settings → Capabilities → Skills**, then drag and drop the skill folder (or its `.zip`) to upload it.
 
-### Option B — Claude Desktop
+### Using with other agents (Codex, Cursor, Copilot, …)
 
-1. Download or zip the skill folder (e.g. `aixplain-agent-builder/`).
-2. In Claude Desktop, open **Settings → Capabilities → Skills**.
-3. Drag and drop the skill folder (or its `.zip`) to upload it.
+The auto-discovery above is a Claude Code / Claude Desktop feature — those tools read `~/.claude/skills/` and load the skill automatically. Other agents don't scan that directory, but a skill is just markdown, so you can wire it in manually using each tool's own convention:
+
+| Agent | How to wire it in |
+|-------|-------------------|
+| Codex | Reference or paste `SKILL.md` into your `AGENTS.md` |
+| Cursor | Add `SKILL.md` as a rule under `.cursor/rules/` |
+| GitHub Copilot | Add it to `.github/copilot-instructions.md` |
+| Any chat / MCP client | Paste `SKILL.md` (and any needed `references/` files) into context |
 
 ### Updating
 
