@@ -29,7 +29,7 @@ Build the full range on one runtime — **multi-step agents**, **managed agents*
 
 - **Ship faster** — one runtime spans the full lifecycle (build, evaluate, deploy, monitor, evolve); no glue code to assemble.
 - **Multi-agent orchestration** — delegate work to specialized subagents that plan, reflect, and adapt at runtime.
-- **Runtime governance by default** — policy enforced on every run (e.g. block pip installs or network access mid-execution).
+- **Runtime governance by default** — allow-list assets and per-asset actions, set rate and usage limits, enforce enterprise RBAC, and block pip installs or network access mid-execution.
 - **One key, one bill** — [900+ models, tools, and integrations](#mcp-server-marketplace) from 70+ vendors, billed in one place.
 - **Production observability** — step-level traces, tool calls, and outcomes for fast debugging.
 - **Develop your way** — SDK, API, CLI, and MCP clients on the same runtime layer.
@@ -37,7 +37,7 @@ Build the full range on one runtime — **multi-step agents**, **managed agents*
 
 | | aixplain SDK | Other agent frameworks |
 |---|---|---|
-| Governance | Runtime access and policy enforcement built in | Usually custom code or external guardrails |
+| Governance | Asset/action allow-lists, per-asset permissions, rate and usage limits, and enterprise RBAC | Usually custom code or external guardrails |
 | Models and tools | 900+ models and tools with one API key | Provider-by-provider setup |
 | Deployment | Cloud (instant) or on-prem | Usually self-assembled runtime and infra |
 | Observability | Built-in traces and dashboards | Varies by framework |
@@ -215,6 +215,7 @@ aixplain applies runtime governance and enterprise controls by default:
 - **No data retained by default** — agent memory is opt-in (short-term and long-term).
 - **SOC 2 Type II certified** — enterprise security and compliance posture.
 - **Runtime policy enforcement** — Inspector and Bodyguard govern every agent execution (e.g. block pip installs or network access during code runs).
+- **Granular access controls** — allow-lists for assets and actions, per-asset permissions, rate and usage limits, and RBAC for enterprise.
 - **Portable deployment options** — Cloud (instant) or on-prem (including VPC and air-gapped environments).
 - **Encryption** — TLS 1.2+ in transit and encrypted storage at rest.
 
