@@ -15,25 +15,23 @@
   <a href="https://discord.gg/aixplain"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
-**Build, deploy, and govern autonomous AI agents for your business operations.**
+**The operations layer for autonomous AI — multi-agent orchestration and runtime governance across cloud, on-prem, edge, and fully air-gapped environments.**
 
-aixplain SDK provides Python and REST APIs for agents that plan, use tools, call models and data, run code, and adapt at runtime. It also works natively with MCP-compatible coding agents and IDEs.
+aixplain is the operations layer over your AI stack. One runtime takes a multi-agent system through its entire lifecycle — **development → evaluation → deployment → monitoring → evolution** — so you ship faster instead of stitching tools together. The SDK gives you Python and REST access to that runtime: agents that plan, call models and tools, run code, and adapt at runtime, with governance enforced on every execution.
 
-> **Become an agentic-first organization**
->
-> Designed for business operations: autonomous, governed, MCP-compatible, and built for context management. Your interactive AI assistant is [a click away](https://auth.aixplain.com/).
->
-> _We operate our business with aixplain agents, using them across product, business development, and marketing._
+Develop your way — **SDK, API, CLI, and MCP** environments all run on the same runtime layer, backed by an integrated marketplace of **900+ AI models, tools, and integrations from 70+ vendors**.
+
+**One API key. One bill.** Pay as you go across every provider and tool — OpenAI, Anthropic, Gemini, Firecrawl, Tavily, SerpAPI, and a sandbox for code execution — with no per-vendor keys or contracts.
 
 ## Why aixplain
 
-- **Autonomous runtime loop** — plan, call tools and models, reflect, and continue without fixed flowcharts.
-- **Multi-agent execution** — delegate work to specialized subagents at runtime.
-- **Governance by default** — runtime access and policy enforcement on every run.
-- **Production observability** — inspect step-level traces, tool calls, and outcomes for debugging.
-- **Model and tool portability** — swap assets without rewriting application glue code.
-- **MCP-native access** — connect MCP clients to [900+ aixplain-hosted assets](#mcp-servers) with one PAYG API key.
-- **Flexible deployment** — run the same agent definition serverless or private.
+- **Ship faster** — one runtime spans the full lifecycle (build, evaluate, deploy, monitor, evolve); no glue code to assemble.
+- **Multi-agent orchestration** — delegate work to specialized subagents that plan, reflect, and adapt at runtime.
+- **Runtime governance by default** — policy enforced on every run (e.g. block pip installs or network access mid-execution).
+- **One key, one bill** — [900+ models, tools, and integrations](#mcp-server-marketplace) from 70+ vendors, billed in one place.
+- **Production observability** — step-level traces, tool calls, and outcomes for fast debugging.
+- **Develop your way** — SDK, API, CLI, and MCP clients on the same runtime layer.
+- **Deploy anywhere** — the same agent definition runs serverless, on-prem, at the edge, or fully air-gapped.
 
 | | aixplain SDK | Other agent frameworks |
 |---|---|---|
@@ -163,7 +161,7 @@ print(response.data.output)
 ```
 
 <div align="center">
-  <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aixplain team-agent runtime flow" title="aixplain"/>
+  <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aixplain team-agent runtime flow" title="aixplain" width="70%"/>
 </div>
 
 Execution order:
@@ -191,10 +189,11 @@ Team agent
 |---|---|
 | **Agent** | An autonomous entity that reasons, plans, and uses tools to complete a task. |
 | **Team agent** | Multiple specialized agents coordinated by a planner and orchestrator at runtime. |
-| **Tool** | A capability an agent can invoke — a model, a pipeline, an integration, or code (Python/SQL). |
+| **Tool** | A capability an agent can invoke — a model, an integration, or code (Python/SQL). |
 | **Model** | An LLM, utility, or index asset from the [marketplace](https://studio.aixplain.com/browse). |
-| **Pipeline** | A fixed-order workflow connecting models and tools. |
-| **Microagents** | Built-in governance components: Mentalist (planning), Orchestrator (routing), Inspector (validation), Bodyguard (security), Responder (formatting). |
+| **Integration** | A connector to an external service (Slack, Airtable, Gmail, and more) that an agent can act through. |
+| **Micro-agents** | Built-in governance components that run inline on every execution: Mentalist (planning), Orchestrator (routing), Inspector (validation — e.g. block pip installs or network access), Bodyguard (security), Responder (formatting). |
+| **Meta-agent** | An agent that improves other agents — the Evolver monitors KPIs and refines behavior over time. |
 
 See the [documentation](https://docs.aixplain.com) for the full API reference.
 
@@ -207,7 +206,7 @@ aixplain applies runtime governance and enterprise controls by default:
 - **We do not train on your data** — your data is not used to train foundation models.
 - **No data retained by default** — agent memory is opt-in (short-term and long-term).
 - **SOC 2 Type II certified** — enterprise security and compliance posture.
-- **Runtime policy enforcement** — Inspector and Bodyguard govern every agent execution.
+- **Runtime policy enforcement** — Inspector and Bodyguard govern every agent execution (e.g. block pip installs or network access during code runs).
 - **Portable deployment options** — Cloud (instant) or on-prem (including VPC and air-gapped environments).
 - **Encryption** — TLS 1.2+ in transit and encrypted storage at rest.
 
