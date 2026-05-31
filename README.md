@@ -19,9 +19,7 @@
 
 aixplain is the operations layer over your AI stack, spanning **development → evaluation → deployment → monitoring → evolution** — so you ship faster instead of stitching tools together. The SDK gives you Python and REST access to that runtime: agents that plan, call models and tools, run code, and adapt at runtime, with governance enforced on every execution.
 
-Develop your way — **SDK, API, CLI, and MCP** environments all run on the same runtime layer, backed by an ecosystem of models, tools, and services: an integrated marketplace of **900+ AI models, tools, and integrations from 70+ vendors**.
-
-**One API key. One bill.** Pay as you go across every provider and tool — OpenAI, Anthropic, Gemini, Firecrawl, Tavily, SerpAPI, and a sandbox for code execution — with no per-vendor keys or contracts.
+Develop your way — **SDK, API, CLI, and MCP** environments all run on the same runtime layer, backed by an integrated marketplace of **900+ AI models, tools, and integrations from 70+ vendors** (OpenAI, Anthropic, Gemini, Firecrawl, Tavily, SerpAPI, a code-execution sandbox, and more). **One API key, one bill**, pay as you go — no per-vendor keys or contracts.
 
 **Build any kind of agent on one runtime** — knowledge (RAG), data, custom-logic, integration, and team agents — with built-in multimodality and file handling.
 
