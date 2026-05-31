@@ -21,9 +21,15 @@ aixplain is the operations layer over your AI stack, spanning **development → 
 
 Develop your way — **SDK, API, CLI, and MCP** environments all run on the same runtime layer, backed by an ecosystem of models, tools, and services: an integrated marketplace of **900+ AI models, tools, and integrations from 70+ vendors**.
 
-**One API key. One bill.** Pay as you go across every provider and tool — OpenAI, Anthropic, Gemini, Firecrawl, Tavily, SerpAPI, RAG data ingestion, and a sandbox for code execution — with no per-vendor keys or contracts.
+**One API key. One bill.** Pay as you go across every provider and tool — OpenAI, Anthropic, Gemini, Firecrawl, Tavily, SerpAPI, and a sandbox for code execution — with no per-vendor keys or contracts.
 
-Build the full range on one runtime — **multi-step agents**, **managed agents**, and **deployed agents**.
+**Build any kind of agent** on one runtime:
+
+- **Multi-step agents** — chain reasoning and tool calls to complete complex tasks.
+- **Managed agents** — fully hosted and operated on the aixplain runtime.
+- **Deployed agents** — published as production API endpoints.
+
+**Built-in capabilities:** database access, RAG and data ingestion, multimodality (text, audio, image), and file handling.
 
 ## Why aixplain
 
