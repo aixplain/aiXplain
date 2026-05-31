@@ -48,7 +48,7 @@ Build the full range on one runtime — **multi-step agents**, **managed agents*
 Agentic OS is the portable runtime platform behind aixplain agents:
 
 - **Agent Engine** — orchestrates planning, execution, and delegation for autonomous agents.
-- **Asset Serving** — connects agents to models, tools, and data through a governed runtime layer.
+- **Asset Serving** — standardizes every model, tool, and data source behind a uniform interface, enabling swappability, governance, identity and auth, and rich telemetry.
 - **Observability** — captures traces, metrics, and monitoring for every production run.
 
 It runs across Cloud (instant) and on-prem deployments.
