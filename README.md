@@ -51,13 +51,7 @@ Develop your way — **SDK, API, CLI, and MCP** environments all run on the same
 
 ## Agentic OS
 
-Agentic OS is the portable runtime platform behind aixplain agents:
-
-- **Agent Engine** — orchestrates planning, execution, and delegation for autonomous agents.
-- **Asset Serving** — standardizes every model, tool, and data source behind a uniform interface, enabling swappability, governance, identity and auth, and rich telemetry.
-- **Observability** — captures traces, metrics, and monitoring for every production run.
-
-It runs across Cloud (instant) and on-prem deployments.
+Agentic OS is the portable runtime platform behind aixplain agents — orchestration, governed asset serving, and observability across Cloud (instant), on-prem, edge, and air-gapped deployments. See the [documentation](https://docs.aixplain.com) for the full architecture.
 
 ---
 
