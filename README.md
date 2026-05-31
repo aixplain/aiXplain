@@ -61,26 +61,6 @@ It runs across Cloud (instant) and on-prem deployments.
 
 ---
 
-## MCP Server Marketplace
-
-[aixplain Marketplace](https://studio.aixplain.com/browse) now also exposes MCP servers for **900+ models and tools**, allowing external clients to access selected **tool, integration, and model assets**, for example **Opus 4.6, Kimi, Qwen, Airtable, and Slack**, through **aixplain-hosted MCP endpoints** with a single API key 🔑.
-
-Read the full MCP setup guide in the [MCP servers docs](https://docs.aixplain.com/api-reference/mcp-servers).
-
-```json
-{
-  "ms1": {
-    "url": "https://models-mcp.aixplain.com/mcp/<AIXPLAIN_ASSET_ID>",
-    "headers": {
-      "Authorization": "Bearer <AIXPLAIN_APIKEY>",
-      "Accept": "application/json, text/event-stream"
-    }
-  }
-}
-```
-
----
-
 ## Quick start
 
 > **This is the aixplain SDK 2.** SDK 1 (the legacy factory API) keeps running until **end of July 2026**; after that, SDK 2 is the only supported surface. <!-- TODO: confirm SDK 2 release version/date -->
@@ -194,6 +174,26 @@ Team agent
 ```
 
 > **SDK 1 (legacy):** available until end of July 2026 — see the [SDK 1 docs](https://docs.aixplain.com/1.0/).
+
+---
+
+## MCP Server Marketplace
+
+[aixplain Marketplace](https://studio.aixplain.com/browse) now also exposes MCP servers for **900+ models and tools**, allowing external clients to access selected **tool, integration, and model assets**, for example **Opus 4.6, Kimi, Qwen, Airtable, and Slack**, through **aixplain-hosted MCP endpoints** with a single API key 🔑.
+
+Read the full MCP setup guide in the [MCP servers docs](https://docs.aixplain.com/api-reference/mcp-servers).
+
+```json
+{
+  "ms1": {
+    "url": "https://models-mcp.aixplain.com/mcp/<AIXPLAIN_ASSET_ID>",
+    "headers": {
+      "Authorization": "Bearer <AIXPLAIN_APIKEY>",
+      "Accept": "application/json, text/event-stream"
+    }
+  }
+}
+```
 
 ---
 
