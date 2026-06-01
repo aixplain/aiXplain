@@ -112,6 +112,36 @@ def encode_resource_id(resource_id: str) -> str:
     return quote(str(resource_id), safe="")
 
 
+def _is_excluded_from_serialization(field_def: Any) -> bool:
+    """Return True if a dataclass field is excluded from JSON serialization.
+
+    Detects the ``dataclasses_json`` ``exclude`` marker added via
+    ``metadata=config(exclude=...)`` on the field definition. Fields that
+    are never serialized to the backend cannot be reliably reconstructed
+    from a backend response either, so callers (e.g. :meth:`_create`) use
+    this to avoid clobbering locally-held values with stale defaults.
+    """
+    metadata = getattr(field_def, "metadata", {}) or {}
+    dj_meta = metadata.get("dataclasses_json", {})
+    return "exclude" in dj_meta
+
+
+def _is_auto_deserialize_only(field_def: Any) -> bool:
+    """Return True for fields configured as "manually serialized, auto-deserialized".
+
+    A field whose ``dataclasses_json`` metadata has both ``exclude=...`` AND
+    ``decoder=...`` opts into this pattern: ``to_dict`` skips it (the owning
+    class emits it some other way) but ``from_dict`` populates it via the
+    decoder. :meth:`_create` uses this to decide whether to re-hydrate the
+    field from a backend response.
+
+    See ``aixplain.v2.agent._role_field`` for the canonical use case.
+    """
+    metadata = getattr(field_def, "metadata", {}) or {}
+    dj_meta = metadata.get("dataclasses_json", {})
+    return "exclude" in dj_meta and "decoder" in dj_meta
+
+
 # Protocol classes for better type safety
 @runtime_checkable
 class HasContext(Protocol):
@@ -332,8 +362,14 @@ class BaseResource:
         # Update the object from the full response
         if isinstance(self, HasFromDict):
             updated = self.from_dict(result)
-            # Update all fields from the response
-            for field_name in self.__dataclass_fields__:
+            # Copy each field from the freshly-parsed ``updated`` onto self.
+            # A field that is excluded from serialization is normally
+            # authoritative locally (we never sent it, the response can't
+            # reconstruct it) — UNLESS it also has a ``decoder`` defined,
+            # which signals "manually serialized but auto-deserialized".
+            for field_name, field_def in self.__dataclass_fields__.items():
+                if _is_excluded_from_serialization(field_def) and not _is_auto_deserialize_only(field_def):
+                    continue
                 if hasattr(updated, field_name):
                     setattr(self, field_name, getattr(updated, field_name))
         else:

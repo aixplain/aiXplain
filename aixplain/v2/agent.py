@@ -7,7 +7,7 @@ import warnings
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import ClassVar, List, Optional, Any, Dict, Union, Text
+from typing import ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
 from dataclasses_json import dataclass_json, config
 
@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from .enums import AssetStatus, ResponseStatus
 from .model import Model
 from .mixins import ToolableMixin
+from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
     BaseResource,
@@ -122,6 +123,96 @@ class ContextOverflowStrategy(str, Enum):
 
     TRUNCATE = "truncate"
     SUMMARIZE = "summarize"
+
+
+RoleModelRef = Union[str, Dict[str, Any], Model]
+
+
+def _decode_role_ref(value: Any) -> Any:
+    """Decode a backend role-ref response (``{id, name?, parameters?}``) for the SDK.
+
+    Used as the ``decoder`` for ``llm`` / ``supervisor`` / ``planner`` /
+    ``response_generator`` so ``from_dict`` (called by ``_create`` after a
+    save POST and any subsequent fetch) can re-hydrate these fields from the
+    V2 DTO response — which carries ``model`` / ``supervisor`` / ``planner``
+    / ``responder`` as nested objects with ``parameters: [{name, value}]``.
+
+    Returns:
+        ``None`` if the response is null or has no ``id``.
+        The original string if the response is a bare id.
+        Otherwise ``{id, name?, parameters?: {name: value}}`` — parameters
+        are flattened from the wire ``NameValue[]`` list into a dict for
+        ergonomic in-Python access. The SDK's ``_extract_role_parameters``
+        round-trips this back to ``[{name, value}]`` on the next run.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, dict):
+        return value
+    if value.get("id") is None:
+        return None
+    result: Dict[str, Any] = {"id": value["id"]}
+    name = value.get("name")
+    if name:
+        result["name"] = name
+    params = value.get("parameters")
+    if params:
+        if isinstance(params, list):
+            flattened: Dict[str, Any] = {}
+            for item in params:
+                if isinstance(item, dict) and "name" in item:
+                    flattened[item["name"]] = item.get("value")
+            if flattened:
+                result["parameters"] = flattened
+        elif isinstance(params, dict):
+            result["parameters"] = params
+    return result
+
+
+def _role_field(*, save_key: str, default: Any = None) -> Any:
+    """Declare a role-ref field on :class:`Agent`.
+
+    Pairs ``exclude=lambda x: True`` (manual serialization via
+    ``_apply_llm_fields_to_save_payload`` / ``_apply_llm_fields_to_run_payload``)
+    with ``decoder=_decode_role_ref`` (auto-deserialize from the V2 DTO save /
+    fetch response). The ``field_name`` controls the response key the decoder
+    reads from — emission paths look up their own keys via the ``_ROLES``
+    config below, so changing one wire name only touches one place.
+    """
+    return field(
+        default=default,
+        metadata=config(
+            field_name=save_key,
+            exclude=lambda x: True,
+            decoder=_decode_role_ref,
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class _RoleSpec:
+    """One row of role configuration shared by save / run / fetch.
+
+    ``attr`` is the Python attribute on :class:`Agent`. ``save_key`` is the
+    nested key emitted in :meth:`Agent.build_save_payload` and read by
+    ``_decode_role_ref`` on a save / fetch response. ``run_key`` is the key
+    under top-level ``modelParameters`` emitted in
+    :meth:`Agent.build_run_payload`.
+    """
+
+    attr: str
+    save_key: str
+    run_key: str
+
+
+_ROLES: List[_RoleSpec] = [
+    _RoleSpec("llm", "model", "llm"),
+    _RoleSpec("supervisor", "supervisor", "supervisor"),
+    _RoleSpec("planner", "planner", "planner"),
+    _RoleSpec("response_generator", "responder", "responder"),
+]
 
 
 class AgentRunParams(BaseRunParams):
@@ -313,15 +404,21 @@ class Agent(
     instructions: Optional[str] = None
     status: AssetStatus = AssetStatus.DRAFT
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
-    llm: Union[str, "Model"] = field(default=DEFAULT_LLM, metadata=config(exclude=lambda x: True))
+    # ``llm`` / ``supervisor`` / ``planner`` / ``response_generator`` are
+    # serialized manually (see ``_apply_llm_fields_to_save_payload`` and
+    # ``_apply_llm_fields_to_run_payload``) and auto-deserialized via the
+    # ``_role_field`` factory. The wire-name mapping is centralized in the
+    # module-level ``_ROLES`` table.
+    llm: Union[str, Dict[str, Any], "Model"] = _role_field(save_key="model", default=DEFAULT_LLM)
 
     # Asset and tool fields
     tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
 
-    # Inspector and supervisor fields
+    # Inspector and team mentalist/planner/supervisor/response-generator.
     inspector_id: Optional[str] = field(default=None, metadata=config(field_name="inspectorId"))
-    supervisor_id: Optional[str] = field(default=None, metadata=config(field_name="supervisorId"))
-    planner_id: Optional[str] = field(default=None, metadata=config(field_name="plannerId"))
+    planner: Optional[RoleModelRef] = _role_field(save_key="planner")
+    supervisor: Optional[RoleModelRef] = _role_field(save_key="supervisor")
+    response_generator: Optional[RoleModelRef] = _role_field(save_key="responder")
 
     # Task fields
     tasks: Optional[List[Task]] = field(default_factory=list)
@@ -391,9 +488,6 @@ class Agent(
 
         if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
             self.context_overflow_strategy = self.context_overflow_strategy.value
-
-        if isinstance(self.llm, Model):
-            self.llm = self.llm.id
 
         # Normalize inspector_targets to support both strings and InspectorTarget enums
         if self.inspector_targets:
@@ -876,6 +970,150 @@ class Agent(
                 result[api_key] = v
         return result
 
+    @staticmethod
+    def _input_values_for_api(inputs: Any) -> Dict[str, Any]:
+        """Extract changed/non-null model input values into a plain dict."""
+        if inputs is None:
+            return {}
+
+        if hasattr(inputs, "items"):
+            raw = dict(inputs.items())
+        else:
+            raw = {key: value for key, value in vars(inputs).items() if not key.startswith("_")}
+
+        return {Agent._snake_to_camel(key): value for key, value in raw.items() if value is not None}
+
+    @staticmethod
+    def _snake_to_camel(name: str) -> str:
+        """Convert reasoning_effort -> reasoningEffort."""
+        if "_" not in name:
+            return name
+
+        parts = name.split("_")
+        return parts[0] + "".join(part[:1].upper() + part[1:] for part in parts[1:])
+
+    @staticmethod
+    def _params_dict_to_namevalue_list(params: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Convert ``{key: value}`` to the platform's ``[{name, value}]`` list shape.
+
+        The backend uses ``NameValue[]`` rather than a free-form dict so model
+        parameters fit cleanly into the GraphQL schema without hard-coding
+        per-parameter field names.
+        """
+        return [{"name": k, "value": v} for k, v in params.items()]
+
+    @classmethod
+    def _extract_role_parameters(cls, ref: Union[str, Dict[str, Any], "Model", None]) -> Optional[List[Dict[str, Any]]]:
+        """Pull a role ref's parameters out as a ``[{name, value}]`` list.
+
+        Accepts the user-facing shapes ``str`` / ``dict({id, parameters})`` /
+        ``Model``. Returns ``None`` when no parameters are set.
+        """
+        if ref is None or isinstance(ref, str):
+            return None
+        if isinstance(ref, dict):
+            params = ref.get("parameters")
+            if not params:
+                return None
+            if isinstance(params, list):
+                return params  # already in NameValue shape
+            if isinstance(params, dict):
+                return cls._params_dict_to_namevalue_list(params)
+            return None
+        if isinstance(ref, Model):
+            params = cls._input_values_for_api(getattr(ref, "inputs", None))
+            if not params:
+                return None
+            return cls._params_dict_to_namevalue_list(params)
+        return None
+
+    @classmethod
+    def _role_ref_to_save_manifest(cls, ref: Union[str, Dict[str, Any], "Model"]) -> Dict[str, Any]:
+        """Build the V2 ``AgentModelInput`` shape: ``{id, parameters?: [{name, value}]}``."""
+        if isinstance(ref, str):
+            return {"id": ref}
+        if isinstance(ref, dict):
+            manifest: Dict[str, Any] = {"id": ref.get("id")}
+            params = cls._extract_role_parameters(ref)
+            if params:
+                manifest["parameters"] = params
+            return manifest
+        if isinstance(ref, Model):
+            manifest = {"id": ref.id}
+            params = cls._extract_role_parameters(ref)
+            if params:
+                manifest["parameters"] = params
+            return manifest
+        raise TypeError(f"LLM ref must be a string id, dict, or Model, got {type(ref)}")
+
+    @classmethod
+    def _llm_ref_to_manifest(cls, ref: Union[str, Dict[str, Any], "Model"]) -> Dict[str, Any]:
+        """Back-compat alias for :meth:`_role_ref_to_save_manifest`."""
+        return cls._role_ref_to_save_manifest(ref)
+
+    @classmethod
+    def _role_model_ref_to_manifest(cls, ref: RoleModelRef) -> Dict[str, Any]:
+        """Back-compat alias for :meth:`_role_ref_to_save_manifest`."""
+        return cls._role_ref_to_save_manifest(ref)
+
+    # Legacy top-level role keys to strip from any payload we emit. Lived on
+    # earlier SDK versions; kept here so a stale serializer can't leak them
+    # into either build_save_payload or build_run_payload output.
+    _LEGACY_ROLE_KEYS: ClassVar[Tuple[str, ...]] = (
+        "llmId",
+        "supervisorId",
+        "plannerId",
+        "responseGeneratorId",
+    )
+
+    def _apply_llm_fields_to_save_payload(self, payload: Dict[str, Any]) -> None:
+        """Populate the V2 save shape: nested ``model``/``supervisor``/``planner``/``responder``.
+
+        Each entry is ``{id, parameters?: [{name, value}]}`` (matches backend
+        ``AgentModelInput``). Driven by the module-level ``_ROLES`` table.
+        """
+        for spec in _ROLES:
+            ref = getattr(self, spec.attr, None)
+            if ref is not None:
+                payload[spec.save_key] = self._role_ref_to_save_manifest(ref)
+            else:
+                payload.pop(spec.save_key, None)
+        for k in self._LEGACY_ROLE_KEYS:
+            payload.pop(k, None)
+
+    def _apply_llm_fields_to_run_payload(self, payload: Dict[str, Any]) -> None:
+        """Populate the V2 run shape: top-level ``modelParameters: {llm, supervisor, planner, responder}``.
+
+        Each role's parameters are emitted only when set. The backend uses
+        these as run-time overrides on top of persisted ``modelParameters``;
+        IDs are not overridable at run time (they come from the saved agent).
+        Driven by the module-level ``_ROLES`` table.
+        """
+        model_parameters: Dict[str, Any] = {}
+        for spec in _ROLES:
+            params = self._extract_role_parameters(getattr(self, spec.attr, None))
+            if params:
+                model_parameters[spec.run_key] = params
+        if model_parameters:
+            payload["modelParameters"] = model_parameters
+        else:
+            payload.pop("modelParameters", None)
+        for k in self._LEGACY_ROLE_KEYS:
+            payload.pop(k, None)
+
+    def _apply_llm_fields_to_payload(self, payload: Dict[str, Any]) -> None:
+        """Back-compat shim — preserves the old ``build_save_payload`` call site."""
+        self._apply_llm_fields_to_save_payload(payload)
+
+    @property
+    def llm_id(self) -> str:
+        """Return main LLM id whether llm is a string or Model."""
+        if isinstance(self.llm, str):
+            return self.llm
+        if isinstance(self.llm, Model):
+            return self.llm.id
+        raise TypeError(f"LLM must be a string id or Model, got {type(self.llm)}")
+
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
@@ -939,7 +1177,7 @@ class Agent(
         # Update the payload with converted assets
         payload["tools"] = converted_assets
 
-        payload["model"] = {"id": self.llm}
+        self._apply_llm_fields_to_payload(payload)
 
         # Convert agents to API format, resolving IDs from original objects
         if hasattr(self, "_original_agents") and self._original_agents:
@@ -1033,18 +1271,19 @@ class Agent(
             "id": self.id,
             "executionParams": execution_params,
             "runResponseGeneration": run_response_generation,
+            "metaData": build_run_metadata(),
         }
 
         # Add query back if present
         if query is not None:
             payload["query"] = query
-
         # Translate remaining snake_case kwargs to camelCase for the API
         for key, value in kwargs.items():
             if value is not None:
                 api_key = self._SNAKE_TO_CAMEL.get(key, key)
                 payload[api_key] = value
 
+        self._apply_llm_fields_to_run_payload(payload)
         return payload
 
     def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:

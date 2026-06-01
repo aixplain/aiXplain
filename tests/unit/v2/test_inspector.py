@@ -353,6 +353,41 @@ class TestPrebuiltInspector:
         with pytest.raises(ValueError, match="not supported by preset"):
             PrebuiltInspector.pii_redaction(action={"type": "rerun"})
 
+    def test_hallucination_guard_defaults(self):
+        inspector = PrebuiltInspector.hallucination_guard()
+        payload = inspector.to_dict()
+        assert payload == {"presetId": "hallucination_guard"}
+
+    def test_hallucination_guard_with_overrides(self):
+        inspector = PrebuiltInspector.hallucination_guard(
+            targets=[InspectorTarget.OUTPUT],
+            severity=InspectorSeverity.HIGH,
+            name="my_hallucination_guard",
+            description="Custom hallucination guard",
+        )
+        payload = inspector.to_dict()
+        assert payload == {
+            "presetId": "hallucination_guard",
+            "name": "my_hallucination_guard",
+            "description": "Custom hallucination guard",
+            "targets": ["output"],
+            "severity": "high",
+        }
+
+    def test_hallucination_guard_with_action_override(self):
+        inspector = PrebuiltInspector.hallucination_guard(
+            action={"type": "abort"},
+        )
+        payload = inspector.to_dict()
+        assert payload == {
+            "presetId": "hallucination_guard",
+            "action": {"type": "abort"},
+        }
+
+    def test_hallucination_guard_rejects_edit(self):
+        with pytest.raises(ValueError, match="not supported by preset"):
+            PrebuiltInspector.hallucination_guard(action={"type": "edit"})
+
     def test_targets_normalized_from_enums(self):
         inspector = PrebuiltInspector.pii_redaction(
             targets=[InspectorTarget.STEPS, InspectorTarget.OUTPUT],
@@ -381,12 +416,14 @@ class TestPrebuiltInspector:
         assert inspector.targets is None
         assert inspector.action is None
 
-    def test_list_presets_returns_both(self):
+    def test_list_presets_returns_all(self):
         presets = PrebuiltInspector.list_presets()
         assert "prompt_injection_guard" in presets
         assert "pii_redaction" in presets
+        assert "hallucination_guard" in presets
         assert presets["prompt_injection_guard"]["category"] == "protection"
         assert presets["pii_redaction"]["category"] == "redaction"
+        assert presets["hallucination_guard"]["category"] == "quality"
 
     def test_list_presets_contains_expected_fields(self):
         presets = PrebuiltInspector.list_presets()

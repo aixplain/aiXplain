@@ -237,6 +237,7 @@ class Inspector:
 
 PROMPT_INJECTION_GUARDRAIL_ASSET_ID = "69a9974367d506543103ca18"
 PII_REDACTION_GUARDRAIL_ASSET_ID = "69cbf63cd74e334a6bacfeb1"
+HALLUCINATION_GUARD_ASSET_ID = "69a9a38967d506543103ca1d"
 
 _PREBUILT_REGISTRY: Dict[str, Dict[str, Any]] = {
     "prompt_injection_guard": {
@@ -266,6 +267,20 @@ _PREBUILT_REGISTRY: Dict[str, Dict[str, Any]] = {
             InspectorAction.ABORT.value,
         ],
         "vendor": "aws",
+    },
+    "hallucination_guard": {
+        "name": "Hallucination Guard",
+        "category": "quality",
+        "description": "Detects hallucinations in the agent's final response by verifying it against the intermediate step results and the original user query.",
+        "default_targets": [InspectorTarget.OUTPUT.value],
+        "default_action": {"type": InspectorAction.RERUN.value, "maxRetries": 2, "onExhaust": "abort"},
+        "evaluator_asset_id": HALLUCINATION_GUARD_ASSET_ID,
+        "supported_actions": [
+            InspectorAction.CONTINUE.value,
+            InspectorAction.RERUN.value,
+            InspectorAction.ABORT.value,
+        ],
+        "vendor": None,
     },
 }
 
@@ -407,6 +422,40 @@ class PrebuiltInspector:
         """
         return PrebuiltInspector(
             preset_id="pii_redaction",
+            targets=targets,
+            action=action,
+            severity=severity,
+            name=name,
+            description=description,
+        )
+
+    @staticmethod
+    def hallucination_guard(
+        *,
+        targets: Optional[List[Any]] = None,
+        action: Optional[Dict[str, Any]] = None,
+        severity: Optional[InspectorSeverity] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> "PrebuiltInspector":
+        """Create a Hallucination Guard inspector.
+
+        Detects hallucinations in the agent's final response by verifying it
+        against the intermediate step results and the original user query.
+        Defaults to ``RERUN`` (max 2 retries, abort on exhaust) on ``OUTPUT``.
+
+        Args:
+            targets: Override default targets (default: ``[InspectorTarget.OUTPUT]``).
+            action: Override default action dict (default: ``{"type": "rerun", "maxRetries": 2, "onExhaust": "abort"}``).
+            severity: Optional severity level.
+            name: Optional custom name for the inspector node.
+            description: Optional custom description.
+
+        Returns:
+            A PrebuiltInspector configured for hallucination detection.
+        """
+        return PrebuiltInspector(
+            preset_id="hallucination_guard",
             targets=targets,
             action=action,
             severity=severity,
