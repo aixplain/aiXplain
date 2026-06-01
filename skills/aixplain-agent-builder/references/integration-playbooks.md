@@ -43,7 +43,7 @@ Semantic search works immediately after `upsert`; `count` returns indexed docume
 
 ## 2. PostgreSQL (`693ac6e8217c7b13b480970f`)
 
-Connect with database URL: `postgresql://username:password@host:port/database`.
+Connect with database URL: `postgresql://<user>:<pass>@<host>:<port>/<dbname>`.
 
 - Prefer read-only DB users for analysis assistants.
 - Scope query actions first; enable write actions only when explicitly required.
