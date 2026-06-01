@@ -3,6 +3,8 @@ sidebar_label: model_factory
 title: aixplain.v1.factories.model_factory
 ---
 
+Model Factory Class.
+
 #### \_\_author\_\_
 
 Copyright 2022 The aiXplain SDK authors
@@ -30,7 +32,7 @@ Description:
 class ModelFactory(ModelGetterMixin, ModelListMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L39)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L43)
 
 Factory class for creating, managing, and exploring models.
 
@@ -60,7 +62,7 @@ def create_utility_model(cls,
                          **kwargs) -> UtilityModel
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L54)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L58)
 
 Create a new utility model for custom functionality.
 
@@ -83,6 +85,7 @@ with specified inputs and outputs.
   Defaults to empty string.
 - `api_key` _Optional[Text], optional_ - API key for authentication.
   Defaults to None, using the configured TEAM_API_KEY.
+- `**kwargs` - Additional keyword arguments.
   
 
 **Returns**:
@@ -106,7 +109,7 @@ def create_script_connection_tool(cls,
                                   **kwargs) -> ConnectionTool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L131)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L136)
 
 Create a new script connection tool for custom functionality.
 
@@ -123,6 +126,7 @@ via ToolFactory.create as the underlying implementation.
   Defaults to None.
 - `api_key` _Optional[Text], optional_ - API key for authentication.
   Defaults to None, using the configured TEAM_API_KEY.
+- `**kwargs` - Additional keyword arguments.
   
 
 **Returns**:
@@ -143,13 +147,14 @@ def list_host_machines(cls,
                        **kwargs) -> List[Dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L209)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L215)
 
 Lists available hosting machines for model.
 
 **Arguments**:
 
 - `api_key` _Text, optional_ - Team API key. Defaults to None.
+- `**kwargs` - Additional keyword arguments.
   
 
 **Returns**:
@@ -166,13 +171,14 @@ def list_gpus(cls,
               **kwargs) -> List[List[Text]]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L230)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L237)
 
 List GPU names on which you can host your language model.
 
 **Arguments**:
 
 - `api_key` _Text, optional_ - Team API key. Defaults to None.
+- `**kwargs` - Additional keyword arguments.
   
 
 **Returns**:
@@ -189,7 +195,7 @@ def list_functions(cls,
                    **kwargs) -> List[Dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L250)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L258)
 
 Lists supported model functions on platform.
 
@@ -198,6 +204,7 @@ Lists supported model functions on platform.
 - `verbose` _Boolean, optional_ - Set to True if a detailed response
   is desired; is otherwise False by default.
 - `api_key` _Text, optional_ - Team API key. Defaults to None.
+- `**kwargs` - Additional keyword arguments.
   
 
 **Returns**:
@@ -221,7 +228,7 @@ def create_asset_repo(cls,
                       **kwargs) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L283)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L292)
 
 Create a new model repository in the platform.
 
@@ -240,6 +247,7 @@ necessary infrastructure for model deployment.
   Defaults to empty string.
 - `api_key` _Optional[Text], optional_ - API key for authentication.
   Defaults to None, using the configured TEAM_API_KEY.
+- `**kwargs` - Additional keyword arguments.
   
 
 **Returns**:
@@ -249,8 +257,8 @@ necessary infrastructure for model deployment.
 
 **Raises**:
 
-- `Exception` - If function name is invalid.
-- `description`0 - If response status code is not 201.
+- `description`0 - If function name is invalid.
+- `description`1 - If response status code is not 201.
 
 #### asset\_repo\_login
 
@@ -259,14 +267,17 @@ necessary infrastructure for model deployment.
 def asset_repo_login(cls, api_key: Optional[Text] = None, **kwargs) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L353)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L363)
 
-Return login credentials for the image repository that corresponds with
-the given API_KEY.
+Return login credentials for the image repository.
+
+Returns credentials for the image repository that corresponds
+with the given API_KEY.
 
 **Arguments**:
 
 - `api_key` _Text, optional_ - Team API key. Defaults to None.
+- `**kwargs` - Additional keyword arguments.
   
 
 **Returns**:
@@ -286,7 +297,7 @@ def onboard_model(cls,
                   **kwargs) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L375)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L388)
 
 Onboard a model after its image has been pushed to ECR.
 
@@ -297,11 +308,77 @@ Onboard a model after its image has been pushed to ECR.
 - `image_hash` _Text_ - Image digest.
 - `host_machine` _Text, optional_ - Machine on which to host model.
 - `api_key` _Text, optional_ - Team API key. Defaults to None.
+- `**kwargs` - Additional keyword arguments.
   
 
 **Returns**:
 
 - `Dict` - Backend response
+
+#### create\_rlm
+
+```python
+@classmethod
+def create_rlm(cls,
+               orchestrator_model_id: Text,
+               worker_model_id: Text,
+               name: Text = "RLM",
+               description:
+               Text = "Recursive Language Model for long-context analysis.",
+               max_iterations: int = 10,
+               api_key: Optional[Text] = None) -> RLM
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L425)
+
+Create an RLM (Recursive Language Model) instance for long-context analysis.
+
+RLM overcomes LLM context window limits by giving a powerful orchestrator
+model a Python REPL environment pre-loaded with the user&#x27;s context. The
+orchestrator writes code to chunk and explore the data, delegating
+per-chunk analysis to a lighter worker model via ``llm_query()`` calls.
+
+**Arguments**:
+
+- `orchestrator_model_id` _Text_ - aiXplain model ID of the root LLM that
+  plans and writes REPL code. Use a powerful, reasoning-capable model.
+- `worker_model_id` _Text_ - aiXplain model ID of the sub-LLM called inside
+  the REPL for per-chunk analysis. A fast, cost-efficient model is
+  recommended as it may be invoked many times per run.
+- `name` _Text, optional_ - Display name for the RLM instance.
+  Defaults to ``&quot;RLM&quot;``.
+- `description` _Text, optional_ - Description of this RLM instance.
+  Defaults to a generic string.
+- `max_iterations` _int, optional_ - Maximum orchestrator loop iterations
+  before a forced final answer is requested. Defaults to 10.
+- `api_key` _Optional[Text], optional_ - API key for model lookups.
+  Defaults to ``config.TEAM_API_KEY``.
+  
+
+**Returns**:
+
+- ``2 - A configured RLM instance ready to call ``run()``.
+  
+
+**Raises**:
+
+- ``5 - If either model ID cannot be fetched from the platform.
+  
+  Example::
+  
+  from aixplain.factories import ModelFactory
+  
+  rlm = ModelFactory.create_rlm(
+  orchestrator_model_id=&quot;&lt;powerful-model-id&gt;&quot;,
+  worker_model_id=&quot;&lt;fast-cheap-model-id&gt;&quot;,
+  max_iterations=10,
+  )
+  response = rlm.run(data=\{
+- ``6 - very_long_document,
+- ``7 - &quot;What are the key findings?&quot;,
+  })
+  print(response.data)
+  print(f&quot;Done in \{response[&#x27;iterations_used&#x27;]} iterations.&quot;)
 
 #### deploy\_huggingface\_model
 
@@ -316,7 +393,7 @@ def deploy_huggingface_model(cls,
                              **kwargs) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L411)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L502)
 
 Deploy a model from Hugging Face Hub to the aiXplain platform.
 
@@ -333,6 +410,7 @@ authentication and configuration setup.
   Defaults to empty string.
 - `api_key` _Optional[Text], optional_ - API key for authentication.
   Defaults to None, using the configured TEAM_API_KEY.
+- `**kwargs` - Additional keyword arguments.
   
 
 **Returns**:
@@ -349,7 +427,7 @@ def get_huggingface_model_status(cls,
                                  **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L468)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/__init__.py#L560)
 
 Check the deployment status of a Hugging Face model.
 
@@ -361,6 +439,7 @@ Hugging Face model.
 - `model_id` _Text_ - Model ID returned by deploy_huggingface_model.
 - `api_key` _Optional[Text], optional_ - API key for authentication.
   Defaults to None, using the configured TEAM_API_KEY.
+- `**kwargs` - Additional keyword arguments.
   
 
 **Returns**:

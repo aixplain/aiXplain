@@ -94,7 +94,7 @@ def start(format: ProgressFormat = ProgressFormat.STATUS,
           truncate: bool = True) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L626)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L659)
 
 Start progress tracking (call from before_run hook).
 
@@ -110,7 +110,7 @@ Start progress tracking (call from before_run hook).
 def update(response: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L764)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L813)
 
 Update progress with poll response (call from on_poll hook).
 
@@ -124,7 +124,7 @@ Update progress with poll response (call from on_poll hook).
 def finish(response: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L792)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L841)
 
 Finish progress tracking and print completion (call from after_run hook).
 
@@ -141,7 +141,7 @@ def stream_progress(url: str,
                     truncate: bool = True) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L814)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L863)
 
 Stream agent progress until completion (standalone polling mode).
 

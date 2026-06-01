@@ -167,7 +167,7 @@ def run_async(data: Text,
               response_format: Optional[Text] = None) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/llm_model.py#L212)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/llm_model.py#L213)
 
 Run the LLM model asynchronously to generate text.
 

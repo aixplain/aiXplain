@@ -14,6 +14,570 @@ aiXplain SDK v2 - Modern Python SDK for the aiXplain platform.
 
 ---
 
+## aixplain.v2.actions
+
+Source: `api-reference/python/aixplain/v2/actions`
+
+Unified Actions / Inputs hierarchy for models and tools.
+
+Object Hierarchy::
+
+    Actions                    — collection of Action objects
+      Action                   — metadata + owns its inputs
+        Inputs                 — collection of Input objects
+          Input                — individual input with schema + current value
+
+Models have a single implicit "run" action. The ``model.inputs`` shorthand
+skips the actions layer since there is nothing to disambiguate.
+
+Tools have multiple actions, so the full path is always used.
+
+### Input Objects
+
+```python
+class Input()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L25)
+
+Individual input with schema and current value.
+
+**Attributes**:
+
+- `name` - The input parameter name.
+- `required` - Whether this input is required.
+- `type` - The data type (e.g. ``"text"``, ``"number"``, ``"string"``).
+- `value` - The current value (mutable).
+- `required`0 - Human-readable description.
+
+#### __init__
+
+```python
+def __init__(name: str,
+             required: bool = False,
+             type: Optional[str] = None,
+             value: Any = None,
+             description: str = "",
+             *,
+             _validator: Optional[Callable[[Any], bool]] = None,
+             _metadata: Optional[Any] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L36)
+
+Initialize an Input with schema metadata and an optional validator.
+
+#### name
+
+```python
+@property
+def name() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L57)
+
+The input parameter name.
+
+#### required
+
+```python
+@property
+def required() -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L62)
+
+Whether this input is required.
+
+#### type
+
+```python
+@property
+def type() -> Optional[str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L67)
+
+The data type string (e.g. ``"text"``, ``"number"``).
+
+#### value
+
+```python
+@property
+def value() -> Any
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L72)
+
+The current value.
+
+#### value
+
+```python
+@value.setter
+def value(val: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L77)
+
+Set the value, running the validator if one was provided.
+
+#### description
+
+```python
+@property
+def description() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L87)
+
+Human-readable description of the input.
+
+#### reset
+
+```python
+def reset(default: Any = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L91)
+
+Reset the value to the given default (bypasses validation).
+
+#### __eq__
+
+```python
+def __eq__(other: object) -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L95)
+
+Compare by value so ``inputs['temperature'] == 0.7`` works.
+
+#### __hash__
+
+```python
+def __hash__() -> int
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L101)
+
+Return an identity-based hash.
+
+#### __repr__
+
+```python
+def __repr__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L105)
+
+Return a developer-friendly representation.
+
+#### from_parameter
+
+```python
+@classmethod
+def from_parameter(cls, param: "Parameter") -> "Input"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L122)
+
+Build an ``Input`` from a model ``Parameter``.
+
+#### from_action_input_spec
+
+```python
+@classmethod
+def from_action_input_spec(cls, spec: "ActionInputSpec") -> "Input"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L171)
+
+Build an ``Input`` from a tool ``ActionInputSpec``.
+
+### Inputs Objects
+
+```python
+class Inputs()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L215)
+
+Ordered collection of :class:`Input` objects.
+
+Supports dict-like access (``inputs["key"]``, ``inputs["key"] = val``)
+and dot-notation (``inputs.key``, ``inputs.key = val``).
+
+Iterating, ``.keys()``, ``.values()``, and ``.items()`` operate on
+*raw values* so that ``dict(inputs.items())`` gives a plain ``{name: value}``
+mapping suitable for API payloads.
+
+#### __init__
+
+```python
+def __init__(inputs: Optional[Dict[str, Input]] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L226)
+
+Initialize from an optional ordered dict of :class:`Input` objects.
+
+#### __getitem__
+
+```python
+def __getitem__(key: str) -> Input
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L234)
+
+Return the :class:`Input` for *key*.
+
+#### __setitem__
+
+```python
+def __setitem__(key: str, value: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L241)
+
+Set the *value* on the :class:`Input` identified by *key*.
+
+#### __contains__
+
+```python
+def __contains__(key: object) -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L249)
+
+Return whether *key* is a known input name.
+
+#### __len__
+
+```python
+def __len__() -> int
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L254)
+
+Return the number of inputs.
+
+#### __iter__
+
+```python
+def __iter__()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L259)
+
+Iterate over input names.
+
+#### __getattr__
+
+```python
+def __getattr__(name: str) -> Input
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L268)
+
+Dot-notation read: ``inputs.temperature``.
+
+#### __setattr__
+
+```python
+def __setattr__(name: str, value: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L275)
+
+Dot-notation write: ``inputs.temperature = 0.7``.
+
+#### keys
+
+```python
+def keys() -> List[str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L290)
+
+Return input names.
+
+#### values
+
+```python
+def values() -> List[Any]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L295)
+
+Return raw values for all inputs.
+
+#### items
+
+```python
+def items() -> List[tuple[str, Any]]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L300)
+
+Return ``(name, value)`` pairs.
+
+#### get
+
+```python
+def get(key: str, default: Any = None) -> Optional[Input]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L305)
+
+Return the :class:`Input` for *key*, or *default*.
+
+#### update
+
+```python
+def update(**kwargs: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L312)
+
+Update multiple input values at once.
+
+#### reset
+
+```python
+def reset(key: Optional[str] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L317)
+
+Reset one or all inputs to their default values.
+
+#### copy
+
+```python
+def copy() -> Dict[str, Any]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L331)
+
+Return a shallow copy of ``{name: value}``.
+
+#### validate
+
+```python
+def validate(data: Optional[Dict[str, Any]] = None) -> List[str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L335)
+
+Validate *data* (or current values) against input specs.
+
+Returns a list of error strings (empty means valid).
+
+#### required
+
+```python
+@property
+def required() -> List[str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L355)
+
+Names of all required inputs.
+
+#### __repr__
+
+```python
+def __repr__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L364)
+
+Return ``Inputs({'key': value, ...})``.
+
+#### from_parameters
+
+```python
+@classmethod
+def from_parameters(cls, params: Optional[list]) -> "Inputs"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L375)
+
+Build from a list of model ``Parameter`` objects.
+
+#### from_action_input_specs
+
+```python
+@classmethod
+def from_action_input_specs(cls, specs: Optional[list]) -> "Inputs"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L386)
+
+Build from a list of tool ``ActionInputSpec`` objects.
+
+### Action Objects
+
+```python
+class Action()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L397)
+
+Metadata for a single action, owning its :class:`Inputs`.
+
+For models the single action is always ``"run"``.
+For tools there may be many (e.g. ``"search_agents"``, ``"search_models"``).
+
+#### __init__
+
+```python
+def __init__(name: str,
+             description: Optional[str] = None,
+             *,
+             inputs: Optional[Inputs] = None,
+             _inputs_loader: Optional[Callable[[], Inputs]] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L404)
+
+Initialize an Action with name, description and optional lazy inputs.
+
+#### name
+
+```python
+@property
+def name() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L420)
+
+The canonical action name.
+
+#### description
+
+```python
+@property
+def description() -> Optional[str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L425)
+
+Human-readable description of the action.
+
+#### inputs
+
+```python
+@property
+def inputs() -> Inputs
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L430)
+
+The action's :class:`Inputs` (lazily loaded for tool actions).
+
+#### __repr__
+
+```python
+def __repr__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L440)
+
+Return a multi-line representation showing the action and its inputs.
+
+### Actions Objects
+
+```python
+class Actions()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L470)
+
+Ordered collection of :class:`Action` objects.
+
+For models this contains a single ``"run"`` action.
+For tools it lazily discovers actions from the backend.
+
+#### __init__
+
+```python
+def __init__(
+    actions: Optional[Dict[str, Action]] = None,
+    *,
+    _action_factory: Optional[Callable[[str, Optional[str]], Action]] = None,
+    _actions_lister: Optional[Callable[[], List[tuple[str,
+                                                      Optional[str]]]]] = None
+) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L477)
+
+Initialize with either an eager dict or lazy factory/lister callbacks.
+
+#### __getitem__
+
+```python
+def __getitem__(key: str) -> Action
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L511)
+
+Return the :class:`Action` for *key* (case-insensitive).
+
+#### __contains__
+
+```python
+def __contains__(key: object) -> bool
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L532)
+
+Return whether *key* matches an available action name.
+
+#### __iter__
+
+```python
+def __iter__()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L540)
+
+Iterate over available action names.
+
+#### __len__
+
+```python
+def __len__() -> int
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L545)
+
+Return the number of available actions.
+
+#### __repr__
+
+```python
+def __repr__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L549)
+
+Return ``Actions(['action1', 'action2', ...])``.
+
+#### refresh
+
+```python
+def refresh() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L555)
+
+Clear caches and force re-fetch on next access.
+
+---
+
 ## aixplain.v2.agent
 
 Source: `api-reference/python/aixplain/v2/agent`
@@ -26,7 +590,7 @@ Agent module for aiXplain v2 SDK.
 class ConversationMessage(TypedDict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L35)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L37)
 
 Type definition for a conversation message in agent history.
 
@@ -41,7 +605,7 @@ Type definition for a conversation message in agent history.
 def validate_history(history: List[Dict[str, Any]]) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L47)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L49)
 
 Validates conversation history for agent sessions.
 
@@ -77,7 +641,7 @@ with each message containing the required 'role' and 'content' fields and proper
 class OutputFormat(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L105)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L107)
 
 Output format options for agent responses.
 
@@ -87,25 +651,25 @@ Output format options for agent responses.
 class AgentRunParams(BaseRunParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L113)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L115)
 
 Parameters for running an agent.
 
 **Attributes**:
 
-- `sessionId` - Session ID for conversation continuity
+- `session_id` - Session ID for conversation continuity
 - `query` - The query to run
 - `variables` - Variables to replace {{variable}} placeholders in instructions and description.
   The backend performs the actual substitution.
-- `allowHistoryAndSessionId` - Allow both history and session ID
+- `allow_history_and_session_id` - Allow both history and session ID
 - `tasks` - List of tasks for the agent
 - `prompt` - Custom prompt override
 - `history` - Conversation history
-- `executionParams` - Execution parameters (maxTokens, etc.)
+- `execution_params` - Execution parameters (maxTokens, etc.)
 - `criteria` - Criteria for evaluation
 - `evolve` - Evolution parameters
 - `query`0 - Inspector configurations
-- `query`1 - Whether to run response generation. Defaults to True.
+- `query`1 - Whether to run response generation. Defaults to False.
 - `query`2 - Display format - "status" (single line) or "logs" (timeline).
   If None (default), progress tracking is disabled.
 - `query`3 - Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
@@ -120,7 +684,7 @@ Parameters for running an agent.
 class AgentResponseData()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L155)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L157)
 
 Data structure for agent response.
 
@@ -133,13 +697,32 @@ Data structure for agent response.
 class AgentRunResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L168)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L170)
 
 Result from running an agent.
 
 #### data
 
 Override type from base class
+
+#### execution_id
+
+```python
+@property
+def execution_id() -> Optional[str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L189)
+
+Extract the execution ID from the poll URL or request_id.
+
+The execution ID can be used with ``Agent.poll()`` and
+``Agent.sync_poll()`` to resume polling a previously started run
+without persisting the full URL.
+
+**Returns**:
+
+  The execution ID if available, None otherwise.
 
 #### debug
 
@@ -149,7 +732,7 @@ def debug(prompt: Optional[str] = None,
           **kwargs: Any) -> "DebugResult"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L186)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L209)
 
 Debug this agent response using the Debugger meta-agent.
 
@@ -198,7 +781,7 @@ use the Debugger directly: aix.Debugger().debug_response(result)
 class Task()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L239)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L262)
 
 A task definition for agent workflows.
 
@@ -208,7 +791,7 @@ A task definition for agent workflows.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L247)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L270)
 
 Initialize task dependencies after dataclass creation.
 
@@ -225,7 +808,7 @@ class Agent(BaseResource, SearchResourceMixin[BaseSearchParams, "Agent"],
             RunnableResourceMixin[AgentRunParams, AgentRunResult])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L257)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L280)
 
 Agent resource class.
 
@@ -235,7 +818,7 @@ Agent resource class.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L320)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L352)
 
 Initialize agent after dataclass creation.
 
@@ -245,7 +828,7 @@ Initialize agent after dataclass creation.
 def mark_as_deleted() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L361)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L402)
 
 Mark the agent as deleted by setting status to DELETED and calling parent method.
 
@@ -256,7 +839,7 @@ def before_run(*args: Any,
                **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L368)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L409)
 
 Hook called before running the agent to validate and prepare state.
 
@@ -267,7 +850,7 @@ def on_poll(response: AgentRunResult,
             **kwargs: Unpack[AgentRunParams]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L409)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L450)
 
 Hook called after each poll to update progress display.
 
@@ -283,7 +866,7 @@ def after_run(result: Union[AgentRunResult, Exception], *args: Any,
               **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L421)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L462)
 
 Hook called after running the agent for result transformation.
 
@@ -293,7 +876,7 @@ Hook called after running the agent for result transformation.
 def run(*args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L440)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L496)
 
 Run the agent with optional progress display.
 
@@ -318,7 +901,7 @@ Run the agent with optional progress display.
 def run_async(*args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L468)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L517)
 
 Run the agent asynchronously.
 
@@ -331,7 +914,61 @@ Run the agent asynchronously.
 
 **Returns**:
 
-- `AgentRunResult` - The result of the agent execution
+- `AgentRunResult` - The result of the agent execution. Use ``result.url``
+  to poll for completion via ``sync_poll(result.url)`` or
+  ``client.get(result.url)``. Do not construct
+  ``/sdk/runs/{execution_id}`` — that endpoint is not supported
+  for agent runs.
+
+#### poll
+
+```python
+def poll(poll_url: str) -> AgentRunResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L558)
+
+Poll for the result of an asynchronous agent execution.
+
+Unlike the base implementation, *poll_url* may be either a full URL
+(as returned in ``AgentRunResult.url``) **or** a bare execution ID.
+When an execution ID is provided the correct
+``/sdk/agents/{id}/result`` endpoint is used automatically, avoiding
+the common mistake of calling the unsupported
+``/sdk/runs/{id}`` endpoint.
+
+**Arguments**:
+
+- `poll_url` - Full poll URL or execution ID.
+  
+
+**Returns**:
+
+  AgentRunResult with current execution status.
+
+#### sync_poll
+
+```python
+def sync_poll(poll_url: str,
+              **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L576)
+
+Poll until an asynchronous agent execution completes.
+
+Accepts either a full URL or a bare execution ID (see
+:meth:`poll` for details).
+
+**Arguments**:
+
+- `poll_url` - Full poll URL or execution ID.
+- `**kwargs` - Run parameters including ``timeout`` and ``wait_time``.
+  
+
+**Returns**:
+
+  AgentRunResult with final execution status.
 
 #### save
 
@@ -339,7 +976,7 @@ Run the agent asynchronously.
 def save(*args: Any, **kwargs: Any) -> "Agent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L519)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L618)
 
 Save the agent with dependency management.
 
@@ -369,24 +1006,58 @@ child components before the agent itself is saved.
 def before_save(*args: Any, **kwargs: Any) -> Optional[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L635)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L734)
 
 Callback to be called before the resource is saved.
 
 Handles status transitions based on save type.
 
-#### after_clone
+#### after_duplicate
 
 ```python
-def after_clone(result: Union["Agent", Exception],
-                **kwargs: Any) -> Optional["Agent"]
+def after_duplicate(result: Union["Agent", Exception],
+                    **kwargs: Any) -> Optional["Agent"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L650)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L749)
 
-Callback called after the agent is cloned.
+Callback called after the agent is duplicated.
 
-Sets the cloned agent's status to DRAFT.
+Sets the duplicated agent's status to DRAFT.
+
+#### duplicate
+
+```python
+@with_hooks
+def duplicate(duplicate_subagents: bool = False,
+              name: Optional[str] = None) -> "Agent"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L759)
+
+Duplicate this agent on the aiXplain platform (server-side).
+
+Creates a server-side copy of this agent with a clean usage baseline.
+The duplicate inherits the original's ownership, team, and permissions
+but resets all usage and cost metrics.
+
+**Arguments**:
+
+- `duplicate_subagents` - If True, recursively duplicates referenced subagents
+  so the duplicate has independent copies. If False, the duplicate
+  keeps references to the original subagents. Defaults to False.
+- `name` - Custom name for the duplicate. If None, a unique name is
+  auto-generated by the platform. Defaults to None.
+  
+
+**Returns**:
+
+- `Agent` - The newly created duplicate agent.
+  
+
+**Raises**:
+
+- `ResourceError` - If the duplication request fails.
 
 #### search
 
@@ -397,7 +1068,7 @@ def search(cls: type["Agent"],
            **kwargs: Unpack[BaseSearchParams]) -> "Page[Agent]"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L660)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L798)
 
 Search agents with optional query and filtering.
 
@@ -417,7 +1088,7 @@ Search agents with optional query and filtering.
 def build_save_payload(**kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L680)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L858)
 
 Build the payload for the save action.
 
@@ -427,7 +1098,7 @@ Build the payload for the save action.
 def build_run_payload(**kwargs: Unpack[AgentRunParams]) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L777)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L953)
 
 Build the payload for the run action.
 
@@ -438,7 +1109,7 @@ def generate_session_id(
         history: Optional[List[ConversationMessage]] = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L850)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1030)
 
 Generate a unique session ID for agent conversations.
 
@@ -571,7 +1242,7 @@ def start(format: ProgressFormat = ProgressFormat.STATUS,
           truncate: bool = True) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L626)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L659)
 
 Start progress tracking (call from before_run hook).
 
@@ -587,7 +1258,7 @@ Start progress tracking (call from before_run hook).
 def update(response: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L764)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L813)
 
 Update progress with poll response (call from on_poll hook).
 
@@ -601,7 +1272,7 @@ Update progress with poll response (call from on_poll hook).
 def finish(response: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L792)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L841)
 
 Finish progress tracking and print completion (call from after_run hook).
 
@@ -618,7 +1289,7 @@ def stream_progress(url: str,
                     truncate: bool = True) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L814)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L863)
 
 Stream agent progress until completion (standalone polling mode).
 
@@ -1270,7 +1941,7 @@ Core module for aiXplain v2 API.
 class Aixplain()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L30)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L33)
 
 Main class for the Aixplain API.
 
@@ -1286,13 +1957,13 @@ def __init__(api_key: Optional[str] = None,
              model_url: Optional[str] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L74)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L78)
 
 Initialize the Aixplain class.
 
 **Arguments**:
 
-- `api_key` _str, optional_ - The API key. Falls back to TEAM_API_KEY env var.
+- `api_key` _str, optional_ - The API key. Falls back to TEAM_API_KEY or AIXPLAIN_API_KEY env var.
 - `backend_url` _str, optional_ - The backend URL. Falls back to BACKEND_URL env var.
 - `pipeline_url` _str, optional_ - The pipeline execution URL. Falls back to PIPELINES_RUN_URL env var.
 - `model_url` _str, optional_ - The model execution URL. Falls back to MODELS_RUN_URL env var.
@@ -1303,7 +1974,7 @@ Initialize the Aixplain class.
 def init_client() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L102)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L113)
 
 Initialize the client.
 
@@ -1313,7 +1984,7 @@ Initialize the client.
 def init_resources() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L109)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L120)
 
 Initialize the resources.
 
@@ -2056,204 +2727,31 @@ Source: `api-reference/python/aixplain/v2/integration`
 
 Integration module for managing external service integrations.
 
-### ActionInputsProxy Objects
-
-```python
-class ActionInputsProxy()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L17)
-
-Proxy object that provides both dict-like and dot notation access to action input parameters.
-
-This proxy dynamically fetches action input specifications from the container resource
-when needed, allowing for runtime discovery and validation of action inputs.
-
-#### __init__
-
-```python
-def __init__(container, action_name: str)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L24)
-
-Initialize ActionInputsProxy with container and action name.
-
-#### __getitem__
-
-```python
-def __getitem__(key: str)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L93)
-
-Get input value by key.
-
-#### __setitem__
-
-```python
-def __setitem__(key: str, value)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L97)
-
-Set input value by key.
-
-#### __contains__
-
-```python
-def __contains__(key: str) -> bool
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L101)
-
-Check if input parameter exists.
-
-#### __len__
-
-```python
-def __len__() -> int
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L109)
-
-Return the number of input parameters.
-
-#### __iter__
-
-```python
-def __iter__()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L114)
-
-Iterate over input parameter keys.
-
-#### __getattr__
-
-```python
-def __getattr__(name: str)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L120)
-
-Get input value by attribute name.
-
-#### __setattr__
-
-```python
-def __setattr__(name: str, value)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L127)
-
-Set input value by attribute name.
-
-#### get
-
-```python
-def get(key: str, default=None)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L138)
-
-Get input value with optional default.
-
-#### update
-
-```python
-def update(**kwargs)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L145)
-
-Update multiple inputs at once.
-
-#### keys
-
-```python
-def keys()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L150)
-
-Get input parameter codes.
-
-#### values
-
-```python
-def values()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L155)
-
-Get input parameter values.
-
-#### items
-
-```python
-def items()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L160)
-
-Get input parameter code-value pairs.
-
-#### reset_input
-
-```python
-def reset_input(input_code: str)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L169)
-
-Reset an input parameter to its backend default value.
-
-#### reset_all_inputs
-
-```python
-def reset_all_inputs()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L175)
-
-Reset all input parameters to their backend default values.
-
-#### __repr__
-
-```python
-def __repr__()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L180)
-
-Return string representation of the proxy.
-
-### Input Objects
+### ActionInputSpec Objects
 
 ```python
 @dataclass_json
 
 @dataclass
-class Input()
+class ActionInputSpec()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L188)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L20)
 
-Input parameter for an action.
+Backend input-parameter specification for an action (deserialization only).
 
-### Action Objects
+### ActionSpec Objects
 
 ```python
 @dataclass_json
 
 @dataclass(repr=False)
-class Action()
+class ActionSpec()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L206)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L38)
 
-Container for tool action information and inputs.
+Backend action specification (deserialization only).
 
 #### __repr__
 
@@ -2261,28 +2759,9 @@ Container for tool action information and inputs.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L224)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L56)
 
-Return a string representation showing name and input parameters.
-
-#### get_inputs_proxy
-
-```python
-def get_inputs_proxy(container) -> ActionInputsProxy
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L240)
-
-Get an ActionInputsProxy for this action from a container.
-
-**Arguments**:
-
-- `container` - The container resource (Tool or Integration) that can fetch action specs
-  
-
-**Returns**:
-
-- `ActionInputsProxy` - A proxy object for accessing action inputs
+Return a concise representation of the action spec.
 
 ### ToolId Objects
 
@@ -2293,7 +2772,7 @@ Get an ActionInputsProxy for this action from a container.
 class ToolId()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L254)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L69)
 
 Result for tool operations.
 
@@ -2306,7 +2785,7 @@ Result for tool operations.
 class IntegrationResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L263)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L78)
 
 Result for connection operations.
 
@@ -2318,56 +2797,65 @@ The backend returns the connection ID in data.id.
 class IntegrationSearchParams(BaseSearchParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L272)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L87)
 
 Parameters for listing integrations.
 
 ### ActionMixin Objects
 
 ```python
+@dataclass
 class ActionMixin()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L278)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L94)
 
 Mixin class providing action-related functionality for integrations and tools.
 
 #### list_actions
 
 ```python
-def list_actions() -> List[Action]
+def list_actions() -> List[ActionSpec]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L284)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L116)
 
 List available actions for the integration.
+
+**Returns**:
+
+  List of :class:`ActionSpec` objects from the backend.
 
 #### list_inputs
 
 ```python
-def list_inputs(*actions: str) -> List[Action]
+def list_inputs(*actions: str) -> List[ActionSpec]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L311)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L168)
 
 List available inputs for the integration.
+
+.. deprecated::
+    Use ``tool.actions['action_name'].inputs`` to discover and configure
+    action inputs instead.
 
 #### actions
 
 ```python
 @cached_property
-def actions()
+def actions() -> Actions
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L336)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L184)
 
-Get a proxy object that provides access to actions with their inputs.
-
-This enables the syntax: mytool.actions['ACTION_NAME'].channel = 'value'
+Collection of actions with their inputs.
 
 **Returns**:
 
-- `ActionsProxy` - A proxy object for accessing actions and their inputs
+  :class:`Actions` collection.  Access individual actions via
+  ``tool.actions['ACTION_NAME']`` which returns an :class:`Action`
+  whose ``.inputs`` property lazily fetches input specs.
 
 #### set_inputs
 
@@ -2375,137 +2863,30 @@ This enables the syntax: mytool.actions['ACTION_NAME'].channel = 'value'
 def set_inputs(inputs_dict: Dict[str, Dict[str, Any]]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L346)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L223)
 
 Set multiple action inputs in bulk using a dictionary tree structure.
 
-This method allows you to set inputs for multiple actions at once.
-Action names are automatically converted to lowercase for consistent lookup.
-
 **Arguments**:
 
-- `inputs_dict` - Dictionary in the format:
-  {
-- `"ACTION_NAME"` - {
-- `"input_param1"` - "value1",
-- `"input_param2"` - "value2",
-  ...
-  },
-- `"ANOTHER_ACTION"` - {
-- `"input_param1"` - "value1",
-  ...
-  }
-  }
-  
-
-**Example**:
-
-  tool.set_inputs({
-- `'slack_send_message'` - {  # Will work regardless of case
-- `'channel'` - '`general`',
-- `'text'` - 'Hello from bulk set!',
-- `"ACTION_NAME"`0 - 'MyBot'
-  },
-- `"ACTION_NAME"`1 - {  # Will also work
-- `'channel'` - '`general`',
-- `'text'` - 'Hello from bulk set!',
-- `"ACTION_NAME"`0 - 'MyBot'
-  },
-- `"ACTION_NAME"`6 - {  # Will also work
-- `"ACTION_NAME"`7 - '`general`',
-- `"ACTION_NAME"`9 - 'document.pdf'
-  }
-  })
+- `inputs_dict` - ``{"ACTION_NAME": {"input_param": "value", ...}, ...}``
   
 
 **Raises**:
 
-- `"input_param1"`0 - If an action name is not found or invalid
-- `"input_param1"`1 - If an input parameter is not found for an action
-
-### ActionsProxy Objects
-
-```python
-class ActionsProxy()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L412)
-
-Proxy object that provides access to actions with their inputs.
-
-This enables the syntax: mytool.actions['ACTION_NAME'].channel = 'value'
-
-#### __init__
-
-```python
-def __init__(container)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L418)
-
-Initialize ActionsProxy with container resource.
-
-#### __getitem__
-
-```python
-def __getitem__(action_name: str)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L446)
-
-Get an action with its inputs proxy.
-
-Converts action name to lowercase for consistent lookup.
-
-#### __getattr__
-
-```python
-def __getattr__(attr_name: str)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L466)
-
-Get an action with its inputs proxy using attribute notation.
-
-Converts attribute name to lowercase for consistent lookup.
-
-#### __contains__
-
-```python
-def __contains__(action_name: str) -> bool
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L480)
-
-Check if an action exists.
-
-#### get_available_actions
-
-```python
-def get_available_actions() -> List[str]
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L489)
-
-Get a list of available action names.
-
-#### refresh_cache
-
-```python
-def refresh_cache()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L494)
-
-Clear the actions cache to force re-fetching.
+- `ValueError` - If an action name is not found or invalid.
+- `KeyError` - If an input parameter is not found for an action.
 
 ### Integration Objects
 
 ```python
+@dataclass_json
+
+@dataclass
 class Integration(Model, ActionMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L500)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L257)
 
 Resource for integrations.
 
@@ -2518,7 +2899,7 @@ All connection logic is centralized here.
 def run(**kwargs: Any) -> IntegrationResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L526)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L282)
 
 Run the integration with validation.
 
@@ -2528,7 +2909,7 @@ Run the integration with validation.
 def connect(**kwargs: Any) -> "Tool"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L530)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L286)
 
 Connect the integration.
 
@@ -2539,6 +2920,11 @@ that the user must visit to complete authentication before using the tool.
 
 - `Tool` - The created tool. If OAuth authentication is required,
   ``tool.redirect_url`` will contain the URL the user must visit.
+  
+
+**Raises**:
+
+- `ValueError` - If the connection fails (e.g., name already exists).
 
 #### handle_run_response
 
@@ -2546,7 +2932,7 @@ that the user must visit to complete authentication before using the tool.
 def handle_run_response(response: dict, **kwargs: Any) -> IntegrationResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L549)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L313)
 
 Handle the response from the integration.
 
@@ -2705,7 +3091,7 @@ def debug_response(response: "AgentRunResult",
                    **kwargs: Any) -> DebugResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L166)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L167)
 
 Debug an agent response.
 
@@ -2838,7 +3224,7 @@ Model resource for v2 API.
 class Message()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L35)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L36)
 
 Message structure from the API response.
 
@@ -2851,7 +3237,7 @@ Message structure from the API response.
 class Detail()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L47)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L48)
 
 Detail structure from the API response.
 
@@ -2864,9 +3250,12 @@ Detail structure from the API response.
 class Usage()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L58)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L89)
 
 Usage structure from the API response.
+
+Token counts are nullable because some model providers (GPT-5.4, Claude,
+Mistral Large) return ``"NaN"`` or ``null`` instead of integers.
 
 ### ModelResult Objects
 
@@ -2877,7 +3266,7 @@ Usage structure from the API response.
 class ModelResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L68)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L112)
 
 Result for model runs with specific fields from the backend response.
 
@@ -2888,7 +3277,7 @@ Result for model runs with specific fields from the backend response.
 class StreamChunk()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L78)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L123)
 
 A chunk of streamed response data.
 
@@ -2906,7 +3295,7 @@ A chunk of streamed response data.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L95)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L140)
 
 Ensure data remains a text chunk.
 
@@ -2916,7 +3305,7 @@ Ensure data remains a text chunk.
 class ModelResponseStreamer(Iterator[StreamChunk])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L101)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L146)
 
 A streamer for model responses that yields chunks as they arrive.
 
@@ -2944,7 +3333,7 @@ for proper resource cleanup.
 def __init__(response: "requests.Response")
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L122)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L167)
 
 Initialize a new ModelResponseStreamer instance.
 
@@ -2958,7 +3347,7 @@ Initialize a new ModelResponseStreamer instance.
 def __iter__() -> Iterator[StreamChunk]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L134)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L179)
 
 Return the iterator for the ModelResponseStreamer.
 
@@ -2968,7 +3357,7 @@ Return the iterator for the ModelResponseStreamer.
 def __next__() -> StreamChunk
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L138)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L183)
 
 Return the next chunk of the response.
 
@@ -2987,7 +3376,7 @@ Return the next chunk of the response.
 def close() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L253)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L298)
 
 Close the underlying response connection.
 
@@ -2997,7 +3386,7 @@ Close the underlying response connection.
 def __enter__() -> "ModelResponseStreamer"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L258)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L303)
 
 Context manager entry.
 
@@ -3007,249 +3396,9 @@ Context manager entry.
 def __exit__(exc_type, exc_val, exc_tb) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L262)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L307)
 
 Context manager exit - ensures response is closed.
-
-### InputsProxy Objects
-
-```python
-class InputsProxy()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L267)
-
-Proxy object that provides both dict-like and dot notation access to model parameters.
-
-#### __init__
-
-```python
-def __init__(model)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L270)
-
-Initialize InputsProxy with a model instance.
-
-#### __getitem__
-
-```python
-def __getitem__(key: str)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L297)
-
-Dict-like access: inputs['temperature'].
-
-#### __setitem__
-
-```python
-def __setitem__(key: str, value)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L303)
-
-Dict-like assignment: inputs['temperature'] = 0.7.
-
-#### __getattr__
-
-```python
-def __getattr__(name: str)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L320)
-
-Dot notation access: inputs.temperature.
-
-#### __setattr__
-
-```python
-def __setattr__(name: str, value)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L326)
-
-Dot notation assignment: inputs.temperature = 0.7.
-
-#### __contains__
-
-```python
-def __contains__(key: str) -> bool
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L345)
-
-Check if parameter exists: 'temperature' in inputs.
-
-#### __len__
-
-```python
-def __len__() -> int
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L349)
-
-Number of parameters.
-
-#### __iter__
-
-```python
-def __iter__()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L353)
-
-Iterate over parameter names.
-
-#### keys
-
-```python
-def keys()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L357)
-
-Get parameter names.
-
-#### values
-
-```python
-def values()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L361)
-
-Get parameter values.
-
-#### items
-
-```python
-def items()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L365)
-
-Get parameter name-value pairs.
-
-#### get
-
-```python
-def get(key: str, default=None)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L369)
-
-Get parameter value with default.
-
-#### update
-
-```python
-def update(**kwargs)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L375)
-
-Update multiple parameters at once.
-
-#### clear
-
-```python
-def clear()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L383)
-
-Reset all parameters to backend defaults.
-
-#### copy
-
-```python
-def copy()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L388)
-
-Get a copy of current parameter values.
-
-#### has_parameter
-
-```python
-def has_parameter(param_name: str) -> bool
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L392)
-
-Check if a parameter exists.
-
-#### get_parameter_names
-
-```python
-def get_parameter_names() -> list
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L396)
-
-Get a list of all available parameter names.
-
-#### get_required_parameters
-
-```python
-def get_required_parameters() -> list
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L400)
-
-Get a list of required parameter names.
-
-#### get_parameter_info
-
-```python
-def get_parameter_info(param_name: str)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L404)
-
-Get information about a specific parameter.
-
-#### get_all_parameters
-
-```python
-def get_all_parameters() -> dict
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L410)
-
-Get all current parameter values.
-
-#### reset_parameter
-
-```python
-def reset_parameter(param_name: str)
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L414)
-
-Reset a parameter to its backend default value.
-
-#### reset_all_parameters
-
-```python
-def reset_all_parameters()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L425)
-
-Reset all parameters to their backend default values.
-
-#### __repr__
-
-```python
-def __repr__()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L470)
-
-Return string representation of InputsProxy.
 
 #### find_supplier_by_id
 
@@ -3257,7 +3406,7 @@ Return string representation of InputsProxy.
 def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L476)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L315)
 
 Find supplier enum by ID.
 
@@ -3267,22 +3416,13 @@ Find supplier enum by ID.
 def find_function_by_id(function_id: str) -> Optional[Function]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L485)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L324)
 
 Find function enum by ID.
 
-### Attribute Objects
-
-```python
-@dataclass_json
-
-@dataclass
-class Attribute()
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L495)
-
-Common attribute structure from the API response.
+Handles both SDK-style identifiers (``TEXT_GENERATION``) and the
+kebab-case identifiers returned by the backend API
+(``text-generation``).
 
 ### Parameter Objects
 
@@ -3293,7 +3433,7 @@ Common attribute structure from the API response.
 class Parameter()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L505)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L348)
 
 Common parameter structure from the API response.
 
@@ -3306,7 +3446,7 @@ Common parameter structure from the API response.
 class Version()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L521)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L364)
 
 Version structure from the API response.
 
@@ -3319,7 +3459,7 @@ Version structure from the API response.
 class Pricing()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L530)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L373)
 
 Pricing structure from the API response.
 
@@ -3332,7 +3472,7 @@ Pricing structure from the API response.
 class VendorInfo()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L540)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L383)
 
 Supplier information structure from the API response.
 
@@ -3342,7 +3482,7 @@ Supplier information structure from the API response.
 class ModelSearchParams(BaseSearchParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L548)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L391)
 
 Search parameters for model queries.
 
@@ -3368,7 +3508,7 @@ Filter by path prefix (e.g., "openai/gpt-4")
 class ModelRunParams(BaseRunParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L564)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L407)
 
 Parameters for running models.
 
@@ -3388,7 +3528,7 @@ class Model(BaseResource, SearchResourceMixin[ModelSearchParams, "Model"],
             RunnableResourceMixin[ModelRunParams, ModelResult], ToolableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L577)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L420)
 
 Resource for models.
 
@@ -3398,9 +3538,30 @@ Resource for models.
 def __post_init__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L629)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L469)
 
 Initialize dynamic attributes based on backend parameters.
+
+#### get_attribute
+
+```python
+def get_attribute(key: str, default: Any = None) -> Any
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L476)
+
+Return an attribute value from the backend attribute map.
+
+#### actions
+
+```python
+@property
+def actions() -> Actions
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L483)
+
+Actions available on this model (always a single ``"run"`` action).
 
 #### supports_tool_calling
 
@@ -3409,7 +3570,7 @@ Initialize dynamic attributes based on backend parameters.
 def supports_tool_calling() -> Optional[bool]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L672)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L525)
 
 Return whether this LLM supports tool calling, inferred from backend params.
 
@@ -3420,7 +3581,7 @@ Return whether this LLM supports tool calling, inferred from backend params.
 def supports_structured_output() -> Optional[bool]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L687)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L540)
 
 Return whether this LLM supports structured output, inferred from backend params.
 
@@ -3431,7 +3592,7 @@ Return whether this LLM supports structured output, inferred from backend params
 def is_sync_only() -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L702)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L555)
 
 Check if the model only supports synchronous execution.
 
@@ -3446,7 +3607,7 @@ Check if the model only supports synchronous execution.
 def is_async_capable() -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L713)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L566)
 
 Check if the model supports asynchronous execution.
 
@@ -3460,9 +3621,23 @@ Check if the model supports asynchronous execution.
 def __setattr__(name: str, value)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L723)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L576)
 
 Handle bulk assignment to inputs.
+
+#### build_run_payload
+
+```python
+def build_run_payload(**kwargs: Unpack[ModelRunParams]) -> dict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L585)
+
+Build the JSON payload for a model execution request.
+
+Strips SDK-only orchestration params (``timeout``, ``wait_time``,
+``show_progress``, ``stream``) so they are never forwarded to the
+backend API.
 
 #### build_run_url
 
@@ -3470,7 +3645,7 @@ Handle bulk assignment to inputs.
 def build_run_url(**kwargs: Unpack[ModelRunParams]) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L732)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L595)
 
 Build the URL for running the model.
 
@@ -3480,7 +3655,7 @@ Build the URL for running the model.
 def mark_as_deleted() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L737)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L600)
 
 Mark the model as deleted by setting status to DELETED and calling parent method.
 
@@ -3492,7 +3667,7 @@ def get(cls: type["Model"], id: str,
         **kwargs: Unpack[BaseGetParams]) -> "Model"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L745)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L608)
 
 Get a model by ID.
 
@@ -3505,7 +3680,7 @@ def search(cls: type["Model"],
            **kwargs: Unpack[ModelSearchParams]) -> Page["Model"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L754)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L617)
 
 Search with optional query and filtering.
 
@@ -3525,7 +3700,7 @@ Search with optional query and filtering.
 def run(**kwargs: Unpack[ModelRunParams]) -> ModelResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L775)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L638)
 
 Run the model with dynamic parameter validation and default handling.
 
@@ -3539,7 +3714,7 @@ This method routes the execution based on the model's connection type:
 def run_async(**kwargs: Unpack[ModelRunParams]) -> ModelResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L816)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L680)
 
 Run the model asynchronously.
 
@@ -3558,7 +3733,7 @@ This method routes the execution based on the model's connection type:
 def run_stream(**kwargs: Unpack[ModelRunParams]) -> ModelResponseStreamer
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L912)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L776)
 
 Run the model with streaming response.
 
@@ -3581,6 +3756,7 @@ or processing large responses incrementally.
 
 - `ValidationError` - If the model explicitly does not support streaming
   (supports_streaming is False)
+- `ValueError` - If required parameters are missing or have invalid types
   
 
 **Example**:
@@ -3600,7 +3776,7 @@ or processing large responses incrementally.
 def as_tool() -> ToolDict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L1044)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L909)
 
 Serialize this model as a tool for agent creation.
 
@@ -3619,7 +3795,7 @@ expects for model tools.
   - function: The model's function type
   - type: Always "model"
   - version: The model's version
-  - assetId: The model's ID (same as id)
+  - asset_id: The model's ID (same as id)
   
 
 **Example**:
@@ -3633,7 +3809,7 @@ expects for model tools.
 def get_parameters() -> List[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L1102)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L967)
 
 Get current parameter values for this model.
 
@@ -4179,13 +4355,23 @@ def __repr__() -> str
 
 Return JSON representation of the page.
 
+#### __iter__
+
+```python
+def __iter__()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L691)
+
+Iterate over the results in this page.
+
 #### __getitem__
 
 ```python
 def __getitem__(key: str)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L691)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L695)
 
 Allow dictionary-like access to page attributes.
 
@@ -4195,7 +4381,7 @@ Allow dictionary-like access to page attributes.
 class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L696)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L700)
 
 Mixin for listing resources with pagination and search functionality.
 
@@ -4220,7 +4406,7 @@ Default to match backend
 def search(cls: type, **kwargs: Unpack[SearchParamsT]) -> Page[ResourceT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L774)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L782)
 
 Search resources across the first n pages with optional filtering.
 
@@ -4239,7 +4425,7 @@ Search resources across the first n pages with optional filtering.
 class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L882)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L890)
 
 Mixin for getting a resource.
 
@@ -4253,7 +4439,7 @@ def get(cls: type,
         **kwargs: Unpack[GetParamsT]) -> ResourceT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L886)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L894)
 
 Retrieve a single resource by its ID (or other get parameters).
 
@@ -4279,7 +4465,7 @@ Retrieve a single resource by its ID (or other get parameters).
 class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L927)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L938)
 
 Mixin for deleting a resource.
 
@@ -4293,7 +4479,7 @@ Default response class
 def build_delete_payload(**kwargs: Unpack[DeleteParamsT]) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L932)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L943)
 
 Build the payload for the delete action.
 
@@ -4306,7 +4492,7 @@ construction for delete operations.
 def build_delete_url(**kwargs: Unpack[DeleteParamsT]) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L941)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L952)
 
 Build the URL for the delete action.
 
@@ -4325,7 +4511,7 @@ def handle_delete_response(response: Any,
                            **kwargs: Unpack[DeleteParamsT]) -> DeleteResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L958)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L969)
 
 Handle the response from a delete request.
 
@@ -4350,7 +4536,7 @@ def before_delete(*args: Any,
                   **kwargs: Unpack[DeleteParamsT]) -> Optional[DeleteResultT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L995)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1006)
 
 Optional callback called before the resource is deleted.
 
@@ -4375,7 +4561,7 @@ def after_delete(result: Union[DeleteResultT, Exception], *args: Any,
                  **kwargs: Unpack[DeleteParamsT]) -> Optional[DeleteResultT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1011)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1022)
 
 Optional callback called after the resource is deleted.
 
@@ -4402,7 +4588,7 @@ Override this method to add custom logic after deleting.
 def delete(*args: Any, **kwargs: Unpack[DeleteParamsT]) -> DeleteResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1035)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1046)
 
 Delete a resource.
 
@@ -4416,7 +4602,7 @@ Delete a resource.
 def mark_as_deleted() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1052)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1063)
 
 Mark the resource as deleted by clearing its ID and setting deletion flag.
 
@@ -4426,7 +4612,7 @@ Mark the resource as deleted by clearing its ID and setting deletion flag.
 class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1058)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1069)
 
 Mixin for runnable resources.
 
@@ -4440,7 +4626,7 @@ Default response class
 def build_run_payload(**kwargs: Unpack[RunParamsT]) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1064)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1075)
 
 Build the payload for the run action.
 
@@ -4453,7 +4639,7 @@ parameters are dataclasses with @dataclass_json decorator.
 def build_run_url(**kwargs: Unpack[RunParamsT]) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1073)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1084)
 
 Build the URL for the run action.
 
@@ -4472,7 +4658,7 @@ def handle_run_response(response: dict,
                         **kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1094)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1105)
 
 Handle the response from a run request.
 
@@ -4496,7 +4682,7 @@ in the 'data' field.
 def before_run(*args: Any, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1142)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1153)
 
 Optional callback called before the resource is run.
 
@@ -4521,7 +4707,7 @@ def after_run(result: Union[ResultT, Exception], *args: Any,
               **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1158)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1169)
 
 Optional callback called after the resource is run.
 
@@ -4547,7 +4733,7 @@ Override this method to add custom logic after running.
 def run(*args: Any, **kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1181)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1192)
 
 Run the resource synchronously with automatic polling.
 
@@ -4573,7 +4759,7 @@ Run the resource synchronously with automatic polling.
 def run_async(**kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1211)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1222)
 
 Run the resource asynchronously.
 
@@ -4592,7 +4778,7 @@ Run the resource asynchronously.
 def poll(poll_url: str) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1239)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1250)
 
 Poll for the result of an asynchronous operation.
 
@@ -4617,7 +4803,7 @@ Poll for the result of an asynchronous operation.
 def on_poll(response: ResultT, **kwargs: Unpack[RunParamsT]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1295)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1321)
 
 Hook called after each successful poll with the poll response.
 
@@ -4635,13 +4821,16 @@ such as displaying progress updates or logging status changes.
 def sync_poll(poll_url: str, **kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1307)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1333)
 
 Keep polling until an asynchronous operation is complete.
 
 **Arguments**:
 
-- `poll_url` - URL to poll for results
+- `poll_url` - URL to poll for results. Must be the exact URL returned
+  by run_async (e.g. result.url). Do not use a constructed
+  /sdk/runs/{id} URL — that endpoint is not supported for
+  agent runs.
 - `**kwargs` - Run parameters including timeout and wait_time
   
 
@@ -4653,6 +4842,210 @@ Keep polling until an asynchronous operation is complete.
 **Raises**:
 
 - `TimeoutError` - If the operation exceeds the timeout duration
+
+---
+
+## aixplain.v2.rlm
+
+Source: `api-reference/python/aixplain/v2/rlm`
+
+RLM (Recursive Language Model) for aiXplain SDK v2.
+
+Orchestrates long-context analysis via an iterative REPL sandbox. The
+orchestrator model plans and writes Python code to chunk and explore a large
+context; a worker model handles per-chunk analysis via ``llm_query()`` calls
+injected into the sandbox session.
+
+### RLMResult Objects
+
+```python
+@dataclass_json
+
+@dataclass(repr=False)
+class RLMResult(Result)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L146)
+
+Result returned by :meth:`RLM.run`.
+
+Extends the standard :class:`~aixplain.v2.resource.Result` with
+RLM-specific fields.
+
+**Attributes**:
+
+- `iterations_used` - Number of orchestrator iterations consumed.
+- `repl_logs` - Per-iteration REPL execution log (excluded from
+  serialization; present only on live instances).
+
+### RLM Objects
+
+```python
+@dataclass_json
+
+@dataclass(repr=False)
+class RLM(BaseResource, ToolableMixin)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L172)
+
+Recursive Language Model — long-context analysis via an iterative REPL sandbox.
+
+RLM wraps two aiXplain models:
+
+- An **orchestrator** (powerful, expensive): plans and writes Python code to
+explore the context iteratively in a managed sandbox environment.
+- A **worker** (fast, cheap): called via ``llm_query()`` inside the sandbox
+to perform focused analysis on individual context chunks.
+
+The sandbox is an aiXplain managed Python execution environment. Each
+``run()`` call gets its own isolated session (UUID), so variables persist
+across REPL iterations within a single run but are cleaned up afterwards.
+
+RLM is a **local orchestrator** — it does not correspond to a platform
+endpoint and is not saved via ``save()``. It is registered on the
+:class:`~aixplain.v2.core.Aixplain` client exactly like other resources so
+that credentials and URLs flow through ``self.context`` automatically.
+
+Example::
+
+from aixplain.v2 import Aixplain
+
+aix = Aixplain(api_key="...")
+rlm = aix.RLM(
+orchestrator_id="<orchestrator-model-id>",
+worker_id="<worker-model-id>",
+)
+
+result = rlm.run(data={
+"context": very_long_document,
+"query": "What are the key findings?",
+})
+print(result.data)
+print(f"Completed in {result.iterations_used} iteration(s).")
+
+**Attributes**:
+
+- `orchestrator_id` - Platform model ID of the orchestrator LLM.
+- ``0 - Platform model ID of the worker LLM.
+- ``1 - Maximum orchestrator loop iterations (default 10).
+- ``2 - Maximum wall-clock seconds per ``run()`` call (default 600).
+
+#### __post_init__
+
+```python
+def __post_init__() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L261)
+
+Auto-assign a UUID when no id is provided.
+
+#### run
+
+```python
+def run(data: Union[str, dict, pathlib.Path],
+        name: str = "rlm_process",
+        timeout: Optional[float] = None,
+        **kwargs: Any) -> RLMResult
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L580)
+
+Run the RLM orchestration loop over a (potentially large) context.
+
+A fresh sandbox session is created for each call. The orchestrator is
+called iteratively; each iteration it may execute ``repl`` code blocks in
+the sandbox (outputs fed back into the conversation) and eventually declare
+a final answer via ``FINAL(...)`` or ``FINAL_VAR(...)``.
+
+**Arguments**:
+
+- `data` - Input context. Accepted forms:
+  
+  - ``str`` **raw text** — used directly as context; default query applied.
+  - ``str`` **HTTP/HTTPS URL** — content is downloaded automatically;
+  ``.json`` URLs or ``application/json`` responses are parsed into a
+  dict/list, all other content decoded as plain text.
+  - ``str`` **file path** — file is read automatically; ``.json`` files are
+  parsed into a dict/list, all other formats read as plain text.
+  - ``pathlib.Path`` — resolved and read like a file-path string.
+  - ``dict`` — must contain ``"context"`` (required) and optionally
+  ``"query"`` (defaults to a generic analysis prompt). The value
+  of ``"context"`` itself may also be a URL, a file path, or a
+  ``pathlib.Path``.
+  
+- ``1 - Identifier used in log messages. Defaults to ``"rlm_process"``.
+- ``4 - Maximum wall-clock seconds. Overrides ``self.timeout`` when
+  provided. Defaults to ``None`` (uses ``self.timeout``).
+- ``1 - Ignored; kept for API compatibility.
+  
+
+**Returns**:
+
+  :class:``2 with:
+  
+  - ``data``: Final answer string.
+  - ``status``: ``"SUCCESS"`` or ``"FAILED"``.
+  - ``completed``: ``True``.
+  - ``iterations_used``: Number of orchestrator iterations consumed.
+  - ``repl_logs``: Per-iteration execution log (not serialized).
+  
+
+**Raises**:
+
+- ``9 - If ``orchestrator_id`` or ``worker_id`` are unset,
+  or if the orchestrator model call fails.
+- `data`4 - If ``data`` is a dict missing ``"context"``, or an
+  unsupported type.
+
+#### as_tool
+
+```python
+def as_tool() -> ToolDict
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L743)
+
+Serialize this RLM as a tool for agent creation.
+
+Allows an :class:`~aixplain.v2.agent.Agent` to invoke the RLM as one of
+its tools, passing a query (and optionally context) as the ``data``
+argument.
+
+**Returns**:
+
+  :class:`~aixplain.v2.mixins.ToolDict` representing this RLM.
+
+#### run_async
+
+```python
+def run_async(*args: Any, **kwargs: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L767)
+
+Not supported — raises :exc:`NotImplementedError`.
+
+#### run_stream
+
+```python
+def run_stream(*args: Any, **kwargs: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L771)
+
+Not supported — raises :exc:`NotImplementedError`.
+
+#### __repr__
+
+```python
+def __repr__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L777)
+
+Return string representation of this RLM instance.
 
 ---
 
@@ -4671,7 +5064,7 @@ Tool resource module for managing tools and their integrations.
 class ToolResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L21)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L24)
 
 Result for a tool.
 
@@ -4685,7 +5078,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult],
            ActionMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L29)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L32)
 
 Resource for tools.
 
@@ -4697,57 +5090,87 @@ Inherits from Model to reuse shared attributes and functionality.
 
 Script integration
 
+#### integration_path
+
+```python
+@property
+def integration_path() -> Optional[str]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L55)
+
+The path of the integration (e.g. ``"aixplain/python-sandbox"``).
+
+Available when the ``integration`` has been resolved to an
+:class:`Integration` object that carries a ``path`` attribute.
+Returns ``None`` when the integration has not been resolved yet.
+
 #### __post_init__
 
 ```python
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L50)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L66)
 
 Initialize tool after dataclass creation.
 
-Sets up default integration for utility tools if no integration is provided.
-Validates integration type if provided.
+#### actions
+
+```python
+@cached_property
+def actions() -> Actions
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L88)
+
+Collection of actions available on this tool.
+
+#### inputs
+
+```python
+@property
+def inputs()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L93)
+
+Tools have multiple actions — use tool.actions['action_name'].inputs instead.
+
+#### inputs
+
+```python
+@inputs.setter
+def inputs(value)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L98)
+
+Prevent setting inputs directly on tools.
 
 #### list_actions
 
 ```python
-def list_actions() -> List[Action]
+def list_actions() -> List[ActionSpec]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L107)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L131)
 
-List available actions for the tool.
-
-Overrides parent method to add fallback to base integration.
-
-**Returns**:
-
-  List of Action objects available for this tool. Falls back to
-  integration's list_actions() if tool's own method fails.
+List available actions for the tool (with integration fallback).
 
 #### list_inputs
 
 ```python
-def list_inputs(*actions: str) -> List["Action"]
+def list_inputs(*actions: str) -> List[ActionSpec]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L126)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L159)
 
 List available inputs for specified actions.
 
-Overrides parent method to add fallback to base integration.
-
-**Arguments**:
-
-- `*actions` - Variable number of action names to get inputs for.
-  
-
-**Returns**:
-
-  List of Action objects with their input specifications. Falls back to
-  integration's list_inputs() if tool's own method fails.
+.. deprecated::
+    Use ``tool.actions['action_name'].inputs`` to discover and
+    configure action inputs instead.
 
 #### validate_allowed_actions
 
@@ -4755,20 +5178,9 @@ Overrides parent method to add fallback to base integration.
 def validate_allowed_actions() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L211)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L330)
 
 Validate that all allowed actions are available for this tool.
-
-Checks that:
-- Integration is available (attempts lazy resolution)
-- All actions in allowed_actions list exist in the integration
-
-Skips validation gracefully when integration cannot be resolved
-(e.g. tools fetched via search/get without integration data).
-
-**Raises**:
-
-- `AssertionError` - If integration is available but actions don't match.
 
 #### get_parameters
 
@@ -4776,13 +5188,9 @@ Skips validation gracefully when integration cannot be resolved
 def get_parameters() -> List[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L238)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L370)
 
 Get parameters for the tool in the format expected by agent saving.
-
-This method includes both static backend values and dynamically set values
-from the ActionInputsProxy instances, ensuring agents get the current
-configured action inputs.
 
 #### as_tool
 
@@ -4790,19 +5198,9 @@ configured action inputs.
 def as_tool() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L300)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L421)
 
 Serialize this tool for agent creation.
-
-This method extends the base Model.as_tool() to include tool-specific
-fields like actions, which tells the backend which actions
-the agent is permitted to use.
-
-**Returns**:
-
-- `dict` - A dictionary representing this tool with:
-  - All fields from Model.as_tool()
-  - actions: Explicit list of actions (filtered to allowed only)
 
 #### run
 
@@ -4810,7 +5208,7 @@ the agent is permitted to use.
 def run(*args: Any, **kwargs: Unpack[ModelRunParams]) -> ToolResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L373)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L473)
 
 Run the tool.
 

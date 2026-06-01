@@ -2,16 +2,17 @@
 
 > LLM-readable entrypoint for the aiXplain Python SDK v2 reference.
 
-Use `api-reference/python/aixplain/v2/llms-full.txt` when you want the complete SDK v2 reference in one context window.
+Use `llms-full.txt` when you want the complete SDK v2 reference in one context window.
 
 ## Recommended
 
-- [SDK v2 full reference](api-reference/python/aixplain/v2/llms-full.txt): Complete concatenated aiXplain Python SDK v2 API reference.
+- [SDK v2 full reference](llms-full.txt): Complete concatenated aiXplain Python SDK v2 API reference.
 - [SDK v2 landing page](api-reference/python/aixplain/v2/init.md): Package overview for `aixplain.v2`.
 
 ## SDK v2 Modules
 
 - [aixplain.v2](api-reference/python/aixplain/v2/init.md): aiXplain SDK v2 - Modern Python SDK for the aiXplain platform.
+- [aixplain.v2.actions](api-reference/python/aixplain/v2/actions.md): Unified Actions / Inputs hierarchy for models and tools.
 - [aixplain.v2.agent](api-reference/python/aixplain/v2/agent.md): Agent module for aiXplain v2 SDK.
 - [aixplain.v2.agent_progress](api-reference/python/aixplain/v2/agent_progress.md): Agent progress tracking and display module.
 - [aixplain.v2.api_key](api-reference/python/aixplain/v2/api_key.md): API Key management module for aiXplain v2 API.
@@ -28,6 +29,7 @@ Use `api-reference/python/aixplain/v2/llms-full.txt` when you want the complete 
 - [aixplain.v2.mixins](api-reference/python/aixplain/v2/mixins.md): Mixins for v2 API classes.
 - [aixplain.v2.model](api-reference/python/aixplain/v2/model.md): Model resource for v2 API.
 - [aixplain.v2.resource](api-reference/python/aixplain/v2/resource.md): Resource management module for v2 API.
+- [aixplain.v2.rlm](api-reference/python/aixplain/v2/rlm.md): RLM (Recursive Language Model) for aiXplain SDK v2.
 - [aixplain.v2.tool](api-reference/python/aixplain/v2/tool.md): Tool resource module for managing tools and their integrations.
 - [aixplain.v2.upload_utils](api-reference/python/aixplain/v2/upload_utils.md): File upload utilities for v2 Resource system.
 - [aixplain.v2.utility](api-reference/python/aixplain/v2/utility.md): Utility resource module for managing custom Python code utilities.
