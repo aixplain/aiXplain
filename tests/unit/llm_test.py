@@ -34,7 +34,10 @@ import pytest
             495,
             "Validation-related error: Please verify the request payload and ensure it is correct. Details: An unspecified error occurred while processing your request.",
         ),
-        (501, "Unspecified Server Error (Status 501) Details: An unspecified error occurred while processing your request."),
+        (
+            501,
+            "Unspecified Server Error (Status 501) Details: An unspecified error occurred while processing your request.",
+        ),
     ],
 )
 def test_run_async_errors(status_code, error_message):

@@ -10,6 +10,7 @@ from aixplain.v2.exceptions import (
     AixplainV2Error,
     ResourceError,
     APIError,
+    AixplainIssueError,
     ValidationError,
     TimeoutError,
     FileUploadError,
@@ -219,6 +220,19 @@ class TestValidationError:
         """ValidationError should be catchable as AixplainV2Error."""
         with pytest.raises(AixplainV2Error):
             raise ValidationError("Invalid input")
+
+
+class TestAixplainIssueError:
+    """Tests for issue reporting errors."""
+
+    def test_inherits_from_api_error(self):
+        """AixplainIssueError should preserve APIError semantics."""
+        error = AixplainIssueError("Issue reporting failed", status_code=400)
+
+        assert isinstance(error, APIError)
+        assert isinstance(error, AixplainV2Error)
+        assert error.status_code == 400
+        assert error.message == "Issue reporting failed"
 
 
 class TestTimeoutError:
