@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from aixplain.v2.agent import Agent
-from aixplain.v2.inspector import Inspector
+from aixplain.v2.inspector import Inspector, PrebuiltInspector
 
 
 def _agent_from_dict(**overrides):
@@ -87,3 +87,30 @@ class TestR3InspectorDeserialization:
 
         assert isinstance(agent.inspectors[0], Inspector)
         assert agent.inspectors[0].name == "Input Gate"
+
+    def test_prebuilt_inspector_payload_deserializes_to_prebuilt_inspector(self):
+        # PrebuiltInspector.to_dict() emits a lightweight reference with no
+        # "name" key; the backend echoes it back on save. __post_init__ must
+        # not route it through Inspector.from_dict (KeyError: 'name').
+        prebuilt_payload = PrebuiltInspector.prompt_injection_guard().to_dict()
+        assert "name" not in prebuilt_payload  # precondition for the regression
+
+        agent = _agent_from_dict(inspectors=[prebuilt_payload])
+
+        assert isinstance(agent.inspectors[0], PrebuiltInspector)
+        assert agent.inspectors[0].preset_id == "prompt_injection_guard"
+
+    def test_mixed_full_and_prebuilt_inspectors_deserialize(self):
+        full_payload = {
+            "name": "Input Gate",
+            "targets": ["input"],
+            "action": {"type": "abort"},
+            "evaluator": {"type": "asset", "assetId": "model-abc", "prompt": "PASS or FAIL"},
+        }
+        prebuilt_payload = {"presetId": "pii_redaction", "targets": ["output"]}
+
+        agent = _agent_from_dict(inspectors=[full_payload, prebuilt_payload])
+
+        assert isinstance(agent.inspectors[0], Inspector)
+        assert isinstance(agent.inspectors[1], PrebuiltInspector)
+        assert agent.inspectors[1].preset_id == "pii_redaction"
