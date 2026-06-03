@@ -472,11 +472,15 @@ class Agent(
         self.tasks = [Task.from_dict(task) for task in self.tasks]
 
         # Deserialize inspectors to Inspector objects so mutate-and-save round-trips.
+        # Prebuilt inspectors travel as a lightweight {presetId, ...} reference
+        # (no "name"/"evaluator"), so dispatch on shape before deserializing.
         if self.inspectors:
-            from .inspector import Inspector
+            from .inspector import Inspector, PrebuiltInspector
 
             self.inspectors = [
-                Inspector.from_dict(inspector) if isinstance(inspector, dict) else inspector
+                (PrebuiltInspector.from_dict(inspector) if "presetId" in inspector else Inspector.from_dict(inspector))
+                if isinstance(inspector, dict)
+                else inspector
                 for inspector in self.inspectors
             ]
 
