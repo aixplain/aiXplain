@@ -988,6 +988,38 @@ def test_agent_response_error_codes_in_repr():
     assert "INVALID_JSON" in repr(response)
 
 
+@pytest.mark.parametrize("error_codes_key", ["errorCodes", "error_codes"])
+def test_agent_poll_extracts_error_codes_from_data(error_codes_key):
+    agent = Agent(
+        "123",
+        "Test Agent(-)",
+        "Sample Description",
+        instructions="Test Agent Instructions",
+    )
+    poll_url = "https://platform-api.aixplain.com/sdk/agents/executions/test/result"
+    expected_error_codes = ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            poll_url,
+            json={
+                "completed": True,
+                "status": "SUCCESS",
+                "data": {
+                    "input": "hello",
+                    "output": "hi",
+                    error_codes_key: expected_error_codes,
+                },
+            },
+        )
+
+        response = agent.poll(poll_url)
+
+    assert response.error_codes == expected_error_codes
+    assert response["error_codes"] == expected_error_codes
+    assert response.to_dict()["error_codes"] == expected_error_codes
+
+
 @patch("aixplain.factories.model_factory.ModelFactory.get")
 def test_create_agent_with_model_instance(mock_model_factory_get):
     from aixplain.enums import Supplier, Function

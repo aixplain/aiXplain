@@ -321,6 +321,21 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
         return normalized
 
+    @staticmethod
+    def _extract_error_codes(resp: Dict, resp_data: Optional[Dict] = None) -> List[str]:
+        """Extract diagnostic error codes from poll responses in either casing."""
+        sources = []
+        if isinstance(resp_data, dict):
+            sources.append(resp_data)
+        if isinstance(resp, dict):
+            sources.append(resp)
+
+        for source in sources:
+            error_codes = source.get("errorCodes") or source.get("error_codes")
+            if error_codes:
+                return error_codes
+        return []
+
     def poll(self, poll_url: Text, name: Text = "model_process") -> "AgentResponse":
         """Override poll to normalize progress data from camelCase to snake_case.
 
@@ -333,6 +348,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         """
         # Call parent poll method
         response = super().poll(poll_url, name)
+        error_codes = self._extract_error_codes(response.additional_fields, response.data)
+        response.error_codes = error_codes
+        response.additional_fields["error_codes"] = error_codes
 
         # Normalize progress data if present (stored in additional_fields)
         if hasattr(response, "additional_fields") and isinstance(response.additional_fields, dict):
@@ -677,7 +695,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 progress_verbosity=progress_verbosity,
             )
             result_data = result.get("data") or {}
-            error_codes = result_data.get("errorCodes", [])
+            error_codes = result.get("error_codes", [])
             if result.status == ResponseStatus.FAILED:
                 return AgentResponse(
                     status=ResponseStatus.FAILED,
