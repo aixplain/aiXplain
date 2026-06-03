@@ -107,12 +107,33 @@ class Usage:
     )
 
 
+def _decode_details(value: Any) -> Any:
+    """Decode the ``details`` field, tolerating both backend response shapes.
+
+    LLM models return ``details`` as a list of message ``Detail`` objects, but
+    utility / guardrail models (e.g. the AWS Sensitive Information Guardrail)
+    return it as a plain dict such as ``{"action": ..., "text": ...}``.  The
+    default list-typed decoder iterates a dict's string keys and tries to
+    decode each as a ``Detail`` dataclass, raising
+    ``AttributeError: 'str' object has no attribute 'items'``.  Decode the list
+    shape into ``Detail`` objects and pass any other shape through untouched.
+    """
+    if isinstance(value, list):
+        return [Detail.from_dict(item) if isinstance(item, dict) else item for item in value]
+    return value
+
+
 @dataclass_json
 @dataclass
 class ModelResult(Result):
-    """Result for model runs with specific fields from the backend response."""
+    """Result for model runs with specific fields from the backend response.
 
-    details: Optional[List[Detail]] = None
+    ``details`` is typed ``Any`` rather than ``List[Detail]`` because non-LLM
+    models (utility / guardrail assets) return it as a dict; see
+    :func:`_decode_details`.
+    """
+
+    details: Optional[Any] = field(default=None, metadata=config(field_name="details", decoder=_decode_details))
     run_time: Optional[float] = field(default=None, metadata=config(field_name="runTime"))
     used_credits: Optional[float] = field(default=None, metadata=config(field_name="usedCredits"))
     usage: Optional[Usage] = None
