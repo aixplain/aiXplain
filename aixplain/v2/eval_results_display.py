@@ -187,10 +187,7 @@ def summarize_by_agent(df: pd.DataFrame) -> pd.DataFrame:
                 row[f"n_passed__{col}"] = int(passed.sum())
                 row[f"n_evaluated__{col}"] = int(valid.sum())
                 continue
-            if not (
-                _is_metric_data_column(col)
-                or col in ("run_time", "used_credits", "total_tool_calls")
-            ):
+            if not (_is_metric_data_column(col) or col in ("run_time", "used_credits", "total_tool_calls")):
                 continue
             if not pd.api.types.is_numeric_dtype(sub[col]):
                 continue
