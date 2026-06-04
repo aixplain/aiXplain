@@ -872,7 +872,7 @@ def llm_query(prompt):
         Thread-safe credit accumulation so this can run inside a
         ``ThreadPoolExecutor`` from the parallel map step.
         """
-        response = self.worker.run(data=prompt, max_tokens=_RESERVED_OUTPUT_TOKENS, temperature=0)
+        response = self.worker.run(data=prompt, max_tokens=_RESERVED_OUTPUT_TOKENS)
         credits = float(getattr(response, "used_credits", 0) or 0)
         with self._credits_lock:
             self._used_credits += credits
