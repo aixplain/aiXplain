@@ -400,8 +400,7 @@ def _rows_by_unique_case_index(
                 f"Ambiguous case_index keys: {sorted(ambiguous)!r}.",
             )
         raise ValidationError(
-            f"diff(agent_name={agent_name!r}) still has multiple rows for the same case_index: "
-            f"{sorted(ambiguous)!r}.",
+            f"diff(agent_name={agent_name!r}) still has multiple rows for the same case_index: {sorted(ambiguous)!r}.",
         )
     return {idx: rs[0] for idx, rs in buckets.items()}
 
@@ -647,7 +646,9 @@ class Experiment:
         if not self.runs:
             return pd.DataFrame()
         ordered = sorted(self.runs, key=lambda r: r.created_at)
-        records = [_experiment_run_trend_row(r, i, human_column_names=human_column_names) for i, r in enumerate(ordered)]
+        records = [
+            _experiment_run_trend_row(r, i, human_column_names=human_column_names) for i, r in enumerate(ordered)
+        ]
         return pd.DataFrame(records)
 
     def plot_runs_regression(
@@ -662,17 +663,17 @@ class Experiment:
         title: Optional[str] = None,
         figsize: Optional[Tuple[float, float]] = None,
     ) -> Any:
-        """Line chart of one or more series across experiment runs, with optional polynomial fit.
+        r"""Line chart of one or more series across experiment runs, with optional polynomial fit.
 
         Fits the trend against run order (0, 1, …) while the chart **x-axis** uses the
         column given by ``x``. When ``human_column_names`` is True (default), ``x`` defaults
-        to :data:`EXPERIMENT_COMPARISON_COL_RUN_INDEX` (``\"Run index\"``); otherwise it
-        defaults to ``\"run_index\"``.
+        to :data:`EXPERIMENT_COMPARISON_COL_RUN_INDEX` (``"Run index"``); otherwise it
+        defaults to ``"run_index"``.
 
         Args:
             y: Column name(s) from :meth:`runs_comparison_dataframe` — for example
-                ``\"Total credits (sum)\"``, ``\"Avg credits per evaluation row\"``,
-                ``\"Pass rate (my_metric)\"``, or ``\"Average metric: m1 / score\"`` when
+                ``"Total credits (sum)"``, ``"Avg credits per evaluation row"``,
+                ``"Pass rate (my_metric)"``, or ``"Average metric: m1 / score"`` when
                 ``human_column_names`` is True.
             x: Column to use as x-axis; if omitted, uses ``Run index`` or ``run_index``
                 depending on ``human_column_names``.
@@ -703,13 +704,7 @@ class Experiment:
         df = self.runs_comparison_dataframe(human_column_names=human_column_names)
         if df.empty:
             raise ValidationError("Experiment has no runs to plot; call run() at least once.")
-        x_eff = (
-            x
-            if x is not None
-            else (
-                EXPERIMENT_COMPARISON_COL_RUN_INDEX if human_column_names else "run_index"
-            )
-        )
+        x_eff = x if x is not None else (EXPERIMENT_COMPARISON_COL_RUN_INDEX if human_column_names else "run_index")
         if x_eff not in df.columns:
             raise ValidationError(
                 f"Unknown x column {x_eff!r}. Available: {sorted(df.columns)!r}.",

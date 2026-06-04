@@ -91,6 +91,7 @@ class AgentResponseDataFields:
     output: bool = field(default=False, metadata=dj_config(field_name="output"))
 
     def give_codes(self) -> Dict[str, str]:
+        """Return placeholder codes for query, trace, and output fields."""
         code_response: Dict[str, str] = {}
         if self.query:
             code_response["query"] = "{{QUERY}}"
@@ -101,6 +102,7 @@ class AgentResponseDataFields:
         return code_response
 
     def give_metric_input(self, agent_response: AgentResponseData) -> str:
+        """Build metric input string from agent response fields."""
         metric_input = ""
         if self.query:
             metric_input += f"Query: {agent_response.input}\n"
@@ -136,6 +138,7 @@ class Metric(Tool):
     threshold: Optional[Union[List[str], float]] = field(default=None, metadata=dj_config(field_name="threshold"))
 
     def __post_init__(self) -> None:
+        """Initialize metric and validate threshold."""
         super().__post_init__()
         if self.threshold is not None:
             _validate_metric_threshold(self.threshold)
@@ -159,7 +162,7 @@ class Metric(Tool):
             output_json = f"""{{"properties": {{"reasoning": {{"description": "step by step reasoning to derive the final answer, using no more than 250 words", "title": "Reasoning", "type": "string"}}, "score": {{"description": "numerical score from {start_number} to {end_number}", "minimum": {start_number}, "maximum": {end_number}, "title": "Score", "type": "number"}}}}, "required": ["reasoning", "score"]}}"""
         elif score_type == "categorical":
             rubric = f"Choose from the following categories: {', '.join(categories)}. Provide a category for the output according to the rubric."
-            output_json = f"""{{"properties": {{"reasoning": {{"description": "step by step reasoning to derive the final answer, using no more than 250 words", "title": "Reasoning", "type": "string"}}, "score": {{"description": "categorical score from {', '.join(categories)}", "enum": {categories}, "title": "Score", "type": "string"}}}}, "required": ["reasoning", "score"]}}"""
+            output_json = f"""{{"properties": {{"reasoning": {{"description": "step by step reasoning to derive the final answer, using no more than 250 words", "title": "Reasoning", "type": "string"}}, "score": {{"description": "categorical score from {", ".join(categories)}", "enum": {categories}, "title": "Score", "type": "string"}}}}, "required": ["reasoning", "score"]}}"""
         elif score_type == "boolean":
             rubric = (
                 "Decide if the output is correct or not. Judge correctness according to the rubric; "
@@ -238,9 +241,7 @@ class Metric(Tool):
                     "(with instruction) to generate one."
                 )
             if instruction is None or not str(instruction).strip():
-                raise ValidationError(
-                    "Metric.create requires instruction when prompt_template is not provided."
-                )
+                raise ValidationError("Metric.create requires instruction when prompt_template is not provided.")
             st = str(score_type).strip()
             if st == "numeric":
                 if start_number is None or end_number is None:
@@ -249,9 +250,7 @@ class Metric(Tool):
                 if not categories:
                     raise ValidationError("categories must be a non-empty list when score_type is 'categorical'.")
             elif st != "boolean":
-                raise ValidationError(
-                    f"Invalid score_type {st!r}; expected 'numeric', 'categorical', or 'boolean'."
-                )
+                raise ValidationError(f"Invalid score_type {st!r}; expected 'numeric', 'categorical', or 'boolean'.")
 
             resolved_prompt = cls._generate_prompt_template(
                 score_type=st,
@@ -320,6 +319,7 @@ class Metric(Tool):
 
     @staticmethod
     def trim_and_load_json(input_string: str) -> dict:
+        """Extract and parse JSON from a string response."""
         start = input_string.find("{")
         end = input_string.rfind("}") + 1
 
@@ -340,6 +340,7 @@ class Metric(Tool):
             raise Exception(f"An unexpected error occurred: {str(e)}")
 
     def measure(self, agent_response: AgentResponseData) -> MetricResponse:
+        """Run metric tool with agent response data."""
         metric_input = self.agent_response_data_fields.give_metric_input(agent_response)
         if self.additional_input_prompt:
             metric_input = self.additional_input_prompt + "\n\n" + metric_input
@@ -490,13 +491,12 @@ def _numeric_quality_compare(actual: float, bound: float, operator: str) -> bool
     if op == "ne":
         return actual != bound
     raise ValidationError(
-        f"Unsupported comparison operator {operator!r}; expected one of "
-        f"{sorted(_QUALITY_GATE_NUMERIC_OPERATORS)}.",
+        f"Unsupported comparison operator {operator!r}; expected one of {sorted(_QUALITY_GATE_NUMERIC_OPERATORS)}.",
     )
 
 
 def _parse_aggregate_gate_spec(spec: Any, *, context: str) -> tuple[float, str]:
-    """Parse ``{\"bound\": float, \"operator\": \"lt\"}`` style gate specs."""
+    r"""Parse ``{"bound": float, "operator": "lt"}`` style gate specs."""
     if not isinstance(spec, Mapping):
         raise ValidationError(f"{context} gate must be a mapping with 'bound' and 'operator'.")
     bound_raw = spec.get("bound")
@@ -514,11 +514,11 @@ def _parse_aggregate_gate_spec(spec: Any, *, context: str) -> tuple[float, str]:
 
 
 def _parse_metric_score_criterion(spec: Any) -> tuple[Any, str, str]:
-    """Normalize custom metric score criteria.
+    r"""Normalize custom metric score criteria.
 
     Returns:
         Tuple of ``(threshold_or_passing_values, operator, score_key)``. For enum-style
-        metrics, ``operator`` is ``\"in\"`` and the first element is a list of passing values.
+        metrics, ``operator`` is ``"in"`` and the first element is a list of passing values.
     """
     score_key_default = "score"
     if isinstance(spec, bool):
@@ -811,8 +811,7 @@ def _aggregate_gates_for_stats(
         k = str(key)
         if k not in run_allowed:
             raise ValidationError(
-                f"Unknown run aggregate gate key {k!r}. "
-                f"Allowed: {sorted(run_allowed)}.",
+                f"Unknown run aggregate gate key {k!r}. Allowed: {sorted(run_allowed)}.",
             )
         canonical = _QUALITY_GATE_RUN_FIELD_ALIASES.get(k, k)
         stat_field = _QUALITY_GATE_RUN_TO_PER_AGENT_STAT.get(canonical)
@@ -1112,9 +1111,11 @@ class Dataset:
     description: Optional[str] = None
 
     def __iter__(self) -> Iterator[EvalCase]:
+        """Iterate over evaluation cases."""
         return iter(self.cases)
 
     def __len__(self) -> int:
+        """Return number of evaluation cases."""
         return len(self.cases)
 
     @classmethod
@@ -1325,12 +1326,15 @@ class AgentEvaluationRun:
         return cls.DEFAULT_INSIGHT_MODEL
 
     def __iter__(self) -> Iterator[AgentEvaluationRow]:
+        """Iterate over evaluation rows."""
         return iter(self.rows)
 
     def __len__(self) -> int:
+        """Return number of evaluation rows."""
         return len(self.rows)
 
     def __bool__(self) -> bool:
+        """Return True if there are evaluation rows."""
         return bool(self.rows)
 
     def to_dataframe(self) -> pd.DataFrame:
@@ -1478,13 +1482,11 @@ class AgentEvaluationRun:
         if metric is None:
             if op is not None:
                 raise ValidationError(
-                    "filter(...): op=... requires metric=.... "
-                    "Use filter_base(...) for structural filters only.",
+                    "filter(...): op=... requires metric=.... Use filter_base(...) for structural filters only.",
                 )
             if value is not _FILTER_VALUE_UNSPECIFIED:
                 raise ValidationError(
-                    "filter(...): value=... requires metric=.... "
-                    "Use filter_base(...) for structural filters only.",
+                    "filter(...): value=... requires metric=.... Use filter_base(...) for structural filters only.",
                 )
             return base
         if op is None:
@@ -1495,9 +1497,7 @@ class AgentEvaluationRun:
             )
         mkey = str(metric)
         rows_out = [
-            r
-            for r in base.rows
-            if _row_matches_metric_filter(r, metric=mkey, op=op, value=value, inner_key=inner_key)
+            r for r in base.rows if _row_matches_metric_filter(r, metric=mkey, op=op, value=value, inner_key=inner_key)
         ]
         return AgentEvaluationRun(rows=rows_out)
 
@@ -1525,7 +1525,7 @@ class AgentEvaluationRun:
         metric_score_criteria: Optional[Mapping[str, Any]] = None,
         run_aggregate_gates: Optional[Mapping[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Assess pass/fail against custom metric score rules and run-level aggregates.
+        r"""Assess pass/fail against custom metric score rules and run-level aggregates.
 
         **Metric scores** (per :class:`Metric` prefix in :attr:`rows` ``metrics``):
 
@@ -1533,7 +1533,7 @@ class AgentEvaluationRun:
           (pass when ``score > threshold``).
         - A list/tuple of strings passes when the score string is in that set (enum-style).
         - A dict supports ``threshold``, optional ``operator`` (``lt`` / ``le`` / ``gt`` / ``ge`` /
-          ``eq``), and optional ``score_key`` (defaults to ``\"score\"``).
+          ``eq``), and optional ``score_key`` (defaults to ``"score"``).
 
         Rows with ``metric_skipped`` or missing ``score_key`` are omitted from that metric's
         evaluation count. If every row is omitted, that metric gate **fails** (nothing to verify).
@@ -1550,11 +1550,11 @@ class AgentEvaluationRun:
         They are evaluated **per agent** against that agent's slice (sums / counts / failure
         rate for that agent's rows only).
 
-        Each gate is ``{\"bound\": float, \"operator\": \"lt\"}`` (default operator ``lt``).
+        Each gate is ``{"bound": float, "operator": "lt"}`` (default operator ``lt``).
 
         Args:
             metric_score_criteria: Map metric prefix or reserved per-row field name → criterion.
-            run_aggregate_gates: Map run-summary-style field → ``{\"bound\", \"operator\"}``.
+            run_aggregate_gates: Map run-summary-style field → ``{"bound", "operator"}``.
 
         Returns:
             Dict with ``by_agent`` (each agent's ``overall_pass``, ``metric_gates``,
@@ -1565,7 +1565,7 @@ class AgentEvaluationRun:
             (``score``, ``metric_pass``, ``metric_status``, ``metric_error``, skip fields, etc.),
             plus ``<key>__criteria_pass`` / ``<key>__criteria_reason`` when the corresponding
             ``metric_score_criteria`` entry applies to that row. Rows with missing ``agent_name``
-            are grouped under ``\"__unnamed__\"`` in ``by_agent``; the debug frame lists raw
+            are grouped under ``"__unnamed__"`` in ``by_agent``; the debug frame lists raw
             ``agent_name`` values.
         """
         m_crit = dict(metric_score_criteria or {})
@@ -1843,10 +1843,7 @@ class AgentEvaluationRun:
             )
 
         per_agent = summary.get("per_agent") or {}
-        cost_by_agent = {
-            str(agent): float(values.get("total_cost", 0.0))
-            for agent, values in per_agent.items()
-        }
+        cost_by_agent = {str(agent): float(values.get("total_cost", 0.0)) for agent, values in per_agent.items()}
         if len(cost_by_agent) >= 2:
             max_agent = max(cost_by_agent, key=cost_by_agent.get)
             min_agent = min(cost_by_agent, key=cost_by_agent.get)
@@ -1871,9 +1868,7 @@ class AgentEvaluationRun:
             by_agent = stats.get("by_agent") or {}
             if len(by_agent) < 2:
                 continue
-            rates = {
-                a: float(b.get("pass_rate", 0.0)) for a, b in by_agent.items() if isinstance(b, dict)
-            }
+            rates = {a: float(b.get("pass_rate", 0.0)) for a, b in by_agent.items() if isinstance(b, dict)}
             if len(rates) < 2:
                 continue
             best_a = max(rates, key=rates.get)
@@ -1892,7 +1887,9 @@ class AgentEvaluationRun:
             for action in actions:
                 lines.append(f"- {action}")
         else:
-            lines.append("- Reliability, cost, and metric spread look stable; proceed with larger or harder evaluation datasets for stronger signal.")
+            lines.append(
+                "- Reliability, cost, and metric spread look stable; proceed with larger or harder evaluation datasets for stronger signal."
+            )
 
         return "\n".join(lines)
 
@@ -1994,9 +1991,17 @@ class AgentEvaluationRun:
         using the client from :meth:`AgentEvaluationRun.configure_insights` when set.
 
         Args:
+            include_executive_summary: Generate an LLM-backed executive summary.
+            summary_model: Optional model for executive summary; defaults to configured insight model.
+            summary_prompt_input_kw: Explicit keyword for model run input.
+            summary_max_context_chars: Truncate embedded evaluation context to this size.
             quality_gates_report: Optional :meth:`evaluate_quality_gates` result (or ``by_agent``
                 only); copied into ``quality_gates`` on the returned dict (without
                 ``debug_dataframe``) and passed into :meth:`executive_summary` when enabled.
+            **summary_model_run_kwargs: Additional kwargs passed to ``summary_model.run()``.
+
+        Returns:
+            Dict with aggregate stats and optional ``executive_summary`` text.
         """
         slim_qg = _slim_quality_gates_report_for_llm(quality_gates_report)
         rows = list(self.rows)
@@ -2207,9 +2212,9 @@ class AgentEvaluationRun:
         *,
         tool_prefix: Optional[str] = None,
     ) -> bool:
-        """Return True if every non-null ``inner_key`` value coerces to a number via :func:`pandas.to_numeric`.
+        r"""Return True if every non-null ``inner_key`` value coerces to a number via :func:`pandas.to_numeric`.
 
-        ``inner_key`` defaults to ``\"score\"``. Use this to choose between :meth:`plot_mean_metric_by_agent`
+        ``inner_key`` defaults to ``"score"``. Use this to choose between :meth:`plot_mean_metric_by_agent`
         (numeric) and :meth:`plot_enum_metric_by_agent` (string / enum-like categories).
 
         Raises:
@@ -2236,10 +2241,10 @@ class AgentEvaluationRun:
         title: Optional[str] = None,
         figsize: Optional[tuple[float, float]] = None,
     ) -> Any:
-        """Draw a bar chart of mean ``inner_key`` per ``agent_name`` (numeric metrics only).
+        r"""Draw a bar chart of mean ``inner_key`` per ``agent_name`` (numeric metrics only).
 
         ``inner_key`` is a key inside ``AgentEvaluationRow.metrics[tool_prefix]``; it defaults to
-        ``\"score\"``. If ``tool_prefix`` is omitted and exactly one metric prefix exists on the run,
+        ``"score"``. If ``tool_prefix`` is omitted and exactly one metric prefix exists on the run,
         it is used; otherwise pass ``tool_prefix`` explicitly.
 
         Requires plotly (``pip install plotly``). Jupyter / Cursor notebook inline display also needs
@@ -2252,8 +2257,7 @@ class AgentEvaluationRun:
             import plotly.graph_objects as go  # type: ignore[import-not-found]
         except ImportError as exc:
             raise ImportError(
-                "AgentEvaluationRun.plot_mean_metric_by_agent requires plotly. "
-                "Install with: pip install plotly",
+                "AgentEvaluationRun.plot_mean_metric_by_agent requires plotly. Install with: pip install plotly",
             ) from exc
 
         tool_prefix = self._resolve_single_metric_prefix(tool_prefix)
@@ -2299,9 +2303,9 @@ class AgentEvaluationRun:
         figsize: Optional[tuple[float, float]] = None,
         normalize: bool = True,
     ) -> Any:
-        """Draw a grouped bar chart of categorical ``inner_key`` counts or shares per ``agent_name``.
+        r"""Draw a grouped bar chart of categorical ``inner_key`` counts or shares per ``agent_name``.
 
-        ``inner_key`` defaults to ``\"score\"``. Values are treated as discrete categories (strings or
+        ``inner_key`` defaults to ``"score"``. Values are treated as discrete categories (strings or
         :class:`enum.Enum` members).
         When ``normalize`` is True (default), values are row-normalized (proportion per agent).
 
@@ -2315,8 +2319,7 @@ class AgentEvaluationRun:
             import plotly.graph_objects as go  # type: ignore[import-not-found]
         except ImportError as exc:
             raise ImportError(
-                "AgentEvaluationRun.plot_enum_metric_by_agent requires plotly. "
-                "Install with: pip install plotly",
+                "AgentEvaluationRun.plot_enum_metric_by_agent requires plotly. Install with: pip install plotly",
             ) from exc
 
         tool_prefix = self._resolve_single_metric_prefix(tool_prefix)
@@ -2364,9 +2367,9 @@ class AgentEvaluationRun:
         figsize: Optional[tuple[float, float]] = None,
         normalize_enum: bool = True,
     ) -> Any:
-        """Plot ``inner_key`` by agent, dispatching on numeric vs categorical values.
+        r"""Plot ``inner_key`` by agent, dispatching on numeric vs categorical values.
 
-        ``inner_key`` defaults to ``\"score\"``. Calls :meth:`metric_inner_key_is_numeric`; numeric metrics use
+        ``inner_key`` defaults to ``"score"``. Calls :meth:`metric_inner_key_is_numeric`; numeric metrics use
         :meth:`plot_mean_metric_by_agent`, otherwise :meth:`plot_enum_metric_by_agent`.
         ``normalize_enum`` is passed only to the enum path.
 
@@ -2400,13 +2403,13 @@ class AgentEvaluationRun:
         prompt_input_kw: Optional[str] = None,
         quality_gates_report: Optional[Mapping[str, Any]] = None,
     ) -> AgentEvaluationResultsChatbot:
-        """Build an LLM-backed helper that answers questions about this evaluation run.
+        r"""Build an LLM-backed helper that answers questions about this evaluation run.
 
         The underlying :class:`~aixplain.v2.model.Model` is invoked with one text
         payload per question. The run keyword (``text``, ``data``, etc.) is taken
         from ``prompt_input_kw`` when provided; otherwise it is inferred from
         :attr:`~aixplain.v2.model.Model.params` (required fields first), then
-        ``\"text\"`` if the model declares no parameters.
+        ``"text"`` if the model declares no parameters.
 
         Args:
             model: Optional loaded :class:`~aixplain.v2.model.Model`. If omitted,
@@ -2415,7 +2418,7 @@ class AgentEvaluationRun:
             system_prompt: Override the default analyst instructions.
             max_context_chars: Truncate embedded evaluation context to this size.
             prompt_input_kw: Explicit keyword for :meth:`~aixplain.v2.model.Model.run`
-                (e.g. ``\"data\"`` for some utilities). ``None`` selects automatically.
+                (e.g. ``"data"`` for some utilities). ``None`` selects automatically.
             quality_gates_report: Optional :meth:`evaluate_quality_gates` result (or ``by_agent``
                 only); appended as JSON after the evaluation excerpt on each turn.
                 ``debug_dataframe`` is stripped automatically.
@@ -2429,9 +2432,7 @@ class AgentEvaluationRun:
                 "No model provided and default insight model could not be loaded. "
                 "Call AgentEvaluationRun.configure_insights(aix) after Aixplain(...), or pass model=... explicitly.",
             )
-        resolved_kw = (
-            prompt_input_kw if prompt_input_kw is not None else _infer_prompt_input_field_name(resolved_model)
-        )
+        resolved_kw = prompt_input_kw if prompt_input_kw is not None else _infer_prompt_input_field_name(resolved_model)
         return AgentEvaluationResultsChatbot(
             run=self,
             model=resolved_model,
@@ -2447,10 +2448,11 @@ _DEFAULT_EVAL_CHATBOT_SYSTEM_PROMPT = (
     "results provided below. Use only facts present in the evaluation excerpt; "
     "if something is unknown or missing, say so. Be concise and accurate. "
     "When multiple agents are evaluated, the leading "
-    "\"All evaluation rows (timing and status)\" section lists every "
+    '"All evaluation rows (timing and status)" section lists every '
     "(case, agent) row—use it for latency/cost comparisons before reading "
     "truncated row details below."
 )
+
 
 def _default_insight_model() -> Optional[Model]:
     """Return :meth:`AgentEvaluationRun._resolve_default_insight_model` (shim for callers)."""
@@ -2458,12 +2460,12 @@ def _default_insight_model() -> Optional[Model]:
 
 
 def _infer_prompt_input_field_name(model: Model) -> str:
-    """Infer the ``Model.run`` keyword for the main text prompt (e.g. ``text`` vs ``data``).
+    r"""Infer the ``Model.run`` keyword for the main text prompt (e.g. ``text`` vs ``data``).
 
     Uses declared :attr:`~aixplain.v2.model.Model.params` when present; otherwise
-    defaults to ``\"text\"`` (common for LLMs such as OpenAI-backed models on the
+    defaults to ``"text"`` (common for LLMs such as OpenAI-backed models on the
     platform). Pass ``prompt_input_kw=...`` to :meth:`AgentEvaluationRun.chatbot`
-    to override (for example ``\"data\"`` for some utility models).
+    to override (for example ``"data"`` for some utility models).
     """
     params = getattr(model, "params", None) or []
     if not params:
@@ -2808,7 +2810,7 @@ def _agent_evaluation_row_from_csv_record(record: Dict[str, Any]) -> AgentEvalua
             core[k] = v
             continue
         if k.startswith("case_meta__"):
-            case_metadata[k[len("case_meta__"):]] = v
+            case_metadata[k[len("case_meta__") :]] = v
             continue
         if "__" in k:
             prefix, suffix = k.split("__", 1)
