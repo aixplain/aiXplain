@@ -155,7 +155,10 @@ Retrieve the input parameters required for a specific action.
 #### run
 
 ```python
-def run(action: Union[ConnectAction, Text], inputs: Dict)
+def run(action: Union[ConnectAction, Text],
+        inputs: Optional[Dict] = None,
+        *,
+        data: Optional[Dict] = None)
 ```
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/connection.py#L197)
@@ -166,7 +169,8 @@ Execute a specific action with the provided inputs.
 
 - `action` _Union[ConnectAction, Text]_ - The action to execute, either as a ConnectAction object
   or as a string code.
-- `inputs` _Dict_ - The input parameters for the action.
+- `inputs` _Dict, optional_ - The input parameters for the action. Use this or ``data``.
+- `data` _Dict, optional_ - Alias for ``inputs`` for compatibility with examples/docs.
   
 
 **Returns**:
@@ -179,7 +183,7 @@ Execute a specific action with the provided inputs.
 def get_parameters() -> List[Dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/connection.py#L212)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/connection.py#L222)
 
 Get the parameters for all actions in the current action scope.
 
@@ -196,7 +200,7 @@ Get the parameters for all actions in the current action scope.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/connection.py#L237)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/connection.py#L247)
 
 Return a string representation of the ConnectionTool instance.
 

@@ -98,7 +98,7 @@ def upload_data(file_name: Union[Text, Path],
                 api_key: Optional[Text] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L97)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L113)
 
 Upload a file to S3 using pre-signed URLs with retry support.
 
@@ -157,7 +157,7 @@ def s3_to_csv(
 ) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L210)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L224)
 
 Convert S3 directory contents to a CSV file with file listings.
 

@@ -337,6 +337,7 @@ def test_team_agent_serialization_completeness():
         "instructions",
         "outputFormat",
         "expectedOutput",
+        "contextOverflowStrategy",
     }
 
     assert set(team_dict.keys()) == required_fields

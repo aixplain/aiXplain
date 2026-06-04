@@ -152,7 +152,7 @@ def debug_response(response: "AgentRunResult",
                    **kwargs: Any) -> DebugResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L166)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L167)
 
 Debug an agent response.
 
