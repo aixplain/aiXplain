@@ -53,6 +53,8 @@ def create(cls,
            instructions: Optional[Text] = None,
            output_format: Optional[OutputFormat] = None,
            expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+           context_overflow_strategy: Optional[Union["ContextOverflowStrategy",
+                                                     Text]] = None,
            **kwargs) -> TeamAgent
 ```
 
@@ -73,7 +75,8 @@ Create a new team agent in the platform.
 - `instructions` - The instructions to guide the team agent (i.e. appended in the prompt of the team agent).
 - `output_format` - The output format to be used for the team agent.
 - `agents`0 - The expected output to be used for the team agent.
-- `agents`1 - Additional keyword arguments for backward compatibility (deprecated parameters).
+- `agents`1 - Strategy for handling context window overflow. Defaults to None (disabled).
+- `agents`2 - Additional keyword arguments for backward compatibility (deprecated parameters).
   
 
 **Returns**:
@@ -81,9 +84,9 @@ Create a new team agent in the platform.
   A new team agent instance.
   
   Deprecated Args:
-- `agents`2 - DEPRECATED. Use &#x27;llm&#x27; parameter instead. The ID of the LLM to be used for the team agent.
-- `agents`3 - DEPRECATED. LLM for planning.
-- `agents`4 - DEPRECATED. Whether to use the mentalist agent.
+- `agents`3 - DEPRECATED. Use &#x27;llm&#x27; parameter instead. The ID of the LLM to be used for the team agent.
+- `agents`4 - DEPRECATED. LLM for planning.
+- `agents`5 - DEPRECATED. Whether to use the mentalist agent.
 
 #### create\_from\_dict
 
@@ -92,7 +95,7 @@ Create a new team agent in the platform.
 def create_from_dict(cls, dict: Dict) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/__init__.py#L295)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/__init__.py#L303)
 
 Create a team agent from a dictionary representation.
 
@@ -126,7 +129,7 @@ the agent&#x27;s configuration.
 def list(cls) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/__init__.py#L322)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/__init__.py#L330)
 
 List all team agents available in the platform.
 
@@ -157,7 +160,7 @@ def get(cls,
         api_key: Optional[Text] = None) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/__init__.py#L374)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/__init__.py#L382)
 
 Retrieve a team agent by its ID or name.
 
