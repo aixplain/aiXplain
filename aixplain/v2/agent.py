@@ -278,6 +278,7 @@ class AgentRunResult(Result):
     request_id: Optional[Text] = field(default=None, metadata=config(field_name="requestId"))
     used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
     run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
+    diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
 
     # Internal reference to client context for debug() method
     _context: Optional[Any] = field(
@@ -437,7 +438,7 @@ class Agent(
         default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
     )
     expected_output: Optional[Union[str, dict, BaseModel]] = field(
-        default="", metadata=config(field_name="expectedOutput")
+        default=None, metadata=config(field_name="expectedOutput")
     )
 
     # Metadata fields
@@ -466,6 +467,19 @@ class Agent(
     def __post_init__(self) -> None:
         """Initialize agent after dataclass creation."""
         self.tasks = [Task.from_dict(task) for task in self.tasks]
+
+        # Deserialize inspectors to Inspector objects so mutate-and-save round-trips.
+        # Prebuilt inspectors travel as a lightweight {presetId, ...} reference
+        # (no "name"/"evaluator"), so dispatch on shape before deserializing.
+        if self.inspectors:
+            from .inspector import Inspector, PrebuiltInspector
+
+            self.inspectors = [
+                (PrebuiltInspector.from_dict(inspector) if "presetId" in inspector else Inspector.from_dict(inspector))
+                if isinstance(inspector, dict)
+                else inspector
+                for inspector in self.inspectors
+            ]
 
         if self.subagents is not None:
             warnings.warn(
@@ -704,31 +718,36 @@ class Agent(
         return super().sync_poll(self._resolve_poll_url(poll_url), **kwargs)
 
     def _validate_expected_output(self) -> None:
-        # Skip validation if expected_output is None (it's optional)
-        if self.expected_output is None:
-            return
-
         if self.output_format == OutputFormat.JSON.value:
+            # JSON output requires an explicit schema; the empty default is not enough.
+            if self.expected_output is None or self.expected_output == "":
+                raise ValueError(
+                    "output_format='json' requires expected_output (a JSON string, dict, or Pydantic BaseModel)."
+                )
+
             # Check if expected_output is a valid JSON type
             is_valid = isinstance(self.expected_output, (str, dict, BaseModel)) or (
                 isinstance(self.expected_output, type) and issubclass(self.expected_output, BaseModel)
             )
             if not is_valid:
                 raise ValueError(
-                    "Expected output must be a valid JSON object, dict, string, or Pydantic BaseModel class/instance"
+                    "expected_output must be a valid JSON object, dict, string, or Pydantic BaseModel class/instance."
                 )
 
             if isinstance(self.expected_output, str):
                 try:
                     json.loads(self.expected_output)
                 except json.JSONDecodeError:
-                    raise ValueError("Expected output must be a valid JSON string or dict or pydantic model")
+                    raise ValueError("expected_output must be a valid JSON string, dict, or Pydantic BaseModel.")
         elif self.output_format in [
             OutputFormat.MARKDOWN.value,
             OutputFormat.TEXT.value,
         ]:
+            # expected_output is optional for TEXT/MARKDOWN.
+            if self.expected_output is None:
+                return
             if not isinstance(self.expected_output, str):
-                raise ValueError("Expected output must be a string for TEXT/MARKDOWN formats")
+                raise ValueError("expected_output must be a string for TEXT/MARKDOWN formats.")
 
     def save(self, *args: Any, **kwargs: Any) -> "Agent":
         """Save the agent with dependency management.
@@ -1243,6 +1262,9 @@ class Agent(
             execution_params["expectedOutput"] = expected_output.model_json_schema()
         elif isinstance(expected_output, BaseModel):
             execution_params["expectedOutput"] = expected_output.model_dump()
+        elif isinstance(expected_output, dict):
+            # Backend expects executionParams.expectedOutput as a string.
+            execution_params["expectedOutput"] = json.dumps(expected_output)
 
         # Handle run_response_generation with default value of False
         run_response_generation = kwargs.pop("run_response_generation", False)

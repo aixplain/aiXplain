@@ -77,11 +77,7 @@ def _get_v2_docs() -> list[tuple[str, str, str]]:
     if category is None:
         raise ValueError(f"Could not find sidebar category {TARGET_LABEL!r} in {SIDEBAR_PATH}")
 
-    doc_ids = [
-        doc_id
-        for doc_id in _flatten_doc_ids(category.get("items", []))
-        if doc_id.startswith(TARGET_PREFIX)
-    ]
+    doc_ids = [doc_id for doc_id in _flatten_doc_ids(category.get("items", [])) if doc_id.startswith(TARGET_PREFIX)]
     if not doc_ids:
         raise ValueError(f"No documents found for prefix {TARGET_PREFIX!r}")
 

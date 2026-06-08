@@ -54,10 +54,12 @@ from .eval_results_display import (
     summarize_by_agent,
 )
 from .api_key import APIKey, APIKeyLimits, APIKeyUsageLimit, TokenType
+from .issue import IssueReporter, IssueSeverity
 from .exceptions import (
     AixplainV2Error,
     ResourceError,
     APIError,
+    AixplainIssueError,
     ValidationError,
     TimeoutError,
     FileUploadError,
@@ -145,10 +147,16 @@ __all__ = [
     "APIKeyLimits",
     "APIKeyUsageLimit",
     "TokenType",
+    "IssueReporter",
+    "IssueSeverity",
+    # Progress tracking
+    "AgentProgressTracker",
+    "ProgressFormat",
     # Exceptions
     "AixplainV2Error",
     "ResourceError",
     "APIError",
+    "AixplainIssueError",
     "ValidationError",
     "TimeoutError",
     "FileUploadError",

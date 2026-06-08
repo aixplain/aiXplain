@@ -958,6 +958,67 @@ def test_agent_response():
     assert response["data"]["output"] == "new_output"
 
 
+def test_agent_response_diagnostic_error_codes_default_empty():
+    from aixplain.modules.agent.agent_response import AgentResponse
+
+    response = AgentResponse(status="SUCCESS", completed=True)
+    assert response.diagnostic_error_codes == []
+    assert response["diagnostic_error_codes"] == []
+    assert response.to_dict()["diagnostic_error_codes"] == []
+
+
+def test_agent_response_diagnostic_error_codes_populated():
+    from aixplain.modules.agent.agent_response import AgentResponse
+
+    response = AgentResponse(
+        status="SUCCESS",
+        completed=True,
+        diagnostic_error_codes=["MAX_TOKENS_REACHED", "TOOL_FAILED"],
+    )
+    assert response.diagnostic_error_codes == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+    assert response["diagnostic_error_codes"] == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+    assert response.to_dict()["diagnostic_error_codes"] == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+
+
+def test_agent_response_diagnostic_error_codes_in_repr():
+    from aixplain.modules.agent.agent_response import AgentResponse
+
+    response = AgentResponse(status="SUCCESS", completed=True, diagnostic_error_codes=["INVALID_JSON"])
+    assert "diagnostic_error_codes" in repr(response)
+    assert "INVALID_JSON" in repr(response)
+
+
+def test_agent_poll_extracts_diagnostic_error_codes_from_data():
+    agent = Agent(
+        "123",
+        "Test Agent(-)",
+        "Sample Description",
+        instructions="Test Agent Instructions",
+    )
+    poll_url = "https://platform-api.aixplain.com/sdk/agents/executions/test/result"
+    expected_diagnostic_error_codes = ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            poll_url,
+            json={
+                "completed": True,
+                "status": "SUCCESS",
+                "data": {
+                    "input": "hello",
+                    "output": "hi",
+                    "diagnosticErrorCodes": expected_diagnostic_error_codes,
+                },
+            },
+        )
+
+        response = agent.poll(poll_url)
+
+    assert response.diagnostic_error_codes == expected_diagnostic_error_codes
+    assert response["diagnostic_error_codes"] == expected_diagnostic_error_codes
+    assert response.to_dict()["diagnostic_error_codes"] == expected_diagnostic_error_codes
+
+
 @patch("aixplain.factories.model_factory.ModelFactory.get")
 def test_create_agent_with_model_instance(mock_model_factory_get):
     from aixplain.enums import Supplier, Function

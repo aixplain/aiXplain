@@ -70,9 +70,7 @@ class TestAgentLlmInputParametersInSavePayload:
 
         assert llm.inputs["reasoning_effort"].value == "medium"
         payload = agent.build_save_payload()
-        assert payload["model"]["parameters"] == [
-            {"name": "reasoningEffort", "value": "medium"}
-        ]
+        assert payload["model"]["parameters"] == [{"name": "reasoningEffort", "value": "medium"}]
 
     def test_planner_supervisor_string_dict_and_model_refs(self):
         """``planner`` / ``supervisor`` become ``planner`` / ``supervisor`` manifests."""

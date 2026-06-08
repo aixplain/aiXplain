@@ -84,17 +84,17 @@ def dataset_onboarding_validation(
     metadata_spliting_schema = list(filter(lambda md: str(md.dsubtype) == "split", metadata_schema))
 
     # validate the input and the output of the dataset
-    assert (
-        len(input_schema) > 0 or len(input_ref_data) > 0
-    ), "Data Asset Onboarding Error: You must specify an input data to onboard a dataset."
+    assert len(input_schema) > 0 or len(input_ref_data) > 0, (
+        "Data Asset Onboarding Error: You must specify an input data to onboard a dataset."
+    )
 
     input_dtype = input_schema[0].dtype if isinstance(input_schema[0], MetaData) else input_schema[0]["dtype"]
     if isinstance(input_dtype, DataType):
         input_dtype = input_dtype.value
 
-    assert (
-        FunctionInputOutput.get(function) is not None and input_dtype in FunctionInputOutput[function]["input"]
-    ), f"Data Asset Onboarding Error: The input data type `{input_dtype}` is not compatible with the `{function}` function.\nThe expected input data type should be one of these data type: `{FunctionInputOutput[function]['input']}`."
+    assert FunctionInputOutput.get(function) is not None and input_dtype in FunctionInputOutput[function]["input"], (
+        f"Data Asset Onboarding Error: The input data type `{input_dtype}` is not compatible with the `{function}` function.\nThe expected input data type should be one of these data type: `{FunctionInputOutput[function]['input']}`."
+    )
 
     if len(output_schema) > 0:
         output_dtype = output_schema[0].dtype if isinstance(output_schema[0], MetaData) else output_schema[0]["dtype"]
@@ -103,19 +103,21 @@ def dataset_onboarding_validation(
 
         assert (
             FunctionInputOutput.get(function) is not None and output_dtype in FunctionInputOutput[function]["output"]
-        ), f"Data Asset Onboarding Error: The output data type `{output_dtype}` is not compatible with the `{function}` function.\nThe expected output data type should be one of these data type: `{FunctionInputOutput[function]['output']}`."
+        ), (
+            f"Data Asset Onboarding Error: The output data type `{output_dtype}` is not compatible with the `{function}` function.\nThe expected output data type should be one of these data type: `{FunctionInputOutput[function]['output']}`."
+        )
 
     # validate the splitting
-    assert (
-        len(metadata_spliting_schema) < 2
-    ), f"Data Asset Onboarding Error: Only 0 or 1 metadata of the split subtype can be added to the `metadata_schema`."
-    assert all(
-        str(mds.dtype) == "label" for mds in metadata_spliting_schema
-    ), f"Data Asset Onboarding Error: The `dtype` must be `label` for any splitting subtype."
+    assert len(metadata_spliting_schema) < 2, (
+        f"Data Asset Onboarding Error: Only 0 or 1 metadata of the split subtype can be added to the `metadata_schema`."
+    )
+    assert all(str(mds.dtype) == "label" for mds in metadata_spliting_schema), (
+        f"Data Asset Onboarding Error: The `dtype` must be `label` for any splitting subtype."
+    )
 
-    assert (
-        content_path is not None or s3_link is not None
-    ), "Data Asset Onboarding Error: No path to content Data was provided. Please update `context_path` or `s3_link`."
-    assert (split_labels is not None and split_rate is not None) or (
-        split_labels is None and split_rate is None
-    ), "Data Asset Onboarding Error: Make sure you set the split labels values as well as their rates."
+    assert content_path is not None or s3_link is not None, (
+        "Data Asset Onboarding Error: No path to content Data was provided. Please update `context_path` or `s3_link`."
+    )
+    assert (split_labels is not None and split_rate is not None) or (split_labels is None and split_rate is None), (
+        "Data Asset Onboarding Error: Make sure you set the split labels values as well as their rates."
+    )

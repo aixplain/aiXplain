@@ -701,6 +701,35 @@ class TestModelIntegrationGaps:
         assert message.tool_calls[0]["function"]["name"] == "get_current_time"
         assert message.tool_calls[0]["function"]["arguments"] == '{"city":"Tokyo"}'
 
+    def test_guardrail_response_with_dict_details_deserializes(self):
+        """ModelResult parsing should tolerate a non-list ``details`` payload.
+
+        LLM models return ``details`` as a list of message Details, but utility
+        / guardrail models (e.g. the AWS Sensitive Information Guardrail) return
+        it as a plain dict ``{"action": ..., "text": ...}``.  The list-typed
+        field decoder used to iterate the dict's string keys and try to decode
+        each as a ``Detail`` dataclass, raising
+        ``AttributeError: 'str' object has no attribute 'items'``.
+        """
+        guardrail_payload = {
+            "status": "SUCCESS",
+            "completed": True,
+            "details": {"action": "GUARDRAIL_INTERVENED", "text": "My phone number is {PHONE}"},
+            "data": {"action": "GUARDRAIL_INTERVENED", "text": "My phone number is {PHONE}"},
+            "runTime": 0.204,
+            "usedCredits": 6.4e-06,
+            "asset": {"assetId": "69cbf63cd74e334a6bacfeb1", "id": "aws/sensitive-information-guardrail/aws"},
+        }
+
+        result = ModelResult.from_dict(guardrail_payload)
+
+        # The guardrail's structured verdict must survive deserialization so
+        # callers can read the intervention action and the redacted text.
+        assert result.details == {"action": "GUARDRAIL_INTERVENED", "text": "My phone number is {PHONE}"}
+        assert result.data == {"action": "GUARDRAIL_INTERVENED", "text": "My phone number is {PHONE}"}
+        assert result.run_time == 0.204
+        assert result.used_credits == 6.4e-06
+
     def test_run_sync_v2_attaches_raw_data_for_direct_response(self):
         """_run_sync_v2() direct responses should preserve raw response payload."""
         model = self._create_sync_model()
