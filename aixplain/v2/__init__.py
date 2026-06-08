@@ -53,6 +53,7 @@ from .enums import (
     EvolveType,
     CodeInterpreterModel,
     SplittingOptions,
+    ServiceVersion,
 )
 
 __all__ = [
@@ -123,6 +124,7 @@ __all__ = [
     "EvolveType",
     "CodeInterpreterModel",
     "SplittingOptions",
+    "ServiceVersion",
     # Actions / Inputs hierarchy
     "Input",
     "Inputs",

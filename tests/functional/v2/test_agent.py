@@ -244,6 +244,11 @@ def _has_response_generator(steps):
 
 def test_run_response_generation(client, test_agent):
     """Test that runResponseGeneration controls presence of response_generator step."""
+    from tests.functional.v2.conftest import is_v3_run
+
+    if is_v3_run():
+        pytest.skip("V3 has no response-generation phase")
+
     agent = client.Agent.get(test_agent.id)
 
     # Default (False): response_generator step should NOT be present
