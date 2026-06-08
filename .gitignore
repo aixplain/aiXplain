@@ -5,6 +5,8 @@ __pycache__/
 .aixplain_cache/
 
 setup_env_ahmet.sh
+# Local eval scratch script (often contains API keys)
+my_run.py
 # C extensions
 *.so
 *.ipynb

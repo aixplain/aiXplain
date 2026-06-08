@@ -9,6 +9,7 @@ from .model import Model
 from .agent import Agent
 from .utility import Utility
 from .tool import Tool
+from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
 from .integration import Integration
 from .file import Resource
 from .inspector import Inspector
@@ -23,6 +24,7 @@ ModelType = TypeVar("ModelType", bound=Model)
 AgentType = TypeVar("AgentType", bound=Agent)
 UtilityType = TypeVar("UtilityType", bound=Utility)
 ToolType = TypeVar("ToolType", bound=Tool)
+MetricType = TypeVar("MetricType", bound=MetricBase)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
 ResourceType = TypeVar("ResourceType", bound=Resource)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
@@ -49,6 +51,8 @@ class Aixplain:
     Agent: AgentType = None
     Utility: UtilityType = None
     Tool: ToolType = None
+    Metric: MetricType = None
+    Eval: type = None
     Integration: IntegrationType = None
     Resource: ResourceType = None
     Inspector: InspectorType = None
@@ -130,6 +134,8 @@ class Aixplain:
         self.Agent = type("Agent", (Agent,), {"context": self})
         self.Utility = type("Utility", (Utility,), {"context": self})
         self.Tool = type("Tool", (Tool,), {"context": self})
+        self.Metric = type("Metric", (MetricBase,), {"context": self})
+        self.Eval = EvalClass
         self.Integration = type("Integration", (Integration,), {"context": self})
         self.Resource = type("Resource", (Resource,), {"context": self})
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
