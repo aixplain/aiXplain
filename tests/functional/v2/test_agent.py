@@ -462,6 +462,7 @@ def test_slack_tool_integration_with_agent(client, slack_token):
     agent.delete()
     # Note: Tool deletion may not be implemented yet, but agent deletion should work
 
+
 # Platform tool helpers
 
 FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
@@ -503,6 +504,7 @@ def _run_platform_tool_agent(client, tools: list, prompt: str, test_suffix: str)
 
 # Firecrawl
 
+
 @pytest.mark.flaky(reruns=2, reason="LLM may not always choose to call the scrape action")
 def test_agent_firecrawl_scrape_tool(client):
     """
@@ -531,12 +533,12 @@ def test_agent_firecrawl_scrape_tool(client):
 
     output_lower = output.lower()
     assert "aixplain" in output_lower, (
-        "Expected the response to contain information from the scraped aixplain.com page. "
-        f"Output: {output[:500]!r}"
+        f"Expected the response to contain information from the scraped aixplain.com page. Output: {output[:500]!r}"
     )
 
 
 # Tavily
+
 
 @pytest.mark.flaky(reruns=2, reason="LLM may not always invoke Tavily")
 def test_agent_tavily_web_search_tool(client):
@@ -573,6 +575,7 @@ def test_agent_tavily_web_search_tool(client):
 
 # Google Search / SerpApi
 
+
 @pytest.mark.flaky(reruns=2, reason="LLM may not always call the Google Search utility")
 def test_agent_google_search_serpapi_tool(client):
     """
@@ -603,13 +606,11 @@ def test_agent_google_search_serpapi_tool(client):
     expected_teams = ["botafogo", "palmeiras", "flamengo"]
 
     for team in expected_teams:
-        assert team in output_lower, (
-            f"Expected {team!r} in the response. "
-            f"Output: {output[:500]!r}"
-        )
+        assert team in output_lower, f"Expected {team!r} in the response. Output: {output[:500]!r}"
 
 
 # Web Search Tool
+
 
 @pytest.mark.flaky(reruns=2, reason="LLM may not always invoke the Web Search tool")
 def test_agent_web_search_tool(client):

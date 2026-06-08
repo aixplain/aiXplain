@@ -842,6 +842,7 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
         step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]
     ]
 
+
 # Platform tool tests
 
 FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
@@ -958,10 +959,7 @@ def test_agent_google_search_serpapi_tool(resource_tracker):
     expected_teams = ["botafogo", "palmeiras", "flamengo"]
 
     for team in expected_teams:
-        assert team in output_lower, (
-            f"Expected {team!r} in the response. "
-            f"Output: {response['data']['output'][:500]!r}"
-        )
+        assert team in output_lower, f"Expected {team!r} in the response. Output: {response['data']['output'][:500]!r}"
 
 
 @pytest.mark.flaky(reruns=2, reruns_delay=2)

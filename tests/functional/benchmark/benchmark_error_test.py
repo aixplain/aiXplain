@@ -23,7 +23,9 @@ def test_create_benchmark_error_response():
             )
         ]
         model_list = [
-            Model(id="model1", name="Model 1", description="Test model", supplier="Test supplier", cost=10, version="v1")
+            Model(
+                id="model1", name="Model 1", description="Test model", supplier="Test supplier", cost=10, version="v1"
+            )
         ]
 
         url = urljoin(config.BACKEND_URL, "sdk/benchmarks")
@@ -33,15 +35,21 @@ def test_create_benchmark_error_response():
         mock.post(url, headers=headers, json=error_response, status_code=400)
 
         with pytest.raises(Exception) as excinfo:
-            BenchmarkFactory.create(name=name, dataset_list=dataset_list, model_list=model_list, metric_list=metric_list)
+            BenchmarkFactory.create(
+                name=name, dataset_list=dataset_list, model_list=model_list, metric_list=metric_list
+            )
 
-        assert "Benchmark Creation Error: Status 400 - {'statusCode': 400, 'message': 'Invalid request'}" in str(excinfo.value)
+        assert "Benchmark Creation Error: Status 400 - {'statusCode': 400, 'message': 'Invalid request'}" in str(
+            excinfo.value
+        )
 
 
 def test_list_normalization_options_error():
     metric = MetricFactory.get("66df3e2d6eb56336b6628171")
     with requests_mock.Mocker() as mock:
-        model = Model(id="model1", name="Test Model", description="Test model", supplier="Test supplier", cost=10, version="v1")
+        model = Model(
+            id="model1", name="Test Model", description="Test model", supplier="Test supplier", cost=10, version="v1"
+        )
 
         url = urljoin(config.BACKEND_URL, "sdk/benchmarks/normalization-options")
         headers = {"Authorization": f"Token {config.AIXPLAIN_API_KEY}", "Content-Type": "application/json"}
@@ -52,4 +60,6 @@ def test_list_normalization_options_error():
         with pytest.raises(Exception) as excinfo:
             BenchmarkFactory.list_normalization_options(metric, model)
 
-        assert "Error listing normalization options: Status 500 - {'message': 'Internal Server Error'}" in str(excinfo.value)
+        assert "Error listing normalization options: Status 500 - {'message': 'Internal Server Error'}" in str(
+            excinfo.value
+        )
