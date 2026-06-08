@@ -70,11 +70,10 @@ def test_sucess_query_content():
     assert response["url"] == ref_response["data"]
 
 
-@pytest.mark.parametrize("error_codes_key", ["errorCodes", "error_codes"])
-def test_team_agent_poll_extracts_error_codes_from_data(error_codes_key):
+def test_team_agent_poll_extracts_diagnostic_error_codes_from_data():
     team_agent = TeamAgent("123", "Test Team Agent")
     poll_url = "https://platform-api.aixplain.com/sdk/agent-communities/executions/test/result"
-    expected_error_codes = ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+    expected_diagnostic_error_codes = ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
 
     with requests_mock.Mocker() as mock:
         mock.get(
@@ -85,16 +84,16 @@ def test_team_agent_poll_extracts_error_codes_from_data(error_codes_key):
                 "data": {
                     "input": "hello",
                     "output": "hi",
-                    error_codes_key: expected_error_codes,
+                    "diagnosticErrorCodes": expected_diagnostic_error_codes,
                 },
             },
         )
 
         response = team_agent.poll(poll_url)
 
-    assert response.error_codes == expected_error_codes
-    assert response["error_codes"] == expected_error_codes
-    assert response.to_dict()["error_codes"] == expected_error_codes
+    assert response.diagnostic_error_codes == expected_diagnostic_error_codes
+    assert response["diagnostic_error_codes"] == expected_diagnostic_error_codes
+    assert response.to_dict()["diagnostic_error_codes"] == expected_diagnostic_error_codes
 
 
 def test_fail_number_agents():

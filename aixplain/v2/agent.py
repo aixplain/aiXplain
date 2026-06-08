@@ -278,7 +278,9 @@ class AgentRunResult(Result):
     request_id: Optional[Text] = field(default=None, metadata=config(field_name="requestId"))
     used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
     run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
-    error_codes: List[str] = field(default_factory=list, metadata=config(field_name="errorCodes"))
+    diagnostic_error_codes: List[str] = field(
+        default_factory=list, metadata=config(field_name="diagnosticErrorCodes")
+    )
 
     # Internal reference to client context for debug() method
     _context: Optional[Any] = field(

@@ -322,7 +322,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         return normalized
 
     @staticmethod
-    def _extract_error_codes(resp: Dict, resp_data: Optional[Dict] = None) -> List[str]:
+    def _extract_diagnostic_error_codes(resp: Dict, resp_data: Optional[Dict] = None) -> List[str]:
         """Extract diagnostic error codes from poll responses in either casing."""
         sources = []
         if isinstance(resp_data, dict):
@@ -331,9 +331,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             sources.append(resp)
 
         for source in sources:
-            error_codes = source.get("errorCodes") or source.get("error_codes")
-            if error_codes:
-                return error_codes
+            diagnostic_error_codes = source.get("diagnosticErrorCodes")
+            if diagnostic_error_codes:
+                return diagnostic_error_codes
         return []
 
     def poll(self, poll_url: Text, name: Text = "model_process") -> "AgentResponse":
@@ -348,9 +348,9 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
         """
         # Call parent poll method
         response = super().poll(poll_url, name)
-        error_codes = self._extract_error_codes(response.additional_fields, response.data)
-        response.error_codes = error_codes
-        response.additional_fields["error_codes"] = error_codes
+        diagnostic_error_codes = self._extract_diagnostic_error_codes(response.additional_fields, response.data)
+        response.diagnostic_error_codes = diagnostic_error_codes
+        response.additional_fields["diagnostic_error_codes"] = diagnostic_error_codes
 
         # Normalize progress data if present (stored in additional_fields)
         if hasattr(response, "additional_fields") and isinstance(response.additional_fields, dict):
@@ -695,7 +695,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 progress_verbosity=progress_verbosity,
             )
             result_data = result.get("data") or {}
-            error_codes = result.get("error_codes", [])
+            diagnostic_error_codes = result.get("diagnostic_error_codes", [])
             if result.status == ResponseStatus.FAILED:
                 return AgentResponse(
                     status=ResponseStatus.FAILED,
@@ -710,7 +710,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     ),
                     used_credits=result_data.get("usedCredits", 0.0),
                     run_time=result_data.get("runTime", end - start),
-                    error_codes=error_codes,
+                    diagnostic_error_codes=diagnostic_error_codes,
                 )
 
             return AgentResponse(
@@ -726,7 +726,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
                 run_time=result_data.get("runTime", end - start),
-                error_codes=error_codes,
+                diagnostic_error_codes=diagnostic_error_codes,
             )
         except Exception as e:
             msg = f"Error in request for {name} - {traceback.format_exc()}"
