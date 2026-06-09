@@ -161,7 +161,7 @@ def test_model_query(ModelFactory):
 @pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_model_deletion(ModelFactory):
     """Test that a model cannot be deleted."""
-    model = ModelFactory.get("640b517694bf816d35a59125")
+    model = ModelFactory.get("69b7e5f1b2fe44704ab0e7d0")
     with pytest.raises(Exception):
         model.delete()
 
