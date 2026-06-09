@@ -890,8 +890,13 @@ def test_agent_api_key_in_requests():
         api_key=custom_api_key,
     )
 
+    # Best-effort ipinfo geo lookup happens during a run; mock it so the unit test
+    # is hermetic (no real network call) and deterministic regardless of lru_cache state.
+    user_info_utils._fetch_ipinfo.cache_clear()
+
     with requests_mock.Mocker() as mock:
         url = agent.url
+        mock.get(user_info_utils._IPINFO_URL, json={})
         # The custom api_key should be used in the headers
         headers = {"x-api-key": custom_api_key, "Content-Type": "application/json"}
         ref_response = {"data": "test_url", "status": "IN_PROGRESS"}

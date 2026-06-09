@@ -74,7 +74,14 @@ class APIKeyLimits:
         if model is not None and isinstance(model, str):
             from aixplain.factories import ModelFactory
 
-            self.model = ModelFactory.get(model)
+            try:
+                self.model = ModelFactory.get(model)
+            except Exception as e:
+                # The referenced model may have been deleted on the backend. Keep the
+                # raw ID instead of raising, so listing API keys doesn't fail entirely
+                # because one key references a stale model.
+                logging.warning(f"APIKeyLimits: could not resolve model '{model}' (it may have been deleted): {e}")
+                self.model = model
 
 
 class APIKeyUsageLimit:
@@ -115,7 +122,13 @@ class APIKeyUsageLimit:
         if model is not None and isinstance(model, str):
             from aixplain.factories import ModelFactory
 
-            self.model = ModelFactory.get(model)
+            try:
+                self.model = ModelFactory.get(model)
+            except Exception as e:
+                # The referenced model may have been deleted on the backend. Keep the
+                # raw ID instead of raising, so usage lookups don't fail entirely.
+                logging.warning(f"APIKeyUsageLimit: could not resolve model '{model}' (it may have been deleted): {e}")
+                self.model = model
 
 
 class APIKey:
@@ -244,8 +257,15 @@ class APIKey:
             if isinstance(asset_limit.model, str):
                 try:
                     self.asset_limits[i].model = ModelFactory.get(asset_limit.model)
-                except Exception:
-                    raise Exception(f"Asset {asset_limit.model} is not a valid aiXplain model.")
+                except Exception as e:
+                    # The model may have been deleted on the backend after the key was
+                    # created. Don't hard-fail validation (e.g. when listing existing
+                    # keys) — keep the raw ID. Model validity is still enforced
+                    # server-side on create/update.
+                    logging.warning(
+                        f"APIKey.validate: could not resolve model '{asset_limit.model}' "
+                        f"(it may have been deleted): {e}"
+                    )
 
     def to_dict(self) -> Dict:
         """Convert the APIKey instance to a dictionary representation.
