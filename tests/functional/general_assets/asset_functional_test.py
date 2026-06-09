@@ -158,6 +158,11 @@ def test_model_query(ModelFactory):
         assert query in model.name
 
 
+@pytest.mark.skip(
+    reason="Destructive: model.delete() can actually delete the target on the test backend "
+    "(removed the default LLM 69b7e5f1b2fe44704ab0e7d0). Re-enable once it targets a "
+    "throwaway model or the backend reliably refuses the deletion."
+)
 @pytest.mark.parametrize("ModelFactory", [ModelFactory])
 def test_model_deletion(ModelFactory):
     """Test that a model cannot be deleted."""
