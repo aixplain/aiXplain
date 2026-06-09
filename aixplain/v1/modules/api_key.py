@@ -319,7 +319,9 @@ class APIKey:
                     "tpd": asset_limit.token_per_day,
                     "rpm": asset_limit.request_per_minute,
                     "rpd": asset_limit.request_per_day,
-                    "assetId": asset_limit.model.id,
+                    # model may be a Model instance or, when the referenced model was
+                    # deleted on the backend, the raw ID string kept by APIKeyLimits.
+                    "assetId": asset_limit.model if isinstance(asset_limit.model, str) else asset_limit.model.id,
                     "tokenType": asset_limit.token_type.value if asset_limit.token_type else None,
                 }
             )
@@ -439,7 +441,10 @@ class APIKey:
                 model = model.id
             is_found = False
             for i, asset_limit in enumerate(self.asset_limits):
-                if asset_limit.model.id == model:
+                asset_limit_model_id = (
+                    asset_limit.model if isinstance(asset_limit.model, str) else asset_limit.model.id
+                )
+                if asset_limit_model_id == model:
                     setattr(self.asset_limits[i], limit_type, limit)
                     is_found = True
                     break
