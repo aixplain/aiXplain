@@ -329,14 +329,21 @@ def _bind_inspector(client):
     return type("Inspector", (Inspector,), {"context": ctx})
 
 
+# Canonical marketplace paths for the onboarded AWS guards (host/asset-name/instance),
+# verified against production. The asset-name (middle) segment drives the tuned config.
+_PROMPT_ATTACKS_PATH = "aws/detect-prompt-attacks-guardrail/aws"
+_PII_PATH = "aws/sensitive-information-guardrail/aws"
+_HALLUCINATION_PATH = "aws/contextual-grounding-check-guardrail/aws"
+
+
 class TestFromGuardModel:
     def test_prompt_injection_defaults(self):
         guard = Inspector.from_guard_model(
-            {"id": "pi-id", "name": "Prompt Injection Guard"},
-            requested_path="aixplain/prompt-injection-guard",
+            {"id": "pi-id", "name": "Detect Prompt Attacks Guardrail"},
+            requested_path=_PROMPT_ATTACKS_PATH,
         )
         assert guard.to_dict() == {
-            "name": "Prompt Injection Guard",
+            "name": "Detect Prompt Attacks Guardrail",
             "targets": ["input"],
             "action": {"type": "abort"},
             "evaluator": {"type": "asset", "assetId": "pi-id"},
@@ -346,7 +353,7 @@ class TestFromGuardModel:
     def test_pii_redaction_defaults_with_editor(self):
         guard = Inspector.from_guard_model(
             {"id": "pii-id", "name": "Sensitive Information Guardrail"},
-            requested_path="aixplain/pii-redaction",
+            requested_path=_PII_PATH,
         )
         payload = guard.to_dict()
         assert payload["action"] == {"type": "edit"}
@@ -356,17 +363,28 @@ class TestFromGuardModel:
 
     def test_hallucination_defaults(self):
         guard = Inspector.from_guard_model(
-            {"id": "h-id", "name": "Hallucination Guard"},
-            requested_path="aixplain/hallucination-guard",
+            {"id": "h-id", "name": "Contextual Grounding Check Guardrail"},
+            requested_path=_HALLUCINATION_PATH,
         )
         payload = guard.to_dict()
         assert payload["targets"] == ["output"]
         assert payload["action"] == {"type": "rerun", "maxRetries": 2, "onExhaust": "abort"}
 
+    def test_asset_name_segment_drives_config_not_host(self):
+        # Real paths are host/asset-name/instance, so the trailing segment is the
+        # host ("aws"), not the guard identity. The tuned config must resolve from
+        # the asset-name (middle) segment — a regression guard for the slug bug
+        # where the trailing segment was used and every guard fell back to abort.
+        guard = Inspector.from_guard_model(
+            {"id": "pii-id", "name": "Sensitive Information Guardrail"},
+            requested_path=_PII_PATH,
+        )
+        assert guard.to_dict()["action"] == {"type": "edit"}
+
     def test_unknown_guard_safe_default(self):
         guard = Inspector.from_guard_model(
             {"id": "x-id", "name": "Future Guard"},
-            requested_path="aixplain/some-future-guard",
+            requested_path="aws/some-future-guard/aws",
         )
         payload = guard.to_dict()
         assert payload["targets"] == ["input"]
@@ -375,12 +393,24 @@ class TestFromGuardModel:
 
     def test_slug_resolved_from_payload_path(self):
         guard = Inspector.from_guard_model(
-            {"id": "h-id", "name": "Hallucination Guard", "path": "aixplain/hallucination-guard"},
+            {"id": "h-id", "name": "Contextual Grounding Check Guardrail", "path": _HALLUCINATION_PATH},
         )
         assert guard.to_dict()["action"]["type"] == "rerun"
 
+    def test_slug_resolved_from_asset_name_field(self):
+        # When the payload carries assetInfo.assetName directly, it selects the
+        # tuned config regardless of the path shape.
+        guard = Inspector.from_guard_model(
+            {
+                "id": "pii-id",
+                "name": "Sensitive Information Guardrail",
+                "assetInfo": {"assetName": "sensitive-information-guardrail"},
+            }
+        )
+        assert guard.to_dict()["action"] == {"type": "edit"}
+
     def test_returned_type_is_inspector(self):
-        guard = Inspector.from_guard_model({"id": "id", "name": "G"}, requested_path="aixplain/pii-redaction")
+        guard = Inspector.from_guard_model({"id": "id", "name": "G"}, requested_path=_PII_PATH)
         assert isinstance(guard, Inspector)
 
     def test_path_extracted_from_asset_info(self):
@@ -391,10 +421,10 @@ class TestFromGuardModel:
             {
                 "id": "pii-id",
                 "name": "Sensitive Information Guardrail",
-                "assetInfo": {"instanceId": "aixplain/pii-redaction"},
+                "assetInfo": {"instanceId": _PII_PATH, "assetName": "sensitive-information-guardrail"},
             }
         )
-        assert guard.path == "aixplain/pii-redaction"
+        assert guard.path == _PII_PATH
         assert guard.to_dict()["action"] == {"type": "edit"}
 
     def test_tuned_defaults_when_fetched_by_bare_id(self):
@@ -402,7 +432,7 @@ class TestFromGuardModel:
         # id never matches the registry, but the payload's path still should
         # select the tuned config rather than the safe abort/input fallback.
         guard = Inspector.from_guard_model(
-            {"id": "69cbf63cd74e334a6bacfeb1", "name": "PII", "path": "aixplain/pii-redaction"},
+            {"id": "69cbf63cd74e334a6bacfeb1", "name": "PII", "path": _PII_PATH},
             requested_path="69cbf63cd74e334a6bacfeb1",
         )
         assert guard.to_dict()["action"] == {"type": "edit"}
@@ -410,13 +440,13 @@ class TestFromGuardModel:
 
 class TestInspectorGet:
     def test_get_fetches_and_adapts(self):
-        client = _FakeClient(get_result={"id": "pii-id", "name": "PII", "path": "aixplain/pii-redaction"})
+        client = _FakeClient(get_result={"id": "pii-id", "name": "PII", "path": _PII_PATH})
         Bound = _bind_inspector(client)
 
-        guard = Bound.get("aixplain/pii-redaction")
+        guard = Bound.get(_PII_PATH)
 
-        # URL-encodes the path and hits the models endpoint.
-        assert client.got_path == "v2/models/aixplain%2Fpii-redaction"
+        # URL-encodes the (multi-slash) path and hits the models endpoint.
+        assert client.got_path == "v2/models/aws%2Fsensitive-information-guardrail%2Faws"
         assert isinstance(guard, Inspector)
         assert guard.evaluator.asset_id == "pii-id"
         assert guard.action.type == InspectorAction.EDIT
@@ -425,13 +455,13 @@ class TestInspectorGet:
         client = _FakeClient(get_result={"id": "pi-id", "name": "PI"})
         Bound = _bind_inspector(client)
 
-        guard = Bound.get("aixplain/prompt-injection-guard")
+        guard = Bound.get(_PROMPT_ATTACKS_PATH)
         guard.targets = ["output"]
         assert guard.to_dict()["targets"] == ["output"]
 
     def test_get_without_context_raises(self):
         with pytest.raises(Exception):
-            Inspector.get("aixplain/prompt-injection-guard")
+            Inspector.get(_PROMPT_ATTACKS_PATH)
 
 
 class TestInspectorSearch:
@@ -439,8 +469,8 @@ class TestInspectorSearch:
         client = _FakeClient(
             paginate_result={
                 "results": [
-                    {"id": "pi-id", "name": "Prompt Injection Guard", "path": "aixplain/prompt-injection-guard"},
-                    {"id": "pii-id", "name": "PII", "path": "aixplain/pii-redaction"},
+                    {"id": "pi-id", "name": "Detect Prompt Attacks Guardrail", "path": _PROMPT_ATTACKS_PATH},
+                    {"id": "pii-id", "name": "Sensitive Information Guardrail", "path": _PII_PATH},
                 ],
                 "total": 6,
                 "pageTotal": 1,
@@ -461,4 +491,7 @@ class TestInspectorSearch:
         assert page.page_number == 0
         assert page.page_total == 1
         assert all(isinstance(r, Inspector) for r in page.results)
-        assert [r.name for r in page.results] == ["Prompt Injection Guard", "PII"]
+        assert [r.name for r in page.results] == [
+            "Detect Prompt Attacks Guardrail",
+            "Sensitive Information Guardrail",
+        ]

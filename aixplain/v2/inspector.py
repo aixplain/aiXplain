@@ -196,7 +196,7 @@ class EditorConfig:
 
 
 # Default action/targets applied when a guard is fetched by its canonical
-# marketplace path. Keyed by the path's trailing slug so the SDK never has to
+# marketplace path. Keyed by the guard's asset name so the SDK never has to
 # hardcode a guard's asset id — a new guard ships purely as a marketplace entry
 # and inherits the safe default below until/unless it gets a tuned entry here.
 _DEFAULT_GUARD_CONFIG: Dict[str, Any] = {
@@ -204,48 +204,54 @@ _DEFAULT_GUARD_CONFIG: Dict[str, Any] = {
     "action": {"type": InspectorAction.ABORT.value},
 }
 
+# Keys are the marketplace ``assetName`` (the middle segment of a guard's
+# ``host/asset-name/instance`` path), verified against the onboarded AWS guards.
 _GUARD_CONFIG_DEFAULTS: Dict[str, Dict[str, Any]] = {
-    "prompt-injection-guard": {
+    "detect-prompt-attacks-guardrail": {
         "targets": [InspectorTarget.INPUT.value],
         "action": {"type": InspectorAction.ABORT.value},
     },
-    "pii-redaction": {
+    "sensitive-information-guardrail": {
         "targets": [InspectorTarget.INPUT.value],
         "action": {"type": InspectorAction.EDIT.value},
     },
-    "hallucination-guard": {
+    "contextual-grounding-check-guardrail": {
         "targets": [InspectorTarget.OUTPUT.value],
         "action": {"type": InspectorAction.RERUN.value, "maxRetries": 2, "onExhaust": "abort"},
     },
 }
 
 
-def _guard_slug(value: Optional[str]) -> Optional[str]:
-    """Return the trailing path segment of a guard path/id, lowercased.
+def _guard_slugs(value: Optional[str]) -> List[str]:
+    """Return every path segment of a guard path/id, lowercased.
 
-    ``"aixplain/pii-redaction"`` → ``"pii-redaction"``. A bare asset id has no
-    ``"/"`` so it returns itself (and won't match :data:`_GUARD_CONFIG_DEFAULTS`,
-    falling back to the safe default).
+    Marketplace guard paths are ``host/asset-name/instance`` (the ``instanceId``,
+    e.g. ``"aws/sensitive-information-guardrail/aws"``) or ``host/asset-name``
+    (the ``assetPath``). The guard's identity is the *asset-name* segment, not
+    the trailing host — so we return all segments and let the registry match the
+    asset name wherever it sits. A bare asset id has no ``"/"`` and yields a
+    single non-matching slug, falling back to the safe default.
     """
     if not value:
-        return None
-    return str(value).strip().rstrip("/").split("/")[-1].lower()
+        return []
+    return [seg.lower() for seg in str(value).strip().strip("/").split("/") if seg]
 
 
 def _resolve_guard_defaults(*candidates: Optional[str]) -> Dict[str, Any]:
-    """Pick the tuned guard config matching the first slug that is a known guard.
+    """Pick the tuned guard config matching the first known asset-name segment.
 
-    Tries each candidate path/id in order, preferring whichever yields a slug
-    present in :data:`_GUARD_CONFIG_DEFAULTS`. This matters when a guard is
-    retrieved by its bare asset id (which never matches the registry) but the
-    payload also carries its canonical ``path`` — the path still selects the
+    Tries each candidate (asset name, path/id) in order and, within each, every
+    path segment, preferring whichever matches a key in
+    :data:`_GUARD_CONFIG_DEFAULTS`. This matters when a guard is retrieved by its
+    bare asset id (which never matches the registry) but the payload also carries
+    its canonical ``path`` — the path's asset-name segment still selects the
     tuned ``action``/``targets`` instead of the safe fallback. Falls back to the
     safe default when nothing matches.
     """
     for candidate in candidates:
-        slug = _guard_slug(candidate)
-        if slug and slug in _GUARD_CONFIG_DEFAULTS:
-            return _GUARD_CONFIG_DEFAULTS[slug]
+        for slug in _guard_slugs(candidate):
+            if slug in _GUARD_CONFIG_DEFAULTS:
+                return _GUARD_CONFIG_DEFAULTS[slug]
     return _DEFAULT_GUARD_CONFIG
 
 
@@ -275,8 +281,8 @@ class Inspector(
         aix.Inspector.search("guard")
 
         # Retrieve a prebuilt by human-readable path (IDs also accepted)
-        guard = aix.Inspector.get("aixplain/prompt-injection-guard")
-        redactor = aix.Inspector.get("aixplain/pii-redaction")
+        guard = aix.Inspector.get("aws/detect-prompt-attacks-guardrail/aws")
+        redactor = aix.Inspector.get("aws/sensitive-information-guardrail/aws")
         redactor.targets = ["output"]            # config as an inspectable attribute
 
         team = aix.Agent(name="team", agents=[...], inspectors=[guard, redactor])
@@ -365,7 +371,8 @@ class Inspector(
 
         payload = _flatten_asset_info(dict(payload))
         model_id = payload.get("id")
-        defaults = _resolve_guard_defaults(requested_path, payload.get("path"))
+        asset_name = (payload.get("assetInfo") or {}).get("assetName")
+        defaults = _resolve_guard_defaults(asset_name, requested_path, payload.get("path"))
 
         action = InspectorActionConfig.from_dict(defaults["action"])
         editor = None
@@ -390,8 +397,8 @@ class Inspector(
         """Retrieve a prebuilt guard by human-readable path (IDs also accepted).
 
         Args:
-            id: The guard's marketplace path (e.g. ``"aixplain/pii-redaction"``)
-                or its asset id.
+            id: The guard's marketplace path (e.g.
+                ``"aws/sensitive-information-guardrail/aws"``) or its asset id.
             **kwargs: Additional request parameters (e.g. ``resource_path``)
                 forwarded to the underlying client call.
 
@@ -428,7 +435,15 @@ class Inspector(
 
     @classmethod
     def _populate_filters(cls, params: Dict[str, Any]) -> dict:
-        """Pin the search to the ``guardrails`` function (guards are models)."""
+        """Pin the search to the ``guardrails`` function (guards are models).
+
+        NOTE: the ``v2/models/paginate`` ``functions`` filter is currently a
+        no-op on the backend — ``[{"id": <fn>}]`` returns zero results for every
+        function (verified against ``text-generation`` too), so this search
+        returns an empty page until the backend implements function filtering on
+        that endpoint. Tracked as a backend bug; the get-by-path flow is
+        unaffected. See ``Inspector.get``.
+        """
         filters = super()._populate_filters(params)
         filters["functions"] = [{"id": Function.GUARDRAILS.value}]
         # The v2/models/paginate endpoint requires a sort array.
