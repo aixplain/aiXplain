@@ -778,41 +778,30 @@ def test_run_agent_with_expected_output(resource_tracker):
 
 def test_agent_with_action_tool(slack_token, resource_tracker):
     from aixplain.modules.model.integration import AuthenticationSchema
-    from aixplain.modules.model.connection import ConnectionTool
 
     SLACK_INTEGRATION_ID = "686432941223092cb4294d3f"
-    SLACK_CONNECTION_ID = "692995404907d69787ddab00"
 
-    connection = None
-
-    # Try to get existing connection first
-    try:
-        model = ModelFactory.get(SLACK_CONNECTION_ID)
-        if isinstance(model, ConnectionTool):
-            connection = model
-    except Exception:
-        pass
-
-    # If no valid connection exists, create one from the integration using bearer token
-    if connection is None:
-        connection_name = f"STC {str(uuid4())[:8]}"
-        integration = ModelFactory.get(SLACK_INTEGRATION_ID)
-        response = integration.connect(
-            authentication_schema=AuthenticationSchema.BEARER_TOKEN,
-            data={"token": slack_token},
-            name=connection_name,
-            description="Test connection for agent functional tests",
-        )
-        # response.data might be a string (JSON) or dict
-        data = response.data
-        if isinstance(data, str) and data:
-            data = json.loads(data)
-        elif isinstance(data, dict):
-            pass  # already a dict
-        else:
-            raise Exception(f"Unexpected response data format: {response}")
-        connection_id = data["id"]
-        connection = ModelFactory.get(connection_id)
+    # Create a fresh connection from the Slack integration using the bearer token.
+    # (We no longer reuse a hardcoded connection ID — that connection no longer exists
+    #  on the backend — so the connection is created on demand from the integration.)
+    connection_name = f"STC {str(uuid4())[:8]}"
+    integration = ModelFactory.get(SLACK_INTEGRATION_ID)
+    response = integration.connect(
+        authentication_schema=AuthenticationSchema.BEARER_TOKEN,
+        data={"token": slack_token},
+        name=connection_name,
+        description="Test connection for agent functional tests",
+    )
+    # response.data might be a string (JSON) or dict
+    data = response.data
+    if isinstance(data, str) and data:
+        data = json.loads(data)
+    elif isinstance(data, dict):
+        pass  # already a dict
+    else:
+        raise Exception(f"Unexpected response data format: {response}")
+    connection_id = data["id"]
+    connection = ModelFactory.get(connection_id)
 
     connection.action_scope = [
         action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
