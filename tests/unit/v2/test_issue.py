@@ -11,7 +11,7 @@ from aixplain.v2.issue import IssueSeverity
 
 class TestIssueReporter:
     def test_report_minimal_submission(self):
-        aix = Aixplain(api_key="test-key")
+        aix = Aixplain(api_key="test-key", backend_url="https://platform-api.aixplain.com")
         aix.client.post = Mock(
             return_value={"issue_id": "issue-123", "bug_board_url": "https://bugs.example.com/issue-123"}
         )
@@ -25,7 +25,7 @@ class TestIssueReporter:
         )
 
     def test_report_full_submission_payload(self):
-        aix = Aixplain(api_key="test-key")
+        aix = Aixplain(api_key="test-key", backend_url="https://platform-api.aixplain.com")
         aix.client.post = Mock(
             return_value={"issue_id": "issue-456", "bug_board_url": "https://bugs.example.com/issue-456"}
         )
@@ -58,7 +58,7 @@ class TestIssueReporter:
         )
 
     def test_report_omits_none_fields(self):
-        aix = Aixplain(api_key="test-key")
+        aix = Aixplain(api_key="test-key", backend_url="https://platform-api.aixplain.com")
         aix.client.post = Mock(return_value={"issue_id": "issue-789"})
 
         aix.issue.report(
