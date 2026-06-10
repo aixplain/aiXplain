@@ -122,3 +122,24 @@ class TestR3InspectorDeserialization:
 
         assert all(isinstance(i, Inspector) for i in agent.inspectors)
         assert agent.inspectors[1].name == "PII"
+
+    def test_agent_with_inspector_serializes(self):
+        # Regression: Inspector is a BaseResource, whose `context` field is
+        # init=False. An inspector rehydrated via from_dict (nested in an agent)
+        # has no bound context, and dataclasses_json's _asdict calls
+        # getattr(obj, "context") before honoring `exclude` — which raised
+        # AttributeError on save() until `context` got a None default. Saving a
+        # team agent with a fetched guard hit exactly this path.
+        guard_payload = {
+            "name": "Detect Prompt Attacks Guardrail",
+            "targets": ["input"],
+            "action": {"type": "abort"},
+            "evaluator": {"type": "asset", "assetId": "pi-id"},
+        }
+        agent = _agent_from_dict(inspectors=[guard_payload])
+
+        # The inspector must always expose a context attribute (None when unbound)
+        # and must not leak it into serialized output.
+        assert agent.inspectors[0].context is None
+        serialized = agent.to_dict()
+        assert "context" not in serialized["inspectors"][0]
