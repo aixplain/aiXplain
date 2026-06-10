@@ -42,7 +42,9 @@ def validate_agent_structure(agent):
         assert isinstance(agent.team_id, int)
 
     if agent.llm:
-        assert isinstance(agent.llm, str)
+        # llm may be a bare model-id string, a role-ref dict ({id, name?, parameters?}),
+        # or a Model object, depending on whether the value came from a fetch round-trip.
+        assert isinstance(agent.llm, (str, dict)) or hasattr(agent.llm, "id")
 
     # Test timestamps if present
     if agent.created_at:
