@@ -228,6 +228,9 @@ class AgentRunParams(BaseRunParams):
         prompt: Custom prompt override
         history: Conversation history
         execution_params: Execution parameters (maxTokens, etc.)
+        budget: Per-run budget caps (cost / duration / iterations). Accepts a
+            ``Budget`` instance or a plain dict (snake_case or camelCase). Run-time
+            only; omitting it applies no budget enforcement.
         criteria: Criteria for evaluation
         evolve: Evolution parameters
         inspectors: Inspector configurations
@@ -246,6 +249,7 @@ class AgentRunParams(BaseRunParams):
     prompt: NotRequired[Optional[Text]]
     history: NotRequired[Optional[List[ConversationMessage]]]
     execution_params: NotRequired[Optional[Dict[str, Any]]]
+    budget: NotRequired[Optional[Union[Dict, "Budget"]]]
     criteria: NotRequired[Optional[Text]]
     evolve: NotRequired[Optional[Text]]
     inspectors: NotRequired[Optional[List[Dict]]]
@@ -253,6 +257,31 @@ class AgentRunParams(BaseRunParams):
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
+
+
+@dataclass_json
+@dataclass
+class Budget:
+    """Per-run budget caps for a single agent run.
+
+    Run-time only — never persisted on the Agent. The Python API is snake_case;
+    serialization produces the agreed camelCase wire keys
+    (``maxCost`` / ``maxDurationSeconds`` / ``maxIterations``). All fields are
+    optional and ``None`` fields are dropped from ``to_dict()``.
+    """
+
+    max_cost: Optional[float] = field(
+        default=None,
+        metadata=config(field_name="maxCost", exclude=lambda v: v is None),
+    )
+    max_duration_seconds: Optional[float] = field(
+        default=None,
+        metadata=config(field_name="maxDurationSeconds", exclude=lambda v: v is None),
+    )
+    max_iterations: Optional[int] = field(
+        default=None,
+        metadata=config(field_name="maxIterations", exclude=lambda v: v is None),
+    )
 
 
 @dataclass_json
@@ -640,6 +669,30 @@ class Agent(
         "expected_output": "expectedOutput",
         "context_overflow_strategy": "contextOverflowStrategy",
     }
+
+    # snake_case → camelCase wire keys for the nested executionParams.budget object.
+    _BUDGET_PARAMS_MAP: ClassVar[Dict[str, str]] = {
+        "max_cost": "maxCost",
+        "max_duration_seconds": "maxDurationSeconds",
+        "max_iterations": "maxIterations",
+    }
+
+    @classmethod
+    def _normalize_budget(cls, budget: Union[Dict, "Budget"]) -> dict:
+        """Normalize a Budget instance or dict to the camelCase wire shape.
+
+        Accepts a ``Budget`` instance, a snake_case dict, or a camelCase dict and
+        returns a camelCase dict with ``None`` fields dropped. Unknown keys are
+        passed through unchanged (forward compatibility).
+        """
+        if isinstance(budget, Budget):
+            raw = budget.to_dict()  # already camelCase, None dropped
+        else:
+            raw = dict(budget)
+        # Map snake_case keys to camelCase; pass camelCase (and unknown) keys through.
+        normalized = {cls._BUDGET_PARAMS_MAP.get(k, k): v for k, v in raw.items()}
+        # Never emit null fields.
+        return {k: v for k, v in normalized.items() if v is not None}
 
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Run the agent with optional progress display.
@@ -1284,6 +1337,14 @@ class Agent(
         elif isinstance(expected_output, dict):
             # Backend expects executionParams.expectedOutput as a string.
             execution_params["expectedOutput"] = json.dumps(expected_output)
+
+        # Per-run budget (run-time only). Set executionParams.budget only when a
+        # non-empty budget is provided; absence must leave the payload unchanged.
+        budget = kwargs.pop("budget", None)
+        if budget is not None:
+            normalized_budget = self._normalize_budget(budget)
+            if normalized_budget:
+                execution_params["budget"] = normalized_budget
 
         # Handle run_response_generation with default value of False
         run_response_generation = kwargs.pop("run_response_generation", False)

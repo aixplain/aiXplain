@@ -3,7 +3,7 @@
 from .core import Aixplain
 from .rlm import RLM, RLMResult
 from .utility import Utility
-from .agent import Agent, ContextOverflowStrategy
+from .agent import Agent, Budget, ContextOverflowStrategy
 from .tool import Tool
 from .actions import Input, Inputs, Action, Actions
 from .file import Resource
@@ -92,6 +92,7 @@ __all__ = [
     "RLMResult",
     "Utility",
     "Agent",
+    "Budget",
     "ContextOverflowStrategy",
     "Tool",
     "Resource",
