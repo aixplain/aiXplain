@@ -396,3 +396,73 @@ def test_inspector_get_returns_configured_inspector(client):
     assert isinstance(fetched, Inspector)
     assert fetched.evaluator is not None
     assert fetched.evaluator.asset_id == first.evaluator.asset_id
+
+
+# Canonical marketplace paths for the onboarded AWS guards and their tuned config.
+_PREBUILT_GUARDS = [
+    ("aws/detect-prompt-attacks-guardrail/aws", InspectorAction.ABORT, [_DEFAULT_INPUT_TARGET]),
+    ("aws/sensitive-information-guardrail/aws", InspectorAction.EDIT, [_DEFAULT_INPUT_TARGET]),
+    ("aws/contextual-grounding-check-guardrail/aws", InspectorAction.RERUN, [_DEFAULT_OUTPUT_TARGET]),
+]
+
+
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
+@pytest.mark.parametrize("path,expected_action,expected_targets", _PREBUILT_GUARDS)
+def test_get_prebuilt_guard_by_canonical_path(client, path, expected_action, expected_targets):
+    """aix.Inspector.get(<canonical path>) returns the guard with its tuned config.
+
+    The asset-name (middle) segment of the path selects action/targets, so the
+    PII guard resolves to edit (not the safe abort/input fallback).
+    """
+    try:
+        guard = client.Inspector.get(path)
+    except Exception as e:
+        pytest.skip(f"Guard '{path}' not onboarded in this environment: {e}")
+
+    assert isinstance(guard, Inspector)
+    assert guard.path == path
+    # The guard model itself is the evaluator.
+    assert guard.evaluator is not None
+    assert guard.evaluator.asset_id == guard.id
+    assert guard.action.type == expected_action
+    assert guard.targets == expected_targets
+    if expected_action == InspectorAction.EDIT:
+        # EDIT guards redact via the guard model, so an editor is configured.
+        assert guard.editor is not None
+
+
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
+def test_prebuilt_guard_attaches_and_runs_in_team_agent(client, resource_tracker):
+    """A fetched prebuilt guard saves and executes as an input-stage inspector.
+
+    Covers the full path: get a guard by canonical path, attach it to a team
+    agent via inspectors=[...], save (the guard persists as an ordinary
+    inspector), and run — verifying the guard runs as an inspector step.
+    """
+    path = "aws/detect-prompt-attacks-guardrail/aws"
+    try:
+        guard = client.Inspector.get(path)
+    except Exception as e:
+        pytest.skip(f"Guard '{path}' not onboarded in this environment: {e}")
+
+    timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
+
+    # _make_team_agent saves the team; the fetched guard round-trips as an Inspector.
+    team_agent = _make_team_agent(client, timestamp, agents, [guard])
+    resource_tracker.append(team_agent)
+
+    assert len(team_agent.inspectors) == 1
+    assert isinstance(team_agent.inspectors[0], Inspector)
+
+    _, steps = _run_and_get_steps(team_agent, "What is the capital of France?")
+
+    # The guard runs as an inspector step. The backend may label the step with
+    # the guard's name or the generic 'inspector' id, so accept either.
+    guard_steps = [s for s in steps if _is_inspector_step(s) or _step_agent_id(s) == guard.name.lower()]
+    assert guard_steps, (
+        f"Expected the prebuilt guard to run as an inspector step; "
+        f"got step ids {[_step_agent_id(s) for s in steps]}"
+    )

@@ -12,6 +12,8 @@ from aixplain.v2.inspector import (
     EvaluatorType,
     EvaluatorConfig,
     EditorConfig,
+    _guard_slugs,
+    _resolve_guard_defaults,
 )
 
 
@@ -334,6 +336,44 @@ def _bind_inspector(client):
 _PROMPT_ATTACKS_PATH = "aws/detect-prompt-attacks-guardrail/aws"
 _PII_PATH = "aws/sensitive-information-guardrail/aws"
 _HALLUCINATION_PATH = "aws/contextual-grounding-check-guardrail/aws"
+
+
+class TestGuardSlugResolution:
+    """Unit coverage for the asset-name-based tuned-config resolution."""
+
+    def test_guard_slugs_returns_all_segments_lowercased(self):
+        assert _guard_slugs("aws/Sensitive-Information-Guardrail/aws") == [
+            "aws",
+            "sensitive-information-guardrail",
+            "aws",
+        ]
+
+    def test_guard_slugs_handles_bare_id_and_empty(self):
+        assert _guard_slugs("69cbf63cd74e334a6bacfeb1") == ["69cbf63cd74e334a6bacfeb1"]
+        assert _guard_slugs(None) == []
+        assert _guard_slugs("") == []
+
+    def test_asset_name_middle_segment_selects_config(self):
+        # The guard identity is the middle segment, not the trailing host.
+        cfg = _resolve_guard_defaults("aws/sensitive-information-guardrail/aws")
+        assert cfg["action"]["type"] == "edit"
+        assert cfg["targets"] == ["input"]
+
+    def test_trailing_host_segment_does_not_match(self):
+        # An unknown asset name (host segments ignored) falls back to abort/input.
+        cfg = _resolve_guard_defaults("aws/some-future-guard/aws")
+        assert cfg["action"]["type"] == "abort"
+        assert cfg["targets"] == ["input"]
+
+    def test_bare_id_falls_back_to_safe_default(self):
+        cfg = _resolve_guard_defaults("69cbf63cd74e334a6bacfeb1")
+        assert cfg["action"]["type"] == "abort"
+
+    def test_first_matching_candidate_wins(self):
+        # asset_name candidate (checked first) takes precedence over the path.
+        cfg = _resolve_guard_defaults("contextual-grounding-check-guardrail", "aws/ignored/aws")
+        assert cfg["action"]["type"] == "rerun"
+        assert cfg["targets"] == ["output"]
 
 
 class TestFromGuardModel:
