@@ -263,9 +263,9 @@ class Pipeline(Asset, DeployableMixin):
             return PipelineResponse(
                 status=status,
                 completed=completed,
-                error=polling_response.error,
+                error=polling_response.get("error"),
                 elapsed_time=end - start,
-                data=getattr(polling_response, "data", {}),
+                data=polling_response.get("data", {}),
                 **kwargs,
             )
 
