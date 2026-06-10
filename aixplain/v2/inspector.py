@@ -6,10 +6,26 @@ at different stages (input, steps, output) with custom policies.
 """
 
 import inspect
+import logging
 import textwrap
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
+
+from .enums import Function
+from .exceptions import ResourceError
+from .resource import (
+    BaseResource,
+    BaseGetParams,
+    BaseSearchParams,
+    GetResourceMixin,
+    SearchResourceMixin,
+    Page,
+    encode_resource_id,
+    _flatten_asset_info,
+)
+
+logger = logging.getLogger(__name__)
 
 AUTO_DEFAULT_MODEL_ID = "67fd9e2bef0365783d06e2f0"
 
@@ -179,15 +195,106 @@ class EditorConfig:
         )
 
 
-@dataclass
-class Inspector:
-    """Inspector v2 configuration object."""
+# Default action/targets applied when a guard is fetched by its canonical
+# marketplace path. Keyed by the guard's asset name so the SDK never has to
+# hardcode a guard's asset id — a new guard ships purely as a marketplace entry
+# and inherits the safe default below until/unless it gets a tuned entry here.
+_DEFAULT_GUARD_CONFIG: Dict[str, Any] = {
+    "targets": [InspectorTarget.INPUT.value],
+    "action": {"type": InspectorAction.ABORT.value},
+}
 
-    name: str
-    action: InspectorActionConfig
-    evaluator: EvaluatorConfig
+# Keys are the marketplace ``assetName`` (the middle segment of a guard's
+# ``host/asset-name/instance`` path), verified against the onboarded AWS guards.
+_GUARD_CONFIG_DEFAULTS: Dict[str, Dict[str, Any]] = {
+    "detect-prompt-attacks-guardrail": {
+        "targets": [InspectorTarget.INPUT.value],
+        "action": {"type": InspectorAction.ABORT.value},
+    },
+    "sensitive-information-guardrail": {
+        "targets": [InspectorTarget.INPUT.value],
+        "action": {"type": InspectorAction.EDIT.value},
+    },
+    "contextual-grounding-check-guardrail": {
+        "targets": [InspectorTarget.OUTPUT.value],
+        "action": {"type": InspectorAction.RERUN.value, "maxRetries": 2, "onExhaust": "abort"},
+    },
+}
 
-    description: Optional[str] = None
+
+def _guard_slugs(value: Optional[str]) -> List[str]:
+    """Return every path segment of a guard path/id, lowercased.
+
+    Marketplace guard paths are ``host/asset-name/instance`` (the ``instanceId``,
+    e.g. ``"aws/sensitive-information-guardrail/aws"``) or ``host/asset-name``
+    (the ``assetPath``). The guard's identity is the *asset-name* segment, not
+    the trailing host — so we return all segments and let the registry match the
+    asset name wherever it sits. A bare asset id has no ``"/"`` and yields a
+    single non-matching slug, falling back to the safe default.
+    """
+    if not value:
+        return []
+    return [seg.lower() for seg in str(value).strip().strip("/").split("/") if seg]
+
+
+def _resolve_guard_defaults(*candidates: Optional[str]) -> Dict[str, Any]:
+    """Pick the tuned guard config matching the first known asset-name segment.
+
+    Tries each candidate (asset name, path/id) in order and, within each, every
+    path segment, preferring whichever matches a key in
+    :data:`_GUARD_CONFIG_DEFAULTS`. This matters when a guard is retrieved by its
+    bare asset id (which never matches the registry) but the payload also carries
+    its canonical ``path`` — the path's asset-name segment still selects the
+    tuned ``action``/``targets`` instead of the safe fallback. Falls back to the
+    safe default when nothing matches.
+    """
+    for candidate in candidates:
+        for slug in _guard_slugs(candidate):
+            if slug in _GUARD_CONFIG_DEFAULTS:
+                return _GUARD_CONFIG_DEFAULTS[slug]
+    return _DEFAULT_GUARD_CONFIG
+
+
+@dataclass(repr=False)
+class Inspector(
+    BaseResource,
+    GetResourceMixin[BaseGetParams, "Inspector"],
+    SearchResourceMixin[BaseSearchParams, "Inspector"],
+):
+    """Inspector v2 configuration object.
+
+    An ``Inspector`` is the single type the ``aix.Agent(inspectors=[...])`` slot
+    accepts — whether it is hand-built or retrieved from the marketplace via
+    :meth:`get` / :meth:`search`. Prebuilt guards are ordinary marketplace assets
+    under the ``guardrails`` :class:`~aixplain.v2.enums.Function`; retrieving one
+    returns a fully-configured ``Inspector`` whose evaluator points at the guard
+    model, so a fetched guard and a custom inspector are indistinguishable to the
+    agent.
+
+    Example::
+
+        from aixplain import Aixplain
+
+        aix = Aixplain(api_key="<KEY>")
+
+        # Discover guards like any other asset
+        aix.Inspector.search("guard")
+
+        # Retrieve a prebuilt by human-readable path (IDs also accepted)
+        guard = aix.Inspector.get("aws/detect-prompt-attacks-guardrail/aws")
+        redactor = aix.Inspector.get("aws/sensitive-information-guardrail/aws")
+        redactor.targets = ["output"]            # config as an inspectable attribute
+
+        team = aix.Agent(name="team", agents=[...], inspectors=[guard, redactor])
+    """
+
+    # Guards are marketplace models under function=guardrails, so retrieval is
+    # backed by the models endpoint and filtered to that function.
+    RESOURCE_PATH = "v2/models"
+
+    # ``name`` / ``description`` / ``id`` / ``path`` are inherited from BaseResource.
+    action: Optional[InspectorActionConfig] = None
+    evaluator: Optional[EvaluatorConfig] = None
     severity: Optional[InspectorSeverity] = None
     targets: List[str] = field(default_factory=list)
     editor: Optional[EditorConfig] = None
@@ -196,6 +303,10 @@ class Inspector:
         """Validate inspector configuration after initialization."""
         if not self.name or not str(self.name).strip():
             raise ValueError("name cannot be empty")
+        if self.action is None:
+            raise ValueError("action is required")
+        if self.evaluator is None:
+            raise ValueError("evaluator is required")
         self.targets = [t for t in (self.targets or []) if t and str(t).strip()]
         if self.action.type == InspectorAction.EDIT and self.editor is None:
             raise ValueError("editor is required when action type is 'edit'")
@@ -218,7 +329,7 @@ class Inspector:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Inspector":
-        """Create an Inspector from a dictionary."""
+        """Create an Inspector from an inspector-shaped dictionary."""
         if not isinstance(data, dict):
             raise ValueError("Inspector data must be a dict")
 
@@ -234,262 +345,127 @@ class Inspector:
             editor=EditorConfig.from_dict(editor_data) if editor_data else None,
         )
 
+    # ------------------------------------------------------------------
+    # Marketplace retrieval
+    # ------------------------------------------------------------------
+    @classmethod
+    def from_guard_model(cls, payload: Dict[str, Any], requested_path: Optional[str] = None) -> "Inspector":
+        """Adapt a ``guardrails`` marketplace model payload into a configured Inspector.
 
-PROMPT_INJECTION_GUARDRAIL_ASSET_ID = "69a9974367d506543103ca18"
-PII_REDACTION_GUARDRAIL_ASSET_ID = "69cbf63cd74e334a6bacfeb1"
-HALLUCINATION_GUARD_ASSET_ID = "69a9a38967d506543103ca1d"
+        The guard model becomes the inspector's evaluator (``asset`` type), and
+        sensible default ``action`` / ``targets`` are applied based on the guard's
+        canonical path slug (see :data:`_GUARD_CONFIG_DEFAULTS`). Unknown guards
+        fall back to a safe ``abort`` on ``input`` default, so future guards need
+        no SDK change.
 
-_PREBUILT_REGISTRY: Dict[str, Dict[str, Any]] = {
-    "prompt_injection_guard": {
-        "name": "Prompt Injection Guard",
-        "category": "protection",
-        "description": "Detects prompt attacks before they influence planning or execution.",
-        "default_targets": [InspectorTarget.INPUT.value],
-        "default_action": {"type": InspectorAction.ABORT.value},
-        "evaluator_asset_id": PROMPT_INJECTION_GUARDRAIL_ASSET_ID,
-        "supported_actions": [
-            InspectorAction.CONTINUE.value,
-            InspectorAction.RERUN.value,
-            InspectorAction.ABORT.value,
-        ],
-        "vendor": "aws",
-    },
-    "pii_redaction": {
-        "name": "PII Redaction",
-        "category": "redaction",
-        "description": "Finds sensitive information and returns redacted content from the guardrail evaluator.",
-        "default_targets": [InspectorTarget.INPUT.value],
-        "default_action": {"type": InspectorAction.EDIT.value},
-        "evaluator_asset_id": PII_REDACTION_GUARDRAIL_ASSET_ID,
-        "supported_actions": [
-            InspectorAction.CONTINUE.value,
-            InspectorAction.EDIT.value,
-            InspectorAction.ABORT.value,
-        ],
-        "vendor": "aws",
-    },
-    "hallucination_guard": {
-        "name": "Hallucination Guard",
-        "category": "quality",
-        "description": "Detects hallucinations in the agent's final response by verifying it against the intermediate step results and the original user query.",
-        "default_targets": [InspectorTarget.OUTPUT.value],
-        "default_action": {"type": InspectorAction.RERUN.value, "maxRetries": 2, "onExhaust": "abort"},
-        "evaluator_asset_id": HALLUCINATION_GUARD_ASSET_ID,
-        "supported_actions": [
-            InspectorAction.CONTINUE.value,
-            InspectorAction.RERUN.value,
-            InspectorAction.ABORT.value,
-        ],
-        "vendor": None,
-    },
-}
+        Args:
+            payload: The guard-model dict returned by the marketplace.
+            requested_path: The path/id the caller passed to :meth:`get`, used to
+                resolve default config when the payload omits a path.
 
+        Returns:
+            A fully-configured Inspector ready to attach to an agent.
+        """
+        if not isinstance(payload, dict):
+            raise ValueError("guard model payload must be a dict")
 
-@dataclass
-class PrebuiltInspector:
-    """A lightweight preset reference that the backend resolves into a full Inspector.
+        payload = _flatten_asset_info(dict(payload))
+        model_id = payload.get("id")
+        asset_name = (payload.get("assetInfo") or {}).get("assetName")
+        defaults = _resolve_guard_defaults(asset_name, requested_path, payload.get("path"))
 
-    Instead of manually configuring an evaluator, action, and editor, users can
-    reference one of the platform's pre-built inspector presets by ID.  The
-    backend's ``normalize_prebuilt_inspectors`` validator expands the reference
-    before the agent graph is constructed.
+        action = InspectorActionConfig.from_dict(defaults["action"])
+        editor = None
+        if action.type == InspectorAction.EDIT:
+            # The guard model performs the edit/redaction itself.
+            editor = EditorConfig(type=EvaluatorType.ASSET, asset_id=model_id)
 
-    Example::
-
-        from aixplain.v2 import PrebuiltInspector, InspectorTarget
-
-        team = client.Agent(
-            name="Safe Agent",
-            agents=[agent1, agent2],
-            inspectors=[
-                PrebuiltInspector.prompt_injection_guard(),
-                PrebuiltInspector.pii_redaction(targets=[InspectorTarget.OUTPUT]),
-            ],
+        inspector = cls(
+            id=model_id,
+            name=payload.get("name") or "Guardrail",
+            description=payload.get("description"),
+            evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id=model_id),
+            action=action,
+            targets=list(defaults["targets"]),
+            editor=editor,
         )
-    """
-
-    preset_id: str
-    targets: Optional[List[str]] = None
-    action: Optional[Dict[str, Any]] = None
-    severity: Optional[InspectorSeverity] = None
-    description: Optional[str] = None
-    name: Optional[str] = None
-    config: Optional[Dict[str, Any]] = None
-
-    def __post_init__(self) -> None:
-        """Validate the inspector configuration after initialization."""
-        if self.preset_id not in _PREBUILT_REGISTRY:
-            available = ", ".join(sorted(_PREBUILT_REGISTRY))
-            raise ValueError(f"Unknown inspector preset '{self.preset_id}'. Available presets: {available}")
-        if self.targets is not None:
-            self.targets = [t.value if isinstance(t, InspectorTarget) else str(t).lower() for t in self.targets]
-        if self.action is not None:
-            action_type = self.action.get("type", "")
-            supported = _PREBUILT_REGISTRY[self.preset_id]["supported_actions"]
-            if str(action_type).lower() not in supported:
-                raise ValueError(
-                    f"Action '{action_type}' is not supported by preset '{self.preset_id}'. "
-                    f"Supported actions: {supported}"
-                )
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialize to the lightweight reference format expected by the backend."""
-        d: Dict[str, Any] = {"presetId": self.preset_id}
-        if self.name is not None:
-            d["name"] = self.name
-        if self.description is not None:
-            d["description"] = self.description
-        if self.targets is not None:
-            d["targets"] = list(self.targets)
-        if self.action is not None:
-            d["action"] = dict(self.action)
-        if self.severity is not None:
-            d["severity"] = self.severity.value
-        if self.config is not None:
-            d["config"] = dict(self.config)
-        return d
+        inspector.path = payload.get("path") or requested_path
+        return inspector
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PrebuiltInspector":
-        """Create a PrebuiltInspector from a dictionary."""
-        severity_raw = data.get("severity")
-        return cls(
-            preset_id=data["presetId"],
-            name=data.get("name"),
-            description=data.get("description"),
-            targets=data.get("targets"),
-            action=data.get("action"),
-            severity=InspectorSeverity(severity_raw) if severity_raw else None,
-            config=data.get("config"),
-        )
-
-    @staticmethod
-    def prompt_injection_guard(
-        *,
-        targets: Optional[List[Any]] = None,
-        action: Optional[Dict[str, Any]] = None,
-        severity: Optional[InspectorSeverity] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> "PrebuiltInspector":
-        """Create a Prompt Injection Guard inspector.
-
-        Detects prompt injection attacks before they influence planning or
-        execution.  Defaults to ``ABORT`` on ``INPUT``.
+    def get(cls, id: Any, **kwargs: Any) -> "Inspector":
+        """Retrieve a prebuilt guard by human-readable path (IDs also accepted).
 
         Args:
-            targets: Override default targets (default: ``[InspectorTarget.INPUT]``).
-            action: Override default action dict (default: ``{"type": "abort"}``).
-            severity: Optional severity level.
-            name: Optional custom name for the inspector node.
-            description: Optional custom description.
+            id: The guard's marketplace path (e.g.
+                ``"aws/sensitive-information-guardrail/aws"``) or its asset id.
+            **kwargs: Additional request parameters (e.g. ``resource_path``)
+                forwarded to the underlying client call.
 
         Returns:
-            A PrebuiltInspector configured for prompt injection detection.
+            A fully-configured Inspector backed by the guard model.
         """
-        return PrebuiltInspector(
-            preset_id="prompt_injection_guard",
-            targets=targets,
-            action=action,
-            severity=severity,
-            name=name,
-            description=description,
-        )
+        context = getattr(cls, "context", None)
+        if context is None:
+            raise ResourceError("Context is required for resource operations")
 
-    @staticmethod
-    def pii_redaction(
-        *,
-        targets: Optional[List[Any]] = None,
-        action: Optional[Dict[str, Any]] = None,
-        severity: Optional[InspectorSeverity] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> "PrebuiltInspector":
-        """Create a PII Redaction inspector.
+        resource_path = kwargs.pop("resource_path", None) or getattr(cls, "RESOURCE_PATH", "")
+        encoded_id = encode_resource_id(id)
+        payload = context.client.get(f"{resource_path}/{encoded_id}", **kwargs)
 
-        Finds sensitive information (PII) and returns redacted content from the
-        guardrail evaluator.  Defaults to ``EDIT`` on ``INPUT``.
+        inspector = cls.from_guard_model(payload, requested_path=str(id))
+        setattr(inspector, "context", context)
+        inspector._update_saved_state()
+        return inspector
+
+    @classmethod
+    def search(cls, query: Optional[str] = None, **kwargs: Any) -> Page["Inspector"]:
+        """Search available guards, returning the standard paginated shape.
 
         Args:
-            targets: Override default targets (default: ``[InspectorTarget.INPUT]``).
-            action: Override default action dict (default: ``{"type": "edit"}``).
-            severity: Optional severity level.
-            name: Optional custom name for the inspector node.
-            description: Optional custom description.
+            query: Optional free-text query (e.g. ``"guard"``).
+            **kwargs: Additional pagination/search parameters.
 
         Returns:
-            A PrebuiltInspector configured for PII redaction.
+            A ``Page`` of configured Inspectors.
         """
-        return PrebuiltInspector(
-            preset_id="pii_redaction",
-            targets=targets,
-            action=action,
-            severity=severity,
-            name=name,
-            description=description,
-        )
+        if query is not None:
+            kwargs["query"] = query
+        return super().search(**kwargs)
 
-    @staticmethod
-    def hallucination_guard(
-        *,
-        targets: Optional[List[Any]] = None,
-        action: Optional[Dict[str, Any]] = None,
-        severity: Optional[InspectorSeverity] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> "PrebuiltInspector":
-        """Create a Hallucination Guard inspector.
+    @classmethod
+    def _populate_filters(cls, params: Dict[str, Any]) -> dict:
+        """Pin the search to the ``guardrails`` function (guards are models).
 
-        Detects hallucinations in the agent's final response by verifying it
-        against the intermediate step results and the original user query.
-        Defaults to ``RERUN`` (max 2 retries, abort on exhaust) on ``OUTPUT``.
-
-        Args:
-            targets: Override default targets (default: ``[InspectorTarget.OUTPUT]``).
-            action: Override default action dict (default: ``{"type": "rerun", "maxRetries": 2, "onExhaust": "abort"}``).
-            severity: Optional severity level.
-            name: Optional custom name for the inspector node.
-            description: Optional custom description.
-
-        Returns:
-            A PrebuiltInspector configured for hallucination detection.
+        NOTE: the ``v2/models/paginate`` ``functions`` filter is currently a
+        no-op on the backend — ``[{"id": <fn>}]`` returns zero results for every
+        function (verified against ``text-generation`` too), so this search
+        returns an empty page until the backend implements function filtering on
+        that endpoint. Tracked as a backend bug; the get-by-path flow is
+        unaffected. See ``Inspector.get``.
         """
-        return PrebuiltInspector(
-            preset_id="hallucination_guard",
-            targets=targets,
-            action=action,
-            severity=severity,
-            name=name,
-            description=description,
-        )
+        filters = super()._populate_filters(params)
+        filters["functions"] = [{"id": Function.GUARDRAILS.value}]
+        # The v2/models/paginate endpoint requires a sort array.
+        filters.setdefault("sort", [{}])
+        return filters
 
-    @staticmethod
-    def list_presets() -> Dict[str, Dict[str, Any]]:
-        """Return metadata for all available pre-built inspector presets.
-
-        Returns:
-            A dict mapping preset IDs to their metadata (name, category,
-            description, default targets/action, supported actions, vendor).
-        """
-        return {
-            pid: {
-                "name": meta["name"],
-                "category": meta["category"],
-                "description": meta["description"],
-                "default_targets": list(meta["default_targets"]),
-                "default_action": dict(meta["default_action"]),
-                "supported_actions": list(meta["supported_actions"]),
-                "vendor": meta.get("vendor"),
-            }
-            for pid, meta in _PREBUILT_REGISTRY.items()
-        }
-
-
-def is_prebuilt_inspector(obj: Any) -> bool:
-    """Return True if *obj* is a PrebuiltInspector or a dict preset reference."""
-    if isinstance(obj, PrebuiltInspector):
-        return True
-    return isinstance(obj, dict) and isinstance(obj.get("presetId"), str)
+    @classmethod
+    def _build_resources(cls, items: List[dict], context: Any) -> List["Inspector"]:
+        """Adapt each guard-model item into a configured Inspector."""
+        resources: List["Inspector"] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            try:
+                inspector = cls.from_guard_model(item)
+            except Exception as e:  # pragma: no cover - defensive
+                logger.warning("Skipping guard during Inspector deserialization: %s", e)
+                continue
+            setattr(inspector, "context", context)
+            inspector._update_saved_state()
+            resources.append(inspector)
+        return resources
 
 
 __all__ = [
@@ -502,6 +478,4 @@ __all__ = [
     "EvaluatorType",
     "EvaluatorConfig",
     "EditorConfig",
-    "PrebuiltInspector",
-    "is_prebuilt_inspector",
 ]
