@@ -260,16 +260,12 @@ class Pipeline(Asset, DeployableMixin):
             if response_version == "v1":
                 polling_response["elapsed_time"] = end - start
                 return polling_response
-            # `status`/`completed` were already read above via subscript access, which
-            # works for both a PipelineResponse and the plain dict __polling may return
-            # when polling fails. Use subscript/`in` access here too so a failed run
-            # doesn't raise AttributeError on a dict.
             return PipelineResponse(
                 status=status,
                 completed=completed,
-                error=polling_response["error"] if "error" in polling_response else None,
+                error=polling_response.get("error"),
                 elapsed_time=end - start,
-                data=polling_response["data"] if "data" in polling_response else {},
+                data=polling_response.get("data", {}),
                 **kwargs,
             )
 
