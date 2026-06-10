@@ -140,7 +140,7 @@ def verify_inspector_steps(
 
 
 def _run_and_get_steps(team_agent, query: str):
-    response = team_agent.run(query)
+    response = team_agent.run(query=query)
 
     assert response is not None
 
@@ -358,3 +358,41 @@ def test_edit_with_gate_false(client, run_input_map, resource_tracker):
 
     out = (getattr(response.data, "output", "") or "").lower()
     assert "paris" not in out
+
+
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
+def test_inspector_search_returns_page_of_inspectors(client):
+    """aix.Inspector.search discovers guards like any other marketplace asset."""
+    page = client.Inspector.search("guard")
+
+    # Standard paginated shape.
+    assert hasattr(page, "results")
+    assert isinstance(page.page_number, int)
+    assert isinstance(page.page_total, int)
+    assert isinstance(page.total, int)
+
+    if not page.results:
+        pytest.skip("No onboarded guardrail models available in this environment")
+
+    for guard in page.results:
+        assert isinstance(guard, Inspector)
+        # A discovered guard is a ready-to-use, fully-configured inspector.
+        assert guard.evaluator is not None
+        assert guard.action is not None
+
+
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
+def test_inspector_get_returns_configured_inspector(client):
+    """aix.Inspector.get(path_or_id) returns a configured, agent-ready Inspector."""
+    page = client.Inspector.search("guard")
+    if not page.results:
+        pytest.skip("No onboarded guardrail models available in this environment")
+
+    # Retrieve the same guard by its id/path; a fetched guard and a hand-built
+    # Inspector are the same type, so this slots directly into inspectors=[...].
+    first = page.results[0]
+    fetched = client.Inspector.get(first.path or first.id)
+
+    assert isinstance(fetched, Inspector)
+    assert fetched.evaluator is not None
+    assert fetched.evaluator.asset_id == first.evaluator.asset_id

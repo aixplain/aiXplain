@@ -18,7 +18,6 @@ from .inspector import (
     EvaluatorType,
     EvaluatorConfig,
     EditorConfig,
-    PrebuiltInspector,
 )
 from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
@@ -108,7 +107,6 @@ __all__ = [
     "EvaluatorType",
     "EvaluatorConfig",
     "EditorConfig",
-    "PrebuiltInspector",
     "ModelResponse",
     # Meta-agents
     "Debugger",

@@ -12,8 +12,6 @@ from aixplain.v2.inspector import (
     EvaluatorType,
     EvaluatorConfig,
     EditorConfig,
-    PrebuiltInspector,
-    is_prebuilt_inspector,
 )
 
 
@@ -298,165 +296,169 @@ class TestInspector:
 
 
 # ---------------------------------------------------------------------------
-# PrebuiltInspector
+# Marketplace retrieval: aix.Inspector.get / .search
 # ---------------------------------------------------------------------------
 
 
-class TestPrebuiltInspector:
-    def test_prompt_injection_guard_defaults(self):
-        inspector = PrebuiltInspector.prompt_injection_guard()
-        payload = inspector.to_dict()
-        assert payload == {"presetId": "prompt_injection_guard"}
+class _FakeClient:
+    """Records calls and returns canned guard payloads."""
 
-    def test_pii_redaction_defaults(self):
-        inspector = PrebuiltInspector.pii_redaction()
-        payload = inspector.to_dict()
-        assert payload == {"presetId": "pii_redaction"}
+    def __init__(self, get_result=None, paginate_result=None):
+        self._get_result = get_result
+        self._paginate_result = paginate_result
+        self.got_path = None
+        self.request_call = None
 
-    def test_prompt_injection_guard_with_overrides(self):
-        inspector = PrebuiltInspector.prompt_injection_guard(
-            targets=[InspectorTarget.OUTPUT],
-            severity=InspectorSeverity.CRITICAL,
-            name="my_guard",
-            description="Custom guard",
+    def get(self, path, **kwargs):
+        self.got_path = path
+        return self._get_result
+
+    def request(self, method, path, **kwargs):
+        self.request_call = (method, path, kwargs.get("json"))
+        return self._paginate_result
+
+
+class _FakeContext:
+    def __init__(self, client):
+        self.client = client
+
+
+def _bind_inspector(client):
+    """Mirror ``aix.Inspector`` — Inspector subclass bound to a context."""
+    ctx = _FakeContext(client)
+    return type("Inspector", (Inspector,), {"context": ctx})
+
+
+class TestFromGuardModel:
+    def test_prompt_injection_defaults(self):
+        guard = Inspector.from_guard_model(
+            {"id": "pi-id", "name": "Prompt Injection Guard"},
+            requested_path="aixplain/prompt-injection-guard",
         )
-        payload = inspector.to_dict()
-        assert payload == {
-            "presetId": "prompt_injection_guard",
-            "name": "my_guard",
-            "description": "Custom guard",
-            "targets": ["output"],
-            "severity": "critical",
-        }
-
-    def test_pii_redaction_with_action_override(self):
-        inspector = PrebuiltInspector.pii_redaction(
-            action={"type": "abort"},
-            targets=[InspectorTarget.INPUT, InspectorTarget.OUTPUT],
-        )
-        payload = inspector.to_dict()
-        assert payload == {
-            "presetId": "pii_redaction",
-            "targets": ["input", "output"],
+        assert guard.to_dict() == {
+            "name": "Prompt Injection Guard",
+            "targets": ["input"],
             "action": {"type": "abort"},
+            "evaluator": {"type": "asset", "assetId": "pi-id"},
         }
+        assert guard.id == "pi-id"
 
-    def test_unknown_preset_rejected(self):
-        with pytest.raises(ValueError, match="Unknown inspector preset"):
-            PrebuiltInspector(preset_id="nonexistent")
-
-    def test_unsupported_action_rejected(self):
-        with pytest.raises(ValueError, match="not supported by preset"):
-            PrebuiltInspector.prompt_injection_guard(action={"type": "edit"})
-
-    def test_pii_redaction_rejects_rerun(self):
-        with pytest.raises(ValueError, match="not supported by preset"):
-            PrebuiltInspector.pii_redaction(action={"type": "rerun"})
-
-    def test_hallucination_guard_defaults(self):
-        inspector = PrebuiltInspector.hallucination_guard()
-        payload = inspector.to_dict()
-        assert payload == {"presetId": "hallucination_guard"}
-
-    def test_hallucination_guard_with_overrides(self):
-        inspector = PrebuiltInspector.hallucination_guard(
-            targets=[InspectorTarget.OUTPUT],
-            severity=InspectorSeverity.HIGH,
-            name="my_hallucination_guard",
-            description="Custom hallucination guard",
+    def test_pii_redaction_defaults_with_editor(self):
+        guard = Inspector.from_guard_model(
+            {"id": "pii-id", "name": "Sensitive Information Guardrail"},
+            requested_path="aixplain/pii-redaction",
         )
-        payload = inspector.to_dict()
-        assert payload == {
-            "presetId": "hallucination_guard",
-            "name": "my_hallucination_guard",
-            "description": "Custom hallucination guard",
-            "targets": ["output"],
-            "severity": "high",
-        }
+        payload = guard.to_dict()
+        assert payload["action"] == {"type": "edit"}
+        assert payload["targets"] == ["input"]
+        # EDIT requires an editor; the guard model edits itself.
+        assert payload["editor"] == {"type": "asset", "assetId": "pii-id"}
 
-    def test_hallucination_guard_with_action_override(self):
-        inspector = PrebuiltInspector.hallucination_guard(
-            action={"type": "abort"},
+    def test_hallucination_defaults(self):
+        guard = Inspector.from_guard_model(
+            {"id": "h-id", "name": "Hallucination Guard"},
+            requested_path="aixplain/hallucination-guard",
         )
-        payload = inspector.to_dict()
-        assert payload == {
-            "presetId": "hallucination_guard",
-            "action": {"type": "abort"},
-        }
+        payload = guard.to_dict()
+        assert payload["targets"] == ["output"]
+        assert payload["action"] == {"type": "rerun", "maxRetries": 2, "onExhaust": "abort"}
 
-    def test_hallucination_guard_rejects_edit(self):
-        with pytest.raises(ValueError, match="not supported by preset"):
-            PrebuiltInspector.hallucination_guard(action={"type": "edit"})
-
-    def test_targets_normalized_from_enums(self):
-        inspector = PrebuiltInspector.pii_redaction(
-            targets=[InspectorTarget.STEPS, InspectorTarget.OUTPUT],
+    def test_unknown_guard_safe_default(self):
+        guard = Inspector.from_guard_model(
+            {"id": "x-id", "name": "Future Guard"},
+            requested_path="aixplain/some-future-guard",
         )
-        assert inspector.targets == ["steps", "output"]
+        payload = guard.to_dict()
+        assert payload["targets"] == ["input"]
+        assert payload["action"] == {"type": "abort"}
+        assert payload["evaluator"] == {"type": "asset", "assetId": "x-id"}
 
-    def test_targets_normalized_from_strings(self):
-        inspector = PrebuiltInspector.prompt_injection_guard(
-            targets=["INPUT", "Steps"],
+    def test_slug_resolved_from_payload_path(self):
+        guard = Inspector.from_guard_model(
+            {"id": "h-id", "name": "Hallucination Guard", "path": "aixplain/hallucination-guard"},
         )
-        assert inspector.targets == ["input", "steps"]
+        assert guard.to_dict()["action"]["type"] == "rerun"
 
-    def test_from_dict_roundtrip(self):
-        original = PrebuiltInspector.prompt_injection_guard(
-            targets=[InspectorTarget.INPUT],
-            severity=InspectorSeverity.HIGH,
-            name="custom_name",
+    def test_returned_type_is_inspector(self):
+        guard = Inspector.from_guard_model({"id": "id", "name": "G"}, requested_path="aixplain/pii-redaction")
+        assert isinstance(guard, Inspector)
+
+    def test_path_extracted_from_asset_info(self):
+        # Paginate/get payloads carry the path under assetInfo.instanceId, like
+        # any other model. It must surface as .path (REPL-browsable) and drive
+        # the tuned defaults even when no requested_path is given (search flow).
+        guard = Inspector.from_guard_model(
+            {
+                "id": "pii-id",
+                "name": "Sensitive Information Guardrail",
+                "assetInfo": {"instanceId": "aixplain/pii-redaction"},
+            }
         )
-        restored = PrebuiltInspector.from_dict(original.to_dict())
-        assert restored.to_dict() == original.to_dict()
+        assert guard.path == "aixplain/pii-redaction"
+        assert guard.to_dict()["action"] == {"type": "edit"}
 
-    def test_from_dict_minimal(self):
-        data = {"presetId": "pii_redaction"}
-        inspector = PrebuiltInspector.from_dict(data)
-        assert inspector.preset_id == "pii_redaction"
-        assert inspector.targets is None
-        assert inspector.action is None
-
-    def test_list_presets_returns_all(self):
-        presets = PrebuiltInspector.list_presets()
-        assert "prompt_injection_guard" in presets
-        assert "pii_redaction" in presets
-        assert "hallucination_guard" in presets
-        assert presets["prompt_injection_guard"]["category"] == "protection"
-        assert presets["pii_redaction"]["category"] == "redaction"
-        assert presets["hallucination_guard"]["category"] == "quality"
-
-    def test_list_presets_contains_expected_fields(self):
-        presets = PrebuiltInspector.list_presets()
-        for preset_id, meta in presets.items():
-            assert "name" in meta
-            assert "description" in meta
-            assert "default_targets" in meta
-            assert "default_action" in meta
-            assert "supported_actions" in meta
-
-
-# ---------------------------------------------------------------------------
-# is_prebuilt_inspector helper
-# ---------------------------------------------------------------------------
-
-
-class TestIsPrebuiltInspector:
-    def test_prebuilt_instance(self):
-        assert is_prebuilt_inspector(PrebuiltInspector.pii_redaction()) is True
-
-    def test_preset_dict(self):
-        assert is_prebuilt_inspector({"presetId": "prompt_injection_guard"}) is True
-
-    def test_regular_inspector_instance(self):
-        inspector = Inspector(
-            name="custom",
-            action=InspectorActionConfig(type=InspectorAction.ABORT),
-            evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id="x"),
+    def test_tuned_defaults_when_fetched_by_bare_id(self):
+        # The issue states IDs are also accepted. When retrieved by raw id, the
+        # id never matches the registry, but the payload's path still should
+        # select the tuned config rather than the safe abort/input fallback.
+        guard = Inspector.from_guard_model(
+            {"id": "69cbf63cd74e334a6bacfeb1", "name": "PII", "path": "aixplain/pii-redaction"},
+            requested_path="69cbf63cd74e334a6bacfeb1",
         )
-        assert is_prebuilt_inspector(inspector) is False
+        assert guard.to_dict()["action"] == {"type": "edit"}
 
-    def test_regular_dict(self):
-        assert is_prebuilt_inspector({"name": "foo", "action": {"type": "abort"}}) is False
 
-    def test_none(self):
-        assert is_prebuilt_inspector(None) is False
+class TestInspectorGet:
+    def test_get_fetches_and_adapts(self):
+        client = _FakeClient(get_result={"id": "pii-id", "name": "PII", "path": "aixplain/pii-redaction"})
+        Bound = _bind_inspector(client)
+
+        guard = Bound.get("aixplain/pii-redaction")
+
+        # URL-encodes the path and hits the models endpoint.
+        assert client.got_path == "v2/models/aixplain%2Fpii-redaction"
+        assert isinstance(guard, Inspector)
+        assert guard.evaluator.asset_id == "pii-id"
+        assert guard.action.type == InspectorAction.EDIT
+
+    def test_get_accepts_attribute_override(self):
+        client = _FakeClient(get_result={"id": "pi-id", "name": "PI"})
+        Bound = _bind_inspector(client)
+
+        guard = Bound.get("aixplain/prompt-injection-guard")
+        guard.targets = ["output"]
+        assert guard.to_dict()["targets"] == ["output"]
+
+    def test_get_without_context_raises(self):
+        with pytest.raises(Exception):
+            Inspector.get("aixplain/prompt-injection-guard")
+
+
+class TestInspectorSearch:
+    def test_search_returns_page_shape(self):
+        client = _FakeClient(
+            paginate_result={
+                "results": [
+                    {"id": "pi-id", "name": "Prompt Injection Guard", "path": "aixplain/prompt-injection-guard"},
+                    {"id": "pii-id", "name": "PII", "path": "aixplain/pii-redaction"},
+                ],
+                "total": 6,
+                "pageTotal": 1,
+            }
+        )
+        Bound = _bind_inspector(client)
+
+        page = Bound.search("guard")
+
+        method, path, body = client.request_call
+        assert method == "post"
+        assert path == "v2/models/paginate"
+        # Pinned to the guardrails function and includes the query.
+        assert body["functions"] == [{"id": "guardrails"}]
+        assert body["q"] == "guard"
+
+        assert page.total == 6
+        assert page.page_number == 0
+        assert page.page_total == 1
+        assert all(isinstance(r, Inspector) for r in page.results)
+        assert [r.name for r in page.results] == ["Prompt Injection Guard", "PII"]
