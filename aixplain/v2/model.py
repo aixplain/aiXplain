@@ -886,6 +886,13 @@ class Model(
         if not self.params:
             return []
 
+        # A multimodal ``data`` payload (OpenAI-style messages carrying text and
+        # media) is the complete input on its own. When it is present the flat
+        # ``text``/``prompt`` inputs are superseded, so missing-required checks
+        # for them must not fire — otherwise a vision call (``run(data=...)``)
+        # is rejected before it can reach the backend.
+        has_data = kwargs.get("data") is not None
+
         errors = []
 
         # Validate all parameters (required and optional)
@@ -899,7 +906,7 @@ class Model(
                         f"Expected {param.data_type}, "
                         f"got {type(value).__name__}"
                     )
-            elif param.required:
+            elif param.required and not has_data:
                 errors.append(f"Required parameter '{param.name}' is missing")
 
         return errors
