@@ -42,7 +42,9 @@ def validate_agent_structure(agent):
         assert isinstance(agent.team_id, int)
 
     if agent.llm:
-        assert isinstance(agent.llm, str)
+        # llm may be a bare model-id string, a role-ref dict ({id, name?, parameters?}),
+        # or a Model object, depending on whether the value came from a fetch round-trip.
+        assert isinstance(agent.llm, (str, dict)) or hasattr(agent.llm, "id")
 
     # Test timestamps if present
     if agent.created_at:
@@ -461,3 +463,186 @@ def test_slack_tool_integration_with_agent(client, slack_token):
     # Clean up - delete the agent and tool
     agent.delete()
     # Note: Tool deletion may not be implemented yet, but agent deletion should work
+
+
+# Platform tool helpers
+
+FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
+TAVILY_CONNECTION_ASSET_ID = "6931bdf462eb386b7158def3"
+GOOGLE_SEARCH_UTILITY_MODEL_ID = "65c51c556eb563350f6e1bb1"
+WEB_SEARCH_TOOL_ASSET_ID = "69fb7750f177c224105dabc6"
+
+
+def _get_output_text(response) -> str:
+    """Extract final text output from an agent response."""
+    if hasattr(response, "data") and response.data is not None:
+        if hasattr(response.data, "output"):
+            return response.data.output or ""
+        if isinstance(response.data, str):
+            return response.data
+    return ""
+
+
+def _run_platform_tool_agent(client, tools: list, prompt: str, test_suffix: str):
+    """Create a temporary agent with the given tools, run it, and clean up."""
+    agent = client.Agent(
+        name=f"platform-tool-test-{test_suffix}-{int(time.time())}",
+        description="Temporary agent for platform tool functional testing",
+        instructions="You are a helpful test agent. Always use the tool provided to answer questions.",
+        tools=tools,
+    )
+    agent.save()
+
+    try:
+        response = agent.run(prompt)
+    finally:
+        try:
+            agent.delete()
+        except Exception:
+            pass
+
+    return response
+
+
+# Firecrawl
+
+
+@pytest.mark.flaky(reruns=2, reason="LLM may not always choose to call the scrape action")
+def test_agent_firecrawl_scrape_tool(client):
+    """
+    Verifies:
+    1. The agent can be created with the Firecrawl tool via the v2 SDK.
+    2. Agent execution succeeds.
+    3. The scraped page content is reflected in the final response.
+    """
+    tool = client.Tool.get(FIRECRAWL_CONNECTION_ASSET_ID)
+
+    response = _run_platform_tool_agent(
+        client=client,
+        tools=[tool],
+        prompt=(
+            "You must use the Firecrawl scrape tool to scrape https://aixplain.com/. "
+            "Then answer in one short sentence: what company or platform is this page about? "
+            "Do not answer without scraping."
+        ),
+        test_suffix="firecrawl-scrape",
+    )
+
+    assert response.status == "SUCCESS", f"Agent execution failed: {response.status}"
+
+    output = _get_output_text(response)
+    assert output, "Expected non-empty output from the agent"
+
+    output_lower = output.lower()
+    assert "aixplain" in output_lower, (
+        f"Expected the response to contain information from the scraped aixplain.com page. Output: {output[:500]!r}"
+    )
+
+
+# Tavily
+
+
+@pytest.mark.flaky(reruns=2, reason="LLM may not always invoke Tavily")
+def test_agent_tavily_web_search_tool(client):
+    """
+    Verifies:
+    1. The agent can be created with the Tavily search tool via the v2 SDK.
+    2. Agent execution succeeds.
+    3. The response contains information retrieved from the search.
+    """
+    tool = client.Tool.get(TAVILY_CONNECTION_ASSET_ID)
+
+    response = _run_platform_tool_agent(
+        client=client,
+        tools=[tool],
+        prompt=(
+            "You must use the Tavily web search tool to look up who won "
+            "the men's 2024 Olympic 100m sprint. "
+            "Answer in one short sentence. Do not guess without searching."
+        ),
+        test_suffix="tavily-search",
+    )
+
+    assert response.status == "SUCCESS", f"Agent execution failed: {response.status}"
+
+    output = _get_output_text(response)
+    assert output, "Expected non-empty output from the agent"
+
+    output_lower = output.lower()
+    assert "noah lyles" in output_lower or "lyles" in output_lower, (
+        "Expected the response to identify Noah Lyles as the men's 2024 Olympic "
+        f"100m sprint winner. Output: {output[:500]!r}"
+    )
+
+
+# Google Search / SerpApi
+
+
+@pytest.mark.flaky(reruns=2, reason="LLM may not always call the Google Search utility")
+def test_agent_google_search_serpapi_tool(client):
+    """
+    Verifies:
+    1. The agent can be created with the Google Search utility model via the v2 SDK.
+    2. Agent execution succeeds.
+    3. The response contains the expected search results.
+    """
+    tool = client.Tool.get(GOOGLE_SEARCH_UTILITY_MODEL_ID)
+
+    response = _run_platform_tool_agent(
+        client=client,
+        tools=[tool],
+        prompt=(
+            "You must use the Google Search tool to find the top three teams "
+            "in the Brazilian Serie A football championship in 2024. "
+            "Answer with only the three team names."
+        ),
+        test_suffix="google-serpapi",
+    )
+
+    assert response.status == "SUCCESS", f"Agent execution failed: {response.status}"
+
+    output = _get_output_text(response)
+    assert output, "Expected non-empty output from the agent"
+
+    output_lower = output.lower()
+    expected_teams = ["botafogo", "palmeiras", "flamengo"]
+
+    for team in expected_teams:
+        assert team in output_lower, f"Expected {team!r} in the response. Output: {output[:500]!r}"
+
+
+# Web Search Tool
+
+
+@pytest.mark.flaky(reruns=2, reason="LLM may not always invoke the Web Search tool")
+def test_agent_web_search_tool(client):
+    """
+    Verifies:
+    1. The agent can be created with the Web Search tool via the v2 SDK.
+    2. Agent execution succeeds.
+    3. The response contains information retrieved from the search.
+    """
+    tool = client.Tool.get(WEB_SEARCH_TOOL_ASSET_ID)
+
+    response = _run_platform_tool_agent(
+        client=client,
+        tools=[tool],
+        prompt=(
+            "You must use the Web Search tool to look up who won the "
+            "2024 Nobel Prize in Physics. "
+            "Answer in one short sentence. Do not guess without searching."
+        ),
+        test_suffix="web-search",
+    )
+
+    assert response.status == "SUCCESS", f"Agent execution failed: {response.status}"
+
+    output = _get_output_text(response)
+    assert output, "Expected non-empty output from the agent"
+
+    output_lower = output.lower()
+    assert "hinton" in output_lower, (
+        "Expected the response to identify Geoffrey Hinton as one of the "
+        "2024 Nobel Prize in Physics winners. "
+        f"Output: {output[:500]!r}"
+    )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Dict, Union, List, Optional, Any, TYPE_CHECKING, Iterator
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
@@ -22,7 +23,7 @@ from .resource import (
 )
 from .enums import Function, Supplier, Language, AssetStatus, ResponseStatus
 from .mixins import ToolableMixin, ToolDict
-from .exceptions import ValidationError
+from .exceptions import APIError, ValidationError
 from .actions import Actions, Action, Inputs
 
 if TYPE_CHECKING:
@@ -107,12 +108,33 @@ class Usage:
     )
 
 
+def _decode_details(value: Any) -> Any:
+    """Decode the ``details`` field, tolerating both backend response shapes.
+
+    LLM models return ``details`` as a list of message ``Detail`` objects, but
+    utility / guardrail models (e.g. the AWS Sensitive Information Guardrail)
+    return it as a plain dict such as ``{"action": ..., "text": ...}``.  The
+    default list-typed decoder iterates a dict's string keys and tries to
+    decode each as a ``Detail`` dataclass, raising
+    ``AttributeError: 'str' object has no attribute 'items'``.  Decode the list
+    shape into ``Detail`` objects and pass any other shape through untouched.
+    """
+    if isinstance(value, list):
+        return [Detail.from_dict(item) if isinstance(item, dict) else item for item in value]
+    return value
+
+
 @dataclass_json
 @dataclass
 class ModelResult(Result):
-    """Result for model runs with specific fields from the backend response."""
+    """Result for model runs with specific fields from the backend response.
 
-    details: Optional[List[Detail]] = None
+    ``details`` is typed ``Any`` rather than ``List[Detail]`` because non-LLM
+    models (utility / guardrail assets) return it as a dict; see
+    :func:`_decode_details`.
+    """
+
+    details: Optional[Any] = field(default=None, metadata=config(field_name="details", decoder=_decode_details))
     run_time: Optional[float] = field(default=None, metadata=config(field_name="runTime"))
     used_credits: Optional[float] = field(default=None, metadata=config(field_name="usedCredits"))
     usage: Optional[Usage] = None
@@ -171,6 +193,9 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
             response: A requests.Response object with streaming enabled
         """
         self._response = response
+        encoding = getattr(response, "encoding", None)
+        if encoding is None or encoding.lower() == "iso-8859-1":
+            response.encoding = "utf-8"
         self._iterator = response.iter_lines(decode_unicode=True)
         self.status = ResponseStatus.IN_PROGRESS
         self._done = False
@@ -580,14 +605,14 @@ class Model(
         else:
             super().__setattr__(name, value)
 
-    _SDK_ONLY_PARAMS = frozenset({"timeout", "wait_time", "show_progress", "stream"})
+    _SDK_ONLY_PARAMS = frozenset({"timeout", "wait_time", "show_progress", "stream", "run_retries", "run_retry_wait"})
 
     def build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> dict:
         """Build the JSON payload for a model execution request.
 
         Strips SDK-only orchestration params (``timeout``, ``wait_time``,
-        ``show_progress``, ``stream``) so they are never forwarded to the
-        backend API.
+        ``show_progress``, ``stream``, ``run_retries``, ``run_retry_wait``)
+        so they are never forwarded to the backend API.
         """
         filtered = {k: v for k, v in kwargs.items() if k not in self._SDK_ONLY_PARAMS}
         return super().build_run_payload(**filtered)
@@ -664,18 +689,21 @@ class Model(
         """Run the model synchronously using V2 endpoint directly.
 
         This bypasses run_async() to avoid V1 fallback for sync-only models.
+        Honors ``run_retries`` / ``run_retry_wait`` like :meth:`RunnableResourceMixin.run`.
 
         Returns:
             ModelResult: Direct result from V2 endpoint
         """
-        self._ensure_valid_state()
+        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
+        for attempt in range(run_retries + 1):
+            try:
+                return self._post_and_handle_run(**kwargs)
+            except APIError as e:
+                if not self._is_retryable_run_error(e) or attempt >= run_retries:
+                    raise
+                time.sleep(run_retry_wait)
 
-        payload = self.build_run_payload(**kwargs)
-        run_url = self.build_run_url(**kwargs)
-
-        response = self.context.client.request("post", run_url, json=payload)
-
-        return self.handle_run_response(response, **kwargs)
+        raise RuntimeError("_run_sync_v2 retry loop exhausted without return")
 
     def run_async(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model asynchronously.
@@ -718,7 +746,7 @@ class Model(
 
         # Build V1 payload: V1 expects 'data' parameter, map from 'text' if needed
         data = kwargs.pop("text", None)
-        parameters = {k: v for k, v in kwargs.items() if k not in ["timeout", "wait_time"]}
+        parameters = {k: v for k, v in kwargs.items() if k not in self._SDK_ONLY_PARAMS}
 
         payload = {"data": data}
         if parameters:

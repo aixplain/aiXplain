@@ -70,6 +70,32 @@ def test_sucess_query_content():
     assert response["url"] == ref_response["data"]
 
 
+def test_team_agent_poll_extracts_diagnostic_error_codes_from_data():
+    team_agent = TeamAgent("123", "Test Team Agent")
+    poll_url = "https://platform-api.aixplain.com/sdk/agent-communities/executions/test/result"
+    expected_diagnostic_error_codes = ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            poll_url,
+            json={
+                "completed": True,
+                "status": "SUCCESS",
+                "data": {
+                    "input": "hello",
+                    "output": "hi",
+                    "diagnosticErrorCodes": expected_diagnostic_error_codes,
+                },
+            },
+        )
+
+        response = team_agent.poll(poll_url)
+
+    assert response.diagnostic_error_codes == expected_diagnostic_error_codes
+    assert response["diagnostic_error_codes"] == expected_diagnostic_error_codes
+    assert response.to_dict()["diagnostic_error_codes"] == expected_diagnostic_error_codes
+
+
 def test_fail_number_agents():
     with pytest.raises(Exception) as exc_info:
         TeamAgentFactory.create(name="Test Team Agent(-)", agents=[])

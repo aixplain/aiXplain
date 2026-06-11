@@ -778,41 +778,30 @@ def test_run_agent_with_expected_output(resource_tracker):
 
 def test_agent_with_action_tool(slack_token, resource_tracker):
     from aixplain.modules.model.integration import AuthenticationSchema
-    from aixplain.modules.model.connection import ConnectionTool
 
     SLACK_INTEGRATION_ID = "686432941223092cb4294d3f"
-    SLACK_CONNECTION_ID = "692995404907d69787ddab00"
 
-    connection = None
-
-    # Try to get existing connection first
-    try:
-        model = ModelFactory.get(SLACK_CONNECTION_ID)
-        if isinstance(model, ConnectionTool):
-            connection = model
-    except Exception:
-        pass
-
-    # If no valid connection exists, create one from the integration using bearer token
-    if connection is None:
-        connection_name = f"STC {str(uuid4())[:8]}"
-        integration = ModelFactory.get(SLACK_INTEGRATION_ID)
-        response = integration.connect(
-            authentication_schema=AuthenticationSchema.BEARER_TOKEN,
-            data={"token": slack_token},
-            name=connection_name,
-            description="Test connection for agent functional tests",
-        )
-        # response.data might be a string (JSON) or dict
-        data = response.data
-        if isinstance(data, str) and data:
-            data = json.loads(data)
-        elif isinstance(data, dict):
-            pass  # already a dict
-        else:
-            raise Exception(f"Unexpected response data format: {response}")
-        connection_id = data["id"]
-        connection = ModelFactory.get(connection_id)
+    # Create a fresh connection from the Slack integration using the bearer token.
+    # (We no longer reuse a hardcoded connection ID — that connection no longer exists
+    #  on the backend — so the connection is created on demand from the integration.)
+    connection_name = f"STC {str(uuid4())[:8]}"
+    integration = ModelFactory.get(SLACK_INTEGRATION_ID)
+    response = integration.connect(
+        authentication_schema=AuthenticationSchema.BEARER_TOKEN,
+        data={"token": slack_token},
+        name=connection_name,
+        description="Test connection for agent functional tests",
+    )
+    # response.data might be a string (JSON) or dict
+    data = response.data
+    if isinstance(data, str) and data:
+        data = json.loads(data)
+    elif isinstance(data, dict):
+        pass  # already a dict
+    else:
+        raise Exception(f"Unexpected response data format: {response}")
+    connection_id = data["id"]
+    connection = ModelFactory.get(connection_id)
 
     connection.action_scope = [
         action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
@@ -841,6 +830,163 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
     assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [
         step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]
     ]
+
+
+# Platform tool tests
+
+FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
+TAVILY_CONNECTION_ASSET_ID = "6931bdf462eb386b7158def3"
+GOOGLE_SEARCH_UTILITY_MODEL_ID = "65c51c556eb563350f6e1bb1"
+WEB_SEARCH_TOOL_ASSET_ID = "69fb7750f177c224105dabc6"
+
+
+@pytest.mark.flaky(reruns=2, reruns_delay=2)
+def test_agent_firecrawl_scrape_tool(resource_tracker):
+    """
+    Verifies:
+    1. The agent can use the Firecrawl scrape tool.
+    2. Agent execution succeeds.
+    3. The scraped page content is reflected in the final response.
+    """
+    tool = ModelFactory.get(FIRECRAWL_CONNECTION_ASSET_ID)
+
+    agent_name = f"FC {str(uuid4())[:8]}"
+    agent = AgentFactory.create(
+        name=agent_name,
+        description="Agent for Firecrawl scrape tool testing",
+        instructions="You are a helpful test agent. Always use the tool provided to answer questions.",
+        tools=[tool],
+    )
+    resource_tracker.append(agent)
+
+    response = agent.run(
+        "You must use the Firecrawl scrape tool to scrape https://aixplain.com/. "
+        "Then answer in one short sentence: what company or platform is this page about? "
+        "Do not answer without scraping."
+    )
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert response["data"]["output"] is not None
+
+    output_lower = response["data"]["output"].lower()
+    assert "aixplain" in output_lower, (
+        "Expected the response to contain information from the scraped aixplain.com page. "
+        f"Output: {response['data']['output'][:500]!r}"
+    )
+
+
+@pytest.mark.flaky(reruns=2, reruns_delay=2)
+def test_agent_tavily_web_search_tool(resource_tracker):
+    """
+    Verifies:
+    1. The agent can use the Tavily search tool.
+    2. Agent execution succeeds.
+    3. The response contains information retrieved from the search.
+    """
+    tool = ModelFactory.get(TAVILY_CONNECTION_ASSET_ID)
+
+    agent_name = f"TV {str(uuid4())[:8]}"
+    agent = AgentFactory.create(
+        name=agent_name,
+        description="Agent for Tavily search tool testing",
+        instructions="You are a helpful test agent. Always use the tool provided to answer questions.",
+        tools=[tool],
+    )
+    resource_tracker.append(agent)
+
+    response = agent.run(
+        "You must use the Tavily web search tool to look up who won "
+        "the men's 2024 Olympic 100m sprint. "
+        "Answer in one short sentence. Do not guess without searching."
+    )
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert response["data"]["output"] is not None
+
+    output_lower = response["data"]["output"].lower()
+    assert "noah lyles" in output_lower or "lyles" in output_lower, (
+        "Expected the response to identify Noah Lyles as the men's 2024 Olympic "
+        f"100m sprint winner. Output: {response['data']['output'][:500]!r}"
+    )
+
+
+@pytest.mark.flaky(reruns=2, reruns_delay=2)
+def test_agent_google_search_serpapi_tool(resource_tracker):
+    """
+    Verifies:
+    1. The agent can use the Google Search utility model.
+    2. Agent execution succeeds.
+    3. The response contains the expected search results.
+    """
+    tool = ModelFactory.get(GOOGLE_SEARCH_UTILITY_MODEL_ID)
+
+    agent_name = f"GS {str(uuid4())[:8]}"
+    agent = AgentFactory.create(
+        name=agent_name,
+        description="Agent for Google Search tool testing",
+        instructions="You are a helpful test agent. Always use the tool provided to answer questions.",
+        tools=[tool],
+    )
+    resource_tracker.append(agent)
+
+    response = agent.run(
+        "You must use the Google Search tool to find the top three teams "
+        "in the Brazilian Serie A football championship in 2024. "
+        "Answer with only the three team names."
+    )
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert response["data"]["output"] is not None
+
+    output_lower = response["data"]["output"].lower()
+    expected_teams = ["botafogo", "palmeiras", "flamengo"]
+
+    for team in expected_teams:
+        assert team in output_lower, f"Expected {team!r} in the response. Output: {response['data']['output'][:500]!r}"
+
+
+@pytest.mark.flaky(reruns=2, reruns_delay=2)
+def test_agent_web_search_tool(resource_tracker):
+    """
+    Verifies:
+    1. The agent can use the Web Search tool.
+    2. Agent execution succeeds.
+    3. The response contains information retrieved from the search.
+    """
+    tool = ModelFactory.get(WEB_SEARCH_TOOL_ASSET_ID)
+
+    agent_name = f"WS {str(uuid4())[:8]}"
+    agent = AgentFactory.create(
+        name=agent_name,
+        description="Agent for Web Search tool testing",
+        instructions="You are a helpful test agent. Always use the tool provided to answer questions.",
+        tools=[tool],
+    )
+    resource_tracker.append(agent)
+
+    response = agent.run(
+        "You must use the Web Search tool to look up who won the "
+        "2024 Nobel Prize in Physics. "
+        "Answer in one short sentence. Do not guess without searching."
+    )
+
+    assert response is not None
+    assert response["completed"] is True
+    assert response["status"].lower() == "success"
+    assert response["data"]["output"] is not None
+
+    output_lower = response["data"]["output"].lower()
+    assert "hinton" in output_lower, (
+        "Expected the response to identify Geoffrey Hinton as one of the "
+        "2024 Nobel Prize in Physics winners. "
+        f"Output: {response['data']['output'][:500]!r}"
+    )
 
 
 @pytest.mark.skip(reason="MCP connector has no available actions")

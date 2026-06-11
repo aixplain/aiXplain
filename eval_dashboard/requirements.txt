@@ -1,0 +1,9 @@
+# Dashboard only. ``app.py`` prepends the repo root to sys.path so the local ``aixplain/``
+# tree is imported without ``pip install -e .``. You still need the SDK’s runtime
+# dependencies in this venv — copy from ``[project] dependencies`` in the repo
+# ``pyproject.toml``, or from the repo root run: ``pip install -e .`` once if you
+# prefer the usual editable workflow (path order still prefers this checkout).
+streamlit>=1.28.0
+plotly>=5.18.0
+nbformat>=4.2.0
+ipywidgets>=8.0.0
