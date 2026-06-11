@@ -1373,6 +1373,7 @@ def llm_query(prompt):
         iterations_used = 0
         final_answer: Optional[str] = None
         repl_logs: List[Dict] = []
+        self._used_credits = 0.0
 
         self._setup_repl(context)
         self._messages = _build_system_messages(self._get_worker_context_window())
