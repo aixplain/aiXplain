@@ -266,6 +266,25 @@ class AgentResponseData:
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
     critiques: Optional[str] = ""
+    governance: Optional[Dict[str, Any]] = None
+    _governance_status: Optional[str] = field(
+        default=None, repr=False, metadata=config(field_name="governanceStatus", exclude=lambda x: True)
+    )
+    _governance_source: Optional[str] = field(
+        default=None, repr=False, metadata=config(field_name="governanceSource", exclude=lambda x: True)
+    )
+    _governance_reason: Optional[str] = field(
+        default=None, repr=False, metadata=config(field_name="governanceReason", exclude=lambda x: True)
+    )
+
+    def __post_init__(self) -> None:
+        """Assemble the nested ``governance`` dict from the flat wire fields."""
+        if self.governance is None:
+            self.governance = {
+                "status": self._governance_status,
+                "source": self._governance_source,
+                "reason": self._governance_reason,
+            }
 
 
 @dataclass_json
