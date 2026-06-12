@@ -98,6 +98,7 @@ def test_fail_key_not_found():
 
 
 def test_success_query_content():
+    user_info_utils._fetch_ipinfo.cache_clear()
     agent = Agent(
         "123",
         "Test Agent(-)",
@@ -108,6 +109,7 @@ def test_success_query_content():
         url = agent.url
         headers = {"x-api-key": config.TEAM_API_KEY, "Content-Type": "application/json"}
         ref_response = {"data": "Hello, how are you?", "status": "IN_PROGRESS"}
+        mock.get("https://ipinfo.io/json", json={})
         mock.post(url, headers=headers, json=ref_response)
 
         response = agent.run_async(
@@ -511,6 +513,7 @@ def test_save_success(mock_model_factory_get):
 
 
 def test_run_success():
+    user_info_utils._fetch_ipinfo.cache_clear()
     agent = Agent(
         "123",
         "Test Agent(-)",
@@ -526,6 +529,7 @@ def test_run_success():
         }
 
         ref_response = {"data": "www.aixplain.com", "status": "IN_PROGRESS"}
+        mock.get("https://ipinfo.io/json", json={})
         mock.post(url, headers=headers, json=ref_response)
 
         response = agent.run_async(
@@ -886,8 +890,13 @@ def test_agent_api_key_in_requests():
         api_key=custom_api_key,
     )
 
+    # Best-effort ipinfo geo lookup happens during a run; mock it so the unit test
+    # is hermetic (no real network call) and deterministic regardless of lru_cache state.
+    user_info_utils._fetch_ipinfo.cache_clear()
+
     with requests_mock.Mocker() as mock:
         url = agent.url
+        mock.get(user_info_utils._IPINFO_URL, json={})
         # The custom api_key should be used in the headers
         headers = {"x-api-key": custom_api_key, "Content-Type": "application/json"}
         ref_response = {"data": "test_url", "status": "IN_PROGRESS"}
@@ -952,6 +961,67 @@ def test_agent_response():
     assert response.data.input == "new_input"
     response.data.output = "new_output"
     assert response["data"]["output"] == "new_output"
+
+
+def test_agent_response_diagnostic_error_codes_default_empty():
+    from aixplain.modules.agent.agent_response import AgentResponse
+
+    response = AgentResponse(status="SUCCESS", completed=True)
+    assert response.diagnostic_error_codes == []
+    assert response["diagnostic_error_codes"] == []
+    assert response.to_dict()["diagnostic_error_codes"] == []
+
+
+def test_agent_response_diagnostic_error_codes_populated():
+    from aixplain.modules.agent.agent_response import AgentResponse
+
+    response = AgentResponse(
+        status="SUCCESS",
+        completed=True,
+        diagnostic_error_codes=["MAX_TOKENS_REACHED", "TOOL_FAILED"],
+    )
+    assert response.diagnostic_error_codes == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+    assert response["diagnostic_error_codes"] == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+    assert response.to_dict()["diagnostic_error_codes"] == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+
+
+def test_agent_response_diagnostic_error_codes_in_repr():
+    from aixplain.modules.agent.agent_response import AgentResponse
+
+    response = AgentResponse(status="SUCCESS", completed=True, diagnostic_error_codes=["INVALID_JSON"])
+    assert "diagnostic_error_codes" in repr(response)
+    assert "INVALID_JSON" in repr(response)
+
+
+def test_agent_poll_extracts_diagnostic_error_codes_from_data():
+    agent = Agent(
+        "123",
+        "Test Agent(-)",
+        "Sample Description",
+        instructions="Test Agent Instructions",
+    )
+    poll_url = "https://platform-api.aixplain.com/sdk/agents/executions/test/result"
+    expected_diagnostic_error_codes = ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            poll_url,
+            json={
+                "completed": True,
+                "status": "SUCCESS",
+                "data": {
+                    "input": "hello",
+                    "output": "hi",
+                    "diagnosticErrorCodes": expected_diagnostic_error_codes,
+                },
+            },
+        )
+
+        response = agent.poll(poll_url)
+
+    assert response.diagnostic_error_codes == expected_diagnostic_error_codes
+    assert response["diagnostic_error_codes"] == expected_diagnostic_error_codes
+    assert response.to_dict()["diagnostic_error_codes"] == expected_diagnostic_error_codes
 
 
 @patch("aixplain.factories.model_factory.ModelFactory.get")

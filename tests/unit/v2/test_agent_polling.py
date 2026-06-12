@@ -35,6 +35,29 @@ def _create_agent():
 class TestAgentRunResultExecutionId:
     """Tests for AgentRunResult.execution_id property."""
 
+    def test_diagnostic_error_codes_serializes_with_backend_camel_case(self):
+        """Should serialize diagnostic error codes as diagnosticErrorCodes."""
+        result = AgentRunResult(
+            status="SUCCESS",
+            completed=True,
+            diagnostic_error_codes=["MAX_TOKENS_REACHED", "TOOL_FAILED"],
+        )
+
+        assert result.diagnostic_error_codes == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+        assert result.to_dict()["diagnosticErrorCodes"] == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+
+    def test_diagnostic_error_codes_deserializes_from_backend_camel_case(self):
+        """Should deserialize diagnostic error codes from diagnosticErrorCodes."""
+        result = AgentRunResult.from_dict(
+            {
+                "status": "SUCCESS",
+                "completed": True,
+                "diagnosticErrorCodes": ["MAX_TOKENS_REACHED", "TOOL_FAILED"],
+            }
+        )
+
+        assert result.diagnostic_error_codes == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
+
     def test_execution_id_from_request_id(self):
         """Should return request_id directly when available."""
         result = AgentRunResult(

@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parent
 DOCS_ROOT = REPO_ROOT / "docs"
 SIDEBAR_PATH = DOCS_ROOT / "api-reference/python/api_sidebar.js"
 LLMS_INDEX_PATH = DOCS_ROOT / "llms.txt"
-LLMS_FULL_PATH = DOCS_ROOT / "api-reference/python/aixplain/v2/llms-full.txt"
+LLMS_FULL_PATH = DOCS_ROOT / "llms-full.txt"
 TARGET_LABEL = "aixplain.v2"
 TARGET_PREFIX = "api-reference/python/aixplain/v2/"
 
@@ -77,11 +77,7 @@ def _get_v2_docs() -> list[tuple[str, str, str]]:
     if category is None:
         raise ValueError(f"Could not find sidebar category {TARGET_LABEL!r} in {SIDEBAR_PATH}")
 
-    doc_ids = [
-        doc_id
-        for doc_id in _flatten_doc_ids(category.get("items", []))
-        if doc_id.startswith(TARGET_PREFIX)
-    ]
+    doc_ids = [doc_id for doc_id in _flatten_doc_ids(category.get("items", [])) if doc_id.startswith(TARGET_PREFIX)]
     if not doc_ids:
         raise ValueError(f"No documents found for prefix {TARGET_PREFIX!r}")
 
@@ -117,11 +113,11 @@ def build_llms_index() -> str:
         "",
         "> LLM-readable entrypoint for the aiXplain Python SDK v2 reference.",
         "",
-        "Use `api-reference/python/aixplain/v2/llms-full.txt` when you want the complete SDK v2 reference in one context window.",
+        "Use `llms-full.txt` when you want the complete SDK v2 reference in one context window.",
         "",
         "## Recommended",
         "",
-        "- [SDK v2 full reference](api-reference/python/aixplain/v2/llms-full.txt): Complete concatenated aiXplain Python SDK v2 API reference.",
+        "- [SDK v2 full reference](llms-full.txt): Complete concatenated aiXplain Python SDK v2 API reference.",
         "- [SDK v2 landing page](api-reference/python/aixplain/v2/init.md): Package overview for `aixplain.v2`.",
         "",
         "## SDK v2 Modules",

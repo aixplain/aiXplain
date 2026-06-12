@@ -9,6 +9,7 @@ from .model import Model
 from .agent import Agent
 from .utility import Utility
 from .tool import Tool
+from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
 from .integration import Integration
 from .file import Resource
 from .inspector import Inspector
@@ -16,6 +17,7 @@ from .meta_agents import Debugger
 from .api_key import APIKey
 from .session import Session
 from .rlm import RLM, RLMResult
+from .issue import IssueReporter
 from . import enums
 
 
@@ -23,6 +25,7 @@ ModelType = TypeVar("ModelType", bound=Model)
 AgentType = TypeVar("AgentType", bound=Agent)
 UtilityType = TypeVar("UtilityType", bound=Utility)
 ToolType = TypeVar("ToolType", bound=Tool)
+MetricType = TypeVar("MetricType", bound=MetricBase)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
 ResourceType = TypeVar("ResourceType", bound=Resource)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
@@ -30,6 +33,7 @@ DebuggerType = TypeVar("DebuggerType", bound=Debugger)
 APIKeyType = TypeVar("APIKeyType", bound=APIKey)
 SessionType = TypeVar("SessionType", bound=Session)
 RLMType = TypeVar("RLMType", bound=RLM)
+IssueReporterType = TypeVar("IssueReporterType", bound=IssueReporter)
 
 
 class Aixplain:
@@ -49,6 +53,8 @@ class Aixplain:
     Agent: AgentType = None
     Utility: UtilityType = None
     Tool: ToolType = None
+    Metric: MetricType = None
+    Eval: type = None
     Integration: IntegrationType = None
     Resource: ResourceType = None
     Inspector: InspectorType = None
@@ -56,6 +62,7 @@ class Aixplain:
     APIKey: APIKeyType = None
     Session: SessionType = None
     RLM: RLMType = None
+    issue: IssueReporterType = None
 
     Function = enums.Function
     Supplier = enums.Supplier
@@ -136,6 +143,8 @@ class Aixplain:
         self.Agent = type("Agent", (Agent,), {"context": self})
         self.Utility = type("Utility", (Utility,), {"context": self})
         self.Tool = type("Tool", (Tool,), {"context": self})
+        self.Metric = type("Metric", (MetricBase,), {"context": self})
+        self.Eval = EvalClass
         self.Integration = type("Integration", (Integration,), {"context": self})
         self.Resource = type("Resource", (Resource,), {"context": self})
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
@@ -143,3 +152,4 @@ class Aixplain:
         self.APIKey = type("APIKey", (APIKey,), {"context": self})
         self.Session = type("Session", (Session,), {"context": self})
         self.RLM = type("RLM", (RLM,), {"context": self})
+        self.issue = IssueReporter(context=self)

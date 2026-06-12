@@ -208,6 +208,7 @@
                     "api-reference/python/aixplain/v1/modules/model/model_response_streamer",
                     "api-reference/python/aixplain/v1/modules/model/record",
                     "api-reference/python/aixplain/v1/modules/model/response",
+                    "api-reference/python/aixplain/v1/modules/model/rlm",
                     "api-reference/python/aixplain/v1/modules/model/utility_model",
                     "api-reference/python/aixplain/v1/modules/model/utils"
                   ],
@@ -290,6 +291,7 @@
         {
           "items": [
             "api-reference/python/aixplain/v2/init",
+            "api-reference/python/aixplain/v2/actions",
             "api-reference/python/aixplain/v2/agent",
             "api-reference/python/aixplain/v2/agent_progress",
             "api-reference/python/aixplain/v2/api_key",
@@ -306,6 +308,7 @@
             "api-reference/python/aixplain/v2/mixins",
             "api-reference/python/aixplain/v2/model",
             "api-reference/python/aixplain/v2/resource",
+            "api-reference/python/aixplain/v2/rlm",
             "api-reference/python/aixplain/v2/tool",
             "api-reference/python/aixplain/v2/upload_utils",
             "api-reference/python/aixplain/v2/utility"

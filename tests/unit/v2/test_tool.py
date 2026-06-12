@@ -614,9 +614,10 @@ class TestSingleActionInference:
             allowed_actions=["search"],
         )
 
-        with patch.object(Tool, "_ensure_valid_state", return_value=None), patch(
-            "aixplain.v2.model.Model.run", return_value="ok"
-        ) as mock_run:
+        with (
+            patch.object(Tool, "_ensure_valid_state", return_value=None),
+            patch("aixplain.v2.model.Model.run", return_value="ok") as mock_run,
+        ):
             result = tool.run(data={"query": "hello"})
 
         assert result == "ok"

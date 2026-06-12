@@ -44,6 +44,9 @@ def _fetch_ipinfo() -> Dict[str, Any]:
         response.raise_for_status()
         payload = response.json()
     except Exception as exc:
+        # Best-effort telemetry/geo lookup: it must never break an agent run, no matter
+        # what requests raises (network errors, JSON errors, or a test's requests_mock
+        # NoMockAddress, which is not a requests.RequestException).
         logger.debug("Failed to fetch ipinfo.io payload: %s", exc)
         return {}
 

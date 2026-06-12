@@ -247,7 +247,7 @@ def run_stream(data: Union[Text, Dict],
                parameters: Optional[Dict] = None) -> ModelResponseStreamer
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L324)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L325)
 
 Execute the model with streaming response.
 
@@ -278,7 +278,7 @@ def run(data: Union[Text, Dict],
         stream: bool = False) -> Union[ModelResponse, ModelResponseStreamer]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L350)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L351)
 
 Execute the model and wait for results.
 
@@ -320,7 +320,7 @@ def run_async(data: Union[Text, Dict],
               parameters: Optional[Dict] = None) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L428)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L430)
 
 Start asynchronous model execution.
 
@@ -350,7 +350,7 @@ Use sync_poll to check the operation status later.
 def check_finetune_status(after_epoch: Optional[int] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L475)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L477)
 
 Check the status of the FineTune model.
 
@@ -374,7 +374,7 @@ Check the status of the FineTune model.
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L546)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L548)
 
 Delete this model from the aiXplain platform.
 
@@ -392,7 +392,7 @@ def add_additional_info_for_benchmark(display_name: str,
                                       configuration: Dict) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L570)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L572)
 
 Add benchmark-specific information to the model.
 
@@ -411,7 +411,7 @@ metadata.
 def from_dict(cls, data: Dict) -> "Model"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L584)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/__init__.py#L586)
 
 Create a Model instance from a dictionary representation.
 
