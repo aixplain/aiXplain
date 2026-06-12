@@ -27,18 +27,11 @@ Build any agent — knowledge (RAG), data, custom-logic, integration, and team �
 Less to build, less to operate:
 
 - **Deploy with one call** — `agent.save()` promotes an agent to a persistent, versioned endpoint; no Dockerfiles, queues, or autoscaling to manage.
-- **No integration glue** — reach [900+ models, tools, and integrations](#mcp-server-marketplace) through one key; skip per-provider SDKs, auth, and rate-limit handling.
+- **No integration glue** — reach [900+ models, tools, and integrations](#marketplace) through one key; skip per-provider SDKs, auth, and rate-limit handling.
 - **Guardrails you don't have to build** — allow-lists, per-asset permissions, rate and usage limits, and access control enforced at runtime.
 - **Self-debugging** — step-level traces of every plan, tool call, and outcome.
 - **Run it anywhere** — the same definition runs in the cloud, on-prem, at the edge, or locally.
-
-| | aixplain SDK | Other agent frameworks |
-|---|---|---|
-| Guardrails & control | Asset/action allow-lists, per-asset permissions, rate and usage limits, and access control | Usually custom code or external guardrails |
-| Models and tools | 900+ models and tools with one API key | Provider-by-provider setup |
-| Deployment | Cloud (instant) or on-prem | Usually self-assembled runtime and infra |
-| Observability | Built-in traces and dashboards | Varies by framework |
-| [Coding-agent workflows](https://github.com/aixplain/aiXplain/tree/main/skills/aixplain-agent-builder) | Works natively with MCP-compatible coding agents and IDEs | Usually not a first-class workflow target |
+- **Works with your coding agent** — native [MCP support](#marketplace) for MCP-compatible IDEs and coding agents.
 
 ## Agentic OS
 
@@ -159,11 +152,11 @@ Team agent
 
 ---
 
-## MCP Server Marketplace
+## Marketplace
 
-[aixplain Marketplace](https://studio.aixplain.com/browse) now also exposes MCP servers for **900+ models and tools**, allowing external clients to access selected **tool, integration, and model assets**, for example **Opus 4.6, Kimi, Qwen, Airtable, and Slack**, through **aixplain-hosted MCP endpoints** with a single API key 🔑.
+The [aixplain Marketplace](https://studio.aixplain.com/browse) is a catalog of **900+ models, tools, and integrations**. Every asset is reachable through the same three outlets — **SDK, API, and MCP** — with a single API key 🔑.
 
-Read the full MCP setup guide in the [MCP servers docs](https://docs.aixplain.com/api-reference/mcp-servers).
+For MCP-compatible clients and IDEs, assets (for example Opus 4.6, Kimi, Qwen, Airtable, Slack) are served through aixplain-hosted MCP endpoints. See the [MCP servers docs](https://docs.aixplain.com/api-reference/mcp-servers).
 
 ```json
 {
@@ -179,30 +172,11 @@ Read the full MCP setup guide in the [MCP servers docs](https://docs.aixplain.co
 
 ---
 
-## Core concepts
-
-| Concept | What it is |
-|---|---|
-| **Agent** | An autonomous entity that reasons, plans, and uses tools to complete a task. |
-| **Team agent** | Multiple specialized agents coordinated by a planner and orchestrator at runtime. |
-| **Tool** | A capability an agent can invoke — a model, an integration, or code (Python/SQL). |
-| **Model** | An LLM, utility, or index asset from the [marketplace](https://studio.aixplain.com/browse). |
-| **Integration** | A connector to an external service (Slack, Airtable, Gmail, and more) that an agent can act through. |
-
-aixplain's built-in agents (Planner, Orchestrator, Inspector, Bodyguard) and the Evolver are shown in the [architecture diagram](#agentic-os) above. See the [documentation](https://docs.aixplain.com) for the full API reference.
-
----
-
 ## Data handling and deployment
 
-aixplain applies runtime governance and enterprise controls by default:
-
-- **We do not train on your data** — your data is not used to train foundation models.
-- **No data retained by default** — agent memory is opt-in (short-term and long-term).
-- **SOC 2 Type II certified** — enterprise security and compliance posture.
-- **Runtime policy enforcement** — Inspector and Bodyguard govern every agent execution, with allow-lists for assets and actions, per-asset permissions, rate and usage limits, and enterprise RBAC.
-- **Portable deployment options** — Cloud (instant) or on-prem (including VPC and air-gapped environments).
-- **Encryption** — TLS 1.2+ in transit and encrypted storage at rest.
+- **Your data stays yours** — never used to train foundation models; agent memory is opt-in. SOC 2 Type II; TLS 1.2+ in transit, encrypted at rest.
+- **Governed at runtime** — Inspector and Bodyguard enforce allow-lists, per-asset permissions, rate and usage limits, and access control on every execution.
+- **Deploy anywhere** — cloud, on-prem, edge, or local; air-gapped and VPC available on-prem or local.
 
 Learn more at aixplain [Security](https://aixplain.com/security/) and aixplain [pricing](https://aixplain.com/pricing/).
 
