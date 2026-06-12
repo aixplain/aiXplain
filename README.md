@@ -191,10 +191,8 @@ Read the full MCP setup guide in the [MCP servers docs](https://docs.aixplain.co
 | **Tool** | A capability an agent can invoke — a model, an integration, or code (Python/SQL). |
 | **Model** | An LLM, utility, or index asset from the [marketplace](https://studio.aixplain.com/browse). |
 | **Integration** | A connector to an external service (Slack, Airtable, Gmail, and more) that an agent can act through. |
-| **Micro-agents** | Built-in agents that run inline on every execution: Planner (plans and decomposes the goal), Orchestrator (routes and coordinates), Inspector (validation — e.g. block pip installs or network access), and Bodyguard (access control and permissions at the asset boundary). |
-| **Meta-agent** | An agent that improves other agents — the Evolver monitors production signals and refines behavior over time. |
 
-See the [documentation](https://docs.aixplain.com) for the full API reference.
+aixplain's built-in agents (Planner, Orchestrator, Inspector, Bodyguard) and the Evolver are shown in the [architecture diagram](#agentic-os) above. See the [documentation](https://docs.aixplain.com) for the full API reference.
 
 ---
 
