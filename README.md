@@ -11,7 +11,6 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square" alt="License"></a>
   <a href="https://studio.aixplain.com/browse"><img src="https://img.shields.io/badge/Marketplace-900%2B%20models%20%26%20tools-0b74de?style=flat-square" alt="Marketplace size"></a>
-  <a href="https://console.aixplain.com/settings/keys"><img src="https://img.shields.io/badge/%F0%9F%94%91%20PAYG%20API%20key-Settings-0b74de?style=flat-square" alt="PAYG API key"></a>
   <a href="https://discord.gg/aixplain"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
@@ -61,7 +60,7 @@ Agentic OS is the portable runtime platform behind aixplain agents — orchestra
 pip install aixplain
 ```
 
-Get your API key from your [aixplain account](https://console.aixplain.com/settings/keys), then expose it to the SDK:
+Get your API key from your aixplain account, then expose it to the SDK:
 
 ```bash
 export AIXPLAIN_API_KEY=<your-key>
