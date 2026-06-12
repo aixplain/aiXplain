@@ -33,7 +33,7 @@ Less to build, less to operate:
 - **Run it anywhere** — the same definition runs in the cloud, on-prem, at the edge, or locally.
 - **Works with your coding agent** — native [MCP support](#marketplace) for MCP-compatible IDEs and coding agents.
 
-## Agentic OS
+## How it works
 
 The portable runtime behind aixplain agents: orchestration, governed asset serving, and observability across cloud, on-prem, edge, and local. See the [documentation](https://docs.aixplain.com) for the full architecture.
 
