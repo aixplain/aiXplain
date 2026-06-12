@@ -15,9 +15,9 @@
   <a href="https://discord.gg/aixplain"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
-**Build, deploy, and govern autonomous AI agents — in a few lines of Python.**
+**Build, deploy, and run autonomous AI agents — governed by default, in a few lines of Python.**
 
-_The fastest way to deploy managed, multi-agent systems with runtime governance — on any infrastructure._
+_The fastest way to ship managed, multi-agent systems with guardrails built in — on any infrastructure._
 
 aixplain is the operating system for autonomous AI — **multi-agent orchestration and runtime governance across cloud, on-prem, edge, and fully air-gapped environments**. It spans the full lifecycle — **development → evaluation → deployment → monitoring → evolution** — so you ship faster instead of stitching tools together. Agents plan, call models and tools, run code, and adapt at runtime, with **agents-in-the-loop** governance enforced on every execution.
 
@@ -31,13 +31,13 @@ Less to build, less to operate:
 
 - **Deploy with one call** — `agent.save()` promotes an agent to a persistent, versioned endpoint; no Dockerfiles, queues, or autoscaling to manage.
 - **No integration glue** — reach [900+ models, tools, and integrations](#mcp-server-marketplace) through one key; skip per-provider SDKs, auth, and rate-limit handling.
-- **Governance you don't have to code** — allow-lists, per-asset permissions, rate and usage limits, and enterprise RBAC enforced at runtime.
+- **Guardrails you don't have to build** — allow-lists, per-asset permissions, rate and usage limits, and access control enforced at runtime.
 - **Self-debugging** — step-level traces of every plan, tool call, and outcome.
 - **Run it anywhere** — the same definition runs serverless, on-prem, at the edge, or fully air-gapped.
 
 | | aixplain SDK | Other agent frameworks |
 |---|---|---|
-| Governance | Asset/action allow-lists, per-asset permissions, rate and usage limits, and enterprise RBAC | Usually custom code or external guardrails |
+| Guardrails & control | Asset/action allow-lists, per-asset permissions, rate and usage limits, and access control | Usually custom code or external guardrails |
 | Models and tools | 900+ models and tools with one API key | Provider-by-provider setup |
 | Deployment | Cloud (instant) or on-prem | Usually self-assembled runtime and infra |
 | Observability | Built-in traces and dashboards | Varies by framework |
@@ -66,7 +66,6 @@ export AIXPLAIN_API_KEY=<your-key>
 ### Create and run your first agent
 
 ```python
-from uuid import uuid4
 from aixplain import Aixplain
 
 aix = Aixplain()  # reads AIXPLAIN_API_KEY from the environment
@@ -75,7 +74,7 @@ search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
 search_tool.allowed_actions = ["search"]
 
 agent = aix.Agent(
-    name=f"Research agent {uuid4().hex[:8]}",
+    name="Research agent",
     description="Answers questions with concise web-grounded findings.",
     instructions="Use the search tool when needed and cite key findings.",
     tools=[search_tool],
@@ -93,7 +92,6 @@ print(result.data.output)
 ### Build a multi-agent team
 
 ```python
-from uuid import uuid4
 from aixplain import Aixplain
 from aixplain.v2 import EditorConfig, EvaluatorConfig, EvaluatorType, Inspector, InspectorAction, InspectorActionConfig, InspectorSeverity, InspectorTarget
 
@@ -108,7 +106,7 @@ def passthrough(text: str) -> str:
     return text
 
 noop_inspector = Inspector(
-    name=f"noop-output-inspector-{uuid4().hex[:8]}",
+    name="noop-output-inspector",
     severity=InspectorSeverity.LOW,
     targets=[InspectorTarget.OUTPUT],
     action=InspectorActionConfig(type=InspectorAction.EDIT),
@@ -123,13 +121,13 @@ noop_inspector = Inspector(
 )
 
 researcher = aix.Agent(
-    name=f"Researcher {uuid4().hex[:8]}",
+    name="Researcher",
     instructions="Find and summarize reliable sources.",
     tools=[search_tool],
 )
 
 team_agent = aix.Agent(
-    name=f"Research team {uuid4().hex[:8]}",
+    name="Research team",
     instructions="Research the topic and return exactly 5 concise bullet points.",
     subagents=[researcher],
     inspectors=[noop_inspector],
@@ -142,10 +140,6 @@ response = team_agent.run(
 print(response.data.output)
 ```
 
-<div align="center">
-  <img src="docs/assets/aixplain-workflow-teamagent.png" alt="aixplain team-agent runtime flow" title="aixplain" width="70%"/>
-</div>
-
 Execution order:
 
 ```text
@@ -156,9 +150,8 @@ Team agent
 ├── Orchestrator: routes work to the right subagent
 ├── Researcher subagent
 │   └── Tavily search tool: finds and summarizes reliable sources
-├── Inspector: checks the final output through a simple runtime policy
-├── Orchestrator: decides whether another pass is needed
-└── Responder: returns one final answer
+├── Inspector: validates the output against a runtime policy
+└── Orchestrator: composes and returns the final answer
 ```
 
 > **SDK 1 (legacy):** available until end of July 2026 — see the [SDK 1 docs](https://docs.aixplain.com/1.0/).
@@ -194,8 +187,8 @@ Read the full MCP setup guide in the [MCP servers docs](https://docs.aixplain.co
 | **Tool** | A capability an agent can invoke — a model, an integration, or code (Python/SQL). |
 | **Model** | An LLM, utility, or index asset from the [marketplace](https://studio.aixplain.com/browse). |
 | **Integration** | A connector to an external service (Slack, Airtable, Gmail, and more) that an agent can act through. |
-| **Micro-agents** | Built-in governance components that run inline on every execution: Mentalist (planning), Orchestrator (routing), Inspector (validation — e.g. block pip installs or network access), Bodyguard (security), Responder (formatting). |
-| **Meta-agent** | An agent that improves other agents — the Evolver monitors KPIs and refines behavior over time. |
+| **Micro-agents** | Built-in agents that run inline on every execution: Planner (plans and decomposes the goal), Orchestrator (routes and coordinates), Inspector (validation — e.g. block pip installs or network access), and Bodyguard (access control and permissions at the asset boundary). |
+| **Meta-agent** | An agent that improves other agents — the Evolver monitors production signals and refines behavior over time. |
 
 See the [documentation](https://docs.aixplain.com) for the full API reference.
 
