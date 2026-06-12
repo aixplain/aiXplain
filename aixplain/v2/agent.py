@@ -7,7 +7,7 @@ import warnings
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
+from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
 from dataclasses_json import dataclass_json, config
 
