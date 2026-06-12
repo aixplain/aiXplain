@@ -16,9 +16,9 @@
 
 **Build, deploy, and run autonomous AI agents — governed by default, in a few lines of Python.**
 
-aixplain is the operating system for autonomous AI: multi-agent orchestration with **runtime governance on every action**, across cloud, on-prem, edge, and air-gapped. The full lifecycle — build → evaluate → deploy → monitor → evolve — on one runtime, instead of stitching tools together.
+aixplain is the operating system for autonomous AI: multi-agent orchestration with **runtime governance on every action**, across cloud, on-prem, edge, and local. The full lifecycle — build → evaluate → deploy → monitor → evolve — on one runtime, instead of stitching tools together.
 
-**On your terms** — **your data** in your perimeter, **your cost** one bill (pay as you go), **your independence** across any model or infrastructure, no lock-in.
+**On your terms** — **your data** in your perimeter, **your cost** free on local models and tools, pay as you go in the cloud, **your independence** across any model or infrastructure, no lock-in.
 
 Build any agent — knowledge (RAG), data, custom-logic, integration, and team — via **SDK, API, CLI, or MCP**, on a marketplace of **900+ models, tools, and integrations**.
 
@@ -30,7 +30,7 @@ Less to build, less to operate:
 - **No integration glue** — reach [900+ models, tools, and integrations](#mcp-server-marketplace) through one key; skip per-provider SDKs, auth, and rate-limit handling.
 - **Guardrails you don't have to build** — allow-lists, per-asset permissions, rate and usage limits, and access control enforced at runtime.
 - **Self-debugging** — step-level traces of every plan, tool call, and outcome.
-- **Run it anywhere** — the same definition runs serverless, on-prem, at the edge, or fully air-gapped.
+- **Run it anywhere** — the same definition runs in the cloud, on-prem, at the edge, or locally.
 
 | | aixplain SDK | Other agent frameworks |
 |---|---|---|
@@ -42,10 +42,10 @@ Less to build, less to operate:
 
 ## Agentic OS
 
-Agentic OS is the portable runtime platform behind aixplain agents — orchestration, governed asset serving, and observability across Cloud (instant), on-prem, edge, and air-gapped deployments. See the [documentation](https://docs.aixplain.com) for the full architecture.
+The portable runtime behind aixplain agents: orchestration, governed asset serving, and observability across cloud, on-prem, edge, and local. See the [documentation](https://docs.aixplain.com) for the full architecture.
 
 <p align="center">
-  <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aixplain Agentic OS architecture — governed execution loop (Planner, Orchestrator, Inspector, Bodyguard) over the infrastructure services, deployable on cloud, on-prem, edge, and air-gapped" width="100%">
+  <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aixplain Agentic OS architecture — governed execution loop (Planner, Orchestrator, Inspector, Bodyguard) over the infrastructure services, deployable on cloud, on-prem, edge, and local" width="100%">
 </p>
 
 ---
