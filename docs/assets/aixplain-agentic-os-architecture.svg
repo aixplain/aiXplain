@@ -1,248 +1,147 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 120 1380 600" width="1600" height="750">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 690" width="1200" height="690"
+     font-family="'Geist','TT Norms Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">
   <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
-      text { font-family: 'Inter', sans-serif; }
-    </style>
-    <!-- Arrowhead markers -->
-    <marker id="arrowGray" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto" markerUnits="strokeWidth">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#7b8c9d"/>
+    <linearGradient id="axOrange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF7302"/>
+      <stop offset="1" stop-color="#FFA90E"/>
+    </linearGradient>
+    <radialGradient id="axGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FF7302" stop-opacity="0.20"/>
+      <stop offset="0.55" stop-color="#FFA90E" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#FFA90E" stop-opacity="0"/>
+    </radialGradient>
+    <marker id="arrGray" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0 0 L7 3.2 L0 6.4" fill="none" stroke="#818181" stroke-width="1.4"/>
     </marker>
-    <marker id="arrowTurquoise" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-      <polygon points="0 0, 8 3, 0 6" fill="#00bbcc"/>
+    <marker id="arrOrange" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0 0 L7 3.2 L0 6.4" fill="none" stroke="#FF7302" stroke-width="1.6"/>
     </marker>
-    <marker id="arrowOrange" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-      <polygon points="0 0, 8 3, 0 6" fill="#f99848"/>
-    </marker>
-    <marker id="arrowPink" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-      <polygon points="0 0, 8 3, 0 6" fill="#ef4ea3"/>
-    </marker>
-    <marker id="arrowViolet" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-      <polygon points="0 0, 8 3, 0 6" fill="#a164f7"/>
-    </marker>
-
-    <!-- Drop shadow filter -->
-    <filter id="softShadow" x="-5%" y="-5%" width="110%" height="115%">
-      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#364049" flood-opacity="0.08"/>
-    </filter>
-
-    <!-- Icon: Agent Management System (shield/bot) -->
-    <symbol id="iconAgentMgmt" viewBox="0 0 24 24">
-      <rect x="4" y="4" width="16" height="14" rx="3" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <circle cx="9" cy="11" r="1.5" fill="#7b8c9d"/>
-      <circle cx="15" cy="11" r="1.5" fill="#7b8c9d"/>
-      <path d="M9 15 h6" stroke="#7b8c9d" stroke-width="1.5" stroke-linecap="round"/>
-      <path d="M8 4 V2 M16 4 V2" stroke="#7b8c9d" stroke-width="1.5" stroke-linecap="round"/>
-    </symbol>
-
-    <!-- Icon: Memory (layers) -->
-    <symbol id="iconMemory" viewBox="0 0 24 24">
-      <ellipse cx="12" cy="7" rx="8" ry="3" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <path d="M4 7 v5 c0 1.66 3.58 3 8 3 s8-1.34 8-3 V7" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <path d="M4 12 v5 c0 1.66 3.58 3 8 3 s8-1.34 8-3 V12" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-    </symbol>
-
-    <!-- Icon: Observability (eye) -->
-    <symbol id="iconObservability" viewBox="0 0 24 24">
-      <path d="M2 12 C5 7 9 5 12 5 s7 2 10 7 c-3 5-7 7-10 7 S5 17 2 12z" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <circle cx="12" cy="12" r="3" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-    </symbol>
-
-    <!-- Icon: Runtime (play/gear) -->
-    <symbol id="iconRuntime" viewBox="0 0 24 24">
-      <path d="M4 12 a8 8 0 1 1 16 0 a8 8 0 1 1 -16 0" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <path d="M10 8 l6 4 -6 4z" fill="#7b8c9d"/>
-    </symbol>
-
-    <!-- Icon: Catalogue (grid) -->
-    <symbol id="iconCatalogue" viewBox="0 0 24 24">
-      <rect x="3" y="3" width="7" height="7" rx="1.5" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <rect x="14" y="3" width="7" height="7" rx="1.5" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <rect x="3" y="14" width="7" height="7" rx="1.5" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <rect x="14" y="14" width="7" height="7" rx="1.5" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-    </symbol>
-
-    <!-- Icon: Router (network) -->
-    <symbol id="iconRouter" viewBox="0 0 24 24">
-      <circle cx="12" cy="5" r="2.5" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <circle cx="5" cy="18" r="2.5" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <circle cx="19" cy="18" r="2.5" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <line x1="12" y1="7.5" x2="5" y2="15.5" stroke="#7b8c9d" stroke-width="1.5"/>
-      <line x1="12" y1="7.5" x2="19" y2="15.5" stroke="#7b8c9d" stroke-width="1.5"/>
-    </symbol>
-
-    <!-- Icon: Governance (shield-check) -->
-    <symbol id="iconGovernance" viewBox="0 0 24 24">
-      <path d="M12 3 L4 7 v5 c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11 V7z" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <path d="M9 12 l2 2 4-4" fill="none" stroke="#7b8c9d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-    </symbol>
-
-    <!-- Icon: Telemetry (bar chart) -->
-    <symbol id="iconTelemetry" viewBox="0 0 24 24">
-      <rect x="3" y="14" width="4" height="7" rx="1" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <rect x="10" y="8" width="4" height="13" rx="1" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <rect x="17" y="3" width="4" height="18" rx="1" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-    </symbol>
-
-    <!-- Icon: Auth (lock) -->
-    <symbol id="iconAuth" viewBox="0 0 24 24">
-      <rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="#5c7cff" stroke-width="1.8"/>
-      <path d="M8 11 V7 a4 4 0 0 1 8 0 v4" fill="none" stroke="#5c7cff" stroke-width="1.8"/>
-      <circle cx="12" cy="16" r="1.5" fill="#5c7cff"/>
-    </symbol>
-
-    <!-- Icon: Assets (gear) -->
-    <symbol id="iconAssets" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="4" fill="none" stroke="#7b8c9d" stroke-width="1.5"/>
-      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12" stroke="#7b8c9d" stroke-width="1.5" stroke-linecap="round"/>
-    </symbol>
-
-    <!-- Icon: Internal DB -->
-    <symbol id="iconDB" viewBox="0 0 24 24">
-      <ellipse cx="12" cy="6" rx="7" ry="3" fill="none" stroke="#f99848" stroke-width="1.5"/>
-      <path d="M5 6v6c0 1.66 3.13 3 7 3s7-1.34 7-3V6" fill="none" stroke="#f99848" stroke-width="1.5"/>
-      <path d="M5 12v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6" fill="none" stroke="#f99848" stroke-width="1.5"/>
-    </symbol>
-
-    <!-- Icon: Compute (binary) -->
-    <symbol id="iconCompute" viewBox="0 0 24 24">
-      <rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#ef4ea3" stroke-width="1.5"/>
-      <text x="7" y="11" font-size="5" fill="#ef4ea3" font-family="Inter, sans-serif" font-weight="600">01</text>
-      <text x="7" y="17" font-size="5" fill="#ef4ea3" font-family="Inter, sans-serif" font-weight="600">10</text>
-    </symbol>
-
-    <!-- Icon: Knowledge base (book) -->
-    <symbol id="iconKnowledge" viewBox="0 0 24 24">
-      <path d="M4 4 h5 c2 0 3 1 3 2 v14 c0-1-1-1.5-3-1.5 H4z" fill="none" stroke="#00bbcc" stroke-width="1.5"/>
-      <path d="M20 4 h-5 c-2 0-3 1-3 2 v14 c0-1 1-1.5 3-1.5 H20z" fill="none" stroke="#00bbcc" stroke-width="1.5"/>
-    </symbol>
-
-    <!-- Icon: Asset onboarding (arrow into box) -->
-    <symbol id="iconOnboarding" viewBox="0 0 24 24">
-      <rect x="4" y="8" width="16" height="12" rx="2" fill="none" stroke="#a164f7" stroke-width="1.5"/>
-      <path d="M12 2 v10 M8 8 l4 4 4-4" fill="none" stroke="#a164f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-    </symbol>
-
-    <!-- Icon: FineTune (sliders) -->
-    <symbol id="iconFineTune" viewBox="0 0 24 24">
-      <line x1="4" y1="6" x2="20" y2="6" stroke="#7b8c9d" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="4" y1="12" x2="20" y2="12" stroke="#7b8c9d" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="4" y1="18" x2="20" y2="18" stroke="#7b8c9d" stroke-width="1.5" stroke-linecap="round"/>
-      <circle cx="9" cy="6" r="2" fill="#ffffff" stroke="#7b8c9d" stroke-width="1.5"/>
-      <circle cx="15" cy="12" r="2" fill="#ffffff" stroke="#7b8c9d" stroke-width="1.5"/>
-      <circle cx="11" cy="18" r="2" fill="#ffffff" stroke="#7b8c9d" stroke-width="1.5"/>
-    </symbol>
   </defs>
 
-  <!-- Background -->
-  <rect width="1600" height="750" fill="#ffffff"/>
+  <!-- panel (carries its own background so it reads in GitHub light + dark) -->
+  <rect x="0.5" y="0.5" width="1199" height="689" rx="22" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.10"/>
 
-  <!-- ========================================= -->
-  <!-- MAIN SYSTEM BOUNDARY (blue rounded rect)  -->
-  <!-- Updated for current AgenticOS structure   -->
-  <!-- ========================================= -->
-  <rect x="310" y="160" width="800" height="520" rx="16" fill="none" stroke="#5c7cff" stroke-width="2" opacity="0.5"/>
+  <!-- header -->
+  <text x="60" y="56" font-family="'JetBrains Mono',ui-monospace,Menlo,monospace" font-size="12" letter-spacing="2.5" fill="#818181">ARCHITECTURE</text>
+  <text x="60" y="90" font-size="30" font-weight="700" fill="#090909" letter-spacing="-0.5">aixplain Agentic OS</text>
+  <!-- control axes: on your terms -->
+  <g font-size="13">
+    <rect x="60"  y="106" width="104" height="32" rx="16" fill="#F8F8F8" stroke="#090909" stroke-opacity="0.12"/>
+    <text x="80"  y="127"><tspan fill="#818181">your </tspan><tspan fill="#090909" font-weight="600">data</tspan></text>
+    <rect x="176" y="106" width="100" height="32" rx="16" fill="#F8F8F8" stroke="#090909" stroke-opacity="0.12"/>
+    <text x="196" y="127"><tspan fill="#818181">your </tspan><tspan fill="#090909" font-weight="600">cost</tspan></text>
+    <rect x="288" y="106" width="170" height="32" rx="16" fill="#F8F8F8" stroke="#090909" stroke-opacity="0.12"/>
+    <text x="308" y="127"><tspan fill="#818181">your </tspan><tspan fill="#090909" font-weight="600">independence</tspan></text>
+  </g>
 
-  <!-- Title: AIXPLAIN AGENTIC OS (top-left of boundary) -->
-  <text x="380" y="150" font-size="13" font-weight="600" fill="#5c7cff" letter-spacing="2">aixplain Agentic OS</text>
+  <!-- glow behind the hero loop -->
+  <ellipse cx="620" cy="282" rx="470" ry="150" fill="url(#axGlow)"/>
 
-  <!-- AgentEngine box -->
-  <rect x="390" y="197" width="310" height="370" rx="12" fill="#f5f7fa" filter="url(#softShadow)"/>
-  <text x="545" y="240" text-anchor="middle" font-size="11" font-weight="600" fill="#7b8c9d" letter-spacing="1.5">AGENT ENGINE</text>
+  <!-- ===== entry ===== -->
+  <rect x="40" y="256" width="118" height="52" rx="12" fill="#F8F8F8" stroke="#090909" stroke-opacity="0.12"/>
+  <text x="99" y="277" text-anchor="middle" font-size="11.5" fill="#364049">SDK · Studio</text>
+  <text x="99" y="294" text-anchor="middle" font-size="11.5" fill="#364049">CLI · MCP</text>
 
-  <rect x="415" y="258" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRuntime" x="425" y="265" width="28" height="28"/>
-  <text x="467" y="279" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Agent Runtime</text>
+  <circle cx="196" cy="282" r="20" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.2"/>
+  <path d="M189 281 v-3 a7 7 0 0 1 14 0 v3 M186 281 h20 v13 h-20 z" fill="none" stroke="#090909" stroke-opacity="0.55" stroke-width="1.4" stroke-linejoin="round"/>
+  <text x="196" y="322" text-anchor="middle" font-family="'JetBrains Mono',ui-monospace,Menlo,monospace" font-size="9.5" letter-spacing="1" fill="#818181">AUTH</text>
 
-  <rect x="415" y="308" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconMemory" x="425" y="315" width="28" height="28"/>
-  <text x="467" y="329" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Memory</text>
+  <line x1="158" y1="282" x2="174" y2="282" stroke="#818181" stroke-width="1.5" marker-end="url(#arrGray)"/>
+  <line x1="218" y1="282" x2="236" y2="282" stroke="#818181" stroke-width="1.5" marker-end="url(#arrGray)"/>
 
-  <rect x="415" y="358" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconGovernance" x="425" y="365" width="28" height="28"/>
-  <text x="467" y="379" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Guards</text>
+  <!-- ===== HERO: governed execution loop (the one orange focal) ===== -->
+  <rect x="240" y="206" width="762" height="150" rx="18" fill="#FFFFFF" stroke="url(#axOrange)" stroke-width="1.6"/>
+  <text x="260" y="232" font-family="'JetBrains Mono',ui-monospace,Menlo,monospace" font-size="11" letter-spacing="1.5" fill="#FF7302">EXECUTION LOOP · governed on every action</text>
 
-  <rect x="415" y="408" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRuntime" x="425" y="415" width="28" height="28"/>
-  <text x="467" y="429" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Code Execution</text>
+  <!-- nodes (y 257–305, center 281) -->
+  <!-- Goal -->
+  <rect x="270" y="257" width="66" height="48" rx="11" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.14"/>
+  <text x="303" y="285" text-anchor="middle" font-size="13" fill="#090909">Goal</text>
+  <!-- Planner -->
+  <rect x="352" y="257" width="92" height="48" rx="11" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.14"/>
+  <text x="398" y="285" text-anchor="middle" font-size="13" fill="#090909">Planner</text>
+  <!-- Orchestrator -->
+  <rect x="460" y="257" width="118" height="48" rx="11" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.14"/>
+  <text x="519" y="285" text-anchor="middle" font-size="13" fill="#090909">Orchestrator</text>
+  <!-- Gate: Inspector · Bodyguard (ORANGE focal) -->
+  <rect x="594" y="251" width="180" height="60" rx="12" fill="url(#axOrange)"/>
+  <text x="684" y="276" text-anchor="middle" font-size="13" font-weight="600" fill="#FFFFFF">Inspector · Bodyguard</text>
+  <text x="684" y="294" text-anchor="middle" font-size="10.5" fill="#FFFFFF" fill-opacity="0.92">validate · authorize</text>
+  <!-- Action -->
+  <rect x="790" y="257" width="82" height="48" rx="11" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.14"/>
+  <text x="831" y="285" text-anchor="middle" font-size="13" fill="#090909">Action</text>
+  <!-- Result -->
+  <rect x="888" y="257" width="84" height="48" rx="11" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.14"/>
+  <text x="930" y="285" text-anchor="middle" font-size="13" fill="#090909">Result</text>
 
-  <rect x="415" y="458" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRouter" x="425" y="465" width="28" height="28"/>
-  <text x="467" y="479" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Integrations</text>
+  <!-- orange flow arrows -->
+  <line x1="336" y1="281" x2="350" y2="281" stroke="#FF7302" stroke-width="1.7" marker-end="url(#arrOrange)"/>
+  <line x1="444" y1="281" x2="458" y2="281" stroke="#FF7302" stroke-width="1.7" marker-end="url(#arrOrange)"/>
+  <line x1="578" y1="281" x2="592" y2="281" stroke="#FF7302" stroke-width="1.7" marker-end="url(#arrOrange)"/>
+  <line x1="774" y1="281" x2="788" y2="281" stroke="#FF7302" stroke-width="1.7" marker-end="url(#arrOrange)"/>
+  <line x1="872" y1="281" x2="886" y2="281" stroke="#FF7302" stroke-width="1.7" marker-end="url(#arrOrange)"/>
 
-  <!-- AssetServing box -->
-  <rect x="740" y="197" width="310" height="370" rx="12" fill="#f5f7fa" filter="url(#softShadow)"/>
-  <text x="895" y="240" text-anchor="middle" font-size="11" font-weight="600" fill="#7b8c9d" letter-spacing="1.5">ASSET SERVING</text>
+  <!-- replan-on-failure return -->
+  <path d="M930 305 C930 332, 700 336, 460 336 C430 336, 400 336, 398 307"
+        fill="none" stroke="#818181" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#arrGray)"/>
+  <text x="600" y="332" text-anchor="middle" font-family="'JetBrains Mono',ui-monospace,Menlo,monospace" font-size="9.5" letter-spacing="0.5" fill="#818181">replan on failure</text>
 
-  <rect x="765" y="258" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRuntime" x="775" y="265" width="28" height="28"/>
-  <text x="817" y="279" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Model Serving</text>
+  <!-- exit -->
+  <line x1="1002" y1="281" x2="1020" y2="281" stroke="#818181" stroke-width="1.5" marker-end="url(#arrGray)"/>
+  <rect x="1022" y="256" width="138" height="52" rx="12" fill="#F8F8F8" stroke="#090909" stroke-opacity="0.12"/>
+  <text x="1091" y="286" text-anchor="middle" font-size="12.5" fill="#364049">Apps · Clients</text>
 
-  <rect x="765" y="308" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRouter" x="775" y="315" width="28" height="28"/>
-  <text x="817" y="329" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Router</text>
+  <!-- Evolver feedback (improves agents from production) -->
+  <path d="M700 426 C760 392, 820 372, 845 312" fill="none" stroke="#818181" stroke-width="1.3" stroke-dasharray="4 4" marker-end="url(#arrGray)"/>
+  <text x="1140" y="388" text-anchor="end" font-size="12" fill="#818181"><tspan font-weight="600" fill="#364049">Evolver</tspan> — improves agents from production</text>
 
-  <rect x="765" y="358" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconRouter" x="775" y="365" width="28" height="28"/>
-  <text x="817" y="379" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Integrations</text>
+  <!-- ===== kernel services ===== -->
+  <text x="60" y="404" font-family="'JetBrains Mono',ui-monospace,Menlo,monospace" font-size="11" letter-spacing="1.5" fill="#818181">RUNS ON THE KERNEL</text>
 
-  <rect x="765" y="408" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconKnowledge" x="775" y="415" width="28" height="28"/>
-  <text x="817" y="429" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">aiR</text>
+  <!-- 6 cards: x 60,240,420,600,780,960 ; w 165 ; y 418 h 80 -->
+  <g font-size="9.5">
+    <rect x="60"  y="418" width="165" height="80" rx="13" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.12"/>
+    <text x="76"  y="452" font-size="14" font-weight="600" fill="#090909">Agent Engine</text>
+    <text x="76"  y="473" fill="#818181">execution + system agents</text>
 
-  <rect x="765" y="458" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconCatalogue" x="775" y="465" width="28" height="28"/>
-  <text x="817" y="479" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Marketplace</text>
+    <rect x="240" y="418" width="165" height="80" rx="13" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.12"/>
+    <text x="256" y="452" font-size="14" font-weight="600" fill="#090909">Asset Serving</text>
+    <text x="256" y="473" fill="#818181">models, tools, router</text>
 
-  <rect x="765" y="508" width="260" height="42" rx="8" fill="#ffffff" filter="url(#softShadow)"/>
-  <use href="#iconAuth" x="775" y="515" width="28" height="28"/>
-  <text x="817" y="529" font-size="13" font-weight="500" fill="#364049" dominant-baseline="middle">Access</text>
+    <rect x="420" y="418" width="165" height="80" rx="13" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.12"/>
+    <text x="436" y="452" font-size="14" font-weight="600" fill="#090909">aiR</text>
+    <text x="436" y="473" fill="#818181">knowledge + memory</text>
 
-  <!-- ========================================= -->
-  <!-- SDK / STUDIO (far left)                   -->
-  <!-- ========================================= -->
-  <rect x="20" y="360" width="170" height="45" rx="8" fill="#f0f2f5"/>
-  <text x="105" y="388" text-anchor="middle" font-size="13" font-weight="500" fill="#364049">SDK / STUDIO / MCP</text>
+    <rect x="600" y="418" width="165" height="80" rx="13" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.12"/>
+    <text x="616" y="452" font-size="14" font-weight="600" fill="#090909">Observability</text>
+    <text x="616" y="473" fill="#818181">traces, audit, monitor</text>
 
-  <!-- AUTH circle (straddling OS frame left edge at x=310, y=357) -->
-  <circle cx="310" cy="382" r="30" fill="#ffffff" stroke="#5c7cff" stroke-width="2"/>
-  <use href="#iconAuth" x="296" y="363" width="28" height="28"/>
-  <text x="310" y="399" text-anchor="middle" font-size="10" font-weight="600" fill="#364049">AUTH</text>
+    <rect x="780" y="418" width="165" height="80" rx="13" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.12"/>
+    <text x="796" y="452" font-size="14" font-weight="600" fill="#090909">Deployment Engine</text>
+    <text x="796" y="473" fill="#818181">provision + scale</text>
 
-  <!-- Arrow: SDK → AUTH -->
-  <line x1="180" y1="382" x2="278" y2="382" stroke="#7b8c9d" stroke-width="1.8" marker-end="url(#arrowGray)"/>
+    <rect x="960" y="418" width="180" height="80" rx="13" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.12"/>
+    <text x="976" y="452" font-size="14" font-weight="600" fill="#090909">Workspace Engine</text>
+    <text x="976" y="473" fill="#818181">auth, workspaces, billing</text>
+  </g>
 
-  <!-- Arrow: AUTH → AgentEngine -->
-  <line x1="340" y1="382" x2="388" y2="382" stroke="#7b8c9d" stroke-width="1.8" marker-end="url(#arrowGray)"/>
+  <!-- marketplace + byo caption -->
+  <text x="60" y="528" font-size="12.5" fill="#818181"><tspan font-weight="600" fill="#364049">Marketplace:</tspan> 900+ models, tools &amp; integrations  ·  bring your own models, data, code &amp; MCP (BYOM/BYOK)</text>
 
-  <!-- ========================================= -->
-  <!-- APPS / CLIENTS (far right)                -->
-  <!-- ========================================= -->
-  <rect x="1180" y="360" width="170" height="45" rx="8" fill="#f0f2f5"/>
-  <text x="1265" y="388" text-anchor="middle" font-size="13" font-weight="500" fill="#364049">APPS / CLIENTS</text>
+  <!-- ===== deployment band ===== -->
+  <rect x="60" y="554" width="1080" height="74" rx="14" fill="#F8F8F8" stroke="#090909" stroke-opacity="0.08"/>
+  <text x="84" y="584" font-family="'JetBrains Mono',ui-monospace,Menlo,monospace" font-size="11" letter-spacing="1.5" fill="#818181">DEPLOY ANYWHERE</text>
+  <text x="84" y="606" font-size="12" fill="#818181">same runtime — data stays in your perimeter</text>
 
-  <!-- Arrow: blue boundary right edge → Apps/Clients -->
-  <line x1="1112" y1="382" x2="1160" y2="382" stroke="#7b8c9d" stroke-width="1.8" marker-end="url(#arrowGray)"/>
-
-  <!-- ========================================= -->
-  <!-- YOUR ASSETS (bottom left, outside frame)  -->
-  <!-- ========================================= -->
-  <circle cx="1215" cy="565" r="18" fill="#f0f2f5" stroke="#7b8c9d" stroke-width="1.5"/>
-  <use href="#iconAssets" x="1202" y="552" width="26" height="26"/>
-  <text x="1215" y="600" text-anchor="middle" font-size="11" font-weight="600" fill="#364049">Your assets</text>
-  <text x="1215" y="615" text-anchor="middle" font-size="9" font-weight="400" fill="#7b8c9d">Models, data,</text>
-  <text x="1215" y="628" text-anchor="middle" font-size="9" font-weight="400" fill="#7b8c9d">files, code, MCPs</text>
-
-  <!-- Dotted arrow: Your assets → AssetServing -->
-  <line x1="1192" y1="565" x2="1054" y2="565" stroke="#7b8c9d" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrowGray)"/>
-
-  <!-- ========================================= -->
-  <!-- OBSERVABILITY LAYER                       -->
-  <!-- ========================================= -->
-  <rect x="390" y="587" width="660" height="55" rx="12" fill="#fff8e6" stroke="#f4c95d" stroke-width="1.5" filter="url(#softShadow)"/>
-  <use href="#iconObservability" x="408" y="600" width="28" height="28"/>
-  <text x="448" y="610" font-size="12" font-weight="700" fill="#364049">Observability</text>
-  <text x="448" y="627" font-size="11" font-weight="400" fill="#364049">Trace, debug, and monitor agent and model performance in production</text>
-
+  <g font-size="13" fill="#090909">
+    <rect x="470" y="571" width="120" height="40" rx="20" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.14"/>
+    <text x="530" y="596" text-anchor="middle">Cloud</text>
+    <rect x="602" y="571" width="130" height="40" rx="20" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.14"/>
+    <text x="667" y="596" text-anchor="middle">On-Prem</text>
+    <rect x="744" y="571" width="110" height="40" rx="20" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.14"/>
+    <text x="799" y="596" text-anchor="middle">Edge</text>
+    <rect x="866" y="571" width="150" height="40" rx="20" fill="#FFFFFF" stroke="#090909" stroke-opacity="0.14"/>
+    <text x="941" y="596" text-anchor="middle">Air-gapped</text>
+  </g>
 </svg>
