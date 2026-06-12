@@ -20,6 +20,8 @@ _The fastest way to ship managed, multi-agent systems with guardrails built in �
 
 aixplain is the operating system for autonomous AI — **multi-agent orchestration and runtime governance across cloud, on-prem, edge, and fully air-gapped environments**. It spans the full lifecycle — **development → evaluation → deployment → monitoring → evolution** — so you ship faster instead of stitching tools together. Agents plan, call models and tools, run code, and adapt at runtime, with **agents-in-the-loop** governance enforced on every execution.
 
+Built on three principles of control: **your data** stays in your perimeter (on-prem and air-gapped), **your cost** is one key and one bill, pay as you go, and **your independence** holds across any model, any infrastructure, with no lock-in.
+
 **Build any kind of agent on one runtime** — knowledge (RAG), data, custom-logic, integration, and team agents — with built-in memory, multimodality, and file handling.
 
 Develop your way — **SDK, API, CLI, and MCP** environments all run on the same runtime layer, backed by an integrated marketplace of **900+ AI models, tools, and integrations from 70+ vendors** (OpenAI, Anthropic, Gemini, Firecrawl, Tavily, SerpAPI, a code-execution sandbox, and more). **One API key, one bill**, pay as you go — no per-vendor keys or contracts.
