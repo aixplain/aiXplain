@@ -47,7 +47,7 @@ Less to build, less to operate:
 Agentic OS is the portable runtime platform behind aixplain agents — orchestration, governed asset serving, and observability across Cloud (instant), on-prem, edge, and air-gapped deployments. See the [documentation](https://docs.aixplain.com) for the full architecture.
 
 <p align="center">
-  <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aixplain Agentic OS architecture — governed execution loop (Planner, Orchestrator, Inspector, Bodyguard) over the kernel services, deployable on cloud, on-prem, edge, and air-gapped" width="100%">
+  <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aixplain Agentic OS architecture — governed execution loop (Planner, Orchestrator, Inspector, Bodyguard) over the infrastructure services, deployable on cloud, on-prem, edge, and air-gapped" width="100%">
 </p>
 
 ---

@@ -96,8 +96,8 @@
   <path d="M700 426 C760 392, 820 372, 845 312" fill="none" stroke="#818181" stroke-width="1.3" stroke-dasharray="4 4" marker-end="url(#arrGray)"/>
   <text x="1140" y="388" text-anchor="end" font-size="12" fill="#818181"><tspan font-weight="600" fill="#364049">Evolver</tspan> — improves agents from production</text>
 
-  <!-- ===== kernel services ===== -->
-  <text x="60" y="404" font-family="'JetBrains Mono',ui-monospace,Menlo,monospace" font-size="11" letter-spacing="1.5" fill="#818181">RUNS ON THE KERNEL</text>
+  <!-- ===== infrastructure services ===== -->
+  <text x="60" y="404" font-family="'JetBrains Mono',ui-monospace,Menlo,monospace" font-size="11" letter-spacing="1.5" fill="#818181">RUNS ON THE INFRASTRUCTURE</text>
 
   <!-- 6 cards: x 60,240,420,600,780,960 ; w 165 ; y 418 h 80 -->
   <g font-size="9.5">
