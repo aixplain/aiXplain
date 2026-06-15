@@ -274,6 +274,42 @@ class TestDataPlane:
         with pytest.raises(Exception):
             idx.count()
 
+    def test_count_async_zero_does_not_crash(self):
+        """A zero count via the async-poll path must return 0, not raise on int({})."""
+        ctx = _ctx()
+        ctx.client.request = Mock(return_value={"status": "IN_PROGRESS", "data": "https://poll.test/c"})
+        # poll() coerces falsy data to {}; backfill from raw must restore 0.
+        ctx.client.get = Mock(return_value={"status": "SUCCESS", "completed": True, "data": 0})
+        idx = _index(ctx)
+
+        assert idx.count(timeout=5) == 0
+
+    def test_search_async_preserves_details(self):
+        """Structured `details` must survive the async-poll path (poll() drops them)."""
+        ctx = _ctx()
+        ctx.client.request = Mock(return_value={"status": "IN_PROGRESS", "data": "https://poll.test/s"})
+        ctx.client.get = Mock(
+            return_value={
+                "status": "SUCCESS",
+                "completed": True,
+                "data": "top match",
+                "details": [{"score": 0.9, "data": "top match"}],
+            }
+        )
+        idx = _index(ctx)
+
+        result = idx.search("q", timeout=5)
+        assert result.data == "top match"
+        assert result.details == [{"score": 0.9, "data": "top match"}]
+
+    def test_generic_run_disabled(self):
+        """Index.run()/run_async() must raise, not send a malformed payload."""
+        idx = _index()
+        with pytest.raises(NotImplementedError):
+            idx.run(query="x")
+        with pytest.raises(NotImplementedError):
+            idx.run_async(query="x")
+
 
 # ---------------------------------------------------------------------------
 # Control-plane

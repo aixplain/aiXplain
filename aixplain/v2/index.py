@@ -449,7 +449,35 @@ class Index(
         result = self.handle_run_response(response)
         if result.url and not result.completed:
             result = self.sync_poll(result.url, timeout=timeout, wait_time=wait_time)
+            # The generic poll() copies only a whitelist of response fields and
+            # coerces a falsy ``data`` to ``{}``. Restore the index-specific
+            # fields from the raw poll response so async results match sync ones
+            # (e.g. search ``details`` and a zero ``count``).
+            raw = getattr(result, "_raw_data", None)
+            if isinstance(raw, dict):
+                if "data" in raw:
+                    result.data = raw["data"]
+                if result.details is None:
+                    result.details = raw.get("details")
         return result
+
+    def run(self, *args: Any, **kwargs: Any) -> IndexResult:
+        """Disabled: use the typed data-plane methods instead.
+
+        ``Index`` reuses the run machinery internally but does not expose a
+        generic ``run()`` — a raw payload would bypass the action protocol.
+        """
+        raise NotImplementedError(
+            "Index does not support a generic run(). Use the typed data-plane methods: "
+            "search(), upsert(), count(), get_record(), delete_record(), "
+            "retrieve_records_with_filter(), delete_records_by_date()."
+        )
+
+    def run_async(self, *args: Any, **kwargs: Any) -> IndexResult:
+        """Disabled: use the typed data-plane methods instead."""
+        raise NotImplementedError(
+            "Index does not support run_async(). Use the typed data-plane methods instead."
+        )
 
     # ------------------------------------------------------------------
     # Control-plane
