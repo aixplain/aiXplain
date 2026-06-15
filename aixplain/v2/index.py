@@ -552,14 +552,14 @@ class Index(
             "q": query or "",
             "pageNumber": page_number,
             "pageSize": page_size,
-            "functions": [{"id": "search"}],
-            "sort": [{}],
+            "functions": ["search"],
         }
-        response = context.client.request("post", "v2/models/paginate", json=filters)
+        headers = {"Authorization": f"Token {context.api_key}"}
+        response = context.client.request("post", "sdk/models/paginate", json=filters, headers=headers)
 
-        items = response.get("results")
+        items = response.get("items")
         if items is None:
-            items = response.get("items", [])
+            items = response.get("results", [])
 
         results: List["Index"] = []
         for item in items:

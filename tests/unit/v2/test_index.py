@@ -330,7 +330,7 @@ class TestControlPlane:
         ctx = _ctx()
         ctx.client.request = Mock(
             return_value={
-                "results": [
+                "items": [
                     {"id": "a", "name": "alpha"},
                     {"id": "b", "name": "beta"},
                 ],
@@ -345,10 +345,11 @@ class TestControlPlane:
         names = [ix.name for ix in page]
         assert names == ["alpha", "beta"]
         assert all(isinstance(ix, Index) for ix in page)
-        # function filter is SEARCH and endpoint is the paginate endpoint
+        # function filter is SEARCH and endpoint is the proven paginate endpoint
         method, url = ctx.client.request.call_args[0]
-        assert (method, url) == ("post", "v2/models/paginate")
-        assert ctx.client.request.call_args.kwargs["json"]["functions"] == [{"id": "search"}]
+        assert (method, url) == ("post", "sdk/models/paginate")
+        assert ctx.client.request.call_args.kwargs["json"]["functions"] == ["search"]
+        assert ctx.client.request.call_args.kwargs["headers"]["Authorization"] == "Token test-key"
 
     def test_delete(self):
         ctx = _ctx()
