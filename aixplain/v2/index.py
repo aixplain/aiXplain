@@ -475,9 +475,7 @@ class Index(
 
     def run_async(self, *args: Any, **kwargs: Any) -> IndexResult:
         """Disabled: use the typed data-plane methods instead."""
-        raise NotImplementedError(
-            "Index does not support run_async(). Use the typed data-plane methods instead."
-        )
+        raise NotImplementedError("Index does not support run_async(). Use the typed data-plane methods instead.")
 
     # ------------------------------------------------------------------
     # Control-plane
@@ -729,9 +727,7 @@ class Index(
 
     def retrieve_records_with_filter(self, index_filter: IndexFilter, timeout: int = 300) -> IndexResult:
         """Retrieve records matching the given filter."""
-        return self._run_index_action(
-            {"action": "retrieve_by_filter", "data": index_filter.to_dict()}, timeout=timeout
-        )
+        return self._run_index_action({"action": "retrieve_by_filter", "data": index_filter.to_dict()}, timeout=timeout)
 
     def delete_records_by_date(self, date: float, timeout: int = 300) -> IndexResult:
         """Delete records matching the given date (timestamp)."""
