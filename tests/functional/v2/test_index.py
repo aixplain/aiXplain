@@ -19,7 +19,7 @@ from aixplain.v2.index import (
     IndexFilterOperator,
     Record,
 )
-from aixplain.v2.enums import EmbeddingModel, ResponseStatus
+from aixplain.v2.enums import DataType, EmbeddingModel, ResponseStatus
 
 
 def _unique_name(prefix: str) -> str:
@@ -176,6 +176,77 @@ def test_index_upsert_pdf_file_via_docling(client, index, tmp_path):
     assert any(
         kw in str(res.details).lower() for kw in ("photosynth", "chlorophyll", "glucose")
     )
+
+
+def _make_png(path, base_rgb, block_rgb, w=96, h=96):
+    """Write a valid PNG (solid base color with a contrasting centered block)."""
+    import struct
+    import zlib
+
+    rows = bytearray()
+    for y in range(h):
+        rows.append(0)  # filter type 0
+        for x in range(w):
+            in_block = (w // 4 <= x < 3 * w // 4) and (h // 4 <= y < 3 * h // 4)
+            r, g, b = block_rgb if in_block else base_rgb
+            rows += bytes((r, g, b))
+
+    def chunk(typ, data):
+        c = typ + data
+        return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+
+    png = b"\x89PNG\r\n\x1a\n"
+    png += chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+    png += chunk(b"IDAT", zlib.compress(bytes(rows), 9))
+    png += chunk(b"IEND", b"")
+    with open(path, "wb") as f:
+        f.write(png)
+    return str(path)
+
+
+def test_index_image_upsert_and_text_search(client, tmp_path):
+    """Multimodal index: upsert local image files, then query by text (CLIP cross-modal).
+
+    Covers the image data path end-to-end: local image files are uploaded and stored
+    as ``image`` records, and a text query searches the image vectors. (Image-*as-query*
+    search is intentionally not asserted — it is not currently accepted by the backend
+    and fails for the legacy SDK too.)
+    """
+    images = {
+        "img-red": _make_png(tmp_path / "red.png", (200, 30, 30), (255, 255, 255)),
+        "img-green": _make_png(tmp_path / "green.png", (30, 160, 60), (0, 0, 0)),
+        "img-blue": _make_png(tmp_path / "blue.png", (30, 60, 200), (255, 255, 0)),
+    }
+
+    index = client.Index.create(
+        params=AirParams(
+            name=_unique_name("eng3148-img"),
+            description="ENG-3148 image functional test",
+            embedding_model=EmbeddingModel.JINA_CLIP_V2_MULTIMODAL,
+        )
+    )
+    try:
+        up = index.upsert(
+            [Record(uri=path, value_type=DataType.IMAGE, id=rid, attributes={"id": rid}) for rid, path in images.items()]
+        )
+        assert up.status == ResponseStatus.SUCCESS
+        assert isinstance(up.data, list) and len(up.data) == 3
+        assert all(rec["dataType"] == "image" for rec in up.data)
+        assert all(rec["uri"] for rec in up.data)  # local files were uploaded to a link
+
+        count = _wait_until(index.count, lambda c: c and c >= 3)
+        assert count >= 3
+
+        res = _wait_until(
+            lambda: index.search("a mostly red picture", top_k=3),
+            lambda r: r.status == ResponseStatus.SUCCESS and r.details,
+        )
+        assert res.status == ResponseStatus.SUCCESS
+        assert isinstance(res.details, list) and len(res.details) > 0
+        # results reference the stored image records
+        assert any(isinstance(d, dict) and d.get("document") for d in res.details)
+    finally:
+        index.delete()
 
 
 def test_index_list_resolves_by_name(client, index):
