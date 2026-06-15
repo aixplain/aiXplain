@@ -1504,7 +1504,9 @@ class Agent(
         1. Get-or-create a Session carrying the supplied ``executionConfig``.
         2. POST a ``role="user"`` message via ``session.add_message`` — this
            triggers the agent run on the backend with the session's
-           ``executionConfig``.
+           ``executionConfig``. Any ``attachments`` / ``files`` passed to
+           ``run`` are forwarded onto the user message so the agent receives
+           them (uploaded and attached by ``add_message``).
         3. Pull the agent run's ``requestId`` off the user message and
            hand it to ``self.sync_poll`` (the legacy
            ``/sdk/agents/{request_id}/result`` endpoint), which returns a
@@ -1543,7 +1545,12 @@ class Agent(
                 run_response_generation=kwargs.get("run_response_generation"),
             )
 
-        user_msg = session.add_message(role="user", content=query)
+        user_msg = session.add_message(
+            role="user",
+            content=query,
+            attachments=kwargs.get("attachments"),
+            files=kwargs.get("files"),
+        )
         if not user_msg.request_id:
             raise ValueError(
                 f"Backend did not return a requestId on the user message for "

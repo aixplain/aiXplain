@@ -180,6 +180,43 @@ class TestRunViaSessionReuse:
         assert "/sdk/agents/req_reuse/result" in get_call[0][0]
         assert result.session_id == "sess_abc"
 
+    def test_forwards_attachments_and_files_to_user_message(self):
+        ctx = _make_mock_context()
+
+        existing = Mock(spec=Session)
+        existing.id = "sess_att"
+        existing.add_message = Mock(return_value=_user_message(request_id="req_att"))
+
+        ctx.Session = Mock()
+        ctx.Session.get = Mock(return_value=existing)
+        ctx.client.get.return_value = {
+            "status": "SUCCESS",
+            "completed": True,
+            "data": {"output": "ok", "session_id": "sess_att", "steps": []},
+            "sessionId": "sess_att",
+            "requestId": "req_att",
+            "usedCredits": 0.0,
+            "runTime": 0.5,
+        }
+
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A")
+        agent._update_saved_state()
+
+        attachments = [{"url": "https://s3/a.png", "type": "image"}]
+        files = ["/tmp/report.pdf"]
+        agent.run(
+            "describe these",
+            via_session=True,
+            session_id="sess_att",
+            attachments=attachments,
+            files=files,
+        )
+
+        _, kwargs = existing.add_message.call_args
+        assert kwargs["attachments"] == attachments
+        assert kwargs["files"] == files
+
 
 # ---------------------------------------------------------------------------
 # 3. Missing requestId on the user message → ValueError (defensive)
