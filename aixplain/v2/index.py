@@ -407,9 +407,9 @@ class Index(
 
     # Index-specific informational fields (populated from the model metadata).
     version: Optional[Any] = None
-    embedding_model: Optional[str] = field(default=None, metadata=config(field_name="embedding_model"))
-    embedding_size: Optional[int] = field(default=None, metadata=config(field_name="embedding_size"))
-    collection_type: Optional[str] = field(default=None, metadata=config(field_name="collection_type"))
+    embedding_model: Optional[str] = None
+    embedding_size: Optional[int] = None
+    collection_type: Optional[str] = None
 
     # -- enum / type re-exports for convenient access via the resource --------
     EmbeddingModel = EmbeddingModel
