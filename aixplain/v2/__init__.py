@@ -5,6 +5,20 @@ from .rlm import RLM, RLMResult
 from .utility import Utility
 from .agent import Agent, ContextOverflowStrategy
 from .tool import Tool
+from .index import (
+    Index,
+    IndexResult,
+    Record,
+    IndexFilter,
+    IndexFilterOperator,
+    Splitter,
+    BaseIndexParams,
+    BaseIndexParamsWithEmbeddingModel,
+    AirParams,
+    VectaraParams,
+    GraphRAGParams,
+    ZeroEntropyParams,
+)
 from .actions import Input, Inputs, Action, Actions
 from .file import Resource
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
@@ -51,6 +65,9 @@ from .enums import (
     EvolveType,
     CodeInterpreterModel,
     SplittingOptions,
+    DataType,
+    EmbeddingModel,
+    IndexStores,
 )
 
 __all__ = [
@@ -61,6 +78,19 @@ __all__ = [
     "Agent",
     "ContextOverflowStrategy",
     "Tool",
+    # Index resource + types
+    "Index",
+    "IndexResult",
+    "Record",
+    "IndexFilter",
+    "IndexFilterOperator",
+    "Splitter",
+    "BaseIndexParams",
+    "BaseIndexParamsWithEmbeddingModel",
+    "AirParams",
+    "VectaraParams",
+    "GraphRAGParams",
+    "ZeroEntropyParams",
     "Resource",
     "FileUploader",
     "upload_file",
@@ -118,6 +148,9 @@ __all__ = [
     "EvolveType",
     "CodeInterpreterModel",
     "SplittingOptions",
+    "DataType",
+    "EmbeddingModel",
+    "IndexStores",
     # Actions / Inputs hierarchy
     "Input",
     "Inputs",

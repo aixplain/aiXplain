@@ -247,6 +247,56 @@ class SplittingOptions(str, Enum):
     LINE = "line"
 
 
+class EmbeddingModel(str, Enum):
+    """Enumeration of available embedding models in the aiXplain system.
+
+    Each member's value is the aiXplain model ID used to generate vector
+    representations of data when creating an index.
+
+    Attributes:
+        OPENAI_ADA002: OpenAI's Ada-002 text embedding model ID.
+        JINA_CLIP_V2_MULTIMODAL: Jina CLIP v2 multimodal embedding model ID.
+        MULTILINGUAL_E5_LARGE: Multilingual E5 Large text embedding model ID.
+        BGE_M3: BGE-M3 embedding model ID.
+    """
+
+    OPENAI_ADA002 = "6734c55df127847059324d9e"
+    JINA_CLIP_V2_MULTIMODAL = "67c5f705d8f6a65d6f74d732"
+    MULTILINGUAL_E5_LARGE = "67efd0772a0a850afa045af3"
+    BGE_M3 = "67efd4f92a0a850afa045af7"
+
+    def __str__(self) -> str:
+        """Return the embedding model ID as a string."""
+        return self._value_
+
+
+class IndexStores(Enum):
+    """Enumeration of available index store providers in the aiXplain system.
+
+    Each member holds the provider ``name`` and the aiXplain ``id`` of the
+    store model used to create collections of that type.
+
+    Attributes:
+        AIR: aiXplain Index and Retrieval store.
+        VECTARA: Vectara store.
+        GRAPHRAG: Graph-based RAG store.
+        ZERO_ENTROPY: Zero Entropy store.
+    """
+
+    AIR = {"name": "air", "id": "66eae6656eb56311f2595011"}
+    VECTARA = {"name": "vectara", "id": "655e20f46eb563062a1aa301"}
+    GRAPHRAG = {"name": "graphrag", "id": "67dd6d487cbf0a57cf4b72f3"}
+    ZERO_ENTROPY = {"name": "zeroentropy", "id": "6807949168e47e7844c1f0c5"}
+
+    def __str__(self) -> str:
+        """Return the index store name."""
+        return self.value["name"]
+
+    def get_model_id(self) -> str:
+        """Return the aiXplain model ID of the index store."""
+        return self.value["id"]
+
+
 __all__ = [
     "AuthenticationScheme",
     "FileType",
@@ -268,4 +318,6 @@ __all__ = [
     "CodeInterpreterModel",
     "DataType",
     "SplittingOptions",
+    "EmbeddingModel",
+    "IndexStores",
 ]

@@ -10,6 +10,7 @@ from .agent import Agent
 from .utility import Utility
 from .tool import Tool
 from .integration import Integration
+from .index import Index
 from .file import Resource
 from .inspector import Inspector
 from .meta_agents import Debugger
@@ -23,6 +24,7 @@ AgentType = TypeVar("AgentType", bound=Agent)
 UtilityType = TypeVar("UtilityType", bound=Utility)
 ToolType = TypeVar("ToolType", bound=Tool)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
+IndexType = TypeVar("IndexType", bound=Index)
 ResourceType = TypeVar("ResourceType", bound=Resource)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
 DebuggerType = TypeVar("DebuggerType", bound=Debugger)
@@ -48,6 +50,7 @@ class Aixplain:
     Utility: UtilityType = None
     Tool: ToolType = None
     Integration: IntegrationType = None
+    Index: IndexType = None
     Resource: ResourceType = None
     Inspector: InspectorType = None
     Debugger: DebuggerType = None
@@ -58,6 +61,8 @@ class Aixplain:
     Supplier = enums.Supplier
     Language = enums.Language
     License = enums.License
+    EmbeddingModel = enums.EmbeddingModel
+    IndexStores = enums.IndexStores
 
     AssetStatus = enums.AssetStatus
     ErrorHandler = enums.ErrorHandler
@@ -128,6 +133,7 @@ class Aixplain:
         self.Utility = type("Utility", (Utility,), {"context": self})
         self.Tool = type("Tool", (Tool,), {"context": self})
         self.Integration = type("Integration", (Integration,), {"context": self})
+        self.Index = type("Index", (Index,), {"context": self})
         self.Resource = type("Resource", (Resource,), {"context": self})
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
         self.Debugger = type("Debugger", (Debugger,), {"context": self})
