@@ -105,6 +105,79 @@ def test_index_data_plane_lifecycle(client, index):
     assert deleted.status == ResponseStatus.SUCCESS
 
 
+def _make_minimal_pdf(lines) -> bytes:
+    """Build a tiny but valid single-page PDF (with /MediaBox) from text lines."""
+    text = b"BT /F1 18 Tf 72 720 Td "
+    text += b" ".join(b"(" + line.encode() + b") Tj 0 -26 Td" for line in lines)
+    text += b" ET"
+    objs = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+        b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+        b"<< /Length " + str(len(text)).encode() + b" >>\nstream\n" + text + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    pdf = b"%PDF-1.4\n"
+    offsets = []
+    for i, obj in enumerate(objs, start=1):
+        offsets.append(len(pdf))
+        pdf += str(i).encode() + b" 0 obj\n" + obj + b"\nendobj\n"
+    xref_pos = len(pdf)
+    pdf += b"xref\n0 " + str(len(objs) + 1).encode() + b"\n0000000000 65535 f \n"
+    for off in offsets:
+        pdf += ("%010d 00000 n \n" % off).encode()
+    pdf += b"trailer\n<< /Size " + str(len(objs) + 1).encode() + b" /Root 1 0 R >>\nstartxref\n"
+    pdf += str(xref_pos).encode() + b"\n%%EOF"
+    return pdf
+
+
+def test_index_upsert_txt_file(client, index, tmp_path):
+    """upsert(path) ingests a .txt file via the client-side plain-read path."""
+    f = tmp_path / "quokka.txt"
+    f.write_text("The quokka is a small marsupial native to Western Australia.")
+
+    up = index.upsert(str(f))
+    assert up.status == ResponseStatus.SUCCESS
+    assert isinstance(up.data, list) and len(up.data) == 1
+    assert "quokka" in up.data[0]["data"].lower()
+
+    _wait_until(index.count, lambda c: c and c >= 1)
+    res = _wait_until(
+        lambda: index.search("where do quokkas live", top_k=2),
+        lambda r: r.status == ResponseStatus.SUCCESS and r.details,
+    )
+    assert res.details and "quokka" in str(res.details).lower()
+
+
+def test_index_upsert_pdf_file_via_docling(client, index, tmp_path):
+    """upsert(path) ingests a .pdf by uploading and parsing it server-side (Docling)."""
+    f = tmp_path / "photosynthesis.pdf"
+    f.write_bytes(
+        _make_minimal_pdf(
+            [
+                "Photosynthesis converts sunlight into chemical energy.",
+                "Chlorophyll absorbs light and plants produce glucose and oxygen.",
+            ]
+        )
+    )
+
+    up = index.upsert(str(f))
+    assert up.status == ResponseStatus.SUCCESS
+    assert isinstance(up.data, list) and len(up.data) == 1
+    assert "photosynth" in up.data[0]["data"].lower()
+
+    _wait_until(index.count, lambda c: c and c >= 1)
+    res = _wait_until(
+        lambda: index.search("how do plants make energy from sunlight", top_k=2),
+        lambda r: r.status == ResponseStatus.SUCCESS and r.details,
+    )
+    assert res.details
+    assert any(
+        kw in str(res.details).lower() for kw in ("photosynth", "chlorophyll", "glucose")
+    )
+
+
 def test_index_list_resolves_by_name(client, index):
     """list() returns Index instances and resolves the collection by name."""
     # Allow the freshly created index to propagate to the catalog.

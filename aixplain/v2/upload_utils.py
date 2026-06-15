@@ -188,15 +188,32 @@ class S3Uploader:
 
     @classmethod
     def construct_s3_url(cls, presigned_url: str, path: str) -> str:
-        """Construct S3 URL from pre-signed URL and path."""
-        # Extract bucket name from presigned URL
-        bucket_match = re.findall(r"https://(.*?).s3.amazonaws.com", presigned_url)
-        if bucket_match:
-            bucket_name = bucket_match[0]
-            return f"s3://{bucket_name}/{path}"
-        else:
-            # Fallback: use the path directly
-            return f"s3://aixplain-uploads/{path}"
+        """Construct an ``s3://`` URL from a pre-signed upload URL and object key.
+
+        Handles both S3 addressing styles (and regional hosts):
+
+        * virtual-hosted-style: ``https://<bucket>.s3[.<region>].amazonaws.com/<key>``
+        * path-style:           ``https://s3[.<region>].amazonaws.com/<bucket>/<key>``
+
+        The previous implementation only recognised virtual-hosted-style URLs and
+        silently fell back to a hardcoded ``aixplain-uploads`` bucket for anything
+        else (e.g. the path-style URLs returned by some backends), producing links
+        that point at the wrong bucket.
+        """
+        base = presigned_url.split("?", 1)[0]
+
+        # virtual-hosted-style: bucket is the label before ".s3"
+        vh = re.match(r"https?://([^/.]+)\.s3[^/]*\.amazonaws\.com", base)
+        if vh:
+            return f"s3://{vh.group(1)}/{path}"
+
+        # path-style: bucket is the first path segment after the host
+        ps = re.match(r"https?://s3[^/]*\.amazonaws\.com/([^/?]+)", base)
+        if ps:
+            return f"s3://{ps.group(1)}/{path}"
+
+        # Fallback: use the path directly
+        return f"s3://aixplain-uploads/{path}"
 
 
 class ConfigManager:
