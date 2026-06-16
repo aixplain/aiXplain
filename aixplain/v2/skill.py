@@ -347,4 +347,4 @@ class Skill(
             api_key=self.context.client.team_api_key,
             backend_url=self.context.backend_url,
         )
-        return uploader.upload(file_path, is_temp=False, return_download_link=True)
+        return uploader.upload(file_path, is_temp=True, return_download_link=True)
