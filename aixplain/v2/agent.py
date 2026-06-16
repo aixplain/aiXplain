@@ -1362,6 +1362,43 @@ class Agent(
         self._apply_llm_fields_to_run_payload(payload)
         return payload
 
+    def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
+        """Generate a session ID for agent conversations.
+
+        .. deprecated::
+            Use :meth:`create_session` instead, which returns a full
+            backend-managed :class:`~aixplain.v2.session.Session` object.
+            This method is a thin backward-compatible shim that delegates
+            to ``create_session`` and returns only the new session's ID.
+            It will be removed in a future release.
+
+        Args:
+            history: Optional conversation history to seed the session with.
+                Each message must have 'role' and 'content' keys.
+
+        Returns:
+            str: The ID of the newly created backend-managed session.
+
+        Raises:
+            ValueError: If the history format is invalid.
+        """
+        warnings.warn(
+            "generate_session_id() is deprecated and will be removed in a "
+            "future release. Use create_session() instead, which returns a "
+            "backend-managed Session object.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        # Preserve the legacy auto-save behavior: callers relied on this
+        # method persisting an unsaved agent for them. create_session()
+        # itself requires a saved agent and would otherwise raise.
+        if not self.id:
+            self.save(as_draft=True)
+
+        session = self.create_session(history=history)
+        return session.id
+
     def create_session(
         self,
         name: Optional[str] = None,
@@ -1488,6 +1525,60 @@ class Agent(
 
         return None
 
+    @staticmethod
+    def _apply_run_overrides_to_session(session: "Session", kwargs: Dict[str, Any]) -> None:
+        """Apply per-run execution overrides onto a reused session.
+
+        When a caller reuses an existing ``session_id`` but also passes
+        per-run execution kwargs (``execution_params`` / ``criteria`` /
+        ``evolve`` / ``identifier`` / ``run_response_generation``), those
+        overrides would otherwise be silently dropped — the run would
+        execute with whatever ``executionConfig`` the session was created
+        with. Here we merge the supplied overrides onto the session's
+        stored config (fields not overridden are preserved) and, when the
+        result differs from what's stored, persist it so the overrides
+        take effect.
+
+        We warn because this mutates the session's ``executionConfig`` for
+        every subsequent message in the session, not just this run.
+        """
+        from .session import ExecutionConfig
+
+        overrides = {
+            "execution_params": kwargs.get("execution_params"),
+            "criteria": kwargs.get("criteria"),
+            "evolve": kwargs.get("evolve"),
+            "identifier": kwargs.get("identifier"),
+            "run_response_generation": kwargs.get("run_response_generation"),
+        }
+        provided = {key: value for key, value in overrides.items() if value is not None}
+        if not provided:
+            return
+
+        current = session.execution_config
+        base = {
+            "execution_params": getattr(current, "execution_params", None),
+            "criteria": getattr(current, "criteria", None),
+            "evolve": getattr(current, "evolve", None),
+            "identifier": getattr(current, "identifier", None),
+            "run_response_generation": getattr(current, "run_response_generation", None),
+        }
+        merged = ExecutionConfig(**{**base, **provided})
+
+        if current is not None and merged.to_api_dict() == current.to_api_dict():
+            return
+
+        warnings.warn(
+            f"Per-run execution overrides ({', '.join(sorted(provided))}) were "
+            f"passed alongside an existing session_id '{session.id}'. Updating "
+            f"the session's stored executionConfig so the overrides take effect; "
+            f"this also applies to every subsequent message in this session.",
+            UserWarning,
+            stacklevel=3,
+        )
+        session.execution_config = merged
+        session.save()
+
     _LEGACY_ONLY_RUN_KWARGS: ClassVar[tuple] = (
         "tasks",
         "prompt",
@@ -1536,6 +1627,7 @@ class Agent(
         session_id = kwargs.get("session_id")
         if session_id:
             session = self.context.Session.get(session_id)
+            self._apply_run_overrides_to_session(session, kwargs)
         else:
             session = self.create_session(
                 execution_params=kwargs.get("execution_params"),

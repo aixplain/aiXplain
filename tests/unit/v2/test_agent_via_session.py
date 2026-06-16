@@ -180,6 +180,114 @@ class TestRunViaSessionReuse:
         assert "/sdk/agents/req_reuse/result" in get_call[0][0]
         assert result.session_id == "sess_abc"
 
+    def test_reused_session_applies_per_run_overrides_and_warns(self):
+        """Per-run execution kwargs on a reused session_id must take effect.
+
+        They are merged onto the session's stored executionConfig and the
+        session is re-saved, with a warning that the config is mutated for
+        all subsequent messages.
+        """
+        ctx = _make_mock_context()
+
+        existing = Mock(spec=Session)
+        existing.id = "sess_abc"
+        existing.execution_config = ExecutionConfig(execution_params={"max_tokens": 64})
+        existing.save = Mock()
+        existing.add_message = Mock(return_value=_user_message(request_id="req_override"))
+
+        ctx.Session = Mock()
+        ctx.Session.get = Mock(return_value=existing)
+        ctx.client.get.return_value = {
+            "status": "SUCCESS",
+            "completed": True,
+            "data": {"output": "ok", "session_id": "sess_abc", "steps": []},
+            "sessionId": "sess_abc",
+            "requestId": "req_override",
+            "usedCredits": 0.0,
+            "runTime": 0.5,
+        }
+
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A")
+        agent._update_saved_state()
+
+        with pytest.warns(UserWarning, match="existing session_id"):
+            agent.run(
+                "hi again",
+                via_session=True,
+                session_id="sess_abc",
+                criteria="be brief",
+            )
+
+        # The session's stored config was updated: existing field preserved,
+        # the override merged in, and the session re-saved before the message.
+        existing.save.assert_called_once()
+        assert existing.execution_config.execution_params == {"max_tokens": 64}
+        assert existing.execution_config.criteria == "be brief"
+        existing.add_message.assert_called_once()
+
+    def test_reused_session_without_overrides_does_not_resave(self):
+        ctx = _make_mock_context()
+
+        existing = Mock(spec=Session)
+        existing.id = "sess_abc"
+        existing.execution_config = ExecutionConfig(criteria="be brief")
+        existing.save = Mock()
+        existing.add_message = Mock(return_value=_user_message(request_id="req_noop"))
+
+        ctx.Session = Mock()
+        ctx.Session.get = Mock(return_value=existing)
+        ctx.client.get.return_value = {
+            "status": "SUCCESS",
+            "completed": True,
+            "data": {"output": "ok", "session_id": "sess_abc", "steps": []},
+            "sessionId": "sess_abc",
+            "requestId": "req_noop",
+            "usedCredits": 0.0,
+            "runTime": 0.5,
+        }
+
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A")
+        agent._update_saved_state()
+
+        # No override kwargs → session config is left untouched, no re-save.
+        agent.run("hi again", via_session=True, session_id="sess_abc")
+        existing.save.assert_not_called()
+
+    def test_reused_session_matching_overrides_does_not_resave(self):
+        ctx = _make_mock_context()
+
+        existing = Mock(spec=Session)
+        existing.id = "sess_abc"
+        existing.execution_config = ExecutionConfig(criteria="be brief")
+        existing.save = Mock()
+        existing.add_message = Mock(return_value=_user_message(request_id="req_same"))
+
+        ctx.Session = Mock()
+        ctx.Session.get = Mock(return_value=existing)
+        ctx.client.get.return_value = {
+            "status": "SUCCESS",
+            "completed": True,
+            "data": {"output": "ok", "session_id": "sess_abc", "steps": []},
+            "sessionId": "sess_abc",
+            "requestId": "req_same",
+            "usedCredits": 0.0,
+            "runTime": 0.5,
+        }
+
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A")
+        agent._update_saved_state()
+
+        # Override equals stored config → no mutation, no re-save, no warning.
+        import warnings as _warnings
+
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error")
+            agent.run("hi again", via_session=True, session_id="sess_abc", criteria="be brief")
+        existing.save.assert_not_called()
+
     def test_forwards_attachments_and_files_to_user_message(self):
         ctx = _make_mock_context()
 
@@ -325,3 +433,47 @@ class TestDefaultPathUnchanged:
         assert result.status == "SUCCESS"
         assert result.data.output == "legacy reply"
         assert result.used_credits == 0.5
+
+
+# ---------------------------------------------------------------------------
+# 7. generate_session_id() is a deprecated shim over create_session()
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateSessionIdDeprecationShim:
+    def test_warns_and_delegates_to_create_session(self):
+        ctx = _make_mock_context()
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A")
+        agent._update_saved_state()
+
+        created = Mock(spec=Session)
+        created.id = "sess_shim"
+
+        with patch.object(BoundAgent, "create_session", return_value=created) as create_mock:
+            with pytest.warns(DeprecationWarning, match="create_session"):
+                session_id = agent.generate_session_id()
+
+        assert session_id == "sess_shim"
+        create_mock.assert_called_once()
+
+    def test_auto_saves_unsaved_agent_before_creating_session(self):
+        """Preserves the legacy behavior of persisting an unsaved agent."""
+        ctx = _make_mock_context()
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(name="A")  # no id → unsaved
+
+        created = Mock(spec=Session)
+        created.id = "sess_shim"
+
+        def fake_save(self, *a, **kw):
+            self.id = "agent_saved"
+            return self
+
+        with patch.object(BoundAgent, "save", fake_save):
+            with patch.object(BoundAgent, "create_session", return_value=created):
+                with pytest.warns(DeprecationWarning):
+                    session_id = agent.generate_session_id()
+
+        assert agent.id == "agent_saved"
+        assert session_id == "sess_shim"
