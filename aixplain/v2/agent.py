@@ -1274,6 +1274,26 @@ class Agent(
                 converted_agents.append({"id": agent_id, "inspectors": []})
             payload["agents"] = converted_agents
 
+        # Convert skills to API format. Skills follow the same wire design as
+        # tools: each is sent as an object (via as_tool()), never a bare id.
+        if getattr(self, "_original_skills", None):
+            converted_skills = []
+            for skill in self._original_skills:
+                if isinstance(skill, ToolableMixin):
+                    skill_dict = skill.as_tool()
+                elif isinstance(skill, dict):
+                    skill_dict = skill
+                elif isinstance(skill, str):
+                    skill_dict = {"id": skill, "type": "skill", "asset_id": skill}
+                else:
+                    raise ValueError("A skill must be a Skill instance, a dict, or a skill id string.")
+                if not skill_dict.get("id"):
+                    raise ValueError("All skills must be saved before saving the agent.")
+                converted_skills.append(self._normalize_tool_dict_for_api(skill_dict))
+            payload["skills"] = converted_skills
+        else:
+            payload.pop("skills", None)
+
         # Handle BaseModel expected_output for save operation
         # We don't send expected_output in the save payload - it's runtime-only
         if "expectedOutput" in payload:

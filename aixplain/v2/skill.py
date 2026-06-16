@@ -36,6 +36,7 @@ from .resource import (
     Page,
 )
 from .enums import Privacy
+from .mixins import ToolableMixin
 from .upload_utils import FileUploader
 
 
@@ -118,6 +119,7 @@ class Skill(
     SearchResourceMixin[SkillSearchParams, "Skill"],
     GetResourceMixin[BaseGetParams, "Skill"],
     DeleteResourceMixin[BaseDeleteParams, "Skill"],
+    ToolableMixin,
 ):
     """A curated bundle of files and folders. Not runnable.
 
@@ -170,6 +172,25 @@ class Skill(
     ) -> SkillNode:
         """Create a folder node."""
         return SkillNode(name=name, description=description, parent=parent, kind=FOLDER)
+
+    def as_tool(self) -> dict:
+        """Serialize this skill as a tool object for agent attachment.
+
+        Skills follow the same on-the-wire design as tools: they are attached to
+        an agent as objects (not bare ids), with ``type="skill"``.
+
+        Returns:
+            dict: ``{id, name, description, supplier, type, version, asset_id}``.
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description or "",
+            "supplier": "aixplain",
+            "type": "skill",
+            "version": None,
+            "asset_id": self.id,
+        }
 
     def __post_init__(self) -> None:
         """Normalize children and snapshot the synced node ids."""
