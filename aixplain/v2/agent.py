@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from .enums import AssetStatus, ResponseStatus
 from .model import Model
+from .skill import Skill
 from .mixins import ToolableMixin
 from ..utils.user_info_utils import build_run_metadata
 
@@ -452,6 +453,10 @@ class Agent(
         metadata=config(exclude=lambda x: True),
     )
 
+    # Skills (knowledge bundles) attached to the agent — Skill objects or ids,
+    # the same way `tools` and `agents` are passed.
+    skills: Optional[List[Union[str, "Skill"]]] = field(default_factory=list, metadata=config(field_name="skills"))
+
     # Output and execution fields
     output_format: Optional[Union[str, OutputFormat]] = field(
         default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
@@ -515,6 +520,13 @@ class Agent(
         self._original_agents = list(self.agents)
         # Convert to IDs for serialization (to_dict), using None as placeholder for unsaved agents
         self.agents = [a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.agents]
+
+        # Skills behave exactly like agents: keep the originals to resolve ids
+        # at save time, and serialize as a list of ids.
+        self._original_skills = list(self.skills or [])
+        self.skills = [
+            s if isinstance(s, str) else s.get("id") if isinstance(s, dict) else s.id for s in (self.skills or [])
+        ]
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
@@ -824,6 +836,18 @@ class Agent(
                         agent_name = getattr(agent, "name", f"agent_{i}")
                         failed_components.append(("agent", agent_name, str(e)))
 
+        # Save skills
+        if getattr(self, "_original_skills", None):
+            for i, skill in enumerate(self._original_skills):
+                if isinstance(skill, (str, dict)):  # Already an ID
+                    continue
+                if hasattr(skill, "save") and hasattr(skill, "id") and not skill.id:
+                    try:
+                        skill.save()
+                    except Exception as e:
+                        skill_name = getattr(skill, "name", f"skill_{i}")
+                        failed_components.append(("skill", skill_name, str(e)))
+
         if failed_components:
             error_details = "; ".join(
                 [f"{comp_type} '{name}': {error}" for comp_type, name, error in failed_components]
@@ -848,6 +872,15 @@ class Agent(
                 if hasattr(agent, "id") and not agent.id:
                     agent_name = getattr(agent, "name", "unnamed")
                     unsaved_components.append(f"agent '{agent_name}'")
+
+        # Check skills
+        if getattr(self, "_original_skills", None):
+            for skill in self._original_skills:
+                if isinstance(skill, (str, dict)):  # Already an ID
+                    continue
+                if hasattr(skill, "id") and not skill.id:
+                    skill_name = getattr(skill, "name", "unnamed")
+                    unsaved_components.append(f"skill '{skill_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -876,6 +909,15 @@ class Agent(
                 if hasattr(agent, "id") and not agent.id:
                     agent_name = getattr(agent, "name", "unnamed")
                     unsaved_components.append(f"agent '{agent_name}'")
+
+        # Check skills
+        if getattr(self, "_original_skills", None):
+            for skill in self._original_skills:
+                if isinstance(skill, (str, dict)):  # Already an ID
+                    continue
+                if hasattr(skill, "id") and not skill.id:
+                    skill_name = getattr(skill, "name", "unnamed")
+                    unsaved_components.append(f"skill '{skill_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
