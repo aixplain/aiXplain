@@ -1324,6 +1324,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                     "status": response.get("status", "IN_PROGRESS"),
                     "url": response["data"],
                     "completed": False,
+                    "requestId": response.get("requestId"),
                 }
             )
         elif response.get("status") == "IN_PROGRESS" and response.get("data"):
@@ -1334,6 +1335,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                     "status": response["status"],
                     "url": response["data"],
                     "completed": False,
+                    "requestId": response.get("requestId"),
                 }
             )
         else:
@@ -1417,7 +1419,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             try:
                 result = self._post_and_handle_run(**kwargs)
                 if result.url and not result.completed:
+                    request_id = getattr(result, "request_id", None)
                     result = self.sync_poll(result.url, **kwargs)
+                    if request_id is not None and hasattr(result, "request_id") and not result.request_id:
+                        result.request_id = request_id
                 return self._apply_after_run(result, **kwargs)
             except APIError as e:
                 if not self._is_retryable_run_error(e) or attempt >= run_retries:
