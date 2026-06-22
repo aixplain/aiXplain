@@ -830,8 +830,46 @@ class Agent(
         # Validate that all dependencies are saved before proceeding
         self._validate_dependencies()
 
+        # Capture names before save because the backend response can rebuild self.tools without Integration objects.
+        unconnected_integration_names = self._get_unconnected_integration_names()
+
         # Call the parent save method
-        return super().save(*args, **kwargs)
+        saved_agent = super().save(*args, **kwargs)
+        self._warn_for_unconnected_integrations(unconnected_integration_names)
+        return saved_agent
+
+    def _warn_for_unconnected_integrations(self, integration_names: Optional[List[str]] = None) -> None:
+        """Warn when an agent is saved with integration definitions that need connection."""
+        if integration_names is None:
+            integration_names = self._get_unconnected_integration_names()
+        if not integration_names or not self.id:
+            return
+
+        schema_url = f"https://studio.aixplain.com/build/{self.id}/schema"
+        for integration_name in integration_names:
+            warnings.warn(
+                f"Warning: Integration '{integration_name}' is not connected. "
+                f"Connect your unconnected integrations here: {schema_url}",
+                UserWarning,
+                stacklevel=2,
+            )
+
+    def _get_unconnected_integration_names(self) -> List[str]:
+        """Return unique names for Integration objects used directly as tools."""
+        from .integration import Integration
+
+        if not self.tools:
+            return []
+
+        names = []
+        seen = set()
+        for tool in self.tools:
+            if isinstance(tool, Integration):
+                integration_name = tool.name or tool.id
+                if integration_name and integration_name not in seen:
+                    names.append(integration_name)
+                    seen.add(integration_name)
+        return names
 
     def _save_subcomponents(self) -> None:
         """Recursively save all unsaved child components."""
