@@ -186,7 +186,9 @@ def _is_inspector_step(step: dict) -> bool:
 
 def _is_inspector_abort_message(output: str) -> bool:
     normalized = output.lower()
-    return "inspector detected issues" in normalized or "check your input query and inspector configuration" in normalized
+    return (
+        "inspector detected issues" in normalized or "check your input query and inspector configuration" in normalized
+    )
 
 
 @pytest.fixture

@@ -52,6 +52,7 @@ from aixplain.modules.team_agent.evolver_response_data import EvolverResponseDat
 from aixplain.utils.convert_datatype_utils import normalize_expected_output
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
+from aixplain.utils.user_info_utils import build_run_metadata
 from aixplain.modules.model.llm_model import LLM
 from aixplain.modules.mixins import DeployableMixin
 from pydantic import BaseModel
@@ -282,6 +283,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 "query": "/",
                 "sessionId": session_id,
                 "history": history,
+                "metaData": build_run_metadata(),
                 "executionParams": {
                     "maxTokens": 2048,
                     "maxIterations": 30,
@@ -333,6 +335,21 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             normalized[normalized_key] = value
 
         return normalized
+
+    @staticmethod
+    def _extract_diagnostic_error_codes(resp: Dict, resp_data: Optional[Dict] = None) -> List[str]:
+        """Extract diagnostic error codes from poll responses in either casing."""
+        sources = []
+        if isinstance(resp_data, dict):
+            sources.append(resp_data)
+        if isinstance(resp, dict):
+            sources.append(resp)
+
+        for source in sources:
+            diagnostic_error_codes = source.get("diagnosticErrorCodes")
+            if diagnostic_error_codes:
+                return diagnostic_error_codes
+        return []
 
     def _format_team_progress(
         self,
@@ -619,6 +636,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             max_iterations (int, optional): maximum number of iterations between the agents. Defaults to 30.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
             progress_verbosity (Optional[str], optional): Progress display mode - "full" (detailed), "compact" (brief), or None (no progress). Defaults to "compact".
+            context_overflow_strategy (Optional[Union[ContextOverflowStrategy, Text]], optional):
+                Strategy for handling context window overflow. Defaults to None.
             **kwargs: Additional deprecated keyword arguments (output_format, expected_output).
 
         Returns:
@@ -677,6 +696,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             end = time.time()
             result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
             result_data = result.data or {}
+            diagnostic_error_codes = result.diagnostic_error_codes
             if result.status == ResponseStatus.FAILED:
                 return AgentResponse(
                     status=ResponseStatus.FAILED,
@@ -692,6 +712,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     ),
                     used_credits=result_data.get("usedCredits", 0.0),
                     run_time=result_data.get("runTime", end - start),
+                    diagnostic_error_codes=diagnostic_error_codes,
                 )
 
             return AgentResponse(
@@ -708,6 +729,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
                 run_time=result_data.get("runTime", end - start),
+                diagnostic_error_codes=diagnostic_error_codes,
             )
         except Exception as e:
             logging.error(f"Team Agent Run: Error in running for {name}: {e}")
@@ -751,6 +773,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             expected_output (Union[BaseModel, Text, dict], optional): expected output. Defaults to None.
             evolve (Union[Dict[str, Any], EvolveParam, None], optional): evolve the team agent configuration. Can be a dictionary, EvolveParam instance, or None.
             trace_request (bool, optional): return the request id for tracing the request. Defaults to False.
+            context_overflow_strategy (Optional[Union[ContextOverflowStrategy, Text]], optional):
+                Strategy for handling context window overflow. Defaults to None.
 
         Returns:
             AgentResponse: polling URL in response
@@ -829,6 +853,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             "query": input_data,
             "sessionId": session_id,
             "history": history,
+            "metaData": build_run_metadata(),
             "executionParams": {
                 "maxTokens": (parameters["max_tokens"] if "max_tokens" in parameters else max_tokens),
                 "maxIterations": (parameters["max_iterations"] if "max_iterations" in parameters else max_iterations),
@@ -879,6 +904,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             AgentResponse: Response containing status, data, and progress information.
         """
         used_credits, run_time = 0.0, 0.0
+        diagnostic_error_codes = []
         resp, error_message, status = None, None, ResponseStatus.SUCCESS
         headers = {"x-api-key": self.api_key, "Content-Type": "application/json"}
         r = _request_with_retry("get", poll_url, headers=headers)
@@ -894,6 +920,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             logging.debug(f"Single Poll for Team Agent: Status of polling for {name}: {resp}")
 
             resp_data = resp.get("data") or {}
+            diagnostic_error_codes = self._extract_diagnostic_error_codes(resp, resp_data)
             used_credits = resp_data.get("usedCredits", 0.0)
             run_time = resp_data.get("runTime", 0.0)
             evolve_type = resp_data.get("evolve_type", EvolveType.TEAM_TUNING.value)
@@ -940,6 +967,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 usage=resp.get("usage", None),
                 error_message=error_message,
                 progress=progress_data,
+                diagnostic_error_codes=diagnostic_error_codes,
             )
         return response
 

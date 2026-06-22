@@ -11,7 +11,15 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from aixplain.v2.enums import Function, ResponseStatus
-from aixplain.v2.model import Message, Model, ModelResponseStreamer, ModelResult, StreamChunk, Usage, find_function_by_id
+from aixplain.v2.model import (
+    Message,
+    Model,
+    ModelResponseStreamer,
+    ModelResult,
+    StreamChunk,
+    Usage,
+    find_function_by_id,
+)
 
 
 # =============================================================================
@@ -693,6 +701,35 @@ class TestModelIntegrationGaps:
         assert message.tool_calls[0]["function"]["name"] == "get_current_time"
         assert message.tool_calls[0]["function"]["arguments"] == '{"city":"Tokyo"}'
 
+    def test_guardrail_response_with_dict_details_deserializes(self):
+        """ModelResult parsing should tolerate a non-list ``details`` payload.
+
+        LLM models return ``details`` as a list of message Details, but utility
+        / guardrail models (e.g. the AWS Sensitive Information Guardrail) return
+        it as a plain dict ``{"action": ..., "text": ...}``.  The list-typed
+        field decoder used to iterate the dict's string keys and try to decode
+        each as a ``Detail`` dataclass, raising
+        ``AttributeError: 'str' object has no attribute 'items'``.
+        """
+        guardrail_payload = {
+            "status": "SUCCESS",
+            "completed": True,
+            "details": {"action": "GUARDRAIL_INTERVENED", "text": "My phone number is {PHONE}"},
+            "data": {"action": "GUARDRAIL_INTERVENED", "text": "My phone number is {PHONE}"},
+            "runTime": 0.204,
+            "usedCredits": 6.4e-06,
+            "asset": {"assetId": "69cbf63cd74e334a6bacfeb1", "id": "aws/sensitive-information-guardrail/aws"},
+        }
+
+        result = ModelResult.from_dict(guardrail_payload)
+
+        # The guardrail's structured verdict must survive deserialization so
+        # callers can read the intervention action and the redacted text.
+        assert result.details == {"action": "GUARDRAIL_INTERVENED", "text": "My phone number is {PHONE}"}
+        assert result.data == {"action": "GUARDRAIL_INTERVENED", "text": "My phone number is {PHONE}"}
+        assert result.run_time == 0.204
+        assert result.used_credits == 6.4e-06
+
     def test_run_sync_v2_attaches_raw_data_for_direct_response(self):
         """_run_sync_v2() direct responses should preserve raw response payload."""
         model = self._create_sync_model()
@@ -805,3 +842,98 @@ class TestModelIntegrationGaps:
 
         with pytest.raises(StopIteration):
             next(streamer)
+
+
+class TestModelStreamerSseEncoding:
+    """Regression tests for SSE UTF-8 decoding (ENG-3044).
+
+    The aiXplain backend serves ``text/event-stream`` without a ``charset``
+    parameter — which is correct per the SSE spec (WHATWG HTML §9.2: SSE is
+    always UTF-8, ``charset`` is not allowed). ``requests`` doesn't know that
+    and falls back to ISO-8859-1 for any ``text/*`` body without an explicit
+    charset (RFC 2616), so multi-byte UTF-8 characters emitted by the model
+    (°, —, smart quotes, emojis) come back as mojibake when iterated via
+    ``iter_lines(decode_unicode=True)``.
+
+    ``ModelResponseStreamer`` knows it's consuming SSE, so it must override
+    the ``requests`` fallback before iteration begins.
+    """
+
+    @staticmethod
+    def _build_response(body: bytes, *, content_type: str = "text/event-stream") -> "requests.Response":
+        """Build a real ``requests.Response`` whose ``raw`` returns ``body``.
+
+        Mirrors what ``requests.adapters.HTTPAdapter.build_response`` produces:
+        for ``text/*`` without a ``charset`` parameter, ``response.encoding``
+        is set to ``ISO-8859-1`` — the bug surface this test exercises.
+        """
+        from io import BytesIO
+
+        import requests
+        from urllib3 import HTTPResponse
+
+        raw = HTTPResponse(body=BytesIO(body), preload_content=False)
+        response = requests.Response()
+        response.raw = raw
+        response.headers["Content-Type"] = content_type
+        response.encoding = "ISO-8859-1"
+        return response
+
+    def test_streamer_decodes_multibyte_utf8(self):
+        """End-to-end: multi-byte UTF-8 chars in the SSE body must decode correctly."""
+        # Degree sign (U+00B0 → 0xC2 0xB0), em dash (U+2014 → 0xE2 0x80 0x94),
+        # emoji (U+1F31E → 0xF0 0x9F 0x8C 0x9E).
+        body = b'data: {"data": "Lisbon: 22.5\xc2\xb0C \xe2\x80\x94 \xf0\x9f\x8c\x9e"}\n\n'
+        response = self._build_response(body)
+
+        streamer = ModelResponseStreamer(response)
+        chunks = list(streamer)
+
+        assert len(chunks) == 1
+        data = chunks[0].data
+        assert "22.5°C" in data
+        assert "—" in data
+        assert "🌞" in data
+        # Latin-1 mojibake signatures must not appear.
+        assert "Â°" not in data
+        assert "â\x80\x94" not in data
+
+    def test_streamer_overrides_requests_iso_8859_1_fallback(self):
+        """Override the ``requests`` ISO-8859-1 fallback with ``utf-8``.
+
+        ``response.encoding`` must be set to ``utf-8`` when the
+        ``requests`` ISO-8859-1 fallback is in effect.
+        """
+        response = self._build_response(b"data: [DONE]\n\n")
+        assert response.encoding == "ISO-8859-1"
+
+        ModelResponseStreamer(response)
+
+        assert response.encoding == "utf-8"
+
+    def test_streamer_overrides_none_encoding(self):
+        """Override a missing encoding with ``utf-8``.
+
+        ``response.encoding`` must be set to ``utf-8`` when no encoding is set
+        at all (e.g. a hand-built response or a custom transport).
+        """
+        response = self._build_response(b"data: [DONE]\n\n")
+        response.encoding = None
+
+        ModelResponseStreamer(response)
+
+        assert response.encoding == "utf-8"
+
+    def test_streamer_preserves_explicit_charset(self):
+        """Respect an explicit non-fallback charset.
+
+        If a future backend header or a custom adapter sets a non-fallback
+        charset, the streamer must respect it rather than silently clobbering
+        an explicit choice.
+        """
+        response = self._build_response(b"data: [DONE]\n\n")
+        response.encoding = "utf-16"
+
+        ModelResponseStreamer(response)
+
+        assert response.encoding == "utf-16"

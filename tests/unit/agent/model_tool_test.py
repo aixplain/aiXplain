@@ -220,4 +220,7 @@ def test_validate_model_tool_with_model(mocker):
 def test_validate_model_tool_without_function_or_model():
     with pytest.raises(Exception) as exc_info:
         ModelTool()
-    assert str(exc_info.value) == "Agent Creation Error: Either function or model must be provided when instantiating a tool."
+    assert (
+        str(exc_info.value)
+        == "Agent Creation Error: Either function or model must be provided when instantiating a tool."
+    )

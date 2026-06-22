@@ -260,13 +260,12 @@ class Pipeline(Asset, DeployableMixin):
             if response_version == "v1":
                 polling_response["elapsed_time"] = end - start
                 return polling_response
-            status = ResponseStatus(polling_response.status)
             return PipelineResponse(
                 status=status,
                 completed=completed,
-                error=polling_response.error,
+                error=polling_response.get("error"),
                 elapsed_time=end - start,
-                data=getattr(polling_response, "data", {}),
+                data=polling_response.get("data", {}),
                 **kwargs,
             )
 
