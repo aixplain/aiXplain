@@ -500,15 +500,13 @@ class Agent(
         self.tasks = [Task.from_dict(task) for task in self.tasks]
 
         # Deserialize inspectors to Inspector objects so mutate-and-save round-trips.
-        # Prebuilt inspectors travel as a lightweight {presetId, ...} reference
-        # (no "name"/"evaluator"), so dispatch on shape before deserializing.
+        # Prebuilt guards and custom inspectors are the same Inspector type, so a
+        # single deserialization path covers both.
         if self.inspectors:
-            from .inspector import Inspector, PrebuiltInspector
+            from .inspector import Inspector
 
             self.inspectors = [
-                (PrebuiltInspector.from_dict(inspector) if "presetId" in inspector else Inspector.from_dict(inspector))
-                if isinstance(inspector, dict)
-                else inspector
+                Inspector.from_dict(inspector) if isinstance(inspector, dict) else inspector
                 for inspector in self.inspectors
             ]
 
@@ -1190,19 +1188,19 @@ class Agent(
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
-        from .inspector import Inspector, PrebuiltInspector
+        from .inspector import Inspector
 
         # Pre-serialize inspectors before to_dict() to avoid dataclass_json issues
         original_inspectors = self.inspectors
         if self.inspectors:
             serialized_inspectors = []
             for inspector in self.inspectors:
-                if isinstance(inspector, (Inspector, PrebuiltInspector)):
+                if isinstance(inspector, Inspector):
                     serialized_inspectors.append(inspector.to_dict())
                 elif isinstance(inspector, dict):
                     serialized_inspectors.append(inspector)
                 else:
-                    raise ValueError(f"Inspector must be Inspector, PrebuiltInspector, or dict, got {type(inspector)}")
+                    raise ValueError(f"Inspector must be Inspector or dict, got {type(inspector)}")
             self.inspectors = serialized_inspectors
 
         # Pre-serialize inspector_targets to strings (enum values)
