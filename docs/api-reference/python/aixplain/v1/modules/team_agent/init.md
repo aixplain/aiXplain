@@ -27,13 +27,28 @@ Date: August 15th 2024
 Description:
     Team Agent Class
 
+### ContextOverflowStrategy Objects
+
+```python
+class ContextOverflowStrategy(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L61)
+
+Strategy applied when input messages exceed the model&#x27;s context window.
+
+**Attributes**:
+
+- `TRUNCATE` - Remove the oldest chat-history messages until the context fits.
+- `SUMMARIZE` - Replace the full chat history with an LLM-generated summary.
+
 ### InspectorTarget Objects
 
 ```python
 class InspectorTarget(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L60)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L73)
 
 Target stages for inspector validation in the team agent pipeline.
 
@@ -52,7 +67,7 @@ validate and ensure quality of the team agent&#x27;s operation.
 def __str__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L76)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L89)
 
 Return the string value of the enum member.
 
@@ -66,7 +81,7 @@ Return the string value of the enum member.
 class TeamAgent(Model, DeployableMixin[Agent])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L85)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L98)
 
 Advanced AI system capable of using multiple agents to perform a variety of tasks.
 
@@ -109,10 +124,12 @@ def __init__(id: Text,
              instructions: Optional[Text] = None,
              output_format: OutputFormat = OutputFormat.TEXT,
              expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+             context_overflow_strategy: Optional[Union[ContextOverflowStrategy,
+                                                       Text]] = None,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L112)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L127)
 
 Initialize a TeamAgent instance.
 
@@ -132,6 +149,8 @@ Initialize a TeamAgent instance.
 - `name`1 _Optional[Text], optional_ - Instructions for the team agent. Defaults to None.
 - `name`2 _OutputFormat, optional_ - Output format. Defaults to OutputFormat.TEXT.
 - `name`3 _Optional[Union[BaseModel, Text, dict]], optional_ - Expected output format. Defaults to None.
+  context_overflow_strategy (Optional[Union[ContextOverflowStrategy, Text]], optional):
+  Strategy for handling context window overflow. Defaults to None (disabled).
 - `name`4 - Additional keyword arguments.
   
   Deprecated Args:
@@ -145,7 +164,7 @@ Initialize a TeamAgent instance.
 def generate_session_id(history: list = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L241)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L262)
 
 Generate a new session ID for the team agent.
 
@@ -168,7 +187,7 @@ def sync_poll(poll_url: Text,
               progress_verbosity: Optional[str] = "compact") -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L490)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L527)
 
 Poll the platform until team agent execution completes or times out.
 
@@ -201,10 +220,12 @@ def run(data: Optional[Union[Dict, Text]] = None,
         max_iterations: int = 30,
         trace_request: bool = False,
         progress_verbosity: Optional[str] = "compact",
+        context_overflow_strategy: Optional[Union[ContextOverflowStrategy,
+                                                  Text]] = None,
         **kwargs) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L568)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L605)
 
 Runs a team agent call.
 
@@ -223,6 +244,8 @@ Runs a team agent call.
 - `query`0 _int, optional_ - maximum number of iterations between the agents. Defaults to 30.
 - `query`1 _bool, optional_ - return the request id for tracing the request. Defaults to False.
 - `query`2 _Optional[str], optional_ - Progress display mode - &quot;full&quot; (detailed), &quot;compact&quot; (brief), or None (no progress). Defaults to &quot;compact&quot;.
+  context_overflow_strategy (Optional[Union[ContextOverflowStrategy, Text]], optional):
+  Strategy for handling context window overflow. Defaults to None.
 - `query`3 - Additional deprecated keyword arguments (output_format, expected_output).
   
 
@@ -233,22 +256,26 @@ Runs a team agent call.
 #### run\_async
 
 ```python
-def run_async(data: Optional[Union[Dict, Text]] = None,
-              query: Optional[Text] = None,
-              session_id: Optional[Text] = None,
-              history: Optional[List[Dict]] = None,
-              name: Text = "model_process",
-              parameters: Dict = {},
-              content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
-              max_tokens: int = 2048,
-              max_iterations: int = 30,
-              output_format: Optional[OutputFormat] = None,
-              expected_output: Optional[Union[BaseModel, Text, dict]] = None,
-              evolve: Union[Dict[str, Any], EvolveParam, None] = None,
-              trace_request: bool = False) -> AgentResponse
+def run_async(
+    data: Optional[Union[Dict, Text]] = None,
+    query: Optional[Text] = None,
+    session_id: Optional[Text] = None,
+    history: Optional[List[Dict]] = None,
+    name: Text = "model_process",
+    parameters: Dict = {},
+    content: Optional[Union[Dict[Text, Text], List[Text]]] = None,
+    max_tokens: int = 2048,
+    max_iterations: int = 30,
+    output_format: Optional[OutputFormat] = None,
+    expected_output: Optional[Union[BaseModel, Text, dict]] = None,
+    evolve: Union[Dict[str, Any], EvolveParam, None] = None,
+    trace_request: bool = False,
+    context_overflow_strategy: Optional[Union[ContextOverflowStrategy,
+                                              Text]] = None
+) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L699)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L743)
 
 Runs asynchronously a Team Agent call.
 
@@ -267,6 +294,8 @@ Runs asynchronously a Team Agent call.
 - `query`0 _Union[BaseModel, Text, dict], optional_ - expected output. Defaults to None.
 - `query`1 _Union[Dict[str, Any], EvolveParam, None], optional_ - evolve the team agent configuration. Can be a dictionary, EvolveParam instance, or None.
 - `query`2 _bool, optional_ - return the request id for tracing the request. Defaults to False.
+  context_overflow_strategy (Optional[Union[ContextOverflowStrategy, Text]], optional):
+  Strategy for handling context window overflow. Defaults to None.
   
 
 **Returns**:
@@ -279,7 +308,7 @@ Runs asynchronously a Team Agent call.
 def poll(poll_url: Text, name: Text = "model_process") -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L842)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L896)
 
 Poll once for team agent execution status.
 
@@ -299,7 +328,7 @@ Poll once for team agent execution status.
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L917)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L974)
 
 Deletes Team Agent.
 
@@ -309,7 +338,7 @@ Deletes Team Agent.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L979)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1036)
 
 Convert the TeamAgent instance to a dictionary representation.
 
@@ -339,7 +368,7 @@ or transmission.
 def from_dict(cls, data: Dict) -> "TeamAgent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1022)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1080)
 
 Create a TeamAgent instance from a dictionary representation.
 
@@ -358,7 +387,7 @@ Create a TeamAgent instance from a dictionary representation.
 def validate(raise_exception: bool = False) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1123)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1182)
 
 Validate the TeamAgent configuration.
 
@@ -395,7 +424,7 @@ including name format, LLM compatibility, and agent validity.
 def update() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1159)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1218)
 
 Update the TeamAgent in the backend.
 
@@ -424,7 +453,7 @@ backend system. It is deprecated in favor of the save() method.
 def save() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1211)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1270)
 
 Save the Agent.
 
@@ -434,7 +463,7 @@ Save the Agent.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1215)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1274)
 
 Return a string representation of the TeamAgent.
 
@@ -453,7 +482,7 @@ def evolve_async(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
                  llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1223)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1282)
 
 Asynchronously evolve the Team Agent and return a polling URL in the AgentResponse.
 
@@ -482,7 +511,7 @@ def evolve(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
            llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1263)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/team_agent/__init__.py#L1322)
 
 Synchronously evolve the Team Agent and poll for the result.
 

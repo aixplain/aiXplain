@@ -157,7 +157,7 @@ def s3_to_csv(
 ) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L224)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L229)
 
 Convert S3 directory contents to a CSV file with file listings.
 
