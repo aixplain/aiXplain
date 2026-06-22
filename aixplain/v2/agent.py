@@ -830,6 +830,7 @@ class Agent(
         # Validate that all dependencies are saved before proceeding
         self._validate_dependencies()
 
+        # Capture names before save because the backend response can rebuild self.tools without Integration objects.
         unconnected_integration_names = self._get_unconnected_integration_names()
 
         # Call the parent save method
