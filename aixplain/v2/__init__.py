@@ -5,6 +5,7 @@ from .rlm import RLM, RLMResult
 from .utility import Utility
 from .agent import Agent, ContextOverflowStrategy
 from .tool import Tool
+from .skill import Skill
 from .actions import Input, Inputs, Action, Actions
 from .file import Resource
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
@@ -105,6 +106,7 @@ __all__ = [
     "Agent",
     "ContextOverflowStrategy",
     "Tool",
+    "Skill",
     "Resource",
     "FileUploader",
     "upload_file",
