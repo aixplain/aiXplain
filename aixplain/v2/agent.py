@@ -235,6 +235,9 @@ class AgentRunParams(BaseRunParams):
             The backend performs the actual substitution.
         allow_history_and_session_id: Allow both history and session ID
         tasks: List of tasks for the agent
+        tools: Per-tool parameter overrides for this run, as a list of
+            ``{"id": <tool_id>, "parameters": {...}}`` dicts (or plain string
+            ids). Overrides the agent's persisted per-tool parameters by id.
         prompt: Custom prompt override
         history: Conversation history
         execution_params: Execution parameters (maxTokens, etc.)
@@ -253,6 +256,7 @@ class AgentRunParams(BaseRunParams):
     variables: NotRequired[Optional[Dict[str, Any]]]
     allow_history_and_session_id: NotRequired[Optional[bool]]
     tasks: NotRequired[Optional[List[Any]]]
+    tools: NotRequired[Optional[List[Union[str, Dict[str, Any]]]]]
     prompt: NotRequired[Optional[Text]]
     history: NotRequired[Optional[List[ConversationMessage]]]
     execution_params: NotRequired[Optional[Dict[str, Any]]]
@@ -1041,6 +1045,26 @@ class Agent(
 
         return super().search(**kwargs)
 
+    @classmethod
+    def _normalize_tool_for_api(cls, tool: Any) -> dict:
+        """Normalize one ``tools`` entry into the API dict shape.
+
+        Accepts the user-facing shapes shared by create and run (issue #966):
+        a plain string id, a ``{id, parameters: {...}}`` dict, or a
+        :class:`ToolableMixin` (e.g. a ``Model``) whose ``as_tool()`` snapshot
+        is used. Per-tool ``parameters`` are converted to the platform's
+        ``[{name, value}]`` shape inside :meth:`_normalize_tool_dict_for_api`.
+        """
+        if isinstance(tool, str):
+            return {"id": tool}
+        if isinstance(tool, ToolableMixin):
+            return cls._normalize_tool_dict_for_api(tool.as_tool())
+        if isinstance(tool, dict):
+            return cls._normalize_tool_dict_for_api(tool)
+        raise ValueError(
+            f"A tool must be a Tool, Model, ToolableMixin instance, a string id, or a dictionary, got {type(tool)}."
+        )
+
     @staticmethod
     def _normalize_tool_dict_for_api(tool_dict: dict) -> dict:
         """Convert snake_case keys in a tool dict to the camelCase the API expects."""
@@ -1052,7 +1076,14 @@ class Agent(
         result = {}
         for k, v in tool_dict.items():
             api_key = _KEY_MAP.get(k, k)
-            if api_key == "parameters" and isinstance(v, list):
+            if api_key == "parameters" and isinstance(v, dict):
+                # User-facing per-tool override shape ``{key: value}`` (issue
+                # #966) -> platform NameValue list. The LLM may override these
+                # at run time; the SDK only transports them.
+                result[api_key] = Agent._params_dict_to_namevalue_list(v)
+            elif api_key == "parameters" and isinstance(v, list):
+                # Snapshot from ``as_tool()`` -> list of full parameter
+                # definitions; normalize each definition's keys to camelCase.
                 result[api_key] = [Agent._normalize_parameter_for_api(p) for p in v]
             else:
                 result[api_key] = v
@@ -1276,14 +1307,7 @@ class Agent(
         converted_assets = []
         if self.tools:
             for tool in self.tools:
-                if isinstance(tool, ToolableMixin):
-                    converted_assets.append(self._normalize_tool_dict_for_api(tool.as_tool()))
-                elif isinstance(tool, dict):
-                    converted_assets.append(self._normalize_tool_dict_for_api(tool))
-                else:
-                    raise ValueError(
-                        "A tool in the agent must be a Tool, Model, ToolableMixin instance, or a dictionary."
-                    )
+                converted_assets.append(self._normalize_tool_for_api(tool))
 
         # Update the payload with converted assets
         payload["tools"] = converted_assets
@@ -1365,6 +1389,13 @@ class Agent(
         variables = kwargs.pop("variables", None) or {}
         query = kwargs.pop("query", None)
 
+        # Run-time per-tool parameter overrides (issue #966). Same user-facing
+        # shape as create — ``[{id, parameters: {...}}]`` — normalized to the
+        # API ``[{name, value}]`` shape. Overrides persisted per-tool params by
+        # tool id (the backend merges by id). Popped here so the generic kwargs
+        # loop below doesn't forward the raw, un-normalized list.
+        tools = kwargs.pop("tools", None)
+
         # Build input_data dict with query and variables
         if query is not None:
             if isinstance(query, dict):
@@ -1396,6 +1427,9 @@ class Agent(
             if value is not None:
                 api_key = self._SNAKE_TO_CAMEL.get(key, key)
                 payload[api_key] = value
+
+        if tools:
+            payload["tools"] = [self._normalize_tool_for_api(tool) for tool in tools]
 
         self._apply_llm_fields_to_run_payload(payload)
         return payload
