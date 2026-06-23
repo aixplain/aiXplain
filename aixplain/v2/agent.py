@@ -1481,6 +1481,7 @@ class Agent(
         evolve: Optional[str] = None,
         identifier: Optional[str] = None,
         run_response_generation: Optional[bool] = None,
+        tools: Optional[List[Union[str, Dict[str, Any]]]] = None,
     ) -> "Session":
         """Create a new backend-managed session for this agent.
 
@@ -1505,6 +1506,12 @@ class Agent(
                 messages.
             run_response_generation: Whether the agent should run its
                 final response-generation step.
+            tools: Session-level per-tool parameter overrides in the same
+                user-facing shape as ``agent.run`` — a list of
+                ``{"id": <tool_id>, "parameters": {...}}`` dicts (or plain
+                string ids). Persisted on the session's ``executionConfig``;
+                a per-message ``tools`` override (see ``add_message`` /
+                ``run(via_session=True, tools=...)``) wins over these by id.
 
         Returns:
             Session: The created Session instance, pre-populated with
@@ -1541,6 +1548,7 @@ class Agent(
             evolve=evolve,
             identifier=identifier,
             run_response_generation=run_response_generation,
+            tools=tools,
         )
 
         session = self.context.Session(agent_id=self.id, name=name, execution_config=config)
@@ -1557,28 +1565,33 @@ class Agent(
 
         return session
 
-    @staticmethod
+    @classmethod
     def _resolve_execution_config(
+        cls,
         execution_config: Optional[Union["ExecutionConfig", Dict[str, Any]]] = None,
         execution_params: Optional[Dict[str, Any]] = None,
         criteria: Optional[str] = None,
         evolve: Optional[str] = None,
         identifier: Optional[str] = None,
         run_response_generation: Optional[bool] = None,
+        tools: Optional[List[Union[str, Dict[str, Any]]]] = None,
     ) -> Optional["ExecutionConfig"]:
         """Combine the explicit and shortcut forms into one ExecutionConfig.
 
         Returns ``None`` when neither form supplies any value so the
-        Session save payload omits ``executionConfig`` entirely.
+        Session save payload omits ``executionConfig`` entirely. ``tools`` is
+        normalized to the platform ``[{id, parameters: [{name, value}]}]``
+        shape before being stored on the config.
         """
         from .session import ExecutionConfig
 
-        shortcut_values = {
+        shortcut_values: Dict[str, Any] = {
             "execution_params": execution_params,
             "criteria": criteria,
             "evolve": evolve,
             "identifier": identifier,
             "run_response_generation": run_response_generation,
+            "tools": [cls._normalize_tool_for_api(tool) for tool in tools] if tools is not None else None,
         }
         has_shortcut = any(v is not None for v in shortcut_values.values())
 
@@ -1586,7 +1599,7 @@ class Agent(
             raise ValueError(
                 "Pass either 'execution_config' or the individual shortcut "
                 "kwargs (execution_params, criteria, evolve, identifier, "
-                "run_response_generation), not both."
+                "run_response_generation, tools), not both."
             )
 
         if execution_config is not None:
@@ -1709,11 +1722,18 @@ class Agent(
                 run_response_generation=kwargs.get("run_response_generation"),
             )
 
+        # Run-time ``tools`` becomes the per-message override (issue #966 shape),
+        # winning over any session-level executionConfig.tools by tool id. Before
+        # this the via_session path silently dropped ``tools`` (PROD-2481).
+        run_tools = kwargs.get("tools")
+        message_tools = [self._normalize_tool_for_api(tool) for tool in run_tools] if run_tools else None
+
         user_msg = session.add_message(
             role="user",
             content=query,
             attachments=kwargs.get("attachments"),
             files=kwargs.get("files"),
+            tools=message_tools,
         )
         if not user_msg.request_id:
             raise ValueError(
