@@ -36,12 +36,6 @@ def _response_content_type(response: requests.Response) -> str:
     return content_type if isinstance(content_type, str) else ""
 
 
-def _response_content_length(response: requests.Response) -> int:
-    """Return response body length without forcing test doubles to behave like bytes."""
-    content = getattr(response, "content", b"")
-    return len(content) if isinstance(content, (bytes, bytearray)) else 0
-
-
 def create_retry_session(
     total: Optional[int] = None,
     backoff_factor: Optional[float] = None,
@@ -141,16 +135,6 @@ class AixplainClient:
 
         logger.debug(f"Requesting {method} {url} with kwargs: {kwargs}")
         response = self.session.request(method=method, url=url, **kwargs)
-        content_type = _response_content_type(response)
-        if _is_json_content_type(content_type) or content_type.startswith("text/"):
-            logger.debug(f"Response: {response.text}")
-        else:
-            logger.debug(
-                "Response: status=%s content_type=%s bytes=%s",
-                response.status_code,
-                content_type,
-                _response_content_length(response),
-            )
         if not response.ok:
             error_obj = None
             try:
