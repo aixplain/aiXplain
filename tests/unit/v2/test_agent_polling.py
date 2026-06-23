@@ -249,6 +249,26 @@ class TestAgentRunRequestId:
 
         assert result.request_id == request_id
 
+    def test_run_sends_identifier_as_x_user_id_header(self):
+        """Should send identifier in payload and as x-user-id header on the run request."""
+        agent = _create_agent()
+        agent.before_run = Mock(return_value=None)
+        identifier = "end-user-123"
+        agent.context.client.request = Mock(
+            return_value={
+                "status": "SUCCESS",
+                "completed": True,
+                "data": {"output": "done"},
+            }
+        )
+
+        agent.run("test", identifier=identifier)
+
+        agent.context.client.request.assert_called_once()
+        _, _, request_kwargs = agent.context.client.request.mock_calls[0]
+        assert request_kwargs["headers"] == {"x-user-id": identifier}
+        assert request_kwargs["json"]["identifier"] == identifier
+
 
 class TestAgentSyncPollWithExecutionId:
     """Tests for Agent.sync_poll() accepting execution IDs."""
