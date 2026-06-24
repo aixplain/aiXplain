@@ -227,10 +227,14 @@ class AgentRunParams(BaseRunParams):
         tasks: List of tasks for the agent
         prompt: Custom prompt override
         history: Conversation history
-        execution_params: Execution parameters (maxTokens, etc.)
+        execution_params: Execution parameters (maxTokens, etc.). Passing
+            ``max_iterations`` here is deprecated; use ``budget=Budget(max_iterations=...)``
+            instead. A deprecated value is folded into ``budget.max_iterations``
+            (Budget wins on conflict) and the standalone key is not emitted.
         budget: Per-run budget caps (cost / duration / iterations). Accepts a
             ``Budget`` instance or a plain dict (snake_case or camelCase). Run-time
-            only; omitting it applies no budget enforcement.
+            only; omitting it applies no budget enforcement. The backend merges a
+            run-time budget field-by-field over the agent's persisted default budget.
         criteria: Criteria for evaluation
         evolve: Evolution parameters
         inspectors: Inspector configurations
@@ -262,10 +266,12 @@ class AgentRunParams(BaseRunParams):
 @dataclass_json
 @dataclass
 class Budget:
-    """Per-run budget caps for a single agent run.
+    """Budget caps governing an agent run (cost / duration / iterations).
 
-    Run-time only — never persisted on the Agent. The Python API is snake_case;
-    serialization produces the agreed camelCase wire keys
+    Used in two roles: a persisted default on the Agent (``Agent(budget=...)``)
+    and a run-time override (``agent.run(budget=...)``); the backend merges the
+    run-time budget field-by-field over the persisted default. The Python API is
+    snake_case; serialization produces the agreed camelCase wire keys
     (``maxCost`` / ``maxDurationSeconds`` / ``maxIterations``). All fields are
     optional and ``None`` fields are dropped from ``to_dict()``.
     """
@@ -496,7 +502,18 @@ class Agent(
     max_inspectors: Optional[int] = field(default=None, metadata=config(field_name="maxInspectors"))
     inspectors: Optional[List[Any]] = field(default_factory=list)
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
-    max_iterations: Optional[int] = field(default=5, metadata=config(field_name="maxIterations"))
+    # Deprecated: persisted iteration cap. Use ``budget=Budget(max_iterations=...)``
+    # instead. Defaults to ``None`` (was previously ``5``) so a plain ``Agent(...)``
+    # does not warn; any non-None value (explicit or via ``from_dict``) is folded
+    # into ``budget`` and is never serialized as a standalone ``maxIterations``
+    # (see ``build_save_payload``).
+    max_iterations: Optional[int] = field(default=None, metadata=config(field_name="maxIterations"))
+    # Persisted default budget (cost / duration / iterations) saved on the agent.
+    # Serialized manually in ``build_save_payload`` via ``_normalize_budget``.
+    budget: Optional["Budget"] = field(
+        default=None,
+        metadata=config(field_name="budget", exclude=lambda v: True),
+    )
     max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
     context_overflow_strategy: Optional[str] = field(
         default=None,
@@ -539,6 +556,31 @@ class Agent(
                 raise ValueError("Cannot specify both 'agents' and 'subagents'.")
             self.agents = self.subagents
             self.subagents = None
+
+        # Coerce a dict-or-Budget persisted budget into a Budget instance so the
+        # deprecated ``max_iterations`` fold below can read/set its fields.
+        self.budget = self._coerce_budget(self.budget)
+
+        # Deprecated persisted ``max_iterations``: fold into ``budget.max_iterations``.
+        # ``None`` (the default) means "not provided" so a plain ``Agent(...)`` never
+        # warns; any non-None value (explicit or via ``from_dict``) is folded.
+        if self.max_iterations is not None:
+            warnings.warn(
+                "Agent 'max_iterations' is deprecated; use budget=Budget(max_iterations=...). "
+                "It will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if self.budget is None:
+                self.budget = Budget()
+            if self.budget.max_iterations is None:
+                self.budget.max_iterations = self.max_iterations
+            else:
+                warnings.warn(
+                    "Both 'max_iterations' and budget.max_iterations are set; budget.max_iterations takes precedence.",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
         # Store original agent objects to resolve IDs at save time
         self._original_agents = list(self.agents)
@@ -693,6 +735,43 @@ class Agent(
         normalized = {cls._BUDGET_PARAMS_MAP.get(k, k): v for k, v in raw.items()}
         # Never emit null fields.
         return {k: v for k, v in normalized.items() if v is not None}
+
+    @classmethod
+    def _coerce_budget(cls, budget: Optional[Union[Dict, "Budget"]]) -> Optional["Budget"]:
+        """Coerce ``None`` / dict / ``Budget`` into a ``Budget`` instance.
+
+        A dict may use snake_case or camelCase keys; it is normalized to the
+        camelCase wire shape first so a single decoder handles both styles.
+        """
+        if budget is None or isinstance(budget, Budget):
+            return budget
+        if isinstance(budget, dict):
+            normalized = cls._normalize_budget(budget)
+            return Budget(
+                max_cost=normalized.get("maxCost"),
+                max_duration_seconds=normalized.get("maxDurationSeconds"),
+                max_iterations=normalized.get("maxIterations"),
+            )
+        raise TypeError(f"budget must be a Budget, dict, or None, got {type(budget)}")
+
+    @classmethod
+    def _fold_iter_into_budget(cls, budget: Optional[Union[Dict, "Budget"]], max_iterations: int) -> dict:
+        """Fold a deprecated ``max_iterations`` into a budget (Budget wins on conflict).
+
+        Returns a camelCase wire dict. If the budget already carries
+        ``maxIterations`` the existing value is kept and a conflict warning is
+        emitted; otherwise the deprecated value fills the empty slot.
+        """
+        normalized = cls._normalize_budget(budget) if budget is not None else {}
+        if normalized.get("maxIterations") is not None:
+            warnings.warn(
+                "Both 'max_iterations' and budget.max_iterations are set; budget.max_iterations takes precedence.",
+                UserWarning,
+                stacklevel=3,
+            )
+        else:
+            normalized["maxIterations"] = max_iterations
+        return normalized
 
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Run the agent with optional progress display.
@@ -1245,6 +1324,16 @@ class Agent(
         self.inspectors = original_inspectors
         self.inspector_targets = original_inspector_targets
 
+        # Budget is the single source of truth for the persisted iteration cap.
+        # Drop the deprecated standalone ``maxIterations`` and emit the persisted
+        # ``budget`` (camelCase) only when it carries at least one cap.
+        payload.pop("maxIterations", None)
+        payload.pop("budget", None)
+        if self.budget is not None:
+            normalized_budget = self._normalize_budget(self.budget)
+            if normalized_budget:
+                payload["budget"] = normalized_budget
+
         # Convert {{var}} to {var} in instructions and description for backend compatibility (v1 format)
         # User writes: {{language}} → Backend receives: {language}
         if payload.get("instructions"):
@@ -1306,11 +1395,12 @@ class Agent(
         # Normalize snake_case keys to camelCase for the API
         execution_params = {self._EXEC_PARAMS_MAP.get(k, k): v for k, v in execution_params.items()}
 
-        # Set default values for execution_params if not provided
+        # Set default values for execution_params if not provided.
+        # No ``maxIterations`` default: the iteration cap now travels inside
+        # ``executionParams.budget`` and the backend supplies its own default.
         defaults = {
             "outputFormat": self.output_format,
             "maxTokens": getattr(self, "max_tokens", 2048),
-            "maxIterations": getattr(self, "max_iterations", 5),
             "maxTime": 300,
             "contextOverflowStrategy": getattr(self, "context_overflow_strategy", None),
         }
@@ -1341,6 +1431,20 @@ class Agent(
         # Per-run budget (run-time only). Set executionParams.budget only when a
         # non-empty budget is provided; absence must leave the payload unchanged.
         budget = kwargs.pop("budget", None)
+
+        # Deprecated run-time ``max_iterations`` exec param: fold into the run-time
+        # budget (Budget wins on conflict) and stop emitting a standalone
+        # ``executionParams.maxIterations``.
+        deprecated_iterations = execution_params.pop("maxIterations", None)
+        if deprecated_iterations is not None:
+            warnings.warn(
+                "Execution param 'max_iterations' is deprecated; use run(budget=Budget(max_iterations=...)). "
+                "It will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            budget = self._fold_iter_into_budget(budget, deprecated_iterations)
+
         if budget is not None:
             normalized_budget = self._normalize_budget(budget)
             if normalized_budget:
@@ -1436,10 +1540,10 @@ class Agent(
                 history=history,
                 execution_params={
                     "max_tokens": 2048,
-                    "max_iterations": 10,
                     "output_format": OutputFormat.TEXT.value,
                     "expected_output": None,
                 },
+                budget=Budget(max_iterations=10),
                 allow_history_and_session_id=True,
             )
 

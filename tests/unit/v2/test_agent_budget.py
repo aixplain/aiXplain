@@ -1,15 +1,24 @@
-"""Unit tests for per-run agent budget serialization.
+"""Unit tests for agent budget serialization.
 
-A run-time-only ``budget`` rides inside ``executionParams`` as a nested
-camelCase ``budget`` object. These tests cover the shared wire contract:
+A run-time ``budget`` rides inside ``executionParams`` as a nested camelCase
+``budget`` object; a persisted ``budget`` lives at the top level of the create
+payload. ``Budget`` is the single source of truth for the iteration cap, so the
+deprecated ``max_iterations`` surfaces fold into it and the standalone
+``maxIterations`` key is no longer emitted. These tests cover:
 - A ``Budget`` instance, a snake_case dict, and a camelCase dict all yield the
   same camelCase payload.
-- Partial budgets emit no null keys.
+- Partial budgets emit no null keys; ``warnAtPercent`` is never emitted.
 - Omitting ``budget`` produces no ``budget`` key (backward compatible).
-- ``warnAtPercent`` is never emitted.
+- Persisted budget serialization in the create payload.
+- The deprecated persisted/run-time ``max_iterations`` fold into ``budget`` with
+  a ``DeprecationWarning``; Budget wins on conflict.
+- No standalone ``maxIterations`` survives in either emitted payload.
 """
 
+import warnings
 from unittest.mock import MagicMock
+
+import pytest
 
 from aixplain.v2.agent import Agent, Budget
 
@@ -147,3 +156,148 @@ class TestBudgetInRunPayload:
         ep_with = dict(with_budget["executionParams"])
         ep_with.pop("budget", None)
         assert ep_with == without_budget["executionParams"]
+
+
+def _build_agent(**kwargs):
+    """Construct a V2 Agent (running __post_init__) with a mocked client context."""
+    agent = Agent(name="test-agent", **kwargs)
+    agent.context = MagicMock()
+    return agent
+
+
+class TestPersistedBudgetInCreatePayload:
+    """build_save_payload persists ``budget`` and never emits standalone maxIterations."""
+
+    def test_budget_instance_persisted(self):
+        agent = _build_agent(budget=Budget(max_iterations=10, max_cost=0.50))
+        payload = agent.build_save_payload()
+        assert payload["budget"] == {"maxIterations": 10, "maxCost": 0.50}
+
+    def test_budget_dict_snake_case_persisted(self):
+        agent = _build_agent(budget={"max_iterations": 10})
+        payload = agent.build_save_payload()
+        assert payload["budget"] == {"maxIterations": 10}
+
+    def test_budget_dict_camel_case_persisted(self):
+        agent = _build_agent(budget={"maxIterations": 10})
+        payload = agent.build_save_payload()
+        assert payload["budget"] == {"maxIterations": 10}
+
+    def test_no_budget_means_no_budget_key(self):
+        agent = _build_agent()
+        payload = agent.build_save_payload()
+        assert "budget" not in payload
+
+    def test_empty_budget_means_no_budget_key(self):
+        agent = _build_agent(budget=Budget())
+        payload = agent.build_save_payload()
+        assert "budget" not in payload
+
+    def test_no_standalone_max_iterations_when_unset(self):
+        agent = _build_agent()
+        payload = agent.build_save_payload()
+        assert "maxIterations" not in payload
+
+    def test_zero_iterations_preserved(self):
+        agent = _build_agent(budget=Budget(max_iterations=0))
+        payload = agent.build_save_payload()
+        assert payload["budget"] == {"maxIterations": 0}
+
+
+class TestDeprecatedPersistedMaxIterations:
+    """Agent(max_iterations=N) warns, folds into budget, and drops the standalone key."""
+
+    def test_deprecation_warning_emitted(self):
+        with pytest.warns(DeprecationWarning, match="max_iterations"):
+            _build_agent(max_iterations=7)
+
+    def test_folds_into_budget(self):
+        with pytest.warns(DeprecationWarning):
+            agent = _build_agent(max_iterations=7)
+        assert agent.budget is not None
+        assert agent.budget.max_iterations == 7
+
+    def test_create_payload_has_budget_not_standalone(self):
+        with pytest.warns(DeprecationWarning):
+            agent = _build_agent(max_iterations=7)
+        payload = agent.build_save_payload()
+        assert payload["budget"] == {"maxIterations": 7}
+        assert "maxIterations" not in payload
+
+    def test_no_warning_when_unset(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            _build_agent()  # must not raise
+
+    def test_conflict_budget_wins(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            agent = _build_agent(max_iterations=7, budget=Budget(max_iterations=99))
+        categories = {w.category for w in caught}
+        assert DeprecationWarning in categories
+        assert UserWarning in categories
+        assert agent.budget.max_iterations == 99
+        payload = agent.build_save_payload()
+        assert payload["budget"]["maxIterations"] == 99
+        assert "maxIterations" not in payload
+
+
+class TestDeprecatedRunTimeMaxIterations:
+    """run-time execution_params['max_iterations'] folds into executionParams.budget."""
+
+    def test_deprecation_warning_emitted(self):
+        agent = _create_agent()
+        with pytest.warns(DeprecationWarning, match="max_iterations"):
+            agent.build_run_payload(query="q", execution_params={"max_iterations": 7})
+
+    def test_folds_into_execution_budget(self):
+        agent = _create_agent()
+        with pytest.warns(DeprecationWarning):
+            payload = agent.build_run_payload(
+                query="q", execution_params={"max_iterations": 7}
+            )
+        assert payload["executionParams"]["budget"] == {"maxIterations": 7}
+        assert "maxIterations" not in payload["executionParams"]
+
+    def test_camel_case_exec_param_also_folds(self):
+        agent = _create_agent()
+        with pytest.warns(DeprecationWarning):
+            payload = agent.build_run_payload(
+                query="q", execution_params={"maxIterations": 7}
+            )
+        assert payload["executionParams"]["budget"] == {"maxIterations": 7}
+        assert "maxIterations" not in payload["executionParams"]
+
+    def test_no_standalone_max_iterations_by_default(self):
+        agent = _create_agent()
+        payload = agent.build_run_payload(query="q")
+        assert "maxIterations" not in payload["executionParams"]
+        assert "budget" not in payload["executionParams"]
+
+    def test_conflict_budget_wins(self):
+        agent = _create_agent()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            payload = agent.build_run_payload(
+                query="q",
+                execution_params={"max_iterations": 7},
+                budget=Budget(max_iterations=99),
+            )
+        categories = {w.category for w in caught}
+        assert DeprecationWarning in categories
+        assert UserWarning in categories
+        assert payload["executionParams"]["budget"]["maxIterations"] == 99
+        assert "maxIterations" not in payload["executionParams"]
+
+    def test_fold_combines_with_other_budget_fields(self):
+        agent = _create_agent()
+        with pytest.warns(DeprecationWarning):
+            payload = agent.build_run_payload(
+                query="q",
+                execution_params={"max_iterations": 7},
+                budget=Budget(max_cost=1.0),
+            )
+        assert payload["executionParams"]["budget"] == {
+            "maxCost": 1.0,
+            "maxIterations": 7,
+        }
