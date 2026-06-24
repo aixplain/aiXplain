@@ -1151,9 +1151,30 @@ class TestExecutionConfigBudget:
             execution_params={"max_iterations": 99},
             budget=Budget(max_iterations=5),
         )
-        with pytest.warns(DeprecationWarning, match="max_iterations"):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
             out = cfg.to_api_dict()
+        categories = {w.category for w in caught}
+        assert DeprecationWarning in categories  # deprecated exec param
+        assert UserWarning in categories  # budget-wins conflict
         assert out["executionParams"]["budget"]["maxIterations"] == 5
+
+    def test_conflict_warning_points_at_call_site(self):
+        # The budget-wins UserWarning must resolve to the caller's to_api_dict()
+        # line, not into SDK internals (regression: the shared fold helper once
+        # hardcoded the run-path stacklevel, mislocating the session warning).
+        cfg = ExecutionConfig(
+            execution_params={"max_iterations": 99},
+            budget=Budget(max_iterations=5),
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            cfg.to_api_dict()
+        conflict = [w for w in caught if w.category is UserWarning and "precedence" in str(w.message)]
+        assert conflict, "expected a budget-wins UserWarning"
+        assert conflict[0].filename == __file__, (
+            f"conflict warning resolved to {conflict[0].filename}, not the caller"
+        )
 
     def test_budget_merges_with_other_execution_params(self):
         cfg = ExecutionConfig(

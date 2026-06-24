@@ -594,11 +594,7 @@ class Agent(
             if self.budget.max_iterations is None:
                 self.budget.max_iterations = self.max_iterations
             else:
-                warnings.warn(
-                    "Both 'max_iterations' and budget.max_iterations are set; budget.max_iterations takes precedence.",
-                    UserWarning,
-                    stacklevel=2,
-                )
+                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=2)
 
         # Store original agent objects to resolve IDs at save time
         self._original_agents = list(self.agents)
@@ -752,10 +748,13 @@ class Agent(
         "run_response_generation": "runResponseGeneration",
     }
 
+    # ``max_iterations`` is intentionally absent: it is deprecated and folded into
+    # ``budget.maxIterations`` (see ``_fold_iter_into_budget`` and the run path),
+    # never emitted as a standalone ``executionParams.maxIterations``. The session
+    # path (``ExecutionConfig`` in session.py) keeps the same invariant.
     _EXEC_PARAMS_MAP: ClassVar[Dict[str, str]] = {
         "output_format": "outputFormat",
         "max_tokens": "maxTokens",
-        "max_iterations": "maxIterations",
         "max_time": "maxTime",
         "expected_output": "expectedOutput",
         "context_overflow_strategy": "contextOverflowStrategy",
@@ -767,6 +766,13 @@ class Agent(
         "max_duration_seconds": "maxDurationSeconds",
         "max_iterations": "maxIterations",
     }
+
+    # Emitted (as a UserWarning) when a deprecated ``max_iterations`` and an
+    # explicit ``budget.max_iterations`` are both set; Budget wins. Shared by the
+    # constructor, the run path, and the session path so the text never drifts.
+    _BUDGET_ITER_CONFLICT_MSG: ClassVar[str] = (
+        "Both 'max_iterations' and budget.max_iterations are set; budget.max_iterations takes precedence."
+    )
 
     @classmethod
     def _normalize_budget(cls, budget: Union[Dict, "Budget"]) -> dict:
@@ -804,26 +810,22 @@ class Agent(
         raise TypeError(f"budget must be a Budget, dict, or None, got {type(budget)}")
 
     @classmethod
-    def _fold_iter_into_budget(cls, budget: Optional[Union[Dict, "Budget"]], max_iterations: int) -> dict:
+    def _fold_iter_into_budget(
+        cls, budget: Optional[Union[Dict, "Budget"]], max_iterations: int
+    ) -> "tuple[dict, bool]":
         """Fold a deprecated ``max_iterations`` into a budget (Budget wins on conflict).
 
-        Returns a camelCase wire dict. If the budget already carries
-        ``maxIterations`` the existing value is kept and a conflict warning is
-        emitted; otherwise the deprecated value fills the empty slot.
+        Pure: emits no warnings. Returns ``(normalized, conflicted)`` where
+        ``normalized`` is the camelCase wire dict and ``conflicted`` is ``True``
+        when the budget already carried ``maxIterations`` (so the deprecated value
+        was dropped). The caller owns the conflict warning — it knows the right
+        ``stacklevel`` for its own call depth (see the run and session paths).
         """
         normalized = cls._normalize_budget(budget) if budget is not None else {}
         if normalized.get("maxIterations") is not None:
-            warnings.warn(
-                "Both 'max_iterations' and budget.max_iterations are set; budget.max_iterations takes precedence.",
-                UserWarning,
-                # Called from build_run_payload; point past the SDK run plumbing
-                # (_fold_iter_into_budget -> build_run_payload -> _post_and_handle_run
-                #  -> RunnableResourceMixin.run -> Agent.run) to the user's run() call.
-                stacklevel=6,
-            )
-        else:
-            normalized["maxIterations"] = max_iterations
-        return normalized
+            return normalized, True
+        normalized["maxIterations"] = max_iterations
+        return normalized, False
 
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Run the agent with optional progress display.
@@ -1510,9 +1512,10 @@ class Agent(
 
         # Budget is the single source of truth for the persisted iteration cap.
         # Drop the deprecated standalone ``maxIterations`` and emit the persisted
-        # ``budget`` (camelCase) only when it carries at least one cap.
+        # ``budget`` (camelCase) only when it carries at least one cap. (The
+        # ``budget`` field is ``exclude=lambda v: True`` so ``to_dict()`` never
+        # emits it — we build the wire shape explicitly below.)
         payload.pop("maxIterations", None)
-        payload.pop("budget", None)
         if self.budget is not None:
             normalized_budget = self._normalize_budget(self.budget)
             if normalized_budget:
@@ -1611,19 +1614,26 @@ class Agent(
 
         # Deprecated run-time ``max_iterations`` exec param: fold into the run-time
         # budget (Budget wins on conflict) and stop emitting a standalone
-        # ``executionParams.maxIterations``.
+        # ``executionParams.maxIterations``. ``max_iterations`` is not in
+        # ``_EXEC_PARAMS_MAP``, so a snake_case key passes through unmapped — accept
+        # both spellings here (mirrors ExecutionConfig.to_api_dict in session.py).
         deprecated_iterations = execution_params.pop("maxIterations", None)
+        if deprecated_iterations is None:
+            deprecated_iterations = execution_params.pop("max_iterations", None)
         if deprecated_iterations is not None:
+            # Point past the SDK run plumbing (build_run_payload ->
+            # _post_and_handle_run -> RunnableResourceMixin.run -> Agent.run) to
+            # the user's agent.run(...) call site. The conflict warning (below) is
+            # emitted from this same frame, so it shares the stacklevel.
             warnings.warn(
                 "Execution param 'max_iterations' is deprecated; use run(budget=Budget(max_iterations=...)). "
                 "It will be removed in a future release.",
                 DeprecationWarning,
-                # Point past the SDK run plumbing (build_run_payload ->
-                # _post_and_handle_run -> RunnableResourceMixin.run -> Agent.run)
-                # to the user's agent.run(...) call site.
                 stacklevel=5,
             )
-            budget = self._fold_iter_into_budget(budget, deprecated_iterations)
+            budget, conflicted = self._fold_iter_into_budget(budget, deprecated_iterations)
+            if conflicted:
+                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=5)
 
         if budget is not None:
             normalized_budget = self._normalize_budget(budget)

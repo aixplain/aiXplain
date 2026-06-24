@@ -231,8 +231,10 @@ class ExecutionConfig:
 
         # Deprecated run-time ``max_iterations`` exec param: fold into the budget
         # (Budget wins on conflict) and stop emitting a standalone maxIterations.
-        # ``max_iterations`` is no longer in EXECUTION_PARAMS_MAP, so a snake_case
-        # key passes through unmapped — accept both spellings here.
+        # ``max_iterations`` is not in EXECUTION_PARAMS_MAP, so a snake_case key
+        # passes through unmapped — accept both spellings here (mirrors the run
+        # path in Agent.build_run_payload). ``_fold_iter_into_budget`` is pure; we
+        # own the conflict warning so it resolves to this to_api_dict() call site.
         deprecated_iterations = normalized.pop("maxIterations", None)
         if deprecated_iterations is None:
             deprecated_iterations = normalized.pop("max_iterations", None)
@@ -243,7 +245,9 @@ class ExecutionConfig:
                 DeprecationWarning,
                 stacklevel=2,
             )
-            budget = Agent._fold_iter_into_budget(budget, deprecated_iterations)
+            budget, conflicted = Agent._fold_iter_into_budget(budget, deprecated_iterations)
+            if conflicted:
+                warnings.warn(Agent._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=2)
 
         # Serialize the budget into executionParams.budget (drops None fields).
         if budget is not None:
