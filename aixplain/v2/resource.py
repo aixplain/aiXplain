@@ -1253,13 +1253,24 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """Kwargs for payload/URL builders excluding SDK orchestration keys."""
         return {k: v for k, v in kwargs.items() if k not in self._RUN_CONTROL_KEYS}
 
+    def _headers_for_run(self, kwargs: dict) -> Optional[dict]:
+        """Build per-run headers from optional runtime metadata."""
+        identifier = kwargs.get("identifier")
+        if identifier is None:
+            return None
+        return {"x-user-id": str(identifier)}
+
     def _post_and_handle_run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Single POST + handle_run_response (no retries, no before_run)."""
         self._ensure_valid_state()
         payload_input = self._payload_kwargs_for_run(kwargs)
         payload = self.build_run_payload(**payload_input)
         run_url = self.build_run_url(**payload_input)
-        response = self.context.client.request("post", run_url, json=payload)
+        request_kwargs = {"json": payload}
+        headers = self._headers_for_run(kwargs)
+        if headers:
+            request_kwargs["headers"] = headers
+        response = self.context.client.request("post", run_url, **request_kwargs)
         return self.handle_run_response(response, **kwargs)
 
     def _apply_after_run(self, result: ResultT, **kwargs: Unpack[RunParamsT]) -> ResultT:
@@ -1324,6 +1335,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                     "status": response.get("status", "IN_PROGRESS"),
                     "url": response["data"],
                     "completed": False,
+                    "requestId": response.get("requestId"),
                 }
             )
         elif response.get("status") == "IN_PROGRESS" and response.get("data"):
@@ -1334,6 +1346,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                     "status": response["status"],
                     "url": response["data"],
                     "completed": False,
+                    "requestId": response.get("requestId"),
                 }
             )
         else:
@@ -1417,7 +1430,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             try:
                 result = self._post_and_handle_run(**kwargs)
                 if result.url and not result.completed:
+                    request_id = getattr(result, "request_id", None)
                     result = self.sync_poll(result.url, **kwargs)
+                    if request_id is not None and hasattr(result, "request_id") and not result.request_id:
+                        result.request_id = request_id
                 return self._apply_after_run(result, **kwargs)
             except APIError as e:
                 if not self._is_retryable_run_error(e) or attempt >= run_retries:
