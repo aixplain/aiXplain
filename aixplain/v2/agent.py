@@ -1054,16 +1054,65 @@ class Agent(
         :class:`ToolableMixin` (e.g. a ``Model``) whose ``as_tool()`` snapshot
         is used. Per-tool ``parameters`` are converted to the platform's
         ``[{name, value}]`` shape inside :meth:`_normalize_tool_dict_for_api`.
+
+        The string-id and ``{id, parameters}`` shapes carry no ``type``, which
+        the create payload requires. For those, resolve the asset by id to its
+        ``as_tool()`` snapshot (which carries the correct ``type``) and overlay
+        the per-tool ``parameters`` override. A dict that already has a ``type``
+        (e.g. a full ``as_tool()`` snapshot) is passed through unchanged.
         """
-        if isinstance(tool, str):
-            return {"id": tool}
         if isinstance(tool, ToolableMixin):
             return cls._normalize_tool_dict_for_api(tool.as_tool())
+        if isinstance(tool, str):
+            return cls._normalize_tool_dict_for_api(cls._resolve_tool_entry(tool, None))
         if isinstance(tool, dict):
-            return cls._normalize_tool_dict_for_api(tool)
+            if tool.get("type") or not tool.get("id"):
+                return cls._normalize_tool_dict_for_api(tool)
+            return cls._normalize_tool_dict_for_api(cls._resolve_tool_entry(tool["id"], tool))
         raise ValueError(
             f"A tool must be a Tool, Model, ToolableMixin instance, a string id, or a dictionary, got {type(tool)}."
         )
+
+    @classmethod
+    def _resolve_tool_entry(cls, tool_id: str, override: Optional[dict]) -> dict:
+        """Build a typed tool dict for ``tool_id`` from its ``as_tool()`` snapshot.
+
+        Resolves the asset by id (Tool, then Model) so the entry carries the
+        backend-required ``type`` and other snapshot fields, then overlays the
+        caller-provided keys (e.g. a ``parameters`` override) so the override
+        wins. Falls back to a bare ``{"id": tool_id}`` (plus any override) when
+        the id can't be resolved — preserving the prior behavior offline.
+        """
+        snapshot = cls._resolve_tool_snapshot(tool_id)
+        entry: dict = dict(snapshot) if snapshot else {}
+        entry["id"] = tool_id
+        if isinstance(override, dict):
+            for key, value in override.items():
+                if key != "id":
+                    entry[key] = value
+        return entry
+
+    @classmethod
+    def _resolve_tool_snapshot(cls, tool_id: str) -> Optional[dict]:
+        """Return the ``as_tool()`` snapshot for ``tool_id``, or ``None``.
+
+        Tries the ``Tool`` resource first, then ``Model`` (mirroring how the
+        platform resolves an asset id). Any failure (no client context,
+        unknown id, network error) yields ``None`` so normalization degrades
+        gracefully instead of raising.
+        """
+        context = getattr(cls, "context", None)
+        if context is None:
+            return None
+        for resource_name in ("Tool", "Model"):
+            resource = getattr(context, resource_name, None)
+            if resource is None:
+                continue
+            try:
+                return dict(resource.get(tool_id).as_tool())
+            except Exception:
+                continue
+        return None
 
     @staticmethod
     def _normalize_tool_dict_for_api(tool_dict: dict) -> dict:

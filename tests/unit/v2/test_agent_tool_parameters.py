@@ -13,7 +13,7 @@ continue to serialize unchanged.
 
 from typing import Any, Dict, List
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from aixplain.v2.agent import Agent
 
@@ -157,3 +157,55 @@ class TestRunPayloadToolParameters:
         agent.id = "agent-1"
         payload = agent.build_run_payload(query="hi", tools=["tool-1"])
         assert payload["tools"] == [{"id": "tool-1"}]
+
+
+class TestToolTypeResolution:
+    """String-id / ``{id, parameters}`` shapes carry no ``type``; the create
+    payload requires one, so the SDK resolves it from the asset's ``as_tool()``
+    snapshot (issue #966 follow-up)."""
+
+    def test_dict_without_type_resolves_type_and_keeps_override(self):
+        snap = {"id": "tool-1", "type": "tool", "name": "Web Search"}
+        with patch.object(Agent, "_resolve_tool_snapshot", return_value=snap):
+            entry = Agent._normalize_tool_for_api({"id": "tool-1", "parameters": {"num_results": 2}})
+        assert entry["type"] == "tool"
+        assert entry["id"] == "tool-1"
+        assert _params_as_dict(entry["parameters"]) == {"num_results": 2}
+
+    def test_string_id_resolves_type(self):
+        snap = {"id": "model-1", "type": "model", "name": "Translate"}
+        with patch.object(Agent, "_resolve_tool_snapshot", return_value=snap):
+            entry = Agent._normalize_tool_for_api("model-1")
+        assert entry["type"] == "model"
+        assert entry["id"] == "model-1"
+
+    def test_dict_with_explicit_type_is_not_resolved(self):
+        # An entry that already carries a type (e.g. an as_tool() snapshot)
+        # must pass through untouched — no asset resolution.
+        with patch.object(Agent, "_resolve_tool_snapshot", side_effect=AssertionError("must not resolve")):
+            entry = Agent._normalize_tool_for_api({"id": "tool-1", "type": "tool", "parameters": {"a": 1}})
+        assert entry["type"] == "tool"
+        assert _params_as_dict(entry["parameters"]) == {"a": 1}
+
+    def test_unresolvable_id_falls_back_to_bare_entry(self):
+        # No client context / unknown id -> resolution returns None; the entry
+        # degrades to the prior {id, parameters} shape instead of raising.
+        with patch.object(Agent, "_resolve_tool_snapshot", return_value=None):
+            entry = Agent._normalize_tool_for_api({"id": "tool-x", "parameters": {"a": 1}})
+        assert entry["id"] == "tool-x"
+        assert _params_as_dict(entry["parameters"]) == {"a": 1}
+        assert "type" not in entry
+
+    def test_resolve_snapshot_tries_tool_then_model(self):
+        # Tool.get fails -> Model.get succeeds; the snapshot comes from Model.
+        ctx = Mock()
+        ctx.Tool.get.side_effect = Exception("not a tool")
+        ctx.Model.get.return_value.as_tool.return_value = {"id": "a1", "type": "model"}
+
+        class _A(Agent):
+            context = ctx
+
+        snap = _A._resolve_tool_snapshot("a1")
+        assert snap == {"id": "a1", "type": "model"}
+        ctx.Tool.get.assert_called_once_with("a1")
+        ctx.Model.get.assert_called_once_with("a1")
