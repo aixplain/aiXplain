@@ -1375,6 +1375,14 @@ class Agent(
         variables = kwargs.pop("variables", None) or {}
         query = kwargs.pop("query", None)
 
+        # Multimodal attachments on the non-session run path: resolve them to
+        # ``{url, name, type, mimeType}`` descriptors (uploading any local paths)
+        # and send them as a structured ``attachments`` field — the same shape
+        # the agent worker consumes. Popped here so they aren't forwarded raw by
+        # the generic kwargs loop below.
+        attachments = kwargs.pop("attachments", None)
+        files = kwargs.pop("files", None)
+
         # Build input_data dict with query and variables
         if query is not None:
             if isinstance(query, dict):
@@ -1401,6 +1409,12 @@ class Agent(
         # Add query back if present
         if query is not None:
             payload["query"] = query
+        if attachments or files:
+            from .session import resolve_attachments
+
+            payload["attachments"] = resolve_attachments(
+                self.context, attachments, files, error_label=f"agent '{self.id}'"
+            )
         # Translate remaining snake_case kwargs to camelCase for the API
         for key, value in kwargs.items():
             if value is not None:
