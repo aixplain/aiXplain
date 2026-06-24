@@ -976,6 +976,20 @@ def test_sync_model_run(client, sync_model_id):
     assert "Hola" in result.data or "hola" in result.data.lower()
 
 
+def test_seedream_run_returns_non_poll_url_without_polling(client):
+    """Sync model run should return Seedream's final output URL without polling it."""
+    model = client.Model.get("seedream")
+
+    result = model.run(
+        prompt="A small red cube on a plain white background.",
+        timeout=120,
+        wait_time=5,
+    )
+
+    assert result.url
+    assert not model._is_poll_url(result.url)
+
+
 def test_sync_model_run_async(client, sync_model_id):
     """Test run_async() on sync model falls back to V1 MS."""
     model = client.Model.get(sync_model_id)
