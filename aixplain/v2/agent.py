@@ -47,13 +47,14 @@ class ConversationMessage(TypedDict):
     Attributes:
         role: The role of the message sender, either 'user' or 'assistant'
         content: The text content of the message
-        attachments: Optional pre-built attachment dicts (url, name, type)
-        files: Optional local file paths to upload and attach
+        attachments: Optional attachments — hosted-URL/local-path strings or dicts
+            with ``url`` or ``path`` (plus optional type/name/mimeType).
+        files: Deprecated. Local file paths to upload — pass through ``attachments``.
     """
 
     role: Literal["user", "assistant"]
     content: str
-    attachments: NotRequired[Optional[List[Dict[str, Any]]]]
+    attachments: NotRequired[Optional[List[Union[str, Dict[str, Any]]]]]
     files: NotRequired[Optional[List[Any]]]
 
 
@@ -242,6 +243,11 @@ class AgentRunParams(BaseRunParams):
         evolve: Evolution parameters
         inspectors: Inspector configurations
         run_response_generation: Whether to run response generation. Defaults to False.
+        attachments: Multimodal attachments for the turn (only with ``via_session=True``).
+            Each entry is a hosted-URL/local-path string or a dict with ``url`` or
+            ``path`` (plus optional ``type``/``name``/``mimeType``). Local paths are
+            uploaded to aiXplain storage automatically.
+        files: Deprecated. Local file paths to upload — pass through ``attachments`` instead.
         progress_format: Display format - "status" (single line) or "logs" (timeline).
                         If None (default), progress tracking is disabled.
         progress_verbosity: Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
@@ -262,6 +268,8 @@ class AgentRunParams(BaseRunParams):
     inspectors: NotRequired[Optional[List[Dict]]]
     run_response_generation: NotRequired[Optional[bool]]
     via_session: NotRequired[Optional[bool]]
+    attachments: NotRequired[Optional[List[Union[str, Dict[str, Any]]]]]
+    files: NotRequired[Optional[List[Any]]]
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
@@ -1659,10 +1667,15 @@ class Agent(
             )
 
         query = kwargs.get("query")
-        if query is None:
-            raise ValueError("via_session=True requires a query.")
-        if not isinstance(query, str):
+        attachments = kwargs.get("attachments")
+        files = kwargs.get("files")
+        # The query is optional when attachments carry the turn's input (e.g. an
+        # audio clip that is itself the prompt); otherwise a text query is required.
+        if query is None and not (attachments or files):
+            raise ValueError("via_session=True requires a query or attachments.")
+        if query is not None and not isinstance(query, str):
             raise ValueError("via_session=True only supports string queries.")
+        query = query or ""
 
         session_id = kwargs.get("session_id")
         if session_id:
@@ -1680,8 +1693,8 @@ class Agent(
         user_msg = session.add_message(
             role="user",
             content=query,
-            attachments=kwargs.get("attachments"),
-            files=kwargs.get("files"),
+            attachments=attachments,
+            files=files,
         )
         if not user_msg.request_id:
             raise ValueError(
