@@ -16,26 +16,6 @@ DEFAULT_RETRY_BACKOFF_FACTOR = 0.1
 DEFAULT_RETRY_STATUS_FORCELIST = [500, 502, 503, 504]
 
 
-def _is_json_content_type(content_type: str) -> bool:
-    """Return True when a response content type represents JSON."""
-    if not isinstance(content_type, str):
-        return False
-    media_type = content_type.split(";", 1)[0].strip().lower()
-    return media_type == "application/json" or media_type.endswith("+json")
-
-
-def _is_absolute_url(path: str) -> bool:
-    """Return True when a request path is already a full URL."""
-    return path.startswith(("http://", "https://"))
-
-
-def _response_content_type(response: requests.Response) -> str:
-    """Return a response content type, tolerating lightweight test doubles."""
-    headers = getattr(response, "headers", {}) or {}
-    content_type = headers.get("Content-Type", "") if hasattr(headers, "get") else ""
-    return content_type if isinstance(content_type, str) else ""
-
-
 def create_retry_session(
     total: Optional[int] = None,
     backoff_factor: Optional[float] = None,
@@ -128,13 +108,14 @@ class AixplainClient:
             requests.Response: The response from the request
         """
         # If path is a full URL (starts with http), use it directly
-        if _is_absolute_url(path):
+        if path.startswith(("http://", "https://")):
             url = path
         else:
             url = urljoin(self.base_url, path)
 
         logger.debug(f"Requesting {method} {url} with kwargs: {kwargs}")
         response = self.session.request(method=method, url=url, **kwargs)
+        logger.debug(f"Response: {response.text}")
         if not response.ok:
             error_obj = None
             try:
@@ -166,20 +147,7 @@ class AixplainClient:
             dict: The response from the request
         """
         response = self.request_raw(method, path, **kwargs)
-        content_type = _response_content_type(response)
-        try:
-            return response.json()
-        except ValueError:
-            if method.upper() == "GET" and _is_absolute_url(path) and not _is_json_content_type(content_type):
-                return {
-                    "status": "SUCCESS",
-                    "completed": True,
-                    "data": {
-                        "url": path,
-                        "contentType": content_type,
-                    },
-                }
-            raise
+        return response.json()
 
     def get(self, path: str, **kwargs: Any) -> dict:
         """Sends an HTTP GET request.
@@ -223,7 +191,7 @@ class AixplainClient:
             APIError: If the request fails
         """
         # If path is a full URL (starts with http), use it directly
-        if _is_absolute_url(path):
+        if path.startswith(("http://", "https://")):
             url = path
         else:
             url = urljoin(self.base_url, path)
