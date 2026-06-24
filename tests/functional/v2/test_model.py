@@ -978,10 +978,10 @@ def test_sync_model_run(client, sync_model_id):
 
 def test_seedream_run_returns_non_poll_url_without_polling(client):
     """Sync model run should return Seedream's final output URL without polling it."""
-    model = client.Model.get("seedream")
+    model = client.Model.get("69f347e7de823633d9604dfd")
 
     result = model.run(
-        prompt="A small red cube on a plain white background.",
+        text="A small red cube on a plain white background.",
         timeout=120,
         wait_time=5,
     )
