@@ -236,6 +236,9 @@ class AgentRunParams(BaseRunParams):
             The backend performs the actual substitution.
         allow_history_and_session_id: Allow both history and session ID
         tasks: List of tasks for the agent
+        tools: Per-tool parameter overrides for this run, as a list of
+            ``{"id": <tool_id>, "parameters": {...}}`` dicts (or plain string
+            ids). Overrides the agent's persisted per-tool parameters by id.
         prompt: Custom prompt override
         history: Conversation history
         execution_params: Execution parameters (maxTokens, etc.)
@@ -259,6 +262,7 @@ class AgentRunParams(BaseRunParams):
     variables: NotRequired[Optional[Dict[str, Any]]]
     allow_history_and_session_id: NotRequired[Optional[bool]]
     tasks: NotRequired[Optional[List[Any]]]
+    tools: NotRequired[Optional[List[Union[str, Dict[str, Any]]]]]
     prompt: NotRequired[Optional[Text]]
     history: NotRequired[Optional[List[ConversationMessage]]]
     execution_params: NotRequired[Optional[Dict[str, Any]]]
@@ -1051,6 +1055,75 @@ class Agent(
 
         return super().search(**kwargs)
 
+    @classmethod
+    def _normalize_tool_for_api(cls, tool: Any) -> dict:
+        """Normalize one ``tools`` entry into the API dict shape.
+
+        Accepts the user-facing shapes shared by create and run (issue #966):
+        a plain string id, a ``{id, parameters: {...}}`` dict, or a
+        :class:`ToolableMixin` (e.g. a ``Model``) whose ``as_tool()`` snapshot
+        is used. Per-tool ``parameters`` are converted to the platform's
+        ``[{name, value}]`` shape inside :meth:`_normalize_tool_dict_for_api`.
+
+        The string-id and ``{id, parameters}`` shapes carry no ``type``, which
+        the create payload requires. For those, resolve the asset by id to its
+        ``as_tool()`` snapshot (which carries the correct ``type``) and overlay
+        the per-tool ``parameters`` override. A dict that already has a ``type``
+        (e.g. a full ``as_tool()`` snapshot) is passed through unchanged.
+        """
+        if isinstance(tool, ToolableMixin):
+            return cls._normalize_tool_dict_for_api(tool.as_tool())
+        if isinstance(tool, str):
+            return cls._normalize_tool_dict_for_api(cls._resolve_tool_entry(tool, None))
+        if isinstance(tool, dict):
+            if tool.get("type") or not tool.get("id"):
+                return cls._normalize_tool_dict_for_api(tool)
+            return cls._normalize_tool_dict_for_api(cls._resolve_tool_entry(tool["id"], tool))
+        raise ValueError(
+            f"A tool must be a Tool, Model, ToolableMixin instance, a string id, or a dictionary, got {type(tool)}."
+        )
+
+    @classmethod
+    def _resolve_tool_entry(cls, tool_id: str, override: Optional[dict]) -> dict:
+        """Build a typed tool dict for ``tool_id`` from its ``as_tool()`` snapshot.
+
+        Resolves the asset by id (Tool, then Model) so the entry carries the
+        backend-required ``type`` and other snapshot fields, then overlays the
+        caller-provided keys (e.g. a ``parameters`` override) so the override
+        wins. Falls back to a bare ``{"id": tool_id}`` (plus any override) when
+        the id can't be resolved — preserving the prior behavior offline.
+        """
+        snapshot = cls._resolve_tool_snapshot(tool_id)
+        entry: dict = dict(snapshot) if snapshot else {}
+        entry["id"] = tool_id
+        if isinstance(override, dict):
+            for key, value in override.items():
+                if key != "id":
+                    entry[key] = value
+        return entry
+
+    @classmethod
+    def _resolve_tool_snapshot(cls, tool_id: str) -> Optional[dict]:
+        """Return the ``as_tool()`` snapshot for ``tool_id``, or ``None``.
+
+        Tries the ``Tool`` resource first, then ``Model`` (mirroring how the
+        platform resolves an asset id). Any failure (no client context,
+        unknown id, network error) yields ``None`` so normalization degrades
+        gracefully instead of raising.
+        """
+        context = getattr(cls, "context", None)
+        if context is None:
+            return None
+        for resource_name in ("Tool", "Model"):
+            resource = getattr(context, resource_name, None)
+            if resource is None:
+                continue
+            try:
+                return dict(resource.get(tool_id).as_tool())
+            except Exception:
+                continue
+        return None
+
     @staticmethod
     def _normalize_tool_dict_for_api(tool_dict: dict) -> dict:
         """Convert snake_case keys in a tool dict to the camelCase the API expects."""
@@ -1062,7 +1135,14 @@ class Agent(
         result = {}
         for k, v in tool_dict.items():
             api_key = _KEY_MAP.get(k, k)
-            if api_key == "parameters" and isinstance(v, list):
+            if api_key == "parameters" and isinstance(v, dict):
+                # User-facing per-tool override shape ``{key: value}`` (issue
+                # #966) -> platform NameValue list. The LLM may override these
+                # at run time; the SDK only transports them.
+                result[api_key] = Agent._params_dict_to_namevalue_list(v)
+            elif api_key == "parameters" and isinstance(v, list):
+                # Snapshot from ``as_tool()`` -> list of full parameter
+                # definitions; normalize each definition's keys to camelCase.
                 result[api_key] = [Agent._normalize_parameter_for_api(p) for p in v]
             else:
                 result[api_key] = v
@@ -1286,14 +1366,7 @@ class Agent(
         converted_assets = []
         if self.tools:
             for tool in self.tools:
-                if isinstance(tool, ToolableMixin):
-                    converted_assets.append(self._normalize_tool_dict_for_api(tool.as_tool()))
-                elif isinstance(tool, dict):
-                    converted_assets.append(self._normalize_tool_dict_for_api(tool))
-                else:
-                    raise ValueError(
-                        "A tool in the agent must be a Tool, Model, ToolableMixin instance, or a dictionary."
-                    )
+                converted_assets.append(self._normalize_tool_for_api(tool))
 
         # Update the payload with converted assets
         payload["tools"] = converted_assets
@@ -1382,6 +1455,12 @@ class Agent(
         # the generic kwargs loop below.
         attachments = kwargs.pop("attachments", None)
         files = kwargs.pop("files", None)
+        # Run-time per-tool parameter overrides (issue #966). Same user-facing
+        # shape as create — ``[{id, parameters: {...}}]`` — normalized to the
+        # API ``[{name, value}]`` shape. Overrides persisted per-tool params by
+        # tool id (the backend merges by id). Popped here so the generic kwargs
+        # loop below doesn't forward the raw, un-normalized list.
+        tools = kwargs.pop("tools", None)
 
         # Build input_data dict with query and variables
         if query is not None:
@@ -1420,6 +1499,9 @@ class Agent(
             if value is not None:
                 api_key = self._SNAKE_TO_CAMEL.get(key, key)
                 payload[api_key] = value
+
+        if tools:
+            payload["tools"] = [self._normalize_tool_for_api(tool) for tool in tools]
 
         self._apply_llm_fields_to_run_payload(payload)
         return payload
@@ -1471,6 +1553,7 @@ class Agent(
         evolve: Optional[str] = None,
         identifier: Optional[str] = None,
         run_response_generation: Optional[bool] = None,
+        tools: Optional[List[Union[str, Dict[str, Any]]]] = None,
     ) -> "Session":
         """Create a new backend-managed session for this agent.
 
@@ -1495,6 +1578,12 @@ class Agent(
                 messages.
             run_response_generation: Whether the agent should run its
                 final response-generation step.
+            tools: Session-level per-tool parameter overrides in the same
+                user-facing shape as ``agent.run`` — a list of
+                ``{"id": <tool_id>, "parameters": {...}}`` dicts (or plain
+                string ids). Persisted on the session's ``executionConfig``;
+                a per-message ``tools`` override (see ``add_message`` /
+                ``run(via_session=True, tools=...)``) wins over these by id.
 
         Returns:
             Session: The created Session instance, pre-populated with
@@ -1531,6 +1620,7 @@ class Agent(
             evolve=evolve,
             identifier=identifier,
             run_response_generation=run_response_generation,
+            tools=tools,
         )
 
         session = self.context.Session(agent_id=self.id, name=name, execution_config=config)
@@ -1547,28 +1637,33 @@ class Agent(
 
         return session
 
-    @staticmethod
+    @classmethod
     def _resolve_execution_config(
+        cls,
         execution_config: Optional[Union["ExecutionConfig", Dict[str, Any]]] = None,
         execution_params: Optional[Dict[str, Any]] = None,
         criteria: Optional[str] = None,
         evolve: Optional[str] = None,
         identifier: Optional[str] = None,
         run_response_generation: Optional[bool] = None,
+        tools: Optional[List[Union[str, Dict[str, Any]]]] = None,
     ) -> Optional["ExecutionConfig"]:
         """Combine the explicit and shortcut forms into one ExecutionConfig.
 
         Returns ``None`` when neither form supplies any value so the
-        Session save payload omits ``executionConfig`` entirely.
+        Session save payload omits ``executionConfig`` entirely. ``tools`` is
+        normalized to the platform ``[{id, parameters: [{name, value}]}]``
+        shape before being stored on the config.
         """
         from .session import ExecutionConfig
 
-        shortcut_values = {
+        shortcut_values: Dict[str, Any] = {
             "execution_params": execution_params,
             "criteria": criteria,
             "evolve": evolve,
             "identifier": identifier,
             "run_response_generation": run_response_generation,
+            "tools": [cls._normalize_tool_for_api(tool) for tool in tools] if tools is not None else None,
         }
         has_shortcut = any(v is not None for v in shortcut_values.values())
 
@@ -1576,7 +1671,7 @@ class Agent(
             raise ValueError(
                 "Pass either 'execution_config' or the individual shortcut "
                 "kwargs (execution_params, criteria, evolve, identifier, "
-                "run_response_generation), not both."
+                "run_response_generation, tools), not both."
             )
 
         if execution_config is not None:
@@ -1704,11 +1799,18 @@ class Agent(
                 run_response_generation=kwargs.get("run_response_generation"),
             )
 
+        # Run-time ``tools`` becomes the per-message override (issue #966 shape),
+        # winning over any session-level executionConfig.tools by tool id. Before
+        # this the via_session path silently dropped ``tools`` (PROD-2481).
+        run_tools = kwargs.get("tools")
+        message_tools = [self._normalize_tool_for_api(tool) for tool in run_tools] if run_tools else None
+
         user_msg = session.add_message(
             role="user",
             content=query,
             attachments=attachments,
             files=files,
+            tools=message_tools,
         )
         if not user_msg.request_id:
             raise ValueError(

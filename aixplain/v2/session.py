@@ -267,6 +267,10 @@ class ExecutionConfig:
             messages (e.g. for client-side correlation).
         run_response_generation: Whether the agent should run its final
             response-generation step.
+        tools: Session-level per-tool parameter overrides, already in the
+            platform ``[{id, parameters: [{name, value}]}]`` shape (normalized
+            by ``Agent._normalize_tool_for_api``). A per-message ``tools``
+            override on ``add_message`` wins over these by tool id.
     """
 
     execution_params: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionParams"))
@@ -274,6 +278,7 @@ class ExecutionConfig:
     evolve: Optional[str] = None
     identifier: Optional[str] = None
     run_response_generation: Optional[bool] = field(default=None, metadata=config(field_name="runResponseGeneration"))
+    tools: Optional[List[Dict[str, Any]]] = None
 
     def to_api_dict(self) -> Dict[str, Any]:
         """Build the camelCase API payload, normalizing nested params.
@@ -293,6 +298,8 @@ class ExecutionConfig:
             out["identifier"] = self.identifier
         if self.run_response_generation is not None:
             out["runResponseGeneration"] = self.run_response_generation
+        if self.tools is not None:
+            out["tools"] = self.tools
         return out
 
     @classmethod
@@ -429,6 +436,7 @@ class Session(
         request_id: Optional[str] = None,
         attachments: Optional[List[Union[str, Path, Dict[str, Any]]]] = None,
         files: Optional[List[Union[str, Path]]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> SessionMessage:
         """Add a message to this session.
 
@@ -446,6 +454,10 @@ class Session(
 
             files: Deprecated. Local file paths to upload and attach — pass these
                 through ``attachments`` instead.
+            tools: Per-message per-tool parameter overrides, already in the
+                platform ``[{id, parameters: [{name, value}]}]`` shape. These
+                win over the session's ``executionConfig.tools`` by tool id
+                for the run this message triggers.
 
         Returns:
             The created SessionMessage.
@@ -464,6 +476,8 @@ class Session(
             payload["requestId"] = request_id
         if all_attachments:
             payload["attachments"] = all_attachments
+        if tools:
+            payload["tools"] = tools
 
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}/messages"
         try:
