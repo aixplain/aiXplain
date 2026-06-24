@@ -5,6 +5,7 @@ dataclasses, serialization, CRUD operations, and the MIME-to-AttachmentType
 mapping — all with mocked HTTP calls.
 """
 
+import warnings
 from unittest.mock import Mock, patch, call
 
 import pytest
@@ -25,7 +26,7 @@ from aixplain.v2.enums import (
     Reaction,
     AttachmentType,
 )
-from aixplain.v2.agent import Agent
+from aixplain.v2.agent import Agent, Budget
 from aixplain.v2.exceptions import ValidationError, APIError, ResourceError
 
 
@@ -1034,8 +1035,10 @@ class TestExecutionConfig:
         assert ExecutionConfig().to_api_dict() == {}
 
     def test_to_api_dict_full(self):
+        # ``max_iterations`` is deprecated and folded into budget — see the
+        # dedicated TestExecutionConfigBudget tests; kept out of this mapping test.
         cfg = ExecutionConfig(
-            execution_params={"max_tokens": 1024, "max_iterations": 30, "max_time": 300},
+            execution_params={"max_tokens": 1024, "max_time": 300},
             criteria="Be concise",
             evolve='{"toEvolve": true, "type": "adaptive"}',
             identifier="user-abc",
@@ -1044,7 +1047,6 @@ class TestExecutionConfig:
         assert cfg.to_api_dict() == {
             "executionParams": {
                 "maxTokens": 1024,
-                "maxIterations": 30,
                 "maxTime": 300,
             },
             "criteria": "Be concise",
@@ -1100,6 +1102,103 @@ class TestExecutionConfig:
         normalized = _normalize_execution_params(snake)
         assert set(normalized) == set(EXECUTION_PARAMS_MAP.values())
 
+    def test_max_iterations_not_in_execution_params_map(self):
+        # max_iterations is deprecated and must never normalize to a standalone
+        # executionParams.maxIterations — it folds into budget instead.
+        assert "max_iterations" not in EXECUTION_PARAMS_MAP
+
+
+class TestExecutionConfigBudget:
+    """Budget on ExecutionConfig + deprecation of the max_iterations exec param.
+
+    Mirrors the agent run path (see test_agent_budget.py) so sessions and direct
+    runs behave identically: Budget is the single source of truth, the legacy
+    ``execution_params['max_iterations']`` is deprecated and folded into
+    ``executionParams.budget.maxIterations``, and loading a backend session never
+    emits a spurious warning.
+    """
+
+    def test_budget_instance_serializes_into_execution_params(self):
+        cfg = ExecutionConfig(budget=Budget(max_cost=0.5, max_iterations=10))
+        assert cfg.to_api_dict() == {
+            "executionParams": {"budget": {"maxCost": 0.5, "maxIterations": 10}}
+        }
+
+    def test_budget_accepts_dict(self):
+        cfg = ExecutionConfig(budget={"max_duration_seconds": 120})
+        assert isinstance(cfg.budget, Budget)
+        assert cfg.to_api_dict() == {
+            "executionParams": {"budget": {"maxDurationSeconds": 120}}
+        }
+
+    def test_deprecated_max_iterations_warns_and_folds_into_budget(self):
+        cfg = ExecutionConfig(execution_params={"max_iterations": 7})
+        with pytest.warns(DeprecationWarning, match="max_iterations"):
+            out = cfg.to_api_dict()
+        # Folded into budget; no standalone maxIterations is ever emitted.
+        assert out == {"executionParams": {"budget": {"maxIterations": 7}}}
+        assert "maxIterations" not in out["executionParams"]
+
+    def test_deprecated_camelcase_max_iterations_also_folds(self):
+        # A caller passing camelCase maxIterations directly is handled too.
+        cfg = ExecutionConfig(execution_params={"maxIterations": 7})
+        with pytest.warns(DeprecationWarning, match="max_iterations"):
+            out = cfg.to_api_dict()
+        assert out == {"executionParams": {"budget": {"maxIterations": 7}}}
+
+    def test_budget_wins_over_deprecated_max_iterations(self):
+        cfg = ExecutionConfig(
+            execution_params={"max_iterations": 99},
+            budget=Budget(max_iterations=5),
+        )
+        with pytest.warns(DeprecationWarning, match="max_iterations"):
+            out = cfg.to_api_dict()
+        assert out["executionParams"]["budget"]["maxIterations"] == 5
+
+    def test_budget_merges_with_other_execution_params(self):
+        cfg = ExecutionConfig(
+            execution_params={"max_tokens": 256},
+            budget=Budget(max_cost=1.0),
+        )
+        assert cfg.to_api_dict() == {
+            "executionParams": {"maxTokens": 256, "budget": {"maxCost": 1.0}}
+        }
+
+    def test_from_dict_legacy_max_iterations_folds_silently(self):
+        # Backend payload with a legacy standalone maxIterations must NOT warn
+        # on load, and must fold into budget.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            cfg = ExecutionConfig.from_dict(
+                {"executionParams": {"maxIterations": 4}}
+            )
+        # Round-trips to the budget shape with no standalone maxIterations.
+        out = cfg.to_api_dict()
+        assert out == {"executionParams": {"budget": {"maxIterations": 4}}}
+
+    def test_from_dict_legacy_max_iterations_defers_to_existing_budget(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            cfg = ExecutionConfig.from_dict(
+                {"executionParams": {"maxIterations": 4}, "budget": {"maxIterations": 9}}
+            )
+        assert cfg.to_api_dict()["executionParams"]["budget"]["maxIterations"] == 9
+
+    def test_session_from_dict_legacy_execution_config_no_warning(self):
+        # Loading a Session whose nested executionConfig carries a legacy
+        # maxIterations must not warn and must fold into budget.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            session = Session.from_dict(
+                {
+                    "id": "s1",
+                    "agentId": "a1",
+                    "executionConfig": {"executionParams": {"maxIterations": 3}},
+                }
+            )
+        out = session.execution_config.to_api_dict()
+        assert out == {"executionParams": {"budget": {"maxIterations": 3}}}
+
 
 class TestSessionExecutionConfigPayload:
     """Tests that Session save payload carries executionConfig."""
@@ -1145,17 +1244,19 @@ class TestSessionExecutionConfigPayload:
         ctx = _make_mock_context()
         ctx.client.request.return_value = {**SAMPLE_SESSION_DICT, "id": "new_sess"}
         BoundSession = _bound_session_class(ctx)
+        # Legacy max_iterations exec param folds into budget on send (deprecated).
         cfg = ExecutionConfig(
             execution_params={"max_iterations": 10},
             run_response_generation=True,
         )
         session = BoundSession(agent_id="a1", name="N", execution_config=cfg)
 
-        session.save()
+        with pytest.warns(DeprecationWarning, match="max_iterations"):
+            session.save()
 
         _, kwargs = ctx.client.request.call_args
         assert kwargs["json"]["executionConfig"] == {
-            "executionParams": {"maxIterations": 10},
+            "executionParams": {"budget": {"maxIterations": 10}},
             "runResponseGeneration": True,
         }
 
