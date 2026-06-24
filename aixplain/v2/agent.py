@@ -617,6 +617,32 @@ class Agent(
         #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
         #     )
 
+    @classmethod
+    def _fold_legacy_max_iterations(cls, kvs: Any) -> Any:
+        """Fold a legacy top-level ``maxIterations`` into the ``budget`` slot.
+
+        Backend agents may still carry a top-level legacy ``maxIterations``. The
+        public constructor (``Agent(max_iterations=...)``) emits a
+        ``DeprecationWarning`` in ``__post_init__``, but deserialization must NOT
+        warn — loading an agent the caller never configured should be silent.
+        So we fold the legacy ``maxIterations`` straight into the ``budget`` slot
+        (Budget wins silently if it already carries one) and drop the standalone
+        key, so ``__post_init__`` sees ``max_iterations=None`` and the deprecation
+        path never fires on load. Returns a copy; the caller's dict is untouched.
+        """
+        if isinstance(kvs, dict) and kvs.get("maxIterations") is not None:
+            kvs = dict(kvs)  # shallow copy; never mutate the caller's dict
+            legacy_iterations = kvs.pop("maxIterations")
+            budget = kvs.get("budget")
+            # Normalize to the camelCase wire shape so the nested fold is uniform
+            # regardless of whether ``budget`` arrived snake_case, camelCase, or absent.
+            normalized = cls._normalize_budget(budget) if budget is not None else {}
+            # Budget wins silently on conflict; otherwise fill the empty slot.
+            if normalized.get("maxIterations") is None:
+                normalized["maxIterations"] = legacy_iterations
+            kvs["budget"] = normalized
+        return kvs
+
     def mark_as_deleted(self) -> None:
         """Mark the agent as deleted by setting status to DELETED and calling parent method."""
         from .enums import AssetStatus
@@ -767,7 +793,10 @@ class Agent(
             warnings.warn(
                 "Both 'max_iterations' and budget.max_iterations are set; budget.max_iterations takes precedence.",
                 UserWarning,
-                stacklevel=3,
+                # Called from build_run_payload; point past the SDK run plumbing
+                # (_fold_iter_into_budget -> build_run_payload -> _post_and_handle_run
+                #  -> RunnableResourceMixin.run -> Agent.run) to the user's run() call.
+                stacklevel=6,
             )
         else:
             normalized["maxIterations"] = max_iterations
@@ -1441,7 +1470,10 @@ class Agent(
                 "Execution param 'max_iterations' is deprecated; use run(budget=Budget(max_iterations=...)). "
                 "It will be removed in a future release.",
                 DeprecationWarning,
-                stacklevel=2,
+                # Point past the SDK run plumbing (build_run_payload ->
+                # _post_and_handle_run -> RunnableResourceMixin.run -> Agent.run)
+                # to the user's agent.run(...) call site.
+                stacklevel=5,
             )
             budget = self._fold_iter_into_budget(budget, deprecated_iterations)
 
@@ -1563,3 +1595,20 @@ class Agent(
         except Exception as e:
             logging.error(f"Failed to initialize session {session_id}: {e}")
             return session_id
+
+
+# ``@dataclass_json`` injects its own ``from_dict`` onto the class, which would
+# clobber any ``from_dict`` defined in the class body. So we wrap the injected
+# decoder here (after decoration) to silently fold a legacy top-level
+# ``maxIterations`` into ``budget`` before decoding — keeping deserialization
+# warning-free while the explicit ``Agent(max_iterations=...)`` constructor path
+# still warns via ``__post_init__``.
+_dataclass_json_agent_from_dict = Agent.from_dict.__func__
+
+
+def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
+    kvs = cls._fold_legacy_max_iterations(kvs)
+    return _dataclass_json_agent_from_dict(cls, kvs, infer_missing=infer_missing)
+
+
+Agent.from_dict = classmethod(_agent_from_dict)
