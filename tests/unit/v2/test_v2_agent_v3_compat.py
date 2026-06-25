@@ -119,7 +119,7 @@ class TestR3InspectorDeserialization:
 class TestRunPayloadAttachments:
     """Non-session run path resolves attachments into a structured payload field."""
 
-    def test_url_attachments_passed_through_without_upload(self):
+    def test_url_attachments_not_uploaded_and_type_auto_detected(self):
         agent = _agent_from_dict()
         with patch("aixplain.v2.upload_utils.FileUploader") as MockUploader:
             payload = agent.build_run_payload(
@@ -127,10 +127,11 @@ class TestRunPayloadAttachments:
                 attachments=[{"url": "https://s3/a.wav", "type": "audio"}, "https://s3/b.png"],
             )
             MockUploader.assert_not_called()
-        assert payload["attachments"] == [
-            {"url": "https://s3/a.wav", "type": "audio"},
-            {"url": "https://s3/b.png"},
-        ]
+        # Explicit type preserved (+ mime inferred); bare URL string auto-typed as image.
+        assert payload["attachments"][0] == {"url": "https://s3/a.wav", "type": "audio", "mimeType": "audio/wav"}
+        assert payload["attachments"][1]["url"] == "https://s3/b.png"
+        assert payload["attachments"][1]["type"] == "image"
+        assert payload["attachments"][1]["mimeType"] == "image/png"
 
     def test_local_path_is_uploaded_with_mimetype(self):
         agent = _agent_from_dict()

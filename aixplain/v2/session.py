@@ -2,6 +2,7 @@
 
 import os
 import logging
+import mimetypes
 import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
@@ -101,6 +102,42 @@ def _mime_to_attachment_type(mime_type: str) -> str:
     return AttachmentType.UNKNOWN.value
 
 
+def _infer_type_and_mime(ref: str) -> tuple[Optional[str], Optional[str]]:
+    """Infer ``(attachment_type, mimeType)`` from a filename or URL by extension.
+
+    Used to auto-detect the ``type`` of a hosted URL (or a path) when the caller
+    doesn't supply one — the agent worker keys off ``type`` (``image`` / ``audio``
+    / ``file``), so a URL with no type would otherwise be treated as a generic
+    file. Query/fragment are stripped so ``clip.wav?sig=…`` still resolves.
+    Returns ``(None, None)`` when nothing can be inferred (caller leaves the
+    fields unset → worker defaults to ``file``).
+    """
+    from .upload_utils import MimeTypeDetector
+
+    path = ref.split("?", 1)[0].split("#", 1)[0]
+    ext = Path(path).suffix.lower()
+    mime = MimeTypeDetector.EXTENSION_MAPPING.get(ext) or mimetypes.guess_type(path)[0]
+    if not mime:
+        return None, None
+    return _mime_to_attachment_type(mime), mime
+
+
+def _augment_hosted_attachment(att: Dict[str, Any]) -> Dict[str, Any]:
+    """Fill a hosted-URL attachment's missing ``type``/``mimeType`` by inference.
+
+    Explicit caller-supplied values are preserved; only absent fields are filled,
+    inferred from the attachment's ``name`` (preferred) or ``url`` extension.
+    """
+    if att.get("type") and att.get("mimeType"):
+        return att
+    att_type, mime = _infer_type_and_mime(att.get("name") or att.get("url") or "")
+    if att_type and not att.get("type"):
+        att["type"] = att_type
+    if mime and not att.get("mimeType"):
+        att["mimeType"] = mime
+    return att
+
+
 def resolve_attachments(
     context: Any,
     attachments: Optional[List[Union[str, Path, Dict[str, Any]]]],
@@ -147,7 +184,9 @@ def resolve_attachments(
     for entry in attachments or []:
         if isinstance(entry, dict):
             if entry.get("url"):
-                resolved.append(entry)
+                # Auto-detect a missing type/mimeType from the url/name extension
+                # so a bare ``{"url": "...wav"}`` is recognized as audio (not a file).
+                resolved.append(_augment_hosted_attachment(dict(entry)))
             elif entry.get("path"):
                 att = _upload(str(entry["path"]))
                 # Let caller-supplied keys (type/name/mimeType) override detection.
@@ -157,7 +196,13 @@ def resolve_attachments(
                 raise ResourceError("attachment dict must have a 'url' or a 'path' key")
         elif isinstance(entry, (str, Path)):
             value = str(entry)
-            resolved.append({"url": value} if _is_hosted_url(value) else _upload(value))
+            if _is_hosted_url(value):
+                # A bare URL string: attach as-is, auto-detecting type/mimeType
+                # (and name) from the extension.
+                att: Dict[str, Any] = {"url": value, "name": os.path.basename(value.split("?", 1)[0])}
+                resolved.append(_augment_hosted_attachment(att))
+            else:
+                resolved.append(_upload(value))
         else:
             raise ResourceError(f"unsupported attachment entry type: {type(entry).__name__}")
 
