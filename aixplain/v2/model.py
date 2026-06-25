@@ -686,7 +686,7 @@ class Model(
 
         if self.is_sync_only:
             result = self._run_sync_v2(**effective_params)
-            if result.url and not result.completed and self._is_poll_url(result.url):
+            if result.url and result.status == "IN_PROGRESS" and not result.completed and self._is_poll_url(result.url):
                 result = self.sync_poll(result.url, **effective_params)
             return result
         else:
