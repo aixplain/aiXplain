@@ -1493,7 +1493,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             # Re-raise as APIError instead of silently returning failed result
             from .exceptions import APIError
 
-            raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url})
+            raise APIError(f"Polling failed: {str(e)} + ------------ + {poll_url}", 0, {"poll_url": poll_url})
 
         # Handle polling response - use camelCase keys (what backend sends)
         # dataclass_json with config(field_name=...) handles mapping to snake_case
