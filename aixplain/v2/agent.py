@@ -246,7 +246,7 @@ class AgentRunParams(BaseRunParams):
         evolve: Evolution parameters
         inspectors: Inspector configurations
         run_response_generation: Whether to run response generation. Defaults to False.
-        attachments: Multimodal attachments for the turn (only with ``via_session=True``).
+        attachments: Multimodal attachments for the turn.
             Each entry is a hosted-URL/local-path string or a dict with ``url`` or
             ``path`` (plus optional ``type``/``name``/``mimeType``). Local paths are
             uploaded to aiXplain storage automatically.
