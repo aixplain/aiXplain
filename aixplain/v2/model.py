@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Dict, Union, List, Optional, Any, TYPE_CHECKING, Iterator
 from typing_extensions import NotRequired, Unpack
@@ -30,6 +31,13 @@ if TYPE_CHECKING:
     import requests
 
 logger = logging.getLogger(__name__)
+
+_MODEL_POLL_URL_RE = re.compile(
+    r"^(?:https?://[^/?#]+)?/?(?:"
+    r"api/v1/data/[A-Za-z0-9_-]+|"
+    r"sdk/(?:models|runs)/[A-Za-z0-9_-]+(?:/result)?"
+    r")(?:[?#].*)?$"
+)
 
 
 @dataclass_json
@@ -678,12 +686,17 @@ class Model(
 
         if self.is_sync_only:
             result = self._run_sync_v2(**effective_params)
-            if result.url and not result.completed:
+            if result.url and not result.completed and self._is_poll_url(result.url):
                 result = self.sync_poll(result.url, **effective_params)
             return result
         else:
             # Async-capable models: Use base run() which calls run_async() and polls
             return super().run(**effective_params)
+
+    @staticmethod
+    def _is_poll_url(url: str) -> bool:
+        """Return True when a model URL matches a known polling endpoint."""
+        return bool(_MODEL_POLL_URL_RE.match(url))
 
     def _run_sync_v2(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model synchronously using V2 endpoint directly.
