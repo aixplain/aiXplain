@@ -74,13 +74,23 @@ Initialize APIError with HTTP status and response details.
 - `response_data` - Optional dictionary containing the raw API response.
 - `error` - Optional error string override.
 
+### AixplainIssueError Objects
+
+```python
+class AixplainIssueError(APIError)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L64)
+
+Raised when SDK issue reporting fails.
+
 ### ValidationError Objects
 
 ```python
 class ValidationError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L64)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L70)
 
 Raised when validation fails.
 
@@ -90,7 +100,7 @@ Raised when validation fails.
 class TimeoutError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L70)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L76)
 
 Raised when operations timeout.
 
@@ -100,7 +110,7 @@ Raised when operations timeout.
 class FileUploadError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L76)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L82)
 
 Raised when file upload operations fail.
 
@@ -110,7 +120,7 @@ Raised when file upload operations fail.
 def create_operation_failed_error(response: Dict[str, Any]) -> APIError
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L101)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L107)
 
 Create an operation failed error from API response.
 
