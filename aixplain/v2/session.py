@@ -2,6 +2,7 @@
 
 import os
 import logging
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 from pathlib import Path
@@ -24,10 +25,12 @@ logger = logging.getLogger(__name__)
 # Maps snake_case execution param keys to the camelCase the backend accepts.
 # Kept in this module (not on Agent) so Session create/update — which carries
 # the same params as legacy agent.run — uses the same normalization.
+# NOTE: ``max_iterations`` is intentionally absent — it is deprecated and folded
+# into ``executionParams.budget.maxIterations`` (see ``ExecutionConfig``), never
+# emitted as a standalone ``executionParams.maxIterations``.
 EXECUTION_PARAMS_MAP: Dict[str, str] = {
     "output_format": "outputFormat",
     "max_tokens": "maxTokens",
-    "max_iterations": "maxIterations",
     "max_time": "maxTime",
     "expected_output": "expectedOutput",
 }
@@ -185,6 +188,10 @@ class ExecutionConfig:
             platform ``[{id, parameters: [{name, value}]}]`` shape (normalized
             by ``Agent._normalize_tool_for_api``). A per-message ``tools``
             override on ``add_message`` wins over these by tool id.
+        budget: Per-session run budget (cost / duration / iterations). Accepts a
+            ``Budget`` instance or a snake_case/camelCase dict. Serialized into
+            ``executionParams.budget`` so messages posted to the session run the
+            agent with this budget — identical to ``agent.run(budget=...)``.
     """
 
     execution_params: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionParams"))
@@ -193,16 +200,62 @@ class ExecutionConfig:
     identifier: Optional[str] = None
     run_response_generation: Optional[bool] = field(default=None, metadata=config(field_name="runResponseGeneration"))
     tools: Optional[List[Dict[str, Any]]] = None
+    # Per-session run budget. Serialized manually into ``executionParams.budget``
+    # by ``to_api_dict`` (never as a top-level field), so it is excluded from the
+    # auto-generated dataclass_json serialization.
+    budget: Optional[Any] = field(default=None, metadata=config(field_name="budget", exclude=lambda v: True))
+
+    def __post_init__(self) -> None:
+        """Coerce a dict/Budget ``budget`` into a ``Budget`` instance."""
+        from .agent import Agent
+
+        self.budget = Agent._coerce_budget(self.budget)
 
     def to_api_dict(self) -> Dict[str, Any]:
         """Build the camelCase API payload, normalizing nested params.
 
         Only fields the caller set are included so the backend keeps
-        existing values on partial updates.
+        existing values on partial updates. The deprecated
+        ``execution_params['max_iterations']`` is folded into
+        ``executionParams.budget.maxIterations`` (Budget wins on conflict) and a
+        standalone ``executionParams.maxIterations`` is never emitted — mirroring
+        the agent run path so sessions and direct runs behave identically.
         """
+        from .agent import Agent
+
         out: Dict[str, Any] = {}
-        normalized = _normalize_execution_params(self.execution_params)
-        if normalized is not None:
+
+        normalized = _normalize_execution_params(self.execution_params) or {}
+        # Resolve the run-time budget first so the deprecated fold can defer to it.
+        budget = self.budget
+
+        # Deprecated run-time ``max_iterations`` exec param: fold into the budget
+        # (Budget wins on conflict) and stop emitting a standalone maxIterations.
+        # ``max_iterations`` is not in EXECUTION_PARAMS_MAP, so a snake_case key
+        # passes through unmapped — accept both spellings here (mirrors the run
+        # path in Agent.build_run_payload). ``_fold_iter_into_budget`` is pure; we
+        # own the conflict warning so it resolves to this to_api_dict() call site.
+        deprecated_iterations = normalized.pop("maxIterations", None)
+        if deprecated_iterations is None:
+            deprecated_iterations = normalized.pop("max_iterations", None)
+        if deprecated_iterations is not None:
+            warnings.warn(
+                "Execution param 'max_iterations' is deprecated; use budget=Budget(max_iterations=...). "
+                "It will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            budget, conflicted = Agent._fold_iter_into_budget(budget, deprecated_iterations)
+            if conflicted:
+                warnings.warn(Agent._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=2)
+
+        # Serialize the budget into executionParams.budget (drops None fields).
+        if budget is not None:
+            normalized_budget = Agent._normalize_budget(budget)
+            if normalized_budget:
+                normalized["budget"] = normalized_budget
+
+        if normalized:
             out["executionParams"] = normalized
         if self.criteria is not None:
             out["criteria"] = self.criteria
@@ -217,6 +270,38 @@ class ExecutionConfig:
         return out
 
     @classmethod
+    def _fold_legacy_max_iterations(cls, kvs: Any) -> Any:
+        """Fold a legacy ``executionParams.maxIterations`` into ``budget`` silently.
+
+        Backend session payloads may still carry a legacy
+        ``executionParams.maxIterations``. Deserialization must NOT warn — only
+        the explicit ``ExecutionConfig(execution_params={'max_iterations': ...})``
+        send path (via ``to_api_dict``) does. So we fold any legacy
+        ``maxIterations`` straight into the ``budget`` slot here (Budget wins
+        silently if already set) and drop the standalone key. Returns a copy;
+        the caller's dict is untouched.
+        """
+        if isinstance(kvs, dict):
+            ep = kvs.get("executionParams") or kvs.get("execution_params")
+            if isinstance(ep, dict) and ep.get("maxIterations") is not None:
+                from .agent import Agent
+
+                kvs = dict(kvs)  # shallow copy; never mutate the caller's dict
+                ep = dict(ep)
+                legacy_iterations = ep.pop("maxIterations")
+                budget = kvs.get("budget")
+                normalized = Agent._normalize_budget(budget) if budget is not None else {}
+                if normalized.get("maxIterations") is None:
+                    normalized["maxIterations"] = legacy_iterations
+                kvs["budget"] = normalized
+                # Write the cleaned exec params back under whichever key was present.
+                if "executionParams" in kvs:
+                    kvs["executionParams"] = ep
+                else:
+                    kvs["execution_params"] = ep
+        return kvs
+
+    @classmethod
     def coerce(cls, value: Any) -> Optional["ExecutionConfig"]:
         """Accept an ExecutionConfig, dict, or None and return a config or None."""
         if value is None:
@@ -226,6 +311,23 @@ class ExecutionConfig:
         if isinstance(value, dict):
             return cls.from_dict(value)
         raise TypeError(f"execution_config must be ExecutionConfig, dict, or None; got {type(value).__name__}")
+
+
+# ``@dataclass_json`` injects its own ``from_dict`` onto ExecutionConfig, which
+# would clobber any ``from_dict`` defined in the class body. So we wrap the
+# injected decoder here (after decoration) to silently fold a legacy
+# ``executionParams.maxIterations`` into ``budget`` before decoding — keeping
+# deserialization warning-free while the explicit ``to_api_dict`` send path
+# still warns. Mirrors the same pattern in ``aixplain/v2/agent.py``.
+_dataclass_json_execution_config_from_dict = ExecutionConfig.from_dict.__func__
+
+
+def _execution_config_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "ExecutionConfig":
+    kvs = cls._fold_legacy_max_iterations(kvs)
+    return _dataclass_json_execution_config_from_dict(cls, kvs, infer_missing=infer_missing)
+
+
+ExecutionConfig.from_dict = classmethod(_execution_config_from_dict)
 
 
 @dataclass_json
@@ -255,6 +357,30 @@ class Session(
         """Coerce dict execution_config (e.g. from kwargs) into ExecutionConfig."""
         if self.execution_config is not None and not isinstance(self.execution_config, ExecutionConfig):
             self.execution_config = ExecutionConfig.coerce(self.execution_config)
+
+    @classmethod
+    def _fold_legacy_execution_config(cls, kvs: Any) -> Any:
+        """Pre-fold a legacy ``executionConfig`` payload before decoding.
+
+        dataclass_json decodes the nested ``executionConfig`` field with its own
+        decoder, bypassing the overridden ``ExecutionConfig.from_dict``. So a
+        backend session carrying a legacy ``executionConfig.executionParams
+        .maxIterations`` would otherwise survive unflattened and trigger a
+        spurious ``DeprecationWarning`` later on serialization. Folding it here
+        (silently, via ``ExecutionConfig._fold_legacy_max_iterations``) keeps the
+        load path warning-free. Returns a copy; the caller's dict is untouched.
+        """
+        if isinstance(kvs, dict):
+            ec = kvs.get("executionConfig") or kvs.get("execution_config")
+            if isinstance(ec, dict):
+                folded = ExecutionConfig._fold_legacy_max_iterations(ec)
+                if folded is not ec:  # only copy when a fold actually happened
+                    kvs = dict(kvs)
+                    if "executionConfig" in kvs:
+                        kvs["executionConfig"] = folded
+                    else:
+                        kvs["execution_config"] = folded
+        return kvs
 
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build payload with only mutable fields."""
@@ -491,3 +617,19 @@ class Session(
         except Exception as e:
             raise ResourceError(f"Failed to react to message '{message_id}' in session '{self.id}': {e}")
         return _deserialize(SessionMessage, response, "session message")
+
+
+# ``@dataclass_json`` injects its own ``from_dict`` onto Session, which would
+# clobber any ``from_dict`` defined in the class body. We wrap the injected
+# decoder here to silently pre-fold a legacy nested ``executionConfig`` before
+# decoding — so loading a backend session never emits a spurious deprecation
+# warning. Mirrors the pattern used for ``ExecutionConfig`` and ``Agent``.
+_dataclass_json_session_from_dict = Session.from_dict.__func__
+
+
+def _session_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Session":
+    kvs = cls._fold_legacy_execution_config(kvs)
+    return _dataclass_json_session_from_dict(cls, kvs, infer_missing=infer_missing)
+
+
+Session.from_dict = classmethod(_session_from_dict)
