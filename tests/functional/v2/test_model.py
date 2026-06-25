@@ -986,8 +986,10 @@ def test_seedream_run_returns_non_poll_url_without_polling(client):
         wait_time=5,
     )
 
-    assert result.url
-    assert not model._is_poll_url(result.url)
+    assert result.status == "SUCCESS"
+    assert result.completed is True
+    assert result.data
+    assert result.url is None
 
 
 def test_sync_model_run_async(client, sync_model_id):

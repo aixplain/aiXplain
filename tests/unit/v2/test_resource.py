@@ -842,6 +842,23 @@ class TestRunnableResourceMixin:
         assert result.url == "some-poll-id-not-a-url"
         assert result.completed is False
 
+    def test_handle_run_response_success_url_data_is_final_data(self):
+        """handle_run_response() should not treat successful URL data as a polling URL."""
+        resource = self._create_runnable_resource()
+
+        response = {
+            "status": "SUCCESS",
+            "completed": True,
+            "data": "https://example.com/generated-image.jpeg",
+        }
+        result = resource.handle_run_response(response)
+
+        assert isinstance(result, Result)
+        assert result.status == "SUCCESS"
+        assert result.completed is True
+        assert result.data == "https://example.com/generated-image.jpeg"
+        assert result.url is None
+
     def test_run_polls_when_in_progress_with_non_url_data(self):
         """run() should poll when handle_run_response returns IN_PROGRESS with non-URL data."""
         resource = self._create_runnable_resource()
