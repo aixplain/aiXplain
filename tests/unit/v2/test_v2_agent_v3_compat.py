@@ -7,7 +7,7 @@ Covers three SDK-side regressions surfaced during V3 DEV testing:
 """
 
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -114,3 +114,53 @@ class TestR3InspectorDeserialization:
         assert isinstance(agent.inspectors[0], Inspector)
         assert isinstance(agent.inspectors[1], PrebuiltInspector)
         assert agent.inspectors[1].preset_id == "pii_redaction"
+
+
+class TestRunPayloadAttachments:
+    """Non-session run path resolves attachments into a structured payload field."""
+
+    def test_url_attachments_not_uploaded_and_type_auto_detected(self):
+        agent = _agent_from_dict()
+        with patch("aixplain.v2.upload_utils.FileUploader") as MockUploader:
+            payload = agent.build_run_payload(
+                query="describe",
+                attachments=[{"url": "https://s3/a.wav", "type": "audio"}, "https://s3/b.png"],
+            )
+            MockUploader.assert_not_called()
+        # Explicit type preserved (+ mime inferred); bare URL string auto-typed as image.
+        assert payload["attachments"][0] == {"url": "https://s3/a.wav", "type": "audio", "mimeType": "audio/wav"}
+        assert payload["attachments"][1]["url"] == "https://s3/b.png"
+        assert payload["attachments"][1]["type"] == "image"
+        assert payload["attachments"][1]["mimeType"] == "image/png"
+
+    def test_local_path_is_uploaded_with_mimetype(self):
+        agent = _agent_from_dict()
+        with (
+            patch("aixplain.v2.upload_utils.FileUploader") as MockUploader,
+            patch("aixplain.v2.upload_utils.MimeTypeDetector") as MockDetector,
+        ):
+            MockUploader.return_value.upload.return_value = "https://cdn/clip.wav"
+            MockDetector.detect_mime_type.return_value = "audio/wav"
+            payload = agent.build_run_payload(query="transcribe", attachments=["/tmp/clip.wav"])
+
+        assert payload["attachments"] == [
+            {"url": "https://cdn/clip.wav", "name": "clip.wav", "type": "audio", "mimeType": "audio/wav"}
+        ]
+
+    def test_files_kwarg_still_works_but_warns(self):
+        agent = _agent_from_dict()
+        with (
+            patch("aixplain.v2.upload_utils.FileUploader") as MockUploader,
+            patch("aixplain.v2.upload_utils.MimeTypeDetector") as MockDetector,
+            pytest.warns(DeprecationWarning, match="files.*deprecated"),
+        ):
+            MockUploader.return_value.upload.return_value = "https://cdn/doc.pdf"
+            MockDetector.detect_mime_type.return_value = "application/pdf"
+            payload = agent.build_run_payload(query="q", files=["/tmp/doc.pdf"])
+
+        assert payload["attachments"][0]["url"] == "https://cdn/doc.pdf"
+
+    def test_no_attachments_means_no_attachments_field(self):
+        agent = _agent_from_dict()
+        payload = agent.build_run_payload(query="hi")
+        assert "attachments" not in payload

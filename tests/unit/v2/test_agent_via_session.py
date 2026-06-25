@@ -325,6 +325,47 @@ class TestRunViaSessionReuse:
         assert kwargs["attachments"] == attachments
         assert kwargs["files"] == files
 
+    def test_audio_as_prompt_allows_missing_query(self):
+        # Audio-as-prompt: no text query, attachments carry the turn's input.
+        ctx = _make_mock_context()
+
+        existing = Mock(spec=Session)
+        existing.id = "sess_aud"
+        existing.add_message = Mock(return_value=_user_message(request_id="req_aud"))
+
+        ctx.Session = Mock()
+        ctx.Session.get = Mock(return_value=existing)
+        ctx.client.get.return_value = {
+            "status": "SUCCESS",
+            "completed": True,
+            "data": {"output": "ok", "session_id": "sess_aud", "steps": []},
+            "sessionId": "sess_aud",
+            "requestId": "req_aud",
+            "usedCredits": 0.0,
+            "runTime": 0.5,
+        }
+
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A")
+        agent._update_saved_state()
+
+        attachments = [{"url": "https://s3/a.wav", "type": "audio"}]
+        agent.run(via_session=True, session_id="sess_aud", attachments=attachments)
+
+        _, kwargs = existing.add_message.call_args
+        assert kwargs["content"] == ""  # empty query coerced to empty content
+        assert kwargs["attachments"] == attachments
+
+    def test_raises_when_no_query_and_no_attachments(self):
+        ctx = _make_mock_context()
+        ctx.Session = Mock()
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A")
+        agent._update_saved_state()
+
+        with pytest.raises(ValueError, match="requires a query or attachments"):
+            agent.run(via_session=True, session_id="sess_x")
+
 
 # ---------------------------------------------------------------------------
 # 3. Missing requestId on the user message → ValueError (defensive)

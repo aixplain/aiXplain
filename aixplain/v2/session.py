@@ -2,6 +2,8 @@
 
 import os
 import logging
+import mimetypes
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 from pathlib import Path
@@ -38,6 +40,15 @@ def _normalize_execution_params(params: Optional[Dict[str, Any]]) -> Optional[Di
     if not params:
         return params
     return {EXECUTION_PARAMS_MAP.get(k, k): v for k, v in params.items()}
+
+
+def _is_hosted_url(value: str) -> bool:
+    """True if ``value`` is an already-hosted location (not a local path).
+
+    Used by the unified ``attachments`` parameter to decide whether a string
+    entry is a URL to attach as-is or a local file path to upload.
+    """
+    return value.startswith(("http://", "https://", "s3://"))
 
 
 def _mime_to_attachment_type(mime_type: str) -> str:
@@ -91,6 +102,122 @@ def _mime_to_attachment_type(mime_type: str) -> str:
     return AttachmentType.UNKNOWN.value
 
 
+def _infer_type_and_mime(ref: str) -> tuple[Optional[str], Optional[str]]:
+    """Infer ``(attachment_type, mimeType)`` from a filename or URL by extension.
+
+    Used to auto-detect the ``type`` of a hosted URL (or a path) when the caller
+    doesn't supply one — the agent worker keys off ``type`` (``image`` / ``audio``
+    / ``file``), so a URL with no type would otherwise be treated as a generic
+    file. Query/fragment are stripped so ``clip.wav?sig=…`` still resolves.
+    Returns ``(None, None)`` when nothing can be inferred (caller leaves the
+    fields unset → worker defaults to ``file``).
+    """
+    from .upload_utils import MimeTypeDetector
+
+    path = ref.split("?", 1)[0].split("#", 1)[0]
+    ext = Path(path).suffix.lower()
+    mime = MimeTypeDetector.EXTENSION_MAPPING.get(ext) or mimetypes.guess_type(path)[0]
+    if not mime:
+        return None, None
+    return _mime_to_attachment_type(mime), mime
+
+
+def _augment_hosted_attachment(att: Dict[str, Any]) -> Dict[str, Any]:
+    """Fill a hosted-URL attachment's missing ``type``/``mimeType`` by inference.
+
+    Explicit caller-supplied values are preserved; only absent fields are filled,
+    inferred from the attachment's ``name`` (preferred) or ``url`` extension.
+    """
+    if att.get("type") and att.get("mimeType"):
+        return att
+    att_type, mime = _infer_type_and_mime(att.get("name") or att.get("url") or "")
+    if att_type and not att.get("type"):
+        att["type"] = att_type
+    if mime and not att.get("mimeType"):
+        att["mimeType"] = mime
+    return att
+
+
+def resolve_attachments(
+    context: Any,
+    attachments: Optional[List[Union[str, Path, Dict[str, Any]]]],
+    files: Optional[List[Union[str, Path]]],
+    *,
+    error_label: str = "",
+) -> List[Dict[str, Any]]:
+    """Normalize the unified ``attachments`` (plus deprecated ``files``) for the API.
+
+    Each entry becomes a ``{url, name, type, mimeType}`` dict. URL entries (``http(s)://``
+    / ``s3://`` strings, or dicts carrying a ``url``) pass through unchanged; local paths
+    (plain strings, or dicts carrying a ``path``) are uploaded to aiXplain storage and the
+    resulting download link is attached. The ``FileUploader`` is created lazily, only when
+    an upload is actually needed. Shared by ``Session.add_message`` and ``Agent`` runs.
+
+    Args:
+        context: An object exposing ``backend_url`` and ``api_key`` (the SDK context).
+        attachments: The unified attachments list.
+        files: Deprecated local-path list (merged in, with a warning).
+        error_label: Optional context for upload-error messages (e.g. ``"session 's1'"``).
+    """
+    resolved: List[Dict[str, Any]] = []
+    uploader = None  # lazily created on first upload
+
+    def _upload(path_str: str) -> Dict[str, Any]:
+        nonlocal uploader
+        from .upload_utils import FileUploader, MimeTypeDetector
+
+        if uploader is None:
+            uploader = FileUploader(backend_url=context.backend_url, api_key=context.api_key)
+        try:
+            download_url = uploader.upload(path_str, is_temp=True, return_download_link=True)
+        except Exception as e:
+            where = f" for {error_label}" if error_label else ""
+            raise ResourceError(f"Failed to upload file '{path_str}'{where}: {e}")
+        mime_type = MimeTypeDetector.detect_mime_type(path_str)
+        return {
+            "url": download_url,
+            "name": os.path.basename(path_str),
+            "type": _mime_to_attachment_type(mime_type),
+            "mimeType": mime_type or None,
+        }
+
+    for entry in attachments or []:
+        if isinstance(entry, dict):
+            if entry.get("url"):
+                # Auto-detect a missing type/mimeType from the url/name extension
+                # so a bare ``{"url": "...wav"}`` is recognized as audio (not a file).
+                resolved.append(_augment_hosted_attachment(dict(entry)))
+            elif entry.get("path"):
+                att = _upload(str(entry["path"]))
+                # Let caller-supplied keys (type/name/mimeType) override detection.
+                att.update({k: v for k, v in entry.items() if k != "path" and v is not None})
+                resolved.append(att)
+            else:
+                raise ResourceError("attachment dict must have a 'url' or a 'path' key")
+        elif isinstance(entry, (str, Path)):
+            value = str(entry)
+            if _is_hosted_url(value):
+                # A bare URL string: attach as-is, auto-detecting type/mimeType
+                # (and name) from the extension.
+                att: Dict[str, Any] = {"url": value, "name": os.path.basename(value.split("?", 1)[0])}
+                resolved.append(_augment_hosted_attachment(att))
+            else:
+                resolved.append(_upload(value))
+        else:
+            raise ResourceError(f"unsupported attachment entry type: {type(entry).__name__}")
+
+    if files:
+        warnings.warn(
+            "`files` is deprecated; pass local paths (or URLs) through `attachments` instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        for file_path in files:
+            resolved.append(_upload(str(file_path)))
+
+    return resolved
+
+
 def _parse_list_response(response: Any, item_type: str) -> list:
     """Parse a response that should be a bare JSON array.
 
@@ -139,6 +266,10 @@ class SessionMessageAttachment:
     url: str
     name: Optional[str] = None
     type: Optional[str] = None
+    # Precise MIME type (e.g. ``audio/wav``). Carried so the worker can derive
+    # an audio codec instead of guessing from the filename extension. ``type``
+    # stays the coarse class (image/audio/...) for backward compatibility.
+    mimeType: Optional[str] = field(default=None, metadata=config(field_name="mimeType"))
 
 
 @dataclass_json
@@ -348,7 +479,7 @@ class Session(
         role: str,
         content: str,
         request_id: Optional[str] = None,
-        attachments: Optional[List[Dict[str, Any]]] = None,
+        attachments: Optional[List[Union[str, Path, Dict[str, Any]]]] = None,
         files: Optional[List[Union[str, Path]]] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> SessionMessage:
@@ -356,10 +487,18 @@ class Session(
 
         Args:
             role: Message role ("user" or "assistant").
-            content: Message content.
+            content: Message content. May be empty when ``attachments`` carry the
+                turn's input (e.g. an audio clip that is itself the prompt).
             request_id: Optional request ID to associate with the message.
-            attachments: Pre-built attachment dicts with url, name, type keys.
-            files: Local file paths to upload and attach.
+            attachments: The message's attachments. Each entry may be:
+
+                * a hosted-URL dict ``{"url", "type"?, "name"?, "mimeType"?}`` — used as-is;
+                * a local-path dict ``{"path": "/...", "type"?, ...}`` — uploaded;
+                * a string URL (``http(s)://`` / ``s3://``) — attached as-is;
+                * a string local path — uploaded to aiXplain storage.
+
+            files: Deprecated. Local file paths to upload and attach — pass these
+                through ``attachments`` instead.
             tools: Per-message per-tool parameter overrides, already in the
                 platform ``[{id, parameters: [{name, value}]}]`` shape. These
                 win over the session's ``executionConfig.tools`` by tool id
@@ -375,34 +514,7 @@ class Session(
         """
         self._ensure_valid_state()
 
-        all_attachments = list(attachments) if attachments else []
-
-        if files:
-            from .upload_utils import FileUploader, MimeTypeDetector
-
-            uploader = FileUploader(
-                backend_url=self.context.backend_url,
-                api_key=self.context.api_key,
-            )
-            for file_path in files:
-                file_path_str = str(file_path)
-                try:
-                    download_url = uploader.upload(
-                        file_path_str,
-                        is_temp=True,
-                        return_download_link=True,
-                    )
-                except Exception as e:
-                    raise ResourceError(f"Failed to upload file '{file_path_str}' for session '{self.id}': {e}")
-                mime_type = MimeTypeDetector.detect_mime_type(file_path_str)
-                att_type = _mime_to_attachment_type(mime_type)
-                all_attachments.append(
-                    {
-                        "url": download_url,
-                        "name": os.path.basename(file_path_str),
-                        "type": att_type,
-                    }
-                )
+        all_attachments = self._resolve_attachments(attachments, files)
 
         payload: Dict[str, Any] = {"role": role, "content": content}
         if request_id is not None:
@@ -421,6 +533,18 @@ class Session(
             raise ResourceError(f"Failed to add message to session '{self.id}': {e}")
 
         return _deserialize(SessionMessage, response, "session message")
+
+    def _resolve_attachments(
+        self,
+        attachments: Optional[List[Union[str, Path, Dict[str, Any]]]],
+        files: Optional[List[Union[str, Path]]],
+    ) -> List[Dict[str, Any]]:
+        """Resolve the unified ``attachments`` (+ deprecated ``files``) for this session.
+
+        Thin wrapper over :func:`resolve_attachments` that supplies this session's
+        context and an error label.
+        """
+        return resolve_attachments(self.context, attachments, files, error_label=f"session '{self.id}'")
 
     def get_message(self, message_id: str) -> SessionMessage:
         """Get a specific message by ID.

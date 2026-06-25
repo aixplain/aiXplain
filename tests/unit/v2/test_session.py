@@ -620,6 +620,105 @@ class TestSessionMessages:
             assert payload["attachments"][1]["url"] == "https://cdn.example.com/doc.pdf"
             assert payload["attachments"][1]["type"] == "document"
 
+    def test_add_message_url_string_type_auto_detected(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = SAMPLE_MESSAGE_DICT
+        session = self._make_session(ctx)
+
+        with patch("aixplain.v2.upload_utils.FileUploader") as MockUploader:
+            session.add_message(role="user", content="q", attachments=["https://cdn.example.com/a.wav"])
+            MockUploader.assert_not_called()  # URLs are not uploaded
+
+        payload = ctx.client.request.call_args[1]["json"]
+        # type/mimeType/name auto-detected from the extension so the worker
+        # treats it as audio, not a generic file.
+        assert payload["attachments"] == [
+            {"url": "https://cdn.example.com/a.wav", "name": "a.wav", "type": "audio", "mimeType": "audio/wav"}
+        ]
+
+    def test_add_message_url_dict_without_type_auto_detected(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = SAMPLE_MESSAGE_DICT
+        session = self._make_session(ctx)
+
+        session.add_message(role="user", content="q", attachments=[{"url": "https://cdn.example.com/pic.png"}])
+
+        att = ctx.client.request.call_args[1]["json"]["attachments"][0]
+        assert att["type"] == "image"
+        assert att["mimeType"] == "image/png"
+
+    def test_add_message_explicit_type_preserved(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = SAMPLE_MESSAGE_DICT
+        session = self._make_session(ctx)
+
+        # Caller-supplied type must win over inference (e.g. extensionless URL).
+        session.add_message(
+            role="user", content="q", attachments=[{"url": "https://cdn.example.com/clip", "type": "audio"}]
+        )
+        att = ctx.client.request.call_args[1]["json"]["attachments"][0]
+        assert att["type"] == "audio"
+
+    def test_add_message_path_string_uploads_with_mimetype(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = SAMPLE_MESSAGE_DICT
+        session = self._make_session(ctx)
+
+        with (
+            patch("aixplain.v2.upload_utils.FileUploader") as MockUploader,
+            patch("aixplain.v2.upload_utils.MimeTypeDetector") as MockDetector,
+        ):
+            MockUploader.return_value.upload.return_value = "https://cdn.example.com/clip.wav"
+            MockDetector.detect_mime_type.return_value = "audio/wav"
+
+            session.add_message(role="user", content="transcribe", attachments=["/tmp/clip.wav"])
+
+        att = ctx.client.request.call_args[1]["json"]["attachments"][0]
+        assert att == {
+            "url": "https://cdn.example.com/clip.wav",
+            "name": "clip.wav",
+            "type": "audio",
+            "mimeType": "audio/wav",
+        }
+
+    def test_add_message_path_dict_uploads_with_type_override(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = SAMPLE_MESSAGE_DICT
+        session = self._make_session(ctx)
+
+        with (
+            patch("aixplain.v2.upload_utils.FileUploader") as MockUploader,
+            patch("aixplain.v2.upload_utils.MimeTypeDetector") as MockDetector,
+        ):
+            MockUploader.return_value.upload.return_value = "https://cdn.example.com/clip.bin"
+            MockDetector.detect_mime_type.return_value = "application/octet-stream"
+
+            session.add_message(
+                role="user",
+                content="q",
+                attachments=[{"path": "/tmp/clip.wav", "type": "audio", "name": "voice.wav"}],
+            )
+
+        att = ctx.client.request.call_args[1]["json"]["attachments"][0]
+        assert att["url"] == "https://cdn.example.com/clip.bin"
+        assert att["type"] == "audio"  # caller override wins over detection
+        assert att["name"] == "voice.wav"
+
+    def test_add_message_audio_as_prompt_empty_content(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = SAMPLE_MESSAGE_DICT
+        session = self._make_session(ctx)
+
+        session.add_message(
+            role="user",
+            content="",
+            attachments=[{"url": "https://cdn.example.com/a.wav", "type": "audio"}],
+        )
+
+        payload = ctx.client.request.call_args[1]["json"]
+        assert payload["content"] == ""
+        assert payload["attachments"][0]["url"] == "https://cdn.example.com/a.wav"
+
     def test_get_message(self):
         ctx = _make_mock_context()
         ctx.client.request.return_value = SAMPLE_MESSAGE_DICT
