@@ -774,6 +774,27 @@ class TestRunnableResourceMixin:
         assert isinstance(result, Result)
         assert result.status == "SUCCESS"
 
+    def test_poll_failed_uses_nested_data_error(self):
+        """poll() should surface data.error when top-level error fields are empty."""
+        resource = self._create_runnable_resource()
+        resource.context.client.get = Mock(
+            return_value={
+                "status": "FAILED",
+                "completed": True,
+                "errorMessage": None,
+                "supplierError": None,
+                "data": {
+                    "error": "litellm.APIConnectionError: err.not_enough_balance\nTraceback...",
+                },
+            }
+        )
+
+        with pytest.raises(APIError) as exc_info:
+            resource.poll("https://poll.url")
+
+        assert "err.not_enough_balance" in str(exc_info.value)
+        assert "err.not_enough_balance" in exc_info.value.error
+
     def test_sync_poll_respects_timeout(self):
         """sync_poll() should raise TimeoutError after timeout."""
         resource = self._create_runnable_resource()
