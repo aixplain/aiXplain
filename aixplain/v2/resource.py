@@ -1498,14 +1498,17 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         # Handle polling response - use camelCase keys (what backend sends)
         # dataclass_json with config(field_name=...) handles mapping to snake_case
         run_time, used_credits = _extract_run_time_and_used_credits(response)
+        data = response.get("data") or {}
+        data_error = data.get("error") if isinstance(data, dict) else None
+        error_message = response.get("errorMessage") or data_error
         filtered_response = {
             "status": response.get("status", "IN_PROGRESS"),
             "completed": response.get("completed", False),
-            "errorMessage": response.get("errorMessage"),
+            "errorMessage": error_message,
             "url": response.get("url"),
             "result": response.get("result"),
             "supplierError": response.get("supplierError"),
-            "data": response.get("data") or {},
+            "data": data,
             "sessionId": response.get("sessionId"),
             "usedCredits": used_credits,
             "runTime": run_time,

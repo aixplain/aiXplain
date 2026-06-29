@@ -332,6 +332,23 @@ class TestCreateOperationFailedError:
 
         assert "Connection refused" in str(error)
 
+    def test_extracts_nested_data_error(self):
+        """Should extract 'data.error' when documented error fields are empty."""
+        response = {
+            "status": "FAILED",
+            "completed": True,
+            "errorMessage": None,
+            "supplierError": None,
+            "data": {
+                "error": "litellm.APIConnectionError: err.not_enough_balance\nTraceback...",
+            },
+        }
+
+        error = create_operation_failed_error(response)
+
+        assert "err.not_enough_balance" in str(error)
+        assert "err.not_enough_balance" in error.error
+
     def test_fallback_message(self):
         """Should use 'Operation failed' as fallback when no error field."""
         response = {
