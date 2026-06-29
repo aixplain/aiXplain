@@ -14,7 +14,22 @@ python3 tooling/refresh_skill.py apply --yes      # also bump the baselines afte
 
 # Re-record the SDK baseline from the currently installed SDK (after you accept SDK-driven edits).
 python3 tooling/refresh_skill.py snapshot-sdk
+
+# Publish the skill to the SDK repo (aixplain/aiXplain : skills/aixplain-builder).
+python3 tooling/refresh_skill.py publish --dry-run   # clone+sync+commit locally, no push
+python3 tooling/refresh_skill.py publish --pr        # open a PR (main is protected — PR required)
 ```
+
+`check`/`apply` auto-run `pip install --upgrade aixplain` first (pass `--no-upgrade` to skip), so a single `check` truly reflects the latest SDK.
+
+## Publishing (`publish`)
+
+Syncs the skill source into a target repo/path and opens a PR (or pushes, if the branch allows it):
+
+- Defaults: `--publish-repo aixplain/aiXplain`, `--publish-path skills/aixplain-builder`, `--publish-branch main`.
+- `--pr` pushes a `publish-aixplain-builder` branch and opens a PR (required when the target branch is protected — `aixplain/aiXplain:main` is). Without `--pr` it tries a direct push to the branch.
+- `--dry-run` clones, syncs, and commits locally but does not push — use it to preview the file set.
+- It replaces the target path wholesale (so deleted files propagate) and skips caches/generated reports. Uses `gh`/git auth.
 
 ## What each step does
 
