@@ -18,7 +18,6 @@ from .inspector import (
     EvaluatorType,
     EvaluatorConfig,
     EditorConfig,
-    PrebuiltInspector,
 )
 from .session import (
     ExecutionConfig,
@@ -124,7 +123,6 @@ __all__ = [
     "EvaluatorType",
     "EvaluatorConfig",
     "EditorConfig",
-    "PrebuiltInspector",
     "ModelResponse",
     # Meta-agents
     "Debugger",

@@ -12,8 +12,8 @@ from aixplain.v2.inspector import (
     EvaluatorType,
     EvaluatorConfig,
     EditorConfig,
-    PrebuiltInspector,
-    is_prebuilt_inspector,
+    _guard_slugs,
+    _resolve_guard_defaults,
 )
 
 
@@ -298,165 +298,240 @@ class TestInspector:
 
 
 # ---------------------------------------------------------------------------
-# PrebuiltInspector
+# Marketplace retrieval: aix.Inspector.get / .search
 # ---------------------------------------------------------------------------
 
 
-class TestPrebuiltInspector:
-    def test_prompt_injection_guard_defaults(self):
-        inspector = PrebuiltInspector.prompt_injection_guard()
-        payload = inspector.to_dict()
-        assert payload == {"presetId": "prompt_injection_guard"}
+class _FakeClient:
+    """Records calls and returns canned guard payloads."""
 
-    def test_pii_redaction_defaults(self):
-        inspector = PrebuiltInspector.pii_redaction()
-        payload = inspector.to_dict()
-        assert payload == {"presetId": "pii_redaction"}
+    def __init__(self, get_result=None, paginate_result=None):
+        self._get_result = get_result
+        self._paginate_result = paginate_result
+        self.got_path = None
+        self.request_call = None
 
-    def test_prompt_injection_guard_with_overrides(self):
-        inspector = PrebuiltInspector.prompt_injection_guard(
-            targets=[InspectorTarget.OUTPUT],
-            severity=InspectorSeverity.CRITICAL,
-            name="my_guard",
-            description="Custom guard",
+    def get(self, path, **kwargs):
+        self.got_path = path
+        return self._get_result
+
+    def request(self, method, path, **kwargs):
+        self.request_call = (method, path, kwargs.get("json"))
+        return self._paginate_result
+
+
+class _FakeContext:
+    def __init__(self, client):
+        self.client = client
+
+
+def _bind_inspector(client):
+    """Mirror ``aix.Inspector`` — Inspector subclass bound to a context."""
+    ctx = _FakeContext(client)
+    return type("Inspector", (Inspector,), {"context": ctx})
+
+
+# Canonical marketplace paths for the onboarded AWS guards (host/asset-name/instance),
+# verified against production. The asset-name (middle) segment drives the tuned config.
+_PROMPT_ATTACKS_PATH = "aws/detect-prompt-attacks-guardrail/aws"
+_PII_PATH = "aws/sensitive-information-guardrail/aws"
+_HALLUCINATION_PATH = "aws/contextual-grounding-check-guardrail/aws"
+
+
+class TestGuardSlugResolution:
+    """Unit coverage for the asset-name-based tuned-config resolution."""
+
+    def test_guard_slugs_returns_all_segments_lowercased(self):
+        assert _guard_slugs("aws/Sensitive-Information-Guardrail/aws") == [
+            "aws",
+            "sensitive-information-guardrail",
+            "aws",
+        ]
+
+    def test_guard_slugs_handles_bare_id_and_empty(self):
+        assert _guard_slugs("69cbf63cd74e334a6bacfeb1") == ["69cbf63cd74e334a6bacfeb1"]
+        assert _guard_slugs(None) == []
+        assert _guard_slugs("") == []
+
+    def test_asset_name_middle_segment_selects_config(self):
+        # The guard identity is the middle segment, not the trailing host.
+        cfg = _resolve_guard_defaults("aws/sensitive-information-guardrail/aws")
+        assert cfg["action"]["type"] == "edit"
+        assert cfg["targets"] == ["input"]
+
+    def test_trailing_host_segment_does_not_match(self):
+        # An unknown asset name (host segments ignored) falls back to abort/input.
+        cfg = _resolve_guard_defaults("aws/some-future-guard/aws")
+        assert cfg["action"]["type"] == "abort"
+        assert cfg["targets"] == ["input"]
+
+    def test_bare_id_falls_back_to_safe_default(self):
+        cfg = _resolve_guard_defaults("69cbf63cd74e334a6bacfeb1")
+        assert cfg["action"]["type"] == "abort"
+
+    def test_first_matching_candidate_wins(self):
+        # asset_name candidate (checked first) takes precedence over the path.
+        cfg = _resolve_guard_defaults("contextual-grounding-check-guardrail", "aws/ignored/aws")
+        assert cfg["action"]["type"] == "rerun"
+        assert cfg["targets"] == ["output"]
+
+
+class TestFromGuardModel:
+    def test_prompt_injection_defaults(self):
+        guard = Inspector.from_guard_model(
+            {"id": "pi-id", "name": "Detect Prompt Attacks Guardrail"},
+            requested_path=_PROMPT_ATTACKS_PATH,
         )
-        payload = inspector.to_dict()
-        assert payload == {
-            "presetId": "prompt_injection_guard",
-            "name": "my_guard",
-            "description": "Custom guard",
-            "targets": ["output"],
-            "severity": "critical",
-        }
-
-    def test_pii_redaction_with_action_override(self):
-        inspector = PrebuiltInspector.pii_redaction(
-            action={"type": "abort"},
-            targets=[InspectorTarget.INPUT, InspectorTarget.OUTPUT],
-        )
-        payload = inspector.to_dict()
-        assert payload == {
-            "presetId": "pii_redaction",
-            "targets": ["input", "output"],
+        assert guard.to_dict() == {
+            "name": "Detect Prompt Attacks Guardrail",
+            "targets": ["input"],
             "action": {"type": "abort"},
+            "evaluator": {"type": "asset", "assetId": "pi-id"},
         }
+        assert guard.id == "pi-id"
 
-    def test_unknown_preset_rejected(self):
-        with pytest.raises(ValueError, match="Unknown inspector preset"):
-            PrebuiltInspector(preset_id="nonexistent")
-
-    def test_unsupported_action_rejected(self):
-        with pytest.raises(ValueError, match="not supported by preset"):
-            PrebuiltInspector.prompt_injection_guard(action={"type": "edit"})
-
-    def test_pii_redaction_rejects_rerun(self):
-        with pytest.raises(ValueError, match="not supported by preset"):
-            PrebuiltInspector.pii_redaction(action={"type": "rerun"})
-
-    def test_hallucination_guard_defaults(self):
-        inspector = PrebuiltInspector.hallucination_guard()
-        payload = inspector.to_dict()
-        assert payload == {"presetId": "hallucination_guard"}
-
-    def test_hallucination_guard_with_overrides(self):
-        inspector = PrebuiltInspector.hallucination_guard(
-            targets=[InspectorTarget.OUTPUT],
-            severity=InspectorSeverity.HIGH,
-            name="my_hallucination_guard",
-            description="Custom hallucination guard",
+    def test_pii_redaction_defaults_with_editor(self):
+        guard = Inspector.from_guard_model(
+            {"id": "pii-id", "name": "Sensitive Information Guardrail"},
+            requested_path=_PII_PATH,
         )
-        payload = inspector.to_dict()
-        assert payload == {
-            "presetId": "hallucination_guard",
-            "name": "my_hallucination_guard",
-            "description": "Custom hallucination guard",
-            "targets": ["output"],
-            "severity": "high",
-        }
+        payload = guard.to_dict()
+        assert payload["action"] == {"type": "edit"}
+        assert payload["targets"] == ["input"]
+        # EDIT requires an editor; the guard model edits itself.
+        assert payload["editor"] == {"type": "asset", "assetId": "pii-id"}
 
-    def test_hallucination_guard_with_action_override(self):
-        inspector = PrebuiltInspector.hallucination_guard(
-            action={"type": "abort"},
+    def test_hallucination_defaults(self):
+        guard = Inspector.from_guard_model(
+            {"id": "h-id", "name": "Contextual Grounding Check Guardrail"},
+            requested_path=_HALLUCINATION_PATH,
         )
-        payload = inspector.to_dict()
-        assert payload == {
-            "presetId": "hallucination_guard",
-            "action": {"type": "abort"},
-        }
+        payload = guard.to_dict()
+        assert payload["targets"] == ["output"]
+        assert payload["action"] == {"type": "rerun", "maxRetries": 2, "onExhaust": "abort"}
 
-    def test_hallucination_guard_rejects_edit(self):
-        with pytest.raises(ValueError, match="not supported by preset"):
-            PrebuiltInspector.hallucination_guard(action={"type": "edit"})
-
-    def test_targets_normalized_from_enums(self):
-        inspector = PrebuiltInspector.pii_redaction(
-            targets=[InspectorTarget.STEPS, InspectorTarget.OUTPUT],
+    def test_asset_name_segment_drives_config_not_host(self):
+        # Real paths are host/asset-name/instance, so the trailing segment is the
+        # host ("aws"), not the guard identity. The tuned config must resolve from
+        # the asset-name (middle) segment — a regression guard for the slug bug
+        # where the trailing segment was used and every guard fell back to abort.
+        guard = Inspector.from_guard_model(
+            {"id": "pii-id", "name": "Sensitive Information Guardrail"},
+            requested_path=_PII_PATH,
         )
-        assert inspector.targets == ["steps", "output"]
+        assert guard.to_dict()["action"] == {"type": "edit"}
 
-    def test_targets_normalized_from_strings(self):
-        inspector = PrebuiltInspector.prompt_injection_guard(
-            targets=["INPUT", "Steps"],
+    def test_unknown_guard_safe_default(self):
+        guard = Inspector.from_guard_model(
+            {"id": "x-id", "name": "Future Guard"},
+            requested_path="aws/some-future-guard/aws",
         )
-        assert inspector.targets == ["input", "steps"]
+        payload = guard.to_dict()
+        assert payload["targets"] == ["input"]
+        assert payload["action"] == {"type": "abort"}
+        assert payload["evaluator"] == {"type": "asset", "assetId": "x-id"}
 
-    def test_from_dict_roundtrip(self):
-        original = PrebuiltInspector.prompt_injection_guard(
-            targets=[InspectorTarget.INPUT],
-            severity=InspectorSeverity.HIGH,
-            name="custom_name",
+    def test_slug_resolved_from_payload_path(self):
+        guard = Inspector.from_guard_model(
+            {"id": "h-id", "name": "Contextual Grounding Check Guardrail", "path": _HALLUCINATION_PATH},
         )
-        restored = PrebuiltInspector.from_dict(original.to_dict())
-        assert restored.to_dict() == original.to_dict()
+        assert guard.to_dict()["action"]["type"] == "rerun"
 
-    def test_from_dict_minimal(self):
-        data = {"presetId": "pii_redaction"}
-        inspector = PrebuiltInspector.from_dict(data)
-        assert inspector.preset_id == "pii_redaction"
-        assert inspector.targets is None
-        assert inspector.action is None
-
-    def test_list_presets_returns_all(self):
-        presets = PrebuiltInspector.list_presets()
-        assert "prompt_injection_guard" in presets
-        assert "pii_redaction" in presets
-        assert "hallucination_guard" in presets
-        assert presets["prompt_injection_guard"]["category"] == "protection"
-        assert presets["pii_redaction"]["category"] == "redaction"
-        assert presets["hallucination_guard"]["category"] == "quality"
-
-    def test_list_presets_contains_expected_fields(self):
-        presets = PrebuiltInspector.list_presets()
-        for preset_id, meta in presets.items():
-            assert "name" in meta
-            assert "description" in meta
-            assert "default_targets" in meta
-            assert "default_action" in meta
-            assert "supported_actions" in meta
-
-
-# ---------------------------------------------------------------------------
-# is_prebuilt_inspector helper
-# ---------------------------------------------------------------------------
-
-
-class TestIsPrebuiltInspector:
-    def test_prebuilt_instance(self):
-        assert is_prebuilt_inspector(PrebuiltInspector.pii_redaction()) is True
-
-    def test_preset_dict(self):
-        assert is_prebuilt_inspector({"presetId": "prompt_injection_guard"}) is True
-
-    def test_regular_inspector_instance(self):
-        inspector = Inspector(
-            name="custom",
-            action=InspectorActionConfig(type=InspectorAction.ABORT),
-            evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id="x"),
+    def test_slug_resolved_from_asset_name_field(self):
+        # When the payload carries assetInfo.assetName directly, it selects the
+        # tuned config regardless of the path shape.
+        guard = Inspector.from_guard_model(
+            {
+                "id": "pii-id",
+                "name": "Sensitive Information Guardrail",
+                "assetInfo": {"assetName": "sensitive-information-guardrail"},
+            }
         )
-        assert is_prebuilt_inspector(inspector) is False
+        assert guard.to_dict()["action"] == {"type": "edit"}
 
-    def test_regular_dict(self):
-        assert is_prebuilt_inspector({"name": "foo", "action": {"type": "abort"}}) is False
+    def test_returned_type_is_inspector(self):
+        guard = Inspector.from_guard_model({"id": "id", "name": "G"}, requested_path=_PII_PATH)
+        assert isinstance(guard, Inspector)
 
-    def test_none(self):
-        assert is_prebuilt_inspector(None) is False
+    def test_path_extracted_from_asset_info(self):
+        # Paginate/get payloads carry the path under assetInfo.instanceId, like
+        # any other model. It must surface as .path (REPL-browsable) and drive
+        # the tuned defaults even when no requested_path is given (search flow).
+        guard = Inspector.from_guard_model(
+            {
+                "id": "pii-id",
+                "name": "Sensitive Information Guardrail",
+                "assetInfo": {"instanceId": _PII_PATH, "assetName": "sensitive-information-guardrail"},
+            }
+        )
+        assert guard.path == _PII_PATH
+        assert guard.to_dict()["action"] == {"type": "edit"}
+
+    def test_tuned_defaults_when_fetched_by_bare_id(self):
+        # The issue states IDs are also accepted. When retrieved by raw id, the
+        # id never matches the registry, but the payload's path still should
+        # select the tuned config rather than the safe abort/input fallback.
+        guard = Inspector.from_guard_model(
+            {"id": "69cbf63cd74e334a6bacfeb1", "name": "PII", "path": _PII_PATH},
+            requested_path="69cbf63cd74e334a6bacfeb1",
+        )
+        assert guard.to_dict()["action"] == {"type": "edit"}
+
+
+class TestInspectorGet:
+    def test_get_fetches_and_adapts(self):
+        client = _FakeClient(get_result={"id": "pii-id", "name": "PII", "path": _PII_PATH})
+        Bound = _bind_inspector(client)
+
+        guard = Bound.get(_PII_PATH)
+
+        # URL-encodes the (multi-slash) path and hits the models endpoint.
+        assert client.got_path == "v2/models/aws%2Fsensitive-information-guardrail%2Faws"
+        assert isinstance(guard, Inspector)
+        assert guard.evaluator.asset_id == "pii-id"
+        assert guard.action.type == InspectorAction.EDIT
+
+    def test_get_accepts_attribute_override(self):
+        client = _FakeClient(get_result={"id": "pi-id", "name": "PI"})
+        Bound = _bind_inspector(client)
+
+        guard = Bound.get(_PROMPT_ATTACKS_PATH)
+        guard.targets = ["output"]
+        assert guard.to_dict()["targets"] == ["output"]
+
+    def test_get_without_context_raises(self):
+        with pytest.raises(Exception):
+            Inspector.get(_PROMPT_ATTACKS_PATH)
+
+
+class TestInspectorSearch:
+    def test_search_returns_page_shape(self):
+        client = _FakeClient(
+            paginate_result={
+                "results": [
+                    {"id": "pi-id", "name": "Detect Prompt Attacks Guardrail", "path": _PROMPT_ATTACKS_PATH},
+                    {"id": "pii-id", "name": "Sensitive Information Guardrail", "path": _PII_PATH},
+                ],
+                "total": 6,
+                "pageTotal": 1,
+            }
+        )
+        Bound = _bind_inspector(client)
+
+        page = Bound.search("guard")
+
+        method, path, body = client.request_call
+        assert method == "post"
+        assert path == "v2/models/paginate"
+        # Pinned to the guardrails function and includes the query.
+        assert body["functions"] == [{"id": "guardrails"}]
+        assert body["q"] == "guard"
+
+        assert page.total == 6
+        assert page.page_number == 0
+        assert page.page_total == 1
+        assert all(isinstance(r, Inspector) for r in page.results)
+        assert [r.name for r in page.results] == [
+            "Detect Prompt Attacks Guardrail",
+            "Sensitive Information Guardrail",
+        ]
