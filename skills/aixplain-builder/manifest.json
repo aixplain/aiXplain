@@ -1,0 +1,9 @@
+{
+  "skill": "aixplain-builder",
+  "docs_repo": "https://github.com/aixplain/sdk-documentation",
+  "docs_git_sha": "dc57609b9670fb9638d8803c3a6ce7ad867bf1fc",
+  "sdk_version": "0.2.44",
+  "built": "2026-06-29",
+  "last_refreshed": "2026-06-29",
+  "notes": "Baseline for tooling/refresh_skill.py. docs_git_sha is the commit the reference files were derived from; sdk_version is the introspected SDK they were validated against."
+}
