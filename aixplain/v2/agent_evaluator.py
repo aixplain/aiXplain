@@ -367,10 +367,17 @@ class Metric(Tool):
     def handle_run_response(self, response: MetricResponse, **kwargs: Any) -> MetricResponse:
         """Validate and cleanup response, then return a MetricResponse."""
         self._validate_run_response(response)
-        result = MetricResponse.from_dict(response)
-        result.data = self._cleanup_run_response(result.data)
+        # Ensure required fields have defaults so from_dict doesn't raise KeyError
+        response_with_defaults = {"status": "IN_PROGRESS", "completed": False, **response}
+        # If data is a polling URL, delegate to base class to set up url/completed fields
+        data_val = response.get("data")
+        if isinstance(data_val, str) and data_val.startswith("http"):
+            return super().handle_run_response(response, **kwargs)
+        result = MetricResponse.from_dict(response_with_defaults)
+        if isinstance(result.data, str) and result.data:
+            result.data = self._cleanup_run_response(result.data)
+            result.validated_data = result.data
         result._raw_data = response
-        result.validated_data = result.data
         return result
 
 
