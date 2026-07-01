@@ -148,3 +148,8 @@ dmypy.json
 .env.test
 
 aixplain-dev/
+
+# brusk:worktree-ignores
+.brusk/
+.claude/
+CLAUDE.md
