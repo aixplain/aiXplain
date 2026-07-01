@@ -181,10 +181,6 @@ class ExecutionConfig:
             messages (e.g. for client-side correlation).
         run_response_generation: Whether the agent should run its final
             response-generation step.
-        tools: Session-level per-tool parameter overrides, already in the
-            platform ``[{id, parameters: [{name, value}]}]`` shape (normalized
-            by ``Agent._normalize_tool_for_api``). A per-message ``tools``
-            override on ``add_message`` wins over these by tool id.
     """
 
     execution_params: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionParams"))
@@ -192,7 +188,6 @@ class ExecutionConfig:
     evolve: Optional[str] = None
     identifier: Optional[str] = None
     run_response_generation: Optional[bool] = field(default=None, metadata=config(field_name="runResponseGeneration"))
-    tools: Optional[List[Dict[str, Any]]] = None
 
     def to_api_dict(self) -> Dict[str, Any]:
         """Build the camelCase API payload, normalizing nested params.
@@ -212,8 +207,6 @@ class ExecutionConfig:
             out["identifier"] = self.identifier
         if self.run_response_generation is not None:
             out["runResponseGeneration"] = self.run_response_generation
-        if self.tools is not None:
-            out["tools"] = self.tools
         return out
 
     @classmethod
@@ -360,10 +353,10 @@ class Session(
             request_id: Optional request ID to associate with the message.
             attachments: Pre-built attachment dicts with url, name, type keys.
             files: Local file paths to upload and attach.
-            tools: Per-message per-tool parameter overrides, already in the
-                platform ``[{id, parameters: [{name, value}]}]`` shape. These
-                win over the session's ``executionConfig.tools`` by tool id
-                for the run this message triggers.
+            tools: Per-message per-tool parameter overrides in the platform
+                ``[{id, parameters: [{name, value}]}]`` shape, applied to the
+                run this message triggers. Normally populated automatically from
+                the agent's tool objects by ``run(via_session=True)``.
 
         Returns:
             The created SessionMessage.

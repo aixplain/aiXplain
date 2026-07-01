@@ -235,9 +235,6 @@ class AgentRunParams(BaseRunParams):
             The backend performs the actual substitution.
         allow_history_and_session_id: Allow both history and session ID
         tasks: List of tasks for the agent
-        tools: Per-tool parameter overrides for this run, as a list of
-            ``{"id": <tool_id>, "parameters": {...}}`` dicts (or plain string
-            ids). Overrides the agent's persisted per-tool parameters by id.
         prompt: Custom prompt override
         history: Conversation history
         execution_params: Execution parameters (maxTokens, etc.)
@@ -256,7 +253,6 @@ class AgentRunParams(BaseRunParams):
     variables: NotRequired[Optional[Dict[str, Any]]]
     allow_history_and_session_id: NotRequired[Optional[bool]]
     tasks: NotRequired[Optional[List[Any]]]
-    tools: NotRequired[Optional[List[Union[str, Dict[str, Any]]]]]
     prompt: NotRequired[Optional[Text]]
     history: NotRequired[Optional[List[ConversationMessage]]]
     execution_params: NotRequired[Optional[Dict[str, Any]]]
@@ -556,6 +552,15 @@ class Agent(
                     normalized_targets.append(target)
             self.inspector_targets = normalized_targets
 
+        # Hydrate plain tool dicts (e.g. from a get()/create response) into
+        # mutable Tool/Model objects so callers can override per-tool parameters
+        # via ``agent.tools[i].actions[...].inputs[...] = value``. Best-effort and
+        # offline — see :meth:`_hydrate_tools`.
+        self._hydrate_tools()
+        # Snapshot the (post-hydration) tool objects so save can restore them
+        # after the create response would otherwise overwrite them with dicts.
+        self._original_tools = list(self.tools) if self.tools else []
+
         # TODO: Re-enable this validation after backend data consistency is fixed
         # if self.agents and (self.tasks or self.tools):
         #     raise ValueError(
@@ -568,6 +573,33 @@ class Agent(
 
         self.status = AssetStatus.DELETED
         super().mark_as_deleted()
+
+    def _get_serializable_state(self) -> dict:
+        """Serializable state used for change detection (``is_modified``).
+
+        Tools are reduced to identity-only signatures (id + type, excluding
+        per-input values) so that (a) ``to_dict()`` does not recurse into
+        ``Tool`` / ``Model`` objects and crash, and (b) mutating a tool's action
+        inputs does not mark the agent as modified — run-time tool-parameter
+        overrides are ephemeral and must not trigger an auto-save or block an
+        onboarded agent's run. Adding or removing a whole tool is still
+        detected; ``save()`` persists changed values unconditionally.
+        """
+        original_tools = self.tools
+        try:
+            self.tools = [self._tool_identity(tool) for tool in original_tools or []]
+            return super()._get_serializable_state()
+        finally:
+            self.tools = original_tools
+
+    @staticmethod
+    def _tool_identity(tool: Any) -> dict:
+        """Return a stable id/type signature for a tool entry (no param values)."""
+        if isinstance(tool, str):
+            return {"id": tool}
+        if isinstance(tool, dict):
+            return {"id": tool.get("id"), "type": tool.get("type")}
+        return {"id": getattr(tool, "id", None), "type": getattr(tool, "type", None)}
 
     def _start_progress_tracker(self, kwargs: Dict[str, Any]) -> None:
         """Initialize ``self._progress_tracker`` from progress kwargs (no-op if disabled)."""
@@ -837,8 +869,26 @@ class Agent(
         # Capture names before save because the backend response can rebuild self.tools without Integration objects.
         unconnected_integration_names = self._get_unconnected_integration_names()
 
+        # Preserve the in-memory tool objects (carrying any per-tool parameter
+        # overrides the caller set): a create response would otherwise replace
+        # ``self.tools`` with backend dicts and drop those mutations.
+        pre_save_tools = list(self.tools) if self.tools else []
+
         # Call the parent save method
         saved_agent = super().save(*args, **kwargs)
+
+        # Restore the caller's tool objects, then re-hydrate any dict entries so
+        # ``agent.tools[i]`` stays a mutable Tool/Model object after save.
+        self.tools = pre_save_tools
+        self._hydrate_tools()
+        self._original_tools = list(self.tools) if self.tools else []
+
+        # Re-baseline the saved state against the restored tool objects. The
+        # parent save() captured it mid-flow from the response dicts; without
+        # this, the restored objects would read as "modified" and a subsequent
+        # run() on an onboarded agent would wrongly raise.
+        self._update_saved_state()
+
         self._warn_for_unconnected_integrations(unconnected_integration_names)
         return saved_agent
 
@@ -1049,22 +1099,25 @@ class Agent(
     def _normalize_tool_for_api(cls, tool: Any) -> dict:
         """Normalize one ``tools`` entry into the API dict shape.
 
-        Accepts the user-facing shapes shared by create and run (issue #966):
-        a plain string id, a ``{id, parameters: {...}}`` dict, or a
-        :class:`ToolableMixin` (e.g. a ``Model``) whose ``as_tool()`` snapshot
-        is used. Per-tool ``parameters`` are converted to the platform's
-        ``[{name, value}]`` shape inside :meth:`_normalize_tool_dict_for_api`.
+        Per-tool parameter overrides are expressed by mutating the tool object's
+        typed action inputs (``tool.actions[...].inputs[...] = value``); the
+        current values are read back through the object's ``as_tool()`` snapshot
+        (see :meth:`Tool.get_parameters` / :meth:`Model.get_parameters`).
 
-        The string-id and ``{id, parameters}`` shapes carry no ``type``, which
-        the create payload requires. For those, resolve the asset by id to its
-        ``as_tool()`` snapshot (which carries the correct ``type``) and overlay
-        the per-tool ``parameters`` override. A dict that already has a ``type``
-        (e.g. a full ``as_tool()`` snapshot) is passed through unchanged.
+        Accepts:
+
+        - a :class:`ToolableMixin` (``Tool`` / ``Model`` / ``Integration``)
+          whose ``as_tool()`` snapshot carries the correct ``type`` and current
+          parameter values;
+        - a plain string id — resolved to its ``as_tool()`` snapshot so the
+          create payload gets the required ``type``;
+        - an ``as_tool()`` snapshot dict (already carries ``type``) — passed
+          through; a bare ``{"id": ...}`` attach dict is resolved for its type.
         """
         if isinstance(tool, ToolableMixin):
             return cls._normalize_tool_dict_for_api(tool.as_tool())
         if isinstance(tool, str):
-            return cls._normalize_tool_dict_for_api(cls._resolve_tool_entry(tool, None))
+            return cls._normalize_tool_dict_for_api(cls._resolve_tool_entry(tool))
         if isinstance(tool, dict):
             if tool.get("type") or not tool.get("id"):
                 return cls._normalize_tool_dict_for_api(tool)
@@ -1074,20 +1127,20 @@ class Agent(
         )
 
     @classmethod
-    def _resolve_tool_entry(cls, tool_id: str, override: Optional[dict]) -> dict:
+    def _resolve_tool_entry(cls, tool_id: str, attach: Optional[dict] = None) -> dict:
         """Build a typed tool dict for ``tool_id`` from its ``as_tool()`` snapshot.
 
         Resolves the asset by id (Tool, then Model) so the entry carries the
-        backend-required ``type`` and other snapshot fields, then overlays the
-        caller-provided keys (e.g. a ``parameters`` override) so the override
-        wins. Falls back to a bare ``{"id": tool_id}`` (plus any override) when
-        the id can't be resolved — preserving the prior behavior offline.
+        backend-required ``type`` and other snapshot fields, then overlays any
+        extra keys from the caller-provided attach dict. Falls back to a bare
+        ``{"id": tool_id}`` when the id can't be resolved — preserving the prior
+        behavior offline.
         """
         snapshot = cls._resolve_tool_snapshot(tool_id)
         entry: dict = dict(snapshot) if snapshot else {}
         entry["id"] = tool_id
-        if isinstance(override, dict):
-            for key, value in override.items():
+        if isinstance(attach, dict):
+            for key, value in attach.items():
                 if key != "id":
                     entry[key] = value
         return entry
@@ -1114,6 +1167,123 @@ class Agent(
                 continue
         return None
 
+    def _hydrate_tools(self) -> None:
+        """Convert plain tool dicts in ``self.tools`` into mutable objects.
+
+        Runs from :meth:`__post_init__` (so it fires on ``get()``/``create``
+        responses). Entries that are already ``Tool`` / ``Model`` /
+        ``Integration`` objects, plain string ids, or unresolvable dicts are
+        left untouched. Hydration is **offline**: the object's action inputs are
+        reconstructed from the ``parameters`` snapshot embedded in the dict so
+        reads and ``inputs[...] = value`` mutations do not require a network
+        call. When the snapshot carries no parameters, the object is left to
+        load its input specs lazily on first ``.actions`` access (matching a
+        normal ``Tool.get``). Requires a client context; without one (e.g. an
+        unbound ``Agent`` in unit tests) the raw entries are kept as-is.
+        """
+        context = getattr(self, "context", None)
+        if context is None or not self.tools:
+            return
+        self.tools = [self._hydrate_tool_entry(entry, context) for entry in self.tools]
+
+    def _hydrate_tool_entry(self, entry: Any, context: Any) -> Any:
+        """Hydrate one ``tools`` entry into a Tool/Model object (best-effort)."""
+        if not isinstance(entry, dict):
+            return entry  # already a Tool/Model/Integration object or a string id
+        tool_id = entry.get("id")
+        if not tool_id:
+            return entry
+
+        parameters = entry.get("parameters")
+        is_model = entry.get("type") == "model"
+        try:
+            if is_model:
+                return self._build_model_tool(entry, context, parameters)
+            return self._build_tool_tool(entry, context, parameters)
+        except Exception:
+            # Never let hydration break construction — fall back to the raw dict.
+            return entry
+
+    @staticmethod
+    def _build_model_tool(entry: dict, context: Any, parameters: Any) -> Any:
+        """Build a bound ``Model`` from a tool dict, seeding inputs from ``parameters``.
+
+        ``parameters`` is the flat ``[{name, value, datatype, required, ...}]``
+        list produced by ``Model.as_tool()``. It is turned into ``params`` so the
+        rebuilt ``Model`` exposes working ``inputs`` (and ``as_tool()`` round-trips
+        the current values offline).
+        """
+        from .model import Parameter
+
+        params = []
+        for param in parameters or []:
+            if not isinstance(param, dict) or not param.get("name"):
+                continue
+            value = param.get("value")
+            params.append(
+                Parameter(
+                    name=param["name"],
+                    required=bool(param.get("required", False)),
+                    data_type=param.get("datatype") or param.get("dataType"),
+                    default_values=[value] if value is not None else [],
+                )
+            )
+        model = context.Model(
+            id=entry.get("id"),
+            name=entry.get("name"),
+            description=entry.get("description"),
+            params=params or None,
+        )
+        model.context = context
+        return model
+
+    @staticmethod
+    def _build_tool_tool(entry: dict, context: Any, parameters: Any) -> Any:
+        """Build a bound ``Tool`` from a tool dict, seeding action inputs offline.
+
+        ``parameters`` is the nested ``[{code, name, inputs: {code: {value, ...}}}]``
+        list produced by ``Tool.as_tool()`` / ``Tool.get_parameters()``. When
+        present, the tool's ``actions`` cache is pre-populated so mutations are
+        offline; otherwise the tool loads its input specs lazily on first access.
+        """
+        from .actions import Action, Actions, Input, Inputs
+
+        tool = context.Tool(
+            id=entry.get("id"),
+            name=entry.get("name"),
+            description=entry.get("description"),
+        )
+        tool.context = context
+
+        actions_map: Dict[str, Action] = {}
+        for action_def in parameters or []:
+            if not isinstance(action_def, dict):
+                continue
+            action_name = action_def.get("name") or action_def.get("code")
+            if not action_name:
+                continue
+            input_objs: Dict[str, Input] = {}
+            for code, spec in (action_def.get("inputs") or {}).items():
+                if not isinstance(spec, dict):
+                    continue
+                input_objs[code] = Input(
+                    name=code,
+                    required=bool(spec.get("required", False)),
+                    type=spec.get("datatype") or spec.get("dataType"),
+                    value=spec.get("value"),
+                    description=spec.get("description", "") or "",
+                )
+            actions_map[action_name] = Action(
+                name=action_name, description=action_def.get("description"), inputs=Inputs(input_objs)
+            )
+
+        if actions_map:
+            # Pre-populate the ``actions`` cached_property so reads/mutations are
+            # offline. Also scope allowed_actions so as_tool() serializes them.
+            tool.__dict__["actions"] = Actions(actions_map)
+            tool.allowed_actions = list(actions_map.keys())
+        return tool
+
     @staticmethod
     def _normalize_tool_dict_for_api(tool_dict: dict) -> dict:
         """Convert snake_case keys in a tool dict to the camelCase the API expects."""
@@ -1125,14 +1295,10 @@ class Agent(
         result = {}
         for k, v in tool_dict.items():
             api_key = _KEY_MAP.get(k, k)
-            if api_key == "parameters" and isinstance(v, dict):
-                # User-facing per-tool override shape ``{key: value}`` (issue
-                # #966) -> platform NameValue list. The LLM may override these
-                # at run time; the SDK only transports them.
-                result[api_key] = Agent._params_dict_to_namevalue_list(v)
-            elif api_key == "parameters" and isinstance(v, list):
+            if api_key == "parameters" and isinstance(v, list):
                 # Snapshot from ``as_tool()`` -> list of full parameter
-                # definitions; normalize each definition's keys to camelCase.
+                # definitions (current input values included); normalize each
+                # definition's keys to camelCase.
                 result[api_key] = [Agent._normalize_parameter_for_api(p) for p in v]
             else:
                 result[api_key] = v
@@ -1338,12 +1504,19 @@ class Agent(
                     serialized_targets.append(str(target))
             self.inspector_targets = serialized_targets
 
+        # Null out tools before to_dict(): dataclass_json would otherwise recurse
+        # into Tool/Model objects (which raises on their ``context`` descriptor).
+        # The real tools payload is rebuilt from ``self.tools`` below.
+        original_tools = self.tools
+        self.tools = []
+
         # Now call to_dict() with inspectors and inspector_targets already serialized
         payload = self.to_dict()
 
         # Restore original values
         self.inspectors = original_inspectors
         self.inspector_targets = original_inspector_targets
+        self.tools = original_tools
 
         # Convert {{var}} to {var} in instructions and description for backend compatibility (v1 format)
         # User writes: {{language}} → Backend receives: {language}
@@ -1438,13 +1611,6 @@ class Agent(
         variables = kwargs.pop("variables", None) or {}
         query = kwargs.pop("query", None)
 
-        # Run-time per-tool parameter overrides (issue #966). Same user-facing
-        # shape as create — ``[{id, parameters: {...}}]`` — normalized to the
-        # API ``[{name, value}]`` shape. Overrides persisted per-tool params by
-        # tool id (the backend merges by id). Popped here so the generic kwargs
-        # loop below doesn't forward the raw, un-normalized list.
-        tools = kwargs.pop("tools", None)
-
         # Build input_data dict with query and variables
         if query is not None:
             if isinstance(query, dict):
@@ -1477,11 +1643,77 @@ class Agent(
                 api_key = self._SNAKE_TO_CAMEL.get(key, key)
                 payload[api_key] = value
 
-        if tools:
-            payload["tools"] = [self._normalize_tool_for_api(tool) for tool in tools]
+        # Send the agent's current per-tool parameter state as an ephemeral
+        # run-time override. Mutating ``agent.tools[i].actions[...].inputs[...]``
+        # and calling ``run()`` forwards those values without persisting them
+        # (the backend merges by tool id). Only tools that carry parameter
+        # values are included, so the common no-override case stays lightweight.
+        tool_overrides = self._build_tool_overrides()
+        if tool_overrides:
+            payload["tools"] = tool_overrides
 
         self._apply_llm_fields_to_run_payload(payload)
         return payload
+
+    def _build_tool_overrides(self) -> List[dict]:
+        """Serialize ``self.tools`` into run-time per-tool parameter overrides.
+
+        Reads each tool object's *current* action-input values **offline** and
+        emits the ``[{id, parameters: [{name, value}]}]`` shape the backend
+        merges by tool id. Only tools that carry at least one set value are
+        emitted, so runs without overrides stay lightweight; bare string ids and
+        attach-only dicts are skipped.
+        """
+        overrides: List[dict] = []
+        for tool in getattr(self, "tools", None) or []:
+            if not isinstance(tool, ToolableMixin):
+                continue
+            tool_id = getattr(tool, "id", None)
+            if not tool_id:
+                continue
+            values = self._current_tool_parameters(tool)
+            if values:
+                overrides.append(
+                    {
+                        "id": tool_id,
+                        "parameters": self._params_dict_to_namevalue_list(values),
+                    }
+                )
+        return overrides
+
+    @staticmethod
+    def _current_tool_parameters(tool: Any) -> Dict[str, Any]:
+        """Read a tool object's current, non-null input values as ``{name: value}``.
+
+        Fully offline — only inspects input collections that are already
+        materialized (a Model's single ``inputs``, or the actions a caller has
+        touched on a Tool), so it never triggers a lazy spec fetch.
+        """
+        values: Dict[str, Any] = {}
+
+        # Model-style: a single ``inputs`` collection (Tools raise on ``.inputs``).
+        try:
+            inputs = tool.inputs
+        except Exception:
+            inputs = None
+        if inputs is not None and hasattr(inputs, "items"):
+            for name, value in inputs.items():
+                if value is not None:
+                    values[name] = value
+            return values
+
+        # Tool-style: gather values from already-materialized actions.
+        actions = getattr(tool, "actions", None)
+        materialized = getattr(actions, "_actions", None)
+        if isinstance(materialized, dict):
+            for action in materialized.values():
+                action_inputs = getattr(action, "_inputs", None)
+                if action_inputs is None or not hasattr(action_inputs, "items"):
+                    continue
+                for name, value in action_inputs.items():
+                    if value is not None:
+                        values[name] = value
+        return values
 
     def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
         """Generate a session ID for agent conversations.
@@ -1530,7 +1762,6 @@ class Agent(
         evolve: Optional[str] = None,
         identifier: Optional[str] = None,
         run_response_generation: Optional[bool] = None,
-        tools: Optional[List[Union[str, Dict[str, Any]]]] = None,
     ) -> "Session":
         """Create a new backend-managed session for this agent.
 
@@ -1555,12 +1786,6 @@ class Agent(
                 messages.
             run_response_generation: Whether the agent should run its
                 final response-generation step.
-            tools: Session-level per-tool parameter overrides in the same
-                user-facing shape as ``agent.run`` — a list of
-                ``{"id": <tool_id>, "parameters": {...}}`` dicts (or plain
-                string ids). Persisted on the session's ``executionConfig``;
-                a per-message ``tools`` override (see ``add_message`` /
-                ``run(via_session=True, tools=...)``) wins over these by id.
 
         Returns:
             Session: The created Session instance, pre-populated with
@@ -1597,7 +1822,6 @@ class Agent(
             evolve=evolve,
             identifier=identifier,
             run_response_generation=run_response_generation,
-            tools=tools,
         )
 
         session = self.context.Session(agent_id=self.id, name=name, execution_config=config)
@@ -1623,14 +1847,11 @@ class Agent(
         evolve: Optional[str] = None,
         identifier: Optional[str] = None,
         run_response_generation: Optional[bool] = None,
-        tools: Optional[List[Union[str, Dict[str, Any]]]] = None,
     ) -> Optional["ExecutionConfig"]:
         """Combine the explicit and shortcut forms into one ExecutionConfig.
 
         Returns ``None`` when neither form supplies any value so the
-        Session save payload omits ``executionConfig`` entirely. ``tools`` is
-        normalized to the platform ``[{id, parameters: [{name, value}]}]``
-        shape before being stored on the config.
+        Session save payload omits ``executionConfig`` entirely.
         """
         from .session import ExecutionConfig
 
@@ -1640,7 +1861,6 @@ class Agent(
             "evolve": evolve,
             "identifier": identifier,
             "run_response_generation": run_response_generation,
-            "tools": [cls._normalize_tool_for_api(tool) for tool in tools] if tools is not None else None,
         }
         has_shortcut = any(v is not None for v in shortcut_values.values())
 
@@ -1648,7 +1868,7 @@ class Agent(
             raise ValueError(
                 "Pass either 'execution_config' or the individual shortcut "
                 "kwargs (execution_params, criteria, evolve, identifier, "
-                "run_response_generation, tools), not both."
+                "run_response_generation), not both."
             )
 
         if execution_config is not None:
@@ -1771,11 +1991,10 @@ class Agent(
                 run_response_generation=kwargs.get("run_response_generation"),
             )
 
-        # Run-time ``tools`` becomes the per-message override (issue #966 shape),
-        # winning over any session-level executionConfig.tools by tool id. Before
-        # this the via_session path silently dropped ``tools`` (PROD-2481).
-        run_tools = kwargs.get("tools")
-        message_tools = [self._normalize_tool_for_api(tool) for tool in run_tools] if run_tools else None
+        # The agent's current per-tool parameter state (set by mutating
+        # ``agent.tools[i].actions[...].inputs[...]``) becomes the per-message
+        # override for this run, matching the single-shot run path.
+        message_tools = self._build_tool_overrides() or None
 
         user_msg = session.add_message(
             role="user",

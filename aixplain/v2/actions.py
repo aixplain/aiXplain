@@ -529,6 +529,20 @@ class Actions:
 
         raise KeyError(f"Action '{key}' not found")
 
+    def __getattr__(self, name: str) -> Action:
+        """Dot-notation read: ``tool.actions.search`` (case-insensitive).
+
+        Only consulted when normal attribute lookup fails, so it never shadows
+        the real instance attributes (``_actions`` etc.). Private names are
+        rejected to avoid recursion during initialization.
+        """
+        if name.startswith("_"):
+            raise AttributeError(name)
+        try:
+            return self[name]
+        except KeyError as exc:
+            raise AttributeError(f"Action '{name}' not found") from exc
+
     def __contains__(self, key: object) -> bool:
         """Return whether *key* matches an available action name."""
         if not isinstance(key, str):
