@@ -1,149 +1,121 @@
-"""Unit tests for v2 Inspector payload serialization."""
+"""Unit tests for v2 Inspector payload serialization.
+
+The public surface is intentionally tiny: an :class:`Inspector` built with plain
+strings for ``action`` / ``targets`` / ``severity`` and a Metric / asset-id /
+callable for ``metric`` (the universal judge). No enums or config classes.
+"""
 
 import pytest
 
 from aixplain.v2.inspector import (
     Inspector,
-    InspectorAction,
-    InspectorActionConfig,
-    InspectorOnExhaust,
-    InspectorSeverity,
-    InspectorTarget,
-    EvaluatorType,
-    EvaluatorConfig,
-    EditorConfig,
+    _ActionConfig,
+    _Judge,
     _guard_slugs,
     _resolve_guard_defaults,
 )
 
 
+class _FakeMetric:
+    """Duck-typed stand-in for ``aix.Metric`` — an asset-backed judge with an id."""
+
+    def __init__(self, id, prompt_template=None):
+        self.id = id
+        self.prompt_template = prompt_template
+
+
 # ---------------------------------------------------------------------------
-# InspectorActionConfig
+# Action policy (string / dict, no InspectorActionConfig import)
 # ---------------------------------------------------------------------------
 
 
-class TestInspectorActionConfig:
-    def test_abort_to_dict(self):
-        cfg = InspectorActionConfig(type=InspectorAction.ABORT)
+class TestActionConfig:
+    def test_abort_from_string(self):
+        cfg = _ActionConfig.coerce("abort")
         assert cfg.to_dict() == {"type": "abort"}
 
-    def test_rerun_to_dict(self):
-        cfg = InspectorActionConfig(
-            type=InspectorAction.RERUN,
-            max_retries=3,
-            on_exhaust=InspectorOnExhaust.ABORT,
-        )
+    def test_rerun_from_dict(self):
+        cfg = _ActionConfig.coerce({"type": "rerun", "max_retries": 3, "on_exhaust": "abort"})
         assert cfg.to_dict() == {"type": "rerun", "maxRetries": 3, "onExhaust": "abort"}
 
+    def test_rerun_accepts_camelcase(self):
+        cfg = _ActionConfig.coerce({"type": "rerun", "maxRetries": 1, "onExhaust": "continue"})
+        assert cfg.to_dict() == {"type": "rerun", "maxRetries": 1, "onExhaust": "continue"}
+
     def test_rerun_without_optional_fields(self):
-        cfg = InspectorActionConfig(type=InspectorAction.RERUN)
-        assert cfg.to_dict() == {"type": "rerun"}
+        assert _ActionConfig.coerce("rerun").to_dict() == {"type": "rerun"}
 
     def test_max_retries_invalid_for_non_rerun(self):
         with pytest.raises(ValueError, match="max_retries is only valid"):
-            InspectorActionConfig(type=InspectorAction.ABORT, max_retries=2)
+            _ActionConfig.coerce({"type": "abort", "max_retries": 2})
 
     def test_on_exhaust_invalid_for_non_rerun(self):
         with pytest.raises(ValueError, match="on_exhaust is only valid"):
-            InspectorActionConfig(type=InspectorAction.EDIT, on_exhaust=InspectorOnExhaust.ABORT)
+            _ActionConfig.coerce({"type": "edit", "on_exhaust": "abort"})
 
     def test_negative_max_retries(self):
         with pytest.raises(ValueError, match="max_retries must be >= 0"):
-            InspectorActionConfig(type=InspectorAction.RERUN, max_retries=-1)
+            _ActionConfig.coerce({"type": "rerun", "max_retries": -1})
 
-    def test_from_dict_roundtrip(self):
-        original = InspectorActionConfig(
-            type=InspectorAction.RERUN,
-            max_retries=2,
-            on_exhaust=InspectorOnExhaust.CONTINUE,
-        )
-        restored = InspectorActionConfig.from_dict(original.to_dict())
-        assert restored.type == original.type
-        assert restored.max_retries == original.max_retries
-        assert restored.on_exhaust == original.on_exhaust
+    def test_invalid_action_type(self):
+        with pytest.raises(ValueError, match="invalid action"):
+            _ActionConfig.coerce("bogus")
+
+    def test_invalid_on_exhaust_value(self):
+        with pytest.raises(ValueError, match="invalid on_exhaust"):
+            _ActionConfig.coerce({"type": "rerun", "on_exhaust": "explode"})
 
 
 # ---------------------------------------------------------------------------
-# EvaluatorConfig
+# Judge (the universal metric: Metric | asset-id str | callable)
 # ---------------------------------------------------------------------------
 
 
-class TestEvaluatorConfig:
-    def test_asset_to_dict(self):
-        cfg = EvaluatorConfig(
-            type=EvaluatorType.ASSET,
-            asset_id="abc123",
-            prompt="Check the output",
-        )
-        assert cfg.to_dict() == {
-            "type": "asset",
-            "assetId": "abc123",
-            "prompt": "Check the output",
-        }
+class TestJudge:
+    def test_metric_object_becomes_asset(self):
+        judge = _Judge.coerce(_FakeMetric(id="metric-1", prompt_template="Judge it."))
+        assert judge.to_dict() == {"type": "asset", "assetId": "metric-1", "prompt": "Judge it."}
 
-    def test_function_to_dict(self):
-        cfg = EvaluatorConfig(
-            type=EvaluatorType.FUNCTION,
-            function="def eval_fn(text: str) -> bool:\n    return True",
-        )
-        assert cfg.to_dict() == {
-            "type": "function",
-            "function": "def eval_fn(text: str) -> bool:\n    return True",
-        }
+    def test_metric_prompt_falls_back_to_config(self):
+        class _MetricWithConfig:
+            id = "metric-2"
+            prompt_template = None
+            config = {"prompt": "From config."}
 
-    def test_callable_auto_converted(self):
+        judge = _Judge.coerce(_MetricWithConfig())
+        assert judge.to_dict() == {"type": "asset", "assetId": "metric-2", "prompt": "From config."}
+
+    def test_asset_id_string(self):
+        assert _Judge.coerce("abc123").to_dict() == {"type": "asset", "assetId": "abc123"}
+
+    def test_dict_snake_and_prompt(self):
+        judge = _Judge.coerce({"asset_id": "id1", "prompt": "p"})
+        assert judge.to_dict() == {"type": "asset", "assetId": "id1", "prompt": "p"}
+
+    def test_callable_becomes_function(self):
         def my_evaluator(text: str) -> bool:
             return "ok" in text
 
-        cfg = EvaluatorConfig(type=EvaluatorType.FUNCTION, function=my_evaluator)
-        assert isinstance(cfg.function, str)
-        assert "my_evaluator" in cfg.function
+        judge = _Judge.coerce(my_evaluator)
+        assert judge.type == "function"
+        assert "my_evaluator" in judge.function
 
-    def test_asset_requires_asset_id(self):
-        with pytest.raises(ValueError, match="asset_id is required"):
-            EvaluatorConfig(type=EvaluatorType.ASSET)
+    def test_unonboarded_metric_raises(self):
+        class _Unonboarded:
+            id = None
+            prompt_template = "x"
 
-    def test_function_requires_function(self):
-        with pytest.raises(ValueError, match="function is required"):
-            EvaluatorConfig(type=EvaluatorType.FUNCTION)
+        with pytest.raises(ValueError, match="must be created"):
+            _Judge.coerce(_Unonboarded())
 
-    def test_from_dict_roundtrip(self):
-        original = EvaluatorConfig(type=EvaluatorType.ASSET, asset_id="id1", prompt="p")
-        restored = EvaluatorConfig.from_dict(original.to_dict())
-        assert restored.type == original.type
-        assert restored.asset_id == original.asset_id
-        assert restored.prompt == original.prompt
-
-
-# ---------------------------------------------------------------------------
-# EditorConfig
-# ---------------------------------------------------------------------------
-
-
-class TestEditorConfig:
-    def test_function_to_dict(self):
-        cfg = EditorConfig(
-            type=EvaluatorType.FUNCTION,
-            function="def edit(text: str) -> str:\n    return text",
-        )
-        assert cfg.to_dict() == {
-            "type": "function",
-            "function": "def edit(text: str) -> str:\n    return text",
-        }
-
-    def test_callable_auto_converted(self):
-        def my_editor(text: str) -> str:
-            return text.upper()
-
-        cfg = EditorConfig(type=EvaluatorType.FUNCTION, function=my_editor)
-        assert isinstance(cfg.function, str)
-        assert "my_editor" in cfg.function
+    def test_empty_judge_raises(self):
+        with pytest.raises(ValueError, match="needs an asset id"):
+            _Judge()
 
     def test_from_dict_roundtrip(self):
-        original = EditorConfig(type=EvaluatorType.FUNCTION, function="def f(): pass")
-        restored = EditorConfig.from_dict(original.to_dict())
-        assert restored.type == original.type
-        assert restored.function == original.function
+        original = _Judge.from_dict({"type": "asset", "assetId": "id1", "prompt": "p"})
+        restored = _Judge.from_dict(original.to_dict())
+        assert restored.to_dict() == original.to_dict()
 
 
 # ---------------------------------------------------------------------------
@@ -156,17 +128,12 @@ class TestInspector:
         inspector = Inspector(
             name="abort_inspector",
             description="Always abort",
-            severity=InspectorSeverity.HIGH,
+            severity="high",
             targets=["output"],
-            action=InspectorActionConfig(type=InspectorAction.ABORT),
-            evaluator=EvaluatorConfig(
-                type=EvaluatorType.ASSET,
-                asset_id="llm-123",
-                prompt="Critique the output.",
-            ),
+            action="abort",
+            metric=_FakeMetric(id="llm-123", prompt_template="Critique the output."),
         )
-        payload = inspector.to_dict()
-        assert payload == {
+        assert inspector.to_dict() == {
             "name": "abort_inspector",
             "description": "Always abort",
             "severity": "high",
@@ -183,19 +150,10 @@ class TestInspector:
         inspector = Inspector(
             name="rerun_inspector",
             targets=["output"],
-            action=InspectorActionConfig(
-                type=InspectorAction.RERUN,
-                max_retries=2,
-                on_exhaust=InspectorOnExhaust.ABORT,
-            ),
-            evaluator=EvaluatorConfig(
-                type=EvaluatorType.ASSET,
-                asset_id="llm-456",
-                prompt="Check for name.",
-            ),
+            action={"type": "rerun", "max_retries": 2, "on_exhaust": "abort"},
+            metric={"asset_id": "llm-456", "prompt": "Check for name."},
         )
-        payload = inspector.to_dict()
-        assert payload == {
+        assert inspector.to_dict() == {
             "name": "rerun_inspector",
             "targets": ["output"],
             "action": {"type": "rerun", "maxRetries": 2, "onExhaust": "abort"},
@@ -206,66 +164,59 @@ class TestInspector:
             },
         }
 
-    def test_edit_inspector_payload(self):
+    def test_edit_inspector_payload_with_callables(self):
+        def eval_fn(text):
+            return True
+
+        def edit_fn(text):
+            return "edited"
+
         inspector = Inspector(
             name="edit_inspector",
-            severity=InspectorSeverity.MEDIUM,
+            severity="medium",
             targets=["steps", "AgentA"],
-            action=InspectorActionConfig(type=InspectorAction.EDIT),
-            evaluator=EvaluatorConfig(
-                type=EvaluatorType.FUNCTION,
-                function="def eval_fn(text): return True",
-            ),
-            editor=EditorConfig(
-                type=EvaluatorType.FUNCTION,
-                function='def edit_fn(text): return "edited"',
-            ),
+            action="edit",
+            metric=eval_fn,
+            editor=edit_fn,
         )
         payload = inspector.to_dict()
-        assert payload == {
-            "name": "edit_inspector",
-            "severity": "medium",
-            "targets": ["steps", "AgentA"],
-            "action": {"type": "edit"},
-            "evaluator": {
-                "type": "function",
-                "function": "def eval_fn(text): return True",
-            },
-            "editor": {
-                "type": "function",
-                "function": 'def edit_fn(text): return "edited"',
-            },
-        }
+        assert payload["name"] == "edit_inspector"
+        assert payload["severity"] == "medium"
+        assert payload["targets"] == ["steps", "AgentA"]
+        assert payload["action"] == {"type": "edit"}
+        assert payload["evaluator"]["type"] == "function"
+        assert "eval_fn" in payload["evaluator"]["function"]
+        assert payload["editor"]["type"] == "function"
+        assert "edit_fn" in payload["editor"]["function"]
 
     def test_edit_requires_editor(self):
         with pytest.raises(ValueError, match="editor is required"):
-            Inspector(
-                name="bad_edit",
-                targets=["steps"],
-                action=InspectorActionConfig(type=InspectorAction.EDIT),
-                evaluator=EvaluatorConfig(type=EvaluatorType.FUNCTION, function="def f(): pass"),
-            )
+            Inspector(name="bad_edit", targets=["steps"], action="edit", metric="x")
 
     def test_empty_name_rejected(self):
         with pytest.raises(ValueError, match="name cannot be empty"):
-            Inspector(
-                name="",
-                action=InspectorActionConfig(type=InspectorAction.ABORT),
-                evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id="x"),
-            )
+            Inspector(name="", action="abort", metric="x")
+
+    def test_action_required(self):
+        with pytest.raises(ValueError, match="action is required"):
+            Inspector(name="x", metric="y")
+
+    def test_metric_required(self):
+        with pytest.raises(ValueError, match="metric is required"):
+            Inspector(name="x", action="abort")
+
+    def test_invalid_severity_rejected(self):
+        with pytest.raises(ValueError, match="invalid severity"):
+            Inspector(name="x", action="abort", metric="y", severity="urgent")
 
     def test_from_dict_roundtrip(self):
         original = Inspector(
             name="roundtrip_test",
             description="desc",
-            severity=InspectorSeverity.LOW,
+            severity="low",
             targets=["steps", "AgentB"],
-            action=InspectorActionConfig(
-                type=InspectorAction.RERUN,
-                max_retries=1,
-                on_exhaust=InspectorOnExhaust.CONTINUE,
-            ),
-            evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id="id1", prompt="p"),
+            action={"type": "rerun", "max_retries": 1, "on_exhaust": "continue"},
+            metric={"asset_id": "id1", "prompt": "p"},
         )
         restored = Inspector.from_dict(original.to_dict())
         assert restored.to_dict() == original.to_dict()
@@ -284,12 +235,12 @@ class TestInspector:
         assert inspector.to_dict() == data
 
     def test_optional_fields_omitted(self):
-        """Verify that None description, severity, and editor are not in the payload."""
+        """None description, severity, and editor are not in the payload."""
         inspector = Inspector(
             name="minimal",
             targets=["output"],
-            action=InspectorActionConfig(type=InspectorAction.CONTINUE),
-            evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id="x", prompt="p"),
+            action="continue",
+            metric={"asset_id": "x", "prompt": "p"},
         )
         payload = inspector.to_dict()
         assert "description" not in payload
@@ -488,8 +439,8 @@ class TestInspectorGet:
         # URL-encodes the (multi-slash) path and hits the models endpoint.
         assert client.got_path == "v2/models/aws%2Fsensitive-information-guardrail%2Faws"
         assert isinstance(guard, Inspector)
-        assert guard.evaluator.asset_id == "pii-id"
-        assert guard.action.type == InspectorAction.EDIT
+        assert guard.metric.asset_id == "pii-id"
+        assert guard.action.type == "edit"
 
     def test_get_accepts_attribute_override(self):
         client = _FakeClient(get_result={"id": "pi-id", "name": "PI"})
@@ -523,8 +474,9 @@ class TestInspectorSearch:
         method, path, body = client.request_call
         assert method == "post"
         assert path == "v2/models/paginate"
-        # Pinned to the guardrails function and includes the query.
-        assert body["functions"] == [{"id": "guardrails"}]
+        # Pinned to the guardrails function (a list of function-id strings, the
+        # shape v2/models/paginate requires) and includes the query.
+        assert body["functions"] == ["guardrails"]
         assert body["q"] == "guard"
 
         assert page.total == 6

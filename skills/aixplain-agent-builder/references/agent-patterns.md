@@ -47,31 +47,31 @@ kb_tool.save()
 
 Inspectors attach to **team agents**. Use the **v2** inspector API (`aixplain.v2.inspector`) — it matches the v2 `Aixplain` client used everywhere in this skill. Do **not** import from `aixplain.modules.team_agent.inspector`; that path resolves to the v1 module and its `Inspector(auto=..., policy=...)` shape will fail with `ImportError`/`TypeError` under SDK v0.2.44.
 
+Config is plain data — no enums or config classes to import. Pass strings for `action` / `targets` / `severity`, and the universal judge (`aix.Metric`, an asset-id string, or a Python callable) for `metric`.
+
 ```python
-from aixplain.v2.inspector import (
-    Inspector, InspectorActionConfig, InspectorAction,
-    EvaluatorConfig, EvaluatorType, InspectorTarget, AUTO_DEFAULT_MODEL_ID,
-)
+from aixplain.v2 import Inspector
 
 inspector = Inspector(
     name="Content Gate",
-    action=InspectorActionConfig(type=InspectorAction.ABORT),  # CONTINUE | RERUN | ABORT | EDIT
-    evaluator=EvaluatorConfig(
-        type=EvaluatorType.ASSET,
-        asset_id=AUTO_DEFAULT_MODEL_ID,            # default LLM judge; or pass your own model ID
-        prompt="Validate output meets policy. Fail if non-compliant.",
+    action="abort",                                # "continue" | "rerun" | "abort" | "edit"
+    targets=["output"],                            # "input" | "steps" | "output" (or a sub-agent name)
+    severity="high",                               # "low" | "medium" | "high" | "critical"
+    metric=aix.Metric.create(                       # the universal judge
+        name="policy-check",
+        llm_path="<LLM_ID>",                        # your judge LLM; wraps the prompt below
+        prompt_template="Validate output meets policy. Fail if non-compliant.",
     ),
-    targets=[InspectorTarget.OUTPUT],              # INPUT | STEPS | OUTPUT
 )
 team.inspectors = [inspector]
-team.inspector_targets = [InspectorTarget.OUTPUT]
+team.inspector_targets = ["output"]
 team.save()
 ```
 
 Notes:
-- `action=RERUN` is the only type that accepts `max_retries` / `on_exhaust` on `InspectorActionConfig`; any other type raises if you set them.
-- `action=EDIT` requires an `editor=EditorConfig(...)`.
-- For a function-based judge instead of an LLM, use `EvaluatorConfig(type=EvaluatorType.FUNCTION, function=<callable or source>)`.
+- `action="rerun"` is the only type that accepts retry params. Pass them via a dict: `action={"type": "rerun", "max_retries": 2, "on_exhaust": "abort"}` (`on_exhaust` is `"continue"` | `"abort"`). Setting retry params on any other action raises.
+- `action="edit"` requires an `editor=...` (same accepted types as `metric`).
+- `metric` accepts an `aix.Metric`, a bare asset-id string, or a Python callable (a custom function judge). For an inline asset + prompt without creating a Metric, pass a dict: `metric={"asset_id": "<LLM_ID>", "prompt": "..."}`.
 
 After adding inspectors, validate with 3 prompts: allowed, denied, ambiguous. See `references/inspectors.md` for the full validation matrix.
 

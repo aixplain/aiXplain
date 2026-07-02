@@ -14,17 +14,7 @@ import uuid
 import aixplain as aix
 from aixplain.enums.asset_status import AssetStatus
 
-from aixplain.v2 import (
-    Inspector,
-    InspectorTarget,
-    InspectorAction,
-    InspectorOnExhaust,
-    InspectorSeverity,
-    InspectorActionConfig,
-    EvaluatorType,
-    EvaluatorConfig,
-    EditorConfig,
-)
+from aixplain.v2 import Inspector
 from tests.functional.team_agent.test_utils import (
     RUN_FILE,
     read_data,
@@ -104,7 +94,7 @@ def _is_inspector_step(step: Dict) -> bool:
 def verify_inspector_steps(
     steps: List[Dict],
     inspector_names: List[str],
-    inspector_targets: List[InspectorTarget],
+    inspector_targets: List[str],
 ) -> None:
     def agent_id(step: Dict) -> str:
         a = step.get("agent") or {}
@@ -121,7 +111,7 @@ def verify_inspector_steps(
     inspector_indices = [i for i, s in enumerate(steps) if _is_inspector_step(s)]
     assert inspector_indices, "Expected at least one inspector step"
 
-    if InspectorTarget.OUTPUT in inspector_targets:
+    if "output" in inspector_targets:
         after = [i for i in inspector_indices if i > rg_idx]
         assert after, "Expected inspector steps after response_generator for OUTPUT target"
 
@@ -171,14 +161,13 @@ def test_output_inspector_abort(client, run_input_map, resource_tracker):
 
     inspector = Inspector(
         name="always_abort_output_inspector",
-        severity=InspectorSeverity.HIGH,
+        severity="high",
         targets=[_DEFAULT_OUTPUT_TARGET],
-        action=InspectorActionConfig(type=InspectorAction.ABORT),
-        evaluator=EvaluatorConfig(
-            type=EvaluatorType.ASSET,
-            asset_id=run_input_map["llm_id"],
-            prompt="ALWAYS abort if the output is in English",
-        ),
+        action="abort",
+        metric={
+            "asset_id": run_input_map["llm_id"],
+            "prompt": "ALWAYS abort if the output is in English",
+        },
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
@@ -212,18 +201,13 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_trac
 
     inspector = Inspector(
         name="rerun_output_inspector",
-        severity=InspectorSeverity.LOW,
+        severity="low",
         targets=[_DEFAULT_OUTPUT_TARGET],
-        action=InspectorActionConfig(
-            type=InspectorAction.RERUN,
-            max_retries=2,
-            on_exhaust=InspectorOnExhaust.ABORT,
-        ),
-        evaluator=EvaluatorConfig(
-            type=EvaluatorType.ASSET,
-            asset_id=run_input_map["llm_id"],
-            prompt="If the output does NOT include the name of the customer (John), instruct to add it.",
-        ),
+        action={"type": "rerun", "max_retries": 2, "on_exhaust": "abort"},
+        metric={
+            "asset_id": run_input_map["llm_id"],
+            "prompt": "If the output does NOT include the name of the customer (John), instruct to add it.",
+        },
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
@@ -254,17 +238,11 @@ def test_edit_steps_always_runs(client, run_input_map, resource_tracker):
 
     inspector = Inspector(
         name="edit_steps_inspector",
-        severity=InspectorSeverity.MEDIUM,
-        targets=[InspectorTarget.STEPS],
-        action=InspectorActionConfig(type=InspectorAction.EDIT),
-        evaluator=EvaluatorConfig(
-            type=EvaluatorType.FUNCTION,
-            function="def evaluator_fn(text: str) -> bool:\n    return True",
-        ),
-        editor=EditorConfig(
-            type=EvaluatorType.FUNCTION,
-            function='def edit_fn(text: str) -> str:\n    return "hello, what\'s the weather in paris like today?"',
-        ),
+        severity="medium",
+        targets=["steps"],
+        action="edit",
+        metric={"function": "def evaluator_fn(text: str) -> bool:\n    return True"},
+        editor={"function": 'def edit_fn(text: str) -> str:\n    return "hello, what\'s the weather in paris like today?"'},
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
@@ -298,17 +276,11 @@ def test_edit_with_gate_true(client, run_input_map, resource_tracker):
 
     inspector = Inspector(
         name="gated_edit_true",
-        severity=InspectorSeverity.MEDIUM,
-        targets=[InspectorTarget.INPUT],
-        action=InspectorActionConfig(type=InspectorAction.EDIT),
-        evaluator=EvaluatorConfig(
-            type=EvaluatorType.FUNCTION,
-            function=evaluator_fn,
-        ),
-        editor=EditorConfig(
-            type=EvaluatorType.FUNCTION,
-            function=edit_fn,
-        ),
+        severity="medium",
+        targets=["input"],
+        action="edit",
+        metric=evaluator_fn,
+        editor=edit_fn,
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
@@ -337,17 +309,11 @@ def test_edit_with_gate_false(client, run_input_map, resource_tracker):
 
     inspector = Inspector(
         name="gated_edit_false",
-        severity=InspectorSeverity.MEDIUM,
-        targets=[InspectorTarget.INPUT],
-        action=InspectorActionConfig(type=InspectorAction.EDIT),
-        evaluator=EvaluatorConfig(
-            type=EvaluatorType.FUNCTION,
-            function=evaluator_fn,
-        ),
-        editor=EditorConfig(
-            type=EvaluatorType.FUNCTION,
-            function=edit_fn,
-        ),
+        severity="medium",
+        targets=["input"],
+        action="edit",
+        metric=evaluator_fn,
+        editor=edit_fn,
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
@@ -377,7 +343,7 @@ def test_inspector_search_returns_page_of_inspectors(client):
     for guard in page.results:
         assert isinstance(guard, Inspector)
         # A discovered guard is a ready-to-use, fully-configured inspector.
-        assert guard.evaluator is not None
+        assert guard.metric is not None
         assert guard.action is not None
 
 
@@ -394,15 +360,15 @@ def test_inspector_get_returns_configured_inspector(client):
     fetched = client.Inspector.get(first.path or first.id)
 
     assert isinstance(fetched, Inspector)
-    assert fetched.evaluator is not None
-    assert fetched.evaluator.asset_id == first.evaluator.asset_id
+    assert fetched.metric is not None
+    assert fetched.metric.asset_id == first.metric.asset_id
 
 
 # Canonical marketplace paths for the onboarded AWS guards and their tuned config.
 _PREBUILT_GUARDS = [
-    ("aws/detect-prompt-attacks-guardrail/aws", InspectorAction.ABORT, [_DEFAULT_INPUT_TARGET]),
-    ("aws/sensitive-information-guardrail/aws", InspectorAction.EDIT, [_DEFAULT_INPUT_TARGET]),
-    ("aws/contextual-grounding-check-guardrail/aws", InspectorAction.RERUN, [_DEFAULT_OUTPUT_TARGET]),
+    ("aws/detect-prompt-attacks-guardrail/aws", "abort", [_DEFAULT_INPUT_TARGET]),
+    ("aws/sensitive-information-guardrail/aws", "edit", [_DEFAULT_INPUT_TARGET]),
+    ("aws/contextual-grounding-check-guardrail/aws", "rerun", [_DEFAULT_OUTPUT_TARGET]),
 ]
 
 
@@ -421,12 +387,12 @@ def test_get_prebuilt_guard_by_canonical_path(client, path, expected_action, exp
 
     assert isinstance(guard, Inspector)
     assert guard.path == path
-    # The guard model itself is the evaluator.
-    assert guard.evaluator is not None
-    assert guard.evaluator.asset_id == guard.id
+    # The guard model itself is the judge.
+    assert guard.metric is not None
+    assert guard.metric.asset_id == guard.id
     assert guard.action.type == expected_action
     assert guard.targets == expected_targets
-    if expected_action == InspectorAction.EDIT:
+    if expected_action == "edit":
         # EDIT guards redact via the guard model, so an editor is configured.
         assert guard.editor is not None
 

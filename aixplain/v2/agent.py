@@ -501,23 +501,13 @@ class Agent(
         if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
             self.context_overflow_strategy = self.context_overflow_strategy.value
 
-        # Normalize inspector_targets to support both strings and InspectorTarget enums
+        # Inspector targets are plain strings (e.g. "input" | "steps" | "output"
+        # or a sub-agent name); normalize the known stage values to lowercase.
         if self.inspector_targets:
-            from .inspector import InspectorTarget
-
-            normalized_targets = []
-            for target in self.inspector_targets:
-                if isinstance(target, str):
-                    # Convert string to InspectorTarget enum
-                    try:
-                        normalized_targets.append(InspectorTarget(target.lower()))
-                    except ValueError:
-                        # If it's not a valid InspectorTarget value, keep as is
-                        normalized_targets.append(target)
-                else:
-                    # Already an InspectorTarget or other type
-                    normalized_targets.append(target)
-            self.inspector_targets = normalized_targets
+            self.inspector_targets = [
+                target.lower() if isinstance(target, str) and target.lower() in {"input", "steps", "output"} else target
+                for target in self.inspector_targets
+            ]
 
         # TODO: Re-enable this validation after backend data consistency is fixed
         # if self.agents and (self.tasks or self.tools):
@@ -1149,20 +1139,12 @@ class Agent(
                     raise ValueError(f"Inspector must be Inspector or dict, got {type(inspector)}")
             self.inspectors = serialized_inspectors
 
-        # Pre-serialize inspector_targets to strings (enum values)
-        from .inspector import InspectorTarget
-
+        # Pre-serialize inspector_targets to strings
         original_inspector_targets = self.inspector_targets
         if self.inspector_targets:
-            serialized_targets = []
-            for target in self.inspector_targets:
-                if isinstance(target, InspectorTarget):
-                    serialized_targets.append(target.value)
-                elif isinstance(target, str):
-                    serialized_targets.append(target)
-                else:
-                    serialized_targets.append(str(target))
-            self.inspector_targets = serialized_targets
+            self.inspector_targets = [
+                target if isinstance(target, str) else str(target) for target in self.inspector_targets
+            ]
 
         # Now call to_dict() with inspectors and inspector_targets already serialized
         payload = self.to_dict()

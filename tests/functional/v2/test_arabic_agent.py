@@ -22,15 +22,7 @@ import uuid
 
 import pytest
 
-from aixplain.v2 import (
-    EvaluatorConfig,
-    EvaluatorType,
-    Inspector,
-    InspectorAction,
-    InspectorActionConfig,
-    InspectorSeverity,
-    InspectorTarget,
-)
+from aixplain.v2 import Inspector
 
 ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
 ARABIC_DIACRITICS_RE = re.compile(r"[\u064B-\u065F\u0670]")
@@ -261,17 +253,16 @@ def _make_team_agent(client, llm_id: str, model_name: str, inspectors=None):
 def _make_output_inspector(llm_id: str, model_name: str):
     return Inspector(
         name=f"ArabicContentValidator-{model_name}",
-        severity=InspectorSeverity.HIGH,
-        targets=[InspectorTarget.OUTPUT],
-        action=InspectorActionConfig(type=InspectorAction.ABORT),
-        evaluator=EvaluatorConfig(
-            type=EvaluatorType.ASSET,
-            asset_id=llm_id,
-            prompt=(
+        severity="high",
+        targets=["output"],
+        action="abort",
+        metric={
+            "asset_id": llm_id,
+            "prompt": (
                 "تحقق من أن الرد مكتوب بالعربية الفصحى وأنه يتعلق بالقانون التجاري السعودي فقط. "
                 "إذا كان الرد بلغة أخرى أو خارج النطاق، ارفضه."
             ),
-        ),
+        },
     )
 
 

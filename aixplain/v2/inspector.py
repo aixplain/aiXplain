@@ -3,12 +3,15 @@
 This module provides inspector functionality for validating team agent operations
 at different stages (input, steps, output) with custom policies.
 
+The public surface is intentionally tiny: construct an :class:`Inspector` with
+plain strings for ``action`` / ``targets`` / ``severity`` and an ``aix.Metric``
+(the universal judge) for ``metric``. No enums or config classes to import.
+
 """
 
 import inspect
 import logging
 import textwrap
-from enum import Enum
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 
@@ -29,6 +32,14 @@ logger = logging.getLogger(__name__)
 
 AUTO_DEFAULT_MODEL_ID = "67fd9e2bef0365783d06e2f0"
 
+# Allowed string values (replacing the former user-facing enums). Kept as plain
+# sets so callers pass strings like action="abort" / targets=["output"] and never
+# import an enum.
+_ACTION_TYPES = frozenset({"continue", "rerun", "abort", "edit"})
+_ON_EXHAUST_VALUES = frozenset({"continue", "abort"})
+_TARGET_VALUES = frozenset({"input", "steps", "output"})
+_SEVERITY_VALUES = frozenset({"low", "medium", "high", "critical"})
+
 
 def _callable_to_string(fn) -> str:
     """Convert a callable to its source string representation."""
@@ -38,61 +49,31 @@ def _callable_to_string(fn) -> str:
         return f"{fn.__module__}.{fn.__qualname__}"
 
 
-class InspectorTarget(str, Enum):
-    """Target stages for inspector validation in the team agent pipeline."""
-
-    INPUT = "input"
-    STEPS = "steps"
-    OUTPUT = "output"
-
-    def __str__(self) -> str:
-        """Return the string value of the enum."""
-        return self.value
-
-
-class InspectorAction(str, Enum):
-    """Actions an inspector can take when evaluating content."""
-
-    CONTINUE = "continue"
-    RERUN = "rerun"
-    ABORT = "abort"
-    EDIT = "edit"
-
-
-class InspectorOnExhaust(str, Enum):
-    """Action to take when max retries are exhausted."""
-
-    CONTINUE = "continue"
-    ABORT = "abort"
-
-
-class InspectorSeverity(str, Enum):
-    """Severity level for inspector findings."""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class EvaluatorType(str, Enum):
-    """Type of evaluator or editor."""
-
-    ASSET = "asset"
-    FUNCTION = "function"
-
-
 @dataclass
-class InspectorActionConfig:
-    """Inspector action configuration."""
+class _ActionConfig:
+    """Internal, normalized action policy.
 
-    type: InspectorAction
+    Users never import or construct this — they pass ``action="abort"`` (a string)
+    or ``action={"type": "rerun", "max_retries": 2, "on_exhaust": "abort"}`` (a
+    dict) and :meth:`coerce` builds this.
+    """
+
+    type: str
     max_retries: Optional[int] = None
-    on_exhaust: Optional[InspectorOnExhaust] = None
+    on_exhaust: Optional[str] = None
 
     def __post_init__(self) -> None:
-        """Validate that max_retries and on_exhaust are only used with RERUN."""
-        if self.type != InspectorAction.RERUN:
+        """Normalize/validate the action policy."""
+        self.type = str(self.type).strip().lower()
+        if self.type not in _ACTION_TYPES:
+            raise ValueError(f"invalid action {self.type!r}; expected one of {sorted(_ACTION_TYPES)}")
+        if self.on_exhaust is not None:
+            self.on_exhaust = str(self.on_exhaust).strip().lower()
+            if self.on_exhaust not in _ON_EXHAUST_VALUES:
+                raise ValueError(
+                    f"invalid on_exhaust {self.on_exhaust!r}; expected one of {sorted(_ON_EXHAUST_VALUES)}"
+                )
+        if self.type != "rerun":
             if self.max_retries is not None:
                 raise ValueError("max_retries is only valid when action type is 'rerun'")
             if self.on_exhaust is not None:
@@ -100,46 +81,97 @@ class InspectorActionConfig:
         if self.max_retries is not None and self.max_retries < 0:
             raise ValueError("max_retries must be >= 0")
 
+    @classmethod
+    def coerce(cls, value: Any) -> "_ActionConfig":
+        """Build an action config from a string, dict, or existing config."""
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            return cls(type=value)
+        if isinstance(value, dict):
+            return cls(
+                type=value.get("type"),
+                max_retries=value.get("max_retries", value.get("maxRetries")),
+                on_exhaust=value.get("on_exhaust", value.get("onExhaust")),
+            )
+        raise ValueError(f"action must be a string or dict, got {type(value)!r}")
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert the action config to a dictionary for API serialization."""
-        d: Dict[str, Any] = {"type": self.type.value}
+        d: Dict[str, Any] = {"type": self.type}
         if self.max_retries is not None:
             d["maxRetries"] = self.max_retries
         if self.on_exhaust is not None:
-            d["onExhaust"] = self.on_exhaust.value
+            d["onExhaust"] = self.on_exhaust
         return d
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "InspectorActionConfig":
-        """Create an InspectorActionConfig from a dictionary."""
-        return cls(
-            type=InspectorAction(data["type"]),
-            max_retries=data.get("maxRetries"),
-            on_exhaust=InspectorOnExhaust(data["onExhaust"]) if data.get("onExhaust") else None,
-        )
 
 
 @dataclass
-class EvaluatorConfig:
-    """Evaluator configuration for an inspector."""
+class _Judge:
+    """Internal, normalized judge (evaluator or editor).
 
-    type: EvaluatorType
+    Users never import or construct this — they pass a Metric, an asset-id string,
+    or a Python callable and :meth:`coerce` builds this. It serializes to the same
+    backend shape the platform has always accepted (``type`` = ``asset`` |
+    ``function``).
+    """
+
     asset_id: Optional[str] = None
     prompt: Optional[str] = None
     function: Optional[str] = None
 
     def __post_init__(self) -> None:
-        """Validate and convert callable functions to source strings."""
+        """Convert callable functions to source and validate the judge has a target."""
         if callable(self.function):
             self.function = _callable_to_string(self.function)
-        if self.type == EvaluatorType.ASSET and not self.asset_id:
-            raise ValueError("asset_id is required when evaluator type is 'asset'")
-        if self.type == EvaluatorType.FUNCTION and not self.function:
-            raise ValueError("function is required when evaluator type is 'function'")
+        if not self.asset_id and not self.function:
+            raise ValueError("a judge needs an asset id (or Metric) or a function")
+
+    @property
+    def type(self) -> str:
+        """``"function"`` for callable judges, otherwise ``"asset"``."""
+        return "function" if self.function else "asset"
+
+    @classmethod
+    def coerce(cls, value: Any, *, prompt: Optional[str] = None) -> Optional["_Judge"]:
+        """Build a judge from a Metric, asset-id string, callable, dict, or judge.
+
+        Accepts:
+        - an ``aix.Metric`` (or any asset-backed object exposing ``id``) — the
+          universal judge; its id and prompt flow into the evaluator payload;
+        - a plain asset-id ``str``;
+        - a Python ``callable`` (or its source) — a custom function judge;
+        - a ``dict`` in either snake_case or the backend's camelCase.
+        """
+        if value is None:
+            return None
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        if isinstance(value, str):
+            return cls(asset_id=value, prompt=prompt)
+        # A Metric (or any asset-backed judge) carries an ``id``.
+        asset_id = getattr(value, "id", None)
+        if asset_id:
+            resolved_prompt = prompt
+            if resolved_prompt is None:
+                resolved_prompt = getattr(value, "prompt_template", None)
+            if resolved_prompt is None:
+                cfg = getattr(value, "config", None)
+                if isinstance(cfg, dict):
+                    resolved_prompt = cfg.get("prompt")
+            return cls(asset_id=asset_id, prompt=resolved_prompt)
+        if callable(value):
+            return cls(function=_callable_to_string(value))
+        if hasattr(value, "prompt_template"):
+            # A Metric-like object that hasn't been onboarded yet has no id.
+            raise ValueError("metric must be created before use as a judge — call Metric.create(...) so it has an id")
+        raise ValueError(f"metric must be a Metric, asset-id string, or callable; got {type(value)!r}")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to a dictionary for API serialization."""
-        d: Dict[str, Any] = {"type": self.type.value}
+        d: Dict[str, Any] = {"type": self.type}
         if self.asset_id is not None:
             d["assetId"] = self.asset_id
         if self.prompt is not None:
@@ -149,47 +181,10 @@ class EvaluatorConfig:
         return d
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EvaluatorConfig":
-        """Create an EvaluatorConfig from a dictionary."""
+    def from_dict(cls, data: Dict[str, Any]) -> "_Judge":
+        """Create a judge from a backend (or user) dict."""
         return cls(
-            type=EvaluatorType(data["type"]),
-            asset_id=data.get("assetId"),
-            prompt=data.get("prompt"),
-            function=data.get("function"),
-        )
-
-
-@dataclass
-class EditorConfig:
-    """Editor configuration for an inspector."""
-
-    type: EvaluatorType
-    asset_id: Optional[str] = None
-    prompt: Optional[str] = None
-    function: Optional[str] = None
-
-    def __post_init__(self) -> None:
-        """Validate and convert callable functions to source strings."""
-        if callable(self.function):
-            self.function = _callable_to_string(self.function)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to a dictionary for API serialization."""
-        d: Dict[str, Any] = {"type": self.type.value}
-        if self.asset_id is not None:
-            d["assetId"] = self.asset_id
-        if self.prompt is not None:
-            d["prompt"] = self.prompt
-        if self.function is not None:
-            d["function"] = self.function
-        return d
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EditorConfig":
-        """Create an EditorConfig from a dictionary."""
-        return cls(
-            type=EvaluatorType(data["type"]),
-            asset_id=data.get("assetId"),
+            asset_id=data.get("assetId", data.get("asset_id")),
             prompt=data.get("prompt"),
             function=data.get("function"),
         )
@@ -200,24 +195,24 @@ class EditorConfig:
 # hardcode a guard's asset id — a new guard ships purely as a marketplace entry
 # and inherits the safe default below until/unless it gets a tuned entry here.
 _DEFAULT_GUARD_CONFIG: Dict[str, Any] = {
-    "targets": [InspectorTarget.INPUT.value],
-    "action": {"type": InspectorAction.ABORT.value},
+    "targets": ["input"],
+    "action": {"type": "abort"},
 }
 
 # Keys are the marketplace ``assetName`` (the middle segment of a guard's
 # ``host/asset-name/instance`` path), verified against the onboarded AWS guards.
 _GUARD_CONFIG_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "detect-prompt-attacks-guardrail": {
-        "targets": [InspectorTarget.INPUT.value],
-        "action": {"type": InspectorAction.ABORT.value},
+        "targets": ["input"],
+        "action": {"type": "abort"},
     },
     "sensitive-information-guardrail": {
-        "targets": [InspectorTarget.INPUT.value],
-        "action": {"type": InspectorAction.EDIT.value},
+        "targets": ["input"],
+        "action": {"type": "edit"},
     },
     "contextual-grounding-check-guardrail": {
-        "targets": [InspectorTarget.OUTPUT.value],
-        "action": {"type": InspectorAction.RERUN.value, "maxRetries": 2, "onExhaust": "abort"},
+        "targets": ["output"],
+        "action": {"type": "rerun", "maxRetries": 2, "onExhaust": "abort"},
     },
 }
 
@@ -267,9 +262,22 @@ class Inspector(
     accepts — whether it is hand-built or retrieved from the marketplace via
     :meth:`get` / :meth:`search`. Prebuilt guards are ordinary marketplace assets
     under the ``guardrails`` :class:`~aixplain.v2.enums.Function`; retrieving one
-    returns a fully-configured ``Inspector`` whose evaluator points at the guard
+    returns a fully-configured ``Inspector`` whose ``metric`` points at the guard
     model, so a fetched guard and a custom inspector are indistinguishable to the
     agent.
+
+    Configuration is plain data — no enums or config classes to import:
+
+    - ``action``: a string (``"continue" | "rerun" | "abort" | "edit"``) or, when
+      you need retry parameters, a dict
+      ``{"type": "rerun", "max_retries": 2, "on_exhaust": "abort"}``.
+    - ``targets``: a list of strings (``"input" | "steps" | "output"`` or a
+      sub-agent name).
+    - ``severity``: a string (``"low" | "medium" | "high" | "critical"``).
+    - ``metric``: the universal judge — an ``aix.Metric``, an asset-id string, or
+      a Python callable. Required.
+    - ``editor``: required when ``action`` is ``"edit"``; same accepted types as
+      ``metric``.
 
     Example::
 
@@ -277,15 +285,26 @@ class Inspector(
 
         aix = Aixplain(api_key="<KEY>")
 
-        # Discover guards like any other asset
-        aix.Inspector.search("guard")
+        # A custom inspector judged by a Metric (the universal judge)
+        inspector = aix.Inspector(
+            name="grounded_output",
+            severity="high",
+            targets=["output"],
+            action="abort",
+            metric=aix.Metric.create(
+                name="grounded",
+                llm_path="<LLM_ID>",
+                prompt_template="Abort if the answer is not grounded in the context.",
+            ),
+        )
 
-        # Retrieve a prebuilt by human-readable path (IDs also accepted)
+        # Discover and retrieve prebuilt guards like any other asset
+        aix.Inspector.search("guard")
         guard = aix.Inspector.get("aws/detect-prompt-attacks-guardrail/aws")
         redactor = aix.Inspector.get("aws/sensitive-information-guardrail/aws")
         redactor.targets = ["output"]            # config as an inspectable attribute
 
-        team = aix.Agent(name="team", agents=[...], inspectors=[guard, redactor])
+        team = aix.Agent(name="team", agents=[...], inspectors=[guard, inspector])
     """
 
     # Guards are marketplace models under function=guardrails, so retrieval is
@@ -293,22 +312,33 @@ class Inspector(
     RESOURCE_PATH = "v2/models"
 
     # ``name`` / ``description`` / ``id`` / ``path`` are inherited from BaseResource.
-    action: Optional[InspectorActionConfig] = None
-    evaluator: Optional[EvaluatorConfig] = None
-    severity: Optional[InspectorSeverity] = None
+    action: Any = None
+    metric: Any = None
+    severity: Optional[str] = None
     targets: List[str] = field(default_factory=list)
-    editor: Optional[EditorConfig] = None
+    editor: Any = None
 
     def __post_init__(self) -> None:
-        """Validate inspector configuration after initialization."""
+        """Normalize and validate inspector configuration after initialization."""
         if not self.name or not str(self.name).strip():
             raise ValueError("name cannot be empty")
         if self.action is None:
             raise ValueError("action is required")
-        if self.evaluator is None:
-            raise ValueError("evaluator is required")
-        self.targets = [t for t in (self.targets or []) if t and str(t).strip()]
-        if self.action.type == InspectorAction.EDIT and self.editor is None:
+        if self.metric is None:
+            raise ValueError("metric is required")
+
+        self.action = _ActionConfig.coerce(self.action)
+        self.metric = _Judge.coerce(self.metric)
+        self.editor = _Judge.coerce(self.editor)
+
+        if self.severity is not None:
+            self.severity = str(self.severity).strip().lower()
+            if self.severity not in _SEVERITY_VALUES:
+                raise ValueError(f"invalid severity {self.severity!r}; expected one of {sorted(_SEVERITY_VALUES)}")
+
+        self.targets = [str(t).strip() for t in (self.targets or []) if t and str(t).strip()]
+
+        if self.action.type == "edit" and self.editor is None:
             raise ValueError("editor is required when action type is 'edit'")
 
     def to_dict(self) -> Dict[str, Any]:
@@ -317,12 +347,13 @@ class Inspector(
             "name": self.name,
             "targets": list(self.targets),
             "action": self.action.to_dict(),
-            "evaluator": self.evaluator.to_dict(),
+            # The judge serializes under the backend's long-standing "evaluator" key.
+            "evaluator": self.metric.to_dict(),
         }
         if self.description is not None:
             d["description"] = self.description
         if self.severity is not None:
-            d["severity"] = self.severity.value
+            d["severity"] = self.severity
         if self.editor is not None:
             d["editor"] = self.editor.to_dict()
         return d
@@ -333,16 +364,15 @@ class Inspector(
         if not isinstance(data, dict):
             raise ValueError("Inspector data must be a dict")
 
-        severity = data.get("severity")
         editor_data = data.get("editor")
         return cls(
             name=data["name"],
             description=data.get("description"),
-            severity=InspectorSeverity(severity) if severity else None,
+            severity=data.get("severity"),
             targets=data.get("targets") or [],
-            action=InspectorActionConfig.from_dict(data.get("action") or {}),
-            evaluator=EvaluatorConfig.from_dict(data["evaluator"]),
-            editor=EditorConfig.from_dict(editor_data) if editor_data else None,
+            action=data.get("action") or {},
+            metric=_Judge.from_dict(data["evaluator"]),
+            editor=_Judge.from_dict(editor_data) if editor_data else None,
         )
 
     # ------------------------------------------------------------------
@@ -352,7 +382,7 @@ class Inspector(
     def from_guard_model(cls, payload: Dict[str, Any], requested_path: Optional[str] = None) -> "Inspector":
         """Adapt a ``guardrails`` marketplace model payload into a configured Inspector.
 
-        The guard model becomes the inspector's evaluator (``asset`` type), and
+        The guard model becomes the inspector's ``metric`` (``asset`` judge), and
         sensible default ``action`` / ``targets`` are applied based on the guard's
         canonical path slug (see :data:`_GUARD_CONFIG_DEFAULTS`). Unknown guards
         fall back to a safe ``abort`` on ``input`` default, so future guards need
@@ -374,17 +404,17 @@ class Inspector(
         asset_name = (payload.get("assetInfo") or {}).get("assetName")
         defaults = _resolve_guard_defaults(asset_name, requested_path, payload.get("path"))
 
-        action = InspectorActionConfig.from_dict(defaults["action"])
+        action = _ActionConfig.coerce(defaults["action"])
         editor = None
-        if action.type == InspectorAction.EDIT:
+        if action.type == "edit":
             # The guard model performs the edit/redaction itself.
-            editor = EditorConfig(type=EvaluatorType.ASSET, asset_id=model_id)
+            editor = _Judge(asset_id=model_id)
 
         inspector = cls(
             id=model_id,
             name=payload.get("name") or "Guardrail",
             description=payload.get("description"),
-            evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id=model_id),
+            metric=_Judge(asset_id=model_id),
             action=action,
             targets=list(defaults["targets"]),
             editor=editor,
@@ -437,15 +467,14 @@ class Inspector(
     def _populate_filters(cls, params: Dict[str, Any]) -> dict:
         """Pin the search to the ``guardrails`` function (guards are models).
 
-        NOTE: the ``v2/models/paginate`` ``functions`` filter is currently a
-        no-op on the backend — ``[{"id": <fn>}]`` returns zero results for every
-        function (verified against ``text-generation`` too), so this search
-        returns an empty page until the backend implements function filtering on
-        that endpoint. Tracked as a backend bug; the get-by-path flow is
-        unaffected. See ``Inspector.get``.
+        The ``v2/models/paginate`` ``functions`` filter expects a list of
+        function-code strings (the backend matches with ``function: {$in: [...]}``
+        and validates each element with ``@IsString({each: true})``). Sending the
+        object shape ``[{"id": <fn>}]`` fails validation with
+        ``each value in functions must be a string``.
         """
         filters = super()._populate_filters(params)
-        filters["functions"] = [{"id": Function.GUARDRAILS.value}]
+        filters["functions"] = [Function.GUARDRAILS.value]
         # The v2/models/paginate endpoint requires a sort array.
         filters.setdefault("sort", [{}])
         return filters
@@ -470,12 +499,4 @@ class Inspector(
 
 __all__ = [
     "Inspector",
-    "InspectorTarget",
-    "InspectorAction",
-    "InspectorOnExhaust",
-    "InspectorSeverity",
-    "InspectorActionConfig",
-    "EvaluatorType",
-    "EvaluatorConfig",
-    "EditorConfig",
 ]
