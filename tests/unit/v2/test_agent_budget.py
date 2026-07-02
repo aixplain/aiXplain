@@ -1,17 +1,20 @@
 """Unit tests for agent budget serialization.
 
-A run-time ``budget`` rides inside ``executionParams`` as a nested camelCase
-``budget`` object; a persisted ``budget`` lives at the top level of the create
-payload. ``Budget`` is the single source of truth for the iteration cap, so the
-deprecated ``max_iterations`` surfaces fold into it and the standalone
-``maxIterations`` key is no longer emitted. These tests cover:
-- A ``Budget`` instance, a snake_case dict, and a camelCase dict all yield the
-  same camelCase payload.
+Every agent owns a ``budget`` (an always-present, never-None ``Budget``, empty by
+default) mutated via attribute access (``agent.budget.max_cost = ...``). The same
+object serves two roles: ``build_run_payload`` sends its current state inside
+``executionParams`` as a nested camelCase ``budget`` object (run-time budget), and
+``build_save_payload`` persists it at the top level of the create payload. It is
+the single source of truth for the iteration cap, so the deprecated
+``max_iterations`` surfaces fold into it and the standalone ``maxIterations`` key
+is no longer emitted. These tests cover:
+- A ``Budget`` instance, a snake_case dict, and a camelCase dict assigned to
+  ``agent.budget`` all yield the same camelCase payload.
 - Partial budgets emit no null keys; ``warnAtPercent`` is never emitted.
-- Omitting ``budget`` produces no ``budget`` key (backward compatible).
+- An empty budget produces no ``budget`` key (default state is inert).
 - Persisted budget serialization in the create payload.
 - The deprecated persisted/run-time ``max_iterations`` fold into ``budget`` with
-  a ``DeprecationWarning``; Budget wins on conflict.
+  a ``DeprecationWarning``; the agent's budget wins on conflict.
 - No standalone ``maxIterations`` survives in either emitted payload.
 """
 
@@ -56,14 +59,29 @@ class TestBudgetSerialization:
 
 
 class TestBudgetInRunPayload:
-    """build_run_payload threads budget into executionParams.budget."""
+    """build_run_payload threads the agent's current ``budget`` into executionParams.budget.
+
+    The per-run budget is no longer a ``run`` kwarg — it is the agent's own
+    ``agent.budget`` state at call time (mutated via attribute access).
+    """
 
     def test_budget_instance(self):
         agent = _create_agent()
-        payload = agent.build_run_payload(
-            query="q",
-            budget=Budget(max_cost=1.0, max_duration_seconds=300, max_iterations=50),
-        )
+        agent.budget = Budget(max_cost=1.0, max_duration_seconds=300, max_iterations=50)
+        payload = agent.build_run_payload(query="q")
+        assert payload["executionParams"]["budget"] == {
+            "maxCost": 1.0,
+            "maxDurationSeconds": 300,
+            "maxIterations": 50,
+        }
+
+    def test_budget_via_attribute_access(self):
+        # The documented pattern: mutate fields on the always-present budget.
+        agent = _create_agent()
+        agent.budget.max_cost = 1.0
+        agent.budget.max_duration_seconds = 300
+        agent.budget.max_iterations = 50
+        payload = agent.build_run_payload(query="q")
         assert payload["executionParams"]["budget"] == {
             "maxCost": 1.0,
             "maxDurationSeconds": 300,
@@ -72,10 +90,8 @@ class TestBudgetInRunPayload:
 
     def test_budget_dict_snake_case(self):
         agent = _create_agent()
-        payload = agent.build_run_payload(
-            query="q",
-            budget={"max_cost": 1.0, "max_duration_seconds": 300, "max_iterations": 50},
-        )
+        agent.budget = {"max_cost": 1.0, "max_duration_seconds": 300, "max_iterations": 50}
+        payload = agent.build_run_payload(query="q")
         assert payload["executionParams"]["budget"] == {
             "maxCost": 1.0,
             "maxDurationSeconds": 300,
@@ -84,43 +100,61 @@ class TestBudgetInRunPayload:
 
     def test_budget_dict_camel_case(self):
         agent = _create_agent()
-        payload = agent.build_run_payload(
-            query="q",
-            budget={"maxCost": 1.0, "maxDurationSeconds": 300, "maxIterations": 50},
-        )
+        agent.budget = {"maxCost": 1.0, "maxDurationSeconds": 300, "maxIterations": 50}
+        payload = agent.build_run_payload(query="q")
         assert payload["executionParams"]["budget"] == {
             "maxCost": 1.0,
             "maxDurationSeconds": 300,
             "maxIterations": 50,
         }
 
+    def test_budget_reflects_latest_mutation(self):
+        # A loop that mutates the budget between runs sends the current value each time.
+        agent = _create_agent()
+        seen = []
+        for cost in [0.1, 0.5, 1.0]:
+            agent.budget.max_cost = cost
+            payload = agent.build_run_payload(query="q")
+            seen.append(payload["executionParams"]["budget"])
+        assert seen == [{"maxCost": 0.1}, {"maxCost": 0.5}, {"maxCost": 1.0}]
+
     def test_partial_budget_instance(self):
         agent = _create_agent()
-        payload = agent.build_run_payload(query="q", budget=Budget(max_cost=2.0))
+        agent.budget = Budget(max_cost=2.0)
+        payload = agent.build_run_payload(query="q")
         assert payload["executionParams"]["budget"] == {"maxCost": 2.0}
 
     def test_partial_budget_dict(self):
         agent = _create_agent()
-        payload = agent.build_run_payload(query="q", budget={"max_cost": 2.0})
+        agent.budget = {"max_cost": 2.0}
+        payload = agent.build_run_payload(query="q")
         assert payload["executionParams"]["budget"] == {"maxCost": 2.0}
 
     def test_zero_value_budget_preserved_in_payload(self):
         # A zero cap is semantically distinct from "no cap" and must be sent.
         agent = _create_agent()
-        payload = agent.build_run_payload(query="q", budget={"max_cost": 0.0})
+        agent.budget.max_cost = 0.0
+        payload = agent.build_run_payload(query="q")
         assert payload["executionParams"]["budget"] == {"maxCost": 0.0}
 
     def test_dict_with_none_value_drops_key(self):
         agent = _create_agent()
-        payload = agent.build_run_payload(
-            query="q", budget={"max_cost": 1.0, "max_iterations": None}
-        )
+        agent.budget = {"max_cost": 1.0, "max_iterations": None}
+        payload = agent.build_run_payload(query="q")
         assert payload["executionParams"]["budget"] == {"maxCost": 1.0}
 
     def test_budget_does_not_leak_to_payload_top_level(self):
         agent = _create_agent()
-        payload = agent.build_run_payload(query="q", budget=Budget(max_cost=1.0))
+        agent.budget.max_cost = 1.0
+        payload = agent.build_run_payload(query="q")
         assert "budget" not in payload
+
+    def test_stray_budget_kwarg_is_ignored(self):
+        # ``budget`` is no longer a run kwarg; a stray one must not leak to the payload.
+        agent = _create_agent()
+        payload = agent.build_run_payload(query="q", budget=Budget(max_cost=9.0))
+        assert "budget" not in payload
+        assert "budget" not in payload["executionParams"]
 
     def test_no_budget_means_no_budget_key(self):
         agent = _create_agent()
@@ -129,29 +163,30 @@ class TestBudgetInRunPayload:
 
     def test_empty_budget_instance_means_no_budget_key(self):
         agent = _create_agent()
-        payload = agent.build_run_payload(query="q", budget=Budget())
+        agent.budget = Budget()
+        payload = agent.build_run_payload(query="q")
         assert "budget" not in payload["executionParams"]
 
     def test_empty_budget_dict_means_no_budget_key(self):
         agent = _create_agent()
-        payload = agent.build_run_payload(query="q", budget={})
+        agent.budget = {}
+        payload = agent.build_run_payload(query="q")
         assert "budget" not in payload["executionParams"]
 
     def test_warn_at_percent_never_emitted(self):
         agent = _create_agent()
-        payload = agent.build_run_payload(
-            query="q",
-            budget=Budget(max_cost=1.0, max_duration_seconds=300, max_iterations=50),
-        )
+        agent.budget = Budget(max_cost=1.0, max_duration_seconds=300, max_iterations=50)
+        payload = agent.build_run_payload(query="q")
         budget = payload["executionParams"]["budget"]
         assert "warnAtPercent" not in budget
         assert "warn_at_percent" not in budget
 
     def test_no_budget_payload_unchanged(self):
-        """A run without budget produces the same executionParams as before."""
-        agent = _create_agent()
-        with_budget = agent.build_run_payload(query="q", budget=Budget(max_cost=1.0))
-        without_budget = agent.build_run_payload(query="q")
+        """A run with an empty budget produces the same executionParams as a set one, minus budget."""
+        with_budget_agent = _create_agent()
+        with_budget_agent.budget.max_cost = 1.0
+        with_budget = with_budget_agent.build_run_payload(query="q")
+        without_budget = _create_agent().build_run_payload(query="q")
 
         ep_with = dict(with_budget["executionParams"])
         ep_with.pop("budget", None)
@@ -276,12 +311,12 @@ class TestDeprecatedRunTimeMaxIterations:
 
     def test_conflict_budget_wins(self):
         agent = _create_agent()
+        agent.budget = Budget(max_iterations=99)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             payload = agent.build_run_payload(
                 query="q",
                 execution_params={"max_iterations": 7},
-                budget=Budget(max_iterations=99),
             )
         categories = {w.category for w in caught}
         assert DeprecationWarning in categories
@@ -291,11 +326,11 @@ class TestDeprecatedRunTimeMaxIterations:
 
     def test_fold_combines_with_other_budget_fields(self):
         agent = _create_agent()
+        agent.budget = Budget(max_cost=1.0)
         with pytest.warns(DeprecationWarning):
             payload = agent.build_run_payload(
                 query="q",
                 execution_params={"max_iterations": 7},
-                budget=Budget(max_cost=1.0),
             )
         assert payload["executionParams"]["budget"] == {
             "maxCost": 1.0,
@@ -342,11 +377,15 @@ class TestFromDictLegacyMaxIterations:
         assert agent.budget.max_iterations == 99
         assert agent.budget.max_cost == 1.0
 
-    def test_from_dict_without_max_iterations_no_budget(self):
+    def test_from_dict_without_max_iterations_empty_budget(self):
+        # ``budget`` always exists as a (never-None) empty Budget, even when the
+        # backend agent carries no budget and no legacy maxIterations.
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             agent = Agent.from_dict({"id": "a", "name": "t"})
-        assert agent.budget is None
+        assert agent.budget == Budget()
+        agent.context = MagicMock()
+        assert agent.build_save_payload().get("budget") is None
 
     def test_from_dict_does_not_mutate_caller_dict(self):
         data = {"id": "a", "name": "t", "maxIterations": 5}
@@ -410,12 +449,12 @@ class TestRunPathWarningStacklevel:
 
     def test_run_conflict_warning_points_at_call_site(self):
         agent = self._runnable_agent()
+        agent.budget = Budget(max_iterations=99)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             agent.run(
                 query="hi",
                 execution_params={"max_iterations": 7},
-                budget=Budget(max_iterations=99),
             )
         conflict = [w for w in caught if w.category is UserWarning and "precedence" in str(w.message)]
         assert conflict, "expected a run-path conflict UserWarning"

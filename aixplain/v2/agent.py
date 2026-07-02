@@ -241,13 +241,10 @@ class AgentRunParams(BaseRunParams):
         prompt: Custom prompt override
         history: Conversation history
         execution_params: Execution parameters (maxTokens, etc.). Passing
-            ``max_iterations`` here is deprecated; use ``budget=Budget(max_iterations=...)``
+            ``max_iterations`` here is deprecated; set ``agent.budget.max_iterations``
             instead. A deprecated value is folded into ``budget.max_iterations``
-            (Budget wins on conflict) and the standalone key is not emitted.
-        budget: Per-run budget caps (cost / duration / iterations). Accepts a
-            ``Budget`` instance or a plain dict (snake_case or camelCase). Run-time
-            only; omitting it applies no budget enforcement. The backend merges a
-            run-time budget field-by-field over the agent's persisted default budget.
+            (the agent's budget wins on conflict) and the standalone key is not
+            emitted.
         criteria: Criteria for evaluation
         evolve: Evolution parameters
         inspectors: Inspector configurations
@@ -267,7 +264,6 @@ class AgentRunParams(BaseRunParams):
     prompt: NotRequired[Optional[Text]]
     history: NotRequired[Optional[List[ConversationMessage]]]
     execution_params: NotRequired[Optional[Dict[str, Any]]]
-    budget: NotRequired[Optional[Union[Dict, "Budget"]]]
     criteria: NotRequired[Optional[Text]]
     evolve: NotRequired[Optional[Text]]
     identifier: NotRequired[Optional[Text]]
@@ -284,12 +280,19 @@ class AgentRunParams(BaseRunParams):
 class Budget:
     """Budget caps governing an agent run (cost / duration / iterations).
 
-    Used in two roles: a persisted default on the Agent (``Agent(budget=...)``)
-    and a run-time override (``agent.run(budget=...)``); the backend merges the
-    run-time budget field-by-field over the persisted default. The Python API is
-    snake_case; serialization produces the agreed camelCase wire keys
-    (``maxCost`` / ``maxDurationSeconds`` / ``maxIterations``). All fields are
-    optional and ``None`` fields are dropped from ``to_dict()``.
+    Every :class:`Agent` owns a ``budget`` (defaulting to an empty ``Budget()``),
+    mutated in place via attribute access — mirroring ``model.inputs``::
+
+        agent.budget.max_cost = 0.5
+        agent.budget.max_iterations = 10
+
+    The same object serves two roles: ``agent.save()`` persists it as the agent's
+    default budget, and ``agent.run(...)`` sends its current state as the run-time
+    budget (the backend merges the run-time budget field-by-field over the
+    persisted default). The Python API is snake_case; serialization produces the
+    agreed camelCase wire keys (``maxCost`` / ``maxDurationSeconds`` /
+    ``maxIterations``). All fields are optional and ``None`` fields are dropped
+    from ``to_dict()``.
     """
 
     max_cost: Optional[float] = field(
@@ -526,10 +529,16 @@ class Agent(
     # into ``budget`` and is never serialized as a standalone ``maxIterations``
     # (see ``build_save_payload``).
     max_iterations: Optional[int] = field(default=None, metadata=config(field_name="maxIterations"))
-    # Persisted default budget (cost / duration / iterations) saved on the agent.
-    # Serialized manually in ``build_save_payload`` via ``_normalize_budget``.
-    budget: Optional["Budget"] = field(
-        default=None,
+    # Budget (cost / duration / iterations) for this agent. Always a ``Budget``
+    # instance — defaults to an empty ``Budget()``, never ``None`` — so callers
+    # can mutate ``agent.budget.max_cost`` etc. without a None check (mirrors
+    # ``model.inputs``). Assigning a dict/Budget/None is coerced back to a
+    # ``Budget`` by ``__setattr__``. Excluded from ``to_dict()`` (so it never
+    # counts toward ``is_modified``); serialized manually in ``build_save_payload``
+    # (persisted default) and ``build_run_payload`` (run-time budget) via
+    # ``_normalize_budget``.
+    budget: "Budget" = field(
+        default_factory=lambda: Budget(),
         metadata=config(field_name="budget", exclude=lambda v: True),
     )
     max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
@@ -575,22 +584,20 @@ class Agent(
             self.agents = self.subagents
             self.subagents = None
 
-        # Coerce a dict-or-Budget persisted budget into a Budget instance so the
-        # deprecated ``max_iterations`` fold below can read/set its fields.
-        self.budget = self._coerce_budget(self.budget)
+        # ``self.budget`` is already a ``Budget`` instance here: the generated
+        # ``__init__`` assignment routed through ``__setattr__``, which coerces
+        # any dict/Budget/None into a (never-None) ``Budget``.
 
         # Deprecated persisted ``max_iterations``: fold into ``budget.max_iterations``.
         # ``None`` (the default) means "not provided" so a plain ``Agent(...)`` never
         # warns; any non-None value (explicit or via ``from_dict``) is folded.
         if self.max_iterations is not None:
             warnings.warn(
-                "Agent 'max_iterations' is deprecated; use budget=Budget(max_iterations=...). "
+                "Agent 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
                 "It will be removed in a future release.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-            if self.budget is None:
-                self.budget = Budget()
             if self.budget.max_iterations is None:
                 self.budget.max_iterations = self.max_iterations
             else:
@@ -630,6 +637,21 @@ class Agent(
         #     raise ValueError(
         #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
         #     )
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Keep ``self.budget`` a (never-None) ``Budget`` instance.
+
+        Assigning ``agent.budget`` a dict / ``Budget`` / ``None`` is coerced into
+        a ``Budget`` so attribute access (``agent.budget.max_cost = ...``) always
+        works and the invariant "budget is never None" holds (mirrors how
+        ``Model.__setattr__`` coerces bulk ``inputs`` assignment). This runs for
+        the generated ``__init__`` assignment too, so the field is a ``Budget``
+        by the time ``__post_init__`` executes.
+        """
+        if name == "budget":
+            coerced = self._coerce_budget(value)
+            value = coerced if coerced is not None else Budget()
+        super().__setattr__(name, value)
 
     @classmethod
     def _fold_legacy_max_iterations(cls, kvs: Any) -> Any:
@@ -797,6 +819,9 @@ class Agent(
 
         A dict may use snake_case or camelCase keys; it is normalized to the
         camelCase wire shape first so a single decoder handles both styles.
+        ``None`` passes through as ``None`` (session's ExecutionConfig relies on
+        this); ``Agent.__setattr__`` is what upgrades a ``None`` agent budget to
+        an empty ``Budget()`` to keep ``agent.budget`` never-None.
         """
         if budget is None or isinstance(budget, Budget):
             return budget
@@ -1516,8 +1541,9 @@ class Agent(
         # ``budget`` field is ``exclude=lambda v: True`` so ``to_dict()`` never
         # emits it — we build the wire shape explicitly below.)
         payload.pop("maxIterations", None)
-        if self.budget is not None:
-            normalized_budget = self._normalize_budget(self.budget)
+        budget = getattr(self, "budget", None)
+        if budget is not None:
+            normalized_budget = self._normalize_budget(budget)
             if normalized_budget:
                 payload["budget"] = normalized_budget
 
@@ -1608,12 +1634,19 @@ class Agent(
             # Backend expects executionParams.expectedOutput as a string.
             execution_params["expectedOutput"] = json.dumps(expected_output)
 
-        # Per-run budget (run-time only). Set executionParams.budget only when a
-        # non-empty budget is provided; absence must leave the payload unchanged.
-        budget = kwargs.pop("budget", None)
+        # Run-time budget: the agent's current ``budget`` state travels inside
+        # ``executionParams.budget`` (the backend merges it field-by-field over the
+        # persisted default). Set the key only when the budget carries at least one
+        # cap; an empty budget must leave the payload unchanged. ``budget`` is no
+        # longer a run kwarg — drop any stray one so it can't leak to the payload.
+        kwargs.pop("budget", None)
+        # ``getattr`` (not ``self.budget``) mirrors the defensive reads above so a
+        # test-constructed agent (``Agent.__new__`` bypassing ``__init__``) still
+        # works; a missing/None budget is treated as an empty one.
+        budget = getattr(self, "budget", None) or Budget()
 
         # Deprecated run-time ``max_iterations`` exec param: fold into the run-time
-        # budget (Budget wins on conflict) and stop emitting a standalone
+        # budget (the agent's budget wins on conflict) and stop emitting a standalone
         # ``executionParams.maxIterations``. ``max_iterations`` is not in
         # ``_EXEC_PARAMS_MAP``, so a snake_case key passes through unmapped — accept
         # both spellings here (mirrors ExecutionConfig.to_api_dict in session.py).
@@ -1626,19 +1659,19 @@ class Agent(
             # the user's agent.run(...) call site. The conflict warning (below) is
             # emitted from this same frame, so it shares the stacklevel.
             warnings.warn(
-                "Execution param 'max_iterations' is deprecated; use run(budget=Budget(max_iterations=...)). "
+                "Execution param 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
                 "It will be removed in a future release.",
                 DeprecationWarning,
                 stacklevel=5,
             )
-            budget, conflicted = self._fold_iter_into_budget(budget, deprecated_iterations)
+            normalized_budget, conflicted = self._fold_iter_into_budget(budget, deprecated_iterations)
             if conflicted:
                 warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=5)
-
-        if budget is not None:
+        else:
             normalized_budget = self._normalize_budget(budget)
-            if normalized_budget:
-                execution_params["budget"] = normalized_budget
+
+        if normalized_budget:
+            execution_params["budget"] = normalized_budget
 
         # Handle run_response_generation with default value of False
         run_response_generation = kwargs.pop("run_response_generation", False)

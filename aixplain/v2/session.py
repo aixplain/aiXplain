@@ -191,7 +191,8 @@ class ExecutionConfig:
         budget: Per-session run budget (cost / duration / iterations). Accepts a
             ``Budget`` instance or a snake_case/camelCase dict. Serialized into
             ``executionParams.budget`` so messages posted to the session run the
-            agent with this budget — identical to ``agent.run(budget=...)``.
+            agent with this budget — the session-scoped equivalent of the agent's
+            own ``agent.budget``.
     """
 
     execution_params: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionParams"))
