@@ -1,15 +1,17 @@
 """Skill resource module.
 
-A ``Skill`` is a Claude-style folder bundle — a ``SKILL.md`` (YAML frontmatter +
-markdown instructions) plus optional ``scripts/`` and ``resources/`` — registered
-as an aiXplain asset and attachable to agents. It is authored from a local folder;
-the file tree is uploaded and managed internally.
+A ``Skill`` is a Claude-style skill — a ``SKILL.md`` (YAML frontmatter + markdown
+instructions), optionally alongside ``scripts/`` and ``resources/`` — registered as
+an aiXplain asset and attachable to agents. It is authored from a local path, either
+a folder containing ``SKILL.md`` or a single ``.md`` file; the file tree is uploaded
+and managed internally.
 
 The frontmatter ``description`` is the routing signal an agent sees; the body and
 resources are loaded just-in-time at runtime (progressive disclosure). Skills are
 attached to agents the same way tools are::
 
-    skill = aix.Skill(folder="./skills/pdf-filler")
+    skill = aix.Skill(file_path="./skills/pdf-filler")  # folder
+    skill = aix.Skill(file_path="calculator.md")        # single file
     skill.save()                                   # upload bundle + register asset
 
     agent = aix.Agent(name="analyst", skills=[skill])
@@ -17,7 +19,8 @@ attached to agents the same way tools are::
 
     aix.Skill.get("my-workspace/pdf-filler")       # retrieve (path or id)
     aix.Skill.search("pdf form")                   # search
-    skill.download(to="./pdf-filler.zip")          # download the bundle
+    skill.download()                               # download the bundle to ./{name}.zip
+    skill.download(file_path="./pdf-filler.zip")   # ...or an explicit path
 """
 
 import os
@@ -95,10 +98,11 @@ class Skill(
     DeleteResourceMixin[BaseDeleteParams, "Skill"],
     ToolableMixin,
 ):
-    """A Claude-style folder bundle registered as an aiXplain asset.
+    """A Claude-style skill registered as an aiXplain asset.
 
-    Authored from a local folder via ``aix.Skill(folder=...)``; the bundle's file
-    tree is uploaded internally on ``save()``. Attach to agents with
+    Authored from a local path via ``aix.Skill(file_path=...)`` — either a folder
+    containing ``SKILL.md`` or a single ``.md`` file; the bundle's file tree is
+    uploaded internally on ``save()``. Attach to agents with
     ``aix.Agent(skills=[skill_or_id])``.
     """
 
@@ -108,9 +112,9 @@ class Skill(
     privacy: Privacy = Privacy.PRIVATE
     whitelist: List[str] = field(default_factory=list)
 
-    # Authoring input: a local Claude-style skill folder. Parsed on construction;
-    # never sent to the backend.
-    folder: Optional[str] = field(default=None, repr=False, metadata=config(exclude=_exclude))
+    # Authoring input: a local Claude-style skill folder or a single ``.md`` file.
+    # Parsed on construction; never sent to the backend.
+    file_path: Optional[str] = field(default=None, repr=False, metadata=config(exclude=_exclude))
 
     # Parsed from SKILL.md frontmatter/body when authored from a folder. Read-only
     # to a developer and excluded from the create/update payload.
@@ -127,26 +131,41 @@ class Skill(
     updated_at: Optional[str] = field(default=None, metadata=config(field_name="updatedAt"))
 
     def __post_init__(self) -> None:
-        """Load skill metadata from the local folder when authoring a new skill."""
-        self._local_folder = None
-        if self.folder and not self.id:
-            self._load_from_folder(self.folder)
+        """Load skill metadata from the local path when authoring a new skill."""
+        self._local_path = None
+        self._local_is_file = False
+        if self.file_path and not self.id:
+            self._load_from_path(self.file_path)
 
-    def _load_from_folder(self, folder: str) -> None:
-        """Parse ``SKILL.md`` and stage the folder for upload on save."""
-        folder = os.path.abspath(folder)
-        skill_md = os.path.join(folder, "SKILL.md")
-        if not os.path.isfile(skill_md):
-            raise ValueError(f"A skill folder must contain a SKILL.md file: {folder}")
+    def _load_from_path(self, path: str) -> None:
+        """Parse the skill markdown and stage the source for upload on save.
+
+        Accepts either a Claude-style skill folder (containing ``SKILL.md``) or a
+        single ``.md`` file that serves as the skill's ``SKILL.md``.
+        """
+        path = os.path.abspath(path)
+        if os.path.isdir(path):
+            skill_md = os.path.join(path, "SKILL.md")
+            if not os.path.isfile(skill_md):
+                raise ValueError(f"A skill folder must contain a SKILL.md file: {path}")
+            fallback_name = os.path.basename(path)
+            self._local_is_file = False
+        elif os.path.isfile(path):
+            skill_md = path
+            fallback_name = os.path.splitext(os.path.basename(path))[0]
+            self._local_is_file = True
+        else:
+            raise ValueError(f"Skill path not found: {path}")
         with open(skill_md, "r", encoding="utf-8") as handle:
             name, description, requires, body = _parse_skill_md(handle.read())
-        self.name = self.name or name
+        # Precedence: explicit name= > SKILL.md frontmatter > folder/file name.
+        self.name = self.name or name or fallback_name
         if not self.name:
-            raise ValueError("SKILL.md frontmatter must include a 'name' (or pass name=).")
+            raise ValueError("Could not determine a skill name (pass name= or set it in SKILL.md).")
         self.description = self.description or description or ""
         self.required_tools = requires
         self.instructions = body
-        self._local_folder = folder
+        self._local_path = path
 
     # ------------------------------------------------------------------ #
     # Retrieval / search
@@ -183,16 +202,19 @@ class Skill(
     # Lifecycle
     # ------------------------------------------------------------------ #
     def save(self, *args: Any, **kwargs: Any) -> "Skill":
-        """Save the skill, uploading the bundle when authored from a folder.
+        """Save the skill, uploading the bundle when authored from a local path.
 
         Args:
             *args: Positional arguments passed to the base save method.
             **kwargs: Attributes to set before saving (passed to base save).
         """
         super().save(*args, **kwargs)
-        if getattr(self, "_local_folder", None):
-            self._upload_folder(self._local_folder)
-            self._local_folder = None
+        if getattr(self, "_local_path", None):
+            if self._local_is_file:
+                self._upload_file_as_skill(self._local_path)
+            else:
+                self._upload_folder(self._local_path)
+            self._local_path = None
         return self
 
     def refresh(self) -> "Skill":
@@ -202,14 +224,19 @@ class Skill(
         self.updated_at = fresh.updated_at
         return self
 
-    def download(self, to: str) -> str:
-        """Download the skill bundle to a local path. Returns the written path."""
+    def download(self, file_path: Optional[str] = None) -> str:
+        """Download the skill bundle to a local path. Returns the written path.
+
+        Args:
+            file_path: Where to write the bundle. Defaults to ``./{name}.zip``.
+        """
         self._ensure_valid_state()
+        file_path = file_path or f"./{self.name}.zip"
         url = f"{self.RESOURCE_PATH}/{self.encoded_id}/download"
         response = self.context.client.request_raw("get", url)
-        with open(to, "wb") as handle:
+        with open(file_path, "wb") as handle:
             handle.write(response.content)
-        return to
+        return file_path
 
     def as_tool(self) -> dict:
         """Serialize this skill as a tool object for agent attachment.
@@ -228,8 +255,19 @@ class Skill(
         }
 
     # ------------------------------------------------------------------ #
-    # Internal: upload the local folder as the skill's file tree
+    # Internal: upload the local source as the skill's file tree
     # ------------------------------------------------------------------ #
+    def _upload_file_as_skill(self, path: str) -> None:
+        """Upload a single ``.md`` file as the skill's ``SKILL.md`` at the root."""
+        self._ensure_valid_state()
+        base = f"{self.RESOURCE_PATH}/{self.encoded_id}"
+        url = self._upload(path)
+        self.context.client.request(
+            "post",
+            f"{base}/file",
+            json={"name": "SKILL.md", "url": url, "description": "", "parentId": None},
+        )
+
     def _upload_folder(self, root: str) -> None:
         """Walk the local folder and create the backend file/folder tree.
 
