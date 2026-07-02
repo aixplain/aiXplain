@@ -1378,13 +1378,13 @@ class Agent(
                 converted_agents.append({"id": agent_id, "inspectors": []})
             payload["agents"] = converted_agents
 
-        # Handle BaseModel expected_output for save operation
-        # We don't send expected_output in the save payload - it's runtime-only
+        # Persist expected_output server-side so fetched agents and runs that
+        # don't pass executionParams.expectedOutput (the backend falls back to
+        # the stored value) keep the JSON contract.
         if "expectedOutput" in payload:
             expected_output = payload["expectedOutput"]
             if isinstance(expected_output, type) and issubclass(expected_output, BaseModel):
-                # Remove BaseModel classes from save payload - they're not stored server-side
-                payload.pop("expectedOutput")
+                payload["expectedOutput"] = json.dumps(expected_output.model_json_schema())
             elif isinstance(expected_output, BaseModel):
                 # Convert BaseModel instance to dict for save
                 payload["expectedOutput"] = expected_output.model_dump()
