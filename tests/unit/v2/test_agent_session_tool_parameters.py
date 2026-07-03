@@ -172,6 +172,20 @@ class TestRunViaSessionTools:
         agent.run("hi", via_session=True)
         assert add_calls[0].get("tools") is None
 
+    def test_via_session_rejects_run_time_tools_kwarg(self):
+        # A stray tools= run kwarg must be rejected, not silently dropped.
+        ctx = _make_mock_context()
+        add_calls: List[dict] = []
+        self._bound_session(ctx, add_calls)
+        self._wire_poll_success(ctx, "req_xyz")
+
+        agent = _bound_agent(ctx)(id="agent_99", name="A")
+        agent._update_saved_state()
+
+        with pytest.raises(ValueError, match="tools"):
+            agent.run("hi", via_session=True, tools=[{"id": "t-1", "parameters": {"a": 1}}])
+        assert add_calls == []
+
 
 # ---------------------------------------------------------------------------
 # Single-shot (non-session) object-API behavior.

@@ -25,6 +25,8 @@ These tests cover:
 from typing import Any, Dict, List
 from unittest.mock import Mock, patch
 
+import pytest
+
 from aixplain.v2.agent import Agent
 from aixplain.v2.model import Model, Parameter
 from aixplain.v2.tool import Tool
@@ -187,6 +189,56 @@ class TestRunPayload:
         agent.context = Mock()
         agent.id = "agent-1"
         assert "tools" not in agent.build_run_payload(query="hi")
+
+    def test_run_time_tools_kwarg_rejected(self):
+        # The run-time ``tools=`` kwarg was removed; it must raise instead of
+        # leaking a raw, unvalidated value into the API payload.
+        agent = Agent(name="n", description="d")
+        agent.context = Mock()
+        agent.id = "agent-1"
+        with pytest.raises(ValueError, match="tools.*removed"):
+            agent.build_run_payload(query="hi", tools=[{"id": "t-1", "parameters": {"a": 1}}])
+
+    def test_run_time_tools_none_is_ignored(self):
+        agent = Agent(name="n", description="d")
+        agent.context = Mock()
+        agent.id = "agent-1"
+        assert "tools" not in agent.build_run_payload(query="hi", tools=None)
+
+
+# ---------------------------------------------------------------------------
+# Legacy dict-parameter shapes: {id, parameters: {key: value}} still serialize.
+# ---------------------------------------------------------------------------
+
+
+class TestLegacyDictParameters:
+    def test_unbound_dict_tool_save_emits_namevalue_list(self):
+        agent = Agent(name="n", description="d", tools=[{"id": "t", "type": "tool", "parameters": {"a": 1}}])
+        agent.context = Mock()
+        entry = _tool_by_id(agent.build_save_payload()["tools"], "t")
+        assert entry["parameters"] == [{"name": "a", "value": 1}]
+
+    def test_bound_agent_keeps_legacy_dict_values_in_save_payload(self):
+        # Hydration must not turn a flat {key: value} parameters dict into a
+        # Tool with empty actions and drop the values on save.
+        ctx = _ctx()
+        tool_dict = {"id": "t-legacy", "type": "tool", "name": "legacy", "parameters": {"top_k": 9}}
+        agent = _bound_agent(ctx).from_dict({"name": "n", "description": "d", "tools": [tool_dict]})
+
+        # The raw entry is kept (not hydrated into a Tool with empty actions).
+        assert isinstance(agent.tools[0], dict)
+
+        entry = _tool_by_id(agent.build_save_payload()["tools"], "t-legacy")
+        assert entry["parameters"] == [{"name": "top_k", "value": 9}]
+
+    def test_bound_model_dict_with_legacy_parameters_kept(self):
+        ctx = _ctx()
+        tool_dict = {"id": "m-legacy", "type": "model", "name": "legacy-model", "parameters": {"temperature": 0.7}}
+        agent = _bound_agent(ctx).from_dict({"name": "n", "description": "d", "tools": [tool_dict]})
+
+        assert isinstance(agent.tools[0], dict)
+        entry = _tool_by_id(agent.build_save_payload()["tools"], "m-legacy")
+        assert entry["parameters"] == [{"name": "temperature", "value": 0.7}]
 
 
 # ---------------------------------------------------------------------------

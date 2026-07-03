@@ -557,9 +557,6 @@ class Agent(
         # via ``agent.tools[i].actions[...].inputs[...] = value``. Best-effort and
         # offline — see :meth:`_hydrate_tools`.
         self._hydrate_tools()
-        # Snapshot the (post-hydration) tool objects so save can restore them
-        # after the create response would otherwise overwrite them with dicts.
-        self._original_tools = list(self.tools) if self.tools else []
 
         # TODO: Re-enable this validation after backend data consistency is fixed
         # if self.agents and (self.tasks or self.tools):
@@ -881,7 +878,6 @@ class Agent(
         # ``agent.tools[i]`` stays a mutable Tool/Model object after save.
         self.tools = pre_save_tools
         self._hydrate_tools()
-        self._original_tools = list(self.tools) if self.tools else []
 
         # Re-baseline the saved state against the restored tool objects. The
         # parent save() captured it mid-flow from the response dicts; without
@@ -1195,6 +1191,12 @@ class Agent(
             return entry
 
         parameters = entry.get("parameters")
+        if isinstance(parameters, dict):
+            # Legacy flat ``{name: value}`` override shape (not the nested
+            # action-definition list). Keep the raw entry so the save-path
+            # normalization converts the values instead of hydrating into a
+            # Tool/Model with empty inputs and losing them.
+            return entry
         is_model = entry.get("type") == "model"
         try:
             if is_model:
@@ -1300,6 +1302,10 @@ class Agent(
                 # definitions (current input values included); normalize each
                 # definition's keys to camelCase.
                 result[api_key] = [Agent._normalize_parameter_for_api(p) for p in v]
+            elif api_key == "parameters" and isinstance(v, dict):
+                # Legacy flat ``{name: value}`` override shape -> convert to the
+                # ``[{name, value}]`` list the API expects.
+                result[api_key] = Agent._params_dict_to_namevalue_list(v)
             else:
                 result[api_key] = v
         return result
@@ -1566,6 +1572,15 @@ class Agent(
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
         """Build the payload for the run action."""
+        # The run-time ``tools=`` kwarg was removed: reject it loudly rather
+        # than leaking a raw, unvalidated value into the API payload.
+        if kwargs.pop("tools", None) is not None:
+            raise ValueError(
+                "The run-time 'tools=' kwarg was removed. Mutate the agent's tool "
+                "objects instead, e.g. agent.tools[i].actions.<action>.inputs.<name> = value, "
+                "then call run() — the current values are sent as ephemeral overrides."
+            )
+
         # Extract execution_params if provided, otherwise use defaults
         execution_params = kwargs.pop("execution_params", {})
 
@@ -1940,6 +1955,7 @@ class Agent(
         "history",
         "variables",
         "allow_history_and_session_id",
+        "tools",
     )
 
     def _run_via_session(self, **kwargs: Any) -> AgentRunResult:
@@ -1968,8 +1984,9 @@ class Agent(
         offending = [k for k in self._LEGACY_ONLY_RUN_KWARGS if kwargs.get(k) is not None]
         if offending:
             raise ValueError(
-                f"via_session=True does not support legacy run kwargs: {offending}. "
-                "Drop them or run without via_session=True."
+                f"via_session=True does not support these run kwargs: {offending}. "
+                "Drop them; for tool parameter overrides mutate the tool objects "
+                "(agent.tools[i].actions.<action>.inputs.<name> = value) instead."
             )
 
         query = kwargs.get("query")
