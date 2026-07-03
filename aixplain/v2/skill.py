@@ -66,7 +66,12 @@ def _parse_skill_md(text: str) -> Tuple[Optional[str], Optional[str], List[str],
         if end != -1:
             front = stripped[3:end].strip()
             body = stripped[end + 4 :].lstrip("\n")
-            meta = yaml.safe_load(front) or {}
+            try:
+                meta = yaml.safe_load(front) or {}
+            except yaml.YAMLError as exc:
+                raise ValueError(f"Invalid SKILL.md frontmatter: {exc}") from exc
+            if not isinstance(meta, dict):
+                meta = {}
             name = meta.get("name")
             description = meta.get("description")
             requires = meta.get("requires") or meta.get("required_tools") or []
@@ -143,7 +148,7 @@ class Skill(
         Accepts either a Claude-style skill folder (containing ``SKILL.md``) or a
         single ``.md`` file that serves as the skill's ``SKILL.md``.
         """
-        path = os.path.abspath(path)
+        path = os.path.abspath(os.path.expanduser(path))
         if os.path.isdir(path):
             skill_md = os.path.join(path, "SKILL.md")
             if not os.path.isfile(skill_md):
@@ -151,6 +156,8 @@ class Skill(
             fallback_name = os.path.basename(path)
             self._local_is_file = False
         elif os.path.isfile(path):
+            if not path.lower().endswith(".md"):
+                raise ValueError(f"A single-file skill must be a Markdown (.md) file: {path}")
             skill_md = path
             fallback_name = os.path.splitext(os.path.basename(path))[0]
             self._local_is_file = True
@@ -231,7 +238,11 @@ class Skill(
             file_path: Where to write the bundle. Defaults to ``./{name}.zip``.
         """
         self._ensure_valid_state()
-        file_path = file_path or f"./{self.name}.zip"
+        if not file_path:
+            if not self.name:
+                raise ValueError("Skill has no name to derive a download filename from; pass an explicit file_path=.")
+            safe_name = self.name.replace("/", "-").replace(os.sep, "-")
+            file_path = f"./{safe_name}.zip"
         url = f"{self.RESOURCE_PATH}/{self.encoded_id}/download"
         response = self.context.client.request_raw("get", url)
         with open(file_path, "wb") as handle:
