@@ -537,7 +537,11 @@ class Agent(
     # counts toward ``is_modified``); serialized manually in ``build_save_payload``
     # (persisted default) and ``build_run_payload`` (run-time budget) via
     # ``_normalize_budget``.
-    budget: "Budget" = field(
+    # Annotated Optional only for decoding: the backend returns ``budget: null``
+    # for agents without one, and a non-Optional annotation makes dataclasses_json
+    # emit a RuntimeWarning on every decode. ``__setattr__`` upgrades the decoded
+    # ``None`` to an empty ``Budget()``, so the attribute itself is never None.
+    budget: Optional["Budget"] = field(
         default_factory=lambda: Budget(),
         metadata=config(field_name="budget", exclude=lambda v: True),
     )
