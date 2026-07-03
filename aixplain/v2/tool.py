@@ -5,8 +5,8 @@ import warnings
 from typing import Union, List, Optional, Any
 from typing_extensions import Unpack
 from dataclasses_json import dataclass_json, config as dj_config
-from dataclasses import dataclass, field
-from functools import cached_property
+from dataclasses import dataclass, field, fields as dataclass_fields
+from functools import cached_property, lru_cache
 
 from .resource import (
     Result,
@@ -25,6 +25,23 @@ class ToolResult(Result):
     """Result for a tool."""
 
     pass
+
+
+@lru_cache(maxsize=None)
+def _settable_attr_names(cls: type) -> frozenset:
+    """Names assignable on instances of ``cls`` (cached per class).
+
+    The union of the class's dataclass field names and every attribute
+    defined on the type itself (methods, properties, cached properties,
+    descriptors). ``dir()`` is used instead of ``getattr``/``hasattr`` so no
+    descriptor ``__get__`` is triggered while computing the set.
+    """
+    names = set(dir(cls))
+    try:
+        names.update(f.name for f in dataclass_fields(cls))
+    except TypeError:
+        pass
+    return frozenset(names)
 
 
 @dataclass_json
@@ -78,6 +95,25 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     pass
                 elif not isinstance(self.integration, Integration):
                     raise ValueError("Integration must be an Integration object or a string")
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Reject assignment of unknown public attributes.
+
+        Assigning ``tool.num_results = 2`` used to silently create a plain
+        instance attribute that never reached any payload — the supported
+        surface is ``tool.actions.<action>.inputs.num_results = value``.
+
+        Private names (leading ``_``), dataclass fields, and any attribute
+        defined on the class (properties, methods, cached properties) are
+        still assigned through the normal chain, so ``Model.__setattr__``'s
+        ``inputs`` dict coercion keeps working.
+        """
+        if not name.startswith("_") and name not in _settable_attr_names(type(self)):
+            raise AttributeError(
+                f"{type(self).__name__} has no attribute {name!r}. "
+                f"To set an action input use: tool.actions.<action>.inputs.{name} = value"
+            )
+        super().__setattr__(name, value)
 
     # ------------------------------------------------------------------
     # Override ``actions`` so ActionMixin's multi-action behaviour is used

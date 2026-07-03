@@ -632,3 +632,27 @@ class TestSingleActionInference:
         errors = tool._validate_params(action="delete", data={})
 
         assert errors == ["Action 'delete' is not allowed for this tool. Allowed actions: ['search']"]
+
+
+class TestToolSetattrGuard:
+    """Tool rejects unknown public attribute assignment (silent no-op footgun)."""
+
+    def test_unknown_public_attribute_raises_with_actions_hint(self):
+        tool = Tool(id="t-guard", name="web-search")
+        with pytest.raises(AttributeError, match=r"tool\.actions\.<action>\.inputs\.num_results"):
+            tool.num_results = 2
+        assert "num_results" not in tool.__dict__
+
+    def test_dataclass_fields_and_private_names_still_assignable(self):
+        tool = Tool(id="t-guard", name="web-search")
+        tool.allowed_actions = ["search"]
+        tool.context = Mock()
+        tool._anything = 1
+        assert tool.allowed_actions == ["search"]
+        assert tool._anything == 1
+
+    def test_construction_and_from_dict_still_work(self):
+        tool = Tool(id="t-guard", name="web-search", description="d")
+        assert tool.name == "web-search"
+        hydrated = Tool.from_dict({"id": "t-guard-2", "name": "hydrated"})
+        assert hydrated.id == "t-guard-2"

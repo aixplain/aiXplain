@@ -28,6 +28,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from aixplain.v2.agent import Agent
+from aixplain.v2.integration import ActionInputSpec, ActionMixin, ActionSpec
 from aixplain.v2.model import Model, Parameter
 from aixplain.v2.tool import Tool
 
@@ -147,6 +148,55 @@ class TestSavePayload:
         agent.context = Mock()
         payload = agent.build_save_payload()
         assert _tool_by_id(payload["tools"], "m2")["id"] == "m2"
+
+    @staticmethod
+    def _hydrated_action_tool_agent(ctx):
+        """An agent hydrated from a dict carrying one action-tool entry."""
+        tool_dict = {
+            "id": "t-web",
+            "type": "tool",
+            "name": "web-search",
+            "parameters": [
+                {
+                    "code": "SEARCH",
+                    "name": "search",
+                    "inputs": {"num_results": {"name": "num_results", "value": 1, "datatype": "integer"}},
+                }
+            ],
+        }
+        return _bound_agent(ctx).from_dict({"name": "n", "description": "d", "tools": [tool_dict]})
+
+    def test_save_reflects_mutated_action_tool_input(self):
+        # get_parameters() must merge the locally-mutated action input value
+        # over the fetched ``_list_inputs`` backend specs.
+        agent = self._hydrated_action_tool_agent(_ctx())
+        agent.tools[0].actions.search.inputs.num_results = 2
+
+        spec = ActionSpec(
+            name="search",
+            slug="SEARCH",
+            inputs=[ActionInputSpec(name="Number of Results", code="num_results", datatype="integer")],
+        )
+        with patch.object(Tool, "_list_inputs", return_value=[spec]):
+            entry = _tool_by_id(agent.build_save_payload()["tools"], "t-web")
+
+        search = next(p for p in entry["parameters"] if p["code"] == "SEARCH")
+        assert search["inputs"]["num_results"]["value"] == 2
+
+    def test_save_action_tool_fail_soft_when_input_specs_unavailable(self):
+        # KNOWN fail-soft behavior (flagged in review): when the backend input
+        # specs cannot be fetched (``_list_inputs`` raises and no integration
+        # fallback is available), ``get_parameters()`` yields [] and the
+        # locally-mutated action input values silently drop out of the save
+        # payload instead of raising.
+        agent = self._hydrated_action_tool_agent(_ctx())
+        agent.tools[0].actions.search.inputs.num_results = 2
+
+        with patch.object(ActionMixin, "_list_inputs", side_effect=RuntimeError("backend down")):
+            with pytest.warns(UserWarning, match="Error listing inputs"):
+                entry = _tool_by_id(agent.build_save_payload()["tools"], "t-web")
+
+        assert entry["parameters"] == []
 
 
 # ---------------------------------------------------------------------------
