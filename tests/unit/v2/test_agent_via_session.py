@@ -226,6 +226,58 @@ class TestRunViaSessionReuse:
         assert existing.execution_config.criteria == "be brief"
         existing.add_message.assert_called_once()
 
+    def test_reused_session_overrides_preserve_budget(self):
+        """Per-run overrides must not drop the session's stored budget.
+
+        The merge base includes ``budget`` so a run with (e.g.) criteria and
+        execution_params overrides re-saves an executionConfig that still
+        carries the session's budget cap.
+        """
+        from aixplain.v2.agent import Budget
+
+        ctx = _make_mock_context()
+
+        existing = Mock(spec=Session)
+        existing.id = "sess_abc"
+        existing.execution_config = ExecutionConfig(budget=Budget(max_cost=0.75))
+        existing.save = Mock()
+        existing.add_message = Mock(return_value=_user_message(request_id="req_budget"))
+
+        ctx.Session = Mock()
+        ctx.Session.get = Mock(return_value=existing)
+        ctx.client.get.return_value = {
+            "status": "SUCCESS",
+            "completed": True,
+            "data": {"output": "ok", "session_id": "sess_abc", "steps": []},
+            "sessionId": "sess_abc",
+            "requestId": "req_budget",
+            "usedCredits": 0.0,
+            "runTime": 0.5,
+        }
+
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A")
+        agent._update_saved_state()
+
+        with pytest.warns(UserWarning, match="existing session_id"):
+            agent.run(
+                "hi again",
+                via_session=True,
+                session_id="sess_abc",
+                criteria="be brief",
+                execution_params={"max_tokens": 32},
+            )
+
+        existing.save.assert_called_once()
+        merged = existing.execution_config
+        assert merged.criteria == "be brief"
+        assert merged.execution_params == {"max_tokens": 32}
+        # The session's budget survived the merge and the saved wire payload.
+        assert merged.budget is not None
+        assert merged.budget.max_cost == 0.75
+        assert merged.to_api_dict()["executionParams"]["budget"] == {"maxCost": 0.75}
+        existing.add_message.assert_called_once()
+
     def test_reused_session_without_overrides_does_not_resave(self):
         ctx = _make_mock_context()
 

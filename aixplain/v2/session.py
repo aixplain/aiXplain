@@ -271,6 +271,31 @@ class ExecutionConfig:
         return out
 
     @classmethod
+    def _lift_budget_from_execution_params(cls, kvs: Any) -> Any:
+        """Lift a nested ``executionParams.budget`` back to the top-level field.
+
+        ``to_api_dict`` serializes ``budget`` only inside ``executionParams``,
+        so a fetched/round-tripped config carries it nested. Decoding lifts it
+        back into the top-level ``budget`` slot (when that slot is absent) so
+        ``config.budget`` stays readable after a reload; ``__post_init__``
+        coerces the lifted dict into a ``Budget`` via ``Agent._coerce_budget``.
+        A top-level ``budget`` wins over the nested one. Returns a copy; the
+        caller's dict is untouched.
+        """
+        if isinstance(kvs, dict) and kvs.get("budget") is None:
+            ep = kvs.get("executionParams") or kvs.get("execution_params")
+            if isinstance(ep, dict) and ep.get("budget") is not None:
+                kvs = dict(kvs)  # shallow copy; never mutate the caller's dict
+                ep = dict(ep)
+                kvs["budget"] = ep.pop("budget")
+                # Write the cleaned exec params back under whichever key was present.
+                if "executionParams" in kvs:
+                    kvs["executionParams"] = ep
+                else:
+                    kvs["execution_params"] = ep
+        return kvs
+
+    @classmethod
     def _fold_legacy_max_iterations(cls, kvs: Any) -> Any:
         """Fold a legacy ``executionParams.maxIterations`` into ``budget`` silently.
 
@@ -324,6 +349,9 @@ _dataclass_json_execution_config_from_dict = ExecutionConfig.from_dict.__func__
 
 
 def _execution_config_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "ExecutionConfig":
+    # Lift first so a legacy ``executionParams.maxIterations`` folds into the
+    # lifted budget (which wins silently on conflict) rather than a missing one.
+    kvs = cls._lift_budget_from_execution_params(kvs)
     kvs = cls._fold_legacy_max_iterations(kvs)
     return _dataclass_json_execution_config_from_dict(cls, kvs, infer_missing=infer_missing)
 

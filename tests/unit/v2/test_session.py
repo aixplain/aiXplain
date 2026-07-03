@@ -1205,6 +1205,39 @@ class TestExecutionConfigBudget:
             )
         assert cfg.to_api_dict()["executionParams"]["budget"]["maxIterations"] == 9
 
+    def test_budget_round_trips_through_api_dict(self):
+        # to_api_dict nests budget into executionParams.budget; from_dict must
+        # lift it back so ``config.budget`` is readable after a reload.
+        cfg = ExecutionConfig(budget=Budget(max_cost=1.0))
+        reloaded = ExecutionConfig.from_dict(cfg.to_api_dict())
+        assert isinstance(reloaded.budget, Budget)
+        assert reloaded.budget.max_cost == 1.0
+        # And the round-tripped config serializes back to the same wire shape.
+        assert reloaded.to_api_dict() == cfg.to_api_dict()
+
+    def test_from_dict_lifts_nested_budget_without_clobbering_execution_params(self):
+        cfg = ExecutionConfig.from_dict(
+            {"executionParams": {"maxTokens": 256, "budget": {"maxCost": 2.0, "maxIterations": 8}}}
+        )
+        assert cfg.budget.max_cost == 2.0
+        assert cfg.budget.max_iterations == 8
+        # Other execution params survive, and budget is not duplicated there.
+        assert cfg.execution_params == {"maxTokens": 256}
+
+    def test_from_dict_top_level_budget_wins_over_nested(self):
+        cfg = ExecutionConfig.from_dict(
+            {
+                "budget": {"maxCost": 9.0},
+                "executionParams": {"budget": {"maxCost": 1.0}},
+            }
+        )
+        assert cfg.budget.max_cost == 9.0
+
+    def test_from_dict_lift_does_not_mutate_caller_dict(self):
+        data = {"executionParams": {"budget": {"maxCost": 1.0}}}
+        ExecutionConfig.from_dict(data)
+        assert data == {"executionParams": {"budget": {"maxCost": 1.0}}}
+
     def test_session_from_dict_legacy_execution_config_no_warning(self):
         # Loading a Session whose nested executionConfig carries a legacy
         # maxIterations must not warn and must fold into budget.

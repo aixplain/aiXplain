@@ -827,6 +827,18 @@ class Agent(
             return budget
         if isinstance(budget, dict):
             normalized = cls._normalize_budget(budget)
+            # ``Budget`` only models the known caps; anything else in the dict
+            # would be silently discarded (data loss on get -> save round-trips
+            # when the backend grows new budget fields). Warn so the drop is
+            # visible instead of silent.
+            dropped = sorted(set(normalized) - {"maxCost", "maxDurationSeconds", "maxIterations"})
+            if dropped:
+                warnings.warn(
+                    f"Unknown budget field(s) dropped when coercing to Budget: {', '.join(dropped)}. "
+                    "Only max_cost, max_duration_seconds, and max_iterations are supported.",
+                    UserWarning,
+                    stacklevel=2,
+                )
             return Budget(
                 max_cost=normalized.get("maxCost"),
                 max_duration_seconds=normalized.get("maxDurationSeconds"),
@@ -1638,8 +1650,14 @@ class Agent(
         # ``executionParams.budget`` (the backend merges it field-by-field over the
         # persisted default). Set the key only when the budget carries at least one
         # cap; an empty budget must leave the payload unchanged. ``budget`` is no
-        # longer a run kwarg — drop any stray one so it can't leak to the payload.
-        kwargs.pop("budget", None)
+        # longer a run kwarg — reject a stray one loudly instead of silently
+        # dropping the caller's cap.
+        if "budget" in kwargs:
+            raise TypeError(
+                "'budget' is not a run() kwarg. Set the cap on the agent before "
+                "running: agent.budget.max_cost = ... (or assign "
+                "agent.budget = Budget(...)), then call run()."
+            )
         # ``getattr`` (not ``self.budget``) mirrors the defensive reads above so a
         # test-constructed agent (``Agent.__new__`` bypassing ``__init__``) still
         # works; a missing/None budget is treated as an empty one.
@@ -1938,6 +1956,10 @@ class Agent(
             "evolve": getattr(current, "evolve", None),
             "identifier": getattr(current, "identifier", None),
             "run_response_generation": getattr(current, "run_response_generation", None),
+            # Not overridable per-run, but it must survive the merge: without it a
+            # run with overrides would re-save executionConfig minus the session's
+            # budget, silently uncapping every subsequent message.
+            "budget": getattr(current, "budget", None),
         }
         merged = ExecutionConfig(**{**base, **provided})
 

@@ -149,12 +149,12 @@ class TestBudgetInRunPayload:
         payload = agent.build_run_payload(query="q")
         assert "budget" not in payload
 
-    def test_stray_budget_kwarg_is_ignored(self):
-        # ``budget`` is no longer a run kwarg; a stray one must not leak to the payload.
+    def test_stray_budget_kwarg_raises(self):
+        # ``budget`` is no longer a run kwarg; passing one must fail loudly with
+        # guidance instead of silently dropping the caller's cap.
         agent = _create_agent()
-        payload = agent.build_run_payload(query="q", budget=Budget(max_cost=9.0))
-        assert "budget" not in payload
-        assert "budget" not in payload["executionParams"]
+        with pytest.raises(TypeError, match=r"not a run\(\) kwarg.*agent\.budget"):
+            agent.build_run_payload(query="q", budget=Budget(max_cost=9.0))
 
     def test_no_budget_means_no_budget_key(self):
         agent = _create_agent()
@@ -336,6 +336,43 @@ class TestDeprecatedRunTimeMaxIterations:
             "maxCost": 1.0,
             "maxIterations": 7,
         }
+
+
+class TestCoerceBudgetUnknownKeys:
+    """_coerce_budget warns when a dict carries fields Budget cannot hold.
+
+    Budget only models maxCost / maxDurationSeconds / maxIterations; anything
+    else in a coerced dict is discarded. That drop must be visible (a
+    UserWarning naming the keys), not silent — it is data loss on get -> save
+    round-trips when the backend grows new budget fields.
+    """
+
+    def test_unknown_key_warns_and_is_dropped(self):
+        with pytest.warns(UserWarning, match=r"Unknown budget field.*warnAtPercent"):
+            budget = Agent._coerce_budget({"max_cost": 1.0, "warnAtPercent": 80})
+        assert isinstance(budget, Budget)
+        assert budget.max_cost == 1.0
+        assert budget.to_dict() == {"maxCost": 1.0}
+
+    def test_multiple_unknown_keys_all_named(self):
+        with pytest.warns(UserWarning, match=r"alpha, zeta"):
+            Agent._coerce_budget({"zeta": 1, "alpha": 2})
+
+    def test_known_keys_do_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # any warning becomes an error
+            budget = Agent._coerce_budget(
+                {"max_cost": 1.0, "maxDurationSeconds": 30, "max_iterations": 2}
+            )
+        assert budget.max_cost == 1.0
+        assert budget.max_duration_seconds == 30
+        assert budget.max_iterations == 2
+
+    def test_budget_assignment_with_unknown_key_warns(self):
+        agent = _create_agent()
+        with pytest.warns(UserWarning, match="Unknown budget field"):
+            agent.budget = {"max_cost": 1.0, "futureField": "x"}
+        assert agent.budget.max_cost == 1.0
 
 
 class TestFromDictLegacyMaxIterations:
