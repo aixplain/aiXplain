@@ -201,6 +201,9 @@ _DEFAULT_GUARD_CONFIG: Dict[str, Any] = {
 
 # Keys are the marketplace ``assetName`` (the middle segment of a guard's
 # ``host/asset-name/instance`` path), verified against the onboarded AWS guards.
+# The underscore-named keys are legacy preset ids persisted by pre-redesign SDK
+# builds (``{"presetId": ...}`` references, see :meth:`Inspector.from_dict`);
+# they can never collide with path slugs, which are hyphenated.
 _GUARD_CONFIG_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "detect-prompt-attacks-guardrail": {
         "targets": ["input"],
@@ -214,6 +217,27 @@ _GUARD_CONFIG_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "targets": ["output"],
         "action": {"type": "rerun", "maxRetries": 2, "onExhaust": "abort"},
     },
+    "prompt_injection_guard": {
+        "targets": ["input"],
+        "action": {"type": "abort"},
+    },
+    "pii_redaction": {
+        "targets": ["input"],
+        "action": {"type": "edit"},
+    },
+    "hallucination_guard": {
+        "targets": ["output"],
+        "action": {"type": "rerun", "maxRetries": 2, "onExhaust": "abort"},
+    },
+}
+
+# Guard asset ids that the legacy preset ids resolved to on the backend
+# (pre-redesign ``PrebuiltInspector`` registry). Used to rebuild the judge when
+# loading a persisted ``{"presetId": ...}`` reference.
+_LEGACY_PRESET_ASSET_IDS: Dict[str, str] = {
+    "prompt_injection_guard": "69a9974367d506543103ca18",
+    "pii_redaction": "69cbf63cd74e334a6bacfeb1",
+    "hallucination_guard": "69a9a38967d506543103ca1d",
 }
 
 
@@ -275,7 +299,11 @@ class Inspector(
       sub-agent name).
     - ``severity``: a string (``"low" | "medium" | "high" | "critical"``).
     - ``metric``: the universal judge — an ``aix.Metric``, an asset-id string, or
-      a Python callable. Required.
+      a Python callable. Required. Note that a plain string is *always* treated
+      as an asset id, never as a judge prompt. To pair a judge prompt with an
+      asset, pass a dict ``{"asset_id": "<id>", "prompt": "<judge prompt>"}``
+      (or a Metric whose ``prompt_template`` carries the prompt); to judge with
+      custom logic, pass a Python callable.
     - ``editor``: required when ``action`` is ``"edit"``; same accepted types as
       ``metric``.
 
@@ -336,7 +364,11 @@ class Inspector(
             if self.severity not in _SEVERITY_VALUES:
                 raise ValueError(f"invalid severity {self.severity!r}; expected one of {sorted(_SEVERITY_VALUES)}")
 
-        self.targets = [str(t).strip() for t in (self.targets or []) if t and str(t).strip()]
+        # Stage names ("input" / "steps" / "output") are case-insensitive and
+        # normalized to lowercase; anything else is a sub-agent name and its
+        # case is preserved.
+        cleaned = [str(t).strip() for t in (self.targets or []) if t and str(t).strip()]
+        self.targets = [t.lower() if t.lower() in _TARGET_VALUES else t for t in cleaned]
 
         if self.action.type == "edit" and self.editor is None:
             raise ValueError("editor is required when action type is 'edit'")
@@ -360,19 +392,66 @@ class Inspector(
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Inspector":
-        """Create an Inspector from an inspector-shaped dictionary."""
+        """Create an Inspector from an inspector-shaped dictionary.
+
+        Also accepts the legacy ``{"presetId": ...}`` preset references that
+        pre-redesign SDK builds (e.g. 0.2.45rc1) persisted for prebuilt
+        inspectors, so team agents saved by those builds still load.
+        """
         if not isinstance(data, dict):
             raise ValueError("Inspector data must be a dict")
 
+        if "presetId" in data and "evaluator" not in data:
+            return cls._from_preset_dict(data)
+
+        def _require(key: str) -> Any:
+            if key not in data:
+                raise ValueError(f"Inspector payload missing required key '{key}'; got keys: {sorted(data)}")
+            return data[key]
+
+        name = _require("name")
+        evaluator = _require("evaluator")
         editor_data = data.get("editor")
         return cls(
-            name=data["name"],
+            name=name,
             description=data.get("description"),
             severity=data.get("severity"),
             targets=data.get("targets") or [],
             action=data.get("action") or {},
-            metric=_Judge.from_dict(data["evaluator"]),
+            metric=_Judge.from_dict(evaluator),
             editor=_Judge.from_dict(editor_data) if editor_data else None,
+        )
+
+    @classmethod
+    def _from_preset_dict(cls, data: Dict[str, Any]) -> "Inspector":
+        """Compat: resolve a legacy ``{"presetId": ...}`` reference into an Inspector.
+
+        The pre-redesign backend expanded these references itself; here the SDK
+        rebuilds an equivalent Inspector so persisted team agents keep loading:
+        the preset's known guard asset becomes the ``metric`` judge (mirroring
+        :meth:`from_guard_model`), and the preset's tuned ``action`` / ``targets``
+        defaults apply unless the payload overrides them. Unknown presets fall
+        back to the safe abort-on-input default with the preset id as the judge
+        asset reference.
+        """
+        preset_id = str(data["presetId"])
+        defaults = _GUARD_CONFIG_DEFAULTS.get(preset_id, _DEFAULT_GUARD_CONFIG)
+        asset_id = _LEGACY_PRESET_ASSET_IDS.get(preset_id, preset_id)
+
+        action = _ActionConfig.coerce(data.get("action") or defaults["action"])
+        editor = None
+        if action.type == "edit":
+            # As in from_guard_model: the guard model performs the edit itself.
+            editor = _Judge(asset_id=asset_id)
+
+        return cls(
+            name=data.get("name") or preset_id,
+            description=data.get("description"),
+            severity=data.get("severity"),
+            targets=data.get("targets") or list(defaults["targets"]),
+            action=action,
+            metric=_Judge(asset_id=asset_id),
+            editor=editor,
         )
 
     # ------------------------------------------------------------------

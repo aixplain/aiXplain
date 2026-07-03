@@ -247,6 +247,76 @@ class TestInspector:
         assert "severity" not in payload
         assert "editor" not in payload
 
+    def test_stage_targets_normalized_to_lowercase(self):
+        """Stage names are case-insensitive; sub-agent names keep their case."""
+        inspector = Inspector(
+            name="case_test",
+            action="abort",
+            metric="asset-1",
+            targets=["Output", "MySubAgent"],
+        )
+        assert inspector.targets == ["output", "MySubAgent"]
+
+    def test_from_dict_missing_name_raises_value_error(self):
+        data = {"targets": ["input"], "action": {"type": "abort"}, "evaluator": {"assetId": "x"}}
+        with pytest.raises(ValueError, match=r"missing required key 'name'.*action.*evaluator.*targets"):
+            Inspector.from_dict(data)
+
+    def test_from_dict_missing_evaluator_raises_value_error(self):
+        data = {"name": "n", "targets": ["input"], "action": {"type": "abort"}}
+        with pytest.raises(ValueError, match=r"missing required key 'evaluator'.*action.*name.*targets"):
+            Inspector.from_dict(data)
+
+
+class TestLegacyPresetPayloads:
+    """Compat: ``{"presetId": ...}`` references persisted by pre-redesign builds."""
+
+    def test_bare_preset_reference_loads_with_tuned_defaults(self):
+        inspector = Inspector.from_dict({"presetId": "prompt_injection_guard"})
+        assert inspector.name == "prompt_injection_guard"
+        assert inspector.targets == ["input"]
+        assert inspector.action.to_dict() == {"type": "abort"}
+        assert inspector.metric.to_dict() == {"type": "asset", "assetId": "69a9974367d506543103ca18"}
+
+    def test_preset_reference_round_trips_through_to_dict(self):
+        inspector = Inspector.from_dict(
+            {"presetId": "hallucination_guard", "targets": ["output"], "severity": "high"}
+        )
+        payload = inspector.to_dict()
+        assert payload["name"] == "hallucination_guard"
+        assert payload["targets"] == ["output"]
+        assert payload["action"] == {"type": "rerun", "maxRetries": 2, "onExhaust": "abort"}
+        assert payload["severity"] == "high"
+        # The resolved payload is a plain evaluator-shaped dict from here on.
+        assert Inspector.from_dict(payload).to_dict() == payload
+
+    def test_edit_preset_gets_guard_as_editor(self):
+        inspector = Inspector.from_dict({"presetId": "pii_redaction"})
+        assert inspector.action.type == "edit"
+        assert inspector.editor is not None
+        assert inspector.editor.asset_id == "69cbf63cd74e334a6bacfeb1"
+        assert inspector.metric.asset_id == "69cbf63cd74e334a6bacfeb1"
+
+    def test_unknown_preset_falls_back_to_safe_default(self):
+        inspector = Inspector.from_dict({"presetId": "future_guard"})
+        assert inspector.name == "future_guard"
+        assert inspector.targets == ["input"]
+        assert inspector.action.to_dict() == {"type": "abort"}
+        assert inspector.metric.asset_id == "future_guard"
+
+    def test_payload_overrides_beat_preset_defaults(self):
+        inspector = Inspector.from_dict(
+            {
+                "presetId": "prompt_injection_guard",
+                "name": "custom name",
+                "targets": ["output"],
+                "action": {"type": "continue"},
+            }
+        )
+        assert inspector.name == "custom name"
+        assert inspector.targets == ["output"]
+        assert inspector.action.to_dict() == {"type": "continue"}
+
 
 # ---------------------------------------------------------------------------
 # Marketplace retrieval: aix.Inspector.get / .search
