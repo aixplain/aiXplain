@@ -224,7 +224,11 @@ class BaseResource:
         path: Full path identifier (e.g., "openai/whisper-large/groq").
     """
 
-    context: Any = field(repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False)
+    # default=None so the attribute always exists: instances created without a
+    # bound context (e.g. Inspector.from_dict nested inside an Agent) must still
+    # be serializable — dataclasses_json's _asdict calls getattr(obj, "context")
+    # before applying `exclude`, so a missing attribute raises AttributeError.
+    context: Any = field(default=None, repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False)
     RESOURCE_PATH: str = field(
         default="",
         repr=False,

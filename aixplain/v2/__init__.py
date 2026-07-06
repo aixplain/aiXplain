@@ -8,18 +8,7 @@ from .tool import Tool
 from .actions import Input, Inputs, Action, Actions
 from .file import Resource
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
-from .inspector import (
-    Inspector,
-    InspectorTarget,
-    InspectorAction,
-    InspectorOnExhaust,
-    InspectorSeverity,
-    InspectorActionConfig,
-    EvaluatorType,
-    EvaluatorConfig,
-    EditorConfig,
-    PrebuiltInspector,
-)
+from .inspector import Inspector
 from .session import (
     ExecutionConfig,
     Session,
@@ -115,18 +104,8 @@ __all__ = [
     "SessionMessage",
     "SessionMessageAttachment",
     "ExecutionConfig",
-    # Inspector classes
+    # Inspector
     "Inspector",
-    "InspectorTarget",
-    "InspectorAction",
-    "InspectorOnExhaust",
-    "InspectorSeverity",
-    "InspectorActionConfig",
-    "EvaluatorType",
-    "EvaluatorConfig",
-    "EditorConfig",
-    "PrebuiltInspector",
-    "ModelResponse",
     # Meta-agents
     "Debugger",
     "DebugResult",

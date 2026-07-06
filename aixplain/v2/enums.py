@@ -43,6 +43,7 @@ class Function(str, Enum):
     IMAGE_CLASSIFICATION = "IMAGE_CLASSIFICATION"
     OBJECT_DETECTION = "OBJECT_DETECTION"
     UTILITIES = "utilities"  # Add the missing utilities function
+    GUARDRAILS = "guardrails"  # Guardrail / inspector guard models
 
 
 class Language(str, Enum):
