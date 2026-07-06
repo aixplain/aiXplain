@@ -200,14 +200,18 @@ class TestBuildRunPayload:
 
     def test_execution_params_snake_case_converted(self):
         agent = self._make_agent()
-        payload = agent.build_run_payload(
-            query="hello",
-            execution_params={"max_tokens": 100, "max_iterations": 5},
-        )
+        with pytest.warns(DeprecationWarning):
+            payload = agent.build_run_payload(
+                query="hello",
+                execution_params={"max_tokens": 100, "max_iterations": 5},
+            )
         assert payload["executionParams"]["maxTokens"] == 100
-        assert payload["executionParams"]["maxIterations"] == 5
         assert "max_tokens" not in payload["executionParams"]
+        # Deprecated ``max_iterations`` now folds into executionParams.budget and
+        # the standalone key is no longer emitted.
+        assert "maxIterations" not in payload["executionParams"]
         assert "max_iterations" not in payload["executionParams"]
+        assert payload["executionParams"]["budget"]["maxIterations"] == 5
 
     def test_execution_params_camelcase_still_works(self):
         """Backwards compat: camelCase keys pass through unchanged."""
