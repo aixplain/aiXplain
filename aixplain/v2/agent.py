@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from .enums import AssetStatus, ResponseStatus
 from .model import Model
+from .skill import Skill
 from .mixins import ToolableMixin
 from ..utils.user_info_utils import build_run_metadata
 
@@ -241,7 +242,11 @@ class AgentRunParams(BaseRunParams):
             ids). Overrides the agent's persisted per-tool parameters by id.
         prompt: Custom prompt override
         history: Conversation history
-        execution_params: Execution parameters (maxTokens, etc.)
+        execution_params: Execution parameters (maxTokens, etc.). Passing
+            ``max_iterations`` here is deprecated; set ``agent.budget.max_iterations``
+            instead. A deprecated value is folded into ``budget.max_iterations``
+            (the agent's budget wins on conflict) and the standalone key is not
+            emitted.
         criteria: Criteria for evaluation
         evolve: Evolution parameters
         inspectors: Inspector configurations
@@ -281,13 +286,45 @@ class AgentRunParams(BaseRunParams):
 
 @dataclass_json
 @dataclass
+class Budget:
+    """Budget caps governing an agent run (cost / duration / iterations).
+
+    Every :class:`Agent` owns a ``budget`` (defaulting to an empty ``Budget()``),
+    mutated in place via attribute access — mirroring ``model.inputs``::
+
+        agent.budget.max_cost = 0.5
+        agent.budget.max_iterations = 10
+
+    The same object serves two roles: ``agent.save()`` persists it as the agent's
+    default budget, and ``agent.run(...)`` sends its current state as the run-time
+    budget (the backend merges the run-time budget field-by-field over the
+    persisted default). The Python API is snake_case; serialization produces the
+    agreed camelCase wire keys (``maxCost`` / ``maxDurationSeconds`` /
+    ``maxIterations``). All fields are optional and ``None`` fields are dropped
+    from ``to_dict()``.
+    """
+
+    max_cost: Optional[float] = field(
+        default=None,
+        metadata=config(field_name="maxCost", exclude=lambda v: v is None),
+    )
+    max_duration_seconds: Optional[float] = field(
+        default=None,
+        metadata=config(field_name="maxDurationSeconds", exclude=lambda v: v is None),
+    )
+    max_iterations: Optional[int] = field(
+        default=None,
+        metadata=config(field_name="maxIterations", exclude=lambda v: v is None),
+    )
+
+
+@dataclass_json
+@dataclass
 class AgentResponseData:
     """Data structure for agent response."""
 
     input: Optional[Any] = None
     output: Optional[Any] = None
-    url: Optional[str] = None
-    content_type: Optional[str] = field(default=None, metadata=config(field_name="contentType"))
     steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
@@ -478,6 +515,10 @@ class Agent(
         metadata=config(exclude=lambda x: True),
     )
 
+    # Skills (knowledge bundles) attached to the agent — Skill objects or ids,
+    # the same way `tools` and `agents` are passed.
+    skills: Optional[List[Union[str, "Skill"]]] = field(default_factory=list, metadata=config(field_name="skills"))
+
     # Output and execution fields
     output_format: Optional[Union[str, OutputFormat]] = field(
         default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
@@ -493,7 +534,24 @@ class Agent(
     max_inspectors: Optional[int] = field(default=None, metadata=config(field_name="maxInspectors"))
     inspectors: Optional[List[Any]] = field(default_factory=list)
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
-    max_iterations: Optional[int] = field(default=5, metadata=config(field_name="maxIterations"))
+    # Deprecated: persisted iteration cap. Use ``budget=Budget(max_iterations=...)``
+    # instead. Defaults to ``None`` (was previously ``5``) so a plain ``Agent(...)``
+    # does not warn; any non-None value (explicit or via ``from_dict``) is folded
+    # into ``budget`` and is never serialized as a standalone ``maxIterations``
+    # (see ``build_save_payload``).
+    max_iterations: Optional[int] = field(default=None, metadata=config(field_name="maxIterations"))
+    # Budget (cost / duration / iterations) for this agent. Always a ``Budget``
+    # instance — defaults to an empty ``Budget()``, never ``None`` — so callers
+    # can mutate ``agent.budget.max_cost`` etc. without a None check (mirrors
+    # ``model.inputs``). Assigning a dict/Budget/None is coerced back to a
+    # ``Budget`` by ``__setattr__``. Excluded from ``to_dict()`` (so it never
+    # counts toward ``is_modified``); serialized manually in ``build_save_payload``
+    # (persisted default) and ``build_run_payload`` (run-time budget) via
+    # ``_normalize_budget``.
+    budget: "Budget" = field(
+        default_factory=lambda: Budget(),
+        metadata=config(field_name="budget", exclude=lambda v: True),
+    )
     max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
     context_overflow_strategy: Optional[str] = field(
         default=None,
@@ -514,15 +572,13 @@ class Agent(
         self.tasks = [Task.from_dict(task) for task in self.tasks]
 
         # Deserialize inspectors to Inspector objects so mutate-and-save round-trips.
-        # Prebuilt inspectors travel as a lightweight {presetId, ...} reference
-        # (no "name"/"evaluator"), so dispatch on shape before deserializing.
+        # Prebuilt guards and custom inspectors are the same Inspector type, so a
+        # single deserialization path covers both.
         if self.inspectors:
-            from .inspector import Inspector, PrebuiltInspector
+            from .inspector import Inspector
 
             self.inspectors = [
-                (PrebuiltInspector.from_dict(inspector) if "presetId" in inspector else Inspector.from_dict(inspector))
-                if isinstance(inspector, dict)
-                else inspector
+                Inspector.from_dict(inspector) if isinstance(inspector, dict) else inspector
                 for inspector in self.inspectors
             ]
 
@@ -537,10 +593,36 @@ class Agent(
             self.agents = self.subagents
             self.subagents = None
 
+        # ``self.budget`` is already a ``Budget`` instance here: the generated
+        # ``__init__`` assignment routed through ``__setattr__``, which coerces
+        # any dict/Budget/None into a (never-None) ``Budget``.
+
+        # Deprecated persisted ``max_iterations``: fold into ``budget.max_iterations``.
+        # ``None`` (the default) means "not provided" so a plain ``Agent(...)`` never
+        # warns; any non-None value (explicit or via ``from_dict``) is folded.
+        if self.max_iterations is not None:
+            warnings.warn(
+                "Agent 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
+                "It will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if self.budget.max_iterations is None:
+                self.budget.max_iterations = self.max_iterations
+            else:
+                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=2)
+
         # Store original agent objects to resolve IDs at save time
         self._original_agents = list(self.agents)
         # Convert to IDs for serialization (to_dict), using None as placeholder for unsaved agents
         self.agents = [a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.agents]
+
+        # Skills behave exactly like agents: keep the originals to resolve ids
+        # at save time, and serialize as a list of ids.
+        self._original_skills = list(self.skills or [])
+        self.skills = [
+            s if isinstance(s, str) else s.get("id") if isinstance(s, dict) else s.id for s in (self.skills or [])
+        ]
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
@@ -548,29 +630,60 @@ class Agent(
         if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
             self.context_overflow_strategy = self.context_overflow_strategy.value
 
-        # Normalize inspector_targets to support both strings and InspectorTarget enums
+        # Inspector targets are plain strings (e.g. "input" | "steps" | "output"
+        # or a sub-agent name); normalize the known stage values to lowercase.
         if self.inspector_targets:
-            from .inspector import InspectorTarget
-
-            normalized_targets = []
-            for target in self.inspector_targets:
-                if isinstance(target, str):
-                    # Convert string to InspectorTarget enum
-                    try:
-                        normalized_targets.append(InspectorTarget(target.lower()))
-                    except ValueError:
-                        # If it's not a valid InspectorTarget value, keep as is
-                        normalized_targets.append(target)
-                else:
-                    # Already an InspectorTarget or other type
-                    normalized_targets.append(target)
-            self.inspector_targets = normalized_targets
+            self.inspector_targets = [
+                target.lower() if isinstance(target, str) and target.lower() in {"input", "steps", "output"} else target
+                for target in self.inspector_targets
+            ]
 
         # TODO: Re-enable this validation after backend data consistency is fixed
         # if self.agents and (self.tasks or self.tools):
         #     raise ValueError(
         #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
         #     )
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Keep ``self.budget`` a (never-None) ``Budget`` instance.
+
+        Assigning ``agent.budget`` a dict / ``Budget`` / ``None`` is coerced into
+        a ``Budget`` so attribute access (``agent.budget.max_cost = ...``) always
+        works and the invariant "budget is never None" holds (mirrors how
+        ``Model.__setattr__`` coerces bulk ``inputs`` assignment). This runs for
+        the generated ``__init__`` assignment too, so the field is a ``Budget``
+        by the time ``__post_init__`` executes.
+        """
+        if name == "budget":
+            coerced = self._coerce_budget(value)
+            value = coerced if coerced is not None else Budget()
+        super().__setattr__(name, value)
+
+    @classmethod
+    def _fold_legacy_max_iterations(cls, kvs: Any) -> Any:
+        """Fold a legacy top-level ``maxIterations`` into the ``budget`` slot.
+
+        Backend agents may still carry a top-level legacy ``maxIterations``. The
+        public constructor (``Agent(max_iterations=...)``) emits a
+        ``DeprecationWarning`` in ``__post_init__``, but deserialization must NOT
+        warn — loading an agent the caller never configured should be silent.
+        So we fold the legacy ``maxIterations`` straight into the ``budget`` slot
+        (Budget wins silently if it already carries one) and drop the standalone
+        key, so ``__post_init__`` sees ``max_iterations=None`` and the deprecation
+        path never fires on load. Returns a copy; the caller's dict is untouched.
+        """
+        if isinstance(kvs, dict) and kvs.get("maxIterations") is not None:
+            kvs = dict(kvs)  # shallow copy; never mutate the caller's dict
+            legacy_iterations = kvs.pop("maxIterations")
+            budget = kvs.get("budget")
+            # Normalize to the camelCase wire shape so the nested fold is uniform
+            # regardless of whether ``budget`` arrived snake_case, camelCase, or absent.
+            normalized = cls._normalize_budget(budget) if budget is not None else {}
+            # Budget wins silently on conflict; otherwise fill the empty slot.
+            if normalized.get("maxIterations") is None:
+                normalized["maxIterations"] = legacy_iterations
+            kvs["budget"] = normalized
+        return kvs
 
     def mark_as_deleted(self) -> None:
         """Mark the agent as deleted by setting status to DELETED and calling parent method."""
@@ -663,14 +776,87 @@ class Agent(
         "run_response_generation": "runResponseGeneration",
     }
 
+    # ``max_iterations`` is intentionally absent: it is deprecated and folded into
+    # ``budget.maxIterations`` (see ``_fold_iter_into_budget`` and the run path),
+    # never emitted as a standalone ``executionParams.maxIterations``. The session
+    # path (``ExecutionConfig`` in session.py) keeps the same invariant.
     _EXEC_PARAMS_MAP: ClassVar[Dict[str, str]] = {
         "output_format": "outputFormat",
         "max_tokens": "maxTokens",
-        "max_iterations": "maxIterations",
         "max_time": "maxTime",
         "expected_output": "expectedOutput",
         "context_overflow_strategy": "contextOverflowStrategy",
     }
+
+    # snake_case → camelCase wire keys for the nested executionParams.budget object.
+    _BUDGET_PARAMS_MAP: ClassVar[Dict[str, str]] = {
+        "max_cost": "maxCost",
+        "max_duration_seconds": "maxDurationSeconds",
+        "max_iterations": "maxIterations",
+    }
+
+    # Emitted (as a UserWarning) when a deprecated ``max_iterations`` and an
+    # explicit ``budget.max_iterations`` are both set; Budget wins. Shared by the
+    # constructor, the run path, and the session path so the text never drifts.
+    _BUDGET_ITER_CONFLICT_MSG: ClassVar[str] = (
+        "Both 'max_iterations' and budget.max_iterations are set; budget.max_iterations takes precedence."
+    )
+
+    @classmethod
+    def _normalize_budget(cls, budget: Union[Dict, "Budget"]) -> dict:
+        """Normalize a Budget instance or dict to the camelCase wire shape.
+
+        Accepts a ``Budget`` instance, a snake_case dict, or a camelCase dict and
+        returns a camelCase dict with ``None`` fields dropped. Unknown keys are
+        passed through unchanged (forward compatibility).
+        """
+        if isinstance(budget, Budget):
+            raw = budget.to_dict()  # already camelCase, None dropped
+        else:
+            raw = dict(budget)
+        # Map snake_case keys to camelCase; pass camelCase (and unknown) keys through.
+        normalized = {cls._BUDGET_PARAMS_MAP.get(k, k): v for k, v in raw.items()}
+        # Never emit null fields.
+        return {k: v for k, v in normalized.items() if v is not None}
+
+    @classmethod
+    def _coerce_budget(cls, budget: Optional[Union[Dict, "Budget"]]) -> Optional["Budget"]:
+        """Coerce ``None`` / dict / ``Budget`` into a ``Budget`` instance.
+
+        A dict may use snake_case or camelCase keys; it is normalized to the
+        camelCase wire shape first so a single decoder handles both styles.
+        ``None`` passes through as ``None`` (session's ExecutionConfig relies on
+        this); ``Agent.__setattr__`` is what upgrades a ``None`` agent budget to
+        an empty ``Budget()`` to keep ``agent.budget`` never-None.
+        """
+        if budget is None or isinstance(budget, Budget):
+            return budget
+        if isinstance(budget, dict):
+            normalized = cls._normalize_budget(budget)
+            return Budget(
+                max_cost=normalized.get("maxCost"),
+                max_duration_seconds=normalized.get("maxDurationSeconds"),
+                max_iterations=normalized.get("maxIterations"),
+            )
+        raise TypeError(f"budget must be a Budget, dict, or None, got {type(budget)}")
+
+    @classmethod
+    def _fold_iter_into_budget(
+        cls, budget: Optional[Union[Dict, "Budget"]], max_iterations: int
+    ) -> "tuple[dict, bool]":
+        """Fold a deprecated ``max_iterations`` into a budget (Budget wins on conflict).
+
+        Pure: emits no warnings. Returns ``(normalized, conflicted)`` where
+        ``normalized`` is the camelCase wire dict and ``conflicted`` is ``True``
+        when the budget already carried ``maxIterations`` (so the deprecated value
+        was dropped). The caller owns the conflict warning — it knows the right
+        ``stacklevel`` for its own call depth (see the run and session paths).
+        """
+        normalized = cls._normalize_budget(budget) if budget is not None else {}
+        if normalized.get("maxIterations") is not None:
+            return normalized, True
+        normalized["maxIterations"] = max_iterations
+        return normalized, False
 
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Run the agent with optional progress display.
@@ -911,6 +1097,18 @@ class Agent(
                         agent_name = getattr(agent, "name", f"agent_{i}")
                         failed_components.append(("agent", agent_name, str(e)))
 
+        # Save skills
+        if getattr(self, "_original_skills", None):
+            for i, skill in enumerate(self._original_skills):
+                if isinstance(skill, (str, dict)):  # Already an ID
+                    continue
+                if hasattr(skill, "save") and hasattr(skill, "id") and not skill.id:
+                    try:
+                        skill.save()
+                    except Exception as e:
+                        skill_name = getattr(skill, "name", f"skill_{i}")
+                        failed_components.append(("skill", skill_name, str(e)))
+
         if failed_components:
             error_details = "; ".join(
                 [f"{comp_type} '{name}': {error}" for comp_type, name, error in failed_components]
@@ -935,6 +1133,15 @@ class Agent(
                 if hasattr(agent, "id") and not agent.id:
                     agent_name = getattr(agent, "name", "unnamed")
                     unsaved_components.append(f"agent '{agent_name}'")
+
+        # Check skills
+        if getattr(self, "_original_skills", None):
+            for skill in self._original_skills:
+                if isinstance(skill, (str, dict)):  # Already an ID
+                    continue
+                if hasattr(skill, "id") and not skill.id:
+                    skill_name = getattr(skill, "name", "unnamed")
+                    unsaved_components.append(f"skill '{skill_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -963,6 +1170,15 @@ class Agent(
                 if hasattr(agent, "id") and not agent.id:
                     agent_name = getattr(agent, "name", "unnamed")
                     unsaved_components.append(f"agent '{agent_name}'")
+
+        # Check skills
+        if getattr(self, "_original_skills", None):
+            for skill in self._original_skills:
+                if isinstance(skill, (str, dict)):  # Already an ID
+                    continue
+                if hasattr(skill, "id") and not skill.id:
+                    skill_name = getattr(skill, "name", "unnamed")
+                    unsaved_components.append(f"skill '{skill_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -1318,35 +1534,27 @@ class Agent(
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
-        from .inspector import Inspector, PrebuiltInspector
+        from .inspector import Inspector
 
         # Pre-serialize inspectors before to_dict() to avoid dataclass_json issues
         original_inspectors = self.inspectors
         if self.inspectors:
             serialized_inspectors = []
             for inspector in self.inspectors:
-                if isinstance(inspector, (Inspector, PrebuiltInspector)):
+                if isinstance(inspector, Inspector):
                     serialized_inspectors.append(inspector.to_dict())
                 elif isinstance(inspector, dict):
                     serialized_inspectors.append(inspector)
                 else:
-                    raise ValueError(f"Inspector must be Inspector, PrebuiltInspector, or dict, got {type(inspector)}")
+                    raise ValueError(f"Inspector must be Inspector or dict, got {type(inspector)}")
             self.inspectors = serialized_inspectors
 
-        # Pre-serialize inspector_targets to strings (enum values)
-        from .inspector import InspectorTarget
-
+        # Pre-serialize inspector_targets to strings
         original_inspector_targets = self.inspector_targets
         if self.inspector_targets:
-            serialized_targets = []
-            for target in self.inspector_targets:
-                if isinstance(target, InspectorTarget):
-                    serialized_targets.append(target.value)
-                elif isinstance(target, str):
-                    serialized_targets.append(target)
-                else:
-                    serialized_targets.append(str(target))
-            self.inspector_targets = serialized_targets
+            self.inspector_targets = [
+                target if isinstance(target, str) else str(target) for target in self.inspector_targets
+            ]
 
         # Now call to_dict() with inspectors and inspector_targets already serialized
         payload = self.to_dict()
@@ -1354,6 +1562,18 @@ class Agent(
         # Restore original values
         self.inspectors = original_inspectors
         self.inspector_targets = original_inspector_targets
+
+        # Budget is the single source of truth for the persisted iteration cap.
+        # Drop the deprecated standalone ``maxIterations`` and emit the persisted
+        # ``budget`` (camelCase) only when it carries at least one cap. (The
+        # ``budget`` field is ``exclude=lambda v: True`` so ``to_dict()`` never
+        # emits it — we build the wire shape explicitly below.)
+        payload.pop("maxIterations", None)
+        budget = getattr(self, "budget", None)
+        if budget is not None:
+            normalized_budget = self._normalize_budget(budget)
+            if normalized_budget:
+                payload["budget"] = normalized_budget
 
         # Convert {{var}} to {var} in instructions and description for backend compatibility (v1 format)
         # User writes: {{language}} → Backend receives: {language}
@@ -1388,13 +1608,33 @@ class Agent(
                 converted_agents.append({"id": agent_id, "inspectors": []})
             payload["agents"] = converted_agents
 
-        # Handle BaseModel expected_output for save operation
-        # We don't send expected_output in the save payload - it's runtime-only
+        # Convert skills to API format. Skills follow the same wire design as
+        # tools: each is sent as an object (via as_tool()), never a bare id.
+        if getattr(self, "_original_skills", None):
+            converted_skills = []
+            for skill in self._original_skills:
+                if isinstance(skill, ToolableMixin):
+                    skill_dict = skill.as_tool()
+                elif isinstance(skill, dict):
+                    skill_dict = skill
+                elif isinstance(skill, str):
+                    skill_dict = {"id": skill, "type": "skill", "asset_id": skill}
+                else:
+                    raise ValueError("A skill must be a Skill instance, a dict, or a skill id string.")
+                if not skill_dict.get("id"):
+                    raise ValueError("All skills must be saved before saving the agent.")
+                converted_skills.append(self._normalize_tool_dict_for_api(skill_dict))
+            payload["skills"] = converted_skills
+        else:
+            payload.pop("skills", None)
+
+        # Persist expected_output server-side so fetched agents and runs that
+        # don't pass executionParams.expectedOutput (the backend falls back to
+        # the stored value) keep the JSON contract.
         if "expectedOutput" in payload:
             expected_output = payload["expectedOutput"]
             if isinstance(expected_output, type) and issubclass(expected_output, BaseModel):
-                # Remove BaseModel classes from save payload - they're not stored server-side
-                payload.pop("expectedOutput")
+                payload["expectedOutput"] = json.dumps(expected_output.model_json_schema())
             elif isinstance(expected_output, BaseModel):
                 # Convert BaseModel instance to dict for save
                 payload["expectedOutput"] = expected_output.model_dump()
@@ -1409,11 +1649,12 @@ class Agent(
         # Normalize snake_case keys to camelCase for the API
         execution_params = {self._EXEC_PARAMS_MAP.get(k, k): v for k, v in execution_params.items()}
 
-        # Set default values for execution_params if not provided
+        # Set default values for execution_params if not provided.
+        # No ``maxIterations`` default: the iteration cap now travels inside
+        # ``executionParams.budget`` and the backend supplies its own default.
         defaults = {
             "outputFormat": self.output_format,
             "maxTokens": getattr(self, "max_tokens", 2048),
-            "maxIterations": getattr(self, "max_iterations", 5),
             "maxTime": 300,
             "contextOverflowStrategy": getattr(self, "context_overflow_strategy", None),
         }
@@ -1440,6 +1681,45 @@ class Agent(
         elif isinstance(expected_output, dict):
             # Backend expects executionParams.expectedOutput as a string.
             execution_params["expectedOutput"] = json.dumps(expected_output)
+
+        # Run-time budget: the agent's current ``budget`` state travels inside
+        # ``executionParams.budget`` (the backend merges it field-by-field over the
+        # persisted default). Set the key only when the budget carries at least one
+        # cap; an empty budget must leave the payload unchanged. ``budget`` is no
+        # longer a run kwarg — drop any stray one so it can't leak to the payload.
+        kwargs.pop("budget", None)
+        # ``getattr`` (not ``self.budget``) mirrors the defensive reads above so a
+        # test-constructed agent (``Agent.__new__`` bypassing ``__init__``) still
+        # works; a missing/None budget is treated as an empty one.
+        budget = getattr(self, "budget", None) or Budget()
+
+        # Deprecated run-time ``max_iterations`` exec param: fold into the run-time
+        # budget (the agent's budget wins on conflict) and stop emitting a standalone
+        # ``executionParams.maxIterations``. ``max_iterations`` is not in
+        # ``_EXEC_PARAMS_MAP``, so a snake_case key passes through unmapped — accept
+        # both spellings here (mirrors ExecutionConfig.to_api_dict in session.py).
+        deprecated_iterations = execution_params.pop("maxIterations", None)
+        if deprecated_iterations is None:
+            deprecated_iterations = execution_params.pop("max_iterations", None)
+        if deprecated_iterations is not None:
+            # Point past the SDK run plumbing (build_run_payload ->
+            # _post_and_handle_run -> RunnableResourceMixin.run -> Agent.run) to
+            # the user's agent.run(...) call site. The conflict warning (below) is
+            # emitted from this same frame, so it shares the stacklevel.
+            warnings.warn(
+                "Execution param 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
+                "It will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=5,
+            )
+            normalized_budget, conflicted = self._fold_iter_into_budget(budget, deprecated_iterations)
+            if conflicted:
+                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=5)
+        else:
+            normalized_budget = self._normalize_budget(budget)
+
+        if normalized_budget:
+            execution_params["budget"] = normalized_budget
 
         # Handle run_response_generation with default value of False
         run_response_generation = kwargs.pop("run_response_generation", False)
@@ -1861,3 +2141,20 @@ class Agent(
             raise ValueError("Agent must be saved before listing sessions. Call agent.save() first.")
 
         return self.context.Session.list(agent_id=self.id, status=status)
+
+
+# ``@dataclass_json`` injects its own ``from_dict`` onto the class, which would
+# clobber any ``from_dict`` defined in the class body. So we wrap the injected
+# decoder here (after decoration) to silently fold a legacy top-level
+# ``maxIterations`` into ``budget`` before decoding — keeping deserialization
+# warning-free while the explicit ``Agent(max_iterations=...)`` constructor path
+# still warns via ``__post_init__``.
+_dataclass_json_agent_from_dict = Agent.from_dict.__func__
+
+
+def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
+    kvs = cls._fold_legacy_max_iterations(kvs)
+    return _dataclass_json_agent_from_dict(cls, kvs, infer_missing=infer_missing)
+
+
+Agent.from_dict = classmethod(_agent_from_dict)

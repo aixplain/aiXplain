@@ -224,7 +224,11 @@ class BaseResource:
         path: Full path identifier (e.g., "openai/whisper-large/groq").
     """
 
-    context: Any = field(repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False)
+    # default=None so the attribute always exists: instances created without a
+    # bound context (e.g. Inspector.from_dict nested inside an Agent) must still
+    # be serializable — dataclasses_json's _asdict calls getattr(obj, "context")
+    # before applying `exclude`, so a missing attribute raises AttributeError.
+    context: Any = field(default=None, repr=False, compare=False, metadata=config(exclude=lambda x: True), init=False)
     RESOURCE_PATH: str = field(
         default="",
         repr=False,
@@ -1326,25 +1330,29 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Returns:
             Response instance from the configured response class
         """
-        # Check for polling URL in data field (legacy format)
-        if response.get("data") and isinstance(response["data"], str) and response["data"].startswith("http"):
+        status = response.get("status", "IN_PROGRESS")
+        data = response.get("data")
+
+        # Check for polling URL in data field (legacy format). A successful
+        # response may also contain a URL as final data, such as generated media.
+        if status == "IN_PROGRESS" and data and isinstance(data, str) and data.startswith("http"):
             # This is a polling URL case
             response_class = getattr(self, "RESPONSE_CLASS", Result)
             return response_class.from_dict(
                 {
-                    "status": response.get("status", "IN_PROGRESS"),
-                    "url": response["data"],
+                    "status": status,
+                    "url": data,
                     "completed": False,
                     "requestId": response.get("requestId"),
                 }
             )
-        elif response.get("status") == "IN_PROGRESS" and response.get("data"):
+        elif status == "IN_PROGRESS" and data:
             # This is a polling URL case
             response_class = getattr(self, "RESPONSE_CLASS", Result)
             return response_class.from_dict(
                 {
-                    "status": response["status"],
-                    "url": response["data"],
+                    "status": status,
+                    "url": data,
                     "completed": False,
                     "requestId": response.get("requestId"),
                 }
@@ -1352,7 +1360,6 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         else:
             # Direct response case - pass the entire response to let dataclass_json handle field mapping
             # Check for failed status and raise appropriate error
-            status = response.get("status", "IN_PROGRESS")
             if status == "FAILED":
                 raise create_operation_failed_error(response)
 
@@ -1495,14 +1502,17 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         # Handle polling response - use camelCase keys (what backend sends)
         # dataclass_json with config(field_name=...) handles mapping to snake_case
         run_time, used_credits = _extract_run_time_and_used_credits(response)
+        data = response.get("data") or {}
+        data_error = data.get("error") if isinstance(data, dict) else None
+        error_message = response.get("errorMessage") or data_error
         filtered_response = {
             "status": response.get("status", "IN_PROGRESS"),
             "completed": response.get("completed", False),
-            "errorMessage": response.get("errorMessage"),
+            "errorMessage": error_message,
             "url": response.get("url"),
             "result": response.get("result"),
             "supplierError": response.get("supplierError"),
-            "data": response.get("data") or {},
+            "data": data,
             "sessionId": response.get("sessionId"),
             "usedCredits": used_credits,
             "runTime": run_time,

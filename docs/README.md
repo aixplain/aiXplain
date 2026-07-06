@@ -87,7 +87,7 @@ print(result.data.output)
 
 ```python
 from aixplain import Aixplain
-from aixplain.v2 import EditorConfig, EvaluatorConfig, EvaluatorType, Inspector, InspectorAction, InspectorActionConfig, InspectorSeverity, InspectorTarget
+from aixplain.v2 import Inspector
 
 aix = Aixplain()  # reads AIXPLAIN_API_KEY from the environment
 search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
@@ -99,19 +99,15 @@ def never_edit(text: str) -> bool:
 def passthrough(text: str) -> str:
     return text
 
+# Config is plain data — strings for action/targets/severity, and a Metric,
+# asset-id string, or callable for the `metric` (the universal judge).
 noop_inspector = Inspector(
     name="noop-output-inspector",
-    severity=InspectorSeverity.LOW,
-    targets=[InspectorTarget.OUTPUT],
-    action=InspectorActionConfig(type=InspectorAction.EDIT),
-    evaluator=EvaluatorConfig(
-        type=EvaluatorType.FUNCTION,
-        function=never_edit,
-    ),
-    editor=EditorConfig(
-        type=EvaluatorType.FUNCTION,
-        function=passthrough,
-    ),
+    severity="low",
+    targets=["output"],
+    action="edit",
+    metric=never_edit,
+    editor=passthrough,
 )
 
 researcher = aix.Agent(

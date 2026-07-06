@@ -9,10 +9,11 @@ See `agent-patterns.md § Add Inspector` for the full v2 construction code. Use 
 
 ## Policy Guidelines
 
-- Set the policy via `InspectorActionConfig(type=...)`. Valid `InspectorAction` values: `CONTINUE | RERUN | ABORT | EDIT`.
-- Prefer `ABORT` for hard policy violations.
-- Use `RERUN` for recoverable quality issues — it is the only action type that accepts `max_retries` and `on_exhaust` (`CONTINUE | ABORT`); setting them on any other type raises.
-- `EDIT` requires an `editor=EditorConfig(...)`.
+- Set the policy with a plain string: `action="..."`. Valid values: `"continue" | "rerun" | "abort" | "edit"`.
+- Prefer `"abort"` for hard policy violations.
+- Use `"rerun"` for recoverable quality issues — it is the only action that accepts retry params, passed as a dict: `action={"type": "rerun", "max_retries": 2, "on_exhaust": "abort"}` (`on_exhaust` is `"continue" | "abort"`). Setting retry params on any other action raises.
+- `"edit"` requires an `editor=...` (a Metric, asset-id string, or callable — same as `metric`).
+- The judge is `metric=` (the universal judge): an `aix.Metric`, a bare asset-id string, or a Python callable. No `EvaluatorConfig`/enum imports.
 - For existing deployments: fetch the team agent, modify `inspectors`/`inspector_targets`, call `.save()`.
 
 ---
@@ -26,7 +27,7 @@ Do not overload `FAILED` for policy blocks — a policy block can still return r
 
 ## Inspector Action Values
 
-`InspectorAction` SDK values: `continue | rerun | abort | edit`.
+`action` SDK values (plain strings): `continue | rerun | abort | edit`.
 
 ---
 
