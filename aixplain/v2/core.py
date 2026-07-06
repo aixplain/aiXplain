@@ -9,6 +9,7 @@ from .model import Model
 from .agent import Agent
 from .utility import Utility
 from .tool import Tool
+from .skill import Skill
 from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
 from .integration import Integration
 from .file import Resource
@@ -25,6 +26,7 @@ ModelType = TypeVar("ModelType", bound=Model)
 AgentType = TypeVar("AgentType", bound=Agent)
 UtilityType = TypeVar("UtilityType", bound=Utility)
 ToolType = TypeVar("ToolType", bound=Tool)
+SkillType = TypeVar("SkillType", bound=Skill)
 MetricType = TypeVar("MetricType", bound=MetricBase)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
 ResourceType = TypeVar("ResourceType", bound=Resource)
@@ -53,6 +55,7 @@ class Aixplain:
     Agent: AgentType = None
     Utility: UtilityType = None
     Tool: ToolType = None
+    Skill: SkillType = None
     Metric: MetricType = None
     Eval: type = None
     Integration: IntegrationType = None
@@ -143,6 +146,7 @@ class Aixplain:
         self.Agent = type("Agent", (Agent,), {"context": self})
         self.Utility = type("Utility", (Utility,), {"context": self})
         self.Tool = type("Tool", (Tool,), {"context": self})
+        self.Skill = type("Skill", (Skill,), {"context": self})
         self.Metric = type("Metric", (MetricBase,), {"context": self})
         self.Eval = EvalClass
         self.Integration = type("Integration", (Integration,), {"context": self})
