@@ -1257,13 +1257,24 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """Kwargs for payload/URL builders excluding SDK orchestration keys."""
         return {k: v for k, v in kwargs.items() if k not in self._RUN_CONTROL_KEYS}
 
+    def _headers_for_run(self, kwargs: dict) -> Optional[dict]:
+        """Build per-run headers from optional runtime metadata."""
+        identifier = kwargs.get("identifier")
+        if identifier is None:
+            return None
+        return {"x-user-id": str(identifier)}
+
     def _post_and_handle_run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Single POST + handle_run_response (no retries, no before_run)."""
         self._ensure_valid_state()
         payload_input = self._payload_kwargs_for_run(kwargs)
         payload = self.build_run_payload(**payload_input)
         run_url = self.build_run_url(**payload_input)
-        response = self.context.client.request("post", run_url, json=payload)
+        request_kwargs = {"json": payload}
+        headers = self._headers_for_run(kwargs)
+        if headers:
+            request_kwargs["headers"] = headers
+        response = self.context.client.request("post", run_url, **request_kwargs)
         return self.handle_run_response(response, **kwargs)
 
     def _apply_after_run(self, result: ResultT, **kwargs: Unpack[RunParamsT]) -> ResultT:
@@ -1319,31 +1330,36 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Returns:
             Response instance from the configured response class
         """
-        # Check for polling URL in data field (legacy format)
-        if response.get("data") and isinstance(response["data"], str) and response["data"].startswith("http"):
+        status = response.get("status", "IN_PROGRESS")
+        data = response.get("data")
+
+        # Check for polling URL in data field (legacy format). A successful
+        # response may also contain a URL as final data, such as generated media.
+        if status == "IN_PROGRESS" and data and isinstance(data, str) and data.startswith("http"):
             # This is a polling URL case
             response_class = getattr(self, "RESPONSE_CLASS", Result)
             return response_class.from_dict(
                 {
-                    "status": response.get("status", "IN_PROGRESS"),
-                    "url": response["data"],
+                    "status": status,
+                    "url": data,
                     "completed": False,
+                    "requestId": response.get("requestId"),
                 }
             )
-        elif response.get("status") == "IN_PROGRESS" and response.get("data"):
+        elif status == "IN_PROGRESS" and data:
             # This is a polling URL case
             response_class = getattr(self, "RESPONSE_CLASS", Result)
             return response_class.from_dict(
                 {
-                    "status": response["status"],
-                    "url": response["data"],
+                    "status": status,
+                    "url": data,
                     "completed": False,
+                    "requestId": response.get("requestId"),
                 }
             )
         else:
             # Direct response case - pass the entire response to let dataclass_json handle field mapping
             # Check for failed status and raise appropriate error
-            status = response.get("status", "IN_PROGRESS")
             if status == "FAILED":
                 raise create_operation_failed_error(response)
 
@@ -1421,7 +1437,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             try:
                 result = self._post_and_handle_run(**kwargs)
                 if result.url and not result.completed:
+                    request_id = getattr(result, "request_id", None)
                     result = self.sync_poll(result.url, **kwargs)
+                    if request_id is not None and hasattr(result, "request_id") and not result.request_id:
+                        result.request_id = request_id
                 return self._apply_after_run(result, **kwargs)
             except APIError as e:
                 if not self._is_retryable_run_error(e) or attempt >= run_retries:
@@ -1483,14 +1502,17 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         # Handle polling response - use camelCase keys (what backend sends)
         # dataclass_json with config(field_name=...) handles mapping to snake_case
         run_time, used_credits = _extract_run_time_and_used_credits(response)
+        data = response.get("data") or {}
+        data_error = data.get("error") if isinstance(data, dict) else None
+        error_message = response.get("errorMessage") or data_error
         filtered_response = {
             "status": response.get("status", "IN_PROGRESS"),
             "completed": response.get("completed", False),
-            "errorMessage": response.get("errorMessage"),
+            "errorMessage": error_message,
             "url": response.get("url"),
             "result": response.get("result"),
             "supplierError": response.get("supplierError"),
-            "data": response.get("data") or {},
+            "data": data,
             "sessionId": response.get("sessionId"),
             "usedCredits": used_credits,
             "runTime": run_time,

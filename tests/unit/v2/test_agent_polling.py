@@ -222,6 +222,54 @@ class TestAgentPollWithExecutionId:
         assert "/sdk/agents/" in actual_url
 
 
+class TestAgentRunRequestId:
+    """Tests for request ID preservation across sync run polling."""
+
+    def test_run_preserves_request_id_from_initial_poll_url_response(self):
+        """Should keep requestId from initial run response when poll omits it."""
+        agent = _create_agent()
+        agent.before_run = Mock(return_value=None)
+        request_id = "190bab47-30e2b0287e9b"
+        poll_url = f"{BACKEND_URL}/sdk/agents/{request_id}/result"
+        agent.context.client.request = Mock(
+            return_value={
+                "requestId": request_id,
+                "data": poll_url,
+            }
+        )
+        agent.context.client.get = Mock(
+            return_value={
+                "status": "SUCCESS",
+                "completed": True,
+                "data": {"output": "Test received."},
+            }
+        )
+
+        result = agent.run("test")
+
+        assert result.request_id == request_id
+
+    def test_run_sends_identifier_as_x_user_id_header(self):
+        """Should send identifier in payload and as x-user-id header on the run request."""
+        agent = _create_agent()
+        agent.before_run = Mock(return_value=None)
+        identifier = "end-user-123"
+        agent.context.client.request = Mock(
+            return_value={
+                "status": "SUCCESS",
+                "completed": True,
+                "data": {"output": "done"},
+            }
+        )
+
+        agent.run("test", identifier=identifier)
+
+        agent.context.client.request.assert_called_once()
+        _, _, request_kwargs = agent.context.client.request.mock_calls[0]
+        assert request_kwargs["headers"] == {"x-user-id": identifier}
+        assert request_kwargs["json"]["identifier"] == identifier
+
+
 class TestAgentSyncPollWithExecutionId:
     """Tests for Agent.sync_poll() accepting execution IDs."""
 

@@ -248,6 +248,49 @@ class SplittingOptions(str, Enum):
     LINE = "line"
 
 
+class SessionStatus(str, Enum):
+    """Session status values."""
+
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    ARCHIVED = "archived"
+
+
+class RunStatus(str, Enum):
+    """Run status values for sessions."""
+
+    IDLE = "idle"
+    RUNNING = "running"
+    COMPLETED = "completed"
+
+
+class MessageRole(str, Enum):
+    """Message role in a session conversation."""
+
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class Reaction(str, Enum):
+    """Reaction types for session messages."""
+
+    LIKE = "LIKE"
+    DISLIKE = "DISLIKE"
+
+
+class AttachmentType(str, Enum):
+    """Attachment type for session message attachments."""
+
+    TEXT = "text"
+    IMAGE = "image"
+    VIDEO = "video"
+    AUDIO = "audio"
+    DOCUMENT = "document"
+    CODE = "code"
+    UNKNOWN = "unknown"
+
+
 __all__ = [
     "AuthenticationScheme",
     "FileType",
@@ -269,4 +312,9 @@ __all__ = [
     "CodeInterpreterModel",
     "DataType",
     "SplittingOptions",
+    "SessionStatus",
+    "RunStatus",
+    "MessageRole",
+    "Reaction",
+    "AttachmentType",
 ]

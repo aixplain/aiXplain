@@ -213,6 +213,56 @@ class TestModelCapabilityInference:
 
 
 # =============================================================================
+# Parameter Validation Tests
+# =============================================================================
+
+
+class TestModelValidateParams:
+    """Tests for _validate_params, including the multimodal ``data`` exemption."""
+
+    @staticmethod
+    def _param(name, required=False, data_type="text", data_sub_type="text"):
+        return SimpleNamespace(
+            name=name,
+            required=required,
+            data_type=data_type,
+            data_sub_type=data_sub_type,
+            default_values=[],
+        )
+
+    def _model(self, params):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.params = params
+        return model
+
+    def test_missing_required_text_is_flagged(self):
+        """A required ``text`` input with no value (and no ``data``) is an error."""
+        model = self._model([self._param("text", required=True)])
+        errors = model._validate_params(max_tokens=10)
+        assert errors == ["Required parameter 'text' is missing"]
+
+    def test_data_payload_exempts_required_text(self):
+        """A multimodal ``data`` payload supersedes required ``text``/``prompt``."""
+        model = self._model([self._param("text", required=True), self._param("prompt", required=True)])
+        data = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "u"}}]}]
+        assert model._validate_params(data=data, max_tokens=10) == []
+
+    def test_data_none_does_not_exempt(self):
+        """An explicit ``data=None`` is not a payload and must not exempt requireds."""
+        model = self._model([self._param("text", required=True)])
+        assert model._validate_params(data=None) == ["Required parameter 'text' is missing"]
+
+    def test_provided_param_type_still_validated_with_data(self):
+        """Type checks on explicitly provided params still run when ``data`` is present."""
+        model = self._model([self._param("text", required=True), self._param("max_tokens", data_type="number")])
+        data = [{"role": "user", "content": []}]
+        errors = model._validate_params(data=data, max_tokens="not-a-number")
+        assert any("max_tokens" in e for e in errors)
+
+
+# =============================================================================
 # Run Routing Tests
 # =============================================================================
 

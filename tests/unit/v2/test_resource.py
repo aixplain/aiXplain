@@ -774,6 +774,27 @@ class TestRunnableResourceMixin:
         assert isinstance(result, Result)
         assert result.status == "SUCCESS"
 
+    def test_poll_failed_uses_nested_data_error(self):
+        """poll() should surface data.error when top-level error fields are empty."""
+        resource = self._create_runnable_resource()
+        resource.context.client.get = Mock(
+            return_value={
+                "status": "FAILED",
+                "completed": True,
+                "errorMessage": None,
+                "supplierError": None,
+                "data": {
+                    "error": "litellm.APIConnectionError: err.not_enough_balance\nTraceback...",
+                },
+            }
+        )
+
+        with pytest.raises(APIError) as exc_info:
+            resource.poll("https://poll.url")
+
+        assert "err.not_enough_balance" in str(exc_info.value)
+        assert "err.not_enough_balance" in exc_info.value.error
+
     def test_sync_poll_respects_timeout(self):
         """sync_poll() should raise TimeoutError after timeout."""
         resource = self._create_runnable_resource()
@@ -841,6 +862,23 @@ class TestRunnableResourceMixin:
         assert result.status == "IN_PROGRESS"
         assert result.url == "some-poll-id-not-a-url"
         assert result.completed is False
+
+    def test_handle_run_response_success_url_data_is_final_data(self):
+        """handle_run_response() should not treat successful URL data as a polling URL."""
+        resource = self._create_runnable_resource()
+
+        response = {
+            "status": "SUCCESS",
+            "completed": True,
+            "data": "https://example.com/generated-image.jpeg",
+        }
+        result = resource.handle_run_response(response)
+
+        assert isinstance(result, Result)
+        assert result.status == "SUCCESS"
+        assert result.completed is True
+        assert result.data == "https://example.com/generated-image.jpeg"
+        assert result.url is None
 
     def test_run_polls_when_in_progress_with_non_url_data(self):
         """run() should poll when handle_run_response returns IN_PROGRESS with non-URL data."""

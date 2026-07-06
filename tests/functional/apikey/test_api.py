@@ -93,7 +93,7 @@ def test_02_create_api_key_from_dict(APIKeyFactory):
     api_key_dict = {
         "asset_limits": [
             {
-                "model": "640b517694bf816d35a59125",
+                "model": "69b7e5f1b2fe44704ab0e7d0",
                 "token_per_minute": 100,
                 "token_per_day": 1000,
                 "request_per_day": 1000,
@@ -132,7 +132,7 @@ def test_03_create_update_api_key_from_dict(APIKeyFactory):
     api_key_dict = {
         "asset_limits": [
             {
-                "model": "640b517694bf816d35a59125",
+                "model": "69b7e5f1b2fe44704ab0e7d0",
                 "token_per_minute": 100,
                 "token_per_day": 1000,
                 "request_per_day": 1000,
@@ -238,7 +238,7 @@ def test_05_list_update_api_keys(APIKeyFactory):
         if len(api_key.asset_limits) == 0:
             api_key.asset_limits.append(
                 APIKeyLimits(
-                    model="640b517694bf816d35a59125",
+                    model="69b7e5f1b2fe44704ab0e7d0",
                     token_per_minute=number,
                     token_per_day=number,
                     request_per_day=number,
@@ -289,7 +289,7 @@ def test_07_create_api_key_with_token_type_input(APIKeyFactory):
             name=TEST_API_KEY_NAME,
             asset_limits=[
                 APIKeyLimits(
-                    model="640b517694bf816d35a59125",
+                    model="69b7e5f1b2fe44704ab0e7d0",
                     token_per_minute=100,
                     token_per_day=1000,
                     request_per_day=1000,
@@ -329,7 +329,7 @@ def test_08_create_api_key_with_token_type_output(APIKeyFactory):
             name=TEST_API_KEY_NAME,
             asset_limits=[
                 APIKeyLimits(
-                    model="640b517694bf816d35a59125",
+                    model="69b7e5f1b2fe44704ab0e7d0",
                     token_per_minute=100,
                     token_per_day=1000,
                     request_per_day=1000,
@@ -368,7 +368,7 @@ def test_09_create_api_key_with_token_type_total(APIKeyFactory):
             name=TEST_API_KEY_NAME,
             asset_limits=[
                 APIKeyLimits(
-                    model="640b517694bf816d35a59125",
+                    model="69b7e5f1b2fe44704ab0e7d0",
                     token_per_minute=100,
                     token_per_day=1000,
                     request_per_day=1000,
@@ -408,7 +408,7 @@ def test_10_update_api_key_token_type(APIKeyFactory):
             name=TEST_API_KEY_NAME,
             asset_limits=[
                 APIKeyLimits(
-                    model="640b517694bf816d35a59125",
+                    model="69b7e5f1b2fe44704ab0e7d0",
                     token_per_minute=100,
                     token_per_day=1000,
                     request_per_day=1000,

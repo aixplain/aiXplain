@@ -2,7 +2,7 @@
     "name": "Test API Key",
     "asset_limits": [
       {
-        "model": "640b517694bf816d35a59125",
+        "model": "69b7e5f1b2fe44704ab0e7d0",
         "token_per_minute": 100,
         "token_per_day": 1000,
         "request_per_day": 1000,
