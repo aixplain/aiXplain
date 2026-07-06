@@ -175,13 +175,20 @@ class TestAgentRunParamsKwargs:
     def test_session_id(self, client, test_agent):
         """session_id (renamed from sessionId) is sent to the backend and reflected in the response."""
         agent = client.Agent.get(test_agent.id)
-        sid = agent.generate_session_id()
+        session = agent.create_session(name="snake_case_test")
+        sid = session.id
 
-        response = agent.run("ping", session_id=sid)
+        try:
+            response = agent.run("ping", session_id=sid)
 
-        assert response.status == "SUCCESS"
-        assert response.data.session_id is not None
-        assert sid in response.data.session_id
+            assert response.status == "SUCCESS"
+            assert response.data.session_id is not None
+            assert sid in response.data.session_id
+        finally:
+            try:
+                session.delete()
+            except Exception:
+                pass
 
     def test_execution_params(self, client, test_agent):
         """execution_params (renamed from executionParams) reaches the backend.
@@ -210,13 +217,20 @@ class TestAgentRunParamsKwargs:
     def test_allow_history_and_session_id(self, client, test_agent):
         """allow_history_and_session_id (renamed from allowHistoryAndSessionId) is accepted."""
         agent = client.Agent.get(test_agent.id)
-        sid = agent.generate_session_id()
+        session = agent.create_session(name="history_test")
+        sid = session.id
 
-        response = agent.run(
-            "ping",
-            session_id=sid,
-            history=[{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}],
-            allow_history_and_session_id=True,
-        )
+        try:
+            response = agent.run(
+                "ping",
+                session_id=sid,
+                history=[{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}],
+                allow_history_and_session_id=True,
+            )
 
-        assert response.status == "SUCCESS"
+            assert response.status == "SUCCESS"
+        finally:
+            try:
+                session.delete()
+            except Exception:
+                pass
