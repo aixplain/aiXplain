@@ -1,27 +1,21 @@
-"""Unit tests for session-level / per-message tool-parameter overrides.
+"""Unit tests for tool-parameter overrides through the session run path (PROD-2481).
 
-PROD-2481. Sessions extend the per-tool override shape introduced for
-single-shot runs in #967 (``tools=[{"id": <id>, "parameters": {...}}]``):
-
-* A session may be created carrying session-level per-tool params, persisted
-  inside ``executionConfig.tools`` as the platform ``[{id, parameters:
-  [{name, value}]}]`` shape.
-* A message added to a session (or a ``via_session=True`` run) may override
-  those params per message — the message POST carries its own ``tools``,
-  which the backend merges over the session-level params by tool id.
-* ``via_session=True`` must no longer silently drop ``tools`` (the confirmed
-  bug): the run-time ``tools`` kwarg becomes the per-message override.
-
-These tests mock the HTTP/client layer and assert the payloads carry the
-normalized ``tools``. They mirror ``test_agent_tool_parameters.py`` and
-``test_agent_via_session.py``.
+Per-tool parameters are set by mutating the agent's tool objects (object API).
+``run(via_session=True)`` serializes the agent's *current* tool parameter state
+into the per-message override, matching the single-shot run path. The
+session-level ``tools`` dict kwargs that PR #967 added were removed in favor of
+this object-based flow.
 """
 
 from typing import Any, Dict, List
 from unittest.mock import Mock
 
+import pytest
+
 from aixplain.v2.agent import Agent
+from aixplain.v2.model import Model, Parameter
 from aixplain.v2.session import ExecutionConfig, Session, SessionMessage
+from aixplain.v2.tool import Tool
 
 
 def _params_as_dict(parameters: List[dict]) -> Dict[str, Any]:
@@ -35,6 +29,8 @@ def _tool_by_id(tools: List[dict], tool_id: str) -> dict:
 def _make_mock_context(**overrides):
     client = Mock()
     ctx = Mock(client=client, backend_url="https://platform-api.aixplain.com", api_key="test_key")
+    ctx.Model = Model
+    ctx.Tool = Tool
     for k, v in overrides.items():
         setattr(ctx, k, v)
     return ctx
@@ -58,81 +54,34 @@ def _user_message(request_id="req_abc"):
     )
 
 
+def _model_tool(temperature: Any = None) -> Model:
+    model = Model(id="m2", name="translate", params=[Parameter(name="temperature", data_type="number")])
+    if temperature is not None:
+        model.inputs.temperature = temperature
+    return model
+
+
 # ---------------------------------------------------------------------------
-# ExecutionConfig carries normalized tools into the session-create payload.
+# ExecutionConfig no longer carries a session-level tools override.
 # ---------------------------------------------------------------------------
 
 
-class TestExecutionConfigTools:
-    def test_to_api_dict_includes_tools(self):
-        cfg = ExecutionConfig(
-            tools=[{"id": "tool-1", "parameters": [{"name": "top_k", "value": 5}]}],
-        )
-        api = cfg.to_api_dict()
-        tool = _tool_by_id(api["tools"], "tool-1")
-        assert _params_as_dict(tool["parameters"]) == {"top_k": 5}
-
-    def test_to_api_dict_omits_tools_when_unset(self):
+class TestExecutionConfigNoTools:
+    def test_to_api_dict_has_no_tools(self):
         assert "tools" not in ExecutionConfig(criteria="x").to_api_dict()
 
-    def test_coerce_dict_roundtrips_tools(self):
-        cfg = ExecutionConfig.coerce({"tools": [{"id": "tool-1", "parameters": [{"name": "lang", "value": "es"}]}]})
-        assert cfg.tools == [{"id": "tool-1", "parameters": [{"name": "lang", "value": "es"}]}]
+    def test_execution_config_has_no_tools_field(self):
+        assert "tools" not in ExecutionConfig().__dict__
 
-
-# ---------------------------------------------------------------------------
-# create_session forwards session-level tool params (normalized).
-# ---------------------------------------------------------------------------
-
-
-class TestCreateSessionTools:
-    def test_create_session_normalizes_session_level_tools(self):
-        ctx = _make_mock_context()
-
-        class BoundSession(Session):
-            context = ctx
-
-        captured = {}
-
-        def fake_save(self, *a, **kw):
-            self.id = "sess_new"
-            captured["config"] = self.execution_config
-            return self
-
-        BoundSession.save = fake_save
-        ctx.Session = BoundSession
-
-        agent = _bound_agent(ctx)(id="agent_99", name="A")
+    def test_create_session_rejects_tools_kwarg(self):
+        agent = _bound_agent(_make_mock_context())(id="agent_99", name="A")
         agent._update_saved_state()
-
-        agent.create_session(tools=[{"id": "tool-1", "parameters": {"top_k": 7}}])
-
-        cfg = captured["config"]
-        assert isinstance(cfg, ExecutionConfig)
-        tool = _tool_by_id(cfg.tools, "tool-1")
-        assert _params_as_dict(tool["parameters"]) == {"top_k": 7}
-
-    def test_create_session_string_tool_id(self):
-        ctx = _make_mock_context()
-
-        class BoundSession(Session):
-            context = ctx
-
-        captured = {}
-        BoundSession.save = lambda self, *a, **kw: (
-            setattr(self, "id", "s") or captured.update(config=self.execution_config) or self
-        )
-        ctx.Session = BoundSession
-
-        agent = _bound_agent(ctx)(id="agent_99", name="A")
-        agent._update_saved_state()
-
-        agent.create_session(tools=["tool-1"])
-        assert captured["config"].tools == [{"id": "tool-1"}]
+        with pytest.raises(TypeError):
+            agent.create_session(tools=[{"id": "tool-1"}])
 
 
 # ---------------------------------------------------------------------------
-# add_message forwards a per-message tool override in the POST payload.
+# add_message still accepts a per-message tools override in the POST payload.
 # ---------------------------------------------------------------------------
 
 
@@ -167,7 +116,7 @@ class TestAddMessageTools:
 
 
 # ---------------------------------------------------------------------------
-# via_session=True no longer drops tools; it routes them to the message.
+# via_session=True forwards the agent's current tool params as the override.
 # ---------------------------------------------------------------------------
 
 
@@ -183,13 +132,10 @@ class TestRunViaSessionTools:
             "runTime": 0.5,
         }
 
-    def test_via_session_routes_tools_to_message_override(self):
-        ctx = _make_mock_context()
-
+    def _bound_session(self, ctx, add_calls):
         class BoundSession(Session):
             context = ctx
 
-        add_calls = []
         BoundSession.save = lambda self, *a, **kw: setattr(self, "id", "sess_new") or self
 
         def fake_add_message(self, role, content, **kw):
@@ -198,36 +144,26 @@ class TestRunViaSessionTools:
 
         BoundSession.add_message = fake_add_message
         ctx.Session = BoundSession
+
+    def test_via_session_routes_agent_tool_params(self):
+        ctx = _make_mock_context()
+        add_calls: List[dict] = []
+        self._bound_session(ctx, add_calls)
         self._wire_poll_success(ctx, "req_xyz")
 
-        agent = _bound_agent(ctx)(id="agent_99", name="A")
+        agent = _bound_agent(ctx)(id="agent_99", name="A", tools=[_model_tool(temperature=0.7)])
         agent._update_saved_state()
 
-        agent.run(
-            "hi",
-            via_session=True,
-            tools=[{"id": "tool-1", "parameters": {"top_k": 3}}],
-        )
+        agent.run("hi", via_session=True)
 
         assert len(add_calls) == 1
-        tool = _tool_by_id(add_calls[0]["tools"], "tool-1")
-        assert _params_as_dict(tool["parameters"]) == {"top_k": 3}
+        tool = _tool_by_id(add_calls[0]["tools"], "m2")
+        assert _params_as_dict(tool["parameters"]) == {"temperature": 0.7}
 
-    def test_via_session_without_tools_passes_none(self):
+    def test_via_session_without_tool_params_passes_none(self):
         ctx = _make_mock_context()
-
-        class BoundSession(Session):
-            context = ctx
-
-        add_calls = []
-        BoundSession.save = lambda self, *a, **kw: setattr(self, "id", "sess_new") or self
-
-        def fake_add_message(self, role, content, **kw):
-            add_calls.append(kw)
-            return _user_message(request_id="req_xyz")
-
-        BoundSession.add_message = fake_add_message
-        ctx.Session = BoundSession
+        add_calls: List[dict] = []
+        self._bound_session(ctx, add_calls)
         self._wire_poll_success(ctx, "req_xyz")
 
         agent = _bound_agent(ctx)(id="agent_99", name="A")
@@ -238,20 +174,20 @@ class TestRunViaSessionTools:
 
 
 # ---------------------------------------------------------------------------
-# Single-shot (non-session) behavior from #967 is unchanged.
+# Single-shot (non-session) object-API behavior.
 # ---------------------------------------------------------------------------
 
 
-class TestSingleShotUnchanged:
-    def test_run_payload_still_normalizes_tools(self):
-        agent = Agent(name="n", description="d")
+class TestSingleShot:
+    def test_run_payload_carries_object_tool_params(self):
+        agent = Agent(name="n", description="d", tools=[_model_tool(temperature=0.8)])
         agent.context = Mock()
         agent.id = "agent-1"
-        payload = agent.build_run_payload(query="hi", tools=[{"id": "tool-1", "parameters": {"top_k": 8}}])
-        assert _params_as_dict(_tool_by_id(payload["tools"], "tool-1")["parameters"]) == {"top_k": 8}
+        payload = agent.build_run_payload(query="hi")
+        assert _params_as_dict(_tool_by_id(payload["tools"], "m2")["parameters"]) == {"temperature": 0.8}
 
-    def test_save_payload_still_normalizes_tools(self):
-        agent = Agent(name="n", description="d", tools=[{"id": "tool-1", "parameters": {"top_k": 5}}])
+    def test_save_payload_carries_object_tool_params(self):
+        agent = Agent(name="n", description="d", tools=[_model_tool(temperature=0.5)])
         agent.context = Mock()
         payload = agent.build_save_payload()
-        assert _params_as_dict(_tool_by_id(payload["tools"], "tool-1")["parameters"]) == {"top_k": 5}
+        assert _params_as_dict(_tool_by_id(payload["tools"], "m2")["parameters"]) == {"temperature": 0.5}
