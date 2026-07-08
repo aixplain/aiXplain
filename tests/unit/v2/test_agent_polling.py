@@ -58,6 +58,53 @@ class TestAgentRunResultExecutionId:
 
         assert result.diagnostic_error_codes == ["MAX_TOKENS_REACHED", "TOOL_FAILED"]
 
+    def test_diagnostic_error_codes_promoted_from_data(self):
+        """The backend poll body carries the codes at data.diagnosticErrorCodes,
+        not top-level — they must surface on the result."""
+        result = AgentRunResult.from_dict(
+            {
+                "status": "SUCCESS",
+                "completed": True,
+                "data": {
+                    "input": "q",
+                    "output": "truncated text",
+                    "diagnosticErrorCodes": ["MAX_TOKENS_REACHED"],
+                    "executionStats": {"diagnostic_error_codes": ["MAX_TOKENS_REACHED"]},
+                },
+            }
+        )
+
+        assert result.diagnostic_error_codes == ["MAX_TOKENS_REACHED"]
+        assert result.data.diagnostic_error_codes == ["MAX_TOKENS_REACHED"]
+
+    def test_diagnostic_error_codes_fall_back_to_execution_stats(self):
+        """Older backends only carry the codes inside executionStats."""
+        result = AgentRunResult.from_dict(
+            {
+                "status": "SUCCESS",
+                "completed": True,
+                "data": {
+                    "input": "q",
+                    "output": "truncated text",
+                    "executionStats": {"diagnostic_error_codes": ["MAX_TOKENS_REACHED"]},
+                },
+            }
+        )
+
+        assert result.diagnostic_error_codes == ["MAX_TOKENS_REACHED"]
+
+    def test_top_level_diagnostic_error_codes_win_over_data(self):
+        result = AgentRunResult.from_dict(
+            {
+                "status": "SUCCESS",
+                "completed": True,
+                "diagnosticErrorCodes": ["TOOL_FAILED"],
+                "data": {"diagnosticErrorCodes": ["MAX_TOKENS_REACHED"]},
+            }
+        )
+
+        assert result.diagnostic_error_codes == ["TOOL_FAILED"]
+
     def test_execution_id_from_request_id(self):
         """Should return request_id directly when available."""
         result = AgentRunResult(

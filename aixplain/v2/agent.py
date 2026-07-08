@@ -324,6 +324,7 @@ class AgentResponseData:
     steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
+    diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
     critiques: Optional[str] = ""
     governance: Optional[Dict[str, Any]] = None
     _governance_status: Optional[str] = field(
@@ -357,6 +358,35 @@ class AgentRunResult(Result):
     used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
     run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
+
+    def __post_init__(self) -> None:
+        """Promote diagnostic codes the backend nests under ``data``.
+
+        The poll body carries them at ``data.diagnosticErrorCodes`` (or only
+        inside ``executionStats`` on older builds), never top-level.
+        """
+        if not self.diagnostic_error_codes:
+            self.diagnostic_error_codes = self._codes_from_data()
+
+    def _codes_from_data(self) -> List[str]:
+        """Extract diagnostic codes from ``data`` or its execution stats."""
+        data = self.data
+        if isinstance(data, AgentResponseData):
+            if data.diagnostic_error_codes:
+                return list(data.diagnostic_error_codes)
+            stats = data.execution_stats
+        elif isinstance(data, dict):
+            codes = data.get("diagnosticErrorCodes") or data.get("diagnostic_error_codes")
+            if codes:
+                return list(codes)
+            stats = data.get("executionStats") or data.get("execution_stats")
+        else:
+            return []
+        if isinstance(stats, dict):
+            codes = stats.get("diagnostic_error_codes") or stats.get("diagnosticErrorCodes")
+            if codes:
+                return list(codes)
+        return []
 
     # Internal reference to client context for debug() method
     _context: Optional[Any] = field(
