@@ -4,7 +4,8 @@ import os
 import logging
 import mimetypes
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, InitVar
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from pathlib import Path
 
@@ -16,8 +17,11 @@ from .resource import (
     BaseResource,
     GetResourceMixin,
     DeleteResourceMixin,
+    SearchResourceMixin,
     BaseGetParams,
     BaseDeleteParams,
+    BaseSearchParams,
+    Page,
 )
 
 logger = logging.getLogger(__name__)
@@ -260,6 +264,31 @@ def _deserialize(cls, data: dict, description: str):
         raise ResourceError(f"Failed to parse {description}: {e}. Response data: {str(data)[:200]}")
 
 
+def _resolve_agent_id(agent: Any) -> Optional[str]:
+    """Resolve an ``agent`` argument (Agent instance or id string) to its id.
+
+    Accepts ``None`` (returns ``None``), a plain id string, or any object
+    exposing an ``id`` attribute (an :class:`~aixplain.v2.agent.Agent`). Used by
+    both ``Session(agent=…)`` and ``Session.search(agent=…)`` so callers can pass
+    an agent object interchangeably with its id.
+    """
+    if agent is None:
+        return None
+    if isinstance(agent, str):
+        return agent
+    agent_id = getattr(agent, "id", None)
+    if not agent_id:
+        raise ResourceError("agent must be a saved Agent (with an id) or an agent id string")
+    return agent_id
+
+
+def _to_iso(value: Any) -> str:
+    """Serialize a date filter value (``datetime`` or string) to an ISO string."""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
 @dataclass_json
 @dataclass
 class SessionMessageAttachment:
@@ -460,10 +489,28 @@ class Session(
     BaseResource,
     GetResourceMixin[BaseGetParams, "Session"],
     DeleteResourceMixin[BaseDeleteParams, "Session"],
+    SearchResourceMixin[BaseSearchParams, "Session"],
 ):
-    """Session resource for managing agent conversation sessions."""
+    """Session resource for managing agent conversation sessions.
+
+    Sessions are the single entry point for conversation threads: create with
+    ``aix.Session(agent=…)`` + ``save()``, find with ``aix.Session.search(agent=…)``,
+    and drive with ``agent.run(query, session=…)``. Each session is bound to one
+    agent (``agent_id``).
+    """
 
     RESOURCE_PATH = "v1/sessions"
+
+    # The session list endpoint is a plain ``GET /v1/sessions`` with query-param
+    # filters — not the standard ``POST {path}/paginate``. ``search`` is fully
+    # overridden below to honor that shape while still returning a ``Page``.
+    PAGINATE_PATH = ""
+    PAGINATE_METHOD = "get"
+
+    # ``agent`` is an init-only convenience: ``Session(agent=agent_or_id)`` sets
+    # ``agent_id``. Not a serialized field (InitVar), so it never appears on the
+    # wire and deserialization (which never passes it) keeps the stored id.
+    agent: InitVar[Optional[Any]] = None
 
     user_id: str = field(default="", metadata=config(field_name="userId"))
     agent_id: str = field(default="", metadata=config(field_name="agentId"))
@@ -477,8 +524,12 @@ class Session(
     updated_at: str = field(default="", metadata=config(field_name="updatedAt"))
     execution_config: Optional[ExecutionConfig] = field(default=None, metadata=config(field_name="executionConfig"))
 
-    def __post_init__(self) -> None:
-        """Coerce dict execution_config (e.g. from kwargs) into ExecutionConfig."""
+    def __post_init__(self, agent: Optional[Any] = None) -> None:
+        """Resolve the ``agent`` convenience arg and coerce ``execution_config``."""
+        if agent is not None:
+            resolved = _resolve_agent_id(agent)
+            if resolved:
+                self.agent_id = resolved
         if self.execution_config is not None and not isinstance(self.execution_config, ExecutionConfig):
             self.execution_config = ExecutionConfig.coerce(self.execution_config)
 
@@ -520,24 +571,47 @@ class Session(
         return payload
 
     @classmethod
-    def list(
+    def search(
         cls,
-        agent_id: Optional[str] = None,
+        agent: Optional[Any] = None,
         status: Optional[str] = None,
         user_id: Optional[str] = None,
-    ) -> List["Session"]:
-        """List sessions with optional filters.
+        created_after: Optional[Union[str, datetime]] = None,
+        created_before: Optional[Union[str, datetime]] = None,
+        memory_enabled: Optional[bool] = None,
+        page_number: int = 0,
+        page_size: int = 20,
+        **kwargs: Any,
+    ) -> Page["Session"]:
+        """Search sessions with optional filters, returning a paginated ``Page``.
+
+        The single, standard way to list sessions (there is no ``agent.list_sessions()``
+        and no bespoke ``Session.list()``). Mirrors the ``search`` on every other
+        asset, but hits the session list endpoint (a plain ``GET /v1/sessions``
+        with query-param filters) and wraps the result in a ``Page``.
 
         Args:
-            agent_id: Filter by agent ID.
-            status: Filter by session status.
-            user_id: Filter by user ID.
+            agent: Filter by agent — an :class:`~aixplain.v2.agent.Agent` instance
+                or an agent id string.
+            status: Filter by session status (e.g. ``"active"``).
+            user_id: Filter by owning user id.
+            created_after: Lower bound on the session's creation time
+                (``datetime`` or ISO string).
+            created_before: Upper bound on the session's creation time.
+            memory_enabled: When ``True`` return memory-on threads (sessions with
+                persisted traces); when ``False`` return memory-off runs. ``None``
+                (default) applies no memory filter. *(Backend filter delivery is a
+                follow-up; the SDK forwards the parameter today.)*
+            page_number: Zero-indexed page number (default 0).
+            page_size: Page size (default 20).
+            **kwargs: Accepted for forward compatibility with the standard
+                search signature; ignored by the session list endpoint.
 
         Returns:
-            List of Session instances.
+            Page[Session]: A page of Session instances.
 
         Raises:
-            ResourceError: If the API response is not a list or
+            ResourceError: If the API response cannot be parsed or
                 deserialization fails.
             APIError: If the API request fails.
         """
@@ -545,29 +619,49 @@ class Session(
         if context is None:
             raise ResourceError("Context is required for resource operations")
 
-        params: Dict[str, str] = {}
+        params: Dict[str, Any] = {}
+        agent_id = _resolve_agent_id(agent)
         if agent_id is not None:
             params["agentId"] = agent_id
         if status is not None:
             params["status"] = status
         if user_id is not None:
             params["userId"] = user_id
+        if created_after is not None:
+            params["createdAfter"] = _to_iso(created_after)
+        if created_before is not None:
+            params["createdBefore"] = _to_iso(created_before)
+        if memory_enabled is not None:
+            params["memoryEnabled"] = memory_enabled
+        params["pageNumber"] = page_number
+        params["pageSize"] = page_size
 
         try:
             response = context.client.request("get", cls.RESOURCE_PATH, params=params)
         except APIError:
             raise
         except Exception as e:
-            raise ResourceError(f"Failed to list sessions: {e}")
+            raise ResourceError(f"Failed to search sessions: {e}")
 
-        items = _parse_list_response(response, "sessions")
-        sessions = []
+        # The backend returns a bare JSON array today; tolerate a paginated dict
+        # too so a future backend change (envelope with total/pageTotal) still works.
+        if isinstance(response, dict):
+            items = response.get(cls.PAGINATE_ITEMS_KEY) or response.get("items") or []
+            total = response.get(cls.PAGINATE_TOTAL_KEY, len(items))
+            page_total = response.get(cls.PAGINATE_PAGE_TOTAL_KEY, 1)
+        else:
+            items = _parse_list_response(response, "sessions")
+            total = len(items)
+            page_total = 1
+
+        results: List["Session"] = []
         for item in items:
             session = _deserialize(cls, item, "session")
             session.context = context
             session._update_saved_state()
-            sessions.append(session)
-        return sessions
+            results.append(session)
+
+        return Page(results=results, page_number=page_number, page_total=page_total, total=total)
 
     def messages(self) -> List[SessionMessage]:
         """Get all messages in this session.
@@ -621,7 +715,7 @@ class Session(
             tools: Per-message per-tool parameter overrides in the platform
                 ``[{id, parameters: [{name, value}]}]`` shape, applied to the
                 run this message triggers. Normally populated automatically from
-                the agent's tool objects by ``run(via_session=True)``.
+                the agent's tool objects by ``agent.run(query, session=…)``.
 
         Returns:
             The created SessionMessage.

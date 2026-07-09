@@ -172,14 +172,15 @@ class TestAgentRunParamsKwargs:
     call agent.run() with the snake_case kwarg → backend accepts and responds.
     """
 
-    def test_session_id(self, client, test_agent):
-        """session_id (renamed from sessionId) is sent to the backend and reflected in the response."""
+    def test_session(self, client, test_agent):
+        """session=… routes the run through the session and reflects the id in the response."""
         agent = client.Agent.get(test_agent.id)
-        session = agent.create_session(name="snake_case_test")
+        session = client.Session(agent=agent, name="snake_case_test")
+        session.save()
         sid = session.id
 
         try:
-            response = agent.run("ping", session_id=sid)
+            response = agent.run("ping", session=session)
 
             assert response.status == "SUCCESS"
             assert response.data.session_id is not None
@@ -214,23 +215,17 @@ class TestAgentRunParamsKwargs:
 
         assert response.status == "SUCCESS"
 
-    def test_allow_history_and_session_id(self, client, test_agent):
-        """allow_history_and_session_id (renamed from allowHistoryAndSessionId) is accepted."""
+    def test_history_on_direct_run(self, client, test_agent):
+        """history (a legacy direct-run kwarg) is accepted on a sessionless run.
+
+        Conversation continuity now flows through session=… rather than
+        combining history with a session in one run.
+        """
         agent = client.Agent.get(test_agent.id)
-        session = agent.create_session(name="history_test")
-        sid = session.id
 
-        try:
-            response = agent.run(
-                "ping",
-                session_id=sid,
-                history=[{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}],
-                allow_history_and_session_id=True,
-            )
+        response = agent.run(
+            "ping",
+            history=[{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}],
+        )
 
-            assert response.status == "SUCCESS"
-        finally:
-            try:
-                session.delete()
-            except Exception:
-                pass
+        assert response.status == "SUCCESS"
