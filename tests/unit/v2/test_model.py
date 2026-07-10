@@ -595,6 +595,55 @@ class TestModelStreaming:
         with pytest.raises(StopIteration):
             next(streamer)
 
+    def test_streamer_parses_reasoning_content_deltas(self):
+        """ModelResponseStreamer should preserve delta.reasoning_content from OpenAI chunks.
+
+        Covers three cases: a reasoning-only chunk (empty ``content``) must still be
+        yielded with ``data == ""``, a mixed chunk must carry both, and a plain
+        content chunk must leave ``reasoning_content`` as None.
+        """
+        streamer = self._create_streamer(
+            [
+                'data: {"id":"chatcmpl-r","choices":[{"index":0,"delta":{"reasoning_content":"Let me think"},"finish_reason":null}],"usage":null}',
+                'data: {"id":"chatcmpl-r","choices":[{"index":0,"delta":{"content":"Answer","reasoning_content":" more"},"finish_reason":null}],"usage":null}',
+                'data: {"id":"chatcmpl-r","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}],"usage":null}',
+                "data: [DONE]",
+            ]
+        )
+
+        reasoning_only = next(streamer)
+        mixed = next(streamer)
+        content_only = next(streamer)
+
+        assert reasoning_only.data == ""
+        assert reasoning_only.reasoning_content == "Let me think"
+
+        assert mixed.data == "Answer"
+        assert mixed.reasoning_content == " more"
+
+        assert content_only.data == "!"
+        assert content_only.reasoning_content is None
+
+        with pytest.raises(StopIteration):
+            next(streamer)
+
+    def test_streamer_content_only_chunk_leaves_reasoning_content_none(self):
+        """A content-only OpenAI chunk should stream unchanged with reasoning_content None."""
+        streamer = self._create_streamer(
+            [
+                'data: {"id":"chatcmpl-c","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}],"usage":null}',
+                "data: [DONE]",
+            ]
+        )
+
+        chunk = next(streamer)
+
+        assert chunk.data == "Hello"
+        assert chunk.reasoning_content is None
+        assert chunk.tool_calls is None
+        assert chunk.usage is None
+        assert chunk.finish_reason is None
+
     def test_streamer_normalizes_single_tool_call_object(self):
         """ModelResponseStreamer should normalize a single tool_call object to a list."""
         streamer = self._create_streamer(
@@ -750,6 +799,61 @@ class TestModelIntegrationGaps:
         assert message.tool_calls is not None
         assert message.tool_calls[0]["function"]["name"] == "get_current_time"
         assert message.tool_calls[0]["function"]["arguments"] == '{"city":"Tokyo"}'
+
+    def test_message_deserializes_reasoning_content(self):
+        """ModelResult parsing should preserve reasoning_content from reasoning LLMs.
+
+        For some reasoning models (e.g. Qwen 3.6 35B A3B) the platform routes all
+        completion tokens into ``reasoning_content`` while ``content``/``data`` stay
+        empty; the field must survive deserialization instead of being dropped.
+        """
+        payload = {
+            "details": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "reasoning_content": "Here's a thinking sequence\n\n1. Deconstruct the prompt: ...",
+                        "name": None,
+                        "tool_calls": [],
+                    },
+                    "finish_reason": "length",
+                    "logprobs": None,
+                }
+            ],
+            "status": "SUCCESS",
+            "completed": True,
+            "data": "",
+            "usage": {"prompt_tokens": "26", "completion_tokens": "80", "total_tokens": 106},
+        }
+
+        result = ModelResult.from_dict(payload)
+
+        message = result.details[0].message
+        assert isinstance(message, Message)
+        assert message.content == ""
+        assert message.reasoning_content == "Here's a thinking sequence\n\n1. Deconstruct the prompt: ..."
+
+    def test_message_without_reasoning_content_defaults_to_none(self):
+        """A message without reasoning_content should deserialize with reasoning_content is None."""
+        payload = {
+            "status": "SUCCESS",
+            "completed": True,
+            "details": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "Hello, world!"},
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+
+        result = ModelResult.from_dict(payload)
+
+        message = result.details[0].message
+        assert message.content == "Hello, world!"
+        assert message.reasoning_content is None
 
     def test_guardrail_response_with_dict_details_deserializes(self):
         """ModelResult parsing should tolerate a non-list ``details`` payload.

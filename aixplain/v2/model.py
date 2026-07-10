@@ -47,6 +47,7 @@ class Message:
 
     role: str
     content: Optional[str] = None
+    reasoning_content: Optional[str] = None
     tool_calls: Optional[List[dict[str, Any]]] = None
     refusal: Optional[str] = None
     annotations: List[Any] = field(default_factory=list)
@@ -156,6 +157,7 @@ class StreamChunk:
     Attributes:
         status: The current status of the streaming operation (IN_PROGRESS or SUCCESS)
         data: The content/token of this chunk
+        reasoning_content: Reasoning-model chain-of-thought text delta, when provided
         tool_calls: Tool call deltas when stream uses OpenAI-style chunk format
         usage: Usage payload when provided in a stream chunk
         finish_reason: Completion reason for the current choice, when provided
@@ -163,6 +165,7 @@ class StreamChunk:
 
     status: ResponseStatus
     data: str
+    reasoning_content: Optional[str] = None
     tool_calls: Optional[List[dict[str, Any]]] = None
     usage: Optional[dict[str, Any]] = None
     finish_reason: Optional[str] = None
@@ -299,6 +302,9 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                 content = delta.get("content")
                 content = content if isinstance(content, str) else ""
 
+                reasoning_content = delta.get("reasoning_content")
+                reasoning_content = reasoning_content if isinstance(reasoning_content, str) else None
+
                 tool_calls = delta.get("tool_calls")
                 if tool_calls is not None and not isinstance(tool_calls, list):
                     tool_calls = [tool_calls]
@@ -312,6 +318,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                 return StreamChunk(
                     status=self.status,
                     data=content,
+                    reasoning_content=reasoning_content,
                     tool_calls=tool_calls,
                     usage=usage,
                     finish_reason=finish_reason,
