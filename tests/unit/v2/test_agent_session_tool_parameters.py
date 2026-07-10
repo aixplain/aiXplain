@@ -1,7 +1,7 @@
 """Unit tests for tool-parameter overrides through the session run path (PROD-2481).
 
 Per-tool parameters are set by mutating the agent's tool objects (object API).
-``run(via_session=True)`` serializes the agent's *current* tool parameter state
+``run(query, session=…)`` serializes the agent's *current* tool parameter state
 into the per-message override, matching the single-shot run path. The
 session-level ``tools`` dict kwargs that PR #967 added were removed in favor of
 this object-based flow.
@@ -73,11 +73,11 @@ class TestExecutionConfigNoTools:
     def test_execution_config_has_no_tools_field(self):
         assert "tools" not in ExecutionConfig().__dict__
 
-    def test_create_session_rejects_tools_kwarg(self):
-        agent = _bound_agent(_make_mock_context())(id="agent_99", name="A")
-        agent._update_saved_state()
+    def test_session_rejects_tools_kwarg(self):
+        # Session carries no session-level tools override; per-tool params flow
+        # through the object API + the per-message tools override instead.
         with pytest.raises(TypeError):
-            agent.create_session(tools=[{"id": "tool-1"}])
+            Session(agent_id="agent_99", tools=[{"id": "tool-1"}])
 
 
 # ---------------------------------------------------------------------------
@@ -116,11 +116,11 @@ class TestAddMessageTools:
 
 
 # ---------------------------------------------------------------------------
-# via_session=True forwards the agent's current tool params as the override.
+# run(query, session=…) forwards the agent's current tool params as the override.
 # ---------------------------------------------------------------------------
 
 
-class TestRunViaSessionTools:
+class TestRunWithSessionTools:
     def _wire_poll_success(self, ctx, request_id):
         ctx.client.get.return_value = {
             "status": "SUCCESS",
@@ -136,40 +136,41 @@ class TestRunViaSessionTools:
         class BoundSession(Session):
             context = ctx
 
-        BoundSession.save = lambda self, *a, **kw: setattr(self, "id", "sess_new") or self
-
         def fake_add_message(self, role, content, **kw):
             add_calls.append(kw)
             return _user_message(request_id="req_xyz")
 
         BoundSession.add_message = fake_add_message
         ctx.Session = BoundSession
+        session = BoundSession(agent_id="agent_99", name="A")
+        session.id = "sess_new"
+        return session
 
-    def test_via_session_routes_agent_tool_params(self):
+    def test_session_run_routes_agent_tool_params(self):
         ctx = _make_mock_context()
         add_calls: List[dict] = []
-        self._bound_session(ctx, add_calls)
+        session = self._bound_session(ctx, add_calls)
         self._wire_poll_success(ctx, "req_xyz")
 
         agent = _bound_agent(ctx)(id="agent_99", name="A", tools=[_model_tool(temperature=0.7)])
         agent._update_saved_state()
 
-        agent.run("hi", via_session=True)
+        agent.run("hi", session=session)
 
         assert len(add_calls) == 1
         tool = _tool_by_id(add_calls[0]["tools"], "m2")
         assert _params_as_dict(tool["parameters"]) == {"temperature": 0.7}
 
-    def test_via_session_without_tool_params_passes_none(self):
+    def test_session_run_without_tool_params_passes_none(self):
         ctx = _make_mock_context()
         add_calls: List[dict] = []
-        self._bound_session(ctx, add_calls)
+        session = self._bound_session(ctx, add_calls)
         self._wire_poll_success(ctx, "req_xyz")
 
         agent = _bound_agent(ctx)(id="agent_99", name="A")
         agent._update_saved_state()
 
-        agent.run("hi", via_session=True)
+        agent.run("hi", session=session)
         assert add_calls[0].get("tools") is None
 
 

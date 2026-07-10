@@ -231,11 +231,13 @@ class AgentRunParams(BaseRunParams):
     """Parameters for running an agent.
 
     Attributes:
-        session_id: Session ID for conversation continuity
+        session: Conversation thread to run within. A
+            :class:`~aixplain.v2.session.Session` instance or a session id
+            string. Omit for a one-shot, stateless run. Replaces the removed
+            ``via_session`` flag and id-only ``session_id``.
         query: The query to run
         variables: Variables to replace {{variable}} placeholders in instructions and description.
             The backend performs the actual substitution.
-        allow_history_and_session_id: Allow both history and session ID
         tasks: List of tasks for the agent
         prompt: Custom prompt override
         history: Conversation history
@@ -259,10 +261,9 @@ class AgentRunParams(BaseRunParams):
         progress_truncate: Whether to truncate long text in progress display
     """
 
-    session_id: NotRequired[Optional[Text]]
+    session: NotRequired[Optional[Union["Session", Text]]]
     query: NotRequired[Optional[Union[Dict, Text]]]
     variables: NotRequired[Optional[Dict[str, Any]]]
-    allow_history_and_session_id: NotRequired[Optional[bool]]
     tasks: NotRequired[Optional[List[Any]]]
     prompt: NotRequired[Optional[Text]]
     history: NotRequired[Optional[List[ConversationMessage]]]
@@ -272,7 +273,6 @@ class AgentRunParams(BaseRunParams):
     identifier: NotRequired[Optional[Text]]
     inspectors: NotRequired[Optional[List[Dict]]]
     run_response_generation: NotRequired[Optional[bool]]
-    via_session: NotRequired[Optional[bool]]
     attachments: NotRequired[Optional[List[Union[str, Dict[str, Any]]]]]
     files: NotRequired[Optional[List[Any]]]
     progress_format: NotRequired[Optional[Text]]
@@ -832,8 +832,6 @@ class Agent(
         return None  # Return original result
 
     _SNAKE_TO_CAMEL: ClassVar[Dict[str, str]] = {
-        "session_id": "sessionId",
-        "allow_history_and_session_id": "allowHistoryAndSessionId",
         "execution_params": "executionParams",
         "run_response_generation": "runResponseGeneration",
     }
@@ -926,15 +924,16 @@ class Agent(
         Args:
             *args: Positional arguments (first arg is treated as query)
             query: The query to run
-            via_session: When True, opt into the new sessions+messages
-                run path: a Session is created (or reused via
-                ``session_id``) carrying the supplied execution params
-                as its ``executionConfig``, the user message is posted,
-                and the run is awaited via session message polling.
-                Default False keeps the legacy
-                ``/v2/agents/{id}/run`` path. Sessions auto-created by
-                ``via_session=True`` persist; clean up via
-                ``agent.list_sessions()`` and ``session.delete()``.
+            session: Run within a conversation thread. Accepts a
+                :class:`~aixplain.v2.session.Session` instance or a session id
+                string. When supplied, the run routes through the session path:
+                the user message is posted to
+                ``POST /v1/sessions/{id}/messages`` (carrying the session's
+                ``executionConfig`` plus any per-run execution overrides) and the
+                triggered agent run is awaited. Omit ``session`` for a one-shot,
+                stateless run over ``POST /v2/agents/{id}/run``. There is no
+                ``via_session`` flag and no id-only ``session_id`` — manage
+                threads through ``aix.Session`` and pass them here.
             progress_format: Display format - "status" or "logs". If None (default),
                            progress tracking is disabled.
             progress_verbosity: Detail level 1-3 (default: 1)
@@ -948,8 +947,9 @@ class Agent(
             kwargs["query"] = args[0]
             args = args[1:]
 
-        if kwargs.pop("via_session", False):
-            return self._run_via_session(**kwargs)
+        session = kwargs.pop("session", None)
+        if session is not None:
+            return self._run_with_session(session, **kwargs)
 
         return super().run(*args, **kwargs)
 
@@ -972,9 +972,9 @@ class Agent(
             kwargs["query"] = args[0]
             args = args[1:]
 
-        if kwargs.get("via_session"):
+        if kwargs.pop("session", None) is not None:
             raise NotImplementedError(
-                "via_session=True is sync-only for now; use agent.run(...) or "
+                "session=… runs are sync-only for now; use agent.run(...) or "
                 "session.add_message() + session.messages() directly."
             )
 
@@ -2049,175 +2049,11 @@ class Agent(
                         values[name] = value
         return values
 
-    def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
-        """Generate a session ID for agent conversations.
-
-        .. deprecated::
-            Use :meth:`create_session` instead, which returns a full
-            backend-managed :class:`~aixplain.v2.session.Session` object.
-            This method is a thin backward-compatible shim that delegates
-            to ``create_session`` and returns only the new session's ID.
-            It will be removed in a future release.
-
-        Args:
-            history: Optional conversation history to seed the session with.
-                Each message must have 'role' and 'content' keys.
-
-        Returns:
-            str: The ID of the newly created backend-managed session.
-
-        Raises:
-            ValueError: If the history format is invalid.
-        """
-        warnings.warn(
-            "generate_session_id() is deprecated and will be removed in a "
-            "future release. Use create_session() instead, which returns a "
-            "backend-managed Session object.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        # Preserve the legacy auto-save behavior: callers relied on this
-        # method persisting an unsaved agent for them. create_session()
-        # itself requires a saved agent and would otherwise raise.
-        if not self.id:
-            self.save(as_draft=True)
-
-        session = self.create_session(history=history)
-        return session.id
-
-    def create_session(
-        self,
-        name: Optional[str] = None,
-        history: Optional[List[ConversationMessage]] = None,
-        execution_config: Optional[Union["ExecutionConfig", Dict[str, Any]]] = None,
-        execution_params: Optional[Dict[str, Any]] = None,
-        criteria: Optional[str] = None,
-        evolve: Optional[str] = None,
-        identifier: Optional[str] = None,
-        run_response_generation: Optional[bool] = None,
-    ) -> "Session":
-        """Create a new backend-managed session for this agent.
-
-        Args:
-            name: Optional human-readable name for the session.
-            history: Optional conversation history to seed the session with.
-                Each message must have 'role' and 'content' keys.
-                Messages may also include optional 'attachments'
-                (pre-built dicts with url/name/type) and/or 'files'
-                (local file paths to upload).
-            execution_config: Full ExecutionConfig (or equivalent dict) to
-                attach to the session. Subsequent user messages will run
-                the agent with these parameters. Mutually exclusive with
-                the individual ``execution_params``/``criteria``/etc.
-                shortcuts below.
-            execution_params: Backend execution params (output format, max
-                tokens, etc.). Mirrors the ``execution_params`` argument
-                accepted by ``agent.run()``.
-            criteria: Free-form evaluation criteria sent to the agent.
-            evolve: Evolution config as a JSON string.
-            identifier: Free-form identifier the backend can echo back on
-                messages.
-            run_response_generation: Whether the agent should run its
-                final response-generation step.
-
-        Returns:
-            Session: The created Session instance, pre-populated with
-            history messages when provided.
-
-        Raises:
-            ValueError: If the agent has not been saved yet, if history
-                format is invalid, or if both ``execution_config`` and
-                shortcut kwargs are provided.
-
-        Example:
-            >>> session = agent.create_session(
-            ...     name="My Chat",
-            ...     execution_params={"max_tokens": 1024, "max_iterations": 10},
-            ...     criteria="Be concise",
-            ...     run_response_generation=True,
-            ...     history=[
-            ...         {"role": "user", "content": "Analyze this",
-            ...          "files": ["/tmp/data.csv"]},
-            ...         {"role": "assistant", "content": "Here are the results..."},
-            ...     ],
-            ... )
-        """
-        if not self.id:
-            raise ValueError("Agent must be saved before creating a session. Call agent.save() first.")
-
-        if history:
-            validate_history(history)
-
-        config = self._resolve_execution_config(
-            execution_config=execution_config,
-            execution_params=execution_params,
-            criteria=criteria,
-            evolve=evolve,
-            identifier=identifier,
-            run_response_generation=run_response_generation,
-        )
-
-        session = self.context.Session(agent_id=self.id, name=name, execution_config=config)
-        session.save()
-
-        if history:
-            for message in history:
-                session.add_message(
-                    role=message["role"],
-                    content=message["content"],
-                    attachments=message.get("attachments"),
-                    files=message.get("files"),
-                )
-
-        return session
-
-    @classmethod
-    def _resolve_execution_config(
-        cls,
-        execution_config: Optional[Union["ExecutionConfig", Dict[str, Any]]] = None,
-        execution_params: Optional[Dict[str, Any]] = None,
-        criteria: Optional[str] = None,
-        evolve: Optional[str] = None,
-        identifier: Optional[str] = None,
-        run_response_generation: Optional[bool] = None,
-    ) -> Optional["ExecutionConfig"]:
-        """Combine the explicit and shortcut forms into one ExecutionConfig.
-
-        Returns ``None`` when neither form supplies any value so the
-        Session save payload omits ``executionConfig`` entirely.
-        """
-        from .session import ExecutionConfig
-
-        shortcut_values: Dict[str, Any] = {
-            "execution_params": execution_params,
-            "criteria": criteria,
-            "evolve": evolve,
-            "identifier": identifier,
-            "run_response_generation": run_response_generation,
-        }
-        has_shortcut = any(v is not None for v in shortcut_values.values())
-
-        if execution_config is not None and has_shortcut:
-            raise ValueError(
-                "Pass either 'execution_config' or the individual shortcut "
-                "kwargs (execution_params, criteria, evolve, identifier, "
-                "run_response_generation), not both."
-            )
-
-        if execution_config is not None:
-            return ExecutionConfig.coerce(execution_config)
-
-        if has_shortcut:
-            return ExecutionConfig(**shortcut_values)
-
-        return None
-
     @staticmethod
     def _apply_run_overrides_to_session(session: "Session", kwargs: Dict[str, Any]) -> None:
-        """Apply per-run execution overrides onto a reused session.
+        """Apply per-run execution overrides onto a session.
 
-        When a caller reuses an existing ``session_id`` but also passes
+        When a caller runs within a ``session`` but also passes
         per-run execution kwargs (``execution_params`` / ``criteria`` /
         ``evolve`` / ``identifier`` / ``run_response_generation``), those
         overrides would otherwise be silently dropped — the run would
@@ -2258,9 +2094,9 @@ class Agent(
 
         warnings.warn(
             f"Per-run execution overrides ({', '.join(sorted(provided))}) were "
-            f"passed alongside an existing session_id '{session.id}'. Updating "
-            f"the session's stored executionConfig so the overrides take effect; "
-            f"this also applies to every subsequent message in this session.",
+            f"passed alongside session '{session.id}'. Updating the session's "
+            f"stored executionConfig so the overrides take effect; this also "
+            f"applies to every subsequent message in this session.",
             UserWarning,
             stacklevel=3,
         )
@@ -2273,37 +2109,50 @@ class Agent(
         "inspectors",
         "history",
         "variables",
-        "allow_history_and_session_id",
     )
 
-    def _run_via_session(self, **kwargs: Any) -> AgentRunResult:
-        """Run the agent through a session, using the legacy result endpoint.
+    def _resolve_session(self, session: Any) -> "Session":
+        """Resolve the ``session=`` run argument to a bound :class:`Session`.
+
+        Accepts a :class:`~aixplain.v2.session.Session` instance (bound to this
+        agent's context if it isn't already) or a session id string (fetched via
+        ``Session.get``). Any other type is a ``TypeError``.
+        """
+        from .session import Session
+
+        if isinstance(session, Session):
+            if getattr(session, "context", None) is None:
+                session.context = self.context
+            return session
+        if isinstance(session, str):
+            return self.context.Session.get(session)
+        raise TypeError(f"session must be a Session instance or a session id string, got {type(session).__name__}")
+
+    def _run_with_session(self, session: Any, **kwargs: Any) -> AgentRunResult:
+        """Run the agent within a session, awaiting the triggered run.
 
         Flow:
-        1. Get-or-create a Session carrying the supplied ``executionConfig``.
+        1. Resolve ``session`` (a Session object or id) to a bound Session and
+           merge any per-run execution overrides onto its ``executionConfig``.
         2. POST a ``role="user"`` message via ``session.add_message`` — this
            triggers the agent run on the backend with the session's
            ``executionConfig``. Any ``attachments`` / ``files`` passed to
            ``run`` are forwarded onto the user message so the agent receives
            them (uploaded and attached by ``add_message``).
-        3. Pull the agent run's ``requestId`` off the user message and
-           hand it to ``self.sync_poll`` (the legacy
-           ``/sdk/agents/{request_id}/result`` endpoint), which returns a
-           fully populated ``AgentRunResult`` including ``data.steps``,
-           ``execution_stats``, ``used_credits``, and ``run_time``.
+        3. Pull the agent run's ``requestId`` off the user message and hand it to
+           ``self.sync_poll`` (the ``/sdk/agents/{request_id}/result`` endpoint),
+           which returns a fully populated ``AgentRunResult`` including
+           ``data.steps``, ``execution_stats``, ``used_credits``, and ``run_time``.
 
-        We don't poll session messages for the assistant reply — the
-        backend's session→assistant-message persistence is incomplete on
-        dev today, but the legacy result endpoint is fully populated for
-        the run that the user message triggered.
+        We don't poll session messages for the assistant reply — the run result
+        endpoint is fully populated for the run the user message triggered.
         """
         self._validate_run_dependencies()
 
         offending = [k for k in self._LEGACY_ONLY_RUN_KWARGS if kwargs.get(k) is not None]
         if offending:
             raise ValueError(
-                f"via_session=True does not support legacy run kwargs: {offending}. "
-                "Drop them or run without via_session=True."
+                f"session=… runs do not support legacy run kwargs: {offending}. Drop them or run without a session."
             )
 
         query = kwargs.get("query")
@@ -2312,23 +2161,13 @@ class Agent(
         # The query is optional when attachments carry the turn's input (e.g. an
         # audio clip that is itself the prompt); otherwise a text query is required.
         if query is None and not (attachments or files):
-            raise ValueError("via_session=True requires a query or attachments.")
+            raise ValueError("A session run requires a query or attachments.")
         if query is not None and not isinstance(query, str):
-            raise ValueError("via_session=True only supports string queries.")
+            raise ValueError("session=… only supports string queries.")
         query = query or ""
 
-        session_id = kwargs.get("session_id")
-        if session_id:
-            session = self.context.Session.get(session_id)
-            self._apply_run_overrides_to_session(session, kwargs)
-        else:
-            session = self.create_session(
-                execution_params=kwargs.get("execution_params"),
-                criteria=kwargs.get("criteria"),
-                evolve=kwargs.get("evolve"),
-                identifier=kwargs.get("identifier"),
-                run_response_generation=kwargs.get("run_response_generation"),
-            )
+        session = self._resolve_session(session)
+        self._apply_run_overrides_to_session(session, kwargs)
 
         # The agent's current per-tool parameter state (set by mutating
         # ``agent.tools[i].actions[...].inputs[...]``) becomes the per-message
@@ -2348,7 +2187,7 @@ class Agent(
                 f"session '{session.id}'; cannot poll the agent run result."
             )
 
-        # Same progress-tracker plumbing as the legacy path: sync_poll calls
+        # Same progress-tracker plumbing as the direct path: sync_poll calls
         # self.on_poll(...) on every iteration, which forwards to the tracker.
         self._start_progress_tracker(kwargs)
         try:
@@ -2362,10 +2201,9 @@ class Agent(
             raise
         self._finish_progress_tracker(result)
 
-        # The legacy /sdk/agents/{id}/result response doesn't always echo
-        # back identifiers at the top level — back-fill from what we know
-        # locally so result.session_id / result.request_id are not None
-        # for via_session callers.
+        # The /sdk/agents/{id}/result response doesn't always echo back
+        # identifiers at the top level — back-fill from what we know locally so
+        # result.session_id / result.request_id are not None for session callers.
         if not result.session_id:
             result.session_id = session.id
         if result.data is not None and getattr(result.data, "session_id", None) in (None, ""):
@@ -2374,23 +2212,6 @@ class Agent(
             result.request_id = user_msg.request_id
         result._context = self.context
         return result
-
-    def list_sessions(self, status: Optional[str] = None) -> list:
-        """List sessions for this agent.
-
-        Args:
-            status: Optional status filter (e.g. "active", "completed").
-
-        Returns:
-            List of Session instances belonging to this agent.
-
-        Raises:
-            ValueError: If the agent has not been saved yet.
-        """
-        if not self.id:
-            raise ValueError("Agent must be saved before listing sessions. Call agent.save() first.")
-
-        return self.context.Session.list(agent_id=self.id, status=status)
 
 
 # ``@dataclass_json`` injects its own ``from_dict`` onto the class, which would

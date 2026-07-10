@@ -131,8 +131,11 @@ class TestAgentRunParamsKeys:
 
     def test_snake_case_keys_exist(self):
         hints = AgentRunParams.__annotations__
-        assert "session_id" in hints
-        assert "allow_history_and_session_id" in hints
+        # ``session`` (polymorphic Session/id) replaced the removed id-only
+        # ``session_id`` and the ``allow_history_and_session_id`` flag.
+        assert "session" in hints
+        assert "session_id" not in hints
+        assert "allow_history_and_session_id" not in hints
         assert "execution_params" in hints
         assert "run_response_generation" in hints
 
@@ -180,23 +183,14 @@ class TestBuildRunPayload:
         agent.expected_output = ""
         return agent
 
-    def test_session_id_becomes_camelcase(self):
+    def test_run_response_generation_becomes_camelcase(self):
         agent = self._make_agent()
         payload = agent.build_run_payload(
             query="hello",
-            session_id="sess-1",
+            run_response_generation=True,
         )
-        assert payload["sessionId"] == "sess-1"
-        assert "session_id" not in payload
-
-    def test_allow_history_becomes_camelcase(self):
-        agent = self._make_agent()
-        payload = agent.build_run_payload(
-            query="hello",
-            allow_history_and_session_id=True,
-        )
-        assert payload["allowHistoryAndSessionId"] is True
-        assert "allow_history_and_session_id" not in payload
+        assert payload["runResponseGeneration"] is True
+        assert "run_response_generation" not in payload
 
     def test_execution_params_snake_case_converted(self):
         agent = self._make_agent()

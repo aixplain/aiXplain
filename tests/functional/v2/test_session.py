@@ -37,6 +37,13 @@ def test_agent(client):
         pass
 
 
+def _make_session(client, agent, name=None, **kwargs):
+    """Create and persist a session bound to ``agent`` (the single create path)."""
+    session = client.Session(agent=agent, name=name, **kwargs)
+    session.save()
+    return session
+
+
 # ---------------------------------------------------------------------------
 # Session CRUD
 # ---------------------------------------------------------------------------
@@ -45,9 +52,9 @@ def test_agent(client):
 class TestSessionCRUD:
     """End-to-end session create / get / list / update / delete."""
 
-    def test_create_session_via_agent(self, client, test_agent):
-        """Creating a session through an agent should return a saved Session."""
-        session = test_agent.create_session(name="Func Test Session")
+    def test_create_session_with_agent_object(self, client, test_agent):
+        """Creating a session with ``Session(agent=…)`` returns a saved Session."""
+        session = _make_session(client, test_agent, name="Func Test Session")
 
         assert session.id is not None
         assert isinstance(session, Session)
@@ -61,9 +68,9 @@ class TestSessionCRUD:
         except Exception:
             pass
 
-    def test_create_session_directly(self, client, test_agent):
-        """Creating a Session instance directly and calling .save()."""
-        session = client.Session(agent_id=test_agent.id, name="Direct Create")
+    def test_create_session_with_agent_id(self, client, test_agent):
+        """``Session(agent=…)`` also accepts a bare agent id string."""
+        session = client.Session(agent=test_agent.id, name="Direct Create")
         session.save()
 
         assert session.id is not None
@@ -77,7 +84,7 @@ class TestSessionCRUD:
 
     def test_get_session(self, client, test_agent):
         """Retrieving a session by ID should return the same session."""
-        session = test_agent.create_session(name="Get Test")
+        session = _make_session(client, test_agent, name="Get Test")
         fetched = client.Session.get(session.id)
 
         assert fetched.id == session.id
@@ -90,15 +97,15 @@ class TestSessionCRUD:
         except Exception:
             pass
 
-    def test_list_sessions_for_agent(self, client, test_agent):
-        """Listing sessions for an agent should include the created session."""
-        session = test_agent.create_session(name="List Test")
+    def test_search_sessions_for_agent(self, client, test_agent):
+        """Session.search(agent=…) returns a Page including the created session."""
+        session = _make_session(client, test_agent, name="List Test")
 
-        sessions = test_agent.list_sessions()
+        page = client.Session.search(agent=test_agent)
 
-        assert isinstance(sessions, list)
-        session_ids = [s.id for s in sessions]
+        session_ids = [s.id for s in page.results]
         assert session.id in session_ids
+        assert page.total >= 1
 
         # Cleanup
         try:
@@ -106,12 +113,12 @@ class TestSessionCRUD:
         except Exception:
             pass
 
-    def test_list_sessions_with_status_filter(self, client, test_agent):
+    def test_search_sessions_with_status_filter(self, client, test_agent):
         """Filtering by status should only return matching sessions."""
-        session = test_agent.create_session(name="Status Filter Test")
+        session = _make_session(client, test_agent, name="Status Filter Test")
 
-        active = test_agent.list_sessions(status="active")
-        assert all(s.status == "active" for s in active)
+        page = client.Session.search(agent=test_agent, status="active")
+        assert all(s.status == "active" for s in page.results)
 
         # Cleanup
         try:
@@ -121,7 +128,7 @@ class TestSessionCRUD:
 
     def test_update_session(self, client, test_agent):
         """Updating session name via save() should persist the change."""
-        session = test_agent.create_session(name="Before Update")
+        session = _make_session(client, test_agent, name="Before Update")
         session.name = "After Update"
         session.save()
 
@@ -134,13 +141,11 @@ class TestSessionCRUD:
         except Exception:
             pass
 
-    def test_create_session_with_history(self, client, test_agent):
-        """Creating a session with history should seed it with messages."""
-        history = [
-            {"role": "user", "content": "What is 2+2?"},
-            {"role": "assistant", "content": "4"},
-        ]
-        session = test_agent.create_session(name="History Test", history=history)
+    def test_seed_session_with_messages(self, client, test_agent):
+        """Seeding a session via add_message should persist the transcript."""
+        session = _make_session(client, test_agent, name="History Test")
+        session.add_message(role="user", content="What is 2+2?")
+        session.add_message(role="assistant", content="4")
 
         assert session.id is not None
         messages = session.messages()
@@ -157,7 +162,7 @@ class TestSessionCRUD:
 
     def test_delete_session(self, client, test_agent):
         """Deleting a session should succeed."""
-        session = test_agent.create_session(name="Delete Me")
+        session = _make_session(client, test_agent, name="Delete Me")
         session_id = session.id
         assert session_id is not None
 
@@ -176,7 +181,7 @@ class TestSessionMessages:
     @pytest.fixture()
     def session(self, client, test_agent):
         """Create a session for message tests and clean up after."""
-        s = test_agent.create_session(name=f"Msg Test {int(time.time())}")
+        s = _make_session(client, test_agent, name=f"Msg Test {int(time.time())}")
         yield s
         try:
             s.delete()
@@ -299,13 +304,13 @@ class TestSessionWithAgentRun:
     """Tests for how agent.run() interacts with sessions."""
 
     def test_run_with_session_adds_messages(self, client, test_agent):
-        """Running an agent with a session_id should add messages to the session."""
-        session = test_agent.create_session(name="Run Test")
+        """Running an agent with session=… should add messages to the session."""
+        session = _make_session(client, test_agent, name="Run Test")
         msgs_before = session.messages()
 
         result = test_agent.run(
             "What is the capital of France?",
-            session_id=session.id,
+            session=session,
         )
         assert result.status == "SUCCESS"
 
@@ -334,7 +339,7 @@ class TestSessionErrors:
 
     def test_react_to_user_message_raises_error(self, client, test_agent):
         """Reacting to a user message should raise an APIError."""
-        session = test_agent.create_session(name="React Error Test")
+        session = _make_session(client, test_agent, name="React Error Test")
         msg = session.add_message(role="user", content="Can't like this")
 
         with pytest.raises(APIError, match="assistant"):

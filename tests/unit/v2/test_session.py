@@ -419,10 +419,10 @@ class TestSessionDelete:
         assert result.completed is True
 
 
-class TestSessionList:
-    """Tests for Session.list() classmethod."""
+class TestSessionSearch:
+    """Tests for Session.search() classmethod (returns a Page)."""
 
-    def test_list_returns_sessions(self):
+    def test_search_returns_page_of_sessions(self):
         ctx = _make_mock_context()
         ctx.client.request.return_value = [
             SAMPLE_SESSION_DICT,
@@ -430,64 +430,117 @@ class TestSessionList:
         ]
         BoundSession = _bound_session_class(ctx)
 
-        sessions = BoundSession.list()
+        page = BoundSession.search()
 
         ctx.client.request.assert_called_once()
         args, kwargs = ctx.client.request.call_args
         assert args[0] == "get"
         assert "v1/sessions" in args[1]
-        assert len(sessions) == 2
-        assert sessions[0].id == "sess_001"
-        assert sessions[1].id == "sess_002"
+        assert page.total == 2
+        assert page.page_total == 1
+        assert page.page_number == 0
+        assert len(page.results) == 2
+        assert page.results[0].id == "sess_001"
+        assert page.results[1].id == "sess_002"
+        # Page is iterable over its results.
+        assert [s.id for s in page] == ["sess_001", "sess_002"]
 
-    def test_list_with_agent_id_filter(self):
+    def test_search_with_agent_object_filter(self):
         ctx = _make_mock_context()
         ctx.client.request.return_value = [SAMPLE_SESSION_DICT]
         BoundSession = _bound_session_class(ctx)
 
-        BoundSession.list(agent_id="agent_99")
+        class _Agent:
+            id = "agent_99"
+
+        BoundSession.search(agent=_Agent())
 
         _, kwargs = ctx.client.request.call_args
         assert kwargs["params"]["agentId"] == "agent_99"
 
-    def test_list_with_status_filter(self):
+    def test_search_with_agent_id_string_filter(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = [SAMPLE_SESSION_DICT]
+        BoundSession = _bound_session_class(ctx)
+
+        BoundSession.search(agent="agent_99")
+
+        _, kwargs = ctx.client.request.call_args
+        assert kwargs["params"]["agentId"] == "agent_99"
+
+    def test_search_with_status_filter(self):
         ctx = _make_mock_context()
         ctx.client.request.return_value = []
         BoundSession = _bound_session_class(ctx)
 
-        BoundSession.list(status="completed")
+        BoundSession.search(status="completed")
 
         _, kwargs = ctx.client.request.call_args
         assert kwargs["params"]["status"] == "completed"
 
-    def test_list_with_user_id_filter(self):
+    def test_search_with_user_id_filter(self):
         ctx = _make_mock_context()
         ctx.client.request.return_value = []
         BoundSession = _bound_session_class(ctx)
 
-        BoundSession.list(user_id="user_42")
+        BoundSession.search(user_id="user_42")
 
         _, kwargs = ctx.client.request.call_args
         assert kwargs["params"]["userId"] == "user_42"
 
-    def test_list_with_all_filters(self):
+    def test_search_with_date_and_memory_filters(self):
+        from datetime import datetime
+
         ctx = _make_mock_context()
         ctx.client.request.return_value = []
         BoundSession = _bound_session_class(ctx)
 
-        BoundSession.list(agent_id="a1", status="active", user_id="u1")
+        BoundSession.search(
+            created_after=datetime(2026, 1, 1),
+            created_before="2026-06-01T00:00:00",
+            memory_enabled=True,
+        )
 
         _, kwargs = ctx.client.request.call_args
         params = kwargs["params"]
-        assert params == {"agentId": "a1", "status": "active", "userId": "u1"}
+        assert params["createdAfter"] == "2026-01-01T00:00:00"
+        assert params["createdBefore"] == "2026-06-01T00:00:00"
+        assert params["memoryEnabled"] is True
 
-    def test_list_empty_result(self):
+    def test_search_forwards_pagination(self):
         ctx = _make_mock_context()
         ctx.client.request.return_value = []
         BoundSession = _bound_session_class(ctx)
 
-        sessions = BoundSession.list()
-        assert sessions == []
+        BoundSession.search(page_number=2, page_size=5)
+
+        _, kwargs = ctx.client.request.call_args
+        assert kwargs["params"]["pageNumber"] == 2
+        assert kwargs["params"]["pageSize"] == 5
+
+    def test_search_empty_result(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = []
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search()
+        assert page.results == []
+        assert page.total == 0
+
+    def test_search_paginated_dict_envelope(self):
+        """Tolerate a future paginated dict envelope (total/pageTotal)."""
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = {
+            "results": [SAMPLE_SESSION_DICT],
+            "total": 17,
+            "pageTotal": 4,
+        }
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search(page_number=1)
+        assert page.total == 17
+        assert page.page_total == 4
+        assert len(page.results) == 1
 
 
 # =========================================================================
@@ -819,31 +872,33 @@ class TestSessionErrorHandling:
         session._update_saved_state()
         return session
 
-    # --- list() errors ---
+    # --- search() errors ---
 
-    def test_list_api_error_propagates(self):
+    def test_search_api_error_propagates(self):
         ctx = _make_mock_context()
         ctx.client.request.side_effect = APIError("Unauthorized", status_code=401)
         BoundSession = _bound_session_class(ctx)
 
         with pytest.raises(APIError, match="Unauthorized"):
-            BoundSession.list()
+            BoundSession.search()
 
-    def test_list_non_list_response_raises_resource_error(self):
+    def test_search_dict_without_results_yields_empty_page(self):
+        # A dict response is treated as a (future) paginated envelope; one that
+        # carries no results/items key yields an empty page rather than raising.
         ctx = _make_mock_context()
         ctx.client.request.return_value = {"error": "something went wrong"}
         BoundSession = _bound_session_class(ctx)
 
-        with pytest.raises(ResourceError, match="Expected a list of sessions"):
-            BoundSession.list()
+        page = BoundSession.search()
+        assert page.results == []
 
-    def test_list_malformed_item_raises_resource_error(self):
+    def test_search_malformed_item_raises_resource_error(self):
         ctx = _make_mock_context()
         ctx.client.request.return_value = ["not_a_dict"]
         BoundSession = _bound_session_class(ctx)
 
         with pytest.raises(ResourceError, match="Failed to parse session"):
-            BoundSession.list()
+            BoundSession.search()
 
     # --- messages() errors ---
 
@@ -932,150 +987,33 @@ class TestSessionErrorHandling:
 
 
 # =========================================================================
-# Agent — session convenience methods
+# Agent — session convenience: create/list live on aix.Session now
 # =========================================================================
 
 
-class TestAgentCreateSession:
-    """Tests for Agent.create_session()."""
+class TestAgentSessionMethodsRemoved:
+    """The three collapsed create/list/id paths are gone from Agent.
 
-    def test_create_session_calls_save(self):
+    Sessions are managed through ``aix.Session`` alone: create with
+    ``aix.Session(agent=…)``, find with ``aix.Session.search(agent=…)``.
+    """
+
+    @pytest.mark.parametrize("method_name", ["create_session", "list_sessions", "generate_session_id"])
+    def test_removed_agent_methods(self, method_name):
         ctx = _make_mock_context()
-        # Mock Session class bound to context
-        mock_session_instance = Mock()
-        mock_session_instance.save.return_value = mock_session_instance
-        mock_session_instance.id = "new_sess"
+        BoundAgent = _bound_agent_class(ctx)
+        agent = BoundAgent(id="agent_99", name="Test Agent")
+        assert not hasattr(agent, method_name)
 
-        MockSession = Mock(return_value=mock_session_instance)
-        ctx.Session = MockSession
-
+    def test_session_constructor_accepts_agent(self):
+        ctx = _make_mock_context()
+        BoundSession = _bound_session_class(ctx)
         BoundAgent = _bound_agent_class(ctx)
         agent = BoundAgent(id="agent_99", name="Test Agent")
 
-        session = agent.create_session(name="Chat 1")
-
-        MockSession.assert_called_once_with(agent_id="agent_99", name="Chat 1", execution_config=None)
-        mock_session_instance.save.assert_called_once()
-        assert session is mock_session_instance
-
-    def test_create_session_without_name(self):
-        ctx = _make_mock_context()
-        mock_session_instance = Mock()
-        mock_session_instance.save.return_value = mock_session_instance
-        MockSession = Mock(return_value=mock_session_instance)
-        ctx.Session = MockSession
-
-        BoundAgent = _bound_agent_class(ctx)
-        agent = BoundAgent(id="agent_99", name="Test Agent")
-
-        agent.create_session()
-
-        MockSession.assert_called_once_with(agent_id="agent_99", name=None, execution_config=None)
-
-    def test_create_session_with_history(self):
-        ctx = _make_mock_context()
-        mock_session_instance = Mock()
-        mock_session_instance.save.return_value = mock_session_instance
-        mock_session_instance.id = "new_sess"
-        MockSession = Mock(return_value=mock_session_instance)
-        ctx.Session = MockSession
-
-        BoundAgent = _bound_agent_class(ctx)
-        agent = BoundAgent(id="agent_99", name="Test Agent")
-
-        history = [
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hi there!"},
-            {"role": "user", "content": "How are you?"},
-        ]
-        session = agent.create_session(name="With History", history=history)
-
-        mock_session_instance.save.assert_called_once()
-        assert mock_session_instance.add_message.call_count == 3
-        calls = mock_session_instance.add_message.call_args_list
-        assert calls[0] == call(role="user", content="Hello", attachments=None, files=None)
-        assert calls[1] == call(role="assistant", content="Hi there!", attachments=None, files=None)
-        assert calls[2] == call(role="user", content="How are you?", attachments=None, files=None)
-
-    def test_create_session_with_history_attachments_and_files(self):
-        ctx = _make_mock_context()
-        mock_session_instance = Mock()
-        mock_session_instance.save.return_value = mock_session_instance
-        mock_session_instance.id = "new_sess"
-        MockSession = Mock(return_value=mock_session_instance)
-        ctx.Session = MockSession
-
-        BoundAgent = _bound_agent_class(ctx)
-        agent = BoundAgent(id="agent_99", name="Test Agent")
-
-        att = [{"url": "https://example.com/img.png", "name": "img.png", "type": "image"}]
-        history = [
-            {"role": "user", "content": "See image", "attachments": att},
-            {"role": "user", "content": "And file", "files": ["/tmp/data.csv"]},
-            {"role": "assistant", "content": "Got it"},
-        ]
-        agent.create_session(name="Rich History", history=history)
-
-        calls = mock_session_instance.add_message.call_args_list
-        assert calls[0] == call(role="user", content="See image", attachments=att, files=None)
-        assert calls[1] == call(role="user", content="And file", attachments=None, files=["/tmp/data.csv"])
-        assert calls[2] == call(role="assistant", content="Got it", attachments=None, files=None)
-
-    def test_create_session_with_invalid_history(self):
-        ctx = _make_mock_context()
-        ctx.Session = Mock()
-
-        BoundAgent = _bound_agent_class(ctx)
-        agent = BoundAgent(id="agent_99", name="Test Agent")
-
-        with pytest.raises(ValueError):
-            agent.create_session(history=[{"bad": "format"}])
-
-    def test_create_session_requires_saved_agent(self):
-        ctx = _make_mock_context()
-        BoundAgent = _bound_agent_class(ctx)
-        agent = BoundAgent(name="Unsaved Agent")
-
-        with pytest.raises(ValueError, match="must be saved"):
-            agent.create_session()
-
-
-class TestAgentListSessions:
-    """Tests for Agent.list_sessions()."""
-
-    def test_list_sessions_delegates_to_session_list(self):
-        ctx = _make_mock_context()
-        mock_sessions = [Mock(), Mock()]
-        ctx.Session = Mock()
-        ctx.Session.list.return_value = mock_sessions
-
-        BoundAgent = _bound_agent_class(ctx)
-        agent = BoundAgent(id="agent_99", name="Test Agent")
-
-        result = agent.list_sessions()
-
-        ctx.Session.list.assert_called_once_with(agent_id="agent_99", status=None)
-        assert result == mock_sessions
-
-    def test_list_sessions_with_status_filter(self):
-        ctx = _make_mock_context()
-        ctx.Session = Mock()
-        ctx.Session.list.return_value = []
-
-        BoundAgent = _bound_agent_class(ctx)
-        agent = BoundAgent(id="agent_99", name="Test Agent")
-
-        agent.list_sessions(status="completed")
-
-        ctx.Session.list.assert_called_once_with(agent_id="agent_99", status="completed")
-
-    def test_list_sessions_requires_saved_agent(self):
-        ctx = _make_mock_context()
-        BoundAgent = _bound_agent_class(ctx)
-        agent = BoundAgent(name="Unsaved Agent")
-
-        with pytest.raises(ValueError, match="must be saved"):
-            agent.list_sessions()
+        session = BoundSession(agent=agent, name="Chat 1")
+        assert session.agent_id == "agent_99"
+        assert session.name == "Chat 1"
 
 
 # =========================================================================
@@ -1381,85 +1319,50 @@ class TestSessionExecutionConfigPayload:
         }
 
 
-class TestAgentCreateSessionExecutionConfig:
-    """Tests for execution config plumbing in Agent.create_session()."""
+class TestSessionExecutionConfigConstruction:
+    """ExecutionConfig is attached to a Session at construction time.
 
-    def _setup(self):
+    (The old ``agent.create_session(execution_params=…, criteria=…)`` shortcut
+    plumbing was removed; callers build an ``ExecutionConfig`` and pass it to
+    ``Session(execution_config=…)``, or pass per-run overrides to
+    ``agent.run(query, session=…)``.)
+    """
+
+    def test_shortcut_style_execution_config(self):
         ctx = _make_mock_context()
-        mock_session_instance = Mock()
-        mock_session_instance.save.return_value = mock_session_instance
-        mock_session_instance.id = "new_sess"
-        MockSession = Mock(return_value=mock_session_instance)
-        ctx.Session = MockSession
-        BoundAgent = _bound_agent_class(ctx)
-        agent = BoundAgent(id="agent_99", name="Test Agent")
-        return agent, MockSession, mock_session_instance
+        BoundSession = _bound_session_class(ctx)
 
-    def test_shortcut_kwargs_build_execution_config(self):
-        agent, MockSession, _ = self._setup()
-
-        agent.create_session(
-            name="With Config",
+        cfg = ExecutionConfig(
             execution_params={"output_format": "text", "max_tokens": 1024},
             criteria="Be helpful",
             evolve='{"toEvolve": true}',
             identifier="user-abc",
             run_response_generation=True,
         )
+        session = BoundSession(agent_id="agent_99", name="With Config", execution_config=cfg)
 
-        _, kwargs = MockSession.call_args
-        assert kwargs["agent_id"] == "agent_99"
-        assert kwargs["name"] == "With Config"
-        cfg = kwargs["execution_config"]
-        assert isinstance(cfg, ExecutionConfig)
+        assert session.execution_config is cfg
         assert cfg.execution_params == {"output_format": "text", "max_tokens": 1024}
         assert cfg.criteria == "Be helpful"
         assert cfg.evolve == '{"toEvolve": true}'
         assert cfg.identifier == "user-abc"
         assert cfg.run_response_generation is True
 
-    def test_explicit_execution_config_object(self):
-        agent, MockSession, _ = self._setup()
-        explicit = ExecutionConfig(criteria="explicit")
+    def test_dict_execution_config_is_coerced(self):
+        ctx = _make_mock_context()
+        BoundSession = _bound_session_class(ctx)
 
-        agent.create_session(execution_config=explicit)
+        session = BoundSession(agent_id="agent_99", execution_config={"criteria": "x"})
+        assert isinstance(session.execution_config, ExecutionConfig)
+        assert session.execution_config.criteria == "x"
 
-        cfg = MockSession.call_args.kwargs["execution_config"]
-        # The explicit object passes through unchanged.
-        assert cfg is explicit
+    def test_no_execution_config_by_default(self):
+        ctx = _make_mock_context()
+        BoundSession = _bound_session_class(ctx)
 
-    def test_explicit_execution_config_dict_is_coerced(self):
-        agent, MockSession, _ = self._setup()
+        session = BoundSession(agent_id="agent_99", name="plain")
+        assert session.execution_config is None
 
-        agent.create_session(execution_config={"criteria": "x"})
-
-        cfg = MockSession.call_args.kwargs["execution_config"]
-        assert isinstance(cfg, ExecutionConfig)
-        assert cfg.criteria == "x"
-
-    def test_no_execution_config_when_kwargs_omitted(self):
-        agent, MockSession, _ = self._setup()
-
-        agent.create_session(name="plain")
-
-        assert MockSession.call_args.kwargs["execution_config"] is None
-
-    def test_explicit_and_shortcut_kwargs_conflict(self):
-        agent, _, _ = self._setup()
-
-        with pytest.raises(ValueError, match="not both"):
-            agent.create_session(
-                execution_config={"criteria": "x"},
-                criteria="y",
-            )
-
-    def test_run_response_generation_false_still_builds_config(self):
-        # False is a meaningful explicit choice (default behavior is False),
-        # so passing it must still flow through to the session.
-        agent, MockSession, _ = self._setup()
-
-        agent.create_session(run_response_generation=False)
-
-        cfg = MockSession.call_args.kwargs["execution_config"]
-        assert isinstance(cfg, ExecutionConfig)
+    def test_run_response_generation_false_is_kept(self):
+        cfg = ExecutionConfig(run_response_generation=False)
         assert cfg.run_response_generation is False
