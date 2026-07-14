@@ -90,6 +90,108 @@ class IntegrationSearchParams(BaseSearchParams):
     pass
 
 
+@dataclass_json
+@dataclass
+class TriggerTypeSpec:
+    """Backend spec for an available external trigger type (deserialization only)."""
+
+    slug: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    config: Optional[Any] = None
+    payload: Optional[Any] = None
+    type: Optional[str] = None
+
+
+class TriggerEventOption:
+    """A selectable external event option (e.g. ``gmail.triggers["NEW_EMAIL"]``).
+
+    Carries the event ``slug`` and its config schema. When sourced from a
+    *connected* tool it also carries ``connection_id`` (the tool id), which is
+    required to activate the trigger. Pass it to ``aix.Trigger(event=...)``.
+    """
+
+    def __init__(
+        self,
+        slug: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        config: Optional[Any] = None,
+        connection_id: Optional[str] = None,
+    ) -> None:
+        """Initialize an event option."""
+        self.slug = slug
+        self.name = name or slug
+        self.description = description
+        self.config = config
+        self.connection_id = connection_id
+        self.values: Dict[str, Any] = {}
+
+    def configure(self, **values: Any) -> "TriggerEventOption":
+        """Set config values passed to the trigger on activation."""
+        self.values.update(values)
+        return self
+
+    def __repr__(self) -> str:
+        """Return a concise representation."""
+        conn = f", connected={bool(self.connection_id)}" if self.connection_id is not None else ""
+        return f"TriggerEventOption(slug={self.slug!r}{conn})"
+
+
+class TriggerTypes:
+    """Browsable collection of :class:`TriggerEventOption` for an integration/tool.
+
+    Supports ``integration.triggers["NEW_EMAIL"]`` (case-insensitive), iteration,
+    ``in``, and ``len``.
+    """
+
+    def __init__(self, specs: List[TriggerTypeSpec], connection_id: Optional[str] = None) -> None:
+        """Initialize from backend specs and an optional connection id."""
+        self._by_slug: Dict[str, TriggerTypeSpec] = {}
+        for spec in specs:
+            key = (spec.slug or spec.name or "").strip()
+            if key:
+                self._by_slug[key] = spec
+        self._connection_id = connection_id
+
+    def _resolve(self, key: str) -> Optional[str]:
+        normalized = str(key).strip().lower()
+        for slug in self._by_slug:
+            if slug.lower() == normalized:
+                return slug
+        return None
+
+    def __getitem__(self, key: str) -> TriggerEventOption:
+        """Return the :class:`TriggerEventOption` for *key* (case-insensitive)."""
+        slug = self._resolve(key)
+        if slug is None:
+            raise KeyError(f"Trigger event '{key}' not found")
+        spec = self._by_slug[slug]
+        return TriggerEventOption(
+            slug=spec.slug or slug,
+            name=spec.name,
+            description=spec.description,
+            config=spec.config,
+            connection_id=self._connection_id,
+        )
+
+    def __contains__(self, key: object) -> bool:
+        """Return whether *key* matches an available trigger event."""
+        return isinstance(key, str) and self._resolve(key) is not None
+
+    def __iter__(self):
+        """Iterate over available trigger event slugs."""
+        return iter(self._by_slug.keys())
+
+    def __len__(self) -> int:
+        """Return the number of available trigger events."""
+        return len(self._by_slug)
+
+    def __repr__(self) -> str:
+        """Return ``TriggerTypes(['SLUG', ...])``."""
+        return f"TriggerTypes({list(self._by_slug.keys())})"
+
+
 @dataclass
 class ActionMixin:
     """Mixin class providing action-related functionality for integrations and tools."""
@@ -219,6 +321,47 @@ class ActionMixin:
             _action_factory=_action_factory,
             _actions_lister=_list_action_names,
         )
+
+    def list_trigger_types(self) -> List[TriggerTypeSpec]:
+        """List available external event trigger types for the integration/tool.
+
+        Uses the same model-execute mechanism as :meth:`list_actions`.
+
+        Returns:
+            List of :class:`TriggerTypeSpec` objects from the backend.
+        """
+        run_url = self.build_run_url()
+        response = self.context.client.request("post", run_url, json={"action": "list_trigger_types", "data": ""})
+
+        data = self._poll_for_data(response)
+        if not data or not isinstance(data, list):
+            return []
+
+        specs: List[TriggerTypeSpec] = []
+        for item in data:
+            if isinstance(item, dict):
+                try:
+                    specs.append(TriggerTypeSpec.from_dict(item))
+                except Exception:
+                    continue
+        return specs
+
+    @cached_property
+    def triggers(self) -> TriggerTypes:
+        """Browsable collection of external event options (like :attr:`actions`).
+
+        Pick an option and pass it to ``aix.Trigger(event=...)``. When accessed on
+        a *connected* tool, each option carries the connection id needed to
+        activate the trigger; on an unconnected integration it is discovery-only.
+
+        Returns:
+            :class:`TriggerTypes` collection (e.g. ``gmail.triggers["NEW_EMAIL"]``).
+        """
+        specs = self.list_trigger_types()
+        # A connected tool can activate triggers; an integration is discovery-only.
+        is_connection = str(getattr(self, "RESOURCE_PATH", "")).endswith("tools")
+        connection_id = self.id if is_connection else None
+        return TriggerTypes(specs, connection_id=connection_id)
 
     def set_inputs(self, inputs_dict: Dict[str, Dict[str, Any]]) -> None:
         """Set multiple action inputs in bulk using a dictionary tree structure.

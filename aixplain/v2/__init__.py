@@ -7,6 +7,8 @@ from .agent import Agent, Budget, ContextOverflowStrategy
 from .tool import Tool
 from .skill import Skill
 from .actions import Input, Inputs, Action, Actions
+from .integration import TriggerTypeSpec, TriggerEventOption, TriggerTypes
+from .trigger import Trigger, TriggerConfiguration, TriggerRepeatRule
 from .file import Resource
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
 from .inspector import Inspector
@@ -188,4 +190,11 @@ __all__ = [
     "Inputs",
     "Action",
     "Actions",
+    # Triggers
+    "Trigger",
+    "TriggerConfiguration",
+    "TriggerRepeatRule",
+    "TriggerTypeSpec",
+    "TriggerEventOption",
+    "TriggerTypes",
 ]
