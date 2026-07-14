@@ -7,12 +7,12 @@ Covers three SDK-side regressions surfaced during V3 DEV testing:
 """
 
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from aixplain.v2.agent import Agent
-from aixplain.v2.inspector import Inspector, PrebuiltInspector
+from aixplain.v2.inspector import Inspector
 
 
 def _agent_from_dict(**overrides):
@@ -88,29 +88,108 @@ class TestR3InspectorDeserialization:
         assert isinstance(agent.inspectors[0], Inspector)
         assert agent.inspectors[0].name == "Input Gate"
 
-    def test_prebuilt_inspector_payload_deserializes_to_prebuilt_inspector(self):
-        # PrebuiltInspector.to_dict() emits a lightweight reference with no
-        # "name" key; the backend echoes it back on save. __post_init__ must
-        # not route it through Inspector.from_dict (KeyError: 'name').
-        prebuilt_payload = PrebuiltInspector.prompt_injection_guard().to_dict()
-        assert "name" not in prebuilt_payload  # precondition for the regression
+    def test_prebuilt_guard_payload_deserializes_to_inspector(self):
+        # A prebuilt guard fetched via aix.Inspector.get(...) serializes to the
+        # same inspector shape as a custom inspector — the backend echoes it back
+        # on save, and __post_init__ rehydrates it through Inspector.from_dict.
+        guard_payload = {
+            "name": "Prompt Injection Guard",
+            "targets": ["input"],
+            "action": {"type": "abort"},
+            "evaluator": {"type": "asset", "assetId": "pi-id"},
+        }
+        agent = _agent_from_dict(inspectors=[guard_payload])
 
-        agent = _agent_from_dict(inspectors=[prebuilt_payload])
+        assert isinstance(agent.inspectors[0], Inspector)
+        assert agent.inspectors[0].name == "Prompt Injection Guard"
 
-        assert isinstance(agent.inspectors[0], PrebuiltInspector)
-        assert agent.inspectors[0].preset_id == "prompt_injection_guard"
-
-    def test_mixed_full_and_prebuilt_inspectors_deserialize(self):
-        full_payload = {
+    def test_mixed_prebuilt_and_custom_inspectors_deserialize(self):
+        custom_payload = {
             "name": "Input Gate",
             "targets": ["input"],
             "action": {"type": "abort"},
             "evaluator": {"type": "asset", "assetId": "model-abc", "prompt": "PASS or FAIL"},
         }
-        prebuilt_payload = {"presetId": "pii_redaction", "targets": ["output"]}
+        prebuilt_payload = {
+            "name": "PII",
+            "targets": ["output"],
+            "action": {"type": "edit"},
+            "evaluator": {"type": "asset", "assetId": "pii-id"},
+            "editor": {"type": "asset", "assetId": "pii-id"},
+        }
 
-        agent = _agent_from_dict(inspectors=[full_payload, prebuilt_payload])
+        agent = _agent_from_dict(inspectors=[custom_payload, prebuilt_payload])
 
-        assert isinstance(agent.inspectors[0], Inspector)
-        assert isinstance(agent.inspectors[1], PrebuiltInspector)
-        assert agent.inspectors[1].preset_id == "pii_redaction"
+        assert all(isinstance(i, Inspector) for i in agent.inspectors)
+        assert agent.inspectors[1].name == "PII"
+
+    def test_agent_with_inspector_serializes(self):
+        # Regression: Inspector is a BaseResource, whose `context` field is
+        # init=False. An inspector rehydrated via from_dict (nested in an agent)
+        # has no bound context, and dataclasses_json's _asdict calls
+        # getattr(obj, "context") before honoring `exclude` — which raised
+        # AttributeError on save() until `context` got a None default. Saving a
+        # team agent with a fetched guard hit exactly this path.
+        guard_payload = {
+            "name": "Detect Prompt Attacks Guardrail",
+            "targets": ["input"],
+            "action": {"type": "abort"},
+            "evaluator": {"type": "asset", "assetId": "pi-id"},
+        }
+        agent = _agent_from_dict(inspectors=[guard_payload])
+
+        # The inspector must always expose a context attribute (None when unbound)
+        # and must not leak it into serialized output.
+        assert agent.inspectors[0].context is None
+        serialized = agent.to_dict()
+        assert "context" not in serialized["inspectors"][0]
+
+
+class TestRunPayloadAttachments:
+    """Non-session run path resolves attachments into a structured payload field."""
+
+    def test_url_attachments_not_uploaded_and_type_auto_detected(self):
+        agent = _agent_from_dict()
+        with patch("aixplain.v2.upload_utils.FileUploader") as MockUploader:
+            payload = agent.build_run_payload(
+                query="describe",
+                attachments=[{"url": "https://s3/a.wav", "type": "audio"}, "https://s3/b.png"],
+            )
+            MockUploader.assert_not_called()
+        # Explicit type preserved (+ mime inferred); bare URL string auto-typed as image.
+        assert payload["attachments"][0] == {"url": "https://s3/a.wav", "type": "audio", "mimeType": "audio/wav"}
+        assert payload["attachments"][1]["url"] == "https://s3/b.png"
+        assert payload["attachments"][1]["type"] == "image"
+        assert payload["attachments"][1]["mimeType"] == "image/png"
+
+    def test_local_path_is_uploaded_with_mimetype(self):
+        agent = _agent_from_dict()
+        with (
+            patch("aixplain.v2.upload_utils.FileUploader") as MockUploader,
+            patch("aixplain.v2.upload_utils.MimeTypeDetector") as MockDetector,
+        ):
+            MockUploader.return_value.upload.return_value = "https://cdn/clip.wav"
+            MockDetector.detect_mime_type.return_value = "audio/wav"
+            payload = agent.build_run_payload(query="transcribe", attachments=["/tmp/clip.wav"])
+
+        assert payload["attachments"] == [
+            {"url": "https://cdn/clip.wav", "name": "clip.wav", "type": "audio", "mimeType": "audio/wav"}
+        ]
+
+    def test_files_kwarg_still_works_but_warns(self):
+        agent = _agent_from_dict()
+        with (
+            patch("aixplain.v2.upload_utils.FileUploader") as MockUploader,
+            patch("aixplain.v2.upload_utils.MimeTypeDetector") as MockDetector,
+            pytest.warns(DeprecationWarning, match="files.*deprecated"),
+        ):
+            MockUploader.return_value.upload.return_value = "https://cdn/doc.pdf"
+            MockDetector.detect_mime_type.return_value = "application/pdf"
+            payload = agent.build_run_payload(query="q", files=["/tmp/doc.pdf"])
+
+        assert payload["attachments"][0]["url"] == "https://cdn/doc.pdf"
+
+    def test_no_attachments_means_no_attachments_field(self):
+        agent = _agent_from_dict()
+        payload = agent.build_run_payload(query="hi")
+        assert "attachments" not in payload

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Dict, Union, List, Optional, Any, TYPE_CHECKING, Iterator
 from typing_extensions import NotRequired, Unpack
@@ -31,6 +32,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_MODEL_POLL_URL_RE = re.compile(
+    r"^(?:https?://[^/?#]+)?/?(?:"
+    r"api/v1/data/[A-Za-z0-9_-]+|"
+    r"sdk/(?:models|runs)/[A-Za-z0-9_-]+(?:/result)?"
+    r")(?:[?#].*)?$"
+)
+
 
 @dataclass_json
 @dataclass
@@ -39,6 +47,7 @@ class Message:
 
     role: str
     content: Optional[str] = None
+    reasoning_content: Optional[str] = None
     tool_calls: Optional[List[dict[str, Any]]] = None
     refusal: Optional[str] = None
     annotations: List[Any] = field(default_factory=list)
@@ -148,6 +157,7 @@ class StreamChunk:
     Attributes:
         status: The current status of the streaming operation (IN_PROGRESS or SUCCESS)
         data: The content/token of this chunk
+        reasoning_content: Reasoning-model chain-of-thought text delta, when provided
         tool_calls: Tool call deltas when stream uses OpenAI-style chunk format
         usage: Usage payload when provided in a stream chunk
         finish_reason: Completion reason for the current choice, when provided
@@ -155,6 +165,7 @@ class StreamChunk:
 
     status: ResponseStatus
     data: str
+    reasoning_content: Optional[str] = None
     tool_calls: Optional[List[dict[str, Any]]] = None
     usage: Optional[dict[str, Any]] = None
     finish_reason: Optional[str] = None
@@ -291,6 +302,9 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                 content = delta.get("content")
                 content = content if isinstance(content, str) else ""
 
+                reasoning_content = delta.get("reasoning_content")
+                reasoning_content = reasoning_content if isinstance(reasoning_content, str) else None
+
                 tool_calls = delta.get("tool_calls")
                 if tool_calls is not None and not isinstance(tool_calls, list):
                     tool_calls = [tool_calls]
@@ -304,6 +318,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                 return StreamChunk(
                     status=self.status,
                     data=content,
+                    reasoning_content=reasoning_content,
                     tool_calls=tool_calls,
                     usage=usage,
                     finish_reason=finish_reason,
@@ -678,12 +693,17 @@ class Model(
 
         if self.is_sync_only:
             result = self._run_sync_v2(**effective_params)
-            if result.url and not result.completed:
+            if result.url and result.status == "IN_PROGRESS" and not result.completed and self._is_poll_url(result.url):
                 result = self.sync_poll(result.url, **effective_params)
             return result
         else:
             # Async-capable models: Use base run() which calls run_async() and polls
             return super().run(**effective_params)
+
+    @staticmethod
+    def _is_poll_url(url: str) -> bool:
+        """Return True when a model URL matches a known polling endpoint."""
+        return bool(_MODEL_POLL_URL_RE.match(url))
 
     def _run_sync_v2(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model synchronously using V2 endpoint directly.
@@ -886,6 +906,13 @@ class Model(
         if not self.params:
             return []
 
+        # A multimodal ``data`` payload (OpenAI-style messages carrying text and
+        # media) is the complete input on its own. When it is present the flat
+        # ``text``/``prompt`` inputs are superseded, so missing-required checks
+        # for them must not fire — otherwise a vision call (``run(data=...)``)
+        # is rejected before it can reach the backend.
+        has_data = kwargs.get("data") is not None
+
         errors = []
 
         # Validate all parameters (required and optional)
@@ -899,7 +926,7 @@ class Model(
                         f"Expected {param.data_type}, "
                         f"got {type(value).__name__}"
                     )
-            elif param.required:
+            elif param.required and not has_data:
                 errors.append(f"Required parameter '{param.name}' is missing")
 
         return errors

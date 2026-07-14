@@ -1,0 +1,846 @@
+"""Session module for aiXplain v2 SDK."""
+
+import os
+import logging
+import mimetypes
+import warnings
+from dataclasses import dataclass, field, InitVar
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
+from pathlib import Path
+
+from dataclasses_json import dataclass_json, config
+
+from .enums import AttachmentType
+from .exceptions import APIError, ResourceError
+from .resource import (
+    BaseResource,
+    GetResourceMixin,
+    DeleteResourceMixin,
+    SearchResourceMixin,
+    BaseGetParams,
+    BaseDeleteParams,
+    BaseSearchParams,
+    Page,
+)
+
+logger = logging.getLogger(__name__)
+
+
+# Maps snake_case execution param keys to the camelCase the backend accepts.
+# Kept in this module (not on Agent) so Session create/update — which carries
+# the same params as legacy agent.run — uses the same normalization.
+# NOTE: ``max_iterations`` is intentionally absent — it is deprecated and folded
+# into ``executionParams.budget.maxIterations`` (see ``ExecutionConfig``), never
+# emitted as a standalone ``executionParams.maxIterations``.
+EXECUTION_PARAMS_MAP: Dict[str, str] = {
+    "output_format": "outputFormat",
+    "max_tokens": "maxTokens",
+    "max_time": "maxTime",
+    "expected_output": "expectedOutput",
+}
+
+
+def _normalize_execution_params(params: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Translate snake_case execution param keys to camelCase for the API."""
+    if not params:
+        return params
+    return {EXECUTION_PARAMS_MAP.get(k, k): v for k, v in params.items()}
+
+
+def _is_hosted_url(value: str) -> bool:
+    """True if ``value`` is an already-hosted location (not a local path).
+
+    Used by the unified ``attachments`` parameter to decide whether a string
+    entry is a URL to attach as-is or a local file path to upload.
+    """
+    return value.startswith(("http://", "https://", "s3://"))
+
+
+def _mime_to_attachment_type(mime_type: str) -> str:
+    """Map a MIME type string to an AttachmentType value."""
+    if not mime_type:
+        return AttachmentType.UNKNOWN.value
+
+    main_type = mime_type.split("/")[0] if "/" in mime_type else ""
+    sub_type = mime_type.split("/")[1] if "/" in mime_type else ""
+
+    # Code types
+    code_subtypes = {
+        "x-python",
+        "javascript",
+        "x-javascript",
+        "typescript",
+        "x-java-source",
+        "x-c",
+        "x-c++",
+        "x-ruby",
+        "x-go",
+        "x-rust",
+        "x-shellscript",
+    }
+    if sub_type in code_subtypes:
+        return AttachmentType.CODE.value
+
+    # Document types
+    document_subtypes = {
+        "pdf",
+        "msword",
+        "vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "vnd.ms-excel",
+        "vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "vnd.ms-powerpoint",
+        "vnd.openxmlformats-officedocument.presentationml.presentation",
+    }
+    if sub_type in document_subtypes:
+        return AttachmentType.DOCUMENT.value
+
+    # Main type mapping
+    type_map = {
+        "image": AttachmentType.IMAGE.value,
+        "video": AttachmentType.VIDEO.value,
+        "audio": AttachmentType.AUDIO.value,
+        "text": AttachmentType.TEXT.value,
+    }
+    if main_type in type_map:
+        return type_map[main_type]
+
+    return AttachmentType.UNKNOWN.value
+
+
+def _infer_type_and_mime(ref: str) -> tuple[Optional[str], Optional[str]]:
+    """Infer ``(attachment_type, mimeType)`` from a filename or URL by extension.
+
+    Used to auto-detect the ``type`` of a hosted URL (or a path) when the caller
+    doesn't supply one — the agent worker keys off ``type`` (``image`` / ``audio``
+    / ``file``), so a URL with no type would otherwise be treated as a generic
+    file. Query/fragment are stripped so ``clip.wav?sig=…`` still resolves.
+    Returns ``(None, None)`` when nothing can be inferred (caller leaves the
+    fields unset → worker defaults to ``file``).
+    """
+    from .upload_utils import MimeTypeDetector
+
+    path = ref.split("?", 1)[0].split("#", 1)[0]
+    ext = Path(path).suffix.lower()
+    mime = MimeTypeDetector.EXTENSION_MAPPING.get(ext) or mimetypes.guess_type(path)[0]
+    if not mime:
+        return None, None
+    return _mime_to_attachment_type(mime), mime
+
+
+def _augment_hosted_attachment(att: Dict[str, Any]) -> Dict[str, Any]:
+    """Fill a hosted-URL attachment's missing ``type``/``mimeType`` by inference.
+
+    Explicit caller-supplied values are preserved; only absent fields are filled,
+    inferred from the attachment's ``name`` (preferred) or ``url`` extension.
+    """
+    if att.get("type") and att.get("mimeType"):
+        return att
+    att_type, mime = _infer_type_and_mime(att.get("name") or att.get("url") or "")
+    if att_type and not att.get("type"):
+        att["type"] = att_type
+    if mime and not att.get("mimeType"):
+        att["mimeType"] = mime
+    return att
+
+
+def resolve_attachments(
+    context: Any,
+    attachments: Optional[List[Union[str, Path, Dict[str, Any]]]],
+    files: Optional[List[Union[str, Path]]],
+    *,
+    error_label: str = "",
+) -> List[Dict[str, Any]]:
+    """Normalize the unified ``attachments`` (plus deprecated ``files``) for the API.
+
+    Each entry becomes a ``{url, name, type, mimeType}`` dict. URL entries (``http(s)://``
+    / ``s3://`` strings, or dicts carrying a ``url``) pass through unchanged; local paths
+    (plain strings, or dicts carrying a ``path``) are uploaded to aiXplain storage and the
+    resulting download link is attached. The ``FileUploader`` is created lazily, only when
+    an upload is actually needed. Shared by ``Session.add_message`` and ``Agent`` runs.
+
+    Args:
+        context: An object exposing ``backend_url`` and ``api_key`` (the SDK context).
+        attachments: The unified attachments list.
+        files: Deprecated local-path list (merged in, with a warning).
+        error_label: Optional context for upload-error messages (e.g. ``"session 's1'"``).
+    """
+    resolved: List[Dict[str, Any]] = []
+    uploader = None  # lazily created on first upload
+
+    def _upload(path_str: str) -> Dict[str, Any]:
+        nonlocal uploader
+        from .upload_utils import FileUploader, MimeTypeDetector
+
+        if uploader is None:
+            uploader = FileUploader(backend_url=context.backend_url, api_key=context.api_key)
+        try:
+            download_url = uploader.upload(path_str, is_temp=True, return_download_link=True)
+        except Exception as e:
+            where = f" for {error_label}" if error_label else ""
+            raise ResourceError(f"Failed to upload file '{path_str}'{where}: {e}")
+        mime_type = MimeTypeDetector.detect_mime_type(path_str)
+        return {
+            "url": download_url,
+            "name": os.path.basename(path_str),
+            "type": _mime_to_attachment_type(mime_type),
+            "mimeType": mime_type or None,
+        }
+
+    for entry in attachments or []:
+        if isinstance(entry, dict):
+            if entry.get("url"):
+                # Auto-detect a missing type/mimeType from the url/name extension
+                # so a bare ``{"url": "...wav"}`` is recognized as audio (not a file).
+                resolved.append(_augment_hosted_attachment(dict(entry)))
+            elif entry.get("path"):
+                att = _upload(str(entry["path"]))
+                # Let caller-supplied keys (type/name/mimeType) override detection.
+                att.update({k: v for k, v in entry.items() if k != "path" and v is not None})
+                resolved.append(att)
+            else:
+                raise ResourceError("attachment dict must have a 'url' or a 'path' key")
+        elif isinstance(entry, (str, Path)):
+            value = str(entry)
+            if _is_hosted_url(value):
+                # A bare URL string: attach as-is, auto-detecting type/mimeType
+                # (and name) from the extension.
+                att: Dict[str, Any] = {"url": value, "name": os.path.basename(value.split("?", 1)[0])}
+                resolved.append(_augment_hosted_attachment(att))
+            else:
+                resolved.append(_upload(value))
+        else:
+            raise ResourceError(f"unsupported attachment entry type: {type(entry).__name__}")
+
+    if files:
+        warnings.warn(
+            "`files` is deprecated; pass local paths (or URLs) through `attachments` instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        for file_path in files:
+            resolved.append(_upload(str(file_path)))
+
+    return resolved
+
+
+def _parse_list_response(response: Any, item_type: str) -> list:
+    """Parse a response that should be a bare JSON array.
+
+    Args:
+        response: The API response (should be a list).
+        item_type: Description of items for error messages.
+
+    Returns:
+        The response as a list.
+
+    Raises:
+        ResourceError: If response is not a list.
+    """
+    if isinstance(response, list):
+        return response
+    raise ResourceError(
+        f"Expected a list of {item_type} from the API, got {type(response).__name__}: {str(response)[:200]}"
+    )
+
+
+def _deserialize(cls, data: dict, description: str):
+    """Safely deserialize a dict into a dataclass.
+
+    Args:
+        cls: The dataclass type with from_dict.
+        data: The dict to deserialize.
+        description: Description for error messages.
+
+    Returns:
+        The deserialized instance.
+
+    Raises:
+        ResourceError: If deserialization fails.
+    """
+    try:
+        return cls.from_dict(data)
+    except Exception as e:
+        raise ResourceError(f"Failed to parse {description}: {e}. Response data: {str(data)[:200]}")
+
+
+def _resolve_agent_id(agent: Any) -> Optional[str]:
+    """Resolve an ``agent`` argument (Agent instance or id string) to its id.
+
+    Accepts ``None`` (returns ``None``), a plain id string, or any object
+    exposing an ``id`` attribute (an :class:`~aixplain.v2.agent.Agent`). Used by
+    both ``Session(agent=…)`` and ``Session.search(agent=…)`` so callers can pass
+    an agent object interchangeably with its id.
+    """
+    if agent is None:
+        return None
+    if isinstance(agent, str):
+        return agent
+    agent_id = getattr(agent, "id", None)
+    if not agent_id:
+        raise ResourceError("agent must be a saved Agent (with an id) or an agent id string")
+    return agent_id
+
+
+def _to_iso(value: Any) -> str:
+    """Serialize a date filter value (``datetime`` or string) to an ISO string."""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+@dataclass_json
+@dataclass
+class SessionMessageAttachment:
+    """Attachment on a session message."""
+
+    url: str
+    name: Optional[str] = None
+    type: Optional[str] = None
+    # Precise MIME type (e.g. ``audio/wav``). Carried so the worker can derive
+    # an audio codec instead of guessing from the filename extension. ``type``
+    # stays the coarse class (image/audio/...) for backward compatibility.
+    mimeType: Optional[str] = field(default=None, metadata=config(field_name="mimeType"))
+
+
+@dataclass_json
+@dataclass
+class SessionMessage:
+    """A message within a session (not a resource — all ops go through Session)."""
+
+    id: str = ""
+    session_id: str = field(default="", metadata=config(field_name="sessionId"))
+    user_id: str = field(default="", metadata=config(field_name="userId"))
+    agent_id: str = field(default="", metadata=config(field_name="agentId"))
+    role: str = ""
+    content: str = ""
+    sequence: int = 0
+    request_id: Optional[str] = field(default=None, metadata=config(field_name="requestId"))
+    reaction: Optional[str] = None
+    attachments: Optional[List[SessionMessageAttachment]] = None
+    created_at: str = field(default="", metadata=config(field_name="createdAt"))
+
+
+@dataclass_json
+@dataclass
+class ExecutionConfig:
+    """Per-session execution configuration.
+
+    Mirrors the run-time agent parameters historically passed to
+    ``agent.run`` so that messages posted to a session execute the agent
+    with the same configuration. The backend reads ``executionConfig``
+    on session create/update and applies it when subsequent user
+    messages trigger agent runs.
+
+    Attributes:
+        execution_params: Backend execution params (output format, max
+            tokens, etc.). Both snake_case and camelCase keys are
+            accepted; snake_case is normalized to camelCase on send.
+        criteria: Free-form evaluation criteria sent to the agent.
+        evolve: Evolution config as a JSON string (kept as a string to
+            match the backend contract).
+        identifier: Free-form identifier the backend can echo back on
+            messages (e.g. for client-side correlation).
+        run_response_generation: Whether the agent should run its final
+            response-generation step.
+        budget: Per-session run budget (cost / duration / iterations). Accepts a
+            ``Budget`` instance or a snake_case/camelCase dict. Serialized into
+            ``executionParams.budget`` so messages posted to the session run the
+            agent with this budget — the session-scoped equivalent of the agent's
+            own ``agent.budget``.
+    """
+
+    execution_params: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionParams"))
+    criteria: Optional[str] = None
+    evolve: Optional[str] = None
+    identifier: Optional[str] = None
+    run_response_generation: Optional[bool] = field(default=None, metadata=config(field_name="runResponseGeneration"))
+    # Per-session run budget. Serialized manually into ``executionParams.budget``
+    # by ``to_api_dict`` (never as a top-level field), so it is excluded from the
+    # auto-generated dataclass_json serialization.
+    budget: Optional[Any] = field(default=None, metadata=config(field_name="budget", exclude=lambda v: True))
+
+    def __post_init__(self) -> None:
+        """Coerce a dict/Budget ``budget`` into a ``Budget`` instance."""
+        from .agent import Agent
+
+        self.budget = Agent._coerce_budget(self.budget)
+
+    def to_api_dict(self) -> Dict[str, Any]:
+        """Build the camelCase API payload, normalizing nested params.
+
+        Only fields the caller set are included so the backend keeps
+        existing values on partial updates. The deprecated
+        ``execution_params['max_iterations']`` is folded into
+        ``executionParams.budget.maxIterations`` (Budget wins on conflict) and a
+        standalone ``executionParams.maxIterations`` is never emitted — mirroring
+        the agent run path so sessions and direct runs behave identically.
+        """
+        from .agent import Agent
+
+        out: Dict[str, Any] = {}
+
+        normalized = _normalize_execution_params(self.execution_params) or {}
+        # Resolve the run-time budget first so the deprecated fold can defer to it.
+        budget = self.budget
+
+        # Deprecated run-time ``max_iterations`` exec param: fold into the budget
+        # (Budget wins on conflict) and stop emitting a standalone maxIterations.
+        # ``max_iterations`` is not in EXECUTION_PARAMS_MAP, so a snake_case key
+        # passes through unmapped — accept both spellings here (mirrors the run
+        # path in Agent.build_run_payload). ``_fold_iter_into_budget`` is pure; we
+        # own the conflict warning so it resolves to this to_api_dict() call site.
+        deprecated_iterations = normalized.pop("maxIterations", None)
+        if deprecated_iterations is None:
+            deprecated_iterations = normalized.pop("max_iterations", None)
+        if deprecated_iterations is not None:
+            warnings.warn(
+                "Execution param 'max_iterations' is deprecated; use budget=Budget(max_iterations=...). "
+                "It will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            budget, conflicted = Agent._fold_iter_into_budget(budget, deprecated_iterations)
+            if conflicted:
+                warnings.warn(Agent._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=2)
+
+        # Serialize the budget into executionParams.budget (drops None fields).
+        if budget is not None:
+            normalized_budget = Agent._normalize_budget(budget)
+            if normalized_budget:
+                normalized["budget"] = normalized_budget
+
+        if normalized:
+            out["executionParams"] = normalized
+        if self.criteria is not None:
+            out["criteria"] = self.criteria
+        if self.evolve is not None:
+            out["evolve"] = self.evolve
+        if self.identifier is not None:
+            out["identifier"] = self.identifier
+        if self.run_response_generation is not None:
+            out["runResponseGeneration"] = self.run_response_generation
+        return out
+
+    @classmethod
+    def _fold_legacy_max_iterations(cls, kvs: Any) -> Any:
+        """Fold a legacy ``executionParams.maxIterations`` into ``budget`` silently.
+
+        Backend session payloads may still carry a legacy
+        ``executionParams.maxIterations``. Deserialization must NOT warn — only
+        the explicit ``ExecutionConfig(execution_params={'max_iterations': ...})``
+        send path (via ``to_api_dict``) does. So we fold any legacy
+        ``maxIterations`` straight into the ``budget`` slot here (Budget wins
+        silently if already set) and drop the standalone key. Returns a copy;
+        the caller's dict is untouched.
+        """
+        if isinstance(kvs, dict):
+            ep = kvs.get("executionParams") or kvs.get("execution_params")
+            if isinstance(ep, dict) and ep.get("maxIterations") is not None:
+                from .agent import Agent
+
+                kvs = dict(kvs)  # shallow copy; never mutate the caller's dict
+                ep = dict(ep)
+                legacy_iterations = ep.pop("maxIterations")
+                budget = kvs.get("budget")
+                normalized = Agent._normalize_budget(budget) if budget is not None else {}
+                if normalized.get("maxIterations") is None:
+                    normalized["maxIterations"] = legacy_iterations
+                kvs["budget"] = normalized
+                # Write the cleaned exec params back under whichever key was present.
+                if "executionParams" in kvs:
+                    kvs["executionParams"] = ep
+                else:
+                    kvs["execution_params"] = ep
+        return kvs
+
+    @classmethod
+    def coerce(cls, value: Any) -> Optional["ExecutionConfig"]:
+        """Accept an ExecutionConfig, dict, or None and return a config or None."""
+        if value is None:
+            return None
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, dict):
+            return cls.from_dict(value)
+        raise TypeError(f"execution_config must be ExecutionConfig, dict, or None; got {type(value).__name__}")
+
+
+# ``@dataclass_json`` injects its own ``from_dict`` onto ExecutionConfig, which
+# would clobber any ``from_dict`` defined in the class body. So we wrap the
+# injected decoder here (after decoration) to silently fold a legacy
+# ``executionParams.maxIterations`` into ``budget`` before decoding — keeping
+# deserialization warning-free while the explicit ``to_api_dict`` send path
+# still warns. Mirrors the same pattern in ``aixplain/v2/agent.py``.
+_dataclass_json_execution_config_from_dict = ExecutionConfig.from_dict.__func__
+
+
+def _execution_config_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "ExecutionConfig":
+    kvs = cls._fold_legacy_max_iterations(kvs)
+    return _dataclass_json_execution_config_from_dict(cls, kvs, infer_missing=infer_missing)
+
+
+ExecutionConfig.from_dict = classmethod(_execution_config_from_dict)
+
+
+@dataclass_json
+@dataclass(repr=False)
+class Session(
+    BaseResource,
+    GetResourceMixin[BaseGetParams, "Session"],
+    DeleteResourceMixin[BaseDeleteParams, "Session"],
+    SearchResourceMixin[BaseSearchParams, "Session"],
+):
+    """Session resource for managing agent conversation sessions.
+
+    Sessions are the single entry point for conversation threads: create with
+    ``aix.Session(agent=…)`` + ``save()``, find with ``aix.Session.search(agent=…)``,
+    and drive with ``agent.run(query, session=…)``. Each session is bound to one
+    agent (``agent_id``).
+    """
+
+    RESOURCE_PATH = "v1/sessions"
+
+    # The session list endpoint is a plain ``GET /v1/sessions`` with query-param
+    # filters — not the standard ``POST {path}/paginate``. ``search`` is fully
+    # overridden below to honor that shape while still returning a ``Page``.
+    PAGINATE_PATH = ""
+    PAGINATE_METHOD = "get"
+
+    # ``agent`` is an init-only convenience: ``Session(agent=agent_or_id)`` sets
+    # ``agent_id``. Not a serialized field (InitVar), so it never appears on the
+    # wire and deserialization (which never passes it) keeps the stored id.
+    agent: InitVar[Optional[Any]] = None
+
+    user_id: str = field(default="", metadata=config(field_name="userId"))
+    agent_id: str = field(default="", metadata=config(field_name="agentId"))
+    name: Optional[str] = None
+    status: str = "active"
+    run_status: str = field(default="", metadata=config(field_name="runStatus"))
+    message_count: int = field(default=0, metadata=config(field_name="messageCount"))
+    last_message_preview: Optional[str] = field(default=None, metadata=config(field_name="lastMessagePreview"))
+    last_message_at: Optional[str] = field(default=None, metadata=config(field_name="lastMessageAt"))
+    created_at: str = field(default="", metadata=config(field_name="createdAt"))
+    updated_at: str = field(default="", metadata=config(field_name="updatedAt"))
+    execution_config: Optional[ExecutionConfig] = field(default=None, metadata=config(field_name="executionConfig"))
+
+    def __post_init__(self, agent: Optional[Any] = None) -> None:
+        """Resolve the ``agent`` convenience arg and coerce ``execution_config``."""
+        if agent is not None:
+            resolved = _resolve_agent_id(agent)
+            if resolved:
+                self.agent_id = resolved
+        if self.execution_config is not None and not isinstance(self.execution_config, ExecutionConfig):
+            self.execution_config = ExecutionConfig.coerce(self.execution_config)
+
+    @classmethod
+    def _fold_legacy_execution_config(cls, kvs: Any) -> Any:
+        """Pre-fold a legacy ``executionConfig`` payload before decoding.
+
+        dataclass_json decodes the nested ``executionConfig`` field with its own
+        decoder, bypassing the overridden ``ExecutionConfig.from_dict``. So a
+        backend session carrying a legacy ``executionConfig.executionParams
+        .maxIterations`` would otherwise survive unflattened and trigger a
+        spurious ``DeprecationWarning`` later on serialization. Folding it here
+        (silently, via ``ExecutionConfig._fold_legacy_max_iterations``) keeps the
+        load path warning-free. Returns a copy; the caller's dict is untouched.
+        """
+        if isinstance(kvs, dict):
+            ec = kvs.get("executionConfig") or kvs.get("execution_config")
+            if isinstance(ec, dict):
+                folded = ExecutionConfig._fold_legacy_max_iterations(ec)
+                if folded is not ec:  # only copy when a fold actually happened
+                    kvs = dict(kvs)
+                    if "executionConfig" in kvs:
+                        kvs["executionConfig"] = folded
+                    else:
+                        kvs["execution_config"] = folded
+        return kvs
+
+    def build_save_payload(self, **kwargs: Any) -> dict:
+        """Build payload with only mutable fields."""
+        payload: Dict[str, Any] = {}
+        if self.agent_id:
+            payload["agentId"] = self.agent_id
+        if self.name is not None:
+            payload["name"] = self.name
+        if self.status:
+            payload["status"] = self.status
+        if self.execution_config is not None:
+            payload["executionConfig"] = self.execution_config.to_api_dict()
+        return payload
+
+    @classmethod
+    def search(
+        cls,
+        agent: Optional[Any] = None,
+        status: Optional[str] = None,
+        user_id: Optional[str] = None,
+        created_after: Optional[Union[str, datetime]] = None,
+        created_before: Optional[Union[str, datetime]] = None,
+        memory_enabled: Optional[bool] = None,
+        page_number: int = 0,
+        page_size: int = 20,
+        **kwargs: Any,
+    ) -> Page["Session"]:
+        """Search sessions with optional filters, returning a paginated ``Page``.
+
+        The single, standard way to list sessions (there is no ``agent.list_sessions()``
+        and no bespoke ``Session.list()``). Mirrors the ``search`` on every other
+        asset, but hits the session list endpoint (a plain ``GET /v1/sessions``
+        with query-param filters) and wraps the result in a ``Page``.
+
+        Args:
+            agent: Filter by agent — an :class:`~aixplain.v2.agent.Agent` instance
+                or an agent id string.
+            status: Filter by session status (e.g. ``"active"``).
+            user_id: Filter by owning user id.
+            created_after: Lower bound on the session's creation time
+                (``datetime`` or ISO string).
+            created_before: Upper bound on the session's creation time.
+            memory_enabled: When ``True`` return memory-on threads (sessions with
+                persisted traces); when ``False`` return memory-off runs. ``None``
+                (default) applies no memory filter. *(Backend filter delivery is a
+                follow-up; the SDK forwards the parameter today.)*
+            page_number: Zero-indexed page number (default 0).
+            page_size: Page size (default 20).
+            **kwargs: Accepted for forward compatibility with the standard
+                search signature; ignored by the session list endpoint.
+
+        Returns:
+            Page[Session]: A page of Session instances.
+
+        Raises:
+            ResourceError: If the API response cannot be parsed or
+                deserialization fails.
+            APIError: If the API request fails.
+        """
+        context = getattr(cls, "context", None)
+        if context is None:
+            raise ResourceError("Context is required for resource operations")
+
+        params: Dict[str, Any] = {}
+        agent_id = _resolve_agent_id(agent)
+        if agent_id is not None:
+            params["agentId"] = agent_id
+        if status is not None:
+            params["status"] = status
+        if user_id is not None:
+            params["userId"] = user_id
+        if created_after is not None:
+            params["createdAfter"] = _to_iso(created_after)
+        if created_before is not None:
+            params["createdBefore"] = _to_iso(created_before)
+        if memory_enabled is not None:
+            params["memoryEnabled"] = memory_enabled
+        params["pageNumber"] = page_number
+        params["pageSize"] = page_size
+
+        try:
+            response = context.client.request("get", cls.RESOURCE_PATH, params=params)
+        except APIError:
+            raise
+        except Exception as e:
+            raise ResourceError(f"Failed to search sessions: {e}")
+
+        # The backend returns a bare JSON array today; tolerate a paginated dict
+        # too so a future backend change (envelope with total/pageTotal) still works.
+        if isinstance(response, dict):
+            items = response.get(cls.PAGINATE_ITEMS_KEY) or response.get("items") or []
+            total = response.get(cls.PAGINATE_TOTAL_KEY, len(items))
+            page_total = response.get(cls.PAGINATE_PAGE_TOTAL_KEY, 1)
+        else:
+            items = _parse_list_response(response, "sessions")
+            total = len(items)
+            page_total = 1
+
+        results: List["Session"] = []
+        for item in items:
+            session = _deserialize(cls, item, "session")
+            session.context = context
+            session._update_saved_state()
+            results.append(session)
+
+        return Page(results=results, page_number=page_number, page_total=page_total, total=total)
+
+    def messages(self) -> List[SessionMessage]:
+        """Get all messages in this session.
+
+        Returns:
+            List of SessionMessage instances.
+
+        Raises:
+            ResourceError: If the API response is not a list or
+                deserialization fails.
+            APIError: If the API request fails.
+        """
+        self._ensure_valid_state()
+        path = f"{self.RESOURCE_PATH}/{self.encoded_id}/messages"
+
+        try:
+            response = self.context.client.request("get", path)
+        except APIError:
+            raise
+        except Exception as e:
+            raise ResourceError(f"Failed to list messages for session '{self.id}': {e}")
+
+        items = _parse_list_response(response, "messages")
+        return [_deserialize(SessionMessage, item, "session message") for item in items]
+
+    def add_message(
+        self,
+        role: str,
+        content: str,
+        request_id: Optional[str] = None,
+        attachments: Optional[List[Union[str, Path, Dict[str, Any]]]] = None,
+        files: Optional[List[Union[str, Path]]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> SessionMessage:
+        """Add a message to this session.
+
+        Args:
+            role: Message role ("user" or "assistant").
+            content: Message content. May be empty when ``attachments`` carry the
+                turn's input (e.g. an audio clip that is itself the prompt).
+            request_id: Optional request ID to associate with the message.
+            attachments: The message's attachments. Each entry may be:
+
+                * a hosted-URL dict ``{"url", "type"?, "name"?, "mimeType"?}`` — used as-is;
+                * a local-path dict ``{"path": "/...", "type"?, ...}`` — uploaded;
+                * a string URL (``http(s)://`` / ``s3://``) — attached as-is;
+                * a string local path — uploaded to aiXplain storage.
+
+            files: Deprecated. Local file paths to upload and attach — pass these
+                through ``attachments`` instead.
+            tools: Per-message per-tool parameter overrides in the platform
+                ``[{id, parameters: [{name, value}]}]`` shape, applied to the
+                run this message triggers. Normally populated automatically from
+                the agent's tool objects by ``agent.run(query, session=…)``.
+
+        Returns:
+            The created SessionMessage.
+
+        Raises:
+            ResourceError: If the operation fails.
+            APIError: If the API request fails.
+            FileUploadError: If a file upload fails.
+        """
+        self._ensure_valid_state()
+
+        all_attachments = self._resolve_attachments(attachments, files)
+
+        payload: Dict[str, Any] = {"role": role, "content": content}
+        if request_id is not None:
+            payload["requestId"] = request_id
+        if all_attachments:
+            payload["attachments"] = all_attachments
+        if tools:
+            payload["tools"] = tools
+
+        path = f"{self.RESOURCE_PATH}/{self.encoded_id}/messages"
+        try:
+            response = self.context.client.request("post", path, json=payload)
+        except APIError:
+            raise
+        except Exception as e:
+            raise ResourceError(f"Failed to add message to session '{self.id}': {e}")
+
+        return _deserialize(SessionMessage, response, "session message")
+
+    def _resolve_attachments(
+        self,
+        attachments: Optional[List[Union[str, Path, Dict[str, Any]]]],
+        files: Optional[List[Union[str, Path]]],
+    ) -> List[Dict[str, Any]]:
+        """Resolve the unified ``attachments`` (+ deprecated ``files``) for this session.
+
+        Thin wrapper over :func:`resolve_attachments` that supplies this session's
+        context and an error label.
+        """
+        return resolve_attachments(self.context, attachments, files, error_label=f"session '{self.id}'")
+
+    def get_message(self, message_id: str) -> SessionMessage:
+        """Get a specific message by ID.
+
+        Args:
+            message_id: The message ID.
+
+        Returns:
+            The SessionMessage.
+
+        Raises:
+            ResourceError: If deserialization fails.
+            APIError: If the API request fails (e.g., message not found).
+        """
+        self._ensure_valid_state()
+        path = f"{self.RESOURCE_PATH}/{self.encoded_id}/messages/{message_id}"
+        try:
+            response = self.context.client.request("get", path)
+        except APIError:
+            raise
+        except Exception as e:
+            raise ResourceError(f"Failed to get message '{message_id}' from session '{self.id}': {e}")
+        return _deserialize(SessionMessage, response, "session message")
+
+    def delete_message(self, message_id: str) -> None:
+        """Delete a message from this session.
+
+        Args:
+            message_id: The message ID to delete.
+
+        Raises:
+            APIError: If the API request fails (e.g., message not found).
+            ResourceError: If the session is in an invalid state.
+        """
+        self._ensure_valid_state()
+        path = f"{self.RESOURCE_PATH}/{self.encoded_id}/messages/{message_id}"
+        try:
+            self.context.client.request_raw("delete", path)
+        except APIError:
+            raise
+        except Exception as e:
+            raise ResourceError(f"Failed to delete message '{message_id}' from session '{self.id}': {e}")
+
+    def react(self, message_id: str, reaction: Optional[str]) -> SessionMessage:
+        """React to a message or clear a reaction.
+
+        Only assistant messages can be reacted to.
+
+        Args:
+            message_id: The message ID to react to.
+            reaction: "LIKE", "DISLIKE", or None to clear.
+
+        Returns:
+            The updated SessionMessage.
+
+        Raises:
+            APIError: If the API request fails (e.g., reacting to a
+                non-assistant message).
+            ResourceError: If deserialization fails.
+        """
+        self._ensure_valid_state()
+        path = f"{self.RESOURCE_PATH}/{self.encoded_id}/messages/{message_id}/reaction"
+        payload: Dict[str, Any] = {"reaction": reaction}
+        try:
+            response = self.context.client.request("post", path, json=payload)
+        except APIError:
+            raise
+        except Exception as e:
+            raise ResourceError(f"Failed to react to message '{message_id}' in session '{self.id}': {e}")
+        return _deserialize(SessionMessage, response, "session message")
+
+
+# ``@dataclass_json`` injects its own ``from_dict`` onto Session, which would
+# clobber any ``from_dict`` defined in the class body. We wrap the injected
+# decoder here to silently pre-fold a legacy nested ``executionConfig`` before
+# decoding — so loading a backend session never emits a spurious deprecation
+# warning. Mirrors the pattern used for ``ExecutionConfig`` and ``Agent``.
+_dataclass_json_session_from_dict = Session.from_dict.__func__
+
+
+def _session_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Session":
+    kvs = cls._fold_legacy_execution_config(kvs)
+    return _dataclass_json_session_from_dict(cls, kvs, infer_missing=infer_missing)
+
+
+Session.from_dict = classmethod(_session_from_dict)
