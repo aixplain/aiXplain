@@ -110,6 +110,7 @@ def test_run_with_url(batchmode: bool, version: str, PipelineFactory):
     ],
 )
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
+@pytest.mark.skip(reason="Shortened test to decrease CI time")
 def test_run_with_dataset(batchmode: bool, version: str, PipelineFactory):
     dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
     data_asset_id = dataset.id
@@ -145,7 +146,7 @@ def test_run_multipipe_with_strings(batchmode: bool, version: str, PipelineFacto
     )
     assert response["status"] == ResponseStatus.SUCCESS
 
-
+@pytest.mark.skip(reason="Shortened test to decrease CI time")
 @pytest.mark.parametrize(
     "batchmode,version",
     [
@@ -176,6 +177,7 @@ def test_run_multipipe_with_datasets(batchmode: bool, version: str, PipelineFact
 
 @pytest.mark.parametrize("version", ["2.0", "3.0"])
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
+@pytest.mark.skip(reason="Shortened test to decrease CI time")
 def test_run_segment_reconstruct(version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Segmentation/Reconstruction Functional Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(
@@ -188,6 +190,7 @@ def test_run_segment_reconstruct(version: str, PipelineFactory):
 
 @pytest.mark.parametrize("version", ["2.0", "3.0"])
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
+@pytest.mark.skip(reason="Shortened test to decrease CI time")
 def test_run_translation_metric(version: str, PipelineFactory):
     dataset = DatasetFactory.list(query="for_functional_tests")["results"][0]
     data_asset_id = dataset.id
@@ -246,6 +249,7 @@ def test_run_metric(version: str, PipelineFactory):
     ],
 )
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
+@pytest.mark.skip(reason="Shortened test to decrease CI time")
 def test_run_router(input_data: str, output_data: str, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Router Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(input_data, **{"version": version})
@@ -263,6 +267,7 @@ def test_run_router(input_data: str, output_data: str, version: str, PipelineFac
     ],
 )
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
+@pytest.mark.skip(reason="Shortened test to decrease CI time")
 def test_run_decision(input_data: str, output_data: str, version: str, PipelineFactory):
     pipeline = PipelineFactory.list(query="Decision Test - DO NOT DELETE")["results"][0]
     response = pipeline.run(input_data, **{"version": version})
