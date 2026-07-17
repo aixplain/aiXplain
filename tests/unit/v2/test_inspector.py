@@ -338,8 +338,10 @@ class TestFromGuardModel:
             "targets": ["input"],
             "action": {"type": "abort"},
             "evaluator": {"type": "asset", "assetId": "pi-id"},
+            "presetId": "prompt_injection_guard",
         }
         assert guard.id == "pi-id"
+        assert guard.preset_id == "prompt_injection_guard"
 
     def test_pii_redaction_defaults_with_editor(self):
         guard = Inspector.from_guard_model(
@@ -381,6 +383,44 @@ class TestFromGuardModel:
         assert payload["targets"] == ["input"]
         assert payload["action"] == {"type": "abort"}
         assert payload["evaluator"] == {"type": "asset", "assetId": "x-id"}
+        # An unknown guard carries no presetId; the backend resolves it itself.
+        assert guard.preset_id is None
+        assert "presetId" not in payload
+
+    def test_pii_guard_emits_preset_id(self):
+        guard = Inspector.from_guard_model(
+            {"id": "pii-id", "name": "Sensitive Information Guardrail"},
+            requested_path=_PII_PATH,
+        )
+        assert guard.preset_id == "pii_redaction"
+        assert guard.to_dict()["presetId"] == "pii_redaction"
+
+    def test_hallucination_guard_emits_preset_id(self):
+        guard = Inspector.from_guard_model(
+            {"id": "h-id", "name": "Contextual Grounding Check Guardrail"},
+            requested_path=_HALLUCINATION_PATH,
+        )
+        assert guard.preset_id == "hallucination_guard"
+        assert guard.to_dict()["presetId"] == "hallucination_guard"
+
+    def test_preset_id_resolved_from_asset_name_field(self):
+        guard = Inspector.from_guard_model(
+            {
+                "id": "pi-id",
+                "name": "Detect Prompt Attacks Guardrail",
+                "assetInfo": {"assetName": "detect-prompt-attacks-guardrail"},
+            }
+        )
+        assert guard.preset_id == "prompt_injection_guard"
+
+    def test_preset_id_roundtrips_through_from_dict(self):
+        guard = Inspector.from_guard_model(
+            {"id": "pi-id", "name": "Detect Prompt Attacks Guardrail"},
+            requested_path=_PROMPT_ATTACKS_PATH,
+        )
+        restored = Inspector.from_dict(guard.to_dict())
+        assert restored.preset_id == "prompt_injection_guard"
+        assert restored.to_dict() == guard.to_dict()
 
     def test_slug_resolved_from_payload_path(self):
         guard = Inspector.from_guard_model(

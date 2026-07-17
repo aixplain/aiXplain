@@ -250,6 +250,27 @@ def _resolve_guard_defaults(*candidates: Optional[str]) -> Dict[str, Any]:
     return _DEFAULT_GUARD_CONFIG
 
 
+_GUARD_PRESET_IDS: Dict[str, str] = {
+    "detect-prompt-attacks-guardrail": "prompt_injection_guard",
+    "sensitive-information-guardrail": "pii_redaction",
+    "contextual-grounding-check-guardrail": "hallucination_guard",
+}
+
+
+def _resolve_guard_preset_id(*candidates: Optional[str]) -> Optional[str]:
+    """Return the backend preset id for a guard, matching its asset-name slug.
+
+    Mirrors :func:`_resolve_guard_defaults`: tries each candidate (asset name,
+    path/id) and every path segment, returning the first known preset id.
+    Returns ``None`` when nothing matches (unknown/future guards).
+    """
+    for candidate in candidates:
+        for slug in _guard_slugs(candidate):
+            if slug in _GUARD_PRESET_IDS:
+                return _GUARD_PRESET_IDS[slug]
+    return None
+
+
 @dataclass(repr=False)
 class Inspector(
     BaseResource,
@@ -317,6 +338,9 @@ class Inspector(
     severity: Optional[str] = None
     targets: List[str] = field(default_factory=list)
     editor: Any = None
+    # Backend inspector-preset id. Set automatically for fetched marketplace
+    # guards (see :meth:`from_guard_model`); ``None`` for custom inspectors.
+    preset_id: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Normalize and validate inspector configuration after initialization."""
@@ -356,6 +380,8 @@ class Inspector(
             d["severity"] = self.severity
         if self.editor is not None:
             d["editor"] = self.editor.to_dict()
+        if self.preset_id is not None:
+            d["presetId"] = self.preset_id
         return d
 
     @classmethod
@@ -373,6 +399,7 @@ class Inspector(
             action=data.get("action") or {},
             metric=_Judge.from_dict(data["evaluator"]),
             editor=_Judge.from_dict(editor_data) if editor_data else None,
+            preset_id=data.get("presetId") or data.get("preset_id"),
         )
 
     # ------------------------------------------------------------------
@@ -403,6 +430,7 @@ class Inspector(
         model_id = payload.get("id")
         asset_name = (payload.get("assetInfo") or {}).get("assetName")
         defaults = _resolve_guard_defaults(asset_name, requested_path, payload.get("path"))
+        preset_id = _resolve_guard_preset_id(asset_name, requested_path, payload.get("path"))
 
         action = _ActionConfig.coerce(defaults["action"])
         editor = None
@@ -418,6 +446,7 @@ class Inspector(
             action=action,
             targets=list(defaults["targets"]),
             editor=editor,
+            preset_id=preset_id,
         )
         inspector.path = payload.get("path") or requested_path
         return inspector
