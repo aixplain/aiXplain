@@ -12,6 +12,7 @@ from .tool import Tool
 from .skill import Skill
 from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
 from .integration import Integration
+from .trigger import Trigger
 from .file import Resource
 from .inspector import Inspector
 from .meta_agents import Debugger
@@ -29,6 +30,7 @@ ToolType = TypeVar("ToolType", bound=Tool)
 SkillType = TypeVar("SkillType", bound=Skill)
 MetricType = TypeVar("MetricType", bound=MetricBase)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
+TriggerType = TypeVar("TriggerType", bound=Trigger)
 ResourceType = TypeVar("ResourceType", bound=Resource)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
 DebuggerType = TypeVar("DebuggerType", bound=Debugger)
@@ -59,6 +61,7 @@ class Aixplain:
     Metric: MetricType = None
     Eval: type = None
     Integration: IntegrationType = None
+    Trigger: TriggerType = None
     Resource: ResourceType = None
     Inspector: InspectorType = None
     Debugger: DebuggerType = None
@@ -150,6 +153,7 @@ class Aixplain:
         self.Metric = type("Metric", (MetricBase,), {"context": self})
         self.Eval = EvalClass
         self.Integration = type("Integration", (Integration,), {"context": self})
+        self.Trigger = type("Trigger", (Trigger,), {"context": self})
         self.Resource = type("Resource", (Resource,), {"context": self})
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
         self.Debugger = type("Debugger", (Debugger,), {"context": self})
