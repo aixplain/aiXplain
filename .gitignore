@@ -148,3 +148,4 @@ dmypy.json
 .env.test
 
 aixplain-dev/
+experiments/

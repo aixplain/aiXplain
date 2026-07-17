@@ -374,11 +374,25 @@ class Metric(Tool):
         if isinstance(data_val, str) and data_val.startswith("http"):
             return super().handle_run_response(response, **kwargs)
         result = MetricResponse.from_dict(response_with_defaults)
+        result._raw_data = response
+        return result
+
+    def after_run(self, result: MetricResponse, **kwargs: Any) -> MetricResponse:
+        """Post-process metric result after run (direct or polled) to parse validated_data."""
         if isinstance(result.data, str) and result.data:
             result.data = self._cleanup_run_response(result.data)
             result.validated_data = result.data
-        result._raw_data = response
         return result
+
+    def run(self, *args: Any, **kwargs: Any) -> MetricResponse:
+        """Run metric and ensure validated_data is populated regardless of sync/async path.
+
+        Model._run_sync_v2 (used for sync-only models) bypasses _apply_after_run, so
+        after_run never fires through the normal hook mechanism. Wrapping run() here
+        guarantees post-processing on every exit path.
+        """
+        result = super().run(*args, **kwargs)
+        return self._apply_after_run(result, **kwargs)
 
 
 Metric.AgentResponseDataFields = AgentResponseDataFields
