@@ -35,8 +35,29 @@ def test_metric_generate_prompt_template_invalid_score_type() -> None:
         Metric._generate_prompt_template(score_type="other", instruction="x")
 
 
+def test_metric_generate_prompt_template_categorical_derives_categories_from_criteria() -> None:
+    raw = Metric._generate_prompt_template(
+        score_type="categorical",
+        instruction="Judge the tone.",
+        criteria={"formal": "reads as professional", "casual": "reads as informal"},
+    )
+    assert "formal" in raw and "casual" in raw
+    assert "reads as professional" in raw and "reads as informal" in raw
+
+
+def test_metric_generate_prompt_template_categorical_requires_criteria() -> None:
+    with pytest.raises(ValueError, match="criteria"):
+        Metric._generate_prompt_template(score_type="categorical", instruction="Pick one.")
+
+
 def test_metric_create_requires_prompt_or_spec() -> None:
     with pytest.raises(ValidationError, match="prompt_template or score_type"):
+        Metric.create("m", "llm-path", score_type=None)
+
+
+def test_metric_create_defaults_to_categorical_and_requires_criteria() -> None:
+    """score_type now defaults to 'categorical', so omitting it falls straight to the criteria check."""
+    with pytest.raises(ValidationError, match="criteria"):
         Metric.create("m", "llm-path")
 
 
@@ -50,8 +71,8 @@ def test_metric_create_numeric_requires_bounds() -> None:
         Metric.create("m", "llm-path", score_type="numeric", instruction="Rate it.")
 
 
-def test_metric_create_categorical_requires_categories() -> None:
-    with pytest.raises(ValidationError, match="categories"):
+def test_metric_create_categorical_requires_criteria() -> None:
+    with pytest.raises(ValidationError, match="criteria"):
         Metric.create("m", "llm-path", score_type="categorical", instruction="Pick one.")
 
 
@@ -70,6 +91,18 @@ def test_metric_create_generates_boolean_prompt() -> None:
 
 
 @patch.object(Metric, "save", MagicMock())
+def test_metric_create_generates_categorical_prompt_from_criteria() -> None:
+    m = Metric.create(
+        "tone",
+        "llm-id",
+        criteria={"formal": "reads as professional", "casual": "reads as informal"},
+        instruction="Judge the tone.",
+    )
+    assert "formal" in m.config["prompt"] and "casual" in m.config["prompt"]
+    assert "reads as professional" in m.config["prompt"]
+
+
+@patch.object(Metric, "save", MagicMock())
 def test_metric_initialize_deprecated_alias() -> None:
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
@@ -80,7 +113,7 @@ def test_metric_initialize_deprecated_alias() -> None:
 def test_metric_constructor_resolves_config_without_saving() -> None:
     """Metric(...) alone (no .save()) should resolve config/integration locally, no network call."""
     with patch.object(Metric, "save") as mock_save:
-        m = Metric(name="name", llm_path="llm-id", prompt_template="  hi  ")
+        m = Metric(name="name", llm="llm-id", prompt_template="  hi  ")
     mock_save.assert_not_called()
     assert m.id is None
     assert m.config == {"prompt": "hi", "llmId": "llm-id"}
@@ -90,7 +123,7 @@ def test_metric_constructor_resolves_config_without_saving() -> None:
 @patch.object(Metric, "save", MagicMock())
 def test_metric_constructor_plus_save_matches_create() -> None:
     """Metric(...).save() should be equivalent to Metric.create(...)."""
-    m1 = Metric(name="name", llm_path="llm-id", score_type="boolean", instruction="Is it correct?")
+    m1 = Metric(name="name", llm="llm-id", score_type="boolean", instruction="Is it correct?")
     m1.save()
     m2 = Metric.create("name", "llm-id", score_type="boolean", instruction="Is it correct?")
     assert m1.config == m2.config
@@ -99,12 +132,22 @@ def test_metric_constructor_plus_save_matches_create() -> None:
 
 def test_metric_constructor_requires_prompt_or_spec() -> None:
     with pytest.raises(ValidationError, match="prompt_template or score_type"):
-        Metric(name="m", llm_path="llm-path")
+        Metric(name="m", llm="llm-path", score_type=None)
+
+
+def test_metric_constructor_defaults_score_type_to_categorical() -> None:
+    m = Metric(
+        name="m",
+        llm="llm-path",
+        criteria={"good": "helpful", "bad": "not helpful"},
+        instruction="Judge quality.",
+    )
+    assert m.score_type == "categorical"
 
 
 def test_metric_constructor_numeric_requires_bounds() -> None:
     with pytest.raises(ValidationError, match="start_number and end_number"):
-        Metric(name="m", llm_path="llm-path", score_type="numeric", instruction="Rate it.")
+        Metric(name="m", llm="llm-path", score_type="numeric", instruction="Rate it.")
 
 
 def test_metric_bare_constructor_unaffected() -> None:
@@ -142,7 +185,7 @@ def test_metric_instruction_optional_defers_to_save_without_network() -> None:
     with patch.object(Metric, "context"):
         m = Metric(
             name="Relevance",
-            llm_path="llm-id",
+            llm="llm-id",
             score_type="boolean",
             description="Judge if the answer is relevant to the query.",
         )
@@ -153,7 +196,7 @@ def test_metric_instruction_optional_defers_to_save_without_network() -> None:
 
 def test_metric_instruction_and_description_both_missing_raises_at_construction() -> None:
     with pytest.raises(ValidationError, match="instruction"):
-        Metric(name="Relevance", llm_path="llm-id", score_type="boolean")
+        Metric(name="Relevance", llm="llm-id", score_type="boolean")
 
 
 def test_metric_save_generates_instruction_via_llm() -> None:
@@ -167,7 +210,7 @@ def test_metric_save_generates_instruction_via_llm() -> None:
         mock_context.Model.get.return_value = fake_model
         m = Metric(
             name="Relevance",
-            llm_path="llm-id",
+            llm="llm-id",
             score_type="boolean",
             description="Judge if the answer is relevant to the query.",
         )
@@ -186,7 +229,7 @@ def test_metric_save_falls_back_to_templated_instruction_on_llm_failure() -> Non
         mock_context.Model.get.side_effect = RuntimeError("network down")
         m = Metric(
             name="Relevance",
-            llm_path="llm-id",
+            llm="llm-id",
             score_type="boolean",
             description="Judge if the answer is relevant to the query.",
         )
@@ -206,7 +249,7 @@ def test_metric_save_falls_back_when_llm_returns_empty_response() -> None:
         mock_context.Model.get.return_value = fake_model
         m = Metric(
             name="Relevance",
-            llm_path="llm-id",
+            llm="llm-id",
             score_type="boolean",
             description="Judge if the answer is relevant to the query.",
         )
@@ -226,7 +269,7 @@ def test_metric_save_only_generates_instruction_once() -> None:
         mock_context.Model.get.return_value = fake_model
         m = Metric(
             name="Relevance",
-            llm_path="llm-id",
+            llm="llm-id",
             score_type="boolean",
             description="Judge if the answer is relevant to the query.",
         )

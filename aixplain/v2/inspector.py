@@ -293,7 +293,7 @@ class Inspector(
             action="abort",
             metric=aix.Metric.create(
                 name="grounded",
-                llm_path="<LLM_ID>",
+                llm="<LLM_ID>",
                 prompt_template="Abort if the answer is not grounded in the context.",
             ),
         )

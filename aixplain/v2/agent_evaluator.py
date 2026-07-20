@@ -128,21 +128,20 @@ class Metric(Tool):
 
     RESPONSE_CLASS = MetricResponse
     prompt_template: Optional[str] = field(default=None, metadata=dj_config(field_name="promptTemplate"))
-    llm_path: Optional[str] = field(default=None, metadata=dj_config(field_name="llmPath"))
+    llm: Optional[str] = field(default=None, metadata=dj_config(field_name="llm"))
     agent_response_data_fields: AgentResponseDataFields = field(
         default_factory=AgentResponseDataFields,
         metadata=dj_config(field_name="agentResponseDataFields"),
     )
     additional_input_prompt: Optional[str] = field(default=None, metadata=dj_config(field_name="additionalInputPrompt"))
-    score_type: Optional[str] = field(default=None, metadata=dj_config(field_name="scoreType"))
+    score_type: Optional[str] = field(default="categorical", metadata=dj_config(field_name="scoreType"))
     threshold: Optional[Union[List[str], float]] = field(default=None, metadata=dj_config(field_name="threshold"))
 
     # Rubric-generation inputs (local-only; consumed by _resolve_rubric_config, not sent to the backend).
     instruction: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     start_number: Optional[float] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     end_number: Optional[float] = field(default=None, metadata=dj_config(exclude=lambda x: True))
-    categories: Optional[List[str]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
-    detailed_rubric: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    criteria: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     auto_complete: bool = field(default=False, metadata=dj_config(exclude=lambda x: True))
 
     # Set when instruction generation is deferred to save() (see _resolve_rubric_config).
@@ -152,13 +151,11 @@ class Metric(Tool):
 
     _RUBRIC_TRIGGER_FIELDS: ClassVar[tuple] = (
         "prompt_template",
-        "llm_path",
-        "score_type",
+        "llm",
         "instruction",
         "start_number",
         "end_number",
-        "categories",
-        "detailed_rubric",
+        "criteria",
     )
 
     def __post_init__(self) -> None:
@@ -190,8 +187,8 @@ class Metric(Tool):
         via an LLM call (see :meth:`_finalize_rubric_config`), so plain construction
         never performs network I/O.
         """
-        if not self.llm_path:
-            raise ValidationError("Metric requires llm_path to build a prompt-based integration config.")
+        if not self.llm:
+            raise ValidationError("Metric requires llm to build a prompt-based integration config.")
 
         explicit_prompt = self.prompt_template is not None and str(self.prompt_template).strip() != ""
         if explicit_prompt:
@@ -207,8 +204,10 @@ class Metric(Tool):
                 if self.start_number is None or self.end_number is None:
                     raise ValidationError("start_number and end_number are required when score_type is 'numeric'.")
             elif st == "categorical":
-                if not self.categories:
-                    raise ValidationError("categories must be a non-empty list when score_type is 'categorical'.")
+                if not self.criteria:
+                    raise ValidationError(
+                        "criteria must be a non-empty dict of {category: description} when score_type is 'categorical'."
+                    )
             elif st != "boolean":
                 raise ValidationError(f"Invalid score_type {st!r}; expected 'numeric', 'categorical', or 'boolean'.")
 
@@ -217,7 +216,7 @@ class Metric(Tool):
                 if not self.description or not str(self.description).strip():
                     raise ValidationError(
                         "Metric requires either instruction or a non-empty description, "
-                        "so an instruction can be auto-generated via llm_path when saved."
+                        "so an instruction can be auto-generated via llm when saved."
                     )
                 # Set integration now so Tool.__post_init__ passes; config/prompt_template
                 # generation (and the LLM call for instruction) is completed in save().
@@ -230,8 +229,7 @@ class Metric(Tool):
                 instruction=str(self.instruction).strip(),
                 start_number=self.start_number,
                 end_number=self.end_number,
-                categories=self.categories,
-                detailed_rubric=self.detailed_rubric,
+                criteria=self.criteria,
                 auto_complete=self.auto_complete,
             )
 
@@ -239,13 +237,13 @@ class Metric(Tool):
         self.integration = "aixplain/custom-llm-prompt/aixplain"
         self.config = {
             "prompt": resolved_prompt,
-            "llmId": self.llm_path,
+            "llmId": self.llm,
         }
 
     def _finalize_rubric_config(self) -> None:
         """Complete rubric config resolution deferred by :meth:`_resolve_rubric_config`.
 
-        Auto-generates ``instruction`` via an LLM call (using ``llm_path``), built from
+        Auto-generates ``instruction`` via an LLM call (using ``llm``), built from
         this metric's ``name``/``description``, then builds the final prompt/config.
         Called from :meth:`save`, before the metric is persisted, so it only runs once
         (and only when instruction generation was actually deferred).
@@ -258,19 +256,18 @@ class Metric(Tool):
             instruction=self.instruction,
             start_number=self.start_number,
             end_number=self.end_number,
-            categories=self.categories,
-            detailed_rubric=self.detailed_rubric,
+            criteria=self.criteria,
             auto_complete=self.auto_complete,
         )
         self.prompt_template = resolved_prompt
         self.config = {
             "prompt": resolved_prompt,
-            "llmId": self.llm_path,
+            "llmId": self.llm,
         }
         self._pending_rubric_resolution = False
 
     def _generate_instruction_via_llm(self) -> str:
-        """Ask ``llm_path`` to write a grading instruction from name/description; clean the reply.
+        """Ask ``llm`` to write a grading instruction from name/description; clean the reply.
 
         Falls back to :meth:`_fallback_instruction` on any failure (API error, empty
         or unusable response after cleaning) rather than raising, per design: a saved
@@ -278,7 +275,7 @@ class Metric(Tool):
         """
         prompt = self._build_instruction_generation_prompt()
         try:
-            model = self.context.Model.get(self.llm_path)
+            model = self.context.Model.get(self.llm)
             kw = _infer_prompt_input_field_name(model)
             result = model.run(**{kw: prompt})
             cleaned = _clean_generated_instruction(_reply_text_from_model_result(result))
@@ -296,8 +293,8 @@ class Metric(Tool):
             f"Metric description: {self.description}",
             f"Score type: {self.score_type}",
         ]
-        if self.score_type == "categorical" and self.categories:
-            parts.append(f"Categories: {', '.join(self.categories)}")
+        if self.score_type == "categorical" and self.criteria:
+            parts.append(f"Categories: {', '.join(self.criteria.keys())}")
         parts.extend(
             [
                 "",
@@ -327,8 +324,7 @@ class Metric(Tool):
         instruction: str,
         start_number: Optional[float] = None,
         end_number: Optional[float] = None,
-        categories: Optional[list[str]] = None,
-        detailed_rubric: Optional[dict] = None,
+        criteria: Optional[dict] = None,
         auto_complete: bool = False,
     ) -> str:
         del auto_complete  # Reserved for future prompt customization.
@@ -338,6 +334,11 @@ class Metric(Tool):
             rubric = f"On a scale from {start_number} to {end_number}, where {end_number} is best, provide a score for the output according to the rubric as a single float."
             output_json = f"""{{"properties": {{"reasoning": {{"description": "step by step reasoning to derive the final answer, using no more than 250 words", "title": "Reasoning", "type": "string"}}, "score": {{"description": "numerical score from {start_number} to {end_number}", "minimum": {start_number}, "maximum": {end_number}, "title": "Score", "type": "number"}}}}, "required": ["reasoning", "score"]}}"""
         elif score_type == "categorical":
+            if not criteria:
+                raise ValueError(
+                    "criteria (a non-empty dict of {category: description}) is required for score_type 'categorical'."
+                )
+            categories = list(criteria.keys())
             rubric = f"Choose from the following categories: {', '.join(categories)}. Provide a category for the output according to the rubric."
             output_json = f"""{{"properties": {{"reasoning": {{"description": "step by step reasoning to derive the final answer, using no more than 250 words", "title": "Reasoning", "type": "string"}}, "score": {{"description": "categorical score from {", ".join(categories)}", "enum": {categories}, "title": "Score", "type": "string"}}}}, "required": ["reasoning", "score"]}}"""
         elif score_type == "boolean":
@@ -349,8 +350,8 @@ class Metric(Tool):
         else:
             raise ValueError(f"Invalid score type: {score_type}. Expected one of: 'numeric', 'categorical', 'boolean'.")
 
-        if detailed_rubric is not None:
-            for key, value in detailed_rubric.items():
+        if criteria is not None:
+            for key, value in criteria.items():
                 rubric += f"\n- {key}: {value}"
 
         custom_prompt_template = custom_prompt_template.replace("<RUBRIC>", rubric)
@@ -362,15 +363,14 @@ class Metric(Tool):
     def create(
         cls,
         name: str,
-        llm_path: str,
+        llm: str,
         metric_description: str = "",
         prompt_template: Optional[str] = None,
-        score_type: Optional[str] = None,
+        score_type: Optional[str] = "categorical",
         instruction: Optional[str] = None,
         start_number: Optional[float] = None,
         end_number: Optional[float] = None,
-        categories: Optional[list[str]] = None,
-        detailed_rubric: Optional[dict] = None,
+        criteria: Optional[dict] = None,
         auto_complete: bool = False,
         allowed_actions: Optional[List[str]] = None,
         **kwargs: Any,
@@ -382,26 +382,27 @@ class Metric(Tool):
         non-empty string, it is used as-is and generation parameters are ignored.
 
         ``instruction`` is optional. If omitted, ``metric_description`` must be
-        non-empty: an instruction is auto-generated via an LLM call to ``llm_path``
+        non-empty: an instruction is auto-generated via an LLM call to ``llm``
         (from ``name``/``metric_description``) when the metric is saved, falling
         back to a deterministic templated instruction if that call fails.
 
         Args:
             name: Name of the metric tool.
-            llm_path: The path or ID of the LLM to use (both for grading and, if
+            llm: The path or ID of the LLM to use (both for grading and, if
                 ``instruction`` is omitted, for auto-generating one).
             metric_description: Description of the metric tool. Required when
                 ``instruction`` is omitted (used to auto-generate one).
             prompt_template: Full prompt template for the LLM. If omitted or blank,
                 a template is built via :meth:`_generate_prompt_template`.
-            score_type: One of ``numeric``, ``categorical``, or ``boolean`` (required
-                when ``prompt_template`` is not set).
+            score_type: One of ``numeric``, ``categorical``, or ``boolean``. Defaults
+                to ``categorical`` (required when ``prompt_template`` is not set).
             instruction: Task instruction embedded in the generated template. Optional -
                 auto-generated from ``name``/``metric_description`` when omitted.
             start_number: Scale lower bound for ``numeric`` metrics.
             end_number: Scale upper bound for ``numeric`` metrics.
-            categories: Allowed labels for ``categorical`` metrics.
-            detailed_rubric: Optional extra rubric lines appended to the rubric section.
+            criteria: For ``categorical`` metrics, a ``{category: description}`` dict -
+                the categories are its keys. Also appended as extra rubric detail lines
+                for any score_type.
             auto_complete: Reserved for future use; passed through to template generation.
             allowed_actions: Optional list of allowed actions (currently unused).
             **kwargs: Reserved for future :class:`Tool` construction options.
@@ -417,14 +418,13 @@ class Metric(Tool):
         metric = cls(
             name=name,
             description=metric_description,
-            llm_path=llm_path,
+            llm=llm,
             prompt_template=prompt_template,
             score_type=score_type,
             instruction=instruction,
             start_number=start_number,
             end_number=end_number,
-            categories=categories,
-            detailed_rubric=detailed_rubric,
+            criteria=criteria,
             auto_complete=auto_complete,
         )
         metric.save()
@@ -435,14 +435,14 @@ class Metric(Tool):
         cls,
         name: str,
         prompt_template: str,
-        llm_path: str,
+        llm: str,
         metric_description: str = "",
         allowed_actions: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> "Metric":
         """Deprecated. Use :meth:`create` instead.
 
-        Preserves the historical argument order ``(name, prompt_template, llm_path)``.
+        Preserves the historical argument order ``(name, prompt_template, llm)``.
         """
         warnings.warn(
             "Metric.initialize is deprecated; use Metric.create instead.",
@@ -451,7 +451,7 @@ class Metric(Tool):
         )
         return cls.create(
             name=name,
-            llm_path=llm_path,
+            llm=llm,
             metric_description=metric_description,
             prompt_template=prompt_template,
             allowed_actions=allowed_actions,

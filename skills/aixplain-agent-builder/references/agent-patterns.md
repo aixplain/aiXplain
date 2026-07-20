@@ -59,7 +59,7 @@ inspector = Inspector(
     severity="high",                               # "low" | "medium" | "high" | "critical"
     metric=aix.Metric.create(                       # the universal judge
         name="policy-check",
-        llm_path="<LLM_ID>",                        # your judge LLM; wraps the prompt below
+        llm="<LLM_ID>",                              # your judge LLM; wraps the prompt below
         prompt_template="Validate output meets policy. Fail if non-compliant.",
     ),
 )
