@@ -39,7 +39,7 @@ import pandas as pd
 import streamlit as st
 
 from aixplain import Aixplain
-from aixplain.v2.agent_evaluator import Eval, AgentEvaluationRun
+from aixplain.v2.agent_evaluator import AgentEvaluationRun
 from aixplain.v2.eval_results_display import summarize_by_agent
 from aixplain.v2.exceptions import ValidationError
 
@@ -63,7 +63,7 @@ def _failure_rate_by_agent(work: pd.DataFrame) -> Optional[pd.DataFrame]:
 
 def _load_run(source: Any) -> AgentEvaluationRun:
     """Load CSV from path, ``Path``, or file-like object."""
-    return Eval.load_from_csv(source, normalize=True)
+    return AgentEvaluationRun.load_from_csv(source, normalize=True)
 
 
 def _init_insights_if_possible() -> bool:

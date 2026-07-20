@@ -19,7 +19,6 @@ from .session import (
 from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
 from .agent_evaluator import (
-    Eval,
     AgentEvaluationResultsChatbot,
     AgentEvaluationRow,
     AgentEvaluationRun,
@@ -117,7 +116,6 @@ __all__ = [
     "AgentProgressTracker",
     "ProgressFormat",
     # Agent evaluation
-    "Eval",
     "AgentEvaluationRow",
     "AgentEvaluationRun",
     "AgentEvaluationResultsChatbot",

@@ -28,6 +28,7 @@ from .agent_evaluator import (
     Metric,
     _agent_evaluation_row_from_csv_record,
     _normalize_agents,
+    _run_evaluation,
     normalize_eval_results_dataframe,
 )
 
@@ -461,26 +462,33 @@ def _rank_in_categorical_order(value: Any, categorical_order: Sequence[Any]) -> 
 
 @dataclass
 class Experiment:
-    """Definition of an evaluation (dataset, agent snapshots, metric snapshots) plus appended runs.
+    """Evaluation definition (name, dataset, agents, metrics) plus appended runs.
+
+    Construct directly - ``Experiment(name=..., agents=[...], dataset=..., metrics=[...])`` -
+    then call :meth:`run` to execute and append an :class:`ExperimentRun`. Local caching
+    (JSON files keyed by :attr:`id`) is on by default; see :attr:`cache`/:attr:`cache_dir`
+    and :meth:`list_cached`/:meth:`load_cached`.
 
     Use :meth:`runs_comparison_dataframe` to tabulate each :class:`ExperimentRun`, and
     :meth:`plot_runs_regression` for a line chart (with optional polynomial trend) across runs.
     Use :meth:`diff` to classify per-case changes between two runs on one metric.
     """
 
-    id: str
-    created_at: datetime
-    metadata: Dict[str, Any]
+    name: str
     dataset: Dataset
-    agents_snapshot: List[Dict[str, Any]]
-    metrics_snapshot: List[Dict[str, Any]]
+    agents: Sequence[Agent] = field(default_factory=list, repr=False, compare=False)
+    metrics: Optional[Sequence[Metric]] = field(default=None, repr=False, compare=False)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = field(default_factory=_utcnow)
     runs: List[ExperimentRun] = field(default_factory=list)
-    _agents: Optional[Sequence[Agent]] = field(default=None, repr=False, compare=False)
-    _metrics: Optional[Sequence[Metric]] = field(default=None, repr=False, compare=False)
-    _executor: Any = field(default=None, repr=False, compare=False)
+    cache: bool = True
+    cache_dir: Optional[Union[str, Path]] = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Validate required fields after construction."""
+        if not self.name:
+            raise ValidationError("Experiment.name must be non-empty.")
         if not self.id:
             raise ValidationError("Experiment.id must be non-empty.")
         if not isinstance(self.metadata, dict):
@@ -488,9 +496,9 @@ class Experiment:
         if not isinstance(self.dataset, Dataset):
             raise ValidationError("Experiment.dataset must be a Dataset instance.")
 
-    def bind_executor(self, executor: Any) -> None:
-        """Attach an :class:`~aixplain.v2.agent_evaluator.Eval` (e.g. after loading from cache)."""
-        self._executor = executor
+    def _cache_store(self) -> ExperimentLocalCache:
+        base = Path(self.cache_dir) if self.cache_dir is not None else default_experiment_cache_dir()
+        return ExperimentLocalCache(base)
 
     def run(
         self,
@@ -501,28 +509,23 @@ class Experiment:
         **agent_run_kwargs: Any,
     ) -> ExperimentRun:
         """Execute the experiment and append a new :class:`ExperimentRun` (does not replace prior runs)."""
-        executor = self._executor
-        if executor is None:
-            raise ValidationError(
-                "No executor is bound to this experiment. Pass executor= when loading from cache, or call bind_executor().",
-            )
         agents_effective: Optional[Sequence[Agent]] = None
         if agents is not None:
             agents_effective = _normalize_agents(agents)
-        elif self._agents is not None:
-            agents_effective = list(self._agents)
+        elif self.agents:
+            agents_effective = list(self.agents)
         if not agents_effective:
             raise ValidationError(
                 "No agents available to run. Pass agents=... for experiments loaded from cache, "
-                "or create the experiment via Eval.create_experiment.",
+                "or construct the Experiment with agents=[...].",
             )
         metrics_effective: Optional[Sequence[Metric]]
         if metrics is not None:
             metrics_effective = list(metrics)
         else:
-            metrics_effective = list(self._metrics) if self._metrics is not None else None
+            metrics_effective = list(self.metrics) if self.metrics is not None else None
 
-        eval_run = executor.evaluate(agents_effective, self.dataset, metrics_effective, **agent_run_kwargs)
+        eval_run = _run_evaluation(agents_effective, self.dataset, metrics_effective, **agent_run_kwargs)
         run = ExperimentRun(
             id=str(uuid.uuid4()),
             created_at=_utcnow(),
@@ -531,11 +534,8 @@ class Experiment:
             results=eval_run,
         )
         self.runs.append(run)
-        persist = getattr(executor, "cache_experiments", True)
-        if persist:
-            store = getattr(executor, "_experiment_cache_store", lambda: None)()
-            if store is not None:
-                store.save(self)
+        if self.cache:
+            self._cache_store().save(self)
         return run
 
     def diff(
@@ -783,11 +783,12 @@ class Experiment:
             "format_version": _CACHE_FORMAT_VERSION,
             "experiment": {
                 "id": self.id,
+                "name": self.name,
                 "created_at": _iso(self.created_at),
                 "metadata": dict(self.metadata),
                 "dataset": _dataset_to_dict(self.dataset),
-                "agents_snapshot": list(self.agents_snapshot),
-                "metrics_snapshot": list(self.metrics_snapshot),
+                "agents_snapshot": [_agent_snapshot(a) for a in self.agents],
+                "metrics_snapshot": [_metric_snapshot(m) for m in (self.metrics or [])],
                 "runs": [
                     {
                         "id": r.id,
@@ -801,23 +802,26 @@ class Experiment:
         }
 
     @classmethod
-    def from_cache_payload(cls, data: Dict[str, Any], *, executor: Any = None) -> Experiment:
-        """Restore an experiment from :meth:`to_cache_payload` JSON structure."""
+    def from_cache_payload(cls, data: Dict[str, Any], *, cache_dir: Optional[Union[str, Path]] = None) -> Experiment:
+        """Restore an experiment from :meth:`to_cache_payload` JSON structure.
+
+        The restored experiment has no live ``agents``/``metrics`` (those aren't
+        reconstructable from the cached snapshot dicts) - pass ``agents=``/``metrics=``
+        explicitly to :meth:`run`, or assign them on the returned instance.
+        """
         version = data.get("format_version")
         if version != _CACHE_FORMAT_VERSION:
             raise ValidationError(f"Unsupported experiment cache format_version: {version!r}")
         raw = data["experiment"]
         exp = cls(
+            name=str(raw.get("name") or ""),
+            dataset=_dataset_from_payload(raw["dataset"]),
+            agents=[],
+            metrics=None,
+            metadata=dict(raw.get("metadata") or {}),
             id=str(raw["id"]),
             created_at=_parse_dt(str(raw["created_at"])),
-            metadata=dict(raw.get("metadata") or {}),
-            dataset=_dataset_from_payload(raw["dataset"]),
-            agents_snapshot=list(raw.get("agents_snapshot") or []),
-            metrics_snapshot=list(raw.get("metrics_snapshot") or []),
-            runs=[],
-            _agents=None,
-            _metrics=None,
-            _executor=executor,
+            cache_dir=cache_dir,
         )
         for run_raw in raw.get("runs") or []:
             results = _deserialize_evaluation_records(list(run_raw.get("results_records") or []))
@@ -830,6 +834,18 @@ class Experiment:
             )
             exp.runs.append(run)
         return exp
+
+    @classmethod
+    def list_cached(cls, cache_dir: Optional[Union[str, Path]] = None) -> List[Dict[str, Any]]:
+        """List experiments on disk under ``cache_dir`` (or the default cache directory)."""
+        base = Path(cache_dir) if cache_dir is not None else default_experiment_cache_dir()
+        return ExperimentLocalCache(base).list_experiments()
+
+    @classmethod
+    def load_cached(cls, experiment_id: str, *, cache_dir: Optional[Union[str, Path]] = None) -> Experiment:
+        """Load a cached experiment by id from ``cache_dir`` (or the default cache directory)."""
+        base = Path(cache_dir) if cache_dir is not None else default_experiment_cache_dir()
+        return ExperimentLocalCache(base).load_experiment(experiment_id)
 
 
 @dataclass
@@ -893,13 +909,13 @@ class ExperimentLocalCache:
                 continue
         return summaries
 
-    def load_experiment(self, experiment_id: str, *, executor: Any = None) -> Experiment:
+    def load_experiment(self, experiment_id: str) -> Experiment:
         """Load a full experiment and runs from the cache."""
         path = self.path_for(experiment_id)
         if not path.is_file():
             raise ValidationError(f"No cached experiment found for id {experiment_id!r} at {path}.")
         data = json.loads(path.read_text(encoding="utf-8"))
-        exp = Experiment.from_cache_payload(data, executor=executor)
+        exp = Experiment.from_cache_payload(data, cache_dir=self.base_dir)
         if exp.id != experiment_id:
             raise ValidationError("Cached file experiment id does not match requested id.")
         return exp

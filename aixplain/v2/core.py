@@ -10,7 +10,8 @@ from .agent import Agent
 from .utility import Utility
 from .tool import Tool
 from .skill import Skill
-from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
+from .agent_evaluator import Metric as MetricBase
+from .eval_experiment import Experiment
 from .integration import Integration
 from .file import File, Resource
 from .inspector import Inspector
@@ -31,6 +32,7 @@ MetricType = TypeVar("MetricType", bound=MetricBase)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
 ResourceType = TypeVar("ResourceType", bound=Resource)
 FileAssetType = TypeVar("FileAssetType", bound=File)
+ExperimentType = TypeVar("ExperimentType", bound=Experiment)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
 DebuggerType = TypeVar("DebuggerType", bound=Debugger)
 APIKeyType = TypeVar("APIKeyType", bound=APIKey)
@@ -58,10 +60,10 @@ class Aixplain:
     Tool: ToolType = None
     Skill: SkillType = None
     Metric: MetricType = None
-    Eval: type = None
     Integration: IntegrationType = None
     Resource: ResourceType = None
     File: FileAssetType = None
+    Experiment: ExperimentType = None
     Inspector: InspectorType = None
     Debugger: DebuggerType = None
     APIKey: APIKeyType = None
@@ -150,10 +152,10 @@ class Aixplain:
         self.Tool = type("Tool", (Tool,), {"context": self})
         self.Skill = type("Skill", (Skill,), {"context": self})
         self.Metric = type("Metric", (MetricBase,), {"context": self})
-        self.Eval = EvalClass
         self.Integration = type("Integration", (Integration,), {"context": self})
         self.Resource = type("Resource", (Resource,), {"context": self})
         self.File = type("File", (File,), {"context": self})
+        self.Experiment = type("Experiment", (Experiment,), {"context": self})
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
         self.Debugger = type("Debugger", (Debugger,), {"context": self})
         self.APIKey = type("APIKey", (APIKey,), {"context": self})

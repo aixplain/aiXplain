@@ -1,10 +1,11 @@
 """Agent evaluation utilities for aiXplain v2 SDK.
 
-Provides a minimal executor that runs a :class:`Dataset` of :class:`EvalCase`
-rows through one or more :class:`~aixplain.v2.agent.Agent` instances, runs optional
-:class:`Metric` instances, and returns a structured :class:`AgentEvaluationRun`.
+Runs a :class:`Dataset` of :class:`EvalCase` rows through one or more
+:class:`~aixplain.v2.agent.Agent` instances, runs optional :class:`Metric`
+instances, and returns a structured :class:`AgentEvaluationRun`. Use
+:class:`~aixplain.v2.eval_experiment.Experiment` to run and track evaluations.
 Use :meth:`AgentEvaluationRun.to_dataframe` for tabular export and
-:meth:`Eval.load_from_csv` to reload from disk.
+:meth:`AgentEvaluationRun.load_from_csv` to reload from disk.
 """
 
 from __future__ import annotations
@@ -464,7 +465,7 @@ class Metric(Tool):
 
         The custom-llm-prompt integration expects ``data`` to be an object (e.g. with
         ``output`` / ``reference``). Bare strings from ``run("...")`` are wrapped as
-        ``{"output": ...}`` to match :class:`Eval` payloads.
+        ``{"output": ...}`` to match evaluation-run payloads.
         """
         if data is None:
             return {}
@@ -1410,7 +1411,7 @@ class AgentEvaluationRow:
 
 @dataclass
 class AgentEvaluationRun:
-    """Structured output of :meth:`Eval.evaluate`.
+    """Structured output of an evaluation run (see :meth:`~aixplain.v2.eval_experiment.Experiment.run`).
 
     Convenience methods (filtering, LLM-ready text, summaries, HTML, optional plots,
     and :meth:`chatbot`) build on :meth:`to_dataframe` and
@@ -1455,6 +1456,48 @@ class AgentEvaluationRun:
             The cached :class:`~aixplain.v2.model.Model`, or ``None`` if get/search fails.
         """
         return cls._resolve_default_insight_model()
+
+    @classmethod
+    def load_from_csv(
+        cls,
+        path: Union[str, Path, Any],
+        *,
+        normalize: bool = True,
+        **read_csv_kwargs: Any,
+    ) -> "AgentEvaluationRun":
+        """Load a CSV written by :meth:`to_dataframe` into a structured run.
+
+        Unknown columns (for example a legacy ``agent_id`` column) are ignored.
+        Flat ``<metric_prefix>__<field>`` columns are split into
+        ``AgentEvaluationRow.metrics``.
+
+        Args:
+            path: Path to the CSV file, or a file-like object accepted by
+                :func:`pandas.read_csv`.
+            normalize: If True, run :func:`normalize_eval_results_dataframe` so dtypes
+                match in-memory evaluation results.
+            **read_csv_kwargs: Forwarded to :func:`pandas.read_csv`.
+
+        Returns:
+            :class:`AgentEvaluationRun` with one row per CSV record.
+
+        Raises:
+            ValidationError: If the CSV is non-empty but missing ``case_index`` or
+                ``agent_name``.
+        """
+        if isinstance(path, (str, Path)):
+            df = pd.read_csv(Path(path), **read_csv_kwargs)
+        else:
+            df = pd.read_csv(path, **read_csv_kwargs)
+        if normalize:
+            df = normalize_eval_results_dataframe(df)
+        if df.empty:
+            return cls(rows=[])
+        for required in ("case_index", "agent_name"):
+            if required not in df.columns:
+                raise ValidationError(f"CSV must include column {required!r}")
+        rows = [_agent_evaluation_row_from_csv_record(rec) for rec in df.to_dict("records")]
+        return cls(rows=rows)
 
     @classmethod
     def _resolve_default_insight_model(cls) -> Optional[Model]:
@@ -3396,244 +3439,113 @@ def compare_agents_side_by_side(
     return wide.reset_index()
 
 
-class Eval:
-    """Runs eval cases across agents, runs metric tools, returns :class:`AgentEvaluationRun`.
+def _run_evaluation(
+    agents: Union[Agent, Sequence[Agent]],
+    dataset: Dataset,
+    metrics: Optional[Sequence[Metric]] = None,
+    **agent_run_kwargs: Any,
+) -> AgentEvaluationRun:
+    """Run all eval cases across agents, run metric tools, return :class:`AgentEvaluationRun`.
 
-    For each pair of (case, agent) the executor calls ``agent.run`` with the
-    case's ``query``. Each :class:`Metric` is invoked with ``run`` payload
-    ``data`` containing at least ``output`` (agent output) and ``reference``
-    (from the case, may be ``None``). Metric results are nested under
+    For each pair of (case, agent), calls ``agent.run`` with the case's
+    ``query``. Each :class:`Metric` is invoked with ``run`` payload ``data``
+    containing at least ``output`` (agent output) and ``reference`` (from the
+    case, may be ``None``). Metric results are nested under
     ``AgentEvaluationRow.metrics[prefix]`` using the tool's ``name``, ``id``, or
     ``metric_<n>`` as prefix (see :meth:`AgentEvaluationRun.to_dataframe` for the
     legacy ``<prefix>__<key>`` flat layout).
 
-    Set ``cache_experiments=False`` to skip writing :class:`~aixplain.v2.eval_experiment.Experiment`
-    snapshots to the local cache after each :meth:`Experiment.run`. Use
-    ``experiment_cache_dir`` to override the default cache directory.
+    Used by :meth:`~aixplain.v2.eval_experiment.Experiment.run` - not called directly
+    in normal usage.
+
+    Args:
+        agents: A single :class:`~aixplain.v2.agent.Agent` or a sequence of agents.
+        dataset: Named evaluation dataset whose :attr:`Dataset.cases` are executed.
+        metrics: Optional sequence of :class:`Metric` instances. When a
+            tool sets :attr:`Metric.threshold`, each successful metric row
+            includes ``metric_pass`` (boolean) from the score and threshold.
+        **agent_run_kwargs: Forwarded to each ``agent.run`` call.
+
+    Returns:
+        :class:`AgentEvaluationRun` with one :class:`AgentEvaluationRow` per
+        (case, agent). Agent or metric failures are recorded per row instead of
+        aborting the batch. Empty ``dataset.cases`` yields an empty run.
     """
+    out_rows: List[AgentEvaluationRow] = []
+    metrics_list: List[Metric] = list(metrics) if metrics is not None else []
+    agents_list: List[Agent] = _normalize_agents(agents)
 
-    def __init__(
-        self,
-        *,
-        cache_experiments: bool = True,
-        experiment_cache_dir: Optional[Union[str, Path]] = None,
-        autosave_eval_runs: Optional[bool] = None,
-    ) -> None:
-        """Configure optional local persistence for :class:`~aixplain.v2.eval_experiment.Experiment`.
-
-        Args:
-            cache_experiments: When True (default), experiments created via
-                :meth:`create_experiment` are saved to disk after :meth:`~aixplain.v2.eval_experiment.Experiment.run`.
-            experiment_cache_dir: Root directory for experiment JSON files; defaults to a
-                platform-appropriate user cache path (see :func:`~aixplain.v2.eval_experiment.default_experiment_cache_dir`).
-            autosave_eval_runs: Deprecated alias for ``cache_experiments`` when not ``None``.
-        """
-        if autosave_eval_runs is not None:
-            cache_experiments = bool(autosave_eval_runs)
-        self.cache_experiments = cache_experiments
-        self.experiment_cache_dir: Optional[Path] = (
-            Path(experiment_cache_dir) if experiment_cache_dir is not None else None
-        )
-
-    def _experiment_cache_store(self) -> ExperimentLocalCache:
-        from .eval_experiment import ExperimentLocalCache, default_experiment_cache_dir
-
-        base = self.experiment_cache_dir if self.experiment_cache_dir is not None else default_experiment_cache_dir()
-        return ExperimentLocalCache(base)
-
-    def create_experiment(
-        self,
-        agents: Union[Agent, Sequence[Agent]],
-        dataset: Dataset,
-        metrics: Optional[Sequence[Metric]] = None,
-        *,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Experiment:
-        """Build an :class:`~aixplain.v2.eval_experiment.Experiment` bound to this executor.
-
-        Snapshots ``agents`` and ``metrics`` via ``to_dict()`` for provenance and cache
-        reload. Call :meth:`~aixplain.v2.eval_experiment.Experiment.run` to execute and
-        append an :class:`~aixplain.v2.eval_experiment.ExperimentRun`.
-
-        Args:
-            agents: Agent or sequence evaluated against ``dataset``.
-            dataset: Named evaluation dataset (:class:`Dataset`).
-            metrics: Optional metric tools.
-            metadata: Arbitrary JSON-serializable metadata stored on the experiment.
-
-        Returns:
-            A new experiment with a unique id and creation timestamp.
-        """
-        from .eval_experiment import Experiment as ExperimentCls
-        from .eval_experiment import _agent_snapshot, _metric_snapshot
-        import uuid
-        from datetime import datetime, timezone
-
-        agents_list = _normalize_agents(agents)
-        metrics_list = list(metrics) if metrics is not None else []
-        exp = ExperimentCls(
-            id=str(uuid.uuid4()),
-            created_at=datetime.now(timezone.utc),
-            metadata=dict(metadata or {}),
-            dataset=dataset,
-            agents_snapshot=[_agent_snapshot(a) for a in agents_list],
-            metrics_snapshot=[_metric_snapshot(m) for m in metrics_list],
-            runs=[],
-            _agents=tuple(agents_list),
-            _metrics=tuple(metrics_list) if metrics_list else None,
-            _executor=self,
-        )
-        if self.cache_experiments:
-            self._experiment_cache_store().save(exp)
-        return exp
-
-    def list_cached_experiments(self) -> List[Dict[str, Any]]:
-        """List experiments on disk under this executor's cache directory."""
-        return self._experiment_cache_store().list_experiments()
-
-    def load_cached_experiment(self, experiment_id: str) -> Experiment:
-        """Load a cached experiment and bind this executor for subsequent :meth:`~aixplain.v2.eval_experiment.Experiment.run` calls."""
-        return self._experiment_cache_store().load_experiment(experiment_id, executor=self)
-
-    @classmethod
-    def load_from_csv(
-        cls,
-        path: Union[str, Path, Any],
-        *,
-        normalize: bool = True,
-        **read_csv_kwargs: Any,
-    ) -> AgentEvaluationRun:
-        """Load a CSV written by :meth:`AgentEvaluationRun.to_dataframe` into a structured run.
-
-        Unknown columns (for example a legacy ``agent_id`` column) are ignored.
-        Flat ``<metric_prefix>__<field>`` columns are split into
-        ``AgentEvaluationRow.metrics``.
-
-        Args:
-            path: Path to the CSV file, or a file-like object accepted by
-                :func:`pandas.read_csv`.
-            normalize: If True, run :func:`normalize_eval_results_dataframe` so dtypes
-                match in-memory evaluation results.
-            **read_csv_kwargs: Forwarded to :func:`pandas.read_csv`.
-
-        Returns:
-            :class:`AgentEvaluationRun` with one row per CSV record.
-
-        Raises:
-            ValidationError: If the CSV is non-empty but missing ``case_index`` or
-                ``agent_name``.
-        """
-        if isinstance(path, (str, Path)):
-            df = pd.read_csv(Path(path), **read_csv_kwargs)
-        else:
-            df = pd.read_csv(path, **read_csv_kwargs)
-        if normalize:
-            df = normalize_eval_results_dataframe(df)
-        if df.empty:
-            return AgentEvaluationRun(rows=[])
-        for required in ("case_index", "agent_name"):
-            if required not in df.columns:
-                raise ValidationError(f"CSV must include column {required!r}")
-        rows = [_agent_evaluation_row_from_csv_record(rec) for rec in df.to_dict("records")]
-        return AgentEvaluationRun(rows=rows)
-
-    def evaluate(
-        self,
-        agents: Union[Agent, Sequence[Agent]],
-        dataset: Dataset,
-        metrics: Optional[Sequence[Metric]] = None,
-        **agent_run_kwargs: Any,
-    ) -> AgentEvaluationRun:
-        """Execute all cases against all agents and build a structured result.
-
-        Args:
-            agents: A single :class:`~aixplain.v2.agent.Agent` or a sequence of agents.
-            dataset: Named evaluation dataset whose :attr:`Dataset.cases` are executed.
-            metrics: Optional sequence of :class:`Metric` instances. When a
-                tool sets :attr:`Metric.threshold`, each successful metric row
-                includes ``metric_pass`` (boolean) from the score and threshold.
-            **agent_run_kwargs: Forwarded to each ``agent.run`` call.
-
-        Returns:
-            :class:`AgentEvaluationRun` with one :class:`AgentEvaluationRow` per
-            (case, agent). Agent or metric failures are recorded per row instead of
-            aborting the batch. Empty ``dataset.cases`` yields an empty run.
-        """
-        out_rows: List[AgentEvaluationRow] = []
-        metrics_list: List[Metric] = list(metrics) if metrics is not None else []
-        agents_list: List[Agent] = _normalize_agents(agents)
-
-        for case_index, case in enumerate(dataset.cases):
-            for agent in agents_list:
-                case_metadata = dict(case.metadata) if case.metadata else {}
-                metrics_by_prefix: Dict[str, Dict[str, Any]] = {}
-                result: Optional[AgentRunResult] = None
-                try:
-                    result = agent.run(case.query, **agent_run_kwargs)
-                except Exception as exc:
-                    out_rows.append(
-                        AgentEvaluationRow(
-                            case_index=case_index,
-                            query=case.query,
-                            reference=case.reference,
-                            agent_name=getattr(agent, "name", None),
-                            output=None,
-                            agent_response=None,
-                            status="FAILED",
-                            completed=False,
-                            error_message=_eval_exception_message(exc),
-                            run_time=0.0,
-                            used_credits=0.0,
-                            agent_run_failed=True,
-                            agent_error_type=type(exc).__name__,
-                            agent_error_details=_eval_agent_error_details(exc),
-                            case_metadata=case_metadata,
-                            metrics=metrics_by_prefix,
-                            request_id=None,
-                            assets_used=[],
-                            total_tool_calls=0,
-                            per_asset_stats={},
-                        )
-                    )
-                    for metric_index, metric in enumerate(metrics_list):
-                        prefix = _metric_prefix(metric, metric_index)
-                        _record_metrics_skipped_for_agent_failure(metrics_by_prefix, prefix)
-                    continue
-
-                assert result is not None
-                output = _extract_agent_output(result)
-                ex_insights = _extract_execution_insights(result)
+    for case_index, case in enumerate(dataset.cases):
+        for agent in agents_list:
+            case_metadata = dict(case.metadata) if case.metadata else {}
+            metrics_by_prefix: Dict[str, Dict[str, Any]] = {}
+            result: Optional[AgentRunResult] = None
+            try:
+                result = agent.run(case.query, **agent_run_kwargs)
+            except Exception as exc:
                 out_rows.append(
                     AgentEvaluationRow(
                         case_index=case_index,
                         query=case.query,
                         reference=case.reference,
                         agent_name=getattr(agent, "name", None),
-                        output=output,
-                        agent_response=result.data,
-                        status=result.status,
-                        completed=result.completed,
-                        error_message=result.error_message,
-                        run_time=result.run_time,
-                        used_credits=result.used_credits,
-                        agent_run_failed=False,
-                        agent_error_type=None,
-                        agent_error_details=None,
+                        output=None,
+                        agent_response=None,
+                        status="FAILED",
+                        completed=False,
+                        error_message=_eval_exception_message(exc),
+                        run_time=0.0,
+                        used_credits=0.0,
+                        agent_run_failed=True,
+                        agent_error_type=type(exc).__name__,
+                        agent_error_details=_eval_agent_error_details(exc),
                         case_metadata=case_metadata,
                         metrics=metrics_by_prefix,
-                        request_id=ex_insights["request_id"],
-                        assets_used=ex_insights["assets_used"],
-                        total_tool_calls=ex_insights["total_tool_calls"],
-                        per_asset_stats=ex_insights["per_asset_stats"],
+                        request_id=None,
+                        assets_used=[],
+                        total_tool_calls=0,
+                        per_asset_stats={},
                     )
                 )
-                current = out_rows[-1]
                 for metric_index, metric in enumerate(metrics_list):
                     prefix = _metric_prefix(metric, metric_index)
-                    try:
-                        metric_result = metric.measure(result.data)
-                        _merge_metric_columns(current.metrics, prefix, metric_result, metric)
-                    except Exception as exc:
-                        _record_metric_failure(current.metrics, prefix, exc)
+                    _record_metrics_skipped_for_agent_failure(metrics_by_prefix, prefix)
+                continue
 
-        return AgentEvaluationRun(rows=out_rows)
+            assert result is not None
+            output = _extract_agent_output(result)
+            ex_insights = _extract_execution_insights(result)
+            out_rows.append(
+                AgentEvaluationRow(
+                    case_index=case_index,
+                    query=case.query,
+                    reference=case.reference,
+                    agent_name=getattr(agent, "name", None),
+                    output=output,
+                    agent_response=result.data,
+                    status=result.status,
+                    completed=result.completed,
+                    error_message=result.error_message,
+                    run_time=result.run_time,
+                    used_credits=result.used_credits,
+                    agent_run_failed=False,
+                    agent_error_type=None,
+                    agent_error_details=None,
+                    case_metadata=case_metadata,
+                    metrics=metrics_by_prefix,
+                    request_id=ex_insights["request_id"],
+                    assets_used=ex_insights["assets_used"],
+                    total_tool_calls=ex_insights["total_tool_calls"],
+                    per_asset_stats=ex_insights["per_asset_stats"],
+                )
+            )
+            current = out_rows[-1]
+            for metric_index, metric in enumerate(metrics_list):
+                prefix = _metric_prefix(metric, metric_index)
+                try:
+                    metric_result = metric.measure(result.data)
+                    _merge_metric_columns(current.metrics, prefix, metric_result, metric)
+                except Exception as exc:
+                    _record_metric_failure(current.metrics, prefix, exc)
+
+    return AgentEvaluationRun(rows=out_rows)
