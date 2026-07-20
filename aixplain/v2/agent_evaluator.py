@@ -137,11 +137,188 @@ class Metric(Tool):
     score_type: Optional[str] = field(default=None, metadata=dj_config(field_name="scoreType"))
     threshold: Optional[Union[List[str], float]] = field(default=None, metadata=dj_config(field_name="threshold"))
 
+    # Rubric-generation inputs (local-only; consumed by _resolve_rubric_config, not sent to the backend).
+    instruction: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    start_number: Optional[float] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    end_number: Optional[float] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    categories: Optional[List[str]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    detailed_rubric: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    auto_complete: bool = field(default=False, metadata=dj_config(exclude=lambda x: True))
+
+    # Set when instruction generation is deferred to save() (see _resolve_rubric_config).
+    _pending_rubric_resolution: bool = field(
+        default=False, repr=False, compare=False, metadata=dj_config(exclude=lambda x: True), init=False
+    )
+
+    _RUBRIC_TRIGGER_FIELDS: ClassVar[tuple] = (
+        "prompt_template",
+        "llm_path",
+        "score_type",
+        "instruction",
+        "start_number",
+        "end_number",
+        "categories",
+        "detailed_rubric",
+    )
+
     def __post_init__(self) -> None:
-        """Initialize metric and validate threshold."""
+        """Resolve rubric-based config (if requested), then validate threshold.
+
+        A freshly constructed, unsaved ``Metric`` that sets any rubric-generation
+        field (``prompt_template``, ``score_type``, ``instruction``, etc.) has its
+        ``integration``/``config`` resolved here, so ``Metric(...).save()`` behaves
+        like :meth:`create`. Metrics loaded from the backend (``id`` already set) or
+        constructed with an explicit ``integration``/``code`` are left untouched.
+        """
+        if not self.id and self.integration is None and self.code is None:
+            if any(getattr(self, f) for f in self._RUBRIC_TRIGGER_FIELDS):
+                self._resolve_rubric_config()
         super().__post_init__()
         if self.threshold is not None:
             _validate_metric_threshold(self.threshold)
+
+    def _resolve_rubric_config(self) -> None:
+        """Build (or defer) the custom-llm-prompt integration config from rubric fields.
+
+        Mirrors the validation :meth:`create` previously performed inline: either
+        ``prompt_template`` is set directly, or ``score_type`` (plus type-specific
+        bounds/categories) is used to generate one.
+
+        ``instruction`` is optional. When provided, the prompt is resolved locally
+        right away. When omitted, ``description`` must be non-empty, and resolution
+        is deferred to :meth:`save` - at that point ``instruction`` is auto-generated
+        via an LLM call (see :meth:`_finalize_rubric_config`), so plain construction
+        never performs network I/O.
+        """
+        if not self.llm_path:
+            raise ValidationError("Metric requires llm_path to build a prompt-based integration config.")
+
+        explicit_prompt = self.prompt_template is not None and str(self.prompt_template).strip() != ""
+        if explicit_prompt:
+            resolved_prompt = str(self.prompt_template).strip()
+        else:
+            if not self.score_type or not str(self.score_type).strip():
+                raise ValidationError(
+                    "Metric requires either a non-empty prompt_template or score_type "
+                    "(with instruction, or a description to auto-generate one) to build a config."
+                )
+            st = str(self.score_type).strip()
+            if st == "numeric":
+                if self.start_number is None or self.end_number is None:
+                    raise ValidationError("start_number and end_number are required when score_type is 'numeric'.")
+            elif st == "categorical":
+                if not self.categories:
+                    raise ValidationError("categories must be a non-empty list when score_type is 'categorical'.")
+            elif st != "boolean":
+                raise ValidationError(f"Invalid score_type {st!r}; expected 'numeric', 'categorical', or 'boolean'.")
+
+            has_instruction = self.instruction is not None and str(self.instruction).strip() != ""
+            if not has_instruction:
+                if not self.description or not str(self.description).strip():
+                    raise ValidationError(
+                        "Metric requires either instruction or a non-empty description, "
+                        "so an instruction can be auto-generated via llm_path when saved."
+                    )
+                # Set integration now so Tool.__post_init__ passes; config/prompt_template
+                # generation (and the LLM call for instruction) is completed in save().
+                self.integration = "aixplain/custom-llm-prompt/aixplain"
+                self._pending_rubric_resolution = True
+                return
+
+            resolved_prompt = self._generate_prompt_template(
+                score_type=st,
+                instruction=str(self.instruction).strip(),
+                start_number=self.start_number,
+                end_number=self.end_number,
+                categories=self.categories,
+                detailed_rubric=self.detailed_rubric,
+                auto_complete=self.auto_complete,
+            )
+
+        self.prompt_template = resolved_prompt
+        self.integration = "aixplain/custom-llm-prompt/aixplain"
+        self.config = {
+            "prompt": resolved_prompt,
+            "llmId": self.llm_path,
+        }
+
+    def _finalize_rubric_config(self) -> None:
+        """Complete rubric config resolution deferred by :meth:`_resolve_rubric_config`.
+
+        Auto-generates ``instruction`` via an LLM call (using ``llm_path``), built from
+        this metric's ``name``/``description``, then builds the final prompt/config.
+        Called from :meth:`save`, before the metric is persisted, so it only runs once
+        (and only when instruction generation was actually deferred).
+        """
+        if not self._pending_rubric_resolution:
+            return
+        self.instruction = self._generate_instruction_via_llm()
+        resolved_prompt = self._generate_prompt_template(
+            score_type=str(self.score_type).strip(),
+            instruction=self.instruction,
+            start_number=self.start_number,
+            end_number=self.end_number,
+            categories=self.categories,
+            detailed_rubric=self.detailed_rubric,
+            auto_complete=self.auto_complete,
+        )
+        self.prompt_template = resolved_prompt
+        self.config = {
+            "prompt": resolved_prompt,
+            "llmId": self.llm_path,
+        }
+        self._pending_rubric_resolution = False
+
+    def _generate_instruction_via_llm(self) -> str:
+        """Ask ``llm_path`` to write a grading instruction from name/description; clean the reply.
+
+        Falls back to :meth:`_fallback_instruction` on any failure (API error, empty
+        or unusable response after cleaning) rather than raising, per design: a saved
+        metric should always end up with *some* instruction.
+        """
+        prompt = self._build_instruction_generation_prompt()
+        try:
+            model = self.context.Model.get(self.llm_path)
+            kw = _infer_prompt_input_field_name(model)
+            result = model.run(**{kw: prompt})
+            cleaned = _clean_generated_instruction(_reply_text_from_model_result(result))
+            if cleaned:
+                return cleaned
+        except Exception:
+            pass
+        return self._fallback_instruction()
+
+    def _build_instruction_generation_prompt(self) -> str:
+        """Prompt asking an LLM to write a grading instruction from this metric's name/description."""
+        parts = [
+            "You are helping configure an LLM-as-judge evaluation metric.",
+            f"Metric name: {self.name or 'Untitled metric'}",
+            f"Metric description: {self.description}",
+            f"Score type: {self.score_type}",
+        ]
+        if self.score_type == "categorical" and self.categories:
+            parts.append(f"Categories: {', '.join(self.categories)}")
+        parts.extend(
+            [
+                "",
+                "Write a single, clear grading instruction (1-3 sentences) telling an LLM judge "
+                "exactly what to evaluate and how to judge it, based on the metric name and "
+                "description above. Do not mention the score scale, output format, or JSON - "
+                "that is handled separately.",
+                "",
+                "Return ONLY the instruction text: no quotes, labels, markdown, or preamble.",
+            ]
+        )
+        return "\n".join(parts)
+
+    def _fallback_instruction(self) -> str:
+        """Deterministic instruction used when LLM generation fails or returns nothing usable."""
+        return f"Evaluate the output according to the following description: {str(self.description).strip()}"
+
+    def save(self, *args: Any, **kwargs: Any) -> "Metric":
+        """Persist the metric, completing deferred instruction generation first, if needed."""
+        self._finalize_rubric_config()
+        return super().save(*args, **kwargs)
 
     @classmethod
     def _generate_prompt_template(
@@ -201,20 +378,26 @@ class Metric(Tool):
         """Create and persist a :class:`Metric` backed by the custom LLM prompt integration.
 
         Provide either a ready-made ``prompt_template`` **or** generation parameters
-        (``score_type``, ``instruction``, and type-specific fields). When
-        ``prompt_template`` is a non-empty string, it is used as-is and generation
-        parameters are ignored.
+        (``score_type`` and type-specific fields). When ``prompt_template`` is a
+        non-empty string, it is used as-is and generation parameters are ignored.
+
+        ``instruction`` is optional. If omitted, ``metric_description`` must be
+        non-empty: an instruction is auto-generated via an LLM call to ``llm_path``
+        (from ``name``/``metric_description``) when the metric is saved, falling
+        back to a deterministic templated instruction if that call fails.
 
         Args:
             name: Name of the metric tool.
-            llm_path: The path or ID of the LLM to use.
-            metric_description: Optional description of the metric tool.
+            llm_path: The path or ID of the LLM to use (both for grading and, if
+                ``instruction`` is omitted, for auto-generating one).
+            metric_description: Description of the metric tool. Required when
+                ``instruction`` is omitted (used to auto-generate one).
             prompt_template: Full prompt template for the LLM. If omitted or blank,
                 a template is built via :meth:`_generate_prompt_template`.
             score_type: One of ``numeric``, ``categorical``, or ``boolean`` (required
                 when ``prompt_template`` is not set).
-            instruction: Task instruction embedded in the generated template (required
-                when ``prompt_template`` is not set).
+            instruction: Task instruction embedded in the generated template. Optional -
+                auto-generated from ``name``/``metric_description`` when omitted.
             start_number: Scale lower bound for ``numeric`` metrics.
             end_number: Scale upper bound for ``numeric`` metrics.
             categories: Allowed labels for ``categorical`` metrics.
@@ -231,46 +414,18 @@ class Metric(Tool):
         """
         del allowed_actions, kwargs
 
-        explicit = prompt_template is not None and str(prompt_template).strip() != ""
-        if explicit:
-            resolved_prompt = str(prompt_template).strip()
-        else:
-            if not score_type or not str(score_type).strip():
-                raise ValidationError(
-                    "Metric.create requires either a non-empty prompt_template or score_type "
-                    "(with instruction) to generate one."
-                )
-            if instruction is None or not str(instruction).strip():
-                raise ValidationError("Metric.create requires instruction when prompt_template is not provided.")
-            st = str(score_type).strip()
-            if st == "numeric":
-                if start_number is None or end_number is None:
-                    raise ValidationError("start_number and end_number are required when score_type is 'numeric'.")
-            elif st == "categorical":
-                if not categories:
-                    raise ValidationError("categories must be a non-empty list when score_type is 'categorical'.")
-            elif st != "boolean":
-                raise ValidationError(f"Invalid score_type {st!r}; expected 'numeric', 'categorical', or 'boolean'.")
-
-            resolved_prompt = cls._generate_prompt_template(
-                score_type=st,
-                instruction=str(instruction).strip(),
-                start_number=start_number,
-                end_number=end_number,
-                categories=categories,
-                detailed_rubric=detailed_rubric,
-                auto_complete=auto_complete,
-            )
-
-        config = {
-            "prompt": resolved_prompt,
-            "llmId": llm_path,
-        }
         metric = cls(
             name=name,
             description=metric_description,
-            integration="aixplain/custom-llm-prompt/aixplain",
-            config=config,
+            llm_path=llm_path,
+            prompt_template=prompt_template,
+            score_type=score_type,
+            instruction=instruction,
+            start_number=start_number,
+            end_number=end_number,
+            categories=categories,
+            detailed_rubric=detailed_rubric,
+            auto_complete=auto_complete,
         )
         metric.save()
         return metric
@@ -375,6 +530,23 @@ class Metric(Tool):
 
 
 Metric.AgentResponseDataFields = AgentResponseDataFields
+
+
+_INSTRUCTION_PREAMBLE_RE = re.compile(
+    r"^(?:sure,?\s*|okay,?\s*|here(?:'s| is)\s+(?:the\s+)?instruction:?\s*|instruction:?\s*)+",
+    re.IGNORECASE,
+)
+
+
+def _clean_generated_instruction(text: str) -> str:
+    """Strip code fences, surrounding quotes, and preambles from an LLM-generated instruction."""
+    cleaned = (text or "").strip()
+    cleaned = re.sub(r"^```[a-zA-Z]*\n?|```$", "", cleaned).strip()
+    if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in "\"'":
+        cleaned = cleaned[1:-1].strip()
+    cleaned = _INSTRUCTION_PREAMBLE_RE.sub("", cleaned).strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned
 
 
 def _validate_metric_threshold(threshold: Any) -> None:

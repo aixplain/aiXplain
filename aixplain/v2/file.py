@@ -1,9 +1,10 @@
 """Simple Resource class for file handling and S3 uploads."""
 
 import os
-from typing import Optional, Union
+from typing import List, Optional, Sequence, Union, TYPE_CHECKING
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
+import pandas as pd
 
 from .resource import (
     BaseResource,
@@ -12,8 +13,12 @@ from .resource import (
     BaseGetParams,
     BaseSearchParams,
 )
-from .upload_utils import FileUploader
+from .upload_utils import FileUploader, FileValidator
+from .exceptions import FileUploadError, ValidationError
 from .enums import FileType
+
+if TYPE_CHECKING:
+    from .agent_evaluator import Dataset
 
 
 @dataclass_json
@@ -150,3 +155,163 @@ class Resource(BaseResource):
             if not self.file_type:
                 self.file_type = self._detect_file_type()
         self.is_temp = is_temp
+
+
+def _detect_file_type(file_path: str) -> FileType:
+    """Detect file type from a file path's extension."""
+    _, ext = os.path.splitext(file_path.lower())
+    return {
+        ".csv": FileType.CSV,
+        ".json": FileType.JSON,
+        ".txt": FileType.TXT,
+        ".pdf": FileType.PDF,
+        ".mp3": FileType.AUDIO,
+        ".wav": FileType.AUDIO,
+        ".flac": FileType.AUDIO,
+        ".m4a": FileType.AUDIO,
+        ".jpg": FileType.IMAGE,
+        ".jpeg": FileType.IMAGE,
+        ".png": FileType.IMAGE,
+        ".gif": FileType.IMAGE,
+        ".bmp": FileType.IMAGE,
+        ".db": FileType.DATABASE,
+        ".sqlite": FileType.DATABASE,
+        ".sqlite3": FileType.DATABASE,
+    }.get(ext, FileType.OTHER)
+
+
+@dataclass
+class DatasetPreview:
+    """Report of what a CSV file contains for dataset conversion.
+
+    Returned by :meth:`File.preview_dataset` after all validation has passed.
+    """
+
+    num_rows: int
+    columns: List[str]
+    query_column: str
+    reference_column: Optional[str]
+    metadata_columns_found: List[str]
+    metadata_columns_missing: List[str]
+    other_columns: List[str]
+
+
+@dataclass_json
+@dataclass(repr=False)
+class File(BaseResource):
+    """Local file reference asset.
+
+    Wraps any local file path (``handbook = aix.File("handbook.pdf")``). This is a
+    pure local reference - it does not upload or persist anywhere on its own. For
+    CSV files, use :meth:`to_dataset` or :meth:`preview_dataset` to convert into
+    (or inspect for conversion into) an evaluation :class:`~aixplain.v2.agent_evaluator.Dataset`.
+    """
+
+    file_path: Optional[str] = field(default=None, metadata=config(field_name="filePath"))
+    file_type: Optional[FileType] = field(default=None, metadata=config(field_name="fileType"))
+
+    def __init__(self, file_path: Optional[str] = None, **kwargs):
+        """Initialize the file reference.
+
+        Args:
+            file_path: Path to the local file. Validated to exist immediately.
+            **kwargs: Additional parameters forwarded to :class:`BaseResource`.
+        """
+        super().__init__(**kwargs)
+        self.file_path = None
+        self.file_type = None
+        if file_path:
+            FileValidator.validate_file_exists(file_path)
+            self.file_path = file_path
+            self.file_type = _detect_file_type(file_path)
+
+    def _require_csv(self, query_column: str) -> None:
+        """Validate that this File is ready to be read as a CSV for dataset conversion."""
+        if not self.file_path:
+            raise ValidationError("File has no file_path set.")
+        if not os.path.exists(self.file_path):
+            raise FileUploadError(f'File not found: "{self.file_path}"')
+        if self.file_type != FileType.CSV:
+            raise ValidationError(
+                f"File type {self.file_type} is not supported for dataset conversion; expected CSV."
+            )
+        if not query_column or not isinstance(query_column, str):
+            raise ValidationError("query_column must be a non-empty string.")
+
+    def to_dataset(
+        self,
+        *,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        query_column: str = "query",
+        reference_column: Optional[str] = "reference",
+        metadata_columns: Optional[Sequence[str]] = None,
+        **read_csv_kwargs,
+    ) -> "Dataset":
+        """Convert this CSV-backed File into a Dataset.
+
+        Validates that the file is a CSV and that ``query_column`` is a valid
+        parameter before delegating to :meth:`Dataset.from_csv`.
+
+        Args:
+            name: Dataset name. Defaults to this File's name, then the CSV filename.
+            description: Optional dataset description.
+            query_column: Required column holding each case's query. Defaults to "query".
+            reference_column: Optional column holding each case's reference/expected value.
+            metadata_columns: Optional extra columns to fold into each case's metadata.
+            **read_csv_kwargs: Forwarded to ``pandas.read_csv``.
+        """
+        self._require_csv(query_column)
+        from .agent_evaluator import Dataset
+
+        return Dataset.from_csv(
+            self.file_path,
+            name=name or self.name,
+            description=description,
+            query_column=query_column,
+            reference_column=reference_column,
+            metadata_columns=metadata_columns,
+            **read_csv_kwargs,
+        )
+
+    def preview_dataset(
+        self,
+        *,
+        query_column: str = "query",
+        reference_column: Optional[str] = "reference",
+        metadata_columns: Optional[Sequence[str]] = None,
+        **read_csv_kwargs,
+    ) -> DatasetPreview:
+        """Validate this CSV-backed File and report what's present for dataset conversion.
+
+        Runs the same validation as :meth:`to_dataset` (file exists, is a CSV,
+        contains ``query_column``) but does not build a Dataset - it only reports
+        column names, row count, and which optional columns were found.
+
+        Args:
+            query_column: Required column holding each case's query. Defaults to "query".
+            reference_column: Optional column holding each case's reference/expected value.
+            metadata_columns: Optional extra columns to check for.
+            **read_csv_kwargs: Forwarded to ``pandas.read_csv``.
+        """
+        self._require_csv(query_column)
+        df = pd.read_csv(self.file_path, **read_csv_kwargs)
+        if query_column not in df.columns:
+            raise ValidationError(f"CSV must include query column {query_column!r}")
+
+        requested_meta = list(metadata_columns) if metadata_columns else []
+        found_meta = [c for c in requested_meta if c in df.columns]
+        missing_meta = [c for c in requested_meta if c not in df.columns]
+        ref_present = bool(reference_column) and reference_column in df.columns
+        accounted_for = {query_column, *([reference_column] if ref_present else []), *found_meta}
+        other_columns = [c for c in df.columns if c not in accounted_for]
+
+        return DatasetPreview(
+            num_rows=len(df),
+            columns=list(df.columns),
+            query_column=query_column,
+            reference_column=reference_column if ref_present else None,
+            metadata_columns_found=found_meta,
+            metadata_columns_missing=missing_meta,
+            other_columns=other_columns,
+        )

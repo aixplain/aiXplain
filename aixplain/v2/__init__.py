@@ -7,7 +7,7 @@ from .agent import Agent, Budget, ContextOverflowStrategy
 from .tool import Tool
 from .skill import Skill
 from .actions import Input, Inputs, Action, Actions
-from .file import Resource
+from .file import DatasetPreview, File, Resource
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
 from .inspector import Inspector
 from .session import (
@@ -98,6 +98,8 @@ __all__ = [
     "Tool",
     "Skill",
     "Resource",
+    "File",
+    "DatasetPreview",
     "FileUploader",
     "upload_file",
     "validate_file_for_upload",

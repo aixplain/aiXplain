@@ -14,7 +14,7 @@ from aixplain.v2.tool import Tool
 from aixplain.v2.agent import Agent
 from aixplain.v2.utility import Utility
 from aixplain.v2.integration import Integration
-from aixplain.v2.file import Resource
+from aixplain.v2.file import File, Resource
 from aixplain.v2.inspector import Inspector
 from aixplain.v2.issue import IssueReporter
 
@@ -231,6 +231,7 @@ class TestAixplainInitResources:
         assert aixplain.Utility is not None
         assert aixplain.Integration is not None
         assert aixplain.Resource is not None
+        assert aixplain.File is not None
         assert aixplain.Inspector is not None
         assert aixplain.issue is not None
 
@@ -244,6 +245,7 @@ class TestAixplainInitResources:
         assert aixplain.Utility.context == aixplain
         assert aixplain.Integration.context == aixplain
         assert aixplain.Resource.context == aixplain
+        assert aixplain.File.context == aixplain
         assert aixplain.Inspector.context == aixplain
         assert aixplain.issue.context == aixplain
 
@@ -256,6 +258,7 @@ class TestAixplainInitResources:
         assert issubclass(aixplain.Tool, Tool)
         assert issubclass(aixplain.Utility, Utility)
         assert issubclass(aixplain.Integration, Integration)
+        assert issubclass(aixplain.File, File)
         assert isinstance(aixplain.issue, IssueReporter)
 
     def test_init_resources_creates_unique_classes(self):
@@ -268,6 +271,7 @@ class TestAixplainInitResources:
         assert aixplain.Tool != Tool
         assert aixplain.Utility != Utility
         assert aixplain.Integration != Integration
+        assert aixplain.File != File
 
 
 class TestAixplainMultiInstance:
@@ -289,6 +293,7 @@ class TestAixplainMultiInstance:
         assert aix_a.Model is not aix_b.Model
         assert aix_a.Agent is not aix_b.Agent
         assert aix_a.Tool is not aix_b.Tool
+        assert aix_a.File is not aix_b.File
 
     def test_multiple_instances_different_contexts(self):
         """Resource contexts should point to correct instances."""
