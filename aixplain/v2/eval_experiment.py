@@ -508,10 +508,17 @@ class Experiment:
         run_metadata: Optional[Dict[str, Any]] = None,
         **agent_run_kwargs: Any,
     ) -> ExperimentRun:
-        """Execute the experiment and append a new :class:`ExperimentRun` (does not replace prior runs)."""
+        """Execute the experiment and append a new :class:`ExperimentRun` (does not replace prior runs).
+
+        Passing ``agents=``/``metrics=`` also updates :attr:`agents`/:attr:`metrics` (sticky),
+        so later calls (and the cached ``agents_snapshot``/``metrics_snapshot``) reuse them
+        without needing to pass them again - useful for experiments reloaded from cache,
+        which start with ``agents=[]``/``metrics=None``.
+        """
         agents_effective: Optional[Sequence[Agent]] = None
         if agents is not None:
             agents_effective = _normalize_agents(agents)
+            self.agents = agents_effective
         elif self.agents:
             agents_effective = list(self.agents)
         if not agents_effective:
@@ -522,6 +529,7 @@ class Experiment:
         metrics_effective: Optional[Sequence[Metric]]
         if metrics is not None:
             metrics_effective = list(metrics)
+            self.metrics = metrics_effective
         else:
             metrics_effective = list(self.metrics) if self.metrics is not None else None
 

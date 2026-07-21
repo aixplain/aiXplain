@@ -1101,8 +1101,13 @@ def test_experiment_run_appends_and_cache_roundtrip(tmp_path: Path) -> None:
 
     loaded = Experiment.load_cached(exp.id, cache_dir=cache_dir)
     assert len(loaded.runs) == 2
+    assert loaded.agents == []
     r3 = loaded.run(agents=agent)
     assert len(loaded.runs) == 3
+    assert loaded.agents == [agent]
+
+    payload_after_reload_run = json.loads(cache_file.read_text(encoding="utf-8"))
+    assert payload_after_reload_run["experiment"]["agents_snapshot"] == [{"id": "agent-1", "name": "agent_a"}]
 
     loaded_again = Experiment.load_cached(exp.id, cache_dir=cache_dir)
     assert len(loaded_again.runs) == 3
