@@ -1,6 +1,8 @@
 import os
 from uuid import uuid4
 
+import pytest
+
 from aixplain.enums import ResponseStatus
 from aixplain.factories import ModelFactory
 from aixplain.modules.model.integration import Integration, AuthenticationSchema
@@ -39,6 +41,11 @@ def test_run_connect_model():
     connection.delete()
 
 
+@pytest.mark.skip(
+    reason="The hardcoded Zapier MCP share URL (token committed in plaintext) is "
+    "dead — every POST fails with 'Streamable HTTP error'. Re-enable with a "
+    "fresh, secret-managed endpoint."
+)
 def test_run_mcp_connect_model():
     # get slack connector
     connector = ModelFactory.get("686eb9cd26480723d0634d3e")

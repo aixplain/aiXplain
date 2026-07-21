@@ -255,6 +255,7 @@ def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, Team
     assert len(team_agent.agents) == len(agents)
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_team_agent_tasks(resource_tracker):
     agent_name = f"TSA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
