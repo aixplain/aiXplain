@@ -171,11 +171,12 @@ def _build_name(prefix: str, model_name: str) -> str:
     return f"{prefix}-{model_name}-{int(time.time())}-{uuid.uuid4().hex[:6]}"
 
 
-def _is_inspector_step(step: dict) -> bool:
+def _is_inspector_step(step: dict, inspector_name: str = "") -> bool:
     # The backend reports the inspector's own name as the step agent id
-    # (e.g. 'output_inspector_gpt_4o'), not an 'inspector|...' prefix.
+    # (e.g. 'ArabicContentValidator-gpt-4o'), not an 'inspector|...' prefix.
     agent_info = step.get("agent") or {}
-    return "inspector" in (agent_info.get("id") or "").lower()
+    step_id = (agent_info.get("id") or "").lower()
+    return "inspector" in step_id or (bool(inspector_name) and step_id == inspector_name.lower())
 
 
 def _is_inspector_abort_message(output: str) -> bool:
@@ -310,7 +311,7 @@ def test_arabic_inspector_agent_across_llms(client, resource_tracker, model_name
 
     response = team_agent.run(ARABIC_QUERIES["pure_arabic"])
     output, steps = _assert_success_response(response)
-    inspector_steps = [step for step in steps if _is_inspector_step(step)]
+    inspector_steps = [step for step in steps if _is_inspector_step(step, inspector.name)]
     assert inspector_steps, "Expected inspector step(s) in the run"
 
     if _is_inspector_abort_message(output):
