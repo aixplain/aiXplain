@@ -172,8 +172,10 @@ def _build_name(prefix: str, model_name: str) -> str:
 
 
 def _is_inspector_step(step: dict) -> bool:
+    # The backend reports the inspector's own name as the step agent id
+    # (e.g. 'output_inspector_gpt_4o'), not an 'inspector|...' prefix.
     agent_info = step.get("agent") or {}
-    return (agent_info.get("id") or "").lower().startswith("inspector")
+    return "inspector" in (agent_info.get("id") or "").lower()
 
 
 def _is_inspector_abort_message(output: str) -> bool:

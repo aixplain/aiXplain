@@ -4,7 +4,10 @@ import time
 
 from aixplain.v2.integration import Integration
 
-TAVILY_TOOL_PATH = "tavily/tavily-search-api/Tavily"
+# "Tavily Web Search" connector tool (action: search). Fetched by id: the
+# marketplace path tavily/tavily-search-api/Tavily collides with the Legacy
+# Tavily asset (6736411c...), whose single generic 'run' action breaks these tests.
+TAVILY_TOOL_ID = "6931bdf462eb386b7158def3"
 
 
 @pytest.fixture(scope="module")
@@ -16,7 +19,7 @@ def slack_integration_id():
 @pytest.fixture(scope="module")
 def single_action_test_agent(client):
     """Create a temporary agent using a single-action tool and clean it up."""
-    tool = client.Tool.get(TAVILY_TOOL_PATH)
+    tool = client.Tool.get(TAVILY_TOOL_ID)
     tool.allowed_actions = []
 
     agent = client.Agent(
@@ -349,7 +352,7 @@ def test_tool_run_with_default_params(client):
     were sent as raw default dicts instead of extracted primitive values,
     causing the backend to reject the request.
     """
-    tavily_tool = client.Tool.get(TAVILY_TOOL_PATH)
+    tavily_tool = client.Tool.get(TAVILY_TOOL_ID)
 
     # Verify the action proxy stores extracted primitives, not raw dicts
     action_proxy = tavily_tool.actions["search"]
@@ -514,7 +517,7 @@ def test_tool_update_preserves_allowed_actions(client, slack_integration_id, sla
 
 def test_tool_as_tool_auto_detects_single_action(client):
     """Test that as_tool() auto-includes the action when a tool has exactly one action."""
-    tool = client.Tool.get(TAVILY_TOOL_PATH)
+    tool = client.Tool.get(TAVILY_TOOL_ID)
     tool.allowed_actions = []
 
     tool_dict = tool.as_tool()
@@ -525,7 +528,7 @@ def test_tool_as_tool_auto_detects_single_action(client):
 
 def test_tool_as_tool_no_mutation(client):
     """Test that as_tool() does NOT mutate self.allowed_actions as a side effect."""
-    tool = client.Tool.get(TAVILY_TOOL_PATH)
+    tool = client.Tool.get(TAVILY_TOOL_ID)
     tool.allowed_actions = []
 
     tool.as_tool()
@@ -539,7 +542,7 @@ def test_tool_as_tool_caching(client):
     """Test that repeated as_tool() calls reuse cached actions instead of hitting the API again."""
     from unittest.mock import patch
 
-    tool = client.Tool.get(TAVILY_TOOL_PATH)
+    tool = client.Tool.get(TAVILY_TOOL_ID)
     tool.allowed_actions = []
 
     tool.as_tool()
@@ -563,7 +566,7 @@ def test_tool_as_tool_caching(client):
 
 def test_tool_run_auto_detects_single_action(client):
     """Test that run() auto-detects the action for single-action tools without explicit action kwarg."""
-    tool = client.Tool.get(TAVILY_TOOL_PATH)
+    tool = client.Tool.get(TAVILY_TOOL_ID)
     tool.allowed_actions = []
 
     result = tool.run(data={"query": "friendship paradox", "num_results": 1})
