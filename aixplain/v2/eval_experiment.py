@@ -173,8 +173,8 @@ def _deserialize_evaluation_records(records: List[Dict[str, Any]]) -> AgentEvalu
     return AgentEvaluationRun(rows=rows)
 
 
-def _flatten_run_summary_for_experiment_trends(summary: Dict[str, Any], results: AgentEvaluationRun) -> Dict[str, Any]:
-    """Scalar and shallow-nested fields from :meth:`AgentEvaluationRun.run_summary` plus derived means."""
+def _flatten_summary_for_experiment_trends(summary: Dict[str, Any], results: AgentEvaluationRun) -> Dict[str, Any]:
+    """Scalar and shallow-nested fields from :meth:`AgentEvaluationRun.summary` plus derived means."""
     out: Dict[str, Any] = {}
     for key in (
         "total_cost",
@@ -293,8 +293,8 @@ def _strip_trend_traces_from_legend(fig: Any) -> None:
 
 def _experiment_run_trend_row(run: ExperimentRun, run_index: int, *, human_column_names: bool) -> Dict[str, Any]:
     """One flat dict for :meth:`Experiment.runs_comparison_dataframe`."""
-    summary = run.results.run_summary(include_executive_summary=False)
-    flat = _flatten_run_summary_for_experiment_trends(summary, run.results)
+    summary = run.results.summary(include_executive_summary=False)
+    flat = _flatten_summary_for_experiment_trends(summary, run.results)
     merged = {
         "run_index": int(run_index),
         "run_id": run.id,

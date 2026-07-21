@@ -622,7 +622,7 @@ _QUALITY_GATE_RUN_AGGREGATE_KEYS = frozenset(
     },
 )
 
-# Map overall :meth:`run_summary` gate field → per-agent stats key (see ``_stats_from_agent_rows``).
+# Map overall :meth:`summary` gate field → per-agent stats key (see ``_stats_from_agent_rows``).
 _QUALITY_GATE_RUN_TO_PER_AGENT_STAT: Dict[str, str] = {
     "agent_failure_rate": "failure_rate",
     "total_time_seconds": "total_time_seconds",
@@ -632,7 +632,7 @@ _QUALITY_GATE_RUN_TO_PER_AGENT_STAT: Dict[str, str] = {
     "rows_evaluated": "rows",
 }
 
-# Accepted gate field names that map to :meth:`run_summary` keys.
+# Accepted gate field names that map to :meth:`summary` keys.
 _QUALITY_GATE_RUN_FIELD_ALIASES: Dict[str, str] = {
     "credits_used": "total_cost",
     "run_time": "total_time_seconds",
@@ -752,7 +752,7 @@ def _agent_row_group_key(row: "AgentEvaluationRow") -> str:
 
 
 def _stats_from_agent_rows(sub: Sequence["AgentEvaluationRow"]) -> Dict[str, Any]:
-    """Per-agent slice stats aligned with :meth:`AgentEvaluationRun.run_summary` ``per_agent``."""
+    """Per-agent slice stats aligned with :meth:`AgentEvaluationRun.summary` ``per_agent``."""
     if not sub:
         return {
             "rows": 0,
@@ -1759,7 +1759,7 @@ class AgentEvaluationRun:
         compare :attr:`AgentEvaluationRow.used_credits`. Every row is evaluated; list/enum
         criteria are not allowed for these fields.
 
-        **Run aggregate gates** use the same **field names** as overall :meth:`run_summary`
+        **Run aggregate gates** use the same **field names** as overall :meth:`summary`
         (``agent_failure_rate``, ``total_time_seconds``, ``total_cost``, ``n_agent_failures``,
         ``total_tool_calls``, ``rows_evaluated``, plus aliases ``credits_used``, ``run_time``).
         They are evaluated **per agent** against that agent's slice (sums / counts / failure
@@ -1968,7 +1968,7 @@ class AgentEvaluationRun:
     def to_json_records(self) -> List[Dict[str, Any]]:
         """One JSON-serializable dict per row (metrics flattened as ``prefix__key``).
 
-        Run-level pass-rate aggregates live under :meth:`run_summary`'s
+        Run-level pass-rate aggregates live under :meth:`summary`'s
         ``metric_pass_rates`` (not duplicated on each record).
         """
         out: List[Dict[str, Any]] = []
@@ -2006,7 +2006,7 @@ class AgentEvaluationRun:
         quality_gates_max_chars: int = 8000,
     ) -> str:
         """Deterministic summary template used when no LLM summary is requested."""
-        summary = self.run_summary(include_executive_summary=False)
+        summary = self.summary(include_executive_summary=False)
         if summary["rows_evaluated"] == 0:
             return (
                 "No evaluation rows are available. Run the evaluator with at least one case and one agent "
@@ -2145,7 +2145,7 @@ class AgentEvaluationRun:
                 quality_gates_max_chars=qg_cap,
             )
 
-        stats = self.run_summary(include_executive_summary=False)
+        stats = self.summary(include_executive_summary=False)
         ctx = self.to_llm_context(layout="markdown", max_output_chars=2500)
         if len(ctx) > max_context_chars:
             ctx = ctx[:max_context_chars] + "\n\n[... evaluation context truncated ...]"
@@ -2189,7 +2189,7 @@ class AgentEvaluationRun:
             quality_gates_max_chars=qg_cap,
         )
 
-    def run_summary(
+    def summary(
         self,
         *,
         include_executive_summary: bool = True,

@@ -154,8 +154,8 @@ def test_metric_numeric_threshold_sets_metric_pass() -> None:
     assert run2.rows[0].metric_value("m1", "metric_pass") is False
 
 
-def test_metric_pass_rates_in_run_summary_llm_context_and_summarize() -> None:
-    """run_summary, to_llm_context, and summarize_by_agent surface pass-rate stats."""
+def test_metric_pass_rates_in_summary_llm_context_and_summarize() -> None:
+    """summary, to_llm_context, and summarize_by_agent surface pass-rate stats."""
     agent = MagicMock()
     agent.name = "agent_a"
     ard = AgentResponseData(input="q", output="ans", steps=[])
@@ -175,7 +175,7 @@ def test_metric_pass_rates_in_run_summary_llm_context_and_summarize() -> None:
     assert "m1" in mpr
     assert mpr["m1"]["evaluated"] == 1 and mpr["m1"]["passed"] == 1 and mpr["m1"]["pass_rate"] == 1.0
 
-    summary = run.run_summary(include_executive_summary=False)
+    summary = run.summary(include_executive_summary=False)
     assert summary["metric_pass_rates"]["m1"]["passed"] == 1
     assert summary["per_agent"]["agent_a"]["metric_pass__m1"]["pass_rate"] == 1.0
 
@@ -573,7 +573,7 @@ def test_run_to_llm_context_and_json_records() -> None:
     assert rec[0]["m1__score"] == 1.0
 
 
-def test_run_summary_and_executive_summary() -> None:
+def test_summary_and_executive_summary() -> None:
     """Run summary aggregates cost/time/agents/samples and includes narrative insights."""
     a1 = MagicMock()
     a1.name = "A"
@@ -610,7 +610,7 @@ def test_run_summary_and_executive_summary() -> None:
     m.measure.return_value = mr
 
     run = _run_evaluation([a1, a2], _eval_ds(EvalCase(query="q0"), EvalCase(query="q1")), metrics=[m])
-    summary = run.run_summary()
+    summary = run.summary()
     assert summary["total_samples"] == 2
     assert summary["n_agents"] == 2
     assert summary["rows_evaluated"] == 4
@@ -688,8 +688,8 @@ def test_executive_summary_uses_model_when_text_only_in_details() -> None:
     model.run.assert_called_once()
 
 
-def test_run_summary_uses_llm_executive_summary_when_requested() -> None:
-    """run_summary embeds the model-generated executive summary when configured."""
+def test_summary_uses_llm_executive_summary_when_requested() -> None:
+    """summary embeds the model-generated executive summary when configured."""
     agent = MagicMock()
     agent.name = "A"
     ard = AgentResponseData(input="q", output="o", steps=[])
@@ -700,7 +700,7 @@ def test_run_summary_uses_llm_executive_summary_when_requested() -> None:
     model.params = [SimpleNamespace(name="data", required=True, data_type="text")]
     model.run.return_value = MagicMock(data="LLM summary text.")
 
-    summary = run.run_summary(summary_model=model)
+    summary = run.summary(summary_model=model)
     assert summary["executive_summary"] == "LLM summary text."
     assert summary["total_samples"] == 1
     model.run.assert_called_once()

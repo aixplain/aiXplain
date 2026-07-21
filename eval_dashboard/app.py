@@ -170,12 +170,12 @@ def main() -> None:
         if include_llm_summary:
             _init_insights_if_possible()
         try:
-            summary = run.run_summary(
+            summary = run.summary(
                 include_executive_summary=include_llm_summary,
             )
         except Exception as e:
-            st.warning(f"run_summary raised ({e}); retrying without LLM executive summary.")
-            summary = run.run_summary(include_executive_summary=False)
+            st.warning(f"summary raised ({e}); retrying without LLM executive summary.")
+            summary = run.summary(include_executive_summary=False)
 
         core, exec_text = _summary_for_display(summary)
         st.subheader("Aggregates")
