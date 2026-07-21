@@ -204,14 +204,14 @@ def test_tool_run(client, slack_integration_id, slack_token):
         name=tool_name,
         integration=integration,
         config={"token": slack_token},
-        allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
+        allowed_actions=["SLACK_SEND_MESSAGE"],
     )
 
     # Save tool before running
     tool.save()
 
     result = tool.run(
-        action="SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL",
+        action="SLACK_SEND_MESSAGE",
         data={
             "channel": "#integrations-test",
             "text": f"Test message from functional test {int(time.time())}",
@@ -488,18 +488,18 @@ def test_tool_update_preserves_allowed_actions(client, slack_integration_id, sla
         name=tool_name,
         integration=slack_integration_id,
         config={"token": slack_token},
-        allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
+        allowed_actions=["SLACK_SEND_MESSAGE"],
     )
     tool.save()
     tool_id = tool.id
 
     try:
         fetched = client.Tool.get(tool_id)
-        fetched.allowed_actions = ["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"]
+        fetched.allowed_actions = ["SLACK_SEND_MESSAGE"]
         fetched.name = f"test-update-actions-renamed-{int(time.time())}"
         fetched.save()
 
-        assert fetched.allowed_actions == ["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"], (
+        assert fetched.allowed_actions == ["SLACK_SEND_MESSAGE"], (
             "allowed_actions should be preserved after save()"
         )
 

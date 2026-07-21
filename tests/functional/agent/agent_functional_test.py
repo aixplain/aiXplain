@@ -804,7 +804,7 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
     connection = ModelFactory.get(connection_id)
 
     connection.action_scope = [
-        action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
+        action for action in connection.actions if action.code == "SLACK_SEND_MESSAGE"
     ]
 
     agent_name = f"TA {str(uuid4())[:8]}"
@@ -827,7 +827,7 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
     assert response is not None
     assert response["status"].lower() == "success"
     assert "helsinki" in response.data.output.lower()
-    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [
+    assert "SLACK_SEND_MESSAGE" in [
         step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]
     ]
 

@@ -406,7 +406,7 @@ def test_dynamic_validation_slack_integration(client, slack_integration_id, slac
 
     # Test with valid parameters
     valid_params = {
-        "action": "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL",
+        "action": "SLACK_SEND_MESSAGE",
         "data": {"channel": "#general", "text": "Hello from test!"},
     }
 

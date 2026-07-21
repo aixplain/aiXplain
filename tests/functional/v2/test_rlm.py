@@ -40,10 +40,14 @@ class TestRLMCreation:
         assert rlm.max_iterations == 3
 
     def test_create_rlm_missing_orchestrator(self, client):
-        """Test that RLM raises when orchestrator_id is missing."""
+        """Test that RLM raises when orchestrator_id is missing.
+
+        Only recursive mode requires the orchestrator; auto mode would fall
+        back to parallel/rag (worker-only) and succeed.
+        """
         rlm = client.RLM(worker_id=MODEL_ID)
         with pytest.raises(Exception):
-            rlm.run(data={"context": "test", "query": "test"})
+            rlm.run(data={"context": "test", "query": "test"}, mode="recursive")
 
     def test_create_rlm_missing_worker(self, client):
         """Test that RLM raises when worker_id is missing."""

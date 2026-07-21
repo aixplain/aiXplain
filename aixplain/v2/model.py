@@ -1072,15 +1072,15 @@ class Model(
         if params.get("path") is not None:
             filters["path"] = params["path"]
 
-        # functions - accept list of strings and convert to backend shape
-        # Use v2 format: array of objects with "id" key (required by v2/models/paginate endpoint)
+        # functions - backend validates "each value in functions must be a string"
         if params.get("functions") is not None:
             functions_param = params["functions"]
             if isinstance(functions_param, list):
-                filters["functions"] = [{"id": (f.value if hasattr(f, "value") else str(f))} for f in functions_param]
+                filters["functions"] = [(f.value if hasattr(f, "value") else str(f)) for f in functions_param]
             else:
-                value = functions_param.value if hasattr(functions_param, "value") else str(functions_param)
-                filters["functions"] = [{"id": value}]
+                filters["functions"] = [
+                    functions_param.value if hasattr(functions_param, "value") else str(functions_param)
+                ]
 
         # suppliers - should be array of strings
         if params.get("vendors") is not None:

@@ -364,13 +364,13 @@ def test_slack_tool_integration_with_agent(client, slack_token):
         name=f"test-slack-tool-{int(time.time())}",
         integration=integration,
         config={"token": slack_token},
-        allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
+        allowed_actions=["SLACK_SEND_MESSAGE"],
     )
 
     # Validate tool creation
     assert slack_tool.name.startswith("test-slack-tool-")
     assert slack_tool.integration.id == "686432941223092cb4294d3f"
-    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in slack_tool.allowed_actions
+    assert "SLACK_SEND_MESSAGE" in slack_tool.allowed_actions
 
     # Save tool before running
     slack_tool.save()
@@ -378,7 +378,7 @@ def test_slack_tool_integration_with_agent(client, slack_token):
     # Test tool execution
     test_message = "Hello from aixplain functional test!"
     tool_response = slack_tool.run(
-        action="SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL",
+        action="SLACK_SEND_MESSAGE",
         data={"channel": "#integrations-test", "text": test_message},
     )
 
