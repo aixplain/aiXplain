@@ -86,8 +86,13 @@ def _step_agent_id(step: Dict) -> str:
 
 
 def _is_inspector_step(step: Dict) -> bool:
-    """True if step is an inspector (id is 'inspector' or 'inspector|...')."""
-    return _step_agent_id(step).startswith("inspector")
+    """True if step is an inspector.
+
+    The backend now reports the inspector's own name as the step agent id
+    (e.g. 'abort_output_inspector', is_system_agent=True) instead of the old
+    'inspector' / 'inspector|...' form, so match on substring.
+    """
+    return "inspector" in _step_agent_id(step)
 
 
 def verify_inspector_steps(
