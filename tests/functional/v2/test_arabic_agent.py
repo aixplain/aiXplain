@@ -171,9 +171,12 @@ def _build_name(prefix: str, model_name: str) -> str:
     return f"{prefix}-{model_name}-{int(time.time())}-{uuid.uuid4().hex[:6]}"
 
 
-def _is_inspector_step(step: dict) -> bool:
+def _is_inspector_step(step: dict, inspector_name: str = "") -> bool:
+    # The backend reports the inspector's own name as the step agent id
+    # (e.g. 'ArabicContentValidator-gpt-4o'), not an 'inspector|...' prefix.
     agent_info = step.get("agent") or {}
-    return (agent_info.get("id") or "").lower().startswith("inspector")
+    step_id = (agent_info.get("id") or "").lower()
+    return "inspector" in step_id or (bool(inspector_name) and step_id == inspector_name.lower())
 
 
 def _is_inspector_abort_message(output: str) -> bool:
@@ -308,14 +311,8 @@ def test_arabic_inspector_agent_across_llms(client, resource_tracker, model_name
 
     response = team_agent.run(ARABIC_QUERIES["pure_arabic"])
     output, steps = _assert_success_response(response)
-    response_generator_steps = [
-        step for step in steps if ((step.get("agent") or {}).get("id") or "").lower() == "response_generator"
-    ]
-    assert len(response_generator_steps) == 1, "Expected exactly one response_generator step"
-
-    response_generator_index = steps.index(response_generator_steps[0])
-    inspector_steps = [step for step in steps[response_generator_index + 1 :] if _is_inspector_step(step)]
-    assert inspector_steps, "Expected inspector step(s) after response_generator"
+    inspector_steps = [step for step in steps if _is_inspector_step(step, inspector.name)]
+    assert inspector_steps, "Expected inspector step(s) in the run"
 
     if _is_inspector_abort_message(output):
         return

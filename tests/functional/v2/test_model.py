@@ -406,7 +406,7 @@ def test_dynamic_validation_slack_integration(client, slack_integration_id, slac
 
     # Test with valid parameters
     valid_params = {
-        "action": "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL",
+        "action": "SLACK_SEND_MESSAGE",
         "data": {"channel": "#general", "text": "Hello from test!"},
     }
 
@@ -536,10 +536,13 @@ def test_search_models_with_functions_filter(client):
     models = client.Model.search(functions=["text-generation"])
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
-    # If results are present, ensure each model has the requested function
+    assert models.results, "Expected the functions filter to return results"
+    # If results are present, ensure each model has the requested function.
+    # The v2 Function enum uses uppercase values (TEXT_GENERATION), while the
+    # backend filter id is the lowercase dashed form.
     for model in models.results:
         if model.function:
-            assert model.function.value == "text-generation"
+            assert model.function.name == "TEXT_GENERATION"
 
 
 def test_search_models_with_status_filter(client):

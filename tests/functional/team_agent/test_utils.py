@@ -67,11 +67,3 @@ def create_team_agent(factory, agents, run_input_map, use_mentalist=True):
     )
 
     return team_agent
-
-
-def verify_response_generator(steps: Dict) -> None:
-    """Helper function to verify response generator step"""
-    response_generator_steps = [step for step in steps if "response_generator" in step.get("agent", "").lower()]
-    assert len(response_generator_steps) == 1, (
-        f"Expected exactly one response_generator step, found {len(response_generator_steps)}"
-    )

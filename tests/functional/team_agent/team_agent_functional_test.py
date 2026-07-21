@@ -558,7 +558,7 @@ def test_team_agent_with_slack_connector(resource_tracker):
 
     connection = ModelFactory.get(connection_id)
     connection.action_scope = [
-        action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
+        action for action in connection.actions if action.code == "SLACK_SEND_MESSAGE"
     ]
 
     agent_name = f"TA {str(uuid4())[:8]}"
