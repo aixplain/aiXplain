@@ -837,7 +837,9 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
 FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
 TAVILY_CONNECTION_ASSET_ID = "6931bdf462eb386b7158def3"
 GOOGLE_SEARCH_UTILITY_MODEL_ID = "65c51c556eb563350f6e1bb1"
-WEB_SEARCH_TOOL_ASSET_ID = "69fb7750f177c224105dabc6"
+# Google Search API (scale-serp/google-search/Google); the Firecrawl-based
+# Web Search Tool (69fb7750f177c224105dabc6) fails on every invocation.
+WEB_SEARCH_TOOL_ASSET_ID = "692f18557b2cc45d29150cb0"
 
 
 @pytest.mark.flaky(reruns=2, reruns_delay=2)

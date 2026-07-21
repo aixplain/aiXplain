@@ -4,7 +4,7 @@ import time
 
 from aixplain.v2.integration import Integration
 
-TAVILY_TOOL_PATH = "tavily/tavily-web-search/tavily"
+TAVILY_TOOL_PATH = "tavily/tavily-search-api/Tavily"
 
 
 @pytest.fixture(scope="module")

@@ -21,18 +21,20 @@ logger = logging.getLogger(__name__)
 @pytest.fixture
 def mcp_tool():
     """Create an MCP tool for testing."""
+    # DeepWiki is a public streamable-HTTP MCP server (no auth); the previous
+    # endpoint remote.mcpservers.org no longer resolves (NXDOMAIN).
     tool = ToolFactory.create(
         integration="686eb9cd26480723d0634d3e",  # Remote MCP ID
         name=f"Test Remote MCP {uuid4()}",
         authentication_schema=AuthenticationSchema.API_KEY,
-        data={"url": "https://remote.mcpservers.org/fetch/mcp"},
+        data={"url": "https://mcp.deepwiki.com/mcp"},
     )
 
     # Set allowed actions (using ... as in original script)
     tool.allowed_actions = [...]
 
-    # Filter actions to only include "fetch" action
-    tool.action_scope = [action for action in tool.actions if action.code == "fetch"]
+    # Filter actions to only include the "ask_question" action
+    tool.action_scope = [action for action in tool.actions if action.code == "ask_question"]
 
     yield tool
     try:
@@ -46,8 +48,8 @@ def test_agent(mcp_tool):
     """Create a test agent with MCP tool."""
     agent = AgentFactory.create(
         name=f"Test Agent {uuid4()}",
-        description="This agent is used to scrape websites",
-        instructions="You are a helpful assistant that can scrape any given website",
+        description="This agent answers questions about GitHub repositories",
+        instructions="You are a helpful assistant that answers questions about GitHub repositories using DeepWiki",
         tools=[mcp_tool],
         llm="69b7e5f1b2fe44704ab0e7d0",
     )
@@ -62,7 +64,7 @@ def test_agent_creation_with_mcp_tool(test_agent, mcp_tool):
     """Test that an agent can be created with an MCP tool."""
     assert test_agent is not None
     assert test_agent.name.startswith("Test Agent")
-    assert test_agent.description == "This agent is used to scrape websites"
+    assert test_agent.description == "This agent answers questions about GitHub repositories"
     assert len(test_agent.tools) == 1
     assert test_agent.tools[0] == mcp_tool
     assert test_agent.status == AssetStatus.DRAFT
@@ -70,7 +72,7 @@ def test_agent_creation_with_mcp_tool(test_agent, mcp_tool):
 
 def test_agent_run_before_deployment(test_agent):
     """Test that an agent can run before being deployed."""
-    response = test_agent.run("Give me information about the aixplain website")
+    response = test_agent.run("Give me information about the aixplain/aiXplain GitHub repository")
 
     assert response is not None
     assert hasattr(response, "data")
@@ -120,7 +122,7 @@ def test_deployed_agent_can_run(test_agent):
     test_agent.deploy()
 
     # Run a query on the deployed agent
-    response = test_agent.run("Give me information about the aixplain website")
+    response = test_agent.run("Give me information about the aixplain/aiXplain GitHub repository")
 
     assert response is not None
     assert hasattr(response, "data")
@@ -133,7 +135,7 @@ def test_agent_lifecycle_end_to_end(mcp_tool):
     agent = AgentFactory.create(
         name=f"Test Agent Lifecycle {uuid4()}",
         description="This agent is used for lifecycle testing",
-        instructions="You are a helpful assistant that can scrape any given website",
+        instructions="You are a helpful assistant that answers questions about GitHub repositories using DeepWiki",
         tools=[mcp_tool],
         llm="69b7e5f1b2fe44704ab0e7d0",
     )
@@ -143,7 +145,7 @@ def test_agent_lifecycle_end_to_end(mcp_tool):
         assert agent.status == AssetStatus.DRAFT
 
         # Test run before deployment
-        response = agent.run("Give me information about the aixplain website")
+        response = agent.run("Give me information about the aixplain/aiXplain GitHub repository")
         assert response is not None
 
         # Deploy agent
@@ -156,7 +158,7 @@ def test_agent_lifecycle_end_to_end(mcp_tool):
         assert retrieved_agent.status == AssetStatus.ONBOARDED
 
         # Test run after deployment
-        response = retrieved_agent.run("Give me information about the aixplain website")
+        response = retrieved_agent.run("Give me information about the aixplain/aiXplain GitHub repository")
         assert response is not None
     finally:
         try:
@@ -173,6 +175,6 @@ def test_mcp_tool_properties(mcp_tool):
     assert hasattr(mcp_tool, "action_scope")
     assert len(mcp_tool.action_scope) >= 0  # Should have filtered actions
 
-    # Verify that action_scope only contains "fetch" actions
+    # Verify that action_scope only contains "ask_question" actions
     for action in mcp_tool.action_scope:
-        assert action.code == "fetch"
+        assert action.code == "ask_question"

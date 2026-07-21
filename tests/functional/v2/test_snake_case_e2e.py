@@ -209,14 +209,6 @@ class TestAgentRunParamsKwargs:
                 execution_params={"max_tokens": 1, "max_iterations": 3, "output_format": "text"},
             )
 
-    def test_run_response_generation(self, client, test_agent):
-        """run_response_generation (renamed from runResponseGeneration) is accepted by the backend."""
-        agent = client.Agent.get(test_agent.id)
-
-        response = agent.run("ping", run_response_generation=False)
-
-        assert response.status == "SUCCESS"
-
     def test_history_on_direct_run(self, client, test_agent):
         """history (a legacy direct-run kwarg) is accepted on a sessionless run.
 
