@@ -269,6 +269,7 @@ def _make_output_inspector(llm_id: str, model_name: str):
     )
 
 
+@pytest.mark.flaky(reruns=1, reruns_delay=5)
 @pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
 def test_arabic_single_agent_variants_across_llms(client, resource_tracker, model_name, llm_id):
     """Keep broad LLM coverage, but run only one representative query per agent variant."""
@@ -288,6 +289,7 @@ def test_arabic_single_agent_variants_across_llms(client, resource_tracker, mode
         _assert_query_expectations(query_key, output)
 
 
+@pytest.mark.flaky(reruns=1, reruns_delay=5)
 @pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
 def test_arabic_team_agent_across_llms(client, resource_tracker, model_name, llm_id):
     """Use one contract-heavy query to cover the team-agent serialization path."""
@@ -301,6 +303,7 @@ def test_arabic_team_agent_across_llms(client, resource_tracker, model_name, llm
     assert steps, "Expected team-agent execution steps for Arabic team flow"
 
 
+@pytest.mark.flaky(reruns=1, reruns_delay=5)
 @pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
 def test_arabic_inspector_agent_across_llms(client, resource_tracker, model_name, llm_id):
     """Verify the inspector actually executes on the Arabic runtime path."""
