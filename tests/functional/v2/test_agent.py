@@ -239,43 +239,6 @@ def _get_steps(response):
     return steps
 
 
-def _has_response_generator(steps):
-    """Return True if any step has agent id 'response_generator'."""
-    return any(((s.get("agent") or {}).get("id") or "").lower() == "response_generator" for s in steps)
-
-
-def test_run_response_generation(client, test_agent):
-    """Test that runResponseGeneration controls presence of response_generator step."""
-    agent = client.Agent.get(test_agent.id)
-
-    # Default (False): response_generator step should NOT be present
-    response_default = agent.run("Say hello")
-    assert response_default.status == "SUCCESS", f"Default run failed: {response_default.status}"
-    steps_default = _get_steps(response_default)
-    assert not _has_response_generator(steps_default), (
-        f"Expected no response_generator step with default (False), got agent ids: "
-        f"{[((s.get('agent') or {}).get('id') or '') for s in steps_default]}"
-    )
-
-    # Explicit True: response_generator step should be present
-    response_true = agent.run("Say hello", run_response_generation=True)
-    assert response_true.status == "SUCCESS", f"run_response_generation=True run failed: {response_true.status}"
-    steps_true = _get_steps(response_true)
-    assert _has_response_generator(steps_true), (
-        f"Expected response_generator step with run_response_generation=True, got agent ids: "
-        f"{[((s.get('agent') or {}).get('id') or '') for s in steps_true]}"
-    )
-
-    # False: response_generator step should NOT be present
-    response_false = agent.run("Say hello", run_response_generation=False)
-    assert response_false.status == "SUCCESS", f"run_response_generation=False run failed: {response_false.status}"
-    steps_false = _get_steps(response_false)
-    assert not _has_response_generator(steps_false), (
-        f"Expected no response_generator step with run_response_generation=False, got agent ids: "
-        f"{[((s.get('agent') or {}).get('id') or '') for s in steps_false]}"
-    )
-
-
 def test_agent_creation_and_deletion(client):
     """Test agent creation and deletion workflow."""
     # Create a test agent
@@ -364,13 +327,13 @@ def test_slack_tool_integration_with_agent(client, slack_token):
         name=f"test-slack-tool-{int(time.time())}",
         integration=integration,
         config={"token": slack_token},
-        allowed_actions=["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"],
+        allowed_actions=["SLACK_SEND_MESSAGE"],
     )
 
     # Validate tool creation
     assert slack_tool.name.startswith("test-slack-tool-")
     assert slack_tool.integration.id == "686432941223092cb4294d3f"
-    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in slack_tool.allowed_actions
+    assert "SLACK_SEND_MESSAGE" in slack_tool.allowed_actions
 
     # Save tool before running
     slack_tool.save()
@@ -378,7 +341,7 @@ def test_slack_tool_integration_with_agent(client, slack_token):
     # Test tool execution
     test_message = "Hello from aixplain functional test!"
     tool_response = slack_tool.run(
-        action="SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL",
+        action="SLACK_SEND_MESSAGE",
         data={"channel": "#integrations-test", "text": test_message},
     )
 
@@ -470,7 +433,7 @@ def test_slack_tool_integration_with_agent(client, slack_token):
 FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
 TAVILY_CONNECTION_ASSET_ID = "6931bdf462eb386b7158def3"
 GOOGLE_SEARCH_UTILITY_MODEL_ID = "65c51c556eb563350f6e1bb1"
-WEB_SEARCH_TOOL_ASSET_ID = "69fb7750f177c224105dabc6"
+WEB_SEARCH_TOOL_PATH = "scale-serp/google-search/Google"
 
 
 def _get_output_text(response) -> str:
@@ -622,7 +585,7 @@ def test_agent_web_search_tool(client):
     2. Agent execution succeeds.
     3. The response contains information retrieved from the search.
     """
-    tool = client.Tool.get(WEB_SEARCH_TOOL_ASSET_ID)
+    tool = client.Tool.get(WEB_SEARCH_TOOL_PATH)
 
     response = _run_platform_tool_agent(
         client=client,

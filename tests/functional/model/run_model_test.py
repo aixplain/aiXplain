@@ -121,7 +121,12 @@ def run_index_model(index_model, retries):
 @pytest.mark.parametrize(
     "embedding_model,supplier_params",
     [
-        pytest.param(None, VectaraParams, id="VECTARA"),
+        pytest.param(
+            None,
+            VectaraParams,
+            id="VECTARA",
+            marks=pytest.mark.skip(reason="Flaky: Vectara integration on test env rejects the configured customer id"),
+        ),
         pytest.param(None, ZeroEntropyParams, id="ZERO_ENTROPY"),
         pytest.param(EmbeddingModel.OPENAI_ADA002, AirParams, id="AIR - OpenAI Ada 002"),
         pytest.param(
