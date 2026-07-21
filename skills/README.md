@@ -27,6 +27,7 @@ The agent reads `SKILL.md` first and pulls in the reference files only when it n
 
 | Skill | Description |
 |-------|-------------|
+| [aixplain-builder](./aixplain-builder) | Build, run, and deploy anything on aiXplain across the full v2 SDK — direct model inference (LLMs, Whisper/speech, translation, vision, embeddings), single & team agents, knowledge bases/RAG, tools & integrations (Slack, Gmail, databases, MCP, custom Python), runtime governance/inspectors, memory, and REST/JS/OpenAI-compatible access. Ships a self-update pipeline (`tooling/`) that re-syncs the skill with the docs + SDK. |
 | [aixplain-agent-builder](./aixplain-agent-builder) | Design, deploy, run, debug, and export production agents on aiXplain — single agents, team agents, tools, OAuth integrations, and inspectors. |
 
 > More skills coming soon. See [Contributing](#contributing) to add one.

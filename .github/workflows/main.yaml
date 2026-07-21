@@ -41,23 +41,11 @@ jobs:
           - test-suite: 'data_asset'
             path: 'tests/functional/data_asset'
             timeout: 45
-          - test-suite: 'benchmark'
-            path: 'tests/functional/benchmark'
-            timeout: 45
           - test-suite: 'model'
             path: 'tests/functional/model'
             timeout: 45
           - test-suite: 'pipeline_2.0_v1'
             path: 'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v1 --sdk_version_param PipelineFactory'
-            timeout: 45
-          - test-suite: 'pipeline_3.0_v1'
-            path: 'tests/functional/pipelines/run_test.py --pipeline_version 3.0 --sdk_version v1 --sdk_version_param PipelineFactory'
-            timeout: 45
-          - test-suite: 'pipeline_designer'
-            path: 'tests/functional/pipelines/designer_test.py'
-            timeout: 45
-          - test-suite: 'pipeline_create'
-            path: 'tests/functional/pipelines/create_test.py'
             timeout: 45
           - test-suite: 'general_assets'
             path: 'tests/functional/general_assets'

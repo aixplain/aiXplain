@@ -34,20 +34,46 @@ Description:
 class RLM(Model)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L155)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L378)
 
-Recursive Language Model — long-context analysis via an iterative REPL sandbox.
+Recursive Language Model — long-context analysis with two execution modes.
 
 RLM wraps two aiXplain models:
 
 - An **orchestrator** (powerful, expensive): plans and writes Python code to
 explore the context iteratively in a managed sandbox environment.
-- A **worker** (fast, cheap): called via ``llm_query()`` inside the sandbox
-to perform focused analysis on individual context chunks.
+Used by ``mode=&quot;recursive&quot;``.
+- A **worker** (fast, cheap): called per chunk in both modes. In recursive
+mode it&#x27;s invoked via ``llm_query()`` inside the sandbox; in parallel
+mode it&#x27;s called directly, concurrently across chunks.
 
-The sandbox is an aiXplain managed Python execution environment. Each
-``run()`` call gets its own isolated session (UUID), so variables persist
-across REPL iterations within a single run but are cleaned up afterwards.
+Three run modes are available via the ``mode`` argument to ``run()``:
+
+- ``&quot;parallel&quot;`` (cheap, fast, deterministic): chunk the context to a
+comfortable fraction of the worker&#x27;s window (to mitigate context rot),
+call the worker in parallel on every chunk, then reduce the partial
+answers into a final answer. No orchestrator, no sandbox. Best for
+summarize/extract queries.
+- ``&quot;rag&quot;`` (cheapest at query time): chunk the context into small
+retrieval-grade pieces, upsert them into an aIR vector index, retrieve
+the top-k most relevant chunks for the query, then make a single worker
+call to synthesize an answer. The win is amortizing the upfront index
+build across many queries: set ``rag_index_id`` to reuse a pre-built
+index and skip create + upsert + delete on each call. Best for
+needle-in-haystack questions on very large contexts.
+- ``&quot;recursive&quot;`` (adaptive, expensive): the original iterative REPL loop
+where the orchestrator drives chunking and analysis. Best for multi-hop
+reasoning or queries that need to compare information across chunks.
+- ``&quot;auto&quot;`` (default): picks ``&quot;recursive&quot;`` if the query reads like
+multi-hop reasoning (e.g., contains words like &quot;compare across&quot;,
+&quot;inconsistencies&quot;, &quot;verify against&quot;); otherwise ``&quot;parallel&quot;``.
+``&quot;rag&quot;`` is opt-in only — auto never picks it because it only beats
+``parallel`` when the index is reused across many calls.
+
+The recursive mode&#x27;s sandbox is an aiXplain managed Python execution
+environment. Each recursive ``run()`` call gets its own isolated session
+(UUID), so variables persist across REPL iterations within a single run
+but are cleaned up afterwards.
 
 Example usage::
 
@@ -66,9 +92,9 @@ print(f&quot;Completed in \{response[&#x27;iterations_used&#x27;]} iterations.&q
 
 **Attributes**:
 
-- `orchestrator` _Model_ - Root LLM that plans and writes REPL code.
-- `worker` _Model_ - Sub-LLM used inside the sandbox via ``llm_query()``.
-- `max_iterations` _int_ - Maximum orchestrator loop iterations before a
+- ``8 _Model_ - Root LLM that plans and writes REPL code.
+- ``9 _Model_ - Sub-LLM used inside the sandbox via ``llm_query()``.
+- ``2 _int_ - Maximum orchestrator loop iterations before a
   forced final answer is requested.
 
 #### \_\_init\_\_
@@ -83,10 +109,13 @@ def __init__(id: Text,
              max_iterations: int = 10,
              api_key: Optional[Text] = None,
              supplier: Union[Dict, Text, Supplier, int] = "aiXplain",
+             rag_index_id: Optional[Text] = None,
+             rag_top_k: int = _RAG_DEFAULT_TOP_K,
+             rag_max_chunk_chars: int = _RAG_DEFAULT_MAX_CHUNK_CHARS,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L194)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L443)
 
 Initialize a new RLM instance.
 
@@ -104,7 +133,20 @@ Initialize a new RLM instance.
 - `name`2 _Text, optional_ - API key. Defaults to ``config.TEAM_API_KEY``.
 - `name`5 _Union[Dict, Text, Supplier, int], optional_ - Supplier.
   Defaults to &quot;aiXplain&quot;.
-- `name`6 - Additional metadata stored on the instance.
+- `name`6 _Text, optional_ - ID of a pre-built aIR index for
+  ``mode=&quot;rag&quot;``. When set, the index is reused (skipping
+  create + upsert + delete on each ``run()``). When ``None``,
+  an ephemeral index is created per RAG run and deleted
+  afterwards. Defaults to ``None``.
+- `description`5 _int, optional_ - Number of chunks retrieved from the
+  aIR index per query in ``mode=&quot;rag&quot;``. Defaults to 10.
+- `description`8 _int, optional_ - Upper bound on a single RAG
+  chunk (chars), to stay under the embedding model&#x27;s input
+  limit. Default ~30K chars is a generic middle ground that
+  fits 8K-token models (ada-002, text-embedding-3, BGE-M3).
+  Tune down for 512-token models (multilingual-E5, Jina CLIP)
+  or up when the backing model supports it. Defaults to 30000.
+- `description`9 - Additional metadata stored on the instance.
 
 #### run
 
@@ -114,21 +156,36 @@ def run(data: Union[Text, Dict],
         timeout: float = 600,
         parameters: Optional[Dict] = None,
         wait_time: float = 0.5,
-        stream: bool = False) -> ModelResponse
+        stream: bool = False,
+        mode: Text = "auto") -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L541)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1177)
 
-Run the RLM orchestration loop over a (potentially large) context.
+Run the RLM over a (potentially large) context, dispatching by mode.
 
-A fresh sandbox session is created for each call. The orchestrator is
-called iteratively; each iteration it may execute code blocks in the
-sandbox (with outputs fed back into the conversation) and eventually
-declare a final answer via ``FINAL(...)`` or ``FINAL_VAR(...)``.
+``mode`` selects the execution strategy:
+
+- ``&quot;parallel&quot;``: deterministic chunk + parallel worker calls + reduce.
+Cheap, fast, predictable. No orchestrator or sandbox needed. Best for
+summarize/extract queries. Chunks are sized to a comfortable fraction
+of the worker&#x27;s window to mitigate context rot.
+- ``&quot;rag&quot;``: chunk + upsert to an aIR vector index + top-k retrieve +
+single worker synthesis. If ``self.rag_index_id`` is set, the index
+is reused (cheapest path); otherwise a temporary index is created
+and deleted per run. Best for needle-in-haystack queries on very
+large reusable contexts.
+- ``&quot;recursive&quot;``: the iterative REPL loop where the orchestrator drives
+chunking and analysis in a sandbox. Expensive but adaptive. Best for
+multi-hop reasoning that needs to compare information across chunks.
+- ``&quot;auto&quot;`` (default): picks ``&quot;recursive&quot;`` when the query reads like
+multi-hop reasoning (keywords such as &quot;compare across&quot;,
+&quot;inconsistencies&quot;, &quot;verify against&quot;, &quot;step by step&quot;); otherwise
+``&quot;parallel&quot;``. ``&quot;rag&quot;`` is opt-in only.
 
 **Arguments**:
 
-- `data` _Union[Text, Dict]_ - Input data. Accepted formats:
+- ``8 _Union[Text, Dict]_ - Input data. Accepted formats:
   
   - ``str`` (raw text): Treated directly as the context content;
   a default query is used.
@@ -144,31 +201,36 @@ declare a final answer via ``FINAL(...)`` or ``FINAL_VAR(...)``.
   of ``&quot;context&quot;`` itself may also be a URL, a file path, or a
   ``pathlib.Path`` — it will be resolved the same way.
   
-- ``9 _Text, optional_ - Identifier used in log messages.
+- ``3 _Text, optional_ - Identifier used in log messages.
   Defaults to ``&quot;rlm_process&quot;``.
-- ``2 _float, optional_ - Maximum total wall-clock time in seconds.
-  Defaults to 600.
-- ``3 _Optional[Dict], optional_ - Reserved for future use.
-- ``4 _float, optional_ - Kept for API compatibility. Unused.
-- ``5 _bool, optional_ - Unsupported. Must be False.
+- ``6 _float, optional_ - Maximum total wall-clock time in seconds.
+  Applies to ``&quot;recursive&quot;`` mode only. Defaults to 600.
+- ``9 _Optional[Dict], optional_ - Reserved for future use.
+- ``0 _float, optional_ - Kept for API compatibility. Unused.
+- ``1 _bool, optional_ - Unsupported. Must be False.
+- ``2 _Text, optional_ - ``&quot;auto&quot;``, ``&quot;parallel&quot;``, or
+  ``&quot;recursive&quot;``. Defaults to ``&quot;auto&quot;``.
   
 
 **Returns**:
 
-- ``6 - Standard response with:
+- ``1 - Standard response with:
   
   - ``data``: The final answer string.
   - ``completed``: True on success.
   - ``run_time``: Total elapsed seconds.
-  - ``iterations_used``: Number of orchestrator iterations (via
-  ``response[&quot;iterations_used&quot;]``).
+  - ``used_credits``: Total credits consumed across all model calls.
+  - ``iterations_used``: Recursive mode → orchestrator iterations.
+  Parallel mode → worker calls made in the map step
+  (i.e. number of chunks), or 1 for the single-call fast path.
   
 
 **Raises**:
 
-- `data`7 - If ``orchestrator`` or ``worker`` models are not set,
-  or if ``stream=True``.
-- ``4 - If ``data`` is a dict missing the ``&quot;context&quot;`` key,
+- ``2 - If ``worker`` is not set, ``stream=True``, or
+  ``mode`` is invalid. ``recursive`` mode additionally requires
+  ``orchestrator`` to be set.
+- ``3 - If ``data`` is a dict missing the ``&quot;context&quot;`` key,
   or an unsupported type.
 
 #### run\_async
@@ -179,7 +241,7 @@ def run_async(data: Union[Text, Dict],
               parameters: Optional[Dict] = None) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L714)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1404)
 
 Not supported for RLM.
 
@@ -193,7 +255,7 @@ Not supported for RLM.
 def run_stream(data: Union[Text, Dict], parameters: Optional[Dict] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L727)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1417)
 
 Not supported for RLM.
 
@@ -208,7 +270,7 @@ Not supported for RLM.
 def from_dict(cls, data: Dict) -> "RLM"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L736)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1426)
 
 Create an RLM instance from a dictionary representation.
 
@@ -247,7 +309,7 @@ required.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L786)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1476)
 
 Convert the RLM instance to a dictionary representation.
 
@@ -270,7 +332,7 @@ reconstruct the instance via ``ModelFactory.create_rlm()``.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L807)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1497)
 
 Return a string representation of this RLM instance.
 
