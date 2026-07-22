@@ -3,22 +3,20 @@
 from .core import Aixplain
 from .rlm import RLM, RLMResult
 from .utility import Utility
-from .agent import Agent, ContextOverflowStrategy
+from .agent import Agent, Budget, ContextOverflowStrategy
 from .tool import Tool
+from .skill import Skill
 from .actions import Input, Inputs, Action, Actions
+from .integration import TriggerTypeSpec, TriggerEventOption, TriggerTypes
+from .trigger import Trigger, TriggerConfiguration, TriggerRepeatRule
 from .file import Resource
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
-from .inspector import (
-    Inspector,
-    InspectorTarget,
-    InspectorAction,
-    InspectorOnExhaust,
-    InspectorSeverity,
-    InspectorActionConfig,
-    EvaluatorType,
-    EvaluatorConfig,
-    EditorConfig,
-    PrebuiltInspector,
+from .inspector import Inspector
+from .session import (
+    ExecutionConfig,
+    Session,
+    SessionMessage,
+    SessionMessageAttachment,
 )
 from .meta_agents import Debugger, DebugResult
 from .agent_progress import AgentProgressTracker, ProgressFormat
@@ -84,6 +82,11 @@ from .enums import (
     EvolveType,
     CodeInterpreterModel,
     SplittingOptions,
+    SessionStatus,
+    RunStatus,
+    MessageRole,
+    Reaction,
+    AttachmentType,
 )
 
 __all__ = [
@@ -92,24 +95,21 @@ __all__ = [
     "RLMResult",
     "Utility",
     "Agent",
+    "Budget",
     "ContextOverflowStrategy",
     "Tool",
+    "Skill",
     "Resource",
     "FileUploader",
     "upload_file",
     "validate_file_for_upload",
-    # Inspector classes
+    # Session classes
+    "Session",
+    "SessionMessage",
+    "SessionMessageAttachment",
+    "ExecutionConfig",
+    # Inspector
     "Inspector",
-    "InspectorTarget",
-    "InspectorAction",
-    "InspectorOnExhaust",
-    "InspectorSeverity",
-    "InspectorActionConfig",
-    "EvaluatorType",
-    "EvaluatorConfig",
-    "EditorConfig",
-    "PrebuiltInspector",
-    "ModelResponse",
     # Meta-agents
     "Debugger",
     "DebugResult",
@@ -180,9 +180,21 @@ __all__ = [
     "EvolveType",
     "CodeInterpreterModel",
     "SplittingOptions",
+    "SessionStatus",
+    "RunStatus",
+    "MessageRole",
+    "Reaction",
+    "AttachmentType",
     # Actions / Inputs hierarchy
     "Input",
     "Inputs",
     "Action",
     "Actions",
+    # Triggers
+    "Trigger",
+    "TriggerConfiguration",
+    "TriggerRepeatRule",
+    "TriggerTypeSpec",
+    "TriggerEventOption",
+    "TriggerTypes",
 ]

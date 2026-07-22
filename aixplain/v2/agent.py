@@ -7,7 +7,7 @@ import warnings
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
+from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
 from dataclasses_json import dataclass_json, config
 
@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from .enums import AssetStatus, ResponseStatus
 from .model import Model
+from .skill import Skill
 from .mixins import ToolableMixin
 from ..utils.user_info_utils import build_run_metadata
 
@@ -33,6 +34,12 @@ from .resource import (
     with_hooks,
 )
 
+if TYPE_CHECKING:
+    from .session import ExecutionConfig, Session
+
+
+logger = logging.getLogger(__name__)
+
 
 # Type definitions for conversation history
 class ConversationMessage(TypedDict):
@@ -41,10 +48,15 @@ class ConversationMessage(TypedDict):
     Attributes:
         role: The role of the message sender, either 'user' or 'assistant'
         content: The text content of the message
+        attachments: Optional attachments — hosted-URL/local-path strings or dicts
+            with ``url`` or ``path`` (plus optional type/name/mimeType).
+        files: Deprecated. Local file paths to upload — pass through ``attachments``.
     """
 
     role: Literal["user", "assistant"]
     content: str
+    attachments: NotRequired[Optional[List[Union[str, Dict[str, Any]]]]]
+    files: NotRequired[Optional[List[Any]]]
 
 
 def validate_history(history: List[Dict[str, Any]]) -> bool:
@@ -219,40 +231,87 @@ class AgentRunParams(BaseRunParams):
     """Parameters for running an agent.
 
     Attributes:
-        session_id: Session ID for conversation continuity
+        session: Conversation thread to run within. A
+            :class:`~aixplain.v2.session.Session` instance or a session id
+            string. Omit for a one-shot, stateless run. Replaces the removed
+            ``via_session`` flag and id-only ``session_id``.
         query: The query to run
         variables: Variables to replace {{variable}} placeholders in instructions and description.
             The backend performs the actual substitution.
-        allow_history_and_session_id: Allow both history and session ID
         tasks: List of tasks for the agent
         prompt: Custom prompt override
         history: Conversation history
-        execution_params: Execution parameters (maxTokens, etc.)
+        execution_params: Execution parameters (maxTokens, etc.). Passing
+            ``max_iterations`` here is deprecated; set ``agent.budget.max_iterations``
+            instead. A deprecated value is folded into ``budget.max_iterations``
+            (the agent's budget wins on conflict) and the standalone key is not
+            emitted.
         criteria: Criteria for evaluation
         evolve: Evolution parameters
         inspectors: Inspector configurations
         run_response_generation: Whether to run response generation. Defaults to False.
+        attachments: Multimodal attachments for the turn.
+            Each entry is a hosted-URL/local-path string or a dict with ``url`` or
+            ``path`` (plus optional ``type``/``name``/``mimeType``). Local paths are
+            uploaded to aiXplain storage automatically.
+        files: Deprecated. Local file paths to upload — pass through ``attachments`` instead.
         progress_format: Display format - "status" (single line) or "logs" (timeline).
                         If None (default), progress tracking is disabled.
         progress_verbosity: Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
         progress_truncate: Whether to truncate long text in progress display
     """
 
-    session_id: NotRequired[Optional[Text]]
+    session: NotRequired[Optional[Union["Session", Text]]]
     query: NotRequired[Optional[Union[Dict, Text]]]
     variables: NotRequired[Optional[Dict[str, Any]]]
-    allow_history_and_session_id: NotRequired[Optional[bool]]
     tasks: NotRequired[Optional[List[Any]]]
     prompt: NotRequired[Optional[Text]]
     history: NotRequired[Optional[List[ConversationMessage]]]
     execution_params: NotRequired[Optional[Dict[str, Any]]]
     criteria: NotRequired[Optional[Text]]
     evolve: NotRequired[Optional[Text]]
+    identifier: NotRequired[Optional[Text]]
     inspectors: NotRequired[Optional[List[Dict]]]
     run_response_generation: NotRequired[Optional[bool]]
+    attachments: NotRequired[Optional[List[Union[str, Dict[str, Any]]]]]
+    files: NotRequired[Optional[List[Any]]]
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
+
+
+@dataclass_json
+@dataclass
+class Budget:
+    """Budget caps governing an agent run (cost / duration / iterations).
+
+    Every :class:`Agent` owns a ``budget`` (defaulting to an empty ``Budget()``),
+    mutated in place via attribute access — mirroring ``model.inputs``::
+
+        agent.budget.max_cost = 0.5
+        agent.budget.max_iterations = 10
+
+    The same object serves two roles: ``agent.save()`` persists it as the agent's
+    default budget, and ``agent.run(...)`` sends its current state as the run-time
+    budget (the backend merges the run-time budget field-by-field over the
+    persisted default). The Python API is snake_case; serialization produces the
+    agreed camelCase wire keys (``maxCost`` / ``maxDurationSeconds`` /
+    ``maxIterations``). All fields are optional and ``None`` fields are dropped
+    from ``to_dict()``.
+    """
+
+    max_cost: Optional[float] = field(
+        default=None,
+        metadata=config(field_name="maxCost", exclude=lambda v: v is None),
+    )
+    max_duration_seconds: Optional[float] = field(
+        default=None,
+        metadata=config(field_name="maxDurationSeconds", exclude=lambda v: v is None),
+    )
+    max_iterations: Optional[int] = field(
+        default=None,
+        metadata=config(field_name="maxIterations", exclude=lambda v: v is None),
+    )
 
 
 @dataclass_json
@@ -265,7 +324,27 @@ class AgentResponseData:
     steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
+    diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
     critiques: Optional[str] = ""
+    governance: Optional[Dict[str, Any]] = None
+    _governance_status: Optional[str] = field(
+        default=None, repr=False, metadata=config(field_name="governanceStatus", exclude=lambda x: True)
+    )
+    _governance_source: Optional[str] = field(
+        default=None, repr=False, metadata=config(field_name="governanceSource", exclude=lambda x: True)
+    )
+    _governance_reason: Optional[str] = field(
+        default=None, repr=False, metadata=config(field_name="governanceReason", exclude=lambda x: True)
+    )
+
+    def __post_init__(self) -> None:
+        """Assemble the nested ``governance`` dict from the flat wire fields."""
+        if self.governance is None:
+            self.governance = {
+                "status": self._governance_status,
+                "source": self._governance_source,
+                "reason": self._governance_reason,
+            }
 
 
 @dataclass_json
@@ -279,6 +358,35 @@ class AgentRunResult(Result):
     used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
     run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
+
+    def __post_init__(self) -> None:
+        """Promote diagnostic codes the backend nests under ``data``.
+
+        The poll body carries them at ``data.diagnosticErrorCodes`` (or only
+        inside ``executionStats`` on older builds), never top-level.
+        """
+        if not self.diagnostic_error_codes:
+            self.diagnostic_error_codes = self._codes_from_data()
+
+    def _codes_from_data(self) -> List[str]:
+        """Extract diagnostic codes from ``data`` or its execution stats."""
+        data = self.data
+        if isinstance(data, AgentResponseData):
+            if data.diagnostic_error_codes:
+                return list(data.diagnostic_error_codes)
+            stats = data.execution_stats
+        elif isinstance(data, dict):
+            codes = data.get("diagnosticErrorCodes") or data.get("diagnostic_error_codes")
+            if codes:
+                return list(codes)
+            stats = data.get("executionStats") or data.get("execution_stats")
+        else:
+            return []
+        if isinstance(stats, dict):
+            codes = stats.get("diagnostic_error_codes") or stats.get("diagnosticErrorCodes")
+            if codes:
+                return list(codes)
+        return []
 
     # Internal reference to client context for debug() method
     _context: Optional[Any] = field(
@@ -433,6 +541,10 @@ class Agent(
         metadata=config(exclude=lambda x: True),
     )
 
+    # Skills (knowledge bundles) attached to the agent — Skill objects or ids,
+    # the same way `tools` and `agents` are passed.
+    skills: Optional[List[Union[str, "Skill"]]] = field(default_factory=list, metadata=config(field_name="skills"))
+
     # Output and execution fields
     output_format: Optional[Union[str, OutputFormat]] = field(
         default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
@@ -448,7 +560,24 @@ class Agent(
     max_inspectors: Optional[int] = field(default=None, metadata=config(field_name="maxInspectors"))
     inspectors: Optional[List[Any]] = field(default_factory=list)
     resource_info: Optional[Dict[str, Any]] = field(default_factory=dict, metadata=config(field_name="resourceInfo"))
-    max_iterations: Optional[int] = field(default=5, metadata=config(field_name="maxIterations"))
+    # Deprecated: persisted iteration cap. Use ``budget=Budget(max_iterations=...)``
+    # instead. Defaults to ``None`` (was previously ``5``) so a plain ``Agent(...)``
+    # does not warn; any non-None value (explicit or via ``from_dict``) is folded
+    # into ``budget`` and is never serialized as a standalone ``maxIterations``
+    # (see ``build_save_payload``).
+    max_iterations: Optional[int] = field(default=None, metadata=config(field_name="maxIterations"))
+    # Budget (cost / duration / iterations) for this agent. Always a ``Budget``
+    # instance — defaults to an empty ``Budget()``, never ``None`` — so callers
+    # can mutate ``agent.budget.max_cost`` etc. without a None check (mirrors
+    # ``model.inputs``). Assigning a dict/Budget/None is coerced back to a
+    # ``Budget`` by ``__setattr__``. Excluded from ``to_dict()`` (so it never
+    # counts toward ``is_modified``); serialized manually in ``build_save_payload``
+    # (persisted default) and ``build_run_payload`` (run-time budget) via
+    # ``_normalize_budget``.
+    budget: "Budget" = field(
+        default_factory=lambda: Budget(),
+        metadata=config(field_name="budget", exclude=lambda v: True),
+    )
     max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
     context_overflow_strategy: Optional[str] = field(
         default=None,
@@ -469,15 +598,13 @@ class Agent(
         self.tasks = [Task.from_dict(task) for task in self.tasks]
 
         # Deserialize inspectors to Inspector objects so mutate-and-save round-trips.
-        # Prebuilt inspectors travel as a lightweight {presetId, ...} reference
-        # (no "name"/"evaluator"), so dispatch on shape before deserializing.
+        # Prebuilt guards and custom inspectors are the same Inspector type, so a
+        # single deserialization path covers both.
         if self.inspectors:
-            from .inspector import Inspector, PrebuiltInspector
+            from .inspector import Inspector
 
             self.inspectors = [
-                (PrebuiltInspector.from_dict(inspector) if "presetId" in inspector else Inspector.from_dict(inspector))
-                if isinstance(inspector, dict)
-                else inspector
+                Inspector.from_dict(inspector) if isinstance(inspector, dict) else inspector
                 for inspector in self.inspectors
             ]
 
@@ -492,10 +619,36 @@ class Agent(
             self.agents = self.subagents
             self.subagents = None
 
+        # ``self.budget`` is already a ``Budget`` instance here: the generated
+        # ``__init__`` assignment routed through ``__setattr__``, which coerces
+        # any dict/Budget/None into a (never-None) ``Budget``.
+
+        # Deprecated persisted ``max_iterations``: fold into ``budget.max_iterations``.
+        # ``None`` (the default) means "not provided" so a plain ``Agent(...)`` never
+        # warns; any non-None value (explicit or via ``from_dict``) is folded.
+        if self.max_iterations is not None:
+            warnings.warn(
+                "Agent 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
+                "It will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if self.budget.max_iterations is None:
+                self.budget.max_iterations = self.max_iterations
+            else:
+                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=2)
+
         # Store original agent objects to resolve IDs at save time
         self._original_agents = list(self.agents)
         # Convert to IDs for serialization (to_dict), using None as placeholder for unsaved agents
         self.agents = [a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.agents]
+
+        # Skills behave exactly like agents: keep the originals to resolve ids
+        # at save time, and serialize as a list of ids.
+        self._original_skills = list(self.skills or [])
+        self.skills = [
+            s if isinstance(s, str) else s.get("id") if isinstance(s, dict) else s.id for s in (self.skills or [])
+        ]
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
@@ -503,23 +656,22 @@ class Agent(
         if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
             self.context_overflow_strategy = self.context_overflow_strategy.value
 
-        # Normalize inspector_targets to support both strings and InspectorTarget enums
+        # Inspector targets are plain strings (e.g. "input" | "steps" | "output"
+        # or a sub-agent name); normalize the known stage values to lowercase.
         if self.inspector_targets:
-            from .inspector import InspectorTarget
+            self.inspector_targets = [
+                target.lower() if isinstance(target, str) and target.lower() in {"input", "steps", "output"} else target
+                for target in self.inspector_targets
+            ]
 
-            normalized_targets = []
-            for target in self.inspector_targets:
-                if isinstance(target, str):
-                    # Convert string to InspectorTarget enum
-                    try:
-                        normalized_targets.append(InspectorTarget(target.lower()))
-                    except ValueError:
-                        # If it's not a valid InspectorTarget value, keep as is
-                        normalized_targets.append(target)
-                else:
-                    # Already an InspectorTarget or other type
-                    normalized_targets.append(target)
-            self.inspector_targets = normalized_targets
+        # Hydrate plain tool dicts (e.g. from a get()/create response) into
+        # mutable Tool/Model objects so callers can override per-tool parameters
+        # via ``agent.tools[i].actions[...].inputs[...] = value``. Best-effort and
+        # offline — see :meth:`_hydrate_tools`.
+        self._hydrate_tools()
+        # Snapshot the (post-hydration) tool objects so save can restore them
+        # after the create response would otherwise overwrite them with dicts.
+        self._original_tools = list(self.tools) if self.tools else []
 
         # TODO: Re-enable this validation after backend data consistency is fixed
         # if self.agents and (self.tasks or self.tools):
@@ -527,12 +679,111 @@ class Agent(
         #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
         #     )
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Keep ``self.budget`` a (never-None) ``Budget`` instance.
+
+        Assigning ``agent.budget`` a dict / ``Budget`` / ``None`` is coerced into
+        a ``Budget`` so attribute access (``agent.budget.max_cost = ...``) always
+        works and the invariant "budget is never None" holds (mirrors how
+        ``Model.__setattr__`` coerces bulk ``inputs`` assignment). This runs for
+        the generated ``__init__`` assignment too, so the field is a ``Budget``
+        by the time ``__post_init__`` executes.
+        """
+        if name == "budget":
+            coerced = self._coerce_budget(value)
+            value = coerced if coerced is not None else Budget()
+        super().__setattr__(name, value)
+
+    @classmethod
+    def _fold_legacy_max_iterations(cls, kvs: Any) -> Any:
+        """Fold a legacy top-level ``maxIterations`` into the ``budget`` slot.
+
+        Backend agents may still carry a top-level legacy ``maxIterations``. The
+        public constructor (``Agent(max_iterations=...)``) emits a
+        ``DeprecationWarning`` in ``__post_init__``, but deserialization must NOT
+        warn — loading an agent the caller never configured should be silent.
+        So we fold the legacy ``maxIterations`` straight into the ``budget`` slot
+        (Budget wins silently if it already carries one) and drop the standalone
+        key, so ``__post_init__`` sees ``max_iterations=None`` and the deprecation
+        path never fires on load. Returns a copy; the caller's dict is untouched.
+        """
+        if isinstance(kvs, dict) and kvs.get("maxIterations") is not None:
+            kvs = dict(kvs)  # shallow copy; never mutate the caller's dict
+            legacy_iterations = kvs.pop("maxIterations")
+            budget = kvs.get("budget")
+            # Normalize to the camelCase wire shape so the nested fold is uniform
+            # regardless of whether ``budget`` arrived snake_case, camelCase, or absent.
+            normalized = cls._normalize_budget(budget) if budget is not None else {}
+            # Budget wins silently on conflict; otherwise fill the empty slot.
+            if normalized.get("maxIterations") is None:
+                normalized["maxIterations"] = legacy_iterations
+            kvs["budget"] = normalized
+        return kvs
+
     def mark_as_deleted(self) -> None:
         """Mark the agent as deleted by setting status to DELETED and calling parent method."""
         from .enums import AssetStatus
 
         self.status = AssetStatus.DELETED
         super().mark_as_deleted()
+
+    def _get_serializable_state(self) -> dict:
+        """Serializable state used for change detection (``is_modified``).
+
+        Tools are reduced to identity-only signatures (id + type, excluding
+        per-input values) so that (a) ``to_dict()`` does not recurse into
+        ``Tool`` / ``Model`` objects and crash, and (b) mutating a tool's action
+        inputs does not mark the agent as modified — run-time tool-parameter
+        overrides are ephemeral and must not trigger an auto-save or block an
+        onboarded agent's run. Adding or removing a whole tool is still
+        detected; ``save()`` persists changed values unconditionally.
+        """
+        original_tools = self.tools
+        try:
+            self.tools = [self._tool_identity(tool) for tool in original_tools or []]
+            return super()._get_serializable_state()
+        finally:
+            self.tools = original_tools
+
+    @staticmethod
+    def _tool_identity(tool: Any) -> dict:
+        """Return a stable id/type signature for a tool entry (no param values)."""
+        if isinstance(tool, str):
+            return {"id": tool}
+        if isinstance(tool, dict):
+            return {"id": tool.get("id"), "type": tool.get("type")}
+        return {"id": getattr(tool, "id", None), "type": getattr(tool, "type", None)}
+
+    def _start_progress_tracker(self, kwargs: Dict[str, Any]) -> None:
+        """Initialize ``self._progress_tracker`` from progress kwargs (no-op if disabled)."""
+        progress_format = kwargs.get("progress_format")
+        if progress_format is None:
+            self._progress_tracker = None
+            return
+
+        from .agent_progress import AgentProgressTracker, ProgressFormat
+
+        progress_verbosity = kwargs.get("progress_verbosity", 1)
+        progress_truncate = kwargs.get("progress_truncate", True)
+        fmt = ProgressFormat(progress_format)
+
+        self._progress_tracker = AgentProgressTracker(
+            poll_func=lambda url: self.poll(url),
+            poll_interval=0.05,
+            max_polls=None,
+        )
+        self._progress_tracker.start(
+            format=fmt,
+            verbosity=progress_verbosity,
+            truncate=progress_truncate,
+        )
+
+    def _finish_progress_tracker(self, result: Union[AgentRunResult, Exception]) -> None:
+        """Finalize the progress tracker; safe to call even if it was never started."""
+        if self._progress_tracker is not None:
+            if not isinstance(result, Exception):
+                self._progress_tracker.finish(result)
+            self._progress_tracker = None
 
     def before_run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]:
         """Hook called before running the agent to validate and prepare state."""
@@ -549,30 +800,7 @@ class Agent(
             if self.is_modified:
                 raise ValueError("Agent is onboarded and cannot be modified unless you explicitly save it.")
 
-        # Initialize progress tracker if progress_format is provided
-        # progress_format being None (default) means no progress tracking
-        progress_format = kwargs.get("progress_format")
-        if progress_format is not None:
-            from .agent_progress import AgentProgressTracker, ProgressFormat
-
-            progress_verbosity = kwargs.get("progress_verbosity", 1)
-            progress_truncate = kwargs.get("progress_truncate", True)
-
-            fmt = ProgressFormat(progress_format)
-
-            self._progress_tracker = AgentProgressTracker(
-                poll_func=lambda url: self.poll(url),
-                poll_interval=0.05,
-                max_polls=None,
-            )
-            self._progress_tracker.start(
-                format=fmt,
-                verbosity=progress_verbosity,
-                truncate=progress_truncate,
-            )
-        else:
-            self._progress_tracker = None
-
+        self._start_progress_tracker(kwargs)
         return None
 
     def on_poll(self, response: AgentRunResult, **kwargs: Unpack[AgentRunParams]) -> None:
@@ -595,10 +823,7 @@ class Agent(
     ) -> Optional[AgentRunResult]:
         """Hook called after running the agent for result transformation."""
         # Finish progress tracking if enabled
-        if self._progress_tracker is not None:
-            if not isinstance(result, Exception):
-                self._progress_tracker.finish(result)
-            self._progress_tracker = None
+        self._finish_progress_tracker(result)
 
         # Set the context on the result for debug() method support
         if not isinstance(result, Exception):
@@ -607,20 +832,91 @@ class Agent(
         return None  # Return original result
 
     _SNAKE_TO_CAMEL: ClassVar[Dict[str, str]] = {
-        "session_id": "sessionId",
-        "allow_history_and_session_id": "allowHistoryAndSessionId",
         "execution_params": "executionParams",
         "run_response_generation": "runResponseGeneration",
     }
 
+    # ``max_iterations`` is intentionally absent: it is deprecated and folded into
+    # ``budget.maxIterations`` (see ``_fold_iter_into_budget`` and the run path),
+    # never emitted as a standalone ``executionParams.maxIterations``. The session
+    # path (``ExecutionConfig`` in session.py) keeps the same invariant.
     _EXEC_PARAMS_MAP: ClassVar[Dict[str, str]] = {
         "output_format": "outputFormat",
         "max_tokens": "maxTokens",
-        "max_iterations": "maxIterations",
         "max_time": "maxTime",
         "expected_output": "expectedOutput",
         "context_overflow_strategy": "contextOverflowStrategy",
     }
+
+    # snake_case → camelCase wire keys for the nested executionParams.budget object.
+    _BUDGET_PARAMS_MAP: ClassVar[Dict[str, str]] = {
+        "max_cost": "maxCost",
+        "max_duration_seconds": "maxDurationSeconds",
+        "max_iterations": "maxIterations",
+    }
+
+    # Emitted (as a UserWarning) when a deprecated ``max_iterations`` and an
+    # explicit ``budget.max_iterations`` are both set; Budget wins. Shared by the
+    # constructor, the run path, and the session path so the text never drifts.
+    _BUDGET_ITER_CONFLICT_MSG: ClassVar[str] = (
+        "Both 'max_iterations' and budget.max_iterations are set; budget.max_iterations takes precedence."
+    )
+
+    @classmethod
+    def _normalize_budget(cls, budget: Union[Dict, "Budget"]) -> dict:
+        """Normalize a Budget instance or dict to the camelCase wire shape.
+
+        Accepts a ``Budget`` instance, a snake_case dict, or a camelCase dict and
+        returns a camelCase dict with ``None`` fields dropped. Unknown keys are
+        passed through unchanged (forward compatibility).
+        """
+        if isinstance(budget, Budget):
+            raw = budget.to_dict()  # already camelCase, None dropped
+        else:
+            raw = dict(budget)
+        # Map snake_case keys to camelCase; pass camelCase (and unknown) keys through.
+        normalized = {cls._BUDGET_PARAMS_MAP.get(k, k): v for k, v in raw.items()}
+        # Never emit null fields.
+        return {k: v for k, v in normalized.items() if v is not None}
+
+    @classmethod
+    def _coerce_budget(cls, budget: Optional[Union[Dict, "Budget"]]) -> Optional["Budget"]:
+        """Coerce ``None`` / dict / ``Budget`` into a ``Budget`` instance.
+
+        A dict may use snake_case or camelCase keys; it is normalized to the
+        camelCase wire shape first so a single decoder handles both styles.
+        ``None`` passes through as ``None`` (session's ExecutionConfig relies on
+        this); ``Agent.__setattr__`` is what upgrades a ``None`` agent budget to
+        an empty ``Budget()`` to keep ``agent.budget`` never-None.
+        """
+        if budget is None or isinstance(budget, Budget):
+            return budget
+        if isinstance(budget, dict):
+            normalized = cls._normalize_budget(budget)
+            return Budget(
+                max_cost=normalized.get("maxCost"),
+                max_duration_seconds=normalized.get("maxDurationSeconds"),
+                max_iterations=normalized.get("maxIterations"),
+            )
+        raise TypeError(f"budget must be a Budget, dict, or None, got {type(budget)}")
+
+    @classmethod
+    def _fold_iter_into_budget(
+        cls, budget: Optional[Union[Dict, "Budget"]], max_iterations: int
+    ) -> "tuple[dict, bool]":
+        """Fold a deprecated ``max_iterations`` into a budget (Budget wins on conflict).
+
+        Pure: emits no warnings. Returns ``(normalized, conflicted)`` where
+        ``normalized`` is the camelCase wire dict and ``conflicted`` is ``True``
+        when the budget already carried ``maxIterations`` (so the deprecated value
+        was dropped). The caller owns the conflict warning — it knows the right
+        ``stacklevel`` for its own call depth (see the run and session paths).
+        """
+        normalized = cls._normalize_budget(budget) if budget is not None else {}
+        if normalized.get("maxIterations") is not None:
+            return normalized, True
+        normalized["maxIterations"] = max_iterations
+        return normalized, False
 
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Run the agent with optional progress display.
@@ -628,6 +924,16 @@ class Agent(
         Args:
             *args: Positional arguments (first arg is treated as query)
             query: The query to run
+            session: Run within a conversation thread. Accepts a
+                :class:`~aixplain.v2.session.Session` instance or a session id
+                string. When supplied, the run routes through the session path:
+                the user message is posted to
+                ``POST /v1/sessions/{id}/messages`` (carrying the session's
+                ``executionConfig`` plus any per-run execution overrides) and the
+                triggered agent run is awaited. Omit ``session`` for a one-shot,
+                stateless run over ``POST /v2/agents/{id}/run``. There is no
+                ``via_session`` flag and no id-only ``session_id`` — manage
+                threads through ``aix.Session`` and pass them here.
             progress_format: Display format - "status" or "logs". If None (default),
                            progress tracking is disabled.
             progress_verbosity: Detail level 1-3 (default: 1)
@@ -640,6 +946,10 @@ class Agent(
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
+
+        session = kwargs.pop("session", None)
+        if session is not None:
+            return self._run_with_session(session, **kwargs)
 
         return super().run(*args, **kwargs)
 
@@ -661,6 +971,12 @@ class Agent(
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
+
+        if kwargs.pop("session", None) is not None:
+            raise NotImplementedError(
+                "session=… runs are sync-only for now; use agent.run(...) or "
+                "session.add_message() + session.messages() directly."
+            )
 
         return super().run_async(**kwargs)
 
@@ -776,8 +1092,64 @@ class Agent(
         # Validate that all dependencies are saved before proceeding
         self._validate_dependencies()
 
+        # Capture names before save because the backend response can rebuild self.tools without Integration objects.
+        unconnected_integration_names = self._get_unconnected_integration_names()
+
+        # Preserve the in-memory tool objects (carrying any per-tool parameter
+        # overrides the caller set): a create response would otherwise replace
+        # ``self.tools`` with backend dicts and drop those mutations.
+        pre_save_tools = list(self.tools) if self.tools else []
+
         # Call the parent save method
-        return super().save(*args, **kwargs)
+        saved_agent = super().save(*args, **kwargs)
+
+        # Restore the caller's tool objects, then re-hydrate any dict entries so
+        # ``agent.tools[i]`` stays a mutable Tool/Model object after save.
+        self.tools = pre_save_tools
+        self._hydrate_tools()
+        self._original_tools = list(self.tools) if self.tools else []
+
+        # Re-baseline the saved state against the restored tool objects. The
+        # parent save() captured it mid-flow from the response dicts; without
+        # this, the restored objects would read as "modified" and a subsequent
+        # run() on an onboarded agent would wrongly raise.
+        self._update_saved_state()
+
+        self._warn_for_unconnected_integrations(unconnected_integration_names)
+        return saved_agent
+
+    def _warn_for_unconnected_integrations(self, integration_names: Optional[List[str]] = None) -> None:
+        """Warn when an agent is saved with integration definitions that need connection."""
+        if integration_names is None:
+            integration_names = self._get_unconnected_integration_names()
+        if not integration_names or not self.id:
+            return
+
+        schema_url = f"https://studio.aixplain.com/build/{self.id}/schema"
+        for integration_name in integration_names:
+            warnings.warn(
+                f"Warning: Integration '{integration_name}' is not connected. "
+                f"Connect your unconnected integrations here: {schema_url}",
+                UserWarning,
+                stacklevel=2,
+            )
+
+    def _get_unconnected_integration_names(self) -> List[str]:
+        """Return unique names for Integration objects used directly as tools."""
+        from .integration import Integration
+
+        if not self.tools:
+            return []
+
+        names = []
+        seen = set()
+        for tool in self.tools:
+            if isinstance(tool, Integration):
+                integration_name = tool.name or tool.id
+                if integration_name and integration_name not in seen:
+                    names.append(integration_name)
+                    seen.add(integration_name)
+        return names
 
     def _save_subcomponents(self) -> None:
         """Recursively save all unsaved child components."""
@@ -805,6 +1177,18 @@ class Agent(
                         agent_name = getattr(agent, "name", f"agent_{i}")
                         failed_components.append(("agent", agent_name, str(e)))
 
+        # Save skills
+        if getattr(self, "_original_skills", None):
+            for i, skill in enumerate(self._original_skills):
+                if isinstance(skill, (str, dict)):  # Already an ID
+                    continue
+                if hasattr(skill, "save") and hasattr(skill, "id") and not skill.id:
+                    try:
+                        skill.save()
+                    except Exception as e:
+                        skill_name = getattr(skill, "name", f"skill_{i}")
+                        failed_components.append(("skill", skill_name, str(e)))
+
         if failed_components:
             error_details = "; ".join(
                 [f"{comp_type} '{name}': {error}" for comp_type, name, error in failed_components]
@@ -829,6 +1213,15 @@ class Agent(
                 if hasattr(agent, "id") and not agent.id:
                     agent_name = getattr(agent, "name", "unnamed")
                     unsaved_components.append(f"agent '{agent_name}'")
+
+        # Check skills
+        if getattr(self, "_original_skills", None):
+            for skill in self._original_skills:
+                if isinstance(skill, (str, dict)):  # Already an ID
+                    continue
+                if hasattr(skill, "id") and not skill.id:
+                    skill_name = getattr(skill, "name", "unnamed")
+                    unsaved_components.append(f"skill '{skill_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -857,6 +1250,15 @@ class Agent(
                 if hasattr(agent, "id") and not agent.id:
                     agent_name = getattr(agent, "name", "unnamed")
                     unsaved_components.append(f"agent '{agent_name}'")
+
+        # Check skills
+        if getattr(self, "_original_skills", None):
+            for skill in self._original_skills:
+                if isinstance(skill, (str, dict)):  # Already an ID
+                    continue
+                if hasattr(skill, "id") and not skill.id:
+                    skill_name = getattr(skill, "name", "unnamed")
+                    unsaved_components.append(f"skill '{skill_name}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -949,6 +1351,195 @@ class Agent(
 
         return super().search(**kwargs)
 
+    @classmethod
+    def _normalize_tool_for_api(cls, tool: Any) -> dict:
+        """Normalize one ``tools`` entry into the API dict shape.
+
+        Per-tool parameter overrides are expressed by mutating the tool object's
+        typed action inputs (``tool.actions[...].inputs[...] = value``); the
+        current values are read back through the object's ``as_tool()`` snapshot
+        (see :meth:`Tool.get_parameters` / :meth:`Model.get_parameters`).
+
+        Accepts:
+
+        - a :class:`ToolableMixin` (``Tool`` / ``Model`` / ``Integration``)
+          whose ``as_tool()`` snapshot carries the correct ``type`` and current
+          parameter values;
+        - a plain string id — resolved to its ``as_tool()`` snapshot so the
+          create payload gets the required ``type``;
+        - an ``as_tool()`` snapshot dict (already carries ``type``) — passed
+          through; a bare ``{"id": ...}`` attach dict is resolved for its type.
+        """
+        if isinstance(tool, ToolableMixin):
+            return cls._normalize_tool_dict_for_api(tool.as_tool())
+        if isinstance(tool, str):
+            return cls._normalize_tool_dict_for_api(cls._resolve_tool_entry(tool))
+        if isinstance(tool, dict):
+            if tool.get("type") or not tool.get("id"):
+                return cls._normalize_tool_dict_for_api(tool)
+            return cls._normalize_tool_dict_for_api(cls._resolve_tool_entry(tool["id"], tool))
+        raise ValueError(
+            f"A tool must be a Tool, Model, ToolableMixin instance, a string id, or a dictionary, got {type(tool)}."
+        )
+
+    @classmethod
+    def _resolve_tool_entry(cls, tool_id: str, attach: Optional[dict] = None) -> dict:
+        """Build a typed tool dict for ``tool_id`` from its ``as_tool()`` snapshot.
+
+        Resolves the asset by id (Tool, then Model) so the entry carries the
+        backend-required ``type`` and other snapshot fields, then overlays any
+        extra keys from the caller-provided attach dict. Falls back to a bare
+        ``{"id": tool_id}`` when the id can't be resolved — preserving the prior
+        behavior offline.
+        """
+        snapshot = cls._resolve_tool_snapshot(tool_id)
+        entry: dict = dict(snapshot) if snapshot else {}
+        entry["id"] = tool_id
+        if isinstance(attach, dict):
+            for key, value in attach.items():
+                if key != "id":
+                    entry[key] = value
+        return entry
+
+    @classmethod
+    def _resolve_tool_snapshot(cls, tool_id: str) -> Optional[dict]:
+        """Return the ``as_tool()`` snapshot for ``tool_id``, or ``None``.
+
+        Tries the ``Tool`` resource first, then ``Model`` (mirroring how the
+        platform resolves an asset id). Any failure (no client context,
+        unknown id, network error) yields ``None`` so normalization degrades
+        gracefully instead of raising.
+        """
+        context = getattr(cls, "context", None)
+        if context is None:
+            return None
+        for resource_name in ("Tool", "Model"):
+            resource = getattr(context, resource_name, None)
+            if resource is None:
+                continue
+            try:
+                return dict(resource.get(tool_id).as_tool())
+            except Exception:
+                continue
+        return None
+
+    def _hydrate_tools(self) -> None:
+        """Convert plain tool dicts in ``self.tools`` into mutable objects.
+
+        Runs from :meth:`__post_init__` (so it fires on ``get()``/``create``
+        responses). Entries that are already ``Tool`` / ``Model`` /
+        ``Integration`` objects, plain string ids, or unresolvable dicts are
+        left untouched. Hydration is **offline**: the object's action inputs are
+        reconstructed from the ``parameters`` snapshot embedded in the dict so
+        reads and ``inputs[...] = value`` mutations do not require a network
+        call. When the snapshot carries no parameters, the object is left to
+        load its input specs lazily on first ``.actions`` access (matching a
+        normal ``Tool.get``). Requires a client context; without one (e.g. an
+        unbound ``Agent`` in unit tests) the raw entries are kept as-is.
+        """
+        context = getattr(self, "context", None)
+        if context is None or not self.tools:
+            return
+        self.tools = [self._hydrate_tool_entry(entry, context) for entry in self.tools]
+
+    def _hydrate_tool_entry(self, entry: Any, context: Any) -> Any:
+        """Hydrate one ``tools`` entry into a Tool/Model object (best-effort)."""
+        if not isinstance(entry, dict):
+            return entry  # already a Tool/Model/Integration object or a string id
+        tool_id = entry.get("id")
+        if not tool_id:
+            return entry
+
+        parameters = entry.get("parameters")
+        is_model = entry.get("type") == "model"
+        try:
+            if is_model:
+                return self._build_model_tool(entry, context, parameters)
+            return self._build_tool_tool(entry, context, parameters)
+        except Exception:
+            # Never let hydration break construction — fall back to the raw dict.
+            return entry
+
+    @staticmethod
+    def _build_model_tool(entry: dict, context: Any, parameters: Any) -> Any:
+        """Build a bound ``Model`` from a tool dict, seeding inputs from ``parameters``.
+
+        ``parameters`` is the flat ``[{name, value, datatype, required, ...}]``
+        list produced by ``Model.as_tool()``. It is turned into ``params`` so the
+        rebuilt ``Model`` exposes working ``inputs`` (and ``as_tool()`` round-trips
+        the current values offline).
+        """
+        from .model import Parameter
+
+        params = []
+        for param in parameters or []:
+            if not isinstance(param, dict) or not param.get("name"):
+                continue
+            value = param.get("value")
+            params.append(
+                Parameter(
+                    name=param["name"],
+                    required=bool(param.get("required", False)),
+                    data_type=param.get("datatype") or param.get("dataType"),
+                    default_values=[value] if value is not None else [],
+                )
+            )
+        model = context.Model(
+            id=entry.get("id"),
+            name=entry.get("name"),
+            description=entry.get("description"),
+            params=params or None,
+        )
+        model.context = context
+        return model
+
+    @staticmethod
+    def _build_tool_tool(entry: dict, context: Any, parameters: Any) -> Any:
+        """Build a bound ``Tool`` from a tool dict, seeding action inputs offline.
+
+        ``parameters`` is the nested ``[{code, name, inputs: {code: {value, ...}}}]``
+        list produced by ``Tool.as_tool()`` / ``Tool.get_parameters()``. When
+        present, the tool's ``actions`` cache is pre-populated so mutations are
+        offline; otherwise the tool loads its input specs lazily on first access.
+        """
+        from .actions import Action, Actions, Input, Inputs
+
+        tool = context.Tool(
+            id=entry.get("id"),
+            name=entry.get("name"),
+            description=entry.get("description"),
+        )
+        tool.context = context
+
+        actions_map: Dict[str, Action] = {}
+        for action_def in parameters or []:
+            if not isinstance(action_def, dict):
+                continue
+            action_name = action_def.get("name") or action_def.get("code")
+            if not action_name:
+                continue
+            input_objs: Dict[str, Input] = {}
+            for code, spec in (action_def.get("inputs") or {}).items():
+                if not isinstance(spec, dict):
+                    continue
+                input_objs[code] = Input(
+                    name=code,
+                    required=bool(spec.get("required", False)),
+                    type=spec.get("datatype") or spec.get("dataType"),
+                    value=spec.get("value"),
+                    description=spec.get("description", "") or "",
+                )
+            actions_map[action_name] = Action(
+                name=action_name, description=action_def.get("description"), inputs=Inputs(input_objs)
+            )
+
+        if actions_map:
+            # Pre-populate the ``actions`` cached_property so reads/mutations are
+            # offline. Also scope allowed_actions so as_tool() serializes them.
+            tool.__dict__["actions"] = Actions(actions_map)
+            tool.allowed_actions = list(actions_map.keys())
+        return tool
+
     @staticmethod
     def _normalize_tool_dict_for_api(tool_dict: dict) -> dict:
         """Convert snake_case keys in a tool dict to the camelCase the API expects."""
@@ -961,6 +1552,9 @@ class Agent(
         for k, v in tool_dict.items():
             api_key = _KEY_MAP.get(k, k)
             if api_key == "parameters" and isinstance(v, list):
+                # Snapshot from ``as_tool()`` -> list of full parameter
+                # definitions (current input values included); normalize each
+                # definition's keys to camelCase.
                 result[api_key] = [Agent._normalize_parameter_for_api(p) for p in v]
             else:
                 result[api_key] = v
@@ -1136,35 +1730,33 @@ class Agent(
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         # Import Inspector from v2 module
-        from .inspector import Inspector, PrebuiltInspector
+        from .inspector import Inspector
 
         # Pre-serialize inspectors before to_dict() to avoid dataclass_json issues
         original_inspectors = self.inspectors
         if self.inspectors:
             serialized_inspectors = []
             for inspector in self.inspectors:
-                if isinstance(inspector, (Inspector, PrebuiltInspector)):
+                if isinstance(inspector, Inspector):
                     serialized_inspectors.append(inspector.to_dict())
                 elif isinstance(inspector, dict):
                     serialized_inspectors.append(inspector)
                 else:
-                    raise ValueError(f"Inspector must be Inspector, PrebuiltInspector, or dict, got {type(inspector)}")
+                    raise ValueError(f"Inspector must be Inspector or dict, got {type(inspector)}")
             self.inspectors = serialized_inspectors
 
-        # Pre-serialize inspector_targets to strings (enum values)
-        from .inspector import InspectorTarget
-
+        # Pre-serialize inspector_targets to strings
         original_inspector_targets = self.inspector_targets
         if self.inspector_targets:
-            serialized_targets = []
-            for target in self.inspector_targets:
-                if isinstance(target, InspectorTarget):
-                    serialized_targets.append(target.value)
-                elif isinstance(target, str):
-                    serialized_targets.append(target)
-                else:
-                    serialized_targets.append(str(target))
-            self.inspector_targets = serialized_targets
+            self.inspector_targets = [
+                target if isinstance(target, str) else str(target) for target in self.inspector_targets
+            ]
+
+        # Null out tools before to_dict(): dataclass_json would otherwise recurse
+        # into Tool/Model objects (which raises on their ``context`` descriptor).
+        # The real tools payload is rebuilt from ``self.tools`` below.
+        original_tools = self.tools
+        self.tools = []
 
         # Now call to_dict() with inspectors and inspector_targets already serialized
         payload = self.to_dict()
@@ -1172,6 +1764,19 @@ class Agent(
         # Restore original values
         self.inspectors = original_inspectors
         self.inspector_targets = original_inspector_targets
+        self.tools = original_tools
+
+        # Budget is the single source of truth for the persisted iteration cap.
+        # Drop the deprecated standalone ``maxIterations`` and emit the persisted
+        # ``budget`` (camelCase) only when it carries at least one cap. (The
+        # ``budget`` field is ``exclude=lambda v: True`` so ``to_dict()`` never
+        # emits it — we build the wire shape explicitly below.)
+        payload.pop("maxIterations", None)
+        budget = getattr(self, "budget", None)
+        if budget is not None:
+            normalized_budget = self._normalize_budget(budget)
+            if normalized_budget:
+                payload["budget"] = normalized_budget
 
         # Convert {{var}} to {var} in instructions and description for backend compatibility (v1 format)
         # User writes: {{language}} → Backend receives: {language}
@@ -1184,14 +1789,7 @@ class Agent(
         converted_assets = []
         if self.tools:
             for tool in self.tools:
-                if isinstance(tool, ToolableMixin):
-                    converted_assets.append(self._normalize_tool_dict_for_api(tool.as_tool()))
-                elif isinstance(tool, dict):
-                    converted_assets.append(self._normalize_tool_dict_for_api(tool))
-                else:
-                    raise ValueError(
-                        "A tool in the agent must be a Tool, Model, ToolableMixin instance, or a dictionary."
-                    )
+                converted_assets.append(self._normalize_tool_for_api(tool))
 
         # Update the payload with converted assets
         payload["tools"] = converted_assets
@@ -1213,13 +1811,33 @@ class Agent(
                 converted_agents.append({"id": agent_id, "inspectors": []})
             payload["agents"] = converted_agents
 
-        # Handle BaseModel expected_output for save operation
-        # We don't send expected_output in the save payload - it's runtime-only
+        # Convert skills to API format. Skills follow the same wire design as
+        # tools: each is sent as an object (via as_tool()), never a bare id.
+        if getattr(self, "_original_skills", None):
+            converted_skills = []
+            for skill in self._original_skills:
+                if isinstance(skill, ToolableMixin):
+                    skill_dict = skill.as_tool()
+                elif isinstance(skill, dict):
+                    skill_dict = skill
+                elif isinstance(skill, str):
+                    skill_dict = {"id": skill, "type": "skill", "asset_id": skill}
+                else:
+                    raise ValueError("A skill must be a Skill instance, a dict, or a skill id string.")
+                if not skill_dict.get("id"):
+                    raise ValueError("All skills must be saved before saving the agent.")
+                converted_skills.append(self._normalize_tool_dict_for_api(skill_dict))
+            payload["skills"] = converted_skills
+        else:
+            payload.pop("skills", None)
+
+        # Persist expected_output server-side so fetched agents and runs that
+        # don't pass executionParams.expectedOutput (the backend falls back to
+        # the stored value) keep the JSON contract.
         if "expectedOutput" in payload:
             expected_output = payload["expectedOutput"]
             if isinstance(expected_output, type) and issubclass(expected_output, BaseModel):
-                # Remove BaseModel classes from save payload - they're not stored server-side
-                payload.pop("expectedOutput")
+                payload["expectedOutput"] = json.dumps(expected_output.model_json_schema())
             elif isinstance(expected_output, BaseModel):
                 # Convert BaseModel instance to dict for save
                 payload["expectedOutput"] = expected_output.model_dump()
@@ -1234,11 +1852,12 @@ class Agent(
         # Normalize snake_case keys to camelCase for the API
         execution_params = {self._EXEC_PARAMS_MAP.get(k, k): v for k, v in execution_params.items()}
 
-        # Set default values for execution_params if not provided
+        # Set default values for execution_params if not provided.
+        # No ``maxIterations`` default: the iteration cap now travels inside
+        # ``executionParams.budget`` and the backend supplies its own default.
         defaults = {
             "outputFormat": self.output_format,
             "maxTokens": getattr(self, "max_tokens", 2048),
-            "maxIterations": getattr(self, "max_iterations", 5),
             "maxTime": 300,
             "contextOverflowStrategy": getattr(self, "context_overflow_strategy", None),
         }
@@ -1266,12 +1885,59 @@ class Agent(
             # Backend expects executionParams.expectedOutput as a string.
             execution_params["expectedOutput"] = json.dumps(expected_output)
 
+        # Run-time budget: the agent's current ``budget`` state travels inside
+        # ``executionParams.budget`` (the backend merges it field-by-field over the
+        # persisted default). Set the key only when the budget carries at least one
+        # cap; an empty budget must leave the payload unchanged. ``budget`` is no
+        # longer a run kwarg — drop any stray one so it can't leak to the payload.
+        kwargs.pop("budget", None)
+        # ``getattr`` (not ``self.budget``) mirrors the defensive reads above so a
+        # test-constructed agent (``Agent.__new__`` bypassing ``__init__``) still
+        # works; a missing/None budget is treated as an empty one.
+        budget = getattr(self, "budget", None) or Budget()
+
+        # Deprecated run-time ``max_iterations`` exec param: fold into the run-time
+        # budget (the agent's budget wins on conflict) and stop emitting a standalone
+        # ``executionParams.maxIterations``. ``max_iterations`` is not in
+        # ``_EXEC_PARAMS_MAP``, so a snake_case key passes through unmapped — accept
+        # both spellings here (mirrors ExecutionConfig.to_api_dict in session.py).
+        deprecated_iterations = execution_params.pop("maxIterations", None)
+        if deprecated_iterations is None:
+            deprecated_iterations = execution_params.pop("max_iterations", None)
+        if deprecated_iterations is not None:
+            # Point past the SDK run plumbing (build_run_payload ->
+            # _post_and_handle_run -> RunnableResourceMixin.run -> Agent.run) to
+            # the user's agent.run(...) call site. The conflict warning (below) is
+            # emitted from this same frame, so it shares the stacklevel.
+            warnings.warn(
+                "Execution param 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
+                "It will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=5,
+            )
+            normalized_budget, conflicted = self._fold_iter_into_budget(budget, deprecated_iterations)
+            if conflicted:
+                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=5)
+        else:
+            normalized_budget = self._normalize_budget(budget)
+
+        if normalized_budget:
+            execution_params["budget"] = normalized_budget
+
         # Handle run_response_generation with default value of False
         run_response_generation = kwargs.pop("run_response_generation", False)
 
         # Process variables for instruction/description placeholders (sent to backend for substitution)
         variables = kwargs.pop("variables", None) or {}
         query = kwargs.pop("query", None)
+
+        # Multimodal attachments on the non-session run path: resolve them to
+        # ``{url, name, type, mimeType}`` descriptors (uploading any local paths)
+        # and send them as a structured ``attachments`` field — the same shape
+        # the agent worker consumes. Popped here so they aren't forwarded raw by
+        # the generic kwargs loop below.
+        attachments = kwargs.pop("attachments", None)
+        files = kwargs.pop("files", None)
 
         # Build input_data dict with query and variables
         if query is not None:
@@ -1299,83 +1965,267 @@ class Agent(
         # Add query back if present
         if query is not None:
             payload["query"] = query
+        if attachments or files:
+            from .session import resolve_attachments
+
+            payload["attachments"] = resolve_attachments(
+                self.context, attachments, files, error_label=f"agent '{self.id}'"
+            )
         # Translate remaining snake_case kwargs to camelCase for the API
         for key, value in kwargs.items():
             if value is not None:
                 api_key = self._SNAKE_TO_CAMEL.get(key, key)
                 payload[api_key] = value
 
+        # Send the agent's current per-tool parameter state as an ephemeral
+        # run-time override. Mutating ``agent.tools[i].actions[...].inputs[...]``
+        # and calling ``run()`` forwards those values without persisting them
+        # (the backend merges by tool id). Only tools that carry parameter
+        # values are included, so the common no-override case stays lightweight.
+        tool_overrides = self._build_tool_overrides()
+        if tool_overrides:
+            payload["tools"] = tool_overrides
+
         self._apply_llm_fields_to_run_payload(payload)
         return payload
 
-    def generate_session_id(self, history: Optional[List[ConversationMessage]] = None) -> str:
-        """Generate a unique session ID for agent conversations.
+    def _build_tool_overrides(self) -> List[dict]:
+        """Serialize ``self.tools`` into run-time per-tool parameter overrides.
 
-        Creates a unique session identifier based on the agent ID and current timestamp.
-        If conversation history is provided, it attempts to initialize the session on the
-        server to enable context-aware conversations.
-
-        Args:
-            history: Previous conversation history. Each message should contain
-                'role' (either 'user' or 'assistant') and 'content' keys.
-                Defaults to None.
-
-        Returns:
-            str: A unique session identifier in the format "{agent_id}_{timestamp}".
-
-        Raises:
-            ValueError: If the history format is invalid.
-
-        Example:
-            >>> agent = Agent.get("my_agent_id")
-            >>> session_id = agent.generate_session_id()
-            >>> # Or with history
-            >>> history = [
-            ...     {"role": "user", "content": "Hello"},
-            ...     {"role": "assistant", "content": "Hi there!"}
-            ... ]
-            >>> session_id = agent.generate_session_id(history=history)
+        Reads each tool object's *current* action-input values **offline** and
+        emits the ``[{id, parameters: [{name, value}]}]`` shape the backend
+        merges by tool id. Only tools that carry at least one set value are
+        emitted, so runs without overrides stay lightweight; bare string ids and
+        attach-only dicts are skipped.
         """
-        if not self.id:
-            self.save(as_draft=True)
+        overrides: List[dict] = []
+        for tool in getattr(self, "tools", None) or []:
+            if not isinstance(tool, ToolableMixin):
+                continue
+            tool_id = getattr(tool, "id", None)
+            if not tool_id:
+                continue
+            values = self._current_tool_parameters(tool)
+            if values:
+                overrides.append(
+                    {
+                        "id": tool_id,
+                        "parameters": self._params_dict_to_namevalue_list(values),
+                    }
+                )
+        return overrides
 
-        if history:
-            validate_history(history)
+    @staticmethod
+    def _current_tool_parameters(tool: Any) -> Dict[str, Any]:
+        """Read a tool object's current, non-null input values as ``{name: value}``.
 
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        session_id = f"{self.id}_{timestamp}"
+        Fully offline — only inspects input collections that are already
+        materialized (a Model's single ``inputs``, or the actions a caller has
+        touched on a Tool), so it never triggers a lazy spec fetch.
+        """
+        values: Dict[str, Any] = {}
 
-        if not history:
-            return session_id
-
+        # Model-style: a single ``inputs`` collection (Tools raise on ``.inputs``).
         try:
-            # Use the existing run infrastructure to initialize the session
-            result = self.run_async(
-                query="/",
-                session_id=session_id,
-                history=history,
-                execution_params={
-                    "max_tokens": 2048,
-                    "max_iterations": 10,
-                    "output_format": OutputFormat.TEXT.value,
-                    "expected_output": None,
-                },
-                allow_history_and_session_id=True,
+            inputs = tool.inputs
+        except Exception:
+            inputs = None
+        if inputs is not None and hasattr(inputs, "items"):
+            for name, value in inputs.items():
+                if value is not None:
+                    values[name] = value
+            return values
+
+        # Tool-style: gather values from already-materialized actions.
+        actions = getattr(tool, "actions", None)
+        materialized = getattr(actions, "_actions", None)
+        if isinstance(materialized, dict):
+            for action in materialized.values():
+                action_inputs = getattr(action, "_inputs", None)
+                if action_inputs is None or not hasattr(action_inputs, "items"):
+                    continue
+                for name, value in action_inputs.items():
+                    if value is not None:
+                        values[name] = value
+        return values
+
+    @staticmethod
+    def _apply_run_overrides_to_session(session: "Session", kwargs: Dict[str, Any]) -> None:
+        """Apply per-run execution overrides onto a session.
+
+        When a caller runs within a ``session`` but also passes
+        per-run execution kwargs (``execution_params`` / ``criteria`` /
+        ``evolve`` / ``identifier`` / ``run_response_generation``), those
+        overrides would otherwise be silently dropped — the run would
+        execute with whatever ``executionConfig`` the session was created
+        with. Here we merge the supplied overrides onto the session's
+        stored config (fields not overridden are preserved) and, when the
+        result differs from what's stored, persist it so the overrides
+        take effect.
+
+        We warn because this mutates the session's ``executionConfig`` for
+        every subsequent message in the session, not just this run.
+        """
+        from .session import ExecutionConfig
+
+        overrides = {
+            "execution_params": kwargs.get("execution_params"),
+            "criteria": kwargs.get("criteria"),
+            "evolve": kwargs.get("evolve"),
+            "identifier": kwargs.get("identifier"),
+            "run_response_generation": kwargs.get("run_response_generation"),
+        }
+        provided = {key: value for key, value in overrides.items() if value is not None}
+        if not provided:
+            return
+
+        current = session.execution_config
+        base = {
+            "execution_params": getattr(current, "execution_params", None),
+            "criteria": getattr(current, "criteria", None),
+            "evolve": getattr(current, "evolve", None),
+            "identifier": getattr(current, "identifier", None),
+            "run_response_generation": getattr(current, "run_response_generation", None),
+        }
+        merged = ExecutionConfig(**{**base, **provided})
+
+        if current is not None and merged.to_api_dict() == current.to_api_dict():
+            return
+
+        warnings.warn(
+            f"Per-run execution overrides ({', '.join(sorted(provided))}) were "
+            f"passed alongside session '{session.id}'. Updating the session's "
+            f"stored executionConfig so the overrides take effect; this also "
+            f"applies to every subsequent message in this session.",
+            UserWarning,
+            stacklevel=3,
+        )
+        session.execution_config = merged
+        session.save()
+
+    _LEGACY_ONLY_RUN_KWARGS: ClassVar[tuple] = (
+        "tasks",
+        "prompt",
+        "inspectors",
+        "history",
+        "variables",
+    )
+
+    def _resolve_session(self, session: Any) -> "Session":
+        """Resolve the ``session=`` run argument to a bound :class:`Session`.
+
+        Accepts a :class:`~aixplain.v2.session.Session` instance (bound to this
+        agent's context if it isn't already) or a session id string (fetched via
+        ``Session.get``). Any other type is a ``TypeError``.
+        """
+        from .session import Session
+
+        if isinstance(session, Session):
+            if getattr(session, "context", None) is None:
+                session.context = self.context
+            return session
+        if isinstance(session, str):
+            return self.context.Session.get(session)
+        raise TypeError(f"session must be a Session instance or a session id string, got {type(session).__name__}")
+
+    def _run_with_session(self, session: Any, **kwargs: Any) -> AgentRunResult:
+        """Run the agent within a session, awaiting the triggered run.
+
+        Flow:
+        1. Resolve ``session`` (a Session object or id) to a bound Session and
+           merge any per-run execution overrides onto its ``executionConfig``.
+        2. POST a ``role="user"`` message via ``session.add_message`` — this
+           triggers the agent run on the backend with the session's
+           ``executionConfig``. Any ``attachments`` / ``files`` passed to
+           ``run`` are forwarded onto the user message so the agent receives
+           them (uploaded and attached by ``add_message``).
+        3. Pull the agent run's ``requestId`` off the user message and hand it to
+           ``self.sync_poll`` (the ``/sdk/agents/{request_id}/result`` endpoint),
+           which returns a fully populated ``AgentRunResult`` including
+           ``data.steps``, ``execution_stats``, ``used_credits``, and ``run_time``.
+
+        We don't poll session messages for the assistant reply — the run result
+        endpoint is fully populated for the run the user message triggered.
+        """
+        self._validate_run_dependencies()
+
+        offending = [k for k in self._LEGACY_ONLY_RUN_KWARGS if kwargs.get(k) is not None]
+        if offending:
+            raise ValueError(
+                f"session=… runs do not support legacy run kwargs: {offending}. Drop them or run without a session."
             )
 
-            # If we got a polling URL, poll for completion
-            if result.url and not result.completed:
-                final_result = self.sync_poll(result.url, timeout=300, wait_time=0.5)
+        query = kwargs.get("query")
+        attachments = kwargs.get("attachments")
+        files = kwargs.get("files")
+        # The query is optional when attachments carry the turn's input (e.g. an
+        # audio clip that is itself the prompt); otherwise a text query is required.
+        if query is None and not (attachments or files):
+            raise ValueError("A session run requires a query or attachments.")
+        if query is not None and not isinstance(query, str):
+            raise ValueError("session=… only supports string queries.")
+        query = query or ""
 
-                if final_result.status == ResponseStatus.SUCCESS:
-                    return session_id
-                else:
-                    logging.error(f"Session {session_id} initialization failed: {final_result}")
-                    return session_id
-            else:
-                # Direct completion or no polling needed
-                return session_id
+        session = self._resolve_session(session)
+        self._apply_run_overrides_to_session(session, kwargs)
 
+        # The agent's current per-tool parameter state (set by mutating
+        # ``agent.tools[i].actions[...].inputs[...]``) becomes the per-message
+        # override for this run, matching the single-shot run path.
+        message_tools = self._build_tool_overrides() or None
+
+        user_msg = session.add_message(
+            role="user",
+            content=query,
+            attachments=attachments,
+            files=files,
+            tools=message_tools,
+        )
+        if not user_msg.request_id:
+            raise ValueError(
+                f"Backend did not return a requestId on the user message for "
+                f"session '{session.id}'; cannot poll the agent run result."
+            )
+
+        # Same progress-tracker plumbing as the direct path: sync_poll calls
+        # self.on_poll(...) on every iteration, which forwards to the tracker.
+        self._start_progress_tracker(kwargs)
+        try:
+            result = self.sync_poll(
+                user_msg.request_id,
+                timeout=kwargs.get("timeout", 300),
+                wait_time=kwargs.get("wait_time", 0.5),
+            )
         except Exception as e:
-            logging.error(f"Failed to initialize session {session_id}: {e}")
-            return session_id
+            self._finish_progress_tracker(e)
+            raise
+        self._finish_progress_tracker(result)
+
+        # The /sdk/agents/{id}/result response doesn't always echo back
+        # identifiers at the top level — back-fill from what we know locally so
+        # result.session_id / result.request_id are not None for session callers.
+        if not result.session_id:
+            result.session_id = session.id
+        if result.data is not None and getattr(result.data, "session_id", None) in (None, ""):
+            result.data.session_id = session.id
+        if not result.request_id:
+            result.request_id = user_msg.request_id
+        result._context = self.context
+        return result
+
+
+# ``@dataclass_json`` injects its own ``from_dict`` onto the class, which would
+# clobber any ``from_dict`` defined in the class body. So we wrap the injected
+# decoder here (after decoration) to silently fold a legacy top-level
+# ``maxIterations`` into ``budget`` before decoding — keeping deserialization
+# warning-free while the explicit ``Agent(max_iterations=...)`` constructor path
+# still warns via ``__post_init__``.
+_dataclass_json_agent_from_dict = Agent.from_dict.__func__
+
+
+def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
+    kvs = cls._fold_legacy_max_iterations(kvs)
+    return _dataclass_json_agent_from_dict(cls, kvs, infer_missing=infer_missing)
+
+
+Agent.from_dict = classmethod(_agent_from_dict)

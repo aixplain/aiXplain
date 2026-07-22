@@ -804,7 +804,7 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
     connection = ModelFactory.get(connection_id)
 
     connection.action_scope = [
-        action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
+        action for action in connection.actions if action.code == "SLACK_SEND_MESSAGE"
     ]
 
     agent_name = f"TA {str(uuid4())[:8]}"
@@ -827,7 +827,7 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
     assert response is not None
     assert response["status"].lower() == "success"
     assert "helsinki" in response.data.output.lower()
-    assert "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL" in [
+    assert "SLACK_SEND_MESSAGE" in [
         step["tool"] for step in response.data.intermediate_steps[0]["tool_steps"]
     ]
 
@@ -837,7 +837,9 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
 FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
 TAVILY_CONNECTION_ASSET_ID = "6931bdf462eb386b7158def3"
 GOOGLE_SEARCH_UTILITY_MODEL_ID = "65c51c556eb563350f6e1bb1"
-WEB_SEARCH_TOOL_ASSET_ID = "69fb7750f177c224105dabc6"
+# Google Search API (scale-serp/google-search/Google); the Firecrawl-based
+# Web Search Tool (69fb7750f177c224105dabc6) fails on every invocation.
+WEB_SEARCH_TOOL_ASSET_ID = "692f18557b2cc45d29150cb0"
 
 
 @pytest.mark.flaky(reruns=2, reruns_delay=2)

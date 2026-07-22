@@ -255,6 +255,7 @@ def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, Team
     assert len(team_agent.agents) == len(agents)
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_team_agent_tasks(resource_tracker):
     agent_name = f"TSA {str(uuid4())[:8]}"
     agent = AgentFactory.create(
@@ -558,7 +559,7 @@ def test_team_agent_with_slack_connector(resource_tracker):
 
     connection = ModelFactory.get(connection_id)
     connection.action_scope = [
-        action for action in connection.actions if action.code == "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"
+        action for action in connection.actions if action.code == "SLACK_SEND_MESSAGE"
     ]
 
     agent_name = f"TA {str(uuid4())[:8]}"

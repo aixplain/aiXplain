@@ -406,7 +406,7 @@ def test_dynamic_validation_slack_integration(client, slack_integration_id, slac
 
     # Test with valid parameters
     valid_params = {
-        "action": "SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL",
+        "action": "SLACK_SEND_MESSAGE",
         "data": {"channel": "#general", "text": "Hello from test!"},
     }
 
@@ -536,10 +536,13 @@ def test_search_models_with_functions_filter(client):
     models = client.Model.search(functions=["text-generation"])
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
-    # If results are present, ensure each model has the requested function
+    assert models.results, "Expected the functions filter to return results"
+    # If results are present, ensure each model has the requested function.
+    # The v2 Function enum uses uppercase values (TEXT_GENERATION), while the
+    # backend filter id is the lowercase dashed form.
     for model in models.results:
         if model.function:
-            assert model.function.value == "text-generation"
+            assert model.function.name == "TEXT_GENERATION"
 
 
 def test_search_models_with_status_filter(client):
@@ -974,6 +977,22 @@ def test_sync_model_run(client, sync_model_id):
     assert result.completed is True
     assert result.data is not None
     assert "Hola" in result.data or "hola" in result.data.lower()
+
+
+def test_seedream_run_returns_non_poll_url_without_polling(client):
+    """Sync model run should return Seedream's final output URL without polling it."""
+    model = client.Model.get("69f347e7de823633d9604dfd")
+
+    result = model.run(
+        text="A small red cube on a plain white background.",
+        timeout=120,
+        wait_time=5,
+    )
+
+    assert result.status == "SUCCESS"
+    assert result.completed is True
+    assert result.data
+    assert result.url is None
 
 
 def test_sync_model_run_async(client, sync_model_id):

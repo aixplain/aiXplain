@@ -9,12 +9,15 @@ from .model import Model
 from .agent import Agent
 from .utility import Utility
 from .tool import Tool
+from .skill import Skill
 from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
 from .integration import Integration
+from .trigger import Trigger
 from .file import Resource
 from .inspector import Inspector
 from .meta_agents import Debugger
 from .api_key import APIKey
+from .session import Session
 from .rlm import RLM, RLMResult
 from .issue import IssueReporter
 from . import enums
@@ -24,12 +27,15 @@ ModelType = TypeVar("ModelType", bound=Model)
 AgentType = TypeVar("AgentType", bound=Agent)
 UtilityType = TypeVar("UtilityType", bound=Utility)
 ToolType = TypeVar("ToolType", bound=Tool)
+SkillType = TypeVar("SkillType", bound=Skill)
 MetricType = TypeVar("MetricType", bound=MetricBase)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
+TriggerType = TypeVar("TriggerType", bound=Trigger)
 ResourceType = TypeVar("ResourceType", bound=Resource)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
 DebuggerType = TypeVar("DebuggerType", bound=Debugger)
 APIKeyType = TypeVar("APIKeyType", bound=APIKey)
+SessionType = TypeVar("SessionType", bound=Session)
 RLMType = TypeVar("RLMType", bound=RLM)
 IssueReporterType = TypeVar("IssueReporterType", bound=IssueReporter)
 
@@ -51,13 +57,16 @@ class Aixplain:
     Agent: AgentType = None
     Utility: UtilityType = None
     Tool: ToolType = None
+    Skill: SkillType = None
     Metric: MetricType = None
     Eval: type = None
     Integration: IntegrationType = None
+    Trigger: TriggerType = None
     Resource: ResourceType = None
     Inspector: InspectorType = None
     Debugger: DebuggerType = None
     APIKey: APIKeyType = None
+    Session: SessionType = None
     RLM: RLMType = None
     issue: IssueReporterType = None
 
@@ -76,6 +85,12 @@ class Aixplain:
     SortBy = enums.SortBy
     SortOrder = enums.SortOrder
     StorageType = enums.StorageType
+
+    SessionStatus = enums.SessionStatus
+    RunStatus = enums.RunStatus
+    MessageRole = enums.MessageRole
+    Reaction = enums.Reaction
+    AttachmentType = enums.AttachmentType
 
     BACKEND_URL = "https://platform-api.aixplain.com"
     BENCHMARKS_BACKEND_URL = "https://platform-api.aixplain.com"
@@ -134,12 +149,15 @@ class Aixplain:
         self.Agent = type("Agent", (Agent,), {"context": self})
         self.Utility = type("Utility", (Utility,), {"context": self})
         self.Tool = type("Tool", (Tool,), {"context": self})
+        self.Skill = type("Skill", (Skill,), {"context": self})
         self.Metric = type("Metric", (MetricBase,), {"context": self})
         self.Eval = EvalClass
         self.Integration = type("Integration", (Integration,), {"context": self})
+        self.Trigger = type("Trigger", (Trigger,), {"context": self})
         self.Resource = type("Resource", (Resource,), {"context": self})
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
         self.Debugger = type("Debugger", (Debugger,), {"context": self})
         self.APIKey = type("APIKey", (APIKey,), {"context": self})
+        self.Session = type("Session", (Session,), {"context": self})
         self.RLM = type("RLM", (RLM,), {"context": self})
         self.issue = IssueReporter(context=self)

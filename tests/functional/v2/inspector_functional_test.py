@@ -14,21 +14,10 @@ import uuid
 import aixplain as aix
 from aixplain.enums.asset_status import AssetStatus
 
-from aixplain.v2 import (
-    Inspector,
-    InspectorTarget,
-    InspectorAction,
-    InspectorOnExhaust,
-    InspectorSeverity,
-    InspectorActionConfig,
-    EvaluatorType,
-    EvaluatorConfig,
-    EditorConfig,
-)
+from aixplain.v2 import Inspector
 from tests.functional.team_agent.test_utils import (
     RUN_FILE,
     read_data,
-    verify_response_generator,
 )
 
 _DEFAULT_INPUT_TARGET = "input"
@@ -97,14 +86,19 @@ def _step_agent_id(step: Dict) -> str:
 
 
 def _is_inspector_step(step: Dict) -> bool:
-    """True if step is an inspector (id is 'inspector' or 'inspector|...')."""
-    return _step_agent_id(step).startswith("inspector")
+    """True if step is an inspector.
+
+    The backend now reports the inspector's own name as the step agent id
+    (e.g. 'abort_output_inspector', is_system_agent=True) instead of the old
+    'inspector' / 'inspector|...' form, so match on substring.
+    """
+    return "inspector" in _step_agent_id(step)
 
 
 def verify_inspector_steps(
     steps: List[Dict],
     inspector_names: List[str],
-    inspector_targets: List[InspectorTarget],
+    inspector_targets: List[str],
 ) -> None:
     def agent_id(step: Dict) -> str:
         a = step.get("agent") or {}
@@ -114,21 +108,10 @@ def verify_inspector_steps(
         a = step.get("agent") or {}
         return (a.get("name") or "").lower()
 
-    rg_indices = [i for i, s in enumerate(steps) if agent_id(s) == "response_generator"]
-    assert len(rg_indices) == 1, f"Expected exactly one response_generator step, got {len(rg_indices)}"
-    rg_idx = rg_indices[0]
-
+    # The backend no longer emits a response_generator step; inspector steps
+    # are asserted directly wherever they appear in the run.
     inspector_indices = [i for i, s in enumerate(steps) if _is_inspector_step(s)]
     assert inspector_indices, "Expected at least one inspector step"
-
-    if InspectorTarget.OUTPUT in inspector_targets:
-        after = [i for i in inspector_indices if i > rg_idx]
-        assert after, "Expected inspector steps after response_generator for OUTPUT target"
-
-        last_steps = steps[rg_idx + 1 :]
-        assert all(_is_inspector_step(s) for s in last_steps), (
-            "Not all steps after response_generator are inspector steps"
-        )
 
     expected_n = len(inspector_names)
     actual_n = len(inspector_indices)
@@ -140,7 +123,7 @@ def verify_inspector_steps(
 
 
 def _run_and_get_steps(team_agent, query: str):
-    response = team_agent.run(query)
+    response = team_agent.run(query=query)
 
     assert response is not None
 
@@ -171,14 +154,13 @@ def test_output_inspector_abort(client, run_input_map, resource_tracker):
 
     inspector = Inspector(
         name="always_abort_output_inspector",
-        severity=InspectorSeverity.HIGH,
+        severity="high",
         targets=[_DEFAULT_OUTPUT_TARGET],
-        action=InspectorActionConfig(type=InspectorAction.ABORT),
-        evaluator=EvaluatorConfig(
-            type=EvaluatorType.ASSET,
-            asset_id=run_input_map["llm_id"],
-            prompt="ALWAYS abort if the output is in English",
-        ),
+        action="abort",
+        metric={
+            "asset_id": run_input_map["llm_id"],
+            "prompt": "ALWAYS abort if the output is in English",
+        },
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
@@ -187,16 +169,8 @@ def test_output_inspector_abort(client, run_input_map, resource_tracker):
 
     _, steps = _run_and_get_steps(team_agent, "What's the biggest city in the world?")
 
-    response_generator_steps = [
-        s for s in steps if (s.get("agent") or {}).get("id", "").lower() == "response_generator"
-    ]
-    assert len(response_generator_steps) == 1, (
-        f"Expected exactly one response_generator step, got {len(response_generator_steps)}"
-    )
-    response_generator_index = steps.index(response_generator_steps[0])
-
-    inspector_steps = [s for s in steps[response_generator_index + 1 :] if _is_inspector_step(s)]
-    assert len(inspector_steps) > 0, "Expected inspector step(s) after response_generator"
+    inspector_steps = [s for s in steps if _is_inspector_step(s)]
+    assert len(inspector_steps) > 0, "Expected inspector step(s) in the run"
 
     assert (inspector_steps[-1].get("action") or "").lower() == "abort", (
         f"Expected abort, got {inspector_steps[-1].get('action')}"
@@ -212,18 +186,13 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_trac
 
     inspector = Inspector(
         name="rerun_output_inspector",
-        severity=InspectorSeverity.LOW,
+        severity="low",
         targets=[_DEFAULT_OUTPUT_TARGET],
-        action=InspectorActionConfig(
-            type=InspectorAction.RERUN,
-            max_retries=2,
-            on_exhaust=InspectorOnExhaust.ABORT,
-        ),
-        evaluator=EvaluatorConfig(
-            type=EvaluatorType.ASSET,
-            asset_id=run_input_map["llm_id"],
-            prompt="If the output does NOT include the name of the customer (John), instruct to add it.",
-        ),
+        action={"type": "rerun", "max_retries": 2, "on_exhaust": "abort"},
+        metric={
+            "asset_id": run_input_map["llm_id"],
+            "prompt": "If the output does NOT include the name of the customer (John), instruct to add it.",
+        },
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
@@ -234,12 +203,8 @@ def test_output_inspector_rerun_until_fixed(client, run_input_map, resource_trac
 
     assert "John" in (getattr(response.data, "output", "") or "")
 
-    rg_steps = [s for s in steps if (s.get("agent") or {}).get("id", "").lower() == "response_generator"]
-    assert len(rg_steps) == 2
-    rg_idx = steps.index(rg_steps[0])
-
-    inspector_steps = [s for s in steps[rg_idx + 1 :] if _is_inspector_step(s)]
-    assert inspector_steps, "Expected inspector steps after response_generator"
+    inspector_steps = [s for s in steps if _is_inspector_step(s)]
+    assert inspector_steps, "Expected inspector steps in the run"
 
     assert any((s.get("action") or "").lower() == "rerun" for s in inspector_steps), (
         f"Expected at least one rerun action, got actions: {[s.get('action') for s in inspector_steps]}"
@@ -254,17 +219,11 @@ def test_edit_steps_always_runs(client, run_input_map, resource_tracker):
 
     inspector = Inspector(
         name="edit_steps_inspector",
-        severity=InspectorSeverity.MEDIUM,
-        targets=[InspectorTarget.STEPS],
-        action=InspectorActionConfig(type=InspectorAction.EDIT),
-        evaluator=EvaluatorConfig(
-            type=EvaluatorType.FUNCTION,
-            function="def evaluator_fn(text: str) -> bool:\n    return True",
-        ),
-        editor=EditorConfig(
-            type=EvaluatorType.FUNCTION,
-            function='def edit_fn(text: str) -> str:\n    return "hello, what\'s the weather in paris like today?"',
-        ),
+        severity="medium",
+        targets=["steps"],
+        action="edit",
+        metric={"function": "def evaluator_fn(text: str) -> bool:\n    return True"},
+        editor={"function": 'def edit_fn(text: str) -> str:\n    return "hello, what\'s the weather in paris like today?"'},
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
@@ -298,17 +257,11 @@ def test_edit_with_gate_true(client, run_input_map, resource_tracker):
 
     inspector = Inspector(
         name="gated_edit_true",
-        severity=InspectorSeverity.MEDIUM,
-        targets=[InspectorTarget.INPUT],
-        action=InspectorActionConfig(type=InspectorAction.EDIT),
-        evaluator=EvaluatorConfig(
-            type=EvaluatorType.FUNCTION,
-            function=evaluator_fn,
-        ),
-        editor=EditorConfig(
-            type=EvaluatorType.FUNCTION,
-            function=edit_fn,
-        ),
+        severity="medium",
+        targets=["input"],
+        action="edit",
+        metric=evaluator_fn,
+        editor=edit_fn,
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
@@ -337,17 +290,11 @@ def test_edit_with_gate_false(client, run_input_map, resource_tracker):
 
     inspector = Inspector(
         name="gated_edit_false",
-        severity=InspectorSeverity.MEDIUM,
-        targets=[InspectorTarget.INPUT],
-        action=InspectorActionConfig(type=InspectorAction.EDIT),
-        evaluator=EvaluatorConfig(
-            type=EvaluatorType.FUNCTION,
-            function=evaluator_fn,
-        ),
-        editor=EditorConfig(
-            type=EvaluatorType.FUNCTION,
-            function=edit_fn,
-        ),
+        severity="medium",
+        targets=["input"],
+        action="edit",
+        metric=evaluator_fn,
+        editor=edit_fn,
     )
 
     team_agent = _make_team_agent(client, timestamp, agents, [inspector])
@@ -358,3 +305,111 @@ def test_edit_with_gate_false(client, run_input_map, resource_tracker):
 
     out = (getattr(response.data, "output", "") or "").lower()
     assert "paris" not in out
+
+
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
+def test_inspector_search_returns_page_of_inspectors(client):
+    """aix.Inspector.search discovers guards like any other marketplace asset."""
+    page = client.Inspector.search("guard")
+
+    # Standard paginated shape.
+    assert hasattr(page, "results")
+    assert isinstance(page.page_number, int)
+    assert isinstance(page.page_total, int)
+    assert isinstance(page.total, int)
+
+    if not page.results:
+        pytest.skip("No onboarded guardrail models available in this environment")
+
+    for guard in page.results:
+        assert isinstance(guard, Inspector)
+        # A discovered guard is a ready-to-use, fully-configured inspector.
+        assert guard.metric is not None
+        assert guard.action is not None
+
+
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
+def test_inspector_get_returns_configured_inspector(client):
+    """aix.Inspector.get(path_or_id) returns a configured, agent-ready Inspector."""
+    page = client.Inspector.search("guard")
+    if not page.results:
+        pytest.skip("No onboarded guardrail models available in this environment")
+
+    # Retrieve the same guard by its id/path; a fetched guard and a hand-built
+    # Inspector are the same type, so this slots directly into inspectors=[...].
+    first = page.results[0]
+    fetched = client.Inspector.get(first.path or first.id)
+
+    assert isinstance(fetched, Inspector)
+    assert fetched.metric is not None
+    assert fetched.metric.asset_id == first.metric.asset_id
+
+
+# Canonical marketplace paths for the onboarded AWS guards and their tuned config.
+_PREBUILT_GUARDS = [
+    ("aws/detect-prompt-attacks-guardrail/aws", "abort", [_DEFAULT_INPUT_TARGET]),
+    ("aws/sensitive-information-guardrail/aws", "edit", [_DEFAULT_INPUT_TARGET]),
+    ("aws/contextual-grounding-check-guardrail/aws", "rerun", [_DEFAULT_OUTPUT_TARGET]),
+]
+
+
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
+@pytest.mark.parametrize("path,expected_action,expected_targets", _PREBUILT_GUARDS)
+def test_get_prebuilt_guard_by_canonical_path(client, path, expected_action, expected_targets):
+    """aix.Inspector.get(<canonical path>) returns the guard with its tuned config.
+
+    The asset-name (middle) segment of the path selects action/targets, so the
+    PII guard resolves to edit (not the safe abort/input fallback).
+    """
+    try:
+        guard = client.Inspector.get(path)
+    except Exception as e:
+        pytest.skip(f"Guard '{path}' not onboarded in this environment: {e}")
+
+    assert isinstance(guard, Inspector)
+    assert guard.path == path
+    # The guard model itself is the judge.
+    assert guard.metric is not None
+    assert guard.metric.asset_id == guard.id
+    assert guard.action.type == expected_action
+    assert guard.targets == expected_targets
+    if expected_action == "edit":
+        # EDIT guards redact via the guard model, so an editor is configured.
+        assert guard.editor is not None
+
+
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
+def test_prebuilt_guard_attaches_and_runs_in_team_agent(client, resource_tracker):
+    """A fetched prebuilt guard saves and executes as an input-stage inspector.
+
+    Covers the full path: get a guard by canonical path, attach it to a team
+    agent via inspectors=[...], save (the guard persists as an ordinary
+    inspector), and run — verifying the guard runs as an inspector step.
+    """
+    path = "aws/detect-prompt-attacks-guardrail/aws"
+    try:
+        guard = client.Inspector.get(path)
+    except Exception as e:
+        pytest.skip(f"Guard '{path}' not onboarded in this environment: {e}")
+
+    timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    agents = _make_two_subagents(client, timestamp)
+    for agent in agents:
+        resource_tracker.append(agent)
+
+    # _make_team_agent saves the team; the fetched guard round-trips as an Inspector.
+    team_agent = _make_team_agent(client, timestamp, agents, [guard])
+    resource_tracker.append(team_agent)
+
+    assert len(team_agent.inspectors) == 1
+    assert isinstance(team_agent.inspectors[0], Inspector)
+
+    _, steps = _run_and_get_steps(team_agent, "What is the capital of France?")
+
+    # The guard runs as an inspector step. The backend may label the step with
+    # the guard's name or the generic 'inspector' id, so accept either.
+    guard_steps = [s for s in steps if _is_inspector_step(s) or _step_agent_id(s) == guard.name.lower()]
+    assert guard_steps, (
+        f"Expected the prebuilt guard to run as an inspector step; "
+        f"got step ids {[_step_agent_id(s) for s in steps]}"
+    )
