@@ -14,7 +14,7 @@ Model resource for v2 API.
 class Message()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L37)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L45)
 
 Message structure from the API response.
 
@@ -27,7 +27,7 @@ Message structure from the API response.
 class Detail()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L49)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L58)
 
 Detail structure from the API response.
 
@@ -40,7 +40,7 @@ Detail structure from the API response.
 class Usage()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L90)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L99)
 
 Usage structure from the API response.
 
@@ -56,7 +56,7 @@ Mistral Large) return ``&quot;NaN&quot;`` or ``null`` instead of integers.
 class ModelResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L129)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L138)
 
 Result for model runs with specific fields from the backend response.
 
@@ -71,7 +71,7 @@ models (utility / guardrail assets) return it as a dict; see
 class StreamChunk()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L145)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L154)
 
 A chunk of streamed response data.
 
@@ -79,6 +79,7 @@ A chunk of streamed response data.
 
 - `status` - The current status of the streaming operation (IN_PROGRESS or SUCCESS)
 - `data` - The content/token of this chunk
+- `reasoning_content` - Reasoning-model chain-of-thought text delta, when provided
 - `tool_calls` - Tool call deltas when stream uses OpenAI-style chunk format
 - `usage` - Usage payload when provided in a stream chunk
 - `finish_reason` - Completion reason for the current choice, when provided
@@ -89,7 +90,7 @@ A chunk of streamed response data.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L162)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L173)
 
 Ensure data remains a text chunk.
 
@@ -99,7 +100,7 @@ Ensure data remains a text chunk.
 class ModelResponseStreamer(Iterator[StreamChunk])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L168)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L179)
 
 A streamer for model responses that yields chunks as they arrive.
 
@@ -127,7 +128,7 @@ for proper resource cleanup.
 def __init__(response: "requests.Response")
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L189)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L200)
 
 Initialize a new ModelResponseStreamer instance.
 
@@ -141,7 +142,7 @@ Initialize a new ModelResponseStreamer instance.
 def __iter__() -> Iterator[StreamChunk]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L204)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L215)
 
 Return the iterator for the ModelResponseStreamer.
 
@@ -151,7 +152,7 @@ Return the iterator for the ModelResponseStreamer.
 def __next__() -> StreamChunk
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L208)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L219)
 
 Return the next chunk of the response.
 
@@ -170,7 +171,7 @@ Return the next chunk of the response.
 def close() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L323)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L338)
 
 Close the underlying response connection.
 
@@ -180,7 +181,7 @@ Close the underlying response connection.
 def __enter__() -> "ModelResponseStreamer"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L328)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L343)
 
 Context manager entry.
 
@@ -190,7 +191,7 @@ Context manager entry.
 def __exit__(exc_type, exc_val, exc_tb) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L332)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L347)
 
 Context manager exit - ensures response is closed.
 
@@ -200,7 +201,7 @@ Context manager exit - ensures response is closed.
 def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L340)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L355)
 
 Find supplier enum by ID.
 
@@ -210,7 +211,7 @@ Find supplier enum by ID.
 def find_function_by_id(function_id: str) -> Optional[Function]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L349)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L364)
 
 Find function enum by ID.
 
@@ -227,7 +228,7 @@ kebab-case identifiers returned by the backend API
 class Parameter()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L373)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L388)
 
 Common parameter structure from the API response.
 
@@ -240,7 +241,7 @@ Common parameter structure from the API response.
 class Version()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L389)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L404)
 
 Version structure from the API response.
 
@@ -253,7 +254,7 @@ Version structure from the API response.
 class Pricing()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L398)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L413)
 
 Pricing structure from the API response.
 
@@ -266,7 +267,7 @@ Pricing structure from the API response.
 class VendorInfo()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L408)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L423)
 
 Supplier information structure from the API response.
 
@@ -276,7 +277,7 @@ Supplier information structure from the API response.
 class ModelSearchParams(BaseSearchParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L416)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L431)
 
 Search parameters for model queries.
 
@@ -302,7 +303,7 @@ Filter by path prefix (e.g., &quot;openai/gpt-4&quot;)
 class ModelRunParams(BaseRunParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L432)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L447)
 
 Parameters for running models.
 
@@ -322,7 +323,7 @@ class Model(BaseResource, SearchResourceMixin[ModelSearchParams, "Model"],
             RunnableResourceMixin[ModelRunParams, ModelResult], ToolableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L445)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L460)
 
 Resource for models.
 
@@ -332,7 +333,7 @@ Resource for models.
 def __post_init__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L494)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L509)
 
 Initialize dynamic attributes based on backend parameters.
 
@@ -342,7 +343,7 @@ Initialize dynamic attributes based on backend parameters.
 def get_attribute(key: str, default: Any = None) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L501)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L516)
 
 Return an attribute value from the backend attribute map.
 
@@ -353,7 +354,7 @@ Return an attribute value from the backend attribute map.
 def actions() -> Actions
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L508)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L523)
 
 Actions available on this model (always a single ``&quot;run&quot;`` action).
 
@@ -364,7 +365,7 @@ Actions available on this model (always a single ``&quot;run&quot;`` action).
 def supports_tool_calling() -> Optional[bool]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L550)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L565)
 
 Return whether this LLM supports tool calling, inferred from backend params.
 
@@ -375,7 +376,7 @@ Return whether this LLM supports tool calling, inferred from backend params.
 def supports_structured_output() -> Optional[bool]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L565)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L580)
 
 Return whether this LLM supports structured output, inferred from backend params.
 
@@ -386,7 +387,7 @@ Return whether this LLM supports structured output, inferred from backend params
 def is_sync_only() -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L580)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L595)
 
 Check if the model only supports synchronous execution.
 
@@ -401,7 +402,7 @@ Check if the model only supports synchronous execution.
 def is_async_capable() -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L591)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L606)
 
 Check if the model supports asynchronous execution.
 
@@ -415,7 +416,7 @@ Check if the model supports asynchronous execution.
 def __setattr__(name: str, value)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L601)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L616)
 
 Handle bulk assignment to inputs.
 
@@ -425,7 +426,7 @@ Handle bulk assignment to inputs.
 def build_run_payload(**kwargs: Unpack[ModelRunParams]) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L610)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L625)
 
 Build the JSON payload for a model execution request.
 
@@ -439,7 +440,7 @@ so they are never forwarded to the backend API.
 def build_run_url(**kwargs: Unpack[ModelRunParams]) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L620)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L635)
 
 Build the URL for running the model.
 
@@ -449,7 +450,7 @@ Build the URL for running the model.
 def mark_as_deleted() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L625)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L640)
 
 Mark the model as deleted by setting status to DELETED and calling parent method.
 
@@ -461,7 +462,7 @@ def get(cls: type["Model"], id: str,
         **kwargs: Unpack[BaseGetParams]) -> "Model"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L633)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L648)
 
 Get a model by ID.
 
@@ -474,7 +475,7 @@ def search(cls: type["Model"],
            **kwargs: Unpack[ModelSearchParams]) -> Page["Model"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L642)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L657)
 
 Search with optional query and filtering.
 
@@ -494,7 +495,7 @@ Search with optional query and filtering.
 def run(**kwargs: Unpack[ModelRunParams]) -> ModelResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L663)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L678)
 
 Run the model with dynamic parameter validation and default handling.
 
@@ -508,7 +509,7 @@ This method routes the execution based on the model&#x27;s connection type:
 def run_async(**kwargs: Unpack[ModelRunParams]) -> ModelResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L708)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L728)
 
 Run the model asynchronously.
 
@@ -527,7 +528,7 @@ This method routes the execution based on the model&#x27;s connection type:
 def run_stream(**kwargs: Unpack[ModelRunParams]) -> ModelResponseStreamer
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L804)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L824)
 
 Run the model with streaming response.
 
@@ -570,7 +571,7 @@ or processing large responses incrementally.
 def as_tool() -> ToolDict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L937)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L964)
 
 Serialize this model as a tool for agent creation.
 
@@ -603,7 +604,7 @@ expects for model tools.
 def get_parameters() -> List[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L995)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L1022)
 
 Get current parameter values for this model.
 

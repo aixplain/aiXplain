@@ -25,7 +25,7 @@ limitations under the License.
 def build_run_metadata() -> Dict[str, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/user_info_utils.py#L75)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/user_info_utils.py#L80)
 
 Build metaData for agent run payloads.
 
