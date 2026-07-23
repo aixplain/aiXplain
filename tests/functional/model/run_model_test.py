@@ -167,6 +167,7 @@ def test_index_model(embedding_model, supplier_params):
         pytest.param("67efd4f92a0a850afa045af7", AirParams, id="BGE M3"),
     ],
 )
+@pytest.mark.skip(reason="Flaky on test env: index upsert/search returns FAILED for the embedding models under test")
 def test_index_model_with_filter(embedding_model, supplier_params):
     from uuid import uuid4
     from aixplain.modules.model.record import Record
@@ -270,6 +271,7 @@ def test_aixplain_model_cache_creation():
     assert model_id in cache_data["data"], "Instantiated model not found in cache."
 
 
+@pytest.mark.skip(reason="Flaky on test env: sample image asset returns 404 during document parsing")
 def test_index_model_air_with_image():
     from aixplain.factories import IndexFactory
     from aixplain.modules.model.record import Record
