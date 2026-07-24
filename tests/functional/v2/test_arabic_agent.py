@@ -182,7 +182,9 @@ def _is_inspector_step(step: dict, inspector_name: str = "") -> bool:
 def _is_inspector_abort_message(output: str) -> bool:
     normalized = output.lower()
     return (
-        "inspector detected issues" in normalized or "check your input query and inspector configuration" in normalized
+        "inspector detected issues" in normalized
+        or "check your input query and inspector configuration" in normalized
+        or "blocked by an inspector" in normalized
     )
 
 
