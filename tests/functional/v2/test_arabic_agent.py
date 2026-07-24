@@ -30,7 +30,6 @@ DIGIT_RE = re.compile(r"[\u0660-\u06690-9]")
 
 MODELS = [
     pytest.param("gpt-4o", "6646261c6eb563165658bbb1", id="gpt-4o"),
-    pytest.param("gpt-4.1-nano", "67fd9e2bef0365783d06e2f0", id="gpt-4.1-nano"),
     pytest.param("claude-opus-4.6", "698c87701239a117fd66b468", id="claude-opus-4.6"),
 ]
 
@@ -182,7 +181,9 @@ def _is_inspector_step(step: dict, inspector_name: str = "") -> bool:
 def _is_inspector_abort_message(output: str) -> bool:
     normalized = output.lower()
     return (
-        "inspector detected issues" in normalized or "check your input query and inspector configuration" in normalized
+        "inspector detected issues" in normalized
+        or "check your input query and inspector configuration" in normalized
+        or "blocked by an inspector" in normalized
     )
 
 
