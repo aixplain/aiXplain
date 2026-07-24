@@ -217,7 +217,7 @@ def test_tool_run(client, slack_integration_id, slack_token):
         action="SLACK_SEND_MESSAGE",
         data={
             "channel": "#integrations-test",
-            "text": f"Test message from functional test {int(time.time())}",
+            "markdown_text": f"Test message from functional test {int(time.time())}",
         },
     )
 

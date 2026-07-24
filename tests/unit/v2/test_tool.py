@@ -632,3 +632,39 @@ class TestSingleActionInference:
         errors = tool._validate_params(action="delete", data={})
 
         assert errors == ["Action 'delete' is not allowed for this tool. Allowed actions: ['search']"]
+
+
+class TestMergeWithDynamicAttrs:
+    """Tests that _merge_with_dynamic_attrs preserves extra top-level kwargs."""
+
+    def _make_tool(self):
+        query_spec = _make_action_input_spec()
+        return _make_minimal_tool_with_actions({"search": [query_spec]}, allowed_actions=["search"])
+
+    def test_str_data_preserves_extra_kwargs(self):
+        """str data: extra top-level kwargs should be preserved (existing behavior)."""
+        tool = self._make_tool()
+
+        result = tool._merge_with_dynamic_attrs(action="search", data="hi", identifier="alice")
+
+        assert result["action"] == "search"
+        assert result["data"] == "hi"
+        assert result["identifier"] == "alice"
+
+    def test_dict_data_preserves_extra_kwargs(self):
+        """dict data: extra top-level kwargs should be preserved alongside merged data."""
+        tool = self._make_tool()
+
+        result = tool._merge_with_dynamic_attrs(action="search", data={"q": "hi"}, identifier="alice")
+
+        assert result["identifier"] == "alice"
+        assert result["data"]["q"] == "hi"
+
+    def test_list_data_preserves_extra_kwargs(self):
+        """list data: extra top-level kwargs should be preserved and data stays a list."""
+        tool = self._make_tool()
+
+        result = tool._merge_with_dynamic_attrs(action="search", data=["x"], identifier="alice")
+
+        assert result["identifier"] == "alice"
+        assert result["data"] == ["x"]
