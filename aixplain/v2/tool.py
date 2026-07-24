@@ -522,15 +522,23 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     result[key] = value
             return result
         elif isinstance(kwargs["data"], list):
-            return {
+            result = {
                 "action": action_name,
                 "data": kwargs["data"],
             }
+            for key, value in kwargs.items():
+                if key not in ["data", "action"]:
+                    result[key] = value
+            return result
         else:
-            return {
+            result = {
                 "action": action_name,
                 "data": {
                     **merged,
                     **kwargs["data"],
                 },
             }
+            for key, value in kwargs.items():
+                if key not in ["data", "action"]:
+                    result[key] = value
+            return result

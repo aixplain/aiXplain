@@ -352,6 +352,38 @@ class TestModelRunRouting:
 # =============================================================================
 
 
+class TestModelIdentifierHeader:
+    """identifier must ride as the x-user-id header, never as a model input."""
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    def test_identifier_excluded_from_payload(self):
+        """A caller identity passed to run() must not leak into the model input
+        payload (PII / unknown-input); it is header-only for Model/Tool."""
+        model = self._create_model()
+        payload_kwargs = model._payload_kwargs_for_run({"text": "hi", "identifier": "alice"})
+        assert "identifier" not in payload_kwargs
+        assert payload_kwargs["text"] == "hi"
+
+    def test_identifier_still_emitted_as_header(self):
+        model = self._create_model()
+        assert model._headers_for_run({"text": "hi", "identifier": "alice"}) == {"x-user-id": "alice"}
+
+    def test_identifier_excluded_from_build_run_payload(self):
+        """Also excluded from the v1/URL payload builder path (_SDK_ONLY_PARAMS)."""
+        model = self._create_model()
+        payload = model.build_run_payload(text="hi", identifier="alice")
+        assert "identifier" not in payload
+
+
 class TestModelV1Fallback:
     """Tests for _run_async_v1() V1 endpoint integration."""
 
