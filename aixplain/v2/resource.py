@@ -1219,6 +1219,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     RESPONSE_CLASS: type = Result  # Default response class
 
     # SDK-only keys: never forwarded to build_run_payload / build_run_url.
+    # NOTE: ``identifier`` is intentionally NOT excluded here — for Agent runs it
+    # is a legitimate execution-config body field (see Agent). Model/Tool, where
+    # it is header-only, add it to their own override so it never leaks into the
+    # model/action input payload.
     _RUN_CONTROL_KEYS: frozenset[str] = frozenset(
         {
             "run_retries",
