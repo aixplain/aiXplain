@@ -41,13 +41,17 @@ AI functions supported by the platform.
 
 Add the missing utilities function
 
+#### GUARDRAILS
+
+Guardrail / inspector guard models
+
 ### Language Objects
 
 ```python
 class Language(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L48)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L49)
 
 Languages supported by the platform.
 
@@ -57,7 +61,7 @@ Languages supported by the platform.
 class License(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L65)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L66)
 
 Licenses supported by the platform.
 
@@ -67,7 +71,7 @@ Licenses supported by the platform.
 class AssetStatus(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L77)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L78)
 
 Asset status values.
 
@@ -77,7 +81,7 @@ Asset status values.
 class Privacy(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L100)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L101)
 
 Privacy settings.
 
@@ -87,7 +91,7 @@ Privacy settings.
 class OnboardStatus(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L108)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L109)
 
 Onboarding status values.
 
@@ -97,7 +101,7 @@ Onboarding status values.
 class OwnershipType(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L117)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L118)
 
 Ownership types.
 
@@ -107,7 +111,7 @@ Ownership types.
 class SortBy(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L125)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L126)
 
 Sort options.
 
@@ -117,7 +121,7 @@ Sort options.
 class SortOrder(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L133)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L134)
 
 Sort order options.
 
@@ -127,7 +131,7 @@ Sort order options.
 class ErrorHandler(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L140)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L141)
 
 Error handling strategies.
 
@@ -137,7 +141,7 @@ Error handling strategies.
 class ResponseStatus(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L147)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L148)
 
 Response status values.
 
@@ -147,7 +151,7 @@ Response status values.
 class StorageType(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L155)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L156)
 
 Storage type options.
 
@@ -157,7 +161,7 @@ Storage type options.
 class Supplier(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L164)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L165)
 
 AI model suppliers.
 
@@ -167,7 +171,7 @@ AI model suppliers.
 class FunctionType(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L176)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L177)
 
 Function type categories.
 
@@ -177,7 +181,7 @@ Function type categories.
 class EvolveType(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L187)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L188)
 
 Evolution types.
 
@@ -187,7 +191,7 @@ Evolution types.
 class CodeInterpreterModel(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L195)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L196)
 
 Code interpreter models.
 
@@ -197,7 +201,7 @@ Code interpreter models.
 class DataType(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L202)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L203)
 
 Enumeration of supported data types in the aiXplain system.
 
@@ -221,7 +225,7 @@ Enumeration of supported data types in the aiXplain system.
 def __str__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L231)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L232)
 
 Return the string representation of the data type.
 
@@ -231,10 +235,60 @@ Return the string representation of the data type.
 class SplittingOptions(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L236)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L237)
 
 Enumeration of possible splitting options for text chunking.
 
 This enum defines the different ways that text can be split into chunks,
 including by word, sentence, passage, page, and line.
+
+### SessionStatus Objects
+
+```python
+class SessionStatus(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L251)
+
+Session status values.
+
+### RunStatus Objects
+
+```python
+class RunStatus(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L260)
+
+Run status values for sessions.
+
+### MessageRole Objects
+
+```python
+class MessageRole(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L268)
+
+Message role in a session conversation.
+
+### Reaction Objects
+
+```python
+class Reaction(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L275)
+
+Reaction types for session messages.
+
+### AttachmentType Objects
+
+```python
+class AttachmentType(str, Enum)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/enums.py#L282)
+
+Attachment type for session message attachments.
 

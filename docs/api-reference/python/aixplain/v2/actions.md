@@ -511,13 +511,27 @@ def __getitem__(key: str) -> Action
 
 Return the :class:`Action` for *key* (case-insensitive).
 
+#### \_\_getattr\_\_
+
+```python
+def __getattr__(name: str) -> Action
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L532)
+
+Dot-notation read: ``tool.actions.search`` (case-insensitive).
+
+Only consulted when normal attribute lookup fails, so it never shadows
+the real instance attributes (``_actions`` etc.). Private names are
+rejected to avoid recursion during initialization.
+
 #### \_\_contains\_\_
 
 ```python
 def __contains__(key: object) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L532)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L546)
 
 Return whether *key* matches an available action name.
 
@@ -527,7 +541,7 @@ Return whether *key* matches an available action name.
 def __iter__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L540)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L554)
 
 Iterate over available action names.
 
@@ -537,7 +551,7 @@ Iterate over available action names.
 def __len__() -> int
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L545)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L559)
 
 Return the number of available actions.
 
@@ -547,7 +561,7 @@ Return the number of available actions.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L549)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L563)
 
 Return ``Actions([&#x27;action1&#x27;, &#x27;action2&#x27;, ...])``.
 
@@ -557,7 +571,7 @@ Return ``Actions([&#x27;action1&#x27;, &#x27;action2&#x27;, ...])``.
 def refresh() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L555)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L569)
 
 Clear caches and force re-fetch on next access.
 
