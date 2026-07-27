@@ -314,7 +314,10 @@
             "api-reference/python/aixplain/v2/model",
             "api-reference/python/aixplain/v2/resource",
             "api-reference/python/aixplain/v2/rlm",
+            "api-reference/python/aixplain/v2/session",
+            "api-reference/python/aixplain/v2/skill",
             "api-reference/python/aixplain/v2/tool",
+            "api-reference/python/aixplain/v2/trigger",
             "api-reference/python/aixplain/v2/upload_utils",
             "api-reference/python/aixplain/v2/utility"
           ],

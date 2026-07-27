@@ -168,7 +168,7 @@ def run_async(data: Union[Text, Dict],
               **kwargs) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L423)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L427)
 
 Runs asynchronously a pipeline call.
 
@@ -196,7 +196,7 @@ def update(pipeline: Union[Text, Dict],
            name: Optional[Text] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L508)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L512)
 
 Update Pipeline
 
@@ -217,7 +217,7 @@ Update Pipeline
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L572)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L576)
 
 Delete this pipeline from the platform.
 
@@ -247,7 +247,7 @@ def save(pipeline: Optional[Union[Text, Dict]] = None,
          api_key: Optional[Text] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L605)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L609)
 
 Update and Save Pipeline
 
@@ -268,7 +268,7 @@ Update and Save Pipeline
 def deploy(api_key: Optional[Text] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L661)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L665)
 
 Deploy the Pipeline.
 
@@ -285,7 +285,7 @@ Pipeline-specific deployment functionality.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L680)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L684)
 
 Return a string representation of the Pipeline instance.
 
