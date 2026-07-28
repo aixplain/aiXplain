@@ -557,6 +557,38 @@ class TestReasoningNormalization:
         msg = Message.from_dict({"role": "assistant", "content": "391"})
         assert msg.reasoning_content is None
 
+    def test_message_reads_reasoning_summary_blocks(self):
+        msg = Message.from_dict(
+            {
+                "role": "assistant",
+                "content": "391",
+                "reasoning_details": [{"type": "reasoning.summary", "summary": "The user wants 17*23."}],
+            }
+        )
+        assert msg.reasoning_content == "The user wants 17*23."
+
+    def test_message_positional_construction_unchanged(self):
+        # New fields live at the end so pre-existing positional callers keep binding
+        # (role, content, reasoning_content, tool_calls, ...).
+        calls = [{"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}]
+        msg = Message("assistant", "hi", None, calls)
+        assert msg.tool_calls == calls
+        assert msg.reasoning_content is None
+
+    def test_message_to_dict_emits_reasoning_once(self):
+        msg = Message.from_dict(
+            {
+                "role": "assistant",
+                "content": "391",
+                "reasoning": "chain of thought",
+                "reasoning_details": [{"type": "reasoning.text", "text": "chain of thought"}],
+            }
+        )
+        data = msg.to_dict()
+        assert data["reasoning_content"] == "chain of thought"
+        assert data.get("reasoning") is None
+        assert data.get("reasoning_details") is None
+
 
 class TestModelStreaming:
     """Tests for v2 streaming parser and streaming payload options."""

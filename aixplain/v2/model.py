@@ -56,11 +56,15 @@ def _normalize_reasoning(
     if isinstance(reasoning, str) and reasoning:
         return reasoning
     if isinstance(reasoning_details, list):
-        joined = "".join(
-            d.get("text")
-            for d in reasoning_details
-            if isinstance(d, dict) and d.get("type") == "reasoning.text" and isinstance(d.get("text"), str)
-        )
+        parts = []
+        for d in reasoning_details:
+            if not isinstance(d, dict):
+                continue
+            if d.get("type") == "reasoning.text" and isinstance(d.get("text"), str):
+                parts.append(d["text"])
+            elif d.get("type") == "reasoning.summary" and isinstance(d.get("summary"), str):
+                parts.append(d["summary"])
+        joined = "".join(parts)
         return joined or None
     return None
 
@@ -73,15 +77,19 @@ class Message:
     role: str
     content: Optional[str] = None
     reasoning_content: Optional[str] = None
-    reasoning: Optional[str] = None
-    reasoning_details: Optional[List[Any]] = None
     tool_calls: Optional[List[dict[str, Any]]] = None
     refusal: Optional[str] = None
     annotations: List[Any] = field(default_factory=list)
+    # Raw supplier variants (OpenRouter); folded into ``reasoning_content`` and
+    # cleared in ``__post_init__``. Kept last to preserve positional construction.
+    reasoning: Optional[str] = None
+    reasoning_details: Optional[List[Any]] = None
 
     def __post_init__(self) -> None:
         """Canonicalize supplier-specific reasoning fields onto ``reasoning_content``."""
         self.reasoning_content = _normalize_reasoning(self.reasoning_content, self.reasoning, self.reasoning_details)
+        self.reasoning = None
+        self.reasoning_details = None
 
 
 @dataclass_json
