@@ -40,6 +40,31 @@ _MODEL_POLL_URL_RE = re.compile(
 )
 
 
+def _normalize_reasoning(
+    reasoning_content: Optional[str],
+    reasoning: Optional[str],
+    reasoning_details: Optional[List[Any]],
+) -> Optional[str]:
+    """Canonicalize reasoning onto one field.
+
+    Suppliers disagree on the field name: xAI/vLLM use ``reasoning_content``,
+    OpenRouter uses ``reasoning`` plus structured ``reasoning_details``.
+    Precedence: reasoning_content -> reasoning -> joined reasoning.text blocks.
+    """
+    if isinstance(reasoning_content, str) and reasoning_content:
+        return reasoning_content
+    if isinstance(reasoning, str) and reasoning:
+        return reasoning
+    if isinstance(reasoning_details, list):
+        joined = "".join(
+            d.get("text")
+            for d in reasoning_details
+            if isinstance(d, dict) and d.get("type") == "reasoning.text" and isinstance(d.get("text"), str)
+        )
+        return joined or None
+    return None
+
+
 @dataclass_json
 @dataclass
 class Message:
@@ -48,9 +73,15 @@ class Message:
     role: str
     content: Optional[str] = None
     reasoning_content: Optional[str] = None
+    reasoning: Optional[str] = None
+    reasoning_details: Optional[List[Any]] = None
     tool_calls: Optional[List[dict[str, Any]]] = None
     refusal: Optional[str] = None
     annotations: List[Any] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Canonicalize supplier-specific reasoning fields onto ``reasoning_content``."""
+        self.reasoning_content = _normalize_reasoning(self.reasoning_content, self.reasoning, self.reasoning_details)
 
 
 @dataclass_json
@@ -302,8 +333,12 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                 content = delta.get("content")
                 content = content if isinstance(content, str) else ""
 
-                reasoning_content = delta.get("reasoning_content")
-                reasoning_content = reasoning_content if isinstance(reasoning_content, str) else None
+                raw_details = delta.get("reasoning_details")
+                reasoning_content = _normalize_reasoning(
+                    delta.get("reasoning_content") if isinstance(delta.get("reasoning_content"), str) else None,
+                    delta.get("reasoning") if isinstance(delta.get("reasoning"), str) else None,
+                    raw_details if isinstance(raw_details, list) else None,
+                )
 
                 tool_calls = delta.get("tool_calls")
                 if tool_calls is not None and not isinstance(tool_calls, list):
