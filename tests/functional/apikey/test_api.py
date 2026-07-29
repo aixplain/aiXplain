@@ -10,27 +10,26 @@ import time
 TEST_API_KEY_NAME = "TEST_API_KEY_FUNCTIONAL"
 
 
-def _get_test_api_key(APIKeyFactory):
-    """Get the test API key if it exists."""
+# Legacy name from apikey.json; swept too so keys leaked by older runs don't accumulate
+TEST_API_KEY_NAMES = (TEST_API_KEY_NAME, "Test API Key")
+
+
+def _delete_test_api_keys(APIKeyFactory):
+    """Delete every leftover test API key, including duplicates and legacy names."""
     try:
         api_keys = APIKeyFactory.list()
-        for api_key in api_keys:
-            if api_key.name == TEST_API_KEY_NAME:
-                return api_key
     except Exception:
-        pass
-    return None
-
-
-def _delete_test_api_key(APIKeyFactory):
-    """Delete the test API key if it exists."""
-    api_key = _get_test_api_key(APIKeyFactory)
-    if api_key:
-        try:
-            api_key.delete()
-            time.sleep(0.5)  # Wait for deletion to process
-        except Exception:
-            pass
+        return
+    deleted = False
+    for api_key in api_keys:
+        if api_key.name in TEST_API_KEY_NAMES:
+            try:
+                api_key.delete()
+                deleted = True
+            except Exception:
+                pass
+    if deleted:
+        time.sleep(0.5)  # Wait for deletion to process
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -40,11 +39,11 @@ def test_api_key_lifecycle():
     Setup: Delete test key before all tests start
     Teardown: Delete test key after all tests complete
     """
-    # Setup: Delete test key before tests start
-    _delete_test_api_key(APIKeyFactory)
+    # Setup: Delete test keys before tests start
+    _delete_test_api_keys(APIKeyFactory)
     yield
-    # Teardown: Delete test key after all tests complete
-    _delete_test_api_key(APIKeyFactory)
+    # Teardown: Delete test keys after all tests complete
+    _delete_test_api_keys(APIKeyFactory)
 
 
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
@@ -57,34 +56,36 @@ def test_01_create_api_key_from_json(APIKeyFactory):
         api_key_data = json.load(file)
 
     expires_at = (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    api_key = None
 
-    api_key = APIKeyFactory.create(
-        name=TEST_API_KEY_NAME,
-        asset_limits=[
-            APIKeyLimits(
-                model=api_key_data["asset_limits"][0]["model"],
-                token_per_minute=api_key_data["asset_limits"][0]["token_per_minute"],
-                token_per_day=api_key_data["asset_limits"][0]["token_per_day"],
-                request_per_day=api_key_data["asset_limits"][0]["request_per_day"],
-                request_per_minute=api_key_data["asset_limits"][0]["request_per_minute"],
-            )
-        ],
-        global_limits=APIKeyLimits(
-            token_per_minute=api_key_data["global_limits"]["token_per_minute"],
-            token_per_day=api_key_data["global_limits"]["token_per_day"],
-            request_per_day=api_key_data["global_limits"]["request_per_day"],
-            request_per_minute=api_key_data["global_limits"]["request_per_minute"],
-        ),
-        budget=api_key_data["budget"],
-        expires_at=expires_at,
-    )
+    try:
+        api_key = APIKeyFactory.create(
+            name=TEST_API_KEY_NAME,
+            asset_limits=[
+                APIKeyLimits(
+                    model=api_key_data["asset_limits"][0]["model"],
+                    token_per_minute=api_key_data["asset_limits"][0]["token_per_minute"],
+                    token_per_day=api_key_data["asset_limits"][0]["token_per_day"],
+                    request_per_day=api_key_data["asset_limits"][0]["request_per_day"],
+                    request_per_minute=api_key_data["asset_limits"][0]["request_per_minute"],
+                )
+            ],
+            global_limits=APIKeyLimits(
+                token_per_minute=api_key_data["global_limits"]["token_per_minute"],
+                token_per_day=api_key_data["global_limits"]["token_per_day"],
+                request_per_day=api_key_data["global_limits"]["request_per_day"],
+                request_per_minute=api_key_data["global_limits"]["request_per_minute"],
+            ),
+            budget=api_key_data["budget"],
+            expires_at=expires_at,
+        )
 
-    assert isinstance(api_key, APIKey)
-    assert api_key.id != ""
-    assert api_key.name == TEST_API_KEY_NAME
-
-    # Cleanup: Delete the key after test
-    api_key.delete()
+        assert isinstance(api_key, APIKey)
+        assert api_key.id != ""
+        assert api_key.name == TEST_API_KEY_NAME
+    finally:
+        if api_key:
+            api_key.delete()
 
 
 @pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
@@ -109,21 +110,23 @@ def test_02_create_api_key_from_dict(APIKeyFactory):
         "budget": 1000,
         "expires_at": (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+    api_key = None
 
-    api_key = APIKeyFactory.create(
-        name=TEST_API_KEY_NAME,
-        asset_limits=[APIKeyLimits(**limit) for limit in api_key_dict["asset_limits"]],
-        global_limits=APIKeyLimits(**api_key_dict["global_limits"]),
-        budget=api_key_dict["budget"],
-        expires_at=datetime.strptime(api_key_dict["expires_at"], "%Y-%m-%dT%H:%M:%SZ"),
-    )
+    try:
+        api_key = APIKeyFactory.create(
+            name=TEST_API_KEY_NAME,
+            asset_limits=[APIKeyLimits(**limit) for limit in api_key_dict["asset_limits"]],
+            global_limits=APIKeyLimits(**api_key_dict["global_limits"]),
+            budget=api_key_dict["budget"],
+            expires_at=datetime.strptime(api_key_dict["expires_at"], "%Y-%m-%dT%H:%M:%SZ"),
+        )
 
-    assert isinstance(api_key, APIKey)
-    assert api_key.id != ""
-    assert api_key.name == TEST_API_KEY_NAME
-
-    # Cleanup: Delete the key after test
-    api_key.delete()
+        assert isinstance(api_key, APIKey)
+        assert api_key.id != ""
+        assert api_key.name == TEST_API_KEY_NAME
+    finally:
+        if api_key:
+            api_key.delete()
 
 
 @pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])
@@ -148,45 +151,47 @@ def test_03_create_update_api_key_from_dict(APIKeyFactory):
         "budget": 1000,
         "expires_at": (datetime.now(timezone.utc) + timedelta(weeks=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+    api_key = None
 
-    api_key = APIKeyFactory.create(
-        name=TEST_API_KEY_NAME,
-        asset_limits=[APIKeyLimits(**limit) for limit in api_key_dict["asset_limits"]],
-        global_limits=APIKeyLimits(**api_key_dict["global_limits"]),
-        budget=api_key_dict["budget"],
-        expires_at=datetime.strptime(api_key_dict["expires_at"], "%Y-%m-%dT%H:%M:%SZ"),
-    )
+    try:
+        api_key = APIKeyFactory.create(
+            name=TEST_API_KEY_NAME,
+            asset_limits=[APIKeyLimits(**limit) for limit in api_key_dict["asset_limits"]],
+            global_limits=APIKeyLimits(**api_key_dict["global_limits"]),
+            budget=api_key_dict["budget"],
+            expires_at=datetime.strptime(api_key_dict["expires_at"], "%Y-%m-%dT%H:%M:%SZ"),
+        )
 
-    assert isinstance(api_key, APIKey)
-    assert api_key.id != ""
-    assert api_key.name == TEST_API_KEY_NAME
+        assert isinstance(api_key, APIKey)
+        assert api_key.id != ""
+        assert api_key.name == TEST_API_KEY_NAME
 
-    api_key_ = APIKeyFactory.get(api_key=api_key.access_key)
-    assert isinstance(api_key_, APIKey)
-    assert api_key_.id != ""
-    assert api_key_.name == TEST_API_KEY_NAME
+        api_key_ = APIKeyFactory.get(api_key=api_key.access_key)
+        assert isinstance(api_key_, APIKey)
+        assert api_key_.id != ""
+        assert api_key_.name == TEST_API_KEY_NAME
 
-    api_key.global_limits.token_per_day = 222
-    api_key.global_limits.token_per_minute = 222
-    api_key.global_limits.request_per_day = 222
-    api_key.global_limits.request_per_minute = 222
-    api_key.asset_limits[0].request_per_day = 222
-    api_key.asset_limits[0].request_per_minute = 222
-    api_key.asset_limits[0].token_per_day = 222
-    api_key.asset_limits[0].token_per_minute = 222
-    api_key = APIKeyFactory.update(api_key)
+        api_key.global_limits.token_per_day = 222
+        api_key.global_limits.token_per_minute = 222
+        api_key.global_limits.request_per_day = 222
+        api_key.global_limits.request_per_minute = 222
+        api_key.asset_limits[0].request_per_day = 222
+        api_key.asset_limits[0].request_per_minute = 222
+        api_key.asset_limits[0].token_per_day = 222
+        api_key.asset_limits[0].token_per_minute = 222
+        api_key = APIKeyFactory.update(api_key)
 
-    assert api_key.global_limits.token_per_day == 222
-    assert api_key.global_limits.token_per_minute == 222
-    assert api_key.global_limits.request_per_day == 222
-    assert api_key.global_limits.request_per_minute == 222
-    assert api_key.asset_limits[0].request_per_day == 222
-    assert api_key.asset_limits[0].request_per_minute == 222
-    assert api_key.asset_limits[0].token_per_day == 222
-    assert api_key.asset_limits[0].token_per_minute == 222
-
-    # Cleanup: Delete the key after test
-    api_key.delete()
+        assert api_key.global_limits.token_per_day == 222
+        assert api_key.global_limits.token_per_minute == 222
+        assert api_key.global_limits.request_per_day == 222
+        assert api_key.global_limits.request_per_minute == 222
+        assert api_key.asset_limits[0].request_per_day == 222
+        assert api_key.asset_limits[0].request_per_minute == 222
+        assert api_key.asset_limits[0].token_per_day == 222
+        assert api_key.asset_limits[0].token_per_minute == 222
+    finally:
+        if api_key:
+            api_key.delete()
 
 
 @pytest.mark.parametrize("APIKeyFactory", [APIKeyFactory])

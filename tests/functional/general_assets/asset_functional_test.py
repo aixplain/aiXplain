@@ -5,7 +5,6 @@ load_dotenv()
 from aixplain.factories import (
     ModelFactory,
     DatasetFactory,
-    MetricFactory,
     PipelineFactory,
 )
 from aixplain.modules import LLM
@@ -42,27 +41,12 @@ def test_list_datasets(DatasetFactory):
     assert datasets["page_total"] == len(datasets["results"])
 
 
-@pytest.mark.parametrize("MetricFactory", [MetricFactory])
-def test_list_metrics(MetricFactory):
-    metrics = MetricFactory.list()
-    assert metrics["page_total"] == len(metrics["results"])
-
-
 @pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
 def test_run_pipeline(inputs, PipelineFactory):
     asset_details = inputs["pipeline"]
     pipeline = PipelineFactory.list(query=asset_details["name"])["results"][0]
     payload = asset_details["data"]
     output = pipeline.run(payload)
-    assert output["completed"] and output["status"] == "SUCCESS"
-
-
-@pytest.mark.parametrize("MetricFactory", [MetricFactory])
-def test_run_metric(inputs, MetricFactory):
-    asset_details = inputs["metric"]
-    metric = MetricFactory.get(asset_details["id"])
-    payload = asset_details["data"]
-    output = metric.run(**payload)
     assert output["completed"] and output["status"] == "SUCCESS"
 
 

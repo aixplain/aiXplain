@@ -973,6 +973,22 @@ class TestRunnableResourceMixin:
         resource.context.client.request.assert_called_once()
         mock_sleep.assert_not_called()
 
+    def test_identifier_emitted_as_header(self):
+        """identifier is emitted as the x-user-id header for any runnable resource."""
+        resource = self._create_runnable_resource()
+
+        headers = resource._headers_for_run({"text": "hi", "identifier": "alice"})
+        assert headers == {"x-user-id": "alice"}
+
+    def test_base_keeps_identifier_in_payload(self):
+        """The base mixin keeps identifier in the payload — for Agent runs it is a
+        legitimate execution-config body field. Model/Tool exclude it via override."""
+        resource = self._create_runnable_resource()
+
+        payload_kwargs = resource._payload_kwargs_for_run({"text": "hi", "identifier": "alice"})
+        assert payload_kwargs["identifier"] == "alice"
+        assert payload_kwargs["text"] == "hi"
+
 
 # =============================================================================
 # Result Class Tests

@@ -620,7 +620,16 @@ class Model(
         else:
             super().__setattr__(name, value)
 
-    _SDK_ONLY_PARAMS = frozenset({"timeout", "wait_time", "show_progress", "stream", "run_retries", "run_retry_wait"})
+    _SDK_ONLY_PARAMS = frozenset(
+        {"timeout", "wait_time", "show_progress", "stream", "run_retries", "run_retry_wait", "identifier"}
+    )
+
+    # ``identifier`` is a per-run caller identity emitted as the ``x-user-id``
+    # header (RunnableResourceMixin._headers_for_run), never a model/action
+    # input. Exclude it from the v2 payload builder here (and from the v1/URL
+    # builders via _SDK_ONLY_PARAMS above) so it cannot leak into model inputs
+    # or supplier-facing logs. Agent keeps it in the body by NOT overriding this.
+    _RUN_CONTROL_KEYS = RunnableResourceMixin._RUN_CONTROL_KEYS | {"identifier"}
 
     def build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> dict:
         """Build the JSON payload for a model execution request.
