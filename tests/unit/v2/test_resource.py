@@ -989,6 +989,36 @@ class TestRunnableResourceMixin:
         assert payload_kwargs["identifier"] == "alice"
         assert payload_kwargs["text"] == "hi"
 
+    def test_session_id_emitted_as_header(self):
+        """session_id is emitted as the x-session-id header for any runnable resource."""
+        resource = self._create_runnable_resource()
+
+        headers = resource._headers_for_run({"text": "hi", "session_id": "sess-1"})
+        assert headers == {"x-session-id": "sess-1"}
+
+    def test_base_excludes_session_id_from_payload(self):
+        """Unlike identifier, session_id is header-only for every runnable — no run
+        params type declares it as a body field, so the base mixin strips it."""
+        resource = self._create_runnable_resource()
+
+        payload_kwargs = resource._payload_kwargs_for_run({"text": "hi", "session_id": "sess-1"})
+        assert "session_id" not in payload_kwargs
+        assert payload_kwargs["text"] == "hi"
+
+    def test_both_run_metadata_headers_emitted_together(self):
+        resource = self._create_runnable_resource()
+
+        headers = resource._headers_for_run({"identifier": "alice", "session_id": "sess-1"})
+        assert headers == {"x-user-id": "alice", "x-session-id": "sess-1"}
+
+    def test_no_headers_when_no_run_metadata(self):
+        """Neither key present → no headers dict at all, so _post_and_handle_run
+        attaches nothing (documented default, never a crash)."""
+        resource = self._create_runnable_resource()
+
+        assert resource._headers_for_run({"text": "hi"}) is None
+        assert resource._headers_for_run({"identifier": None, "session_id": None}) is None
+
 
 # =============================================================================
 # Result Class Tests
