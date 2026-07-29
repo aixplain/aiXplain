@@ -808,7 +808,7 @@ Default response class
 def build_run_payload(**kwargs: Unpack[RunParamsT]) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1289)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1293)
 
 Build the payload for the run action.
 
@@ -821,7 +821,7 @@ parameters are dataclasses with @dataclass_json decorator.
 def build_run_url(**kwargs: Unpack[RunParamsT]) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1298)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1302)
 
 Build the URL for the run action.
 
@@ -840,7 +840,7 @@ def handle_run_response(response: dict,
                         **kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1319)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1323)
 
 Handle the response from a run request.
 
@@ -864,7 +864,7 @@ in the &#x27;data&#x27; field.
 def before_run(*args: Any, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1378)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1382)
 
 Optional callback called before the resource is run.
 
@@ -889,7 +889,7 @@ def after_run(result: Union[ResultT, Exception], *args: Any,
               **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1394)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1398)
 
 Optional callback called after the resource is run.
 
@@ -915,7 +915,7 @@ Override this method to add custom logic after running.
 def run(*args: Any, **kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1417)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1421)
 
 Run the resource synchronously with automatic polling.
 
@@ -941,7 +941,7 @@ Run the resource synchronously with automatic polling.
 def run_async(**kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1452)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1456)
 
 Run the resource asynchronously.
 
@@ -962,7 +962,7 @@ Run the resource asynchronously.
 def poll(poll_url: str) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1478)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1482)
 
 Poll for the result of an asynchronous operation.
 
@@ -987,7 +987,7 @@ Poll for the result of an asynchronous operation.
 def on_poll(response: ResultT, **kwargs: Unpack[RunParamsT]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1553)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1557)
 
 Hook called after each successful poll with the poll response.
 
@@ -1005,7 +1005,7 @@ such as displaying progress updates or logging status changes.
 def sync_poll(poll_url: str, **kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1565)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1569)
 
 Keep polling until an asynchronous operation is complete.
 
