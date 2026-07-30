@@ -58,7 +58,7 @@ handling the setup of agents, LLMs,and task dependencies.
 def parse_tool_from_yaml(tool: str) -> ModelTool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/utils.py#L177)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/utils.py#L178)
 
 Parse a tool from a string.
 
@@ -68,7 +68,7 @@ Parse a tool from a string.
 def is_yaml_formatted(text)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/utils.py#L211)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/utils.py#L212)
 
 Check if a string is valid YAML format with additional validation.
 
@@ -90,7 +90,7 @@ def build_team_agent_from_yaml(yaml_code: str,
                                team_id: Optional[str] = None) -> TeamAgent
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/utils.py#L244)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/team_agent_factory/utils.py#L245)
 
 Build a team agent from a YAML string.
 

@@ -33,7 +33,7 @@ Description:
 class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L57)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L58)
 
 An advanced AI system that performs tasks using specialized tools from the aiXplain marketplace.
 
@@ -85,7 +85,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L88)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L89)
 
 Initialize a new Agent instance.
 
@@ -124,7 +124,7 @@ Initialize a new Agent instance.
 def validate(raise_exception: bool = False) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L215)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L216)
 
 Validate the Agent&#x27;s configuration and mark its validity status.
 
@@ -152,7 +152,7 @@ If validation fails, it can either raise an exception or log warnings.
 def generate_session_id(history: list = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L243)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L244)
 
 Generate a unique session ID for agent conversations.
 
@@ -171,7 +171,7 @@ Generate a unique session ID for agent conversations.
 def poll(poll_url: Text, name: Text = "model_process") -> "AgentResponse"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L322)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L339)
 
 Override poll to normalize progress data from camelCase to snake_case.
 
@@ -196,7 +196,7 @@ def sync_poll(
         progress_verbosity: Optional[str] = "compact") -> "AgentResponse"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L487)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L507)
 
 Poll the platform until agent execution completes or times out.
 
@@ -233,7 +233,7 @@ def run(data: Optional[Union[Dict, Text]] = None,
         **kwargs) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L564)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L584)
 
 Runs an agent call.
 
@@ -279,7 +279,7 @@ def run_async(data: Optional[Union[Dict, Text]] = None,
               run_response_generation: bool = False) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L725)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L748)
 
 Runs asynchronously an agent call.
 
@@ -311,7 +311,7 @@ Runs asynchronously an agent call.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L871)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L895)
 
 Convert the Agent instance to a dictionary representation.
 
@@ -326,7 +326,7 @@ Convert the Agent instance to a dictionary representation.
 def from_dict(cls, data: Dict) -> "Agent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L908)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L932)
 
 Create an Agent instance from a dictionary representation.
 
@@ -345,7 +345,7 @@ Create an Agent instance from a dictionary representation.
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L983)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1007)
 
 Delete this Agent from the aiXplain platform.
 
@@ -366,7 +366,7 @@ Agent is being used by any team agents.
 def update() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1046)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1070)
 
 Update the Agent&#x27;s configuration on the aiXplain platform.
 
@@ -390,7 +390,7 @@ in favor of the save() method.
 def save() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1093)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1117)
 
 Save the Agent&#x27;s current configuration to the aiXplain platform.
 
@@ -407,7 +407,7 @@ It is the preferred method for updating an Agent&#x27;s settings.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1104)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1128)
 
 Return a string representation of the Agent.
 
@@ -426,7 +426,7 @@ def evolve_async(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
                  llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1112)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1136)
 
 Asynchronously evolve the Agent and return a polling URL in the AgentResponse.
 
@@ -455,7 +455,7 @@ def evolve(evolve_type: Union[EvolveType, str] = EvolveType.TEAM_TUNING,
            llm: Optional[Union[Text, LLM]] = None) -> AgentResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1151)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/__init__.py#L1175)
 
 Synchronously evolve the Agent and poll for the result.
 

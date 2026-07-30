@@ -671,16 +671,7 @@ class Model(
             super().__setattr__(name, value)
 
     _SDK_ONLY_PARAMS = frozenset(
-        {
-            "timeout",
-            "wait_time",
-            "show_progress",
-            "stream",
-            "run_retries",
-            "run_retry_wait",
-            "identifier",
-            "session_id",
-        }
+        {"timeout", "wait_time", "show_progress", "stream", "run_retries", "run_retry_wait", "identifier"}
     )
 
     # ``identifier`` is a per-run caller identity emitted as the ``x-user-id``

@@ -19,7 +19,7 @@ injected into the sandbox session.
 class RLMResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L146)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L372)
 
 Result returned by :meth:`RLM.run`.
 
@@ -29,8 +29,20 @@ RLM-specific fields.
 **Attributes**:
 
 - `iterations_used` - Number of orchestrator iterations consumed.
+- `used_credits` - Total credits consumed across all orchestrator calls,
+  sandbox executions, and worker ``llm_query()`` invocations.
 - `repl_logs` - Per-iteration REPL execution log (excluded from
   serialization; present only on live instances).
+
+#### \_\_repr\_\_
+
+```python
+def __repr__() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L395)
+
+Render the base ``Result`` repr plus RLM-specific fields.
 
 ### RLM Objects
 
@@ -41,24 +53,50 @@ RLM-specific fields.
 class RLM(BaseResource, ToolableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L172)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L409)
 
-Recursive Language Model — long-context analysis via an iterative REPL sandbox.
+Recursive Language Model — long-context analysis with two execution modes.
 
 RLM wraps two aiXplain models:
 
 - An **orchestrator** (powerful, expensive): plans and writes Python code to
 explore the context iteratively in a managed sandbox environment.
-- A **worker** (fast, cheap): called via ``llm_query()`` inside the sandbox
-to perform focused analysis on individual context chunks.
+Used by ``mode=&quot;recursive&quot;``.
+- A **worker** (fast, cheap): called per chunk in both modes. In recursive
+mode it&#x27;s invoked via ``llm_query()`` inside the sandbox; in parallel
+mode it&#x27;s called directly, concurrently across chunks.
 
-The sandbox is an aiXplain managed Python execution environment. Each
-``run()`` call gets its own isolated session (UUID), so variables persist
-across REPL iterations within a single run but are cleaned up afterwards.
+Three run modes are available via the ``mode`` argument to ``run()``:
+
+- ``&quot;parallel&quot;`` (cheap, fast, deterministic): chunk the context to a
+comfortable fraction of the worker&#x27;s window (to mitigate context rot),
+call the worker in parallel on every chunk, then reduce the partial
+answers into a final answer. No orchestrator, no sandbox. Best for
+summarize/extract queries.
+- ``&quot;rag&quot;`` (cheapest at query time): chunk the context into small
+retrieval-grade pieces, upsert them into an aIR vector index, retrieve
+the top-k most relevant chunks for the query, then make a single worker
+call to synthesize an answer. The win is amortizing the upfront index
+build across many queries: set ``rag_index_id`` to reuse a pre-built
+index and skip create + upsert + delete on each call. Best for
+needle-in-haystack questions on very large contexts.
+- ``&quot;recursive&quot;`` (adaptive, expensive): the original iterative REPL loop
+where the orchestrator drives chunking and analysis. Best for multi-hop
+reasoning or queries that need to compare information across chunks.
+- ``&quot;auto&quot;`` (default): picks ``&quot;recursive&quot;`` if the query reads like
+multi-hop reasoning (e.g., contains words like &quot;compare across&quot;,
+&quot;inconsistencies&quot;, &quot;verify against&quot;); otherwise ``&quot;parallel&quot;``.
+``&quot;rag&quot;`` is opt-in only — auto never picks it because it only beats
+``parallel`` when the index is reused across many calls.
+
+The recursive mode&#x27;s sandbox is an aiXplain managed Python execution
+environment. Each recursive ``run()`` call gets its own isolated session
+(UUID), so variables persist across REPL iterations within a single run
+but are cleaned up afterwards.
 
 RLM is a **local orchestrator** — it does not correspond to a platform
 endpoint and is not saved via ``save()``. It is registered on the
-:class:`~aixplain.v2.core.Aixplain` client exactly like other resources so
+:class:``0 client exactly like other resources so
 that credentials and URLs flow through ``self.context`` automatically.
 
 Example::
@@ -80,10 +118,10 @@ print(f&quot;Completed in \{result.iterations_used} iteration(s).&quot;)
 
 **Attributes**:
 
-- `orchestrator_id` - Platform model ID of the orchestrator LLM.
-- ``0 - Platform model ID of the worker LLM.
-- ``1 - Maximum orchestrator loop iterations (default 10).
-- ``2 - Maximum wall-clock seconds per ``run()`` call (default 600).
+- ``3 - Platform model ID of the orchestrator LLM.
+- ``4 - Platform model ID of the worker LLM.
+- ``5 - Maximum orchestrator loop iterations (default 10).
+- ``6 - Maximum wall-clock seconds per ``run()`` call (default 600).
 
 #### \_\_post\_init\_\_
 
@@ -91,9 +129,13 @@ print(f&quot;Completed in \{result.iterations_used} iteration(s).&quot;)
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L261)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L544)
 
 Auto-assign a UUID when no id is provided.
+
+Also initializes the thread-safe credit lock used by parallel mode&#x27;s
+concurrent worker calls. Stored as a plain instance attribute (not a
+dataclass field) so it&#x27;s not serialized.
 
 #### run
 
@@ -101,21 +143,36 @@ Auto-assign a UUID when no id is provided.
 def run(data: Union[str, dict, pathlib.Path],
         name: str = "rlm_process",
         timeout: Optional[float] = None,
+        mode: str = "auto",
         **kwargs: Any) -> RLMResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L580)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1245)
 
-Run the RLM orchestration loop over a (potentially large) context.
+Run the RLM over a (potentially large) context, dispatching by mode.
 
-A fresh sandbox session is created for each call. The orchestrator is
-called iteratively; each iteration it may execute ``repl`` code blocks in
-the sandbox (outputs fed back into the conversation) and eventually declare
-a final answer via ``FINAL(...)`` or ``FINAL_VAR(...)``.
+``mode`` selects the execution strategy:
+
+- ``&quot;parallel&quot;``: deterministic chunk + parallel worker calls + reduce.
+Cheap, fast, predictable. Only the worker is required — no orchestrator
+or sandbox. Best for summarize/extract queries. Chunks are sized to
+a comfortable fraction of the worker&#x27;s window to mitigate context rot.
+- ``&quot;rag&quot;``: chunk + upsert to an aIR vector index + top-k retrieve +
+single worker synthesis. If ``self.rag_index_id`` is set, the index
+is reused (cheapest path); otherwise a temporary index is created
+and deleted per run. Best for needle-in-haystack queries on very
+large reusable contexts.
+- ``&quot;recursive&quot;``: the iterative REPL loop where the orchestrator drives
+chunking and analysis in a sandbox. Expensive but adaptive. Best for
+multi-hop reasoning that needs to compare information across chunks.
+- ``&quot;auto&quot;`` (default): picks ``&quot;recursive&quot;`` when the query reads like
+multi-hop reasoning (keywords such as &quot;compare across&quot;,
+&quot;inconsistencies&quot;, &quot;verify against&quot;, &quot;step by step&quot;); otherwise
+``&quot;parallel&quot;``. ``&quot;rag&quot;`` is opt-in only.
 
 **Arguments**:
 
-- `data` - Input context. Accepted forms:
+- ``8 - Input context. Accepted forms:
   
   - ``str`` **raw text** — used directly as context; default query applied.
   - ``str`` **HTTP/HTTPS URL** — content is downloaded automatically;
@@ -129,29 +186,35 @@ a final answer via ``FINAL(...)`` or ``FINAL_VAR(...)``.
   of ``&quot;context&quot;`` itself may also be a URL, a file path, or a
   ``pathlib.Path``.
   
-- ``1 - Identifier used in log messages. Defaults to ``&quot;rlm_process&quot;``.
-- ``4 - Maximum wall-clock seconds. Overrides ``self.timeout`` when
-  provided. Defaults to ``None`` (uses ``self.timeout``).
-- ``1 - Ignored; kept for API compatibility.
+- ``3 - Identifier used in log messages. Defaults to ``&quot;rlm_process&quot;``.
+- ``6 - Maximum wall-clock seconds. Applies to ``&quot;recursive&quot;`` mode
+  only. Overrides ``self.timeout`` when provided.
+- ``1 - ``&quot;auto&quot;``, ``&quot;parallel&quot;``, or ``&quot;recursive&quot;``. Defaults to
+  ``&quot;auto&quot;``.
+- ``0 - Ignored; kept for API compatibility.
   
 
 **Returns**:
 
-  :class:``2 with:
+  :class:``1 with:
   
   - ``data``: Final answer string.
   - ``status``: ``&quot;SUCCESS&quot;`` or ``&quot;FAILED&quot;``.
   - ``completed``: ``True``.
-  - ``iterations_used``: Number of orchestrator iterations consumed.
-  - ``repl_logs``: Per-iteration execution log (not serialized).
+  - ``used_credits``: Total credits across all model calls.
+  - ``iterations_used``: Recursive mode → orchestrator iterations.
+  Parallel mode → worker calls in the map step (= number of
+  chunks), or 1 for the single-call fast path.
+  - ``repl_logs``: Per-iteration execution log (recursive mode only;
+  empty for parallel). Not serialized.
   
 
 **Raises**:
 
-- ``9 - If ``orchestrator_id`` or ``worker_id`` are unset,
-  or if the orchestrator model call fails.
-- `data`4 - If ``data`` is a dict missing ``&quot;context&quot;``, or an
-  unsupported type.
+- ``0 - If ``worker_id`` is unset, or ``recursive`` mode is
+  used without ``orchestrator_id``, or a model call fails.
+- ``7 - If ``data`` is a dict missing ``&quot;context&quot;``, ``mode``
+  is invalid, or ``data`` is an unsupported type.
 
 #### as\_tool
 
@@ -159,7 +222,7 @@ a final answer via ``FINAL(...)`` or ``FINAL_VAR(...)``.
 def as_tool() -> ToolDict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L743)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1464)
 
 Serialize this RLM as a tool for agent creation.
 
@@ -177,7 +240,7 @@ argument.
 def run_async(*args: Any, **kwargs: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L767)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1488)
 
 Not supported — raises :exc:`NotImplementedError`.
 
@@ -187,7 +250,7 @@ Not supported — raises :exc:`NotImplementedError`.
 def run_stream(*args: Any, **kwargs: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L771)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1492)
 
 Not supported — raises :exc:`NotImplementedError`.
 
@@ -197,7 +260,7 @@ Not supported — raises :exc:`NotImplementedError`.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L777)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1498)
 
 Return string representation of this RLM instance.
 
