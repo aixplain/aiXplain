@@ -40,6 +40,35 @@ _MODEL_POLL_URL_RE = re.compile(
 )
 
 
+def _normalize_reasoning(
+    reasoning_content: Optional[str],
+    reasoning: Optional[str],
+    reasoning_details: Optional[List[Any]],
+) -> Optional[str]:
+    """Canonicalize reasoning onto one field.
+
+    Suppliers disagree on the field name: xAI/vLLM use ``reasoning_content``,
+    OpenRouter uses ``reasoning`` plus structured ``reasoning_details``.
+    Precedence: reasoning_content -> reasoning -> joined reasoning.text blocks.
+    """
+    if isinstance(reasoning_content, str) and reasoning_content:
+        return reasoning_content
+    if isinstance(reasoning, str) and reasoning:
+        return reasoning
+    if isinstance(reasoning_details, list):
+        parts = []
+        for d in reasoning_details:
+            if not isinstance(d, dict):
+                continue
+            if d.get("type") == "reasoning.text" and isinstance(d.get("text"), str):
+                parts.append(d["text"])
+            elif d.get("type") == "reasoning.summary" and isinstance(d.get("summary"), str):
+                parts.append(d["summary"])
+        joined = "".join(parts)
+        return joined or None
+    return None
+
+
 @dataclass_json
 @dataclass
 class Message:
@@ -51,6 +80,16 @@ class Message:
     tool_calls: Optional[List[dict[str, Any]]] = None
     refusal: Optional[str] = None
     annotations: List[Any] = field(default_factory=list)
+    # Raw supplier variants (OpenRouter); folded into ``reasoning_content`` and
+    # cleared in ``__post_init__``. Kept last to preserve positional construction.
+    reasoning: Optional[str] = None
+    reasoning_details: Optional[List[Any]] = None
+
+    def __post_init__(self) -> None:
+        """Canonicalize supplier-specific reasoning fields onto ``reasoning_content``."""
+        self.reasoning_content = _normalize_reasoning(self.reasoning_content, self.reasoning, self.reasoning_details)
+        self.reasoning = None
+        self.reasoning_details = None
 
 
 @dataclass_json
@@ -302,8 +341,12 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                 content = delta.get("content")
                 content = content if isinstance(content, str) else ""
 
-                reasoning_content = delta.get("reasoning_content")
-                reasoning_content = reasoning_content if isinstance(reasoning_content, str) else None
+                raw_details = delta.get("reasoning_details")
+                reasoning_content = _normalize_reasoning(
+                    delta.get("reasoning_content") if isinstance(delta.get("reasoning_content"), str) else None,
+                    delta.get("reasoning") if isinstance(delta.get("reasoning"), str) else None,
+                    raw_details if isinstance(raw_details, list) else None,
+                )
 
                 tool_calls = delta.get("tool_calls")
                 if tool_calls is not None and not isinstance(tool_calls, list):
@@ -450,9 +493,16 @@ class ModelRunParams(BaseRunParams):
     Attributes:
         stream: If True, returns a ModelResponseStreamer for streaming responses.
             The model must support streaming (check supports_streaming attribute).
+        session_id: Conversation this run belongs to, emitted as the
+            ``x-session-id`` header so downstream services can correlate the call
+            with the session that triggered it. Header-only — stripped from the
+            model/action input payload and the run URL, exactly like
+            ``identifier`` (→ ``x-user-id``). Omit it (or pass ``None``) to send
+            no header.
     """
 
     stream: NotRequired[bool]
+    session_id: NotRequired[Optional[str]]
 
 
 @dataclass_json
@@ -629,14 +679,20 @@ class Model(
     # input. Exclude it from the v2 payload builder here (and from the v1/URL
     # builders via _SDK_ONLY_PARAMS above) so it cannot leak into model inputs
     # or supplier-facing logs. Agent keeps it in the body by NOT overriding this.
+    #
+    # ``session_id`` is the same kind of per-run metadata (emitted as
+    # ``x-session-id``) and is header-only for every runnable, so the base
+    # _RUN_CONTROL_KEYS already excludes it; it is repeated in
+    # _SDK_ONLY_PARAMS above to also cover the v1/URL builder paths.
     _RUN_CONTROL_KEYS = RunnableResourceMixin._RUN_CONTROL_KEYS | {"identifier"}
 
     def build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> dict:
         """Build the JSON payload for a model execution request.
 
         Strips SDK-only orchestration params (``timeout``, ``wait_time``,
-        ``show_progress``, ``stream``, ``run_retries``, ``run_retry_wait``)
-        so they are never forwarded to the backend API.
+        ``show_progress``, ``stream``, ``run_retries``, ``run_retry_wait``) and
+        the header-only run metadata (``identifier``, ``session_id``) so they are
+        never forwarded to the backend API.
         """
         filtered = {k: v for k, v in kwargs.items() if k not in self._SDK_ONLY_PARAMS}
         return super().build_run_payload(**filtered)

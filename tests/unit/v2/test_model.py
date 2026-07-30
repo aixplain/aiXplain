@@ -384,6 +384,47 @@ class TestModelIdentifierHeader:
         assert "identifier" not in payload
 
 
+class TestModelSessionHeader:
+    """session_id must ride as the x-session-id header, never as a model input."""
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    def test_session_id_excluded_from_payload(self):
+        """The run's session is per-run metadata, not a model input — it must not
+        reach the model (or supplier-facing logs) as an input field."""
+        model = self._create_model()
+        payload_kwargs = model._payload_kwargs_for_run({"text": "hi", "session_id": "sess-1"})
+        assert "session_id" not in payload_kwargs
+        assert payload_kwargs["text"] == "hi"
+
+    def test_session_id_emitted_as_header(self):
+        model = self._create_model()
+        assert model._headers_for_run({"text": "hi", "session_id": "sess-1"}) == {"x-session-id": "sess-1"}
+
+    def test_session_id_excluded_from_build_run_payload(self):
+        """Also excluded from the v1/URL payload builder path (_SDK_ONLY_PARAMS)."""
+        model = self._create_model()
+        payload = model.build_run_payload(text="hi", session_id="sess-1")
+        assert "session_id" not in payload
+
+    def test_identifier_and_session_id_ride_together(self):
+        """Both headers on one run, and neither in the payload."""
+        model = self._create_model()
+        kwargs = {"text": "hi", "identifier": "alice", "session_id": "sess-1"}
+        assert model._headers_for_run(kwargs) == {"x-user-id": "alice", "x-session-id": "sess-1"}
+        payload_kwargs = model._payload_kwargs_for_run(kwargs)
+        assert "identifier" not in payload_kwargs
+        assert "session_id" not in payload_kwargs
+
+
 class TestModelV1Fallback:
     """Tests for _run_async_v1() V1 endpoint integration."""
 
@@ -514,6 +555,80 @@ class TestModelV1Fallback:
 # =============================================================================
 # Streaming Tests
 # =============================================================================
+
+
+class TestReasoningNormalization:
+    """OpenRouter returns reasoning on ``reasoning``/``reasoning_details``; the SDK
+    must normalize those into the canonical ``reasoning_content`` field."""
+
+    def test_message_normalizes_openrouter_reasoning_string(self):
+        msg = Message.from_dict(
+            {
+                "role": "assistant",
+                "content": "391",
+                "reasoning": "Okay, let's see. 17*23...",
+                "reasoning_details": [
+                    {"type": "reasoning.text", "text": "Okay, let's see. 17*23...", "format": "unknown", "index": 0}
+                ],
+            }
+        )
+        assert msg.reasoning_content == "Okay, let's see. 17*23..."
+
+    def test_message_prefers_existing_reasoning_content(self):
+        msg = Message.from_dict(
+            {"role": "assistant", "content": "391", "reasoning_content": "xai text", "reasoning": "other"}
+        )
+        assert msg.reasoning_content == "xai text"
+
+    def test_message_joins_reasoning_details_text_blocks(self):
+        msg = Message.from_dict(
+            {
+                "role": "assistant",
+                "content": "391",
+                "reasoning_details": [
+                    {"type": "reasoning.text", "text": "part one. "},
+                    {"type": "reasoning.encrypted", "data": "opaque"},
+                    {"type": "reasoning.text", "text": "part two."},
+                ],
+            }
+        )
+        assert msg.reasoning_content == "part one. part two."
+
+    def test_message_without_reasoning_stays_none(self):
+        msg = Message.from_dict({"role": "assistant", "content": "391"})
+        assert msg.reasoning_content is None
+
+    def test_message_reads_reasoning_summary_blocks(self):
+        msg = Message.from_dict(
+            {
+                "role": "assistant",
+                "content": "391",
+                "reasoning_details": [{"type": "reasoning.summary", "summary": "The user wants 17*23."}],
+            }
+        )
+        assert msg.reasoning_content == "The user wants 17*23."
+
+    def test_message_positional_construction_unchanged(self):
+        # New fields live at the end so pre-existing positional callers keep binding
+        # (role, content, reasoning_content, tool_calls, ...).
+        calls = [{"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}]
+        msg = Message("assistant", "hi", None, calls)
+        assert msg.tool_calls == calls
+        assert msg.reasoning_content is None
+
+    def test_message_to_dict_emits_reasoning_once(self):
+        msg = Message.from_dict(
+            {
+                "role": "assistant",
+                "content": "391",
+                "reasoning": "chain of thought",
+                "reasoning_details": [{"type": "reasoning.text", "text": "chain of thought"}],
+            }
+        )
+        data = msg.to_dict()
+        assert data["reasoning_content"] == "chain of thought"
+        assert data.get("reasoning") is None
+        assert data.get("reasoning_details") is None
 
 
 class TestModelStreaming:
@@ -675,6 +790,33 @@ class TestModelStreaming:
         assert chunk.tool_calls is None
         assert chunk.usage is None
         assert chunk.finish_reason is None
+
+    def test_streamer_normalizes_openrouter_reasoning_deltas(self):
+        """OpenRouter deltas carry ``reasoning``/``reasoning_details`` instead of
+        ``reasoning_content``; the streamer must normalize onto the canonical field."""
+        streamer = self._create_streamer(
+            [
+                (
+                    'data: {"id":"gen-1","choices":[{"index":0,"delta":{"content":"","role":"assistant",'
+                    '"reasoning":"Okay","reasoning_details":[{"type":"reasoning.text","text":"Okay",'
+                    '"format":"unknown","index":0}]},"finish_reason":null}]}'
+                ),
+                'data: {"id":"gen-1","choices":[{"index":0,"delta":{"content":"391"},"finish_reason":"stop"}]}',
+                "data: [DONE]",
+            ]
+        )
+
+        reasoning_only = next(streamer)
+        answer = next(streamer)
+
+        assert reasoning_only.data == ""
+        assert reasoning_only.reasoning_content == "Okay"
+
+        assert answer.data == "391"
+        assert answer.reasoning_content is None
+
+        with pytest.raises(StopIteration):
+            next(streamer)
 
     def test_streamer_normalizes_single_tool_call_object(self):
         """ModelResponseStreamer should normalize a single tool_call object to a list."""
