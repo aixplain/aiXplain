@@ -1,7 +1,8 @@
 """Client module for making HTTP requests to the aiXplain API."""
 
-from typing import Any, Optional, Union, List
+from typing import Any, Optional, Tuple, Union, List
 import logging
+import os
 import requests
 from requests.adapters import HTTPAdapter, Retry
 from urllib.parse import urljoin
@@ -14,6 +15,50 @@ logger = logging.getLogger(__name__)
 DEFAULT_RETRY_TOTAL = 5
 DEFAULT_RETRY_BACKOFF_FACTOR = 0.1
 DEFAULT_RETRY_STATUS_FORCELIST = [500, 502, 503, 504]
+
+# Default (connect, read) timeout applied to every request that doesn't pass
+# its own ``timeout=``.  Without one, ``requests`` waits forever: a backend
+# that accepts the connection and then goes quiet blocks the calling thread
+# indefinitely (observed in production: a LIST_INPUTS POST to
+# /api/v2/execute hung for 938s after a RemoteDisconnected).  The read
+# timeout is generous because this session also carries synchronous model
+# executions; it bounds a hang, it does not schedule work.  For streaming
+# requests the read timeout applies per chunk, not to the whole stream.
+DEFAULT_TIMEOUT_CONNECT = 10.0
+DEFAULT_TIMEOUT_READ = 300.0
+TimeoutType = Union[float, Tuple[float, float]]
+
+
+def _timeout_from_env(name: str, default: float) -> float:
+    """Read a positive float timeout from ``name``, falling back to ``default``.
+
+    A malformed value must not silently remove the bound the variable exists
+    to configure, so it logs and keeps the default.
+    """
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning(f"Ignoring non-numeric {name}={raw!r}; using {default}s")
+        return default
+    if value <= 0:
+        logger.warning(f"Ignoring non-positive {name}={raw!r}; using {default}s")
+        return default
+    return value
+
+
+def default_timeout() -> Tuple[float, float]:
+    """Resolve the default (connect, read) timeout, honouring env overrides.
+
+    ``AIXPLAIN_HTTP_CONNECT_TIMEOUT`` / ``AIXPLAIN_HTTP_READ_TIMEOUT`` (seconds)
+    override the built-in defaults per environment without a code change.
+    """
+    return (
+        _timeout_from_env("AIXPLAIN_HTTP_CONNECT_TIMEOUT", DEFAULT_TIMEOUT_CONNECT),
+        _timeout_from_env("AIXPLAIN_HTTP_READ_TIMEOUT", DEFAULT_TIMEOUT_READ),
+    )
 
 
 def create_retry_session(
@@ -61,6 +106,7 @@ class AixplainClient:
         retry_total: int = DEFAULT_RETRY_TOTAL,
         retry_backoff_factor: float = DEFAULT_RETRY_BACKOFF_FACTOR,
         retry_status_forcelist: List[int] = DEFAULT_RETRY_STATUS_FORCELIST,
+        timeout: Optional[TimeoutType] = None,
     ) -> None:
         """Initialize AixplainClient with authentication and retry configuration.
 
@@ -71,8 +117,13 @@ class AixplainClient:
             retry_total (int): Total number of retries allowed. Defaults to 5.
             retry_backoff_factor (float): Backoff factor between retry attempts. Defaults to 0.1.
             retry_status_forcelist (list): HTTP status codes that trigger a retry. Defaults to [500, 502, 503, 504].
+            timeout (float or (float, float) tuple, optional): Default timeout for every
+                request that doesn't pass its own ``timeout=``. Defaults to
+                (AIXPLAIN_HTTP_CONNECT_TIMEOUT or 10, AIXPLAIN_HTTP_READ_TIMEOUT or 300)
+                seconds. Individual calls can still override it per request.
         """
         self.base_url = base_url
+        self.timeout: TimeoutType = timeout if timeout is not None else default_timeout()
         self.team_api_key = team_api_key
         self.aixplain_api_key = aixplain_api_key
 
@@ -113,6 +164,7 @@ class AixplainClient:
         else:
             url = urljoin(self.base_url, path)
 
+        kwargs.setdefault("timeout", self.timeout)
         logger.debug(f"Requesting {method} {url} with kwargs: {kwargs}")
         response = self.session.request(method=method, url=url, **kwargs)
         logger.debug(f"Response: {response.text}")
@@ -200,6 +252,10 @@ class AixplainClient:
 
         # Enable streaming mode
         kwargs["stream"] = True
+        # In streaming mode the read timeout applies per chunk read, not to the
+        # stream's total lifetime, so long-lived SSE streams stay safe as long
+        # as the server keeps sending (events or keep-alives).
+        kwargs.setdefault("timeout", self.timeout)
 
         response = self.session.request(method=method, url=url, **kwargs)
 

@@ -13,6 +13,8 @@ from aixplain.v2.client import (
     AixplainClient,
     create_retry_session,
     DEFAULT_RETRY_TOTAL,
+    DEFAULT_TIMEOUT_CONNECT,
+    DEFAULT_TIMEOUT_READ,
     DEFAULT_RETRY_BACKOFF_FACTOR,
     DEFAULT_RETRY_STATUS_FORCELIST,
 )
@@ -568,3 +570,69 @@ class TestAixplainClientGet:
             result = client.get("resource")
 
             assert result == expected_data
+
+
+class TestDefaultTimeout:
+    """Every request must carry a timeout: without one, a backend that accepts
+    the connection and then goes quiet blocks the calling thread forever
+    (observed in production: a LIST_INPUTS POST hung for 938s)."""
+
+    def _client(self, **kwargs):
+        return AixplainClient(base_url="https://api.example.com", team_api_key="key", **kwargs)
+
+    def _ok_response(self):
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.json.return_value = {}
+        return mock_response
+
+    def test_default_timeout_applied_to_request_raw(self):
+        client = self._client()
+
+        with patch.object(client.session, "request", return_value=self._ok_response()) as mock_request:
+            client.request_raw("GET", "v2/models")
+
+        assert mock_request.call_args.kwargs["timeout"] == (DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ)
+
+    def test_default_timeout_applied_to_request_stream(self):
+        client = self._client()
+
+        with patch.object(client.session, "request", return_value=self._ok_response()) as mock_request:
+            client.request_stream("GET", "v2/models")
+
+        assert mock_request.call_args.kwargs["timeout"] == (DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ)
+        assert mock_request.call_args.kwargs["stream"] is True
+
+    def test_per_call_timeout_wins(self):
+        """A caller that knows its own bound keeps it."""
+        client = self._client()
+
+        with patch.object(client.session, "request", return_value=self._ok_response()) as mock_request:
+            client.request_raw("GET", "v2/models", timeout=1.5)
+
+        assert mock_request.call_args.kwargs["timeout"] == 1.5
+
+    def test_constructor_timeout_overrides_default(self):
+        client = self._client(timeout=(5.0, 60.0))
+
+        with patch.object(client.session, "request", return_value=self._ok_response()) as mock_request:
+            client.request_raw("GET", "v2/models")
+
+        assert mock_request.call_args.kwargs["timeout"] == (5.0, 60.0)
+
+    def test_env_overrides_are_honoured(self, monkeypatch):
+        monkeypatch.setenv("AIXPLAIN_HTTP_CONNECT_TIMEOUT", "3")
+        monkeypatch.setenv("AIXPLAIN_HTTP_READ_TIMEOUT", "45.5")
+
+        client = self._client()
+
+        assert client.timeout == (3.0, 45.5)
+
+    @pytest.mark.parametrize("bad", ["abc", "0", "-5", ""])
+    def test_unusable_env_values_fall_back_to_defaults(self, bad, monkeypatch):
+        """A typo in the knob must not silently remove the bound it configures."""
+        monkeypatch.setenv("AIXPLAIN_HTTP_READ_TIMEOUT", bad)
+
+        client = self._client()
+
+        assert client.timeout == (DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ)

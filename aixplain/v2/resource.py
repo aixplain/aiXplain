@@ -578,6 +578,14 @@ class BaseRunParams(BaseParams):
         wait_time: Initial interval in seconds between poll attempts.
         run_retries: Extra attempts after the first failure (total attempts = 1 + run_retries).
         run_retry_wait: Seconds to wait between retry attempts (default 1.0).
+
+    Note:
+        ``session_id`` is a header-only run key handled by every runnable
+        (``_headers_for_run`` → ``x-session-id``, stripped from the body by
+        ``_RUN_CONTROL_KEYS``). It is declared on :class:`ModelRunParams` rather
+        than here: :class:`~aixplain.v2.agent.AgentRunParams` deliberately has no
+        ``session_id`` — agent runs join a conversation via ``session=``, and a
+        look-alike key that only set a header would be a footgun.
     """
 
     timeout: NotRequired[int]
@@ -1223,6 +1231,12 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     # is a legitimate execution-config body field (see Agent). Model/Tool, where
     # it is header-only, add it to their own override so it never leaks into the
     # model/action input payload.
+    #
+    # ``session_id`` IS excluded here (unlike ``identifier``): it is header-only
+    # for every runnable. No run params type declares it as a body field — the
+    # Agent session path takes ``session=`` (a Session or id) and routes through
+    # ``POST /v1/sessions/{id}/messages``, so a top-level ``session_id`` kwarg is
+    # purely the per-run correlation channel emitted as ``x-session-id``.
     _RUN_CONTROL_KEYS: frozenset[str] = frozenset(
         {
             "run_retries",
@@ -1230,6 +1244,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "timeout",
             "wait_time",
             "show_progress",
+            "session_id",
         }
     )
 
@@ -1262,11 +1277,21 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         return {k: v for k, v in kwargs.items() if k not in self._RUN_CONTROL_KEYS}
 
     def _headers_for_run(self, kwargs: dict) -> Optional[dict]:
-        """Build per-run headers from optional runtime metadata."""
+        """Build per-run headers from optional runtime metadata.
+
+        ``identifier`` → ``x-user-id`` (caller identity) and ``session_id`` →
+        ``x-session-id`` (conversation the run belongs to). Both are optional and
+        independent: a key that is absent or ``None`` simply omits its header, and
+        with neither present this returns ``None`` so no headers are attached.
+        """
+        headers = {}
         identifier = kwargs.get("identifier")
-        if identifier is None:
-            return None
-        return {"x-user-id": str(identifier)}
+        if identifier is not None:
+            headers["x-user-id"] = str(identifier)
+        session_id = kwargs.get("session_id")
+        if session_id is not None:
+            headers["x-session-id"] = str(session_id)
+        return headers or None
 
     def _post_and_handle_run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Single POST + handle_run_response (no retries, no before_run)."""
