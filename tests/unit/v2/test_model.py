@@ -384,6 +384,47 @@ class TestModelIdentifierHeader:
         assert "identifier" not in payload
 
 
+class TestModelSessionHeader:
+    """session_id must ride as the x-session-id header, never as a model input."""
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    def test_session_id_excluded_from_payload(self):
+        """The run's session is per-run metadata, not a model input — it must not
+        reach the model (or supplier-facing logs) as an input field."""
+        model = self._create_model()
+        payload_kwargs = model._payload_kwargs_for_run({"text": "hi", "session_id": "sess-1"})
+        assert "session_id" not in payload_kwargs
+        assert payload_kwargs["text"] == "hi"
+
+    def test_session_id_emitted_as_header(self):
+        model = self._create_model()
+        assert model._headers_for_run({"text": "hi", "session_id": "sess-1"}) == {"x-session-id": "sess-1"}
+
+    def test_session_id_excluded_from_build_run_payload(self):
+        """Also excluded from the v1/URL payload builder path (_SDK_ONLY_PARAMS)."""
+        model = self._create_model()
+        payload = model.build_run_payload(text="hi", session_id="sess-1")
+        assert "session_id" not in payload
+
+    def test_identifier_and_session_id_ride_together(self):
+        """Both headers on one run, and neither in the payload."""
+        model = self._create_model()
+        kwargs = {"text": "hi", "identifier": "alice", "session_id": "sess-1"}
+        assert model._headers_for_run(kwargs) == {"x-user-id": "alice", "x-session-id": "sess-1"}
+        payload_kwargs = model._payload_kwargs_for_run(kwargs)
+        assert "identifier" not in payload_kwargs
+        assert "session_id" not in payload_kwargs
+
+
 class TestModelV1Fallback:
     """Tests for _run_async_v1() V1 endpoint integration."""
 

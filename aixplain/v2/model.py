@@ -493,9 +493,16 @@ class ModelRunParams(BaseRunParams):
     Attributes:
         stream: If True, returns a ModelResponseStreamer for streaming responses.
             The model must support streaming (check supports_streaming attribute).
+        session_id: Conversation this run belongs to, emitted as the
+            ``x-session-id`` header so downstream services can correlate the call
+            with the session that triggered it. Header-only — stripped from the
+            model/action input payload and the run URL, exactly like
+            ``identifier`` (→ ``x-user-id``). Omit it (or pass ``None``) to send
+            no header.
     """
 
     stream: NotRequired[bool]
+    session_id: NotRequired[Optional[str]]
 
 
 @dataclass_json
@@ -664,7 +671,16 @@ class Model(
             super().__setattr__(name, value)
 
     _SDK_ONLY_PARAMS = frozenset(
-        {"timeout", "wait_time", "show_progress", "stream", "run_retries", "run_retry_wait", "identifier"}
+        {
+            "timeout",
+            "wait_time",
+            "show_progress",
+            "stream",
+            "run_retries",
+            "run_retry_wait",
+            "identifier",
+            "session_id",
+        }
     )
 
     # ``identifier`` is a per-run caller identity emitted as the ``x-user-id``
@@ -672,14 +688,20 @@ class Model(
     # input. Exclude it from the v2 payload builder here (and from the v1/URL
     # builders via _SDK_ONLY_PARAMS above) so it cannot leak into model inputs
     # or supplier-facing logs. Agent keeps it in the body by NOT overriding this.
+    #
+    # ``session_id`` is the same kind of per-run metadata (emitted as
+    # ``x-session-id``) and is header-only for every runnable, so the base
+    # _RUN_CONTROL_KEYS already excludes it; it is repeated in
+    # _SDK_ONLY_PARAMS above to also cover the v1/URL builder paths.
     _RUN_CONTROL_KEYS = RunnableResourceMixin._RUN_CONTROL_KEYS | {"identifier"}
 
     def build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> dict:
         """Build the JSON payload for a model execution request.
 
         Strips SDK-only orchestration params (``timeout``, ``wait_time``,
-        ``show_progress``, ``stream``, ``run_retries``, ``run_retry_wait``)
-        so they are never forwarded to the backend API.
+        ``show_progress``, ``stream``, ``run_retries``, ``run_retry_wait``) and
+        the header-only run metadata (``identifier``, ``session_id``) so they are
+        never forwarded to the backend API.
         """
         filtered = {k: v for k, v in kwargs.items() if k not in self._SDK_ONLY_PARAMS}
         return super().build_run_payload(**filtered)
