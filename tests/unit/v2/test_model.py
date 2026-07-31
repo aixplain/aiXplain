@@ -425,6 +425,79 @@ class TestModelSessionHeader:
         assert "session_id" not in payload_kwargs
 
 
+class TestModelAgentHeader:
+    """agent_name must ride as the x-agent header, never as a model input."""
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    def test_agent_name_excluded_from_payload(self):
+        """The calling agent's name is per-run metadata, not a model input — it
+        must not reach the model (or supplier-facing logs) as an input field."""
+        model = self._create_model()
+        payload_kwargs = model._payload_kwargs_for_run({"text": "hi", "agent_name": "Researcher"})
+        assert "agent_name" not in payload_kwargs
+        assert payload_kwargs["text"] == "hi"
+
+    def test_agent_name_emitted_as_header(self):
+        model = self._create_model()
+        assert model._headers_for_run({"text": "hi", "agent_name": "Researcher"}) == {"x-agent": "Researcher"}
+
+    def test_agent_name_excluded_from_build_run_payload(self):
+        """Also excluded from the v1/URL payload builder path (_SDK_ONLY_PARAMS)."""
+        model = self._create_model()
+        payload = model.build_run_payload(text="hi", agent_name="Researcher")
+        assert "agent_name" not in payload
+
+    def test_all_run_metadata_headers_ride_together(self):
+        """All three headers on one run, and none of them in the payload."""
+        model = self._create_model()
+        kwargs = {"text": "hi", "identifier": "alice", "session_id": "sess-1", "agent_name": "Researcher"}
+        assert model._headers_for_run(kwargs) == {
+            "x-user-id": "alice",
+            "x-session-id": "sess-1",
+            "x-agent": "Researcher",
+        }
+        payload_kwargs = model._payload_kwargs_for_run(kwargs)
+        assert payload_kwargs == {"text": "hi"}
+
+
+class TestRunHeaderKeysAreSingleSourceOfTruth:
+    """Every ``_RUN_HEADER_KEYS`` kwarg must be filtered out of *both* payload
+    paths. Guards the failure mode that hit ``session_id`` once: a header was
+    added to the wire while a duplicated payload-filter literal lost its entry
+    in a merge, so the value silently rode in the body too.
+    """
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    def test_every_header_kwarg_stripped_from_both_payload_paths(self):
+        model = self._create_model()
+        for key, header in Model._RUN_HEADER_KEYS:
+            kwargs = {"text": "hi", key: "v"}
+            assert model._headers_for_run(kwargs) == {header: "v"}, f"{key} not emitted as {header}"
+            assert key not in model._payload_kwargs_for_run(kwargs), f"{key} leaked into the v2 payload"
+            assert key not in model.build_run_payload(**kwargs), f"{key} leaked into the v1/URL payload"
+
+    def test_header_kwargs_covered_by_sdk_only_params(self):
+        assert {key for key, _ in Model._RUN_HEADER_KEYS} <= Model._SDK_ONLY_PARAMS
+
+
 class TestModelV1Fallback:
     """Tests for _run_async_v1() V1 endpoint integration."""
 

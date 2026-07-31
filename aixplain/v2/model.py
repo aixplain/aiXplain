@@ -499,10 +499,15 @@ class ModelRunParams(BaseRunParams):
             model/action input payload and the run URL, exactly like
             ``identifier`` (→ ``x-user-id``). Omit it (or pass ``None``) to send
             no header.
+        agent_name: Name of the agent making this call, emitted as the ``x-agent``
+            header so downstream services can attribute it to the calling agent
+            (for a team run, the specific sub-agent — not the team). Header-only,
+            on the same terms as ``session_id``.
     """
 
     stream: NotRequired[bool]
     session_id: NotRequired[Optional[str]]
+    agent_name: NotRequired[Optional[str]]
 
 
 @dataclass_json
@@ -670,6 +675,11 @@ class Model(
         else:
             super().__setattr__(name, value)
 
+    # Orchestration params the SDK consumes itself, plus every per-run header
+    # kwarg. The header half is derived from RunnableResourceMixin._RUN_HEADER_KEYS
+    # rather than re-listed, so a new header can't be added to the wire while
+    # still leaking into the v1/URL payloads (a merge once silently dropped such a
+    # duplicated entry — see the _RUN_HEADER_KEYS note).
     _SDK_ONLY_PARAMS = frozenset(
         {
             "timeout",
@@ -678,10 +688,8 @@ class Model(
             "stream",
             "run_retries",
             "run_retry_wait",
-            "identifier",
-            "session_id",
         }
-    )
+    ) | {key for key, _ in RunnableResourceMixin._RUN_HEADER_KEYS}
 
     # ``identifier`` is a per-run caller identity emitted as the ``x-user-id``
     # header (RunnableResourceMixin._headers_for_run), never a model/action
@@ -689,10 +697,10 @@ class Model(
     # builders via _SDK_ONLY_PARAMS above) so it cannot leak into model inputs
     # or supplier-facing logs. Agent keeps it in the body by NOT overriding this.
     #
-    # ``session_id`` is the same kind of per-run metadata (emitted as
-    # ``x-session-id``) and is header-only for every runnable, so the base
-    # _RUN_CONTROL_KEYS already excludes it; it is repeated in
-    # _SDK_ONLY_PARAMS above to also cover the v1/URL builder paths.
+    # ``session_id`` (→ ``x-session-id``) and ``agent_name`` (→ ``x-agent``) are
+    # the same kind of per-run metadata but header-only for every runnable, so the
+    # base _RUN_CONTROL_KEYS already excludes them; _SDK_ONLY_PARAMS above covers
+    # them again for the v1/URL builder paths.
     _RUN_CONTROL_KEYS = RunnableResourceMixin._RUN_CONTROL_KEYS | {"identifier"}
 
     def build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> dict:
@@ -700,8 +708,8 @@ class Model(
 
         Strips SDK-only orchestration params (``timeout``, ``wait_time``,
         ``show_progress``, ``stream``, ``run_retries``, ``run_retry_wait``) and
-        the header-only run metadata (``identifier``, ``session_id``) so they are
-        never forwarded to the backend API.
+        the header-only run metadata (``identifier``, ``session_id``,
+        ``agent_name``) so they are never forwarded to the backend API.
         """
         filtered = {k: v for k, v in kwargs.items() if k not in self._SDK_ONLY_PARAMS}
         return super().build_run_payload(**filtered)

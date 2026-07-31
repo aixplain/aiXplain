@@ -580,10 +580,11 @@ class BaseRunParams(BaseParams):
         run_retry_wait: Seconds to wait between retry attempts (default 1.0).
 
     Note:
-        ``session_id`` is a header-only run key handled by every runnable
-        (``_headers_for_run`` → ``x-session-id``, stripped from the body by
-        ``_RUN_CONTROL_KEYS``). It is declared on :class:`ModelRunParams` rather
-        than here: :class:`~aixplain.v2.agent.AgentRunParams` deliberately has no
+        ``session_id`` and ``agent_name`` are header-only run keys handled by every
+        runnable (``_headers_for_run`` → ``x-session-id`` / ``x-agent``, stripped
+        from the body by ``_RUN_CONTROL_KEYS``). They are declared on
+        :class:`ModelRunParams` rather than here:
+        :class:`~aixplain.v2.agent.AgentRunParams` deliberately has no
         ``session_id`` — agent runs join a conversation via ``session=``, and a
         look-alike key that only set a header would be a footgun.
     """
@@ -1226,17 +1227,29 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     RUN_ACTION_PATH: str = "run"
     RESPONSE_CLASS: type = Result  # Default response class
 
+    # Run kwargs emitted as per-run request headers, in wire order. Single source
+    # of truth: ``_headers_for_run`` builds from it, and Model derives its
+    # ``_SDK_ONLY_PARAMS`` from it, so adding a header here cannot be forgotten in
+    # one of the payload filters (a merge once dropped such a duplicated entry).
+    _RUN_HEADER_KEYS: tuple[tuple[str, str], ...] = (
+        ("identifier", "x-user-id"),
+        ("session_id", "x-session-id"),
+        ("agent_name", "x-agent"),
+    )
+
     # SDK-only keys: never forwarded to build_run_payload / build_run_url.
     # NOTE: ``identifier`` is intentionally NOT excluded here — for Agent runs it
     # is a legitimate execution-config body field (see Agent). Model/Tool, where
     # it is header-only, add it to their own override so it never leaks into the
     # model/action input payload.
     #
-    # ``session_id`` IS excluded here (unlike ``identifier``): it is header-only
-    # for every runnable. No run params type declares it as a body field — the
-    # Agent session path takes ``session=`` (a Session or id) and routes through
-    # ``POST /v1/sessions/{id}/messages``, so a top-level ``session_id`` kwarg is
-    # purely the per-run correlation channel emitted as ``x-session-id``.
+    # ``session_id`` and ``agent_name`` ARE excluded here (unlike ``identifier``):
+    # both are header-only for every runnable, since no run params type declares
+    # either as a body field. The Agent session path takes ``session=`` (a Session
+    # or id) and routes through ``POST /v1/sessions/{id}/messages``, so a
+    # top-level ``session_id`` kwarg is purely the per-run correlation channel
+    # emitted as ``x-session-id``; ``agent_name`` is likewise only the calling
+    # agent's name, emitted as ``x-agent``.
     _RUN_CONTROL_KEYS: frozenset[str] = frozenset(
         {
             "run_retries",
@@ -1245,6 +1258,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "wait_time",
             "show_progress",
             "session_id",
+            "agent_name",
         }
     )
 
@@ -1279,18 +1293,18 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     def _headers_for_run(self, kwargs: dict) -> Optional[dict]:
         """Build per-run headers from optional runtime metadata.
 
-        ``identifier`` → ``x-user-id`` (caller identity) and ``session_id`` →
-        ``x-session-id`` (conversation the run belongs to). Both are optional and
-        independent: a key that is absent or ``None`` simply omits its header, and
-        with neither present this returns ``None`` so no headers are attached.
+        Emits the ``_RUN_HEADER_KEYS`` mapping: ``identifier`` → ``x-user-id``
+        (caller identity), ``session_id`` → ``x-session-id`` (conversation the run
+        belongs to), and ``agent_name`` → ``x-agent`` (the agent making the call).
+        All are optional and independent: a key that is absent or ``None`` simply
+        omits its header, and with none present this returns ``None`` so no headers
+        are attached.
         """
         headers = {}
-        identifier = kwargs.get("identifier")
-        if identifier is not None:
-            headers["x-user-id"] = str(identifier)
-        session_id = kwargs.get("session_id")
-        if session_id is not None:
-            headers["x-session-id"] = str(session_id)
+        for key, header in self._RUN_HEADER_KEYS:
+            value = kwargs.get(key)
+            if value is not None:
+                headers[header] = str(value)
         return headers or None
 
     def _post_and_handle_run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:

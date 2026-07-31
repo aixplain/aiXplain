@@ -670,16 +670,24 @@ class TestMergeWithDynamicAttrs:
         assert result["data"] == ["x"]
 
     def test_run_metadata_survives_merge_and_stays_header_only(self):
-        """``identifier``/``session_id`` must survive the merge (so
-        ``_headers_for_run`` can see them) while staying out of the action payload."""
+        """Every ``_RUN_HEADER_KEYS`` kwarg must survive the merge (so
+        ``_headers_for_run`` can see it) while staying out of the action payload."""
         tool = self._make_tool()
 
         merged = tool._merge_with_dynamic_attrs(
-            action="search", data={"q": "hi"}, identifier="alice", session_id="sess-1"
+            action="search",
+            data={"q": "hi"},
+            identifier="alice",
+            session_id="sess-1",
+            agent_name="Researcher",
         )
 
-        assert tool._headers_for_run(merged) == {"x-user-id": "alice", "x-session-id": "sess-1"}
+        assert tool._headers_for_run(merged) == {
+            "x-user-id": "alice",
+            "x-session-id": "sess-1",
+            "x-agent": "Researcher",
+        }
         payload_kwargs = tool._payload_kwargs_for_run(merged)
-        assert "identifier" not in payload_kwargs
-        assert "session_id" not in payload_kwargs
+        for key, _ in tool._RUN_HEADER_KEYS:
+            assert key not in payload_kwargs
         assert payload_kwargs["data"] == {"q": "hi"}
