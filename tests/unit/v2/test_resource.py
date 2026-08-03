@@ -1011,13 +1011,47 @@ class TestRunnableResourceMixin:
         headers = resource._headers_for_run({"identifier": "alice", "session_id": "sess-1"})
         assert headers == {"x-user-id": "alice", "x-session-id": "sess-1"}
 
+    def test_agent_name_emitted_as_header(self):
+        """agent_name is emitted as the x-agent header for any runnable resource."""
+        resource = self._create_runnable_resource()
+
+        headers = resource._headers_for_run({"text": "hi", "agent_name": "Researcher"})
+        assert headers == {"x-agent": "Researcher"}
+
+    def test_base_excludes_agent_name_from_payload(self):
+        """Like session_id, agent_name is header-only for every runnable — no run
+        params type declares it as a body field, so the base mixin strips it."""
+        resource = self._create_runnable_resource()
+
+        payload_kwargs = resource._payload_kwargs_for_run({"text": "hi", "agent_name": "Researcher"})
+        assert "agent_name" not in payload_kwargs
+        assert payload_kwargs["text"] == "hi"
+
+    def test_all_run_metadata_headers_emitted_together(self):
+        resource = self._create_runnable_resource()
+
+        headers = resource._headers_for_run({"identifier": "alice", "session_id": "sess-1", "agent_name": "Researcher"})
+        assert headers == {"x-user-id": "alice", "x-session-id": "sess-1", "x-agent": "Researcher"}
+
     def test_no_headers_when_no_run_metadata(self):
-        """Neither key present → no headers dict at all, so _post_and_handle_run
+        """No header key present → no headers dict at all, so _post_and_handle_run
         attaches nothing (documented default, never a crash)."""
         resource = self._create_runnable_resource()
 
         assert resource._headers_for_run({"text": "hi"}) is None
-        assert resource._headers_for_run({"identifier": None, "session_id": None}) is None
+        assert resource._headers_for_run({key: None for key, _ in resource._RUN_HEADER_KEYS}) is None
+
+    def test_non_ascii_header_value_raises_for_any_runnable(self):
+        """Header values must be ASCII. Raised here rather than left to fail at
+        ``send()`` with a bare UnicodeEncodeError naming neither kwarg nor header.
+        """
+        resource = self._create_runnable_resource()
+
+        with pytest.raises(ValueError) as excinfo:
+            resource._headers_for_run({"agent_name": "Ürün Asistanı"})
+
+        message = str(excinfo.value)
+        assert "agent_name" in message and "x-agent" in message and "ASCII" in message
 
 
 # =============================================================================

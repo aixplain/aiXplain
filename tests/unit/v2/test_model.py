@@ -425,6 +425,145 @@ class TestModelSessionHeader:
         assert "session_id" not in payload_kwargs
 
 
+class TestModelAgentHeader:
+    """agent_name must ride as the x-agent header, never as a model input."""
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    def test_agent_name_excluded_from_payload(self):
+        """The calling agent's name is per-run metadata, not a model input — it
+        must not reach the model (or supplier-facing logs) as an input field."""
+        model = self._create_model()
+        payload_kwargs = model._payload_kwargs_for_run({"text": "hi", "agent_name": "Researcher"})
+        assert "agent_name" not in payload_kwargs
+        assert payload_kwargs["text"] == "hi"
+
+    def test_agent_name_emitted_as_header(self):
+        model = self._create_model()
+        assert model._headers_for_run({"text": "hi", "agent_name": "Researcher"}) == {"x-agent": "Researcher"}
+
+    def test_agent_name_excluded_from_build_run_payload(self):
+        """Also excluded from the v1/URL payload builder path (_SDK_ONLY_PARAMS)."""
+        model = self._create_model()
+        payload = model.build_run_payload(text="hi", agent_name="Researcher")
+        assert "agent_name" not in payload
+
+    def test_all_run_metadata_headers_ride_together(self):
+        """All three headers on one run, and none of them in the payload."""
+        model = self._create_model()
+        kwargs = {"text": "hi", "identifier": "alice", "session_id": "sess-1", "agent_name": "Researcher"}
+        assert model._headers_for_run(kwargs) == {
+            "x-user-id": "alice",
+            "x-session-id": "sess-1",
+            "x-agent": "Researcher",
+        }
+        payload_kwargs = model._payload_kwargs_for_run(kwargs)
+        assert payload_kwargs == {"text": "hi"}
+
+
+class TestRunHeaderKeysAreSingleSourceOfTruth:
+    """Every ``_RUN_HEADER_KEYS`` kwarg must be filtered out of *both* payload
+    paths. Guards the failure mode that hit ``session_id`` once: a header was
+    added to the wire while a duplicated payload-filter literal lost its entry
+    in a merge, so the value silently rode in the body too.
+    """
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    def test_every_header_kwarg_stripped_from_both_payload_paths(self):
+        model = self._create_model()
+        for key, header in Model._RUN_HEADER_KEYS:
+            kwargs = {"text": "hi", key: "v"}
+            assert model._headers_for_run(kwargs) == {header: "v"}, f"{key} not emitted as {header}"
+            assert key not in model._payload_kwargs_for_run(kwargs), f"{key} leaked into the v2 payload"
+            assert key not in model.build_run_payload(**kwargs), f"{key} leaked into the v1/URL payload"
+
+    def test_header_kwargs_covered_by_sdk_only_params(self):
+        assert {key for key, _ in Model._RUN_HEADER_KEYS} <= Model._SDK_ONLY_PARAMS
+
+
+class TestRunHeaderValuesMustBeAscii:
+    """A non-ASCII header value must fail with a descriptive error, not a codec
+    traceback from deep inside ``send()``.
+
+    ``agent_name`` is the first user-authored free text on this channel
+    (``identifier``/``session_id`` are platform-generated ids), so a Turkish,
+    Arabic or CJK agent name is a realistic input. requests/urllib3 prepares such
+    a header fine and only fails at send time with a bare ``UnicodeEncodeError``
+    naming neither the run kwarg nor the header.
+    """
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    @pytest.mark.parametrize("agent_name", ["Ürün Asistanı", "网站设计师", "مساعد"])
+    def test_non_ascii_agent_name_raises_descriptive_error(self, agent_name):
+        model = self._create_model()
+
+        with pytest.raises(ValueError) as excinfo:
+            model._headers_for_run({"text": "hi", "agent_name": agent_name})
+
+        message = str(excinfo.value)
+        assert "agent_name" in message
+        assert agent_name in message
+        assert "x-agent" in message
+        assert "ASCII" in message
+
+    def test_run_raises_before_issuing_the_request(self):
+        """Fail fast: no POST is attempted with an unsendable header."""
+        model = self._create_model()
+
+        with pytest.raises(ValueError, match="x-agent"):
+            model.run(text="hi", agent_name="Ürün Asistanı")
+
+        model.context.client.request.assert_not_called()
+
+    def test_ascii_agent_name_unaffected(self):
+        model = self._create_model()
+
+        assert model._headers_for_run({"agent_name": "Researcher"}) == {"x-agent": "Researcher"}
+
+    def test_value_is_never_sanitized(self):
+        """The name must not be transliterated or stripped — that would silently
+        mis-attribute the call downstream. It is all-or-nothing."""
+        model = self._create_model()
+
+        with pytest.raises(ValueError):
+            model._headers_for_run({"agent_name": "Ürün"})
+
+    @pytest.mark.parametrize("key", ["identifier", "session_id"])
+    def test_validation_applies_to_every_header_kwarg(self, key):
+        """Not agent_name-specific: any header value that can't be encoded gets the
+        same descriptive failure."""
+        model = self._create_model()
+
+        with pytest.raises(ValueError, match="ASCII"):
+            model._headers_for_run({key: "değer"})
+
+
 class TestModelV1Fallback:
     """Tests for _run_async_v1() V1 endpoint integration."""
 
