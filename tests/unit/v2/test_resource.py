@@ -1041,6 +1041,18 @@ class TestRunnableResourceMixin:
         assert resource._headers_for_run({"text": "hi"}) is None
         assert resource._headers_for_run({key: None for key, _ in resource._RUN_HEADER_KEYS}) is None
 
+    def test_non_ascii_header_value_raises_for_any_runnable(self):
+        """Header values must be ASCII. Raised here rather than left to fail at
+        ``send()`` with a bare UnicodeEncodeError naming neither kwarg nor header.
+        """
+        resource = self._create_runnable_resource()
+
+        with pytest.raises(ValueError) as excinfo:
+            resource._headers_for_run({"agent_name": "Ürün Asistanı"})
+
+        message = str(excinfo.value)
+        assert "agent_name" in message and "x-agent" in message and "ASCII" in message
+
 
 # =============================================================================
 # Result Class Tests

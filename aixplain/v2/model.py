@@ -500,9 +500,12 @@ class ModelRunParams(BaseRunParams):
             ``identifier`` (→ ``x-user-id``). Omit it (or pass ``None``) to send
             no header.
         agent_name: Name of the agent making this call, emitted as the ``x-agent``
-            header so downstream services can attribute it to the calling agent
-            (for a team run, the specific sub-agent — not the team). Header-only,
-            on the same terms as ``session_id``.
+            header so downstream services can attribute it to the calling agent.
+            In a team run this is whichever agent actually issued the call: the
+            sub-agent for a delegated call, but the orchestrator's own name for a
+            tool it calls directly — so consumers should not assume the value is
+            always a sub-agent, nor always the team root. Header-only, on the same
+            terms as ``session_id``, and must be ASCII (see ``_headers_for_run``).
     """
 
     stream: NotRequired[bool]

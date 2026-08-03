@@ -498,6 +498,72 @@ class TestRunHeaderKeysAreSingleSourceOfTruth:
         assert {key for key, _ in Model._RUN_HEADER_KEYS} <= Model._SDK_ONLY_PARAMS
 
 
+class TestRunHeaderValuesMustBeAscii:
+    """A non-ASCII header value must fail with a descriptive error, not a codec
+    traceback from deep inside ``send()``.
+
+    ``agent_name`` is the first user-authored free text on this channel
+    (``identifier``/``session_id`` are platform-generated ids), so a Turkish,
+    Arabic or CJK agent name is a realistic input. requests/urllib3 prepares such
+    a header fine and only fails at send time with a bare ``UnicodeEncodeError``
+    naming neither the run kwarg nor the header.
+    """
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    @pytest.mark.parametrize("agent_name", ["Ürün Asistanı", "网站设计师", "مساعد"])
+    def test_non_ascii_agent_name_raises_descriptive_error(self, agent_name):
+        model = self._create_model()
+
+        with pytest.raises(ValueError) as excinfo:
+            model._headers_for_run({"text": "hi", "agent_name": agent_name})
+
+        message = str(excinfo.value)
+        assert "agent_name" in message
+        assert agent_name in message
+        assert "x-agent" in message
+        assert "ASCII" in message
+
+    def test_run_raises_before_issuing_the_request(self):
+        """Fail fast: no POST is attempted with an unsendable header."""
+        model = self._create_model()
+
+        with pytest.raises(ValueError, match="x-agent"):
+            model.run(text="hi", agent_name="Ürün Asistanı")
+
+        model.context.client.request.assert_not_called()
+
+    def test_ascii_agent_name_unaffected(self):
+        model = self._create_model()
+
+        assert model._headers_for_run({"agent_name": "Researcher"}) == {"x-agent": "Researcher"}
+
+    def test_value_is_never_sanitized(self):
+        """The name must not be transliterated or stripped — that would silently
+        mis-attribute the call downstream. It is all-or-nothing."""
+        model = self._create_model()
+
+        with pytest.raises(ValueError):
+            model._headers_for_run({"agent_name": "Ürün"})
+
+    @pytest.mark.parametrize("key", ["identifier", "session_id"])
+    def test_validation_applies_to_every_header_kwarg(self, key):
+        """Not agent_name-specific: any header value that can't be encoded gets the
+        same descriptive failure."""
+        model = self._create_model()
+
+        with pytest.raises(ValueError, match="ASCII"):
+            model._headers_for_run({key: "değer"})
+
+
 class TestModelV1Fallback:
     """Tests for _run_async_v1() V1 endpoint integration."""
 

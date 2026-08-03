@@ -1299,13 +1299,32 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         All are optional and independent: a key that is absent or ``None`` simply
         omits its header, and with none present this returns ``None`` so no headers
         are attached.
+
+        Raises:
+            ValueError: If a value is not ASCII. HTTP header values cannot carry
+                non-ASCII text, and the underlying stack would otherwise fail
+                deep inside ``send()`` with a bare ``UnicodeEncodeError`` that
+                names neither the run kwarg nor the header.
         """
         headers = {}
         for key, header in self._RUN_HEADER_KEYS:
             value = kwargs.get(key)
             if value is not None:
-                headers[header] = str(value)
+                headers[header] = self._validate_header_value(key, header, str(value))
         return headers or None
+
+    @staticmethod
+    def _validate_header_value(key: str, header: str, value: str) -> str:
+        """Return *value* unchanged, or raise if it cannot be sent as a header.
+
+        Never sanitizes: a caller who named an agent ``"Ürün Asistanı"`` gets told
+        the name cannot ride in ``x-agent``, rather than silently having it
+        transliterated or dropped and then wondering why downstream attribution
+        shows something else.
+        """
+        if not value.isascii():
+            raise ValueError(f"{key} {value!r} cannot be sent as the {header} header: header values must be ASCII")
+        return value
 
     def _post_and_handle_run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Single POST + handle_run_response (no retries, no before_run)."""
