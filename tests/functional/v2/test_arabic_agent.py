@@ -205,7 +205,7 @@ def _make_single_agent(client, llm_id: str, model_name: str, agent_def: dict):
         description=agent_def["description"],
         instructions=agent_def["instructions"],
         llm=llm_id,
-        max_tokens=900,
+        max_tokens=4096,
         max_iterations=4,
     )
     agent.save()
@@ -247,7 +247,7 @@ def _make_team_agent(client, llm_id: str, model_name: str, inspectors=None):
         llm=llm_id,
         agents=[researcher, drafter],
         inspectors=inspectors or [],
-        max_tokens=900,
+        max_tokens=4096,
         max_iterations=4,
     )
     team_agent.save()
