@@ -444,7 +444,32 @@ class TestScriptToolDefaultIntegration:
     def test_code_only_tool_uses_python_sandbox_integration(self):
         tool = Tool(name="Script Tool", description="desc", code="def main(): pass")
         assert tool.integration == self.PYTHON_SANDBOX_ID
-        assert tool.config == {"code": "def main(): pass"}
+        assert tool.config == {"code": "def main(): pass", "function_name": "main"}
+
+    def test_function_name_inferred_from_non_main_function(self):
+        """The sandbox requires function_name; a single function of any name works."""
+        code = "def get_fact(city: str) -> str:\n    return city\n"
+        tool = Tool(name="Script Tool", description="desc", code=code)
+        assert tool.config == {"code": code, "function_name": "get_fact"}
+
+    def test_explicit_function_name_in_config_survives(self):
+        """Extra config keys must not be dropped on the code= route."""
+        code = "def helper(): pass\ndef entry(): pass\n"
+        tool = Tool(name="Script Tool", description="desc", code=code, config={"function_name": "entry"})
+        assert tool.config == {"code": code, "function_name": "entry"}
+
+    def test_multiple_functions_without_function_name_raises(self):
+        code = "def a(): pass\ndef b(): pass\n"
+        with pytest.raises(ValueError, match="Multiple functions"):
+            Tool(name="Script Tool", description="desc", code=code)
+
+    def test_function_name_not_in_code_raises(self):
+        with pytest.raises(ValueError, match="not found in code"):
+            Tool(name="Script Tool", description="desc", code="def main(): pass", config={"function_name": "nope"})
+
+    def test_code_without_any_function_raises(self):
+        with pytest.raises(ValueError, match="No function"):
+            Tool(name="Script Tool", description="desc", code="x = 1\n")
 
 
 # =============================================================================
