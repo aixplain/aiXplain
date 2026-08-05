@@ -430,6 +430,23 @@ class TestToolCreate:
         assert tool.id == mock_connection.id
 
 
+class TestScriptToolDefaultIntegration:
+    """Tests that Tool(code=...) targets the Python Sandbox integration."""
+
+    PYTHON_SANDBOX_ID = "688779d8bfb8e46c273982ca"
+
+    def test_default_integration_id_is_python_sandbox(self):
+        """DEFAULT_INTEGRATION_ID must be the Python Sandbox integration,
+        not Slack (686432941223092cb4294d3f) — a script tool wired to Slack
+        serializes with the full SLACK_* action catalog and never runs its code."""
+        assert Tool.DEFAULT_INTEGRATION_ID == self.PYTHON_SANDBOX_ID
+
+    def test_code_only_tool_uses_python_sandbox_integration(self):
+        tool = Tool(name="Script Tool", description="desc", code="def main(): pass")
+        assert tool.integration == self.PYTHON_SANDBOX_ID
+        assert tool.config == {"code": "def main(): pass"}
+
+
 # =============================================================================
 # save() integration (update path)
 # =============================================================================

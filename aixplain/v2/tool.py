@@ -39,7 +39,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
     RESOURCE_PATH = "v2/tools"
     RESPONSE_CLASS = ToolResult
-    DEFAULT_INTEGRATION_ID = "686432941223092cb4294d3f"  # Script integration
+    DEFAULT_INTEGRATION_ID = "688779d8bfb8e46c273982ca"  # Python Sandbox (script) integration
 
     # Tool-specific fields
     asset_id: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
