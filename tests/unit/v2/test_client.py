@@ -402,6 +402,30 @@ class TestAixplainClientErrorHandling:
             assert exc_info.value.status_code == 404
             assert exc_info.value.error == "NOT_FOUND"
 
+    def test_error_prefers_supplier_error_detail(self):
+        """supplierError carries the actionable detail (e.g. 'Name already exists')
+        and must win over the generic 'error' code (e.g. 'err.supplier_error')."""
+        client = AixplainClient(
+            base_url="https://api.example.com",
+            team_api_key="key",
+        )
+
+        mock_response = Mock()
+        mock_response.ok = False
+        mock_response.status_code = 422
+        mock_response.json.return_value = {
+            "completed": True,
+            "error": "err.supplier_error",
+            "supplierError": "Name already exists",
+        }
+
+        with patch.object(client.session, "request", return_value=mock_response):
+            with pytest.raises(APIError) as exc_info:
+                client.request_raw("GET", "resource")
+
+            assert exc_info.value.message == "Name already exists"
+            assert exc_info.value.error == "err.supplier_error"
+
     def test_error_falls_back_to_error_field(self):
         """When 'message' is absent, should use 'error' field."""
         client = AixplainClient(
