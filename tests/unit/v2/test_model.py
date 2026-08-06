@@ -52,6 +52,15 @@ class TestFindFunctionById:
             kebab = member.value.lower().replace("_", "-")
             assert find_function_by_id(kebab) == member, f"{kebab} did not resolve to {member}"
 
+    def test_media_function_ids_decode(self):
+        """Backend media-generation function IDs should resolve to real enum members."""
+        assert find_function_by_id("text-to-image-generation") is Function.TEXT_TO_IMAGE_GENERATION
+        assert find_function_by_id("speech-synthesis") is Function.SPEECH_SYNTHESIS
+        assert find_function_by_id("video-generation") is Function.VIDEO_GENERATION
+        # existing behavior preserved
+        assert find_function_by_id("text-generation") is Function.TEXT_GENERATION
+        assert find_function_by_id("no-such-function") is None
+
 
 # =============================================================================
 # Connection Type Property Tests
