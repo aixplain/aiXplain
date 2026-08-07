@@ -107,8 +107,7 @@ class Utility(
         """
         return super().get(id, resource_path="sdk/models", **kwargs)
 
-    @classmethod
-    def run(cls: type["Utility"], **kwargs: Unpack[UtilityRunParams]) -> Result:
+    def run(self, **kwargs: Unpack[UtilityRunParams]) -> Result:
         """Run the utility with provided parameters.
 
         Args:
