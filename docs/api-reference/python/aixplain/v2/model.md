@@ -442,7 +442,7 @@ Handle bulk assignment to inputs.
 def build_run_payload(**kwargs: Unpack[ModelRunParams]) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L689)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L698)
 
 Build the JSON payload for a model execution request.
 
@@ -457,7 +457,7 @@ never forwarded to the backend API.
 def build_run_url(**kwargs: Unpack[ModelRunParams]) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L700)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L709)
 
 Build the URL for running the model.
 
@@ -467,7 +467,7 @@ Build the URL for running the model.
 def mark_as_deleted() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L705)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L714)
 
 Mark the model as deleted by setting status to DELETED and calling parent method.
 
@@ -479,7 +479,7 @@ def get(cls: type["Model"], id: str,
         **kwargs: Unpack[BaseGetParams]) -> "Model"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L713)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L722)
 
 Get a model by ID.
 
@@ -492,7 +492,7 @@ def search(cls: type["Model"],
            **kwargs: Unpack[ModelSearchParams]) -> Page["Model"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L722)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L731)
 
 Search with optional query and filtering.
 
@@ -512,7 +512,7 @@ Search with optional query and filtering.
 def run(**kwargs: Unpack[ModelRunParams]) -> ModelResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L743)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L752)
 
 Run the model with dynamic parameter validation and default handling.
 
@@ -526,7 +526,7 @@ This method routes the execution based on the model&#x27;s connection type:
 def run_async(**kwargs: Unpack[ModelRunParams]) -> ModelResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L793)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L802)
 
 Run the model asynchronously.
 
@@ -545,7 +545,7 @@ This method routes the execution based on the model&#x27;s connection type:
 def run_stream(**kwargs: Unpack[ModelRunParams]) -> ModelResponseStreamer
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L889)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L898)
 
 Run the model with streaming response.
 
@@ -588,7 +588,7 @@ or processing large responses incrementally.
 def as_tool() -> ToolDict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L1029)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L1038)
 
 Serialize this model as a tool for agent creation.
 
@@ -621,7 +621,7 @@ expects for model tools.
 def get_parameters() -> List[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L1087)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L1096)
 
 Get current parameter values for this model.
 
