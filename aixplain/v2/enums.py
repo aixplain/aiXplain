@@ -45,6 +45,17 @@ class Function(str, Enum):
     UTILITIES = "utilities"  # Add the missing utilities function
     GUARDRAILS = "guardrails"  # Guardrail / inspector guard models
 
+    # Media-generation functions (backend kebab-case ids, like UTILITIES/GUARDRAILS above)
+    TEXT_TO_IMAGE_GENERATION = "text-to-image-generation"
+    IMAGE_GENERATION = "image-generation"
+    VIDEO_GENERATION = "video-generation"
+    TEXT_TO_VIDEO_GENERATION = "text-to-video-generation"
+    IMAGE_TO_VIDEO_GENERATION = "image-to-video-generation"
+    SPEECH_SYNTHESIS = "speech-synthesis"
+    TEXT_TO_SPEECH = "text-to-speech"
+    TEXT_TO_AUDIO = "text-to-audio"
+    VOICE_CLONING = "voice-cloning"
+
 
 class Language(str, Enum):
     """Languages supported by the platform."""
