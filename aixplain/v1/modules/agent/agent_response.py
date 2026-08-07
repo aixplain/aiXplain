@@ -1,6 +1,6 @@
 from aixplain.enums import ResponseStatus
 from typing import Any, Dict, Optional, Text, Union, List, TYPE_CHECKING
-from aixplain.modules.agent.agent_response_data import AgentResponseData
+from aixplain.modules.agent.agent_response_data import AgentResponseData, Artifact
 from aixplain.modules.model.response import ModelResponse
 
 if TYPE_CHECKING:
@@ -27,6 +27,8 @@ class AgentResponse(ModelResponse):
         diagnostic_error_codes (List[str]): Aggregated, deduplicated diagnostic error codes
             observed during execution (e.g. MAX_TOKENS_REACHED, TOOL_FAILED).
             Does not affect run status.
+        artifacts (List[Artifact]): Deliverables produced during the run, a
+            passthrough of ``data.artifacts``. Always a list.
     """
 
     def __init__(
@@ -83,6 +85,22 @@ class AgentResponse(ModelResponse):
         self.data = data or AgentResponseData()
         self.diagnostic_error_codes = diagnostic_error_codes if diagnostic_error_codes is not None else []
 
+    @property
+    def artifacts(self) -> List[Artifact]:
+        """Deliverables produced during the run (see :class:`Artifact`).
+
+        Always a list — empty when the run produced nothing, when artifact
+        capture is disabled, or when the backend predates artifact support.
+        """
+        data = self.data
+        if isinstance(data, dict):
+            # ``data`` is a bare dict on some paths (e.g. ``Agent.evolve``)
+            # rather than an AgentResponseData. Matches the v2 property.
+            return Artifact.from_list(data.get("artifacts"))
+        # Anything else (AgentResponseData, EvolverResponseData, ...) is read by
+        # attribute, defaulting to [] when it has no artifacts.
+        return getattr(data, "artifacts", None) or []
+
     def __getitem__(self, key: Text) -> Any:
         """Get a response attribute using dictionary-style access.
 
@@ -98,6 +116,12 @@ class AgentResponse(ModelResponse):
         """
         if key == "data":
             return self.data.to_dict()
+        if key == "artifacts":
+            # A property, so it is absent from ``__dict__`` and the parent
+            # lookup would raise. Route it here so ``response["artifacts"]``
+            # and ``response.get("artifacts")`` honour the always-a-list
+            # guarantee instead of raising / returning None.
+            return self.artifacts
         return super().__getitem__(key)
 
     def __setitem__(self, key: Text, value: Any) -> None:
