@@ -40,7 +40,7 @@ from aixplain.modules.agent.agent_task import WorkflowTask, AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool, DeployableTool
 from aixplain.modules.agent.agent_response import AgentResponse
-from aixplain.modules.agent.agent_response_data import AgentResponseData
+from aixplain.modules.agent.agent_response_data import AgentResponseData, Artifact  # noqa: F401
 from aixplain.modules.agent.utils import process_variables, validate_history
 from pydantic import BaseModel
 from typing import Dict, List, Text, Optional, Union, Any
@@ -707,6 +707,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                         intermediate_steps=result_data.get("intermediate_steps"),
                         steps=result_data.get("steps"),
                         execution_stats=result_data.get("executionStats"),
+                        artifacts=result_data.get("artifacts"),
                     ),
                     used_credits=result_data.get("usedCredits", 0.0),
                     run_time=result_data.get("runTime", end - start),
@@ -723,6 +724,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     intermediate_steps=result_data.get("intermediate_steps"),
                     steps=result_data.get("steps"),
                     execution_stats=result_data.get("executionStats"),
+                    artifacts=result_data.get("artifacts"),
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
                 run_time=result_data.get("runTime", end - start),
