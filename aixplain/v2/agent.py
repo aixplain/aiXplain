@@ -316,6 +316,74 @@ class Budget:
 
 @dataclass_json
 @dataclass
+class Artifact:
+    """A user-facing deliverable produced during an agent run.
+
+    Artifacts are captured by the agent engine and come from two sources:
+
+    - ``source="tool_output"`` — media a tool generated (image/audio/video/page).
+      Carries a ``url``, usually a **presigned** URL.
+    - ``source="workspace"`` — a file the agent wrote into its workspace.
+      Carries inline UTF-8 text in ``content`` (binary workspace files are
+      skipped by the engine; there is no uploader yet).
+
+    Exactly one of ``url`` / ``content`` is populated.
+
+    .. warning::
+       ``url_expires_at`` is when the **presigned URL** dies, not the artifact.
+       Observed in the wild: a 24h window on a generated image URL. If you
+       persist artifact URLs (database, cache, sent email), re-host the bytes
+       before ``url_expires_at`` or the links will rot.
+
+    ``category`` and ``source`` are plain strings, not enums: the engine may add
+    new media categories before this SDK knows about them, and an unknown value
+    must pass through rather than raise.
+
+    Both wire casings deserialize: the poll/``checkRequest`` path emits
+    snake_case (``mime_type``) while the webhook body is camelCased
+    (``mimeType``). If a payload somehow carries both spellings of a field, the
+    one appearing last in the payload wins.
+    """
+
+    id: str = ""
+    name: str = ""
+    title: Optional[str] = None
+    mime_type: Optional[str] = field(default=None, metadata=config(field_name="mimeType"))
+    category: str = "other"
+    source: str = ""
+    tool_name: Optional[str] = field(default=None, metadata=config(field_name="toolName"))
+    url: Optional[str] = None
+    url_expires_at: Optional[str] = field(default=None, metadata=config(field_name="urlExpiresAt"))
+    content: Optional[str] = None
+    sha256: Optional[str] = None
+    byte_size: Optional[int] = field(default=None, metadata=config(field_name="byteSize"))
+    mentioned_in_answer: bool = field(default=False, metadata=config(field_name="mentionedInAnswer"))
+    created_at: str = field(default="", metadata=config(field_name="createdAt"))
+
+    @classmethod
+    def _coerce_list(cls, value: Any) -> List["Artifact"]:
+        """Decode an ``artifacts`` payload without ever raising.
+
+        Used as the ``decoder=`` for :attr:`AgentResponseData.artifacts`.
+        Non-list values yield ``[]``; individual entries that fail to decode are
+        dropped rather than failing the whole response.
+        """
+        if not isinstance(value, list):
+            return []
+        artifacts: List["Artifact"] = []
+        for item in value:
+            if isinstance(item, cls):
+                artifacts.append(item)
+            elif isinstance(item, dict):
+                try:
+                    artifacts.append(cls.from_dict(item))
+                except Exception:  # pragma: no cover - defensive; engine shape drift
+                    logger.debug("Skipping undecodable artifact entry: %r", item)
+        return artifacts
+
+
+@dataclass_json
+@dataclass
 class AgentResponseData:
     """Data structure for agent response."""
 
@@ -326,6 +394,14 @@ class AgentResponseData:
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
     critiques: Optional[str] = ""
+    # Declared Optional only to keep dataclasses_json quiet: an explicit
+    # ``"artifacts": null`` on a non-Optional field makes it emit a
+    # "non-optional type ... detected when decoding" RuntimeWarning on every
+    # decode. The attribute itself is never None — ``__post_init__`` normalizes.
+    artifacts: Optional[List[Artifact]] = field(
+        default_factory=list,
+        metadata=config(decoder=Artifact._coerce_list),
+    )
     governance: Optional[Dict[str, Any]] = None
     _governance_status: Optional[str] = field(
         default=None, repr=False, metadata=config(field_name="governanceStatus", exclude=lambda x: True)
@@ -338,7 +414,13 @@ class AgentResponseData:
     )
 
     def __post_init__(self) -> None:
-        """Assemble the nested ``governance`` dict from the flat wire fields."""
+        """Normalize ``artifacts`` and assemble ``governance`` from flat wire fields."""
+        # Also runs for direct construction, which never touches the field
+        # decoder: ``AgentResponseData(artifacts=[{...}])`` must type its raw
+        # dicts the way v1 does, and an explicit ``artifacts=None`` must land on
+        # ``[]`` rather than ``None``. Re-coercing an already-decoded list is a
+        # cheap no-op, since ``Artifact`` instances pass straight through.
+        self.artifacts = Artifact._coerce_list(self.artifacts)
         if self.governance is None:
             self.governance = {
                 "status": self._governance_status,
@@ -396,6 +478,22 @@ class AgentRunResult(Result):
         metadata=config(exclude=lambda x: True),
         init=False,
     )
+
+    @property
+    def artifacts(self) -> List[Artifact]:
+        """Deliverables produced during the run (see :class:`Artifact`).
+
+        Always a list — empty when the run produced nothing, when artifact
+        capture is disabled, or when the backend predates artifact support.
+        """
+        data = self.data
+        if isinstance(data, AgentResponseData):
+            return data.artifacts or []
+        if isinstance(data, dict):
+            # ``data`` is a bare dict when the result was built by hand rather
+            # than decoded through ``from_dict``.
+            return Artifact._coerce_list(data.get("artifacts"))
+        return []
 
     @property
     def execution_id(self) -> Optional[str]:

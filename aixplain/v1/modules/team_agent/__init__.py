@@ -709,6 +709,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                         steps=result_data.get("steps"),
                         execution_stats=result_data.get("executionStats"),
                         critiques=result_data.get("critiques", ""),
+                        artifacts=result_data.get("artifacts"),
                     ),
                     used_credits=result_data.get("usedCredits", 0.0),
                     run_time=result_data.get("runTime", end - start),
@@ -726,6 +727,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     steps=result_data.get("steps"),
                     execution_stats=result_data.get("executionStats"),
                     critiques=result_data.get("critiques", ""),
+                    artifacts=result_data.get("artifacts"),
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
                 run_time=result_data.get("runTime", end - start),
@@ -942,6 +944,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     intermediate_steps=resp_data.get("intermediate_steps"),
                     steps=resp_data.get("steps"),
                     execution_stats=resp_data.get("executionStats"),
+                    artifacts=resp_data.get("artifacts"),
                 )
         except Exception as e:
             import traceback
