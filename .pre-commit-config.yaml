@@ -34,6 +34,10 @@ repos:
           # `[toml]` extra required to read [tool.coverage.run] from pyproject.toml
           # on Python < 3.11; plain `coverage` hard-errors there.
           - coverage[toml]
+          # tests/unit/test_packaging_config.py parses pyproject.toml; `tomllib`
+          # is 3.11+. This hook builds its own isolated env and never sees the
+          # `test` extra, so the dep has to be repeated here.
+          - tomli>=2.0.1; python_version < '3.11'
           - pytest
           - pytest-mock
           - pytest-rerunfailures

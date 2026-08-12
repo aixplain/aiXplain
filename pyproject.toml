@@ -1,11 +1,25 @@
 # aixplain/pyproject.toml
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+# No setuptools-scm: the version is hardcoded below and there is no
+# [tool.setuptools_scm] section anywhere in the repo. Its only effect was to
+# register a git `file_finders` sweep that pulled every tracked file into
+# SOURCES.txt, which masked the broken package discovery below (ENG-3543).
+# >=61 is the floor for [project]-table metadata.
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["aixplain", "tests"]
+# Globs are mandatory: `include` patterns are fnmatch'd against the FULL dotted
+# package name, so a bare "aixplain" matches only the top-level package and
+# discards all 26 subpackages. Without the trailing `*` a .git-less build ships
+# 3 of 169 modules, with no error and no warning (ENG-3543).
+include = ["aixplain*", "tests*"]
+exclude = ["*.__pycache__", "*.__pycache__.*"]
+# Load-bearing, do not flip to false: aixplain/v1/base/ and
+# aixplain/v1/factories/cli/ hold modules but no __init__.py, and are imported
+# via the aixplain._compat redirector (aixplain.base.parameters,
+# aixplain.factories.cli.model_factory_cli).
 namespaces = true
 
 [project]
@@ -71,6 +85,9 @@ model-builder = [
 ]
 test = [
     "pytest>=6.1.0",
+    # tests/unit/test_packaging_config.py parses pyproject.toml; `tomllib` is
+    # 3.11+, and CI runs 3.9.
+    "tomli>=2.0.1; python_version < '3.11'",
     "docker>=6.1.3",
     "requests-mock>=1.11.0",
     "pytest-mock>=3.10.0",
