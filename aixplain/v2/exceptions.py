@@ -85,6 +85,17 @@ class FileUploadError(AixplainV2Error):
     pass
 
 
+class UntrustedURLError(AixplainV2Error):
+    """Raised when a credentialed request targets a host outside the trusted set.
+
+    Not an :class:`APIError`: no request is made, so there is no status code to
+    report. Poll URLs come from response bodies, so this is the SDK refusing to
+    hand the team API key to a host a body asked it to talk to.
+    """
+
+    pass
+
+
 def _extract_error_from_dict(obj: Dict[str, Any]) -> Optional[str]:
     """Extract first available error message from a dict (top-level or data)."""
     if not obj:

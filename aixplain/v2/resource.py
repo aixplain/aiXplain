@@ -33,6 +33,7 @@ from .exceptions import (
     ValidationError,
     APIError,
     TimeoutError,
+    UntrustedURLError,
     create_operation_failed_error,
 )
 
@@ -1547,9 +1548,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             Response instance from the configured RESPONSE_CLASS
 
         Raises:
+            UntrustedURLError: If poll_url resolves to a host outside the trusted set
             APIError: If the polling request fails
             OperationFailedError: If the operation has failed
         """
+        # A poll URL comes from a response body, so validate the host before the
+        # credential is attached. ``client.get`` re-checks; doing it here keeps the
+        # error precise instead of being rewrapped as "Polling failed: ..." below.
+        self.context.client.ensure_trusted_url(poll_url)
         try:
             # Use context.client for all polling operations
             # If poll_url is a full URL, urljoin will use it directly
@@ -1660,8 +1666,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                         logger.info(f"Operation completed successfully ({elapsed_time:.1f}s total)")
                     return result
 
-            except (APIError, ResourceError) as e:
-                # Re-raise API and resource errors immediately
+            except (APIError, ResourceError, UntrustedURLError) as e:
+                # Re-raise API, resource and untrusted-URL errors immediately.
+                # Without UntrustedURLError here the broad ``except`` below would
+                # turn a refused credential leak into a silent poll-until-timeout.
                 raise e
             except Exception as e:
                 # Log other errors but continue polling
