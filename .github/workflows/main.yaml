@@ -8,6 +8,15 @@ on:
       - test
   workflow_dispatch:
 
+# Least privilege (ENG-3428): every job below only reads the repository --
+# checkout, pip install, pytest. Without this block the workflow inherits the
+# repository default GITHUB_TOKEN, which is write-all here, while executing
+# repository code and third-party dependencies. `actions/upload-artifact@v4`
+# authenticates with the Actions runtime token rather than GITHUB_TOKEN scopes,
+# so `contents: read` covers the artifact uploads too.
+permissions:
+  contents: read
+
 env:
   # Coverage floor for the unit suite, enforced by the `unit-coverage` job.
   # Measured at 64% on `development` @ 42ed1e02; set two points below to absorb
