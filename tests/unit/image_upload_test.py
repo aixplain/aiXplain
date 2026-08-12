@@ -63,5 +63,9 @@ def test_get_functions():
         with open(Path("tests/mock_responses/list_functions_response.json")) as f:
             mock_json = json.load(f)
         mock.get(url, headers=AUTH_FIXED_HEADER, json=mock_json)
-        functions = ModelFactory.list_functions(config.TEAM_API_KEY)
+        # `verbose` is the first positional parameter, not `api_key`. This used
+        # to be called as `list_functions(config.TEAM_API_KEY)`, which only
+        # returned the raw payload because a non-empty key happens to be truthy
+        # -- so the test silently depended on a credential being set.
+        functions = ModelFactory.list_functions(True, api_key=config.TEAM_API_KEY)
     assert functions == mock_json

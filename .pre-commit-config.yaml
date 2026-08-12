@@ -22,18 +22,24 @@ repos:
     hooks:
       - id: pytest-check
         name: pytest-check
-        entry: coverage run --source=. -m pytest tests/unit
+        # Coverage scope lives in pyproject.toml ([tool.coverage.run]); `--source=.`
+        # measured the test files too and inflated the figure. The floor is only
+        # enforced in CI, so a local run is never blocked mid-refactor.
+        entry: coverage run -m pytest tests/unit
         language: python
         pass_filenames: false
         types: [python]
         always_run: true
         additional_dependencies:
-          - coverage
+          # `[toml]` extra required to read [tool.coverage.run] from pyproject.toml
+          # on Python < 3.11; plain `coverage` hard-errors there.
+          - coverage[toml]
           - pytest
           - pytest-mock
           - pytest-rerunfailures
           - pytest-xdist
           - requests-mock
+          - plotly>=5.18.0  # keeps the plotting tests from silently skipping here too
           - Babel>=2.12.0
           - requests>=2.1.0
           - tqdm>=4.1.0

@@ -260,9 +260,14 @@ class TestDeprecatedPersistedMaxIterations:
         assert "maxIterations" not in payload
 
     def test_no_warning_when_unset(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", DeprecationWarning)
-            _build_agent()  # must not raise
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            agent = _build_agent()
+
+        assert [w for w in caught if issubclass(w.category, DeprecationWarning)] == []
+        # Nothing to fold in, so the budget stays empty rather than picking up a
+        # default max_iterations.
+        assert agent.budget.max_iterations is None
 
     def test_conflict_budget_wins(self):
         with warnings.catch_warnings(record=True) as caught:
