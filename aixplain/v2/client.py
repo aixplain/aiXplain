@@ -16,6 +16,25 @@ DEFAULT_RETRY_TOTAL = 5
 DEFAULT_RETRY_BACKOFF_FACTOR = 0.1
 DEFAULT_RETRY_STATUS_FORCELIST = [500, 502, 503, 504]
 
+# Methods urllib3 may retry once a request has actually been put on the wire.
+# Dropping POST is what closes BUG-1090: with POST listed, a single ``/execute``
+# could become up to ``total + 1`` billable submissions as soon as a default read
+# timeout existed, because a model slower than DEFAULT_TIMEOUT_READ raises
+# ReadTimeout inside urllib3, which then silently re-POSTs below the SDK.
+#
+# Scope of the guarantee, since urllib3 consults ``allowed_methods`` for only
+# some retry classes: ``status_forcelist`` responses and *read* errors
+# (ReadTimeoutError, ProtocolError) are now method-gated, so POST gets neither.
+# *Connect* errors (ConnectTimeoutError, NewConnectionError) are still retried
+# for every method — urllib3 skips the method check there by design, and safely
+# so: the connection was never established, so no request bytes reached the
+# backend and no run was submitted.
+#
+# Retrying a submission that may have landed belongs to the SDK layer, which
+# knows what one costs — see ``RunnableResourceMixin._submit_with_retries`` and
+# the ``run_retries`` param.
+RETRY_ALLOWED_METHODS = frozenset({"GET"})
+
 # Default (connect, read) timeout applied to every request that doesn't pass
 # its own ``timeout=``.  Without one, ``requests`` waits forever: a backend
 # that accepts the connection and then goes quiet blocks the calling thread
@@ -199,6 +218,11 @@ def create_retry_session(
 ) -> requests.Session:
     """Creates a requests.Session with a specified retry strategy.
 
+    Only ``GET`` is retried (see :data:`RETRY_ALLOWED_METHODS`): POST is not
+    idempotent here, so a transport-level retry of ``/execute`` submits — and
+    bills — the run again. Callers that want a run re-submitted on a transient
+    failure use the SDK-level ``run_retries`` parameter instead.
+
     Args:
         total (int, optional): Total number of retries allowed. Defaults to 5.
         backoff_factor (float, optional): Backoff factor to apply between retry attempts. Defaults to 0.1.
@@ -218,7 +242,7 @@ def create_retry_session(
         total=total,
         backoff_factor=backoff_factor,
         status_forcelist=status_forcelist,
-        allowed_methods=frozenset({"GET", "POST"}),
+        allowed_methods=RETRY_ALLOWED_METHODS,
         **kwargs,
     )
     session = _AixplainSession(trusted_origins=trusted_origins)

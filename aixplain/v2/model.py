@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import time
 from typing import Dict, Union, List, Optional, Any, TYPE_CHECKING, Iterator
 from urllib.parse import urlparse
 from typing_extensions import NotRequired, Unpack
@@ -25,7 +24,7 @@ from .resource import (
 )
 from .enums import Function, Supplier, Language, AssetStatus, ResponseStatus
 from .mixins import ToolableMixin, ToolDict
-from .exceptions import APIError, ValidationError
+from .exceptions import ValidationError
 from .actions import Actions, Action, Inputs
 
 if TYPE_CHECKING:
@@ -800,21 +799,14 @@ class Model(
         """Run the model synchronously using V2 endpoint directly.
 
         This bypasses run_async() to avoid V1 fallback for sync-only models.
-        Honors ``run_retries`` / ``run_retry_wait`` like :meth:`RunnableResourceMixin.run`.
+        Honors ``run_retries`` / ``run_retry_wait`` like :meth:`RunnableResourceMixin.run`:
+        retries cover the submission only, and a business ``FAILED`` response is
+        never re-submitted.
 
         Returns:
             ModelResult: Direct result from V2 endpoint
         """
-        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
-        for attempt in range(run_retries + 1):
-            try:
-                return self._post_and_handle_run(**kwargs)
-            except APIError as e:
-                if not self._is_retryable_run_error(e) or attempt >= run_retries:
-                    raise
-                time.sleep(run_retry_wait)
-
-        raise RuntimeError("_run_sync_v2 retry loop exhausted without return")
+        return self._submit_with_retries(**kwargs)
 
     def run_async(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model asynchronously.

@@ -17,6 +17,7 @@ from aixplain.v2.client import (
     DEFAULT_TIMEOUT_READ,
     DEFAULT_RETRY_BACKOFF_FACTOR,
     DEFAULT_RETRY_STATUS_FORCELIST,
+    RETRY_ALLOWED_METHODS,
 )
 from aixplain.v2.exceptions import APIError
 
@@ -94,13 +95,107 @@ class TestCreateRetrySession:
         adapter = session.get_adapter("https://example.com")
         assert set(adapter.max_retries.status_forcelist) == set(custom_list)
 
-    def test_allowed_methods_include_get_and_post(self):
-        """Retry should be allowed for GET and POST methods."""
+    @pytest.mark.parametrize("url", ["https://example.com", "http://example.com"])
+    def test_post_is_never_retried(self, url):
+        """POST must not be retried at the transport layer (BUG-1090).
+
+        urllib3 retries on read/connect errors too, so a POST here means a slow
+        ``/execute`` gets re-submitted — and re-billed — below the SDK.
+        """
         session = create_retry_session()
 
-        adapter = session.get_adapter("https://example.com")
+        adapter = session.get_adapter(url)
         assert "GET" in adapter.max_retries.allowed_methods
-        assert "POST" in adapter.max_retries.allowed_methods
+        assert "POST" not in adapter.max_retries.allowed_methods
+        assert adapter.max_retries.allowed_methods == RETRY_ALLOWED_METHODS
+
+    def test_server_error_retry_is_method_scoped(self):
+        """``status_forcelist`` alone does not decide a retry -- the method does.
+
+        Asserting ``allowed_methods`` only pins configuration; this pins the
+        urllib3 semantics we depend on, so a future urllib3 that stopped
+        consulting ``allowed_methods`` for status retries would fail here.
+        """
+        session = create_retry_session()
+        retry = session.get_adapter("https://example.com").max_retries
+
+        assert retry.is_retry("GET", 503) is True
+        assert retry.is_retry("POST", 503) is False
+
+
+class TestTransportRetryBehaviour:
+    """End-to-end urllib3 behaviour for the BUG-1090 acceptance criteria.
+
+    These drive the real ``Retry`` machinery with the wire faulted out, because
+    the defect was urllib3 silently re-sending a POST *below* the SDK -- a
+    behaviour no assertion about ``allowed_methods`` can prove on its own.
+    """
+
+    @staticmethod
+    def _timeout_session(**kwargs):
+        """Session whose every wire attempt raises ReadTimeoutError, plus a counter."""
+        from urllib3.exceptions import ReadTimeoutError
+
+        session = create_retry_session(**kwargs)
+        attempts = []
+
+        def fail(self, conn, method, url, **_):
+            attempts.append((method, url))
+            raise ReadTimeoutError(self, url, "read timed out")
+
+        return session, attempts, patch("urllib3.connectionpool.HTTPSConnectionPool._make_request", fail)
+
+    def test_read_timeout_on_post_sends_exactly_one_request(self):
+        """A read timeout on ``/execute`` must produce exactly one submission.
+
+        A slow model exceeding DEFAULT_TIMEOUT_READ used to be retried by
+        urllib3, turning one billable run into up to ``total + 1`` (BUG-1090).
+        """
+        session, attempts, patcher = self._timeout_session()
+
+        with patcher:
+            with pytest.raises(requests.exceptions.RequestException):
+                session.post("https://example.com/execute", json={"q": "hi"})
+
+        assert len(attempts) == 1, attempts
+
+    def test_read_timeout_on_get_is_still_retried(self):
+        """Control case: GET keeps its retries, so the count above is meaningful.
+
+        Without this, a harness that never reached the retry machinery at all
+        would make the POST assertion vacuously pass.
+        """
+        session, attempts, patcher = self._timeout_session(total=2, backoff_factor=0)
+
+        with patcher:
+            with pytest.raises(requests.exceptions.RequestException):
+                session.get("https://example.com/results/123")
+
+        assert len(attempts) == 3, attempts
+
+    def test_connect_error_on_post_is_still_retried(self):
+        """Documents the limit of the ``allowed_methods`` guarantee.
+
+        urllib3 deliberately skips the method check for connect errors, and that
+        is safe: no connection means no request bytes and therefore no
+        submission to bill. Pinned so nobody reads
+        ``RETRY_ALLOWED_METHODS = {"GET"}`` as "urllib3 never re-sends a POST"
+        and builds a stronger assumption on top of it.
+        """
+        from urllib3.exceptions import NewConnectionError
+
+        session = create_retry_session(total=2, backoff_factor=0)
+        attempts = []
+
+        def fail(self, conn, method, url, **_):
+            attempts.append(method)
+            raise NewConnectionError(self.pool or self, "connection refused")
+
+        with patch("urllib3.connectionpool.HTTPSConnectionPool._make_request", fail):
+            with pytest.raises(requests.exceptions.RequestException):
+                session.post("https://example.com/execute", json={"q": "hi"})
+
+        assert len(attempts) == 3, attempts
 
 
 class TestAixplainClientInitialization:

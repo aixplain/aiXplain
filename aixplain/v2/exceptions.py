@@ -39,6 +39,7 @@ class APIError(AixplainV2Error):
         status_code: int = 0,
         response_data: Optional[Dict[str, Any]] = None,
         error: Optional[str] = None,
+        retryable: Optional[bool] = None,
     ) -> None:
         """Initialize APIError with HTTP status and response details.
 
@@ -47,16 +48,25 @@ class APIError(AixplainV2Error):
             status_code: HTTP status code from the API response.
             response_data: Optional dictionary containing the raw API response.
             error: Optional error string override.
+            retryable: Explicit retry signal, tri-state. ``None`` (the default)
+                means "no opinion" — callers fall back to the status-code
+                heuristic, where ``0`` stands for "no HTTP response at all".
+                ``False`` marks a deterministic failure that re-submitting
+                cannot fix; a business ``FAILED`` response is the motivating
+                case, because its usually-absent ``statusCode`` collapses onto
+                that same ``0`` transport sentinel.
         """
         self.status_code = status_code
         self.response_data = response_data or {}
         self.error = error or message if isinstance(message, str) else str(message)
+        self.retryable = retryable
         super().__init__(
             message,
             {
                 "status_code": status_code,
                 "response_data": response_data,
                 "error": self.error,
+                "retryable": retryable,
             },
         )
 
@@ -116,7 +126,14 @@ def _extract_error_from_dict(obj: Dict[str, Any]) -> Optional[str]:
 
 # Error factory function for consistent error creation
 def create_operation_failed_error(response: Dict[str, Any]) -> APIError:
-    """Create an operation failed error from API response."""
+    """Create an operation failed error from API response.
+
+    The error is always marked non-retryable: a ``FAILED`` body reports a
+    *business* outcome, and its ``statusCode`` (usually absent, hence ``0``) is
+    not a transport code. Without the explicit flag it would be indistinguishable
+    from a connection failure and re-POSTed, billing the customer again for the
+    same deterministic failure (BUG-1090).
+    """
     error_msg = _extract_error_from_dict(response)
     if not error_msg and isinstance(response.get("data"), dict):
         error_msg = _extract_error_from_dict(response["data"])
@@ -128,4 +145,5 @@ def create_operation_failed_error(response: Dict[str, Any]) -> APIError:
         status_code=response.get("statusCode", 0),
         response_data=response,
         error=error_msg,
+        retryable=False,
     )
