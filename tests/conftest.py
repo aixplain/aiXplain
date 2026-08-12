@@ -8,6 +8,13 @@ from typing import Any, Callable
 
 from dotenv import load_dotenv
 
+from tests.ci_guards import (
+    ExecutionLedger,
+    is_non_executing_session,
+    no_executed_tests_message,
+    should_fail_for_no_executed_tests,
+)
+
 # Load environment variables once for all tests
 load_dotenv(override=True)
 
@@ -299,3 +306,59 @@ def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config
 
     # Run last, so it only sees the items that survived the filters above.
     check_tests_have_assertions(items)
+
+
+# ---------------------------------------------------------------------------
+# Execution guard: a leg that ran no test body must not report success.
+#
+# The assertion guard above catches a test that checks nothing; this catches the
+# directory-scale version of the same problem -- a suite that runs nothing
+# (ENG-3544). See tests/ci_guards.py for the reasoning and the opt-in flag.
+# ---------------------------------------------------------------------------
+
+_EXECUTION_LEDGER = ExecutionLedger()
+
+
+def pytest_sessionstart(session: pytest.Session):
+    """Start each session's tally from zero.
+
+    The ledger lives as long as the *process*, which outlives a single session
+    whenever pytest is driven in-process (`pytest.main()` twice, the `pytester`
+    fixture). Without this, a second session inherits the first one's count and
+    the guard passes a run that executed nothing.
+    """
+    _EXECUTION_LEDGER.reset()
+
+
+def pytest_runtest_logreport(report: pytest.TestReport):
+    """Tally test bodies that actually ran."""
+    _EXECUTION_LEDGER.record(report)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
+    """Fail a session that reported success while running no test bodies.
+
+    Skipped on pytest-xdist workers: each worker only sees its own share of the
+    tests, so a worker that happened to be handed nothing but skips would fail a
+    run that executed plenty elsewhere. The controller receives every worker's
+    reports through `pytest_runtest_logreport`, so it holds the true total.
+
+    Also skipped for `--collect-only` and friends, which run no test body by
+    definition; see `NON_EXECUTING_OPTIONS` in tests/ci_guards.py.
+    """
+    if hasattr(session.config, "workerinput"):
+        return
+    if is_non_executing_session(session.config):
+        return
+    if not should_fail_for_no_executed_tests(_EXECUTION_LEDGER.executed, exitstatus):
+        return
+
+    message = no_executed_tests_message(session.testscollected)
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is not None:
+        reporter.write_sep("=", "CI integrity failure", red=True)
+        reporter.write_line(message)
+    else:  # pragma: no cover - only when the terminal plugin is disabled
+        print(message)
+
+    session.exitstatus = 1

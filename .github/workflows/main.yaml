@@ -13,6 +13,12 @@ env:
   # Measured at 64% on `development` @ 42ed1e02; set two points below to absorb
   # ordering/version jitter. Ratchet it up here as coverage improves.
   COVERAGE_FLOOR: "62"
+  # A leg that collects tests, skips every one, and exits 0 is indistinguishable
+  # from a leg that passed -- `agent` and `team_agent` reported green while
+  # executing 0 of 50 collected tests (ENG-3544). With this set, the
+  # `pytest_sessionfinish` guard in tests/conftest.py fails any session in which
+  # no test body ran.
+  AIXPLAIN_REQUIRE_EXECUTED_TESTS: "1"
 
 jobs:
   # The unit suite is deliberately credential-free: no TEAM_API_KEY, no
@@ -66,11 +72,18 @@ jobs:
       matrix:
         # 'unit' is absent on purpose: it runs in the credential-free
         # `unit-coverage` job above, so it is not executed twice.
+        # Every directory under tests/functional/ must be claimed by exactly one
+        # leg here; tests/unit/test_ci_matrix_coverage.py asserts it, so an
+        # orphaned test file (04dea96e removed four leg names but kept their
+        # test files) is now a unit-test failure rather than silent dead code.
         test-suite: [
           'file_asset',
           'data_asset',
+          'benchmark',
           'model',
           'pipeline_2.0_v1',
+          'pipeline_designer',
+          'pipeline_create',
           'general_assets',
           'apikey',
           'agent',
@@ -84,11 +97,27 @@ jobs:
           - test-suite: 'data_asset'
             path: 'tests/functional/data_asset'
             timeout: 45
+          # Restores functional coverage for MetricFactory/BenchmarkFactory,
+          # which had none after 04dea96e dropped this leg name. The suite has a
+          # 30-minute internal TIMEOUT, so 45 leaves it room to report.
+          - test-suite: 'benchmark'
+            path: 'tests/functional/benchmark'
+            timeout: 45
           - test-suite: 'model'
             path: 'tests/functional/model'
             timeout: 45
           - test-suite: 'pipeline_2.0_v1'
             path: 'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v1 --sdk_version_param PipelineFactory'
+            timeout: 45
+          # No --sdk_version/--pipeline_version flags on these two on purpose:
+          # the filters in tests/conftest.py drop every item that lacks the named
+          # parameter, so passing them to a non-parametrised file would collect N
+          # and execute 0 -- the very thing this ticket removes.
+          - test-suite: 'pipeline_designer'
+            path: 'tests/functional/pipelines/designer_test.py'
+            timeout: 45
+          - test-suite: 'pipeline_create'
+            path: 'tests/functional/pipelines/create_test.py'
             timeout: 45
           - test-suite: 'general_assets'
             path: 'tests/functional/general_assets'
