@@ -156,11 +156,22 @@ git push origin v0.2.48
 The `build` job refuses to proceed if the tag disagrees with `[project].version`, so a forgotten bump
 surfaces as a red release run rather than a mislabelled file on PyPI. No local `twine upload`.
 
+### Keeping the publish action's pin current
+
+The publish step is pinned to a commit SHA, not `@release/v1`: it is the only step that holds a
+credential able to upload as aiXplain, and a branch ref lets whoever can move it choose the code that
+runs there. `tests/unit/test_ci_permissions.py` fails if the pin ever becomes a branch or tag ref.
+
+To bump it, resolve the new commit and update both the ref and the trailing version comment:
+
+```bash
+gh api repos/pypa/gh-action-pypi-publish/git/ref/heads/release/v1 --jq '.object.sha'
+```
+
 ### Follow-ups recorded here rather than done in ENG-3428
 
-- **SHA-pin `pypa/gh-action-pypi-publish`** instead of `@release/v1`.
 - **Extract `package-integrity` into a `workflow_call` reusable workflow** shared by `main.yaml` and
-  `release.yaml`, so the release runs the full module census rather than the static guard plus an
+  `release.yaml`, so the release runs the full module census rather than the unit suite plus an
   install/import smoke.
 - **Drop `twine` and `pre-commit` from `[project].dependencies`** — release tooling that every SDK
   consumer currently installs, a direct artifact of releasing from a laptop.

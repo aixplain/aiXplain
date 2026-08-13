@@ -77,21 +77,27 @@ jobs:
           print(f"tag {tag} matches declared version {declared}")
           PY
 
-      # The static half of the ENG-3543 packaging gate, reused rather than
-      # reimplemented. The slow half (a .git-less export and a full module
-      # census) is main.yaml's `package-integrity` job, which the tagged commit
-      # must already have passed -- see docs/ci/required-checks.md.
-      - name: Run the packaging-config guard
+      # The whole unit suite, not just the packaging and CI guards. main.yaml is
+      # push-only and `required_status_checks.contexts` is still empty (this PR
+      # documents the flip but cannot make it), so nothing guarantees the tagged
+      # commit ever passed `unit-coverage`: `git tag v0.2.48 <any-commit> && git
+      # push --tags` would otherwise publish with the suite unrun. The suite is
+      # credential-free (ENG-3431), so it needs no secrets in this job.
+      #
+      # This covers the static half of the ENG-3543 packaging gate. The slow half
+      # (a .git-less export and a full module census) is main.yaml's
+      # `package-integrity` job -- see docs/ci/required-checks.md.
+      - name: Run the unit suite, packaging and CI guards included
         env:
           # The same opt-in guard main.yaml sets (ENG-3544). A pytest run that
-          # collects these two files and executes none of them -- an import
-          # error turned into a collection-time skip, a stray `-k` -- exits 0,
-          # and the release would proceed on a tree nothing had checked.
+          # collects tests and executes none of them -- an import error turned
+          # into a collection-time skip, a stray `-k` -- exits 0, and the release
+          # would proceed on a tree nothing had checked.
           AIXPLAIN_REQUIRE_EXECUTED_TESTS: "1"
         run: |
           set -euo pipefail
           pip install ".[test]"
-          python -m pytest tests/unit/test_packaging_config.py tests/unit/test_ci_permissions.py -q
+          python -m pytest tests/unit -q
 
       - name: Build sdist and wheel
         run: |
@@ -163,11 +169,13 @@ jobs:
           path: dist
 
       - name: Publish to PyPI with attestations
-        # Pinned to the branch PyPA documents for this action; SHA-pinning is
-        # recorded as a follow-up in docs/ci/required-checks.md. `attestations`
-        # defaults to true on recent versions -- set explicitly so a default
-        # change cannot silently drop provenance.
-        uses: pypa/gh-action-pypi-publish@release/v1
+        # Pinned to a commit SHA, not `@release/v1`: this is the one step that
+        # holds a credential able to publish as aiXplain, and a branch ref is
+        # mutable -- whoever can move it chooses the code that runs here.
+        # tests/unit/test_ci_permissions.py fails if this ever becomes a branch
+        # or tag ref again. `attestations` defaults to true on recent versions --
+        # set explicitly so a default change cannot silently drop provenance.
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           attestations: true
           print-hash: true

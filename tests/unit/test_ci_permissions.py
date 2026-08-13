@@ -54,6 +54,13 @@ ALLOWED_WRITE = {
 #: rather than OIDC. Their absence is the whole point of Trusted Publishing.
 TOKEN_INPUTS = ("password", "user")
 
+#: A `uses:` ref that is an immutable commit, i.e. a full 40-character hex SHA.
+#: Abbreviated SHAs are excluded deliberately: GitHub accepts them, but a short
+#: prefix is not collision-proof and cannot be re-verified by eye.
+COMMIT_SHA_REF = re.compile(r"^[0-9a-f]{40}$")
+
+PUBLISH_ACTION = "pypa/gh-action-pypi-publish"
+
 #: Permission values that grant nothing writable. `read-all` is the only
 #: bare-string form of `permissions:` that is not a write grant.
 READ_ONLY_VALUES = {"read", "none", "read-all"}
@@ -107,6 +114,22 @@ def _permission_grants(path: Path) -> dict:
         for scope, value in block.items():
             grants.setdefault(scope, set()).add(str(value))
     return grants
+
+
+def _publish_steps() -> list[tuple[str, dict]]:
+    """Every `pypa/gh-action-pypi-publish` step under .github/workflows/, as (where, step).
+
+    A list of pairs rather than a dict keyed by location: two publish steps in
+    one job would collapse into a single entry, and the second one is exactly the
+    sort of addition these tests exist to notice.
+    """
+    found = []
+    for path in _workflow_files():
+        for job_name, job in (_load(path).get("jobs") or {}).items():
+            for step in job.get("steps") or []:
+                if str(step.get("uses", "")).startswith(PUBLISH_ACTION):
+                    found.append((f"{path.name}:{job_name}", step))
+    return found
 
 
 def _holds_oidc(block_owner: dict) -> bool:
@@ -283,6 +306,59 @@ def test_release_publishes_with_attestations_over_trusted_publishing():
     )
 
 
+def test_every_pypi_publish_step_is_pinned_to_a_commit_sha():
+    """The step that can publish as aiXplain must not run code from a mutable ref.
+
+    `@release/v1` is a *branch*: whoever can move it -- upstream maintainers, or
+    anyone who compromises that repo -- chooses the code that runs in the one job
+    holding a credential able to upload to PyPI, and the change lands here with no
+    diff in this repository. Tags are no better; a git tag can be force-pushed.
+    Only a full commit SHA is immutable.
+
+    Bumping the pin is a normal, reviewable one-line PR: resolve the new SHA
+    (`gh api repos/pypa/gh-action-pypi-publish/git/ref/heads/release/v1`) and keep
+    the human-readable version in the trailing comment.
+    """
+    steps = _publish_steps()
+    assert steps, f"no {PUBLISH_ACTION} step found at all; the publish tests below would be vacuous"
+
+    offenders = {}
+    for where, step in steps:
+        uses = str(step["uses"])
+        _, _, ref = uses.partition("@")
+        if not COMMIT_SHA_REF.match(ref):
+            offenders[where] = uses
+    assert not offenders, (
+        f"PyPI publish steps pinned to a mutable ref instead of a 40-hex commit SHA: {offenders}. "
+        f"Use `{PUBLISH_ACTION}@<sha>  # <version>` (ENG-3428)."
+    )
+
+
+def test_release_build_job_runs_the_whole_unit_suite_before_publishing():
+    """A tag alone must not be able to publish code the unit suite never saw.
+
+    `main.yaml` runs on push, and `required_status_checks.contexts` on `main` is
+    empty -- that is the settings flip this PR only documents. So nothing outside
+    this workflow guarantees the tagged commit ever went green: `git tag v0.2.48
+    <any-commit> && git push --tags` publishes whatever the release run itself
+    checks, and no more. Narrowing this step back to a couple of guard files
+    (which is what it was) would leave the release gate quietly weaker than the
+    branch CI, while still passing.
+    """
+    build = _load(RELEASE_WORKFLOW)["jobs"]["build"]
+    scripts = [step.get("run", "") or "" for step in build["steps"]]
+
+    runs_suite = [
+        script
+        for script in scripts
+        if re.search(r"pytest\s+(?:-\S+\s+)*tests/unit\s*(?:-\S+\s*)*$", script.strip(), re.MULTILINE)
+    ]
+    assert runs_suite, (
+        "release.yaml's `build` job does not run `pytest tests/unit` over the whole suite; a tag "
+        f"could publish with the unit tests unrun (ENG-3428). Steps run: {scripts!r}"
+    )
+
+
 def test_release_yaml_is_the_only_thing_that_uploads_to_pypi():
     """A second publish step elsewhere would defeat the pipeline invisibly.
 
@@ -293,12 +369,7 @@ def test_release_yaml_is_the_only_thing_that_uploads_to_pypi():
     `release.yaml` still read as correct. Every publish step in the directory,
     wherever it lives, has to be tokenless.
     """
-    found = {}
-    for path in _workflow_files():
-        for job_name, job in (_load(path).get("jobs") or {}).items():
-            for step in job.get("steps") or []:
-                if str(step.get("uses", "")).startswith("pypa/gh-action-pypi-publish"):
-                    found[f"{path.name}:{job_name}"] = step.get("with") or {}
+    found = {where: step.get("with") or {} for where, step in _publish_steps()}
 
     assert set(found) == {"release.yaml:publish"}, (
         f"PyPI publish steps found in {sorted(found)}; the only one should be release.yaml's "
