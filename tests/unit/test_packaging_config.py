@@ -93,6 +93,20 @@ def test_every_package_dir_is_matched_by_an_include_pattern(find_config):
     assert not excluded, f"exclude={exclude} discards real packages: {excluded[:10]}"
 
 
+def test_the_test_suite_is_not_packaged(find_config):
+    """`tests` is intentionally not shipped, and the fix for one must not add it.
+
+    A "tests*" include installs an importable top-level `tests` package into
+    every user's site-packages -- functional tests that hit the live backend
+    included -- where it shadows, or is shadowed by, their own `tests`. Nothing
+    needs it installed: `tests/conftest.py`'s `from tests.ci_guards import ...`
+    resolves through pytest's rootdir insertion when run from the repo.
+    """
+    include = find_config["include"]
+    matched = [pattern for pattern in include if fnmatchcase("tests", pattern)]
+    assert not matched, f"include={include} would ship the test suite to users via {matched}"
+
+
 def test_namespaces_stays_enabled(find_config):
     """`namespaces = false` would drop the two __init__-less dirs back out."""
     missing_init = [d for d in NAMESPACE_ONLY_DIRS if not (REPO_ROOT / d / "__init__.py").exists()]
