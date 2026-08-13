@@ -13,6 +13,12 @@ env:
   # Measured at 64% on `development` @ 42ed1e02; set two points below to absorb
   # ordering/version jitter. Ratchet it up here as coverage improves.
   COVERAGE_FLOOR: "62"
+  # A leg that collects tests, skips every one, and exits 0 is indistinguishable
+  # from a leg that passed -- `agent` and `team_agent` reported green while
+  # executing 0 of 50 collected tests (ENG-3544). With this set, the
+  # `pytest_sessionfinish` guard in tests/conftest.py fails any session in which
+  # no test body ran.
+  AIXPLAIN_REQUIRE_EXECUTED_TESTS: "1"
 
 jobs:
   # The unit suite is deliberately credential-free: no TEAM_API_KEY, no
@@ -66,6 +72,22 @@ jobs:
       matrix:
         # 'unit' is absent on purpose: it runs in the credential-free
         # `unit-coverage` job above, so it is not executed twice.
+        #
+        # Every test file under tests/functional/ must either be claimed by
+        # exactly one leg here or be listed in PARKED_TARGETS in
+        # tests/unit/test_ci_matrix_coverage.py with a ticket reference. That
+        # test asserts both directions, so an orphaned file (04dea96e removed
+        # four leg names but kept their test files) is a unit-test failure
+        # rather than silent dead code, while parking stays available as an
+        # explicit, reviewed choice.
+        #
+        # Deliberately NOT legs: benchmark, pipelines/designer_test.py,
+        # pipelines/create_test.py. 04dea96e dropped them because they were
+        # failing, and their green-ness against the test backend has not been
+        # re-established. They stay parked (ENG-3544) until someone runs them
+        # with a test-backend credential and proves them green; re-add the leg
+        # name and its include entry here in the same change that drops the
+        # PARKED_TARGETS entry.
         test-suite: [
           'file_asset',
           'data_asset',
