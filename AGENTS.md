@@ -111,6 +111,16 @@ The SDK exposes two API layers maintained in parallel:
 | Entry point | `aixplain.factories.*Factory` | `aixplain.v2.*` |
 | Serialization | Manual dict handling | `dataclasses-json` (camelCase API to snake_case Python) |
 
+> **V1 is deprecated and will be removed on February 1, 2027** (`2027-02-01`). Importing any v1
+> code — `aixplain.v1` directly, or a legacy path such as `aixplain.modules` — emits one
+> `aixplain._compat.AixplainV1DeprecationWarning` per process. The date lives in exactly one
+> place, `aixplain._compat.V1_REMOVAL_DATE`; `tests/unit/test_v1_deprecation_docs.py` fails if any
+> hand-written doc disagrees with it, so change the constant and then the docs, never the reverse.
+> See [`MIGRATION.md`](MIGRATION.md) for the factory-by-factory map, including the eight factories
+> that have **no v2 equivalent yet** and therefore gate the removal.
+>
+> This does not license removing v1 code — see [V1 and Compatibility Rules](#v1-and-compatibility-rules).
+
 ### Package Layout
 
 | Directory | Purpose |

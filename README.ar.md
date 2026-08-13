@@ -25,6 +25,12 @@
 >
 > _نحن ندير أعمالنا باستخدام وكلاء aiXplain، ونستخدمهم عبر المنتجات وتطوير الأعمال والتسويق._
 
+> **إشعار إيقاف SDK v1**
+>
+> يوثّق هذا الملف SDK v2، وهي واجهة API الافتراضية. أما SDK v1 (واجهة المصانع القديمة) فهي **مهملة وستُزال في 1 فبراير 2027** (`2027-02-01`)، وبعد ذلك يصبح v2 هو السطح المدعوم الوحيد. صار استيراد v1 يُصدر تحذير `DeprecationWarning`؛ لإسكاته اضبط `AIXPLAIN_SUPPRESS_V1_DEPRECATION=1`.
+>
+> راجع [دليل الترحيل](MIGRATION.md) لمعرفة مقابل كل مصنع في v2، و[توثيق SDK v1](https://docs.aixplain.com/1.0/).
+
 ## لماذا aiXplain
 
 - **حلقة تشغيل مستقلة** — يخطط، ويستدعي الأدوات والنماذج، ويراجع، ويستمر دون مخططات انسياب ثابتة.
@@ -55,4 +61,4 @@ AgenticOS هو منصة التشغيل المحمولة التي تقف خلف �
 
 ## سوق خوادم MCP
 
-<!-- ملاحظات الترجمة: [أُبقي على AgenticOS وAgentEngine وAssetServing كأسماء علامة تجارية دون ترجمة] | [تُرجم Governance→الحوكمة وObservability→الرصد والمراقبة وSubagents→وكلاء فرعيين حسب المسرد] | [kept EN: MCP, SDK, API, REST, Python, Discord — أسماء تقنية وعلامات تجارية لا تُترجم] | [تُرجم Marketplace→السوق في العنوان وMarketplace size→حجم السوق في alt text] -->
+<!-- ملاحظات الترجمة: [أُبقي على AgenticOS وAgentEngine وAssetServing كأسماء علامة تجارية دون ترجمة] | [تُرجم Governance→الحوكمة وObservability→الرصد والمراقبة وSubagents→وكلاء فرعيين حسب المسرد] | [kept EN: MCP, SDK, API, REST, Python, Discord — أسماء تقنية وعلامات تجارية لا تُترجم] | [تُرجم Marketplace→السوق في العنوان وMarketplace size→حجم السوق في alt text] | [تُرجم deprecation→الإهمال وremoval→الإزالة وmigration guide→دليل الترحيل حسب المسرد] | [kept EN: DeprecationWarning، MIGRATION.md، AIXPLAIN_SUPPRESS_V1_DEPRECATION — معرّفات تقنية في الشيفرة لا تُترجم] -->
