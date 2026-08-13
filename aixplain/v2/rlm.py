@@ -699,7 +699,7 @@ class RLM(BaseResource, ToolableMixin):
     Attributes:
         orchestrator_id: Platform model ID of the orchestrator LLM.
         worker_id: Platform model ID of the worker LLM.
-        max_iterations: Maximum orchestrator loop iterations (default 12). A
+        max_iterations: Maximum orchestrator loop iterations (default 10). A
             batch of ``llm_query`` calls costs two iterations in recursive mode
             — one to submit the prompts and one to consume the answers.
         timeout: Maximum wall-clock seconds per ``run()`` call (default 600).
@@ -711,7 +711,7 @@ class RLM(BaseResource, ToolableMixin):
     # Serializable configuration fields
     orchestrator_id: str = field(default="")
     worker_id: str = field(default="")
-    max_iterations: int = field(default=12)
+    max_iterations: int = field(default=10)
     timeout: float = field(default=600.0)
 
     # RAG mode — optional pre-built aIR index. When empty, mode="rag" creates
