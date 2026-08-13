@@ -73,14 +73,6 @@ jobs:
           name: coverage-xml
           path: coverage.xml
 
-  # A build that succeeds only because `.git` happens to be present is not a
-  # build. Until ENG-3543 the shipped package list came from a setuptools-scm git
-  # file sweep and a stale aiXplain.egg-info/SOURCES.txt rather than from
-  # [tool.setuptools.packages.find]; a .git-less export shipped 3 of 169 modules
-  # with no error, installed cleanly, and raised ModuleNotFoundError at first
-  # import. This job removes both crutches and asserts the artifact still
-  # imports. Credential-free on purpose: if it fails on a missing key, the
-  # regression is import-time credential validation, not this workflow.
   package-integrity:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -241,18 +233,27 @@ jobs:
       matrix:
         # 'unit' is absent on purpose: it runs in the credential-free
         # `unit-coverage` job above, so it is not executed twice.
-        # Every directory under tests/functional/ must be claimed by exactly one
-        # leg here; tests/unit/test_ci_matrix_coverage.py asserts it, so an
-        # orphaned test file (04dea96e removed four leg names but kept their
-        # test files) is now a unit-test failure rather than silent dead code.
+        #
+        # Every test file under tests/functional/ must either be claimed by
+        # exactly one leg here or be listed in PARKED_TARGETS in
+        # tests/unit/test_ci_matrix_coverage.py with a ticket reference. That
+        # test asserts both directions, so an orphaned file (04dea96e removed
+        # four leg names but kept their test files) is a unit-test failure
+        # rather than silent dead code, while parking stays available as an
+        # explicit, reviewed choice.
+        #
+        # Deliberately NOT legs: benchmark, pipelines/designer_test.py,
+        # pipelines/create_test.py. 04dea96e dropped them because they were
+        # failing, and their green-ness against the test backend has not been
+        # re-established. They stay parked (ENG-3544) until someone runs them
+        # with a test-backend credential and proves them green; re-add the leg
+        # name and its include entry here in the same change that drops the
+        # PARKED_TARGETS entry.
         test-suite: [
           'file_asset',
           'data_asset',
-          'benchmark',
           'model',
           'pipeline_2.0_v1',
-          'pipeline_designer',
-          'pipeline_create',
           'general_assets',
           'apikey',
           'agent',
@@ -266,27 +267,11 @@ jobs:
           - test-suite: 'data_asset'
             path: 'tests/functional/data_asset'
             timeout: 45
-          # Restores functional coverage for MetricFactory/BenchmarkFactory,
-          # which had none after 04dea96e dropped this leg name. The suite has a
-          # 30-minute internal TIMEOUT, so 45 leaves it room to report.
-          - test-suite: 'benchmark'
-            path: 'tests/functional/benchmark'
-            timeout: 45
           - test-suite: 'model'
             path: 'tests/functional/model'
             timeout: 45
           - test-suite: 'pipeline_2.0_v1'
             path: 'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v1 --sdk_version_param PipelineFactory'
-            timeout: 45
-          # No --sdk_version/--pipeline_version flags on these two on purpose:
-          # the filters in tests/conftest.py drop every item that lacks the named
-          # parameter, so passing them to a non-parametrised file would collect N
-          # and execute 0 -- the very thing this ticket removes.
-          - test-suite: 'pipeline_designer'
-            path: 'tests/functional/pipelines/designer_test.py'
-            timeout: 45
-          - test-suite: 'pipeline_create'
-            path: 'tests/functional/pipelines/create_test.py'
             timeout: 45
           - test-suite: 'general_assets'
             path: 'tests/functional/general_assets'

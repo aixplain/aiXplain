@@ -14,7 +14,10 @@ where = ["."]
 # package name, so a bare "aixplain" matches only the top-level package and
 # discards all 26 subpackages. Without the trailing `*` a .git-less build ships
 # 3 of 169 modules, with no error and no warning (ENG-3543).
-include = ["aixplain*", "tests*"]
+# `tests` is deliberately absent: a "tests*" pattern would install an importable
+# top-level `tests` package (functional tests included, which hit the live
+# backend) into every user's site-packages, where it collides with their own.
+include = ["aixplain*"]
 exclude = ["*.__pycache__", "*.__pycache__.*"]
 # Load-bearing, do not flip to false: aixplain/v1/base/ and
 # aixplain/v1/factories/cli/ hold modules but no __init__.py, and are imported
@@ -99,9 +102,8 @@ test = [
 ]
 
 [tool.coverage.run]
-# Measure the product, not the test suite. `--source=.` also picks up `tests/`
-# (which ships as a package, see [tool.setuptools.packages.find]) and inflates
-# the headline figure.
+# Measure the product, not the test suite: `--source=.` also picks up `tests/`
+# and inflates the headline figure.
 source = ["aixplain"]
 omit = [
     "tests/*",

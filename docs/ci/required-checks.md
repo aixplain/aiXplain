@@ -30,11 +30,8 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | 1 | `package-integrity` | `main.yaml` | **No** | `main.yaml` gains a `pull_request` trigger |
 | 2 | `setup-and-test (file_asset)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `setup-and-test (data_asset)` | `main.yaml` | **No** | as above |
-| 2 | `setup-and-test (benchmark)` | `main.yaml` | **No** | as above |
 | 2 | `setup-and-test (model)` | `main.yaml` | **No** | as above |
 | 2 | `setup-and-test (pipeline_2.0_v1)` | `main.yaml` | **No** | as above |
-| 2 | `setup-and-test (pipeline_designer)` | `main.yaml` | **No** | as above |
-| 2 | `setup-and-test (pipeline_create)` | `main.yaml` | **No** | as above |
 | 2 | `setup-and-test (general_assets)` | `main.yaml` | **No** | as above |
 | 2 | `setup-and-test (apikey)` | `main.yaml` | **No** | as above |
 | 2 | `setup-and-test (agent)` | `main.yaml` | **No** | as above |

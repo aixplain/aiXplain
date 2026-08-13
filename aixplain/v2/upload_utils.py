@@ -117,8 +117,20 @@ class RequestManager:
 
     @classmethod
     def request_with_retry(cls, method: str, url: str, **kwargs) -> requests.Response:
-        """Make HTTP request with retry logic."""
+        """Make HTTP request with retry logic.
+
+        A default ``(connect, read)`` timeout is applied when the caller doesn't
+        pass one: without it ``requests`` waits forever, so a peer that accepts
+        the connection and then goes silent pins the calling thread with no upper
+        bound. The read timeout bounds the gap between bytes, not the total
+        transfer, so large uploads are unaffected. Override per call with
+        ``timeout=`` or globally via ``AIXPLAIN_HTTP_CONNECT_TIMEOUT`` /
+        ``AIXPLAIN_HTTP_READ_TIMEOUT``.
+        """
+        from .client import default_timeout
+
         session = cls.create_session()
+        kwargs.setdefault("timeout", default_timeout())
         return session.request(method=method.upper(), url=url, **kwargs)
 
 
