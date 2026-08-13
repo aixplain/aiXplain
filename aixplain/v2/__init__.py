@@ -61,6 +61,7 @@ from .exceptions import (
     ValidationError,
     TimeoutError,
     FileUploadError,
+    UntrustedURLError,
 )
 from .enums import (
     AuthenticationScheme,
@@ -161,6 +162,7 @@ __all__ = [
     "ValidationError",
     "TimeoutError",
     "FileUploadError",
+    "UntrustedURLError",
     # V2 enum exports
     "AuthenticationScheme",
     "FileType",

@@ -7,6 +7,7 @@ import logging
 import re
 import time
 from typing import Dict, Union, List, Optional, Any, TYPE_CHECKING, Iterator
+from urllib.parse import urlparse
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
 from dataclasses import dataclass, field
@@ -32,12 +33,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_MODEL_POLL_URL_RE = re.compile(
-    r"^(?:https?://[^/?#]+)?/?(?:"
-    r"api/v1/data/[A-Za-z0-9_-]+|"
-    r"sdk/(?:models|runs)/[A-Za-z0-9_-]+(?:/result)?"
-    r")(?:[?#].*)?$"
-)
+# Path shape only. This decides *routing* -- "does this URL look like a poll
+# endpoint rather than a media output URL?" -- and is NOT an authorization
+# decision: a path-shape match says nothing about who owns the host. Host trust
+# is enforced by ``AixplainClient.ensure_trusted_url`` on the poll path itself.
+_MODEL_POLL_PATH_RE = re.compile(r"^/?(?:api/v1/data/[A-Za-z0-9_-]+|sdk/(?:models|runs)/[A-Za-z0-9_-]+(?:/result)?)/?$")
 
 
 def _normalize_reasoning(
@@ -787,8 +787,14 @@ class Model(
 
     @staticmethod
     def _is_poll_url(url: str) -> bool:
-        """Return True when a model URL matches a known polling endpoint."""
-        return bool(_MODEL_POLL_URL_RE.match(url))
+        """Return True when *url*'s path matches a known polling endpoint.
+
+        Routing only, never authorization: a poll-shaped URL on a foreign host
+        still matches here and is then refused by the trusted-host guard inside
+        :meth:`poll`, which is the desired outcome -- silently treating it as
+        data would hide an active attack.
+        """
+        return bool(_MODEL_POLL_PATH_RE.match(urlparse(url).path))
 
     def _run_sync_v2(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model synchronously using V2 endpoint directly.
