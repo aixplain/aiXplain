@@ -64,6 +64,158 @@ jobs:
           name: coverage-xml
           path: coverage.xml
 
+  package-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          cache: 'pip'
+
+      - name: Export the source tree without .git or egg-info
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/export"
+          rsync -a \
+            --exclude='.git' \
+            --exclude='*.egg-info' \
+            --exclude='__pycache__' \
+            --exclude='dist' \
+            --exclude='build' \
+            ./ "$RUNNER_TEMP/export/"
+          # Both crutches must be gone; either one alone still masks the bug.
+          test ! -e "$RUNNER_TEMP/export/.git"
+          test -z "$(find "$RUNNER_TEMP/export" -name '*.egg-info' -print -quit)"
+
+      - name: Build sdist and wheel from the export
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip build
+          # No --wheel: the default flow is sdist -> wheel *from that sdist*,
+          # which also proves the sdist is self-sufficient.
+          python -m build --outdir "$RUNNER_TEMP/dist" "$RUNNER_TEMP/export"
+
+      - name: Assert the artifacts carry every aixplain module
+        run: |
+          set -euo pipefail
+          python - "$RUNNER_TEMP/export" "$RUNNER_TEMP/dist" <<'PY'
+          import pathlib, sys, tarfile, zipfile
+
+          export, dist = (pathlib.Path(a) for a in sys.argv[1:3])
+          wheels = sorted(dist.glob("*.whl"))
+          sdists = sorted(dist.glob("*.tar.gz"))
+          assert len(wheels) == 1, f"expected one wheel, got {wheels}"
+          assert len(sdists) == 1, f"expected one sdist, got {sdists}"
+
+          # Derived from the tree, never hardcoded: adding a module must not
+          # require editing this gate, and a hardcoded count rots on the first PR.
+          expected = {
+              p.relative_to(export).as_posix()
+              for p in (export / "aixplain").rglob("*.py")
+          }
+          assert len(expected) > 100, f"source scan found only {len(expected)} modules"
+
+          # aixplain/v1/base/ and aixplain/v1/factories/cli/ have no __init__.py;
+          # they only ship while `namespaces = true` holds. Sharpest canaries.
+          for canary in (
+              "aixplain/v1/base/parameters.py",
+              "aixplain/v1/factories/cli/model_factory_cli.py",
+          ):
+              assert canary in expected, f"canary vanished from the tree: {canary}"
+
+          shipped = {
+              n for n in zipfile.ZipFile(wheels[0]).namelist()
+              if n.startswith("aixplain/") and n.endswith(".py")
+          }
+          sdist_names = tarfile.open(sdists[0]).getnames()
+          in_sdist = {
+              n.split("/", 1)[1] for n in sdist_names
+              if "/aixplain/" in n and n.endswith(".py")
+          }
+          print(f"source={len(expected)} wheel={len(shipped)} sdist={len(in_sdist)}")
+
+          problems = []
+          for label, got in (("wheel", shipped), ("sdist", in_sdist)):
+              missing = sorted(expected - got)
+              if missing:
+                  problems.append(
+                      f"{len(missing)} module(s) missing from the {label}; "
+                      f"first 10: {missing[:10]}"
+                  )
+          # setup.cfg's license_files pattern is not validated by anything else --
+          # a mismatched name is only a deprecation warning, and the sdist ships
+          # unlicensed (ENG-3543).
+          if not any(n.endswith("/LICENSE") for n in sdist_names):
+              problems.append("sdist ships no LICENSE; check `license_files` in setup.cfg")
+          if problems:
+              sys.exit("\n".join(problems))
+          PY
+
+      - name: Install the wheel into a clean venv and import it
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --upgrade pip
+          "$RUNNER_TEMP/venv/bin/pip" install "$RUNNER_TEMP"/dist/*.whl
+          # cd out of the repo FIRST: a cwd-local `aixplain/` shadows
+          # site-packages and would make this step pass on a 3-module wheel.
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/venv/bin/python" - <<'PY'
+          import importlib, sys
+          import aixplain
+
+          print("imported", aixplain.__file__)
+          assert "site-packages" in aixplain.__file__, (
+              f"imported the source tree, not the wheel: {aixplain.__file__}"
+          )
+
+          # One entry per top-level subpackage, plus both legacy-redirect paths
+          # through the __init__-less namespace dirs. Deliberately not a
+          # walk_packages() sweep: modules behind optional extras (plotly,
+          # docker, model-interfaces) would fail for reasons unrelated to
+          # packaging and make the gate flaky.
+          CANARIES = [
+              "aixplain.v2.core",
+              "aixplain.v2.agent",
+              "aixplain.v1.modules.model",
+              "aixplain.v1.factories.model_factory",
+              "aixplain.v1.processes.data_onboarding",
+              "aixplain.base.parameters",                   # -> v1/base/, no __init__.py
+              "aixplain.factories.cli.model_factory_cli",   # -> v1/factories/cli/, no __init__.py
+              "aixplain.enums",
+              "aixplain.utils.config",
+              "aixplain.exceptions.types",
+              "aixplain.cli_groups",
+          ]
+          failed = []
+          for m in CANARIES:
+              try:
+                  importlib.import_module(m)
+              except Exception as exc:
+                  failed.append(f"  {m}: {exc!r}")
+          if failed:
+              sys.exit("\n".join(["modules failed to import from the wheel:"] + failed))
+          print(f"{len(CANARIES)} canary modules imported cleanly")
+          PY
+
+      - name: Check the console script is wired up
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/venv/bin/aixplain" --help
+
+      - name: Upload the built artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dist
+          path: ${{ runner.temp }}/dist/*
+
   setup-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 45  # Global timeout fallback
