@@ -45,7 +45,7 @@ The portable runtime behind aixplain agents: orchestration, governed asset servi
 
 ## Quick start
 
-> **This README documents SDK v2, the default API.** SDK v1 (the legacy factory API) keeps working until **August 1, 2026**, after which v2 is the only supported surface.
+> **This README documents SDK v2, the default API.** SDK v1 (the legacy factory API) is deprecated and will be removed on **February 1, 2027** (`2027-02-01`), after which v2 is the only supported surface. Importing v1 now emits a `DeprecationWarning` — see the [migration guide](MIGRATION.md) for the factory-by-factory map.
 
 ```bash
 pip install aixplain
@@ -144,7 +144,7 @@ Team agent
 └── Orchestrator: composes and returns the final answer
 ```
 
-> **SDK v1 (legacy):** available until August 1, 2026 — see the [SDK v1 docs](https://docs.aixplain.com/1.0/).
+> **SDK v1 (legacy):** deprecated, supported until February 1, 2027 (`2027-02-01`) — see the [migration guide](MIGRATION.md) and the [SDK v1 docs](https://docs.aixplain.com/1.0/).
 
 ---
 

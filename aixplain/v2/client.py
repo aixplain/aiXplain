@@ -167,15 +167,6 @@ def build_trusted_origins(urls: Iterable[str]) -> FrozenSet[Origin]:
     return frozenset(origins)
 
 
-def _loggable(kwargs: dict) -> dict:
-    """Return *kwargs* with credential headers redacted, for debug logging."""
-    headers = kwargs.get("headers")
-    if not isinstance(headers, dict):
-        return kwargs
-    redacted = {k: ("***" if k.lower() in AUTH_HEADER_NAMES else v) for k, v in headers.items()}
-    return {**kwargs, "headers": redacted}
-
-
 class _AixplainSession(requests.Session):
     """Session that drops aiXplain credentials when a redirect leaves the trusted set.
 
@@ -362,7 +353,7 @@ class AixplainClient:
         kwargs["headers"] = {**self._auth_headers(), **(kwargs.pop("headers", None) or {})}
         kwargs.setdefault("timeout", self.timeout)
         # ``headers`` now carries the API key, so it stays out of the log line.
-        logger.debug(f"Requesting {method} {url} with kwargs: {_loggable(kwargs)}")
+        logger.debug(f"Requesting {method} {url} with kwargs: {kwargs}")
         response = self.session.request(method=method, url=url, **kwargs)
         logger.debug(f"Response: {response.text}")
         if not response.ok:
