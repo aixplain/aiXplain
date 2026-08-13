@@ -8,15 +8,65 @@ on:
       - test
   workflow_dispatch:
 
+env:
+  # Coverage floor for the unit suite, enforced by the `unit-coverage` job.
+  # Measured at 64% on `development` @ 42ed1e02; set two points below to absorb
+  # ordering/version jitter. Ratchet it up here as coverage improves.
+  COVERAGE_FLOOR: "62"
+
 jobs:
+  # The unit suite is deliberately credential-free: no TEAM_API_KEY, no
+  # BACKEND_URL. If this job starts failing on a missing key, the regression is
+  # in the code under test (something validating credentials at import time),
+  # not in this workflow.
+  unit-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # `coverage[toml]` (not plain `coverage`): the coverage settings live in
+          # pyproject.toml, and on Python < 3.11 coverage needs the `tomli` extra to
+          # read it. Without the extra it aborts with "Can't read 'pyproject.toml'
+          # without TOML support" before a single test runs.
+          pip install ".[test]" "coverage[toml]"
+
+      - name: Run unit tests with coverage
+        run: coverage run -m pytest tests/unit
+
+      - name: Enforce coverage floor
+        run: coverage report --fail-under=${{ env.COVERAGE_FLOOR }}
+
+      - name: Write coverage.xml
+        if: always()
+        run: coverage xml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
   setup-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 45  # Global timeout fallback
     strategy:
       fail-fast: false
       matrix:
+        # 'unit' is absent on purpose: it runs in the credential-free
+        # `unit-coverage` job above, so it is not executed twice.
         test-suite: [
-          'unit',
           'file_asset',
           'data_asset',
           'model',
@@ -28,9 +78,6 @@ jobs:
           'v2',
         ]
         include:
-          - test-suite: 'unit'
-            path: 'tests/unit'
-            timeout: 45  # Tweaked timeout for each unit tests
           - test-suite: 'file_asset'
             path: 'tests/functional/file_asset'
             timeout: 45

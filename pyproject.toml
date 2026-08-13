@@ -76,4 +76,34 @@ test = [
     "pytest-mock>=3.10.0",
     "pytest-rerunfailures>=16.0",
     "pytest-xdist",
+    # Exercised by the agent_evaluator / eval_experiment plotting tests, which
+    # used to `pytest.importorskip("plotly")` and therefore never ran (ENG-3431).
+    "plotly>=5.18.0",
+]
+
+[tool.coverage.run]
+# Measure the product, not the test suite. `--source=.` also picks up `tests/`
+# (which ships as a package, see [tool.setuptools.packages.find]) and inflates
+# the headline figure.
+source = ["aixplain"]
+omit = [
+    "tests/*",
+    "aixplain/v2/enums_include.py",  # auto-generated
+]
+relative_files = true  # keeps coverage.xml paths portable for CI reporters
+branch = false  # statement coverage only for now
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# NOTE: `fail_under` is deliberately NOT set here. The threshold is passed on
+# the CI command line (`coverage report --fail-under=$COVERAGE_FLOOR`) so the
+# gate is visible in the workflow and does not fail local/pre-commit runs
+# mid-refactor.
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@(abc\\.)?abstractmethod",
 ]
