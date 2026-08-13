@@ -33,6 +33,7 @@ from .exceptions import (
     ValidationError,
     APIError,
     TimeoutError,
+    UntrustedURLError,
     create_operation_failed_error,
 )
 
@@ -576,7 +577,10 @@ class BaseRunParams(BaseParams):
     Attributes:
         timeout: Maximum time in seconds to wait for completion.
         wait_time: Initial interval in seconds between poll attempts.
-        run_retries: Extra attempts after the first failure (total attempts = 1 + run_retries).
+        run_retries: Extra *submission* attempts after the first failure (total
+            attempts = 1 + run_retries). Covers only the POST that starts the
+            run: a failure while polling an already-running job is not retried,
+            because re-submitting would start and bill a second execution.
         run_retry_wait: Seconds to wait between retry attempts (default 1.0).
 
     Note:
@@ -1264,9 +1268,18 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
     @staticmethod
     def _is_retryable_run_error(exc: BaseException) -> bool:
-        """Return True if a failed run may succeed on retry."""
+        """Return True if a failed *submission* may succeed on retry.
+
+        An explicit ``retryable`` on the error wins; only errors with no opinion
+        fall through to the status-code heuristic, where ``0`` means "no HTTP
+        response at all" (a transport failure). Business ``FAILED`` responses
+        carry ``retryable=False`` precisely so they stop sharing that sentinel.
+        """
         if not isinstance(exc, APIError):
             return False
+        explicit = getattr(exc, "retryable", None)
+        if explicit is not None:
+            return bool(explicit)
         code = exc.status_code
         return code == 0 or code == 429 or code >= 500
 
@@ -1276,6 +1289,35 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         run_retries = max(0, int(kwargs.get("run_retries", 0) or 0))
         run_retry_wait = float(kwargs.get("run_retry_wait", 1.0) or 0.0)
         return run_retries, max(run_retry_wait, 0.0)
+
+    def _submit_with_retries(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
+        """POST the run, retrying only retryable *submission* failures.
+
+        The retry boundary deliberately covers the POST alone: a submission is
+        billable and not idempotent, so polling must never re-enter this loop —
+        a poll-time network blip used to re-submit an already-running job
+        (BUG-1090).
+
+        Args:
+            **kwargs: Run parameters, including ``run_retries`` / ``run_retry_wait``.
+
+        Returns:
+            Response instance from the configured response class.
+
+        Raises:
+            APIError: If the submission fails and is not retryable, or if every
+                attempt has been used.
+        """
+        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
+        for attempt in range(run_retries + 1):
+            try:
+                return self._post_and_handle_run(**kwargs)
+            except APIError as e:
+                if not self._is_retryable_run_error(e) or attempt >= run_retries:
+                    raise
+                time.sleep(run_retry_wait)
+
+        raise RuntimeError("run submission retry loop exhausted without return")
 
     def _begin_run(self, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
         """Invoke before_run; return early result or None to continue."""
@@ -1488,28 +1530,22 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         Note:
             ``before_run`` runs once per ``run()`` call. Retries (if configured)
-            restart POST and polling without invoking ``before_run`` again.
+            re-submit the POST only, without invoking ``before_run`` again;
+            polling happens outside the retry boundary, so a failure while
+            watching an already-running job raises instead of starting — and
+            billing — a second execution.
         """
         early = self._begin_run(**kwargs)
         if early is not None:
             return self._apply_after_run(early, **kwargs)
 
-        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
-        for attempt in range(run_retries + 1):
-            try:
-                result = self._post_and_handle_run(**kwargs)
-                if result.url and not result.completed:
-                    request_id = getattr(result, "request_id", None)
-                    result = self.sync_poll(result.url, **kwargs)
-                    if request_id is not None and hasattr(result, "request_id") and not result.request_id:
-                        result.request_id = request_id
-                return self._apply_after_run(result, **kwargs)
-            except APIError as e:
-                if not self._is_retryable_run_error(e) or attempt >= run_retries:
-                    raise
-                time.sleep(run_retry_wait)
-
-        raise RuntimeError("run() retry loop exhausted without return")
+        result = self._submit_with_retries(**kwargs)
+        if result.url and not result.completed:
+            request_id = getattr(result, "request_id", None)
+            result = self.sync_poll(result.url, **kwargs)
+            if request_id is not None and hasattr(result, "request_id") and not result.request_id:
+                result.request_id = request_id
+        return self._apply_after_run(result, **kwargs)
 
     def run_async(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Run the resource asynchronously.
@@ -1517,7 +1553,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Args:
             **kwargs: Run parameters specific to the resource type, including
                 optional ``run_retries`` and ``run_retry_wait`` for failed POST
-                or immediate FAILED responses.
+                submissions. An immediate ``FAILED`` response is a business
+                outcome and is never retried.
 
         Returns:
             Response instance from the configured RESPONSE_CLASS
@@ -1526,16 +1563,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         if early is not None:
             return early
 
-        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
-        for attempt in range(run_retries + 1):
-            try:
-                return self._post_and_handle_run(**kwargs)
-            except APIError as e:
-                if not self._is_retryable_run_error(e) or attempt >= run_retries:
-                    raise
-                time.sleep(run_retry_wait)
-
-        raise RuntimeError("run_async() retry loop exhausted without return")
+        return self._submit_with_retries(**kwargs)
 
     def poll(self, poll_url: str) -> ResultT:
         """Poll for the result of an asynchronous operation.
@@ -1547,9 +1575,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             Response instance from the configured RESPONSE_CLASS
 
         Raises:
+            UntrustedURLError: If poll_url resolves to a host outside the trusted set
             APIError: If the polling request fails
             OperationFailedError: If the operation has failed
         """
+        # A poll URL comes from a response body, so validate the host before the
+        # credential is attached. ``client.get`` re-checks; doing it here keeps the
+        # error precise instead of being rewrapped as "Polling failed: ..." below.
+        self.context.client.ensure_trusted_url(poll_url)
         try:
             # Use context.client for all polling operations
             # If poll_url is a full URL, urljoin will use it directly
@@ -1660,8 +1693,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                         logger.info(f"Operation completed successfully ({elapsed_time:.1f}s total)")
                     return result
 
-            except (APIError, ResourceError) as e:
-                # Re-raise API and resource errors immediately
+            except (APIError, ResourceError, UntrustedURLError) as e:
+                # Re-raise API, resource and untrusted-URL errors immediately.
+                # Without UntrustedURLError here the broad ``except`` below would
+                # turn a refused credential leak into a silent poll-until-timeout.
                 raise e
             except Exception as e:
                 # Log other errors but continue polling

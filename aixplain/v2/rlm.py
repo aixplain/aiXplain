@@ -2,12 +2,18 @@
 
 Orchestrates long-context analysis via an iterative REPL sandbox. The
 orchestrator model plans and writes Python code to chunk and explore a large
-context; a worker model handles per-chunk analysis via ``llm_query()`` calls
-injected into the sandbox session.
+context; a worker model handles per-chunk analysis via ``llm_query()``.
+
+``llm_query`` is credential-free inside the sandbox: the injected helper submits
+prompts on stdout and the SDK answers them in-process, so no API key is ever
+materialised in sandbox-executed source (BUG-936). SDK-generated setup code and
+model-emitted code run in separate sandbox sessions, and both are torn down when
+the run ends.
 """
 
 __author__ = "aiXplain"
 
+import hashlib
 import json
 import logging
 import os
@@ -20,7 +26,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config as dj_config
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from .resource import BaseResource, Result
 from .mixins import ToolableMixin, ToolDict
@@ -42,13 +48,154 @@ _SANDBOX_TOOL_ID = "microsoft/code-execution/microsoft"
 _REPL_OUTPUT_MAX_CHARS = 100_000
 
 
+# Sandbox Sessions
+#
+# The sandbox is a third-party execution service with outbound network access
+# and a stdout return channel, and the code the orchestrator emits into it is
+# steered by (potentially untrusted) analysed context. Two sessions keep the
+# trust boundary structural rather than textual:
+#
+# - ``_SETUP_SESSION`` runs SDK-generated code only. Orchestrator-emitted code
+#   can never reach it, so it is the enforced home for any future bootstrap
+#   step that has to handle a credential.
+# - ``_REPL_SESSION`` holds the analysed context, the credential-free
+#   ``llm_query`` prelude, and every model-emitted block.
+_SETUP_SESSION = "setup"
+_REPL_SESSION = "repl"
+
+# Cheap reachability probe for the setup session. Also keeps that session live
+# on every run so the two-session split is exercised, not merely declared.
+_PREFLIGHT_CODE = "import sys\nimport requests as __requests\nprint(sys.version.split()[0])\n"
+
+# Candidate action names for closing a sandbox session. ``Tool.run`` validates
+# ``action`` against the tool's advertised actions, so the real name is
+# discovered at runtime and teardown falls back to wiping session state.
+_TEARDOWN_ACTION_CANDIDATES = ("close_session", "closeSession", "delete_session", "close")
+
+# Fallback teardown: drop everything the session holds (uploaded context,
+# cached answers, download URL) when no close action is exposed.
+_SESSION_WIPE_CODE = """for _aix_n in [_aix_x for _aix_x in list(globals()) if not _aix_x.startswith("__")]:
+    try:
+        del globals()[_aix_n]
+    except Exception:
+        pass
+import gc as _aix_gc
+_aix_gc.collect()
+"""
+
+# Sentinel used for "not yet resolved" on the cached teardown action name, so
+# a legitimately absent action (``None``) is not re-discovered on every close.
+_UNRESOLVED = object()
+
+
+# llm_query Protocol (BUG-936)
+#
+# ``llm_query`` used to be an in-sandbox ``requests.post`` to the worker model,
+# authenticated with the caller's account-level TEAM_API_KEY interpolated into
+# the generated source. Any prompt injection in the analysed context could read
+# it back out (``llm_query.__code__.co_consts``) and exfiltrate it.
+#
+# The credential now never enters the sandbox. Instead the prelude submits
+# prompts on stdout, the SDK answers them in-process with the key it already
+# holds, and the answers are pushed back as a plain JSON data literal.
+
+# Marker prefixing a submitted-prompt batch on sandbox stdout. Stripped by the
+# SDK before the output is shown to the orchestrator.
+_LLM_REQUEST_MARKER = "<<AIX_LLM_QUERY_REQUEST>>"
+
+# Returned by ``llm_query`` when the answer is not cached yet. Never allowed to
+# reach ``RLMResult.data``.
+_LLM_PENDING_SENTINEL = "[[AIX_PENDING: answer not available yet — re-run this block next turn]]"
+
+# Maximum prompts resolved per REPL turn.
+_LLM_MAX_PROMPTS_PER_BATCH = 256
+
+# Maximum characters of a single prompt forwarded to the worker model.
+_LLM_MAX_PROMPT_CHARS = 400_000
+
+# Output budget for a worker call made on behalf of ``llm_query``. Matches what
+# the old in-sandbox implementation requested, so answer length is unchanged.
+_LLM_QUERY_MAX_TOKENS = 8192
+
+# Maximum request markers parsed out of one block's stdout, so pathological
+# emitted output cannot wedge the resolve loop.
+_LLM_MAX_MARKERS_PER_BLOCK = 512
+
+# Replacement written over any secret value found in sandbox output.
+_REDACTION_PLACEHOLDER = "***REDACTED***"
+
+# Shortest string treated as a credential by the secret tripwire. Guards
+# against a short/degenerate environment value matching everything.
+_MIN_SECRET_LEN = 8
+
+_LLM_QUERY_PRELUDE = f'''import json as __json
+import hashlib as __hashlib
+
+# sha256(prompt) -> answer. Filled in by the aiXplain SDK between REPL turns.
+_llm_answers = {{}}
+# Prompts submitted this turn and still unanswered.
+_llm_query_pending = []
+
+
+def _aix_prompt_key(prompt):
+    return __hashlib.sha256(str(prompt).encode("utf-8")).hexdigest()
+
+
+def _aix_submit(prompts):
+    _new = []
+    for _p in prompts:
+        _p = str(_p)
+        if _aix_prompt_key(_p) in _llm_answers:
+            continue
+        if _p in _llm_query_pending or _p in _new:
+            continue
+        _new.append(_p)
+    _new = _new[:{_LLM_MAX_PROMPTS_PER_BATCH}]
+    if _new:
+        _llm_query_pending.extend(_new)
+        print({_LLM_REQUEST_MARKER!r} + __json.dumps(_new))
+    return len(_new)
+
+
+def llm_query_request(prompts):
+    """Submit one or more prompts to the worker LLM.
+
+    Answers are fetched by the platform between REPL turns, so they become
+    available on your NEXT turn. Returns the number of prompts submitted.
+    """
+    if isinstance(prompts, str):
+        prompts = [prompts]
+    return _aix_submit(list(prompts))
+
+
+def llm_query(prompt):
+    """Answer `prompt` with the worker LLM.
+
+    Returns the real answer when it is already cached (submitted on an earlier
+    turn). Otherwise submits the prompt and returns a PENDING placeholder —
+    re-run the SAME block on your next turn to get real answers for the whole
+    batch at once.
+    """
+    _k = _aix_prompt_key(prompt)
+    if _k in _llm_answers:
+        return _llm_answers[_k]
+    _aix_submit([prompt])
+    return {_LLM_PENDING_SENTINEL!r}
+'''
+
+
 # Prompt Templates
 
 _SYSTEM_PROMPT = """You are tasked with answering a query with associated context. You can access, transform, and analyze this context interactively in a REPL environment that can recursively query sub-LLMs, which you are strongly encouraged to use as much as possible. You will be queried iteratively until you provide a final answer.
 
 The REPL environment is initialized with:
 1. A `context` variable that contains extremely important information about your query. You should check the content of the `context` variable to understand what you are working with. Make sure you look through it sufficiently as you answer your query.
-2. A `llm_query` function that allows you to query an LLM with a context window of {worker_context_window} inside your REPL environment. You must take this context window into consideration when deciding how much text to pass in each call.
+2. A `llm_query(prompt)` function backed by an LLM with a context window of {worker_context_window}. You must take this context window into consideration when deciding how much text to pass in each call.
+
+   Answers are fetched by the platform BETWEEN your REPL turns, so `llm_query` works in two steps:
+     Turn A — build all of your prompts and call `llm_query` on each one (or call `llm_query_request([...])` once with the whole list). Calls with no answer yet return the placeholder "__PENDING__" and the prompts are submitted for you.
+     Turn B — re-run the SAME block. Every submitted prompt now returns its real answer, and the whole batch was answered in parallel.
+   Never treat a "[[AIX_PENDING" value as an answer, never analyze one, and never put one in your final answer. If you see one, re-run the block that produced it.
 3. The ability to use `print()` statements to view the output of your REPL code and continue your reasoning.
 
 You will only be able to see truncated outputs from the REPL environment, so you should use the query LLM function on variables you want to analyze. You will find this function especially useful when you have to analyze the semantics of the context. Use these variables as buffers to build up your final answer.
@@ -59,10 +206,11 @@ You can use the REPL environment to help you understand your context, especially
 When you want to execute Python code in the REPL environment, wrap it in triple backticks with the 'repl' language identifier:
 ```repl
 # your Python code here
-chunk = context[:10000]
-answer = llm_query(f"What is the key finding in this text?\\n{{chunk}}")
-print(answer)
+chunks = [context[i:i + 10000] for i in range(0, len(context), 10000)]
+answers = [llm_query(f"What is the key finding in this text?\\n{{c}}") for c in chunks]
+print(answers[0][:500])
 ```
+Run that block once to submit every prompt, then run the exact same block again on your next turn — the second run returns the real answers for the whole batch.
 
 IMPORTANT: When you are done with the iterative process, you MUST provide a final answer using one of these two forms (NOT inside a code block):
 1. FINAL(your final answer here) — to provide the answer as literal text. Use `FINAL(...)` only when you are completely finished: you will make no further REPL calls, need no further inspection of REPL output, and are not including any REPL code in the same response.
@@ -71,7 +219,7 @@ IMPORTANT: When you are done with the iterative process, you MUST provide a fina
 Do not use `FINAL(...)` or `FINAL_VAR(...)` for intermediate status updates, plans, requests to inspect REPL output, statements such as needing more information, or any response that also includes REPL code to be executed first; those must be written as normal assistant text instead.
 
 Think step by step carefully, plan, and execute this plan immediately — do not just say what you will do.
-"""
+""".replace("__PENDING__", _LLM_PENDING_SENTINEL)
 
 _USER_PROMPT = (
     "Think step-by-step on what to do using the REPL environment (which contains the context) "
@@ -89,7 +237,14 @@ _CONTINUING_PREFIX = "The history above is your previous interactions with the R
 
 _FORCE_FINAL_PROMPT = (
     "Based on all the information gathered so far, provide a final answer to the user's query. "
-    "Use FINAL(your answer) or FINAL_VAR(variable_name)."
+    "Use FINAL(your answer) or FINAL_VAR(variable_name). "
+    "Do not include any '[[AIX_PENDING' placeholder in your answer — those are not answers."
+)
+
+_PENDING_REJECTED_PROMPT = (
+    "Your final answer contained a '[[AIX_PENDING' placeholder, which means at least one "
+    "llm_query prompt had not been answered yet. It was rejected. Re-run the REPL block that "
+    "produced those placeholders — the answers are cached now — then provide the final answer."
 )
 
 _DEFAULT_QUERY = (
@@ -250,6 +405,69 @@ def _truncate(text: str, max_chars: int = _REPL_OUTPUT_MAX_CHARS) -> str:
     if len(text) > max_chars:
         return text[:max_chars] + f"\n... [truncated — {len(text) - max_chars} chars omitted]"
     return text
+
+
+# llm_query Protocol Helpers
+
+
+def _prompt_key(prompt: str) -> str:
+    """Hash a prompt the same way the sandbox prelude does.
+
+    The sandbox keys ``_llm_answers`` by ``sha256`` of the full prompt, so the
+    SDK must hash the *untruncated* prompt it received for the answer to land
+    on the right key.
+    """
+    return hashlib.sha256(str(prompt).encode("utf-8")).hexdigest()
+
+
+def _extract_llm_requests(stdout: str) -> Tuple[str, List[str]]:
+    """Split submitted ``llm_query`` prompts out of sandbox stdout.
+
+    The prelude emits each batch as ``<marker><json array>`` on its own line.
+    Those segments are removed so the orchestrator never sees the protocol
+    chatter (or its own prompts echoed back).
+
+    Args:
+        stdout: Raw stdout captured from the REPL session.
+
+    Returns:
+        ``(clean_stdout, prompts)``. Malformed payloads are ignored rather than
+        raising, and both the marker count and the prompt count are bounded.
+    """
+    if _LLM_REQUEST_MARKER not in stdout:
+        return stdout, []
+
+    kept: List[str] = []
+    prompts: List[str] = []
+    markers = 0
+    for line in stdout.split("\n"):
+        idx = line.find(_LLM_REQUEST_MARKER)
+        if idx == -1:
+            kept.append(line)
+            continue
+        markers += 1
+        if markers <= _LLM_MAX_MARKERS_PER_BLOCK:
+            try:
+                payload = json.loads(line[idx + len(_LLM_REQUEST_MARKER) :])
+            except Exception:
+                # Most likely stdout was truncated mid-batch by the sandbox.
+                # Drop it: the caller sees the marker was present and clears the
+                # sandbox's pending list anyway, so the prompts get resubmitted
+                # when the block is re-run.
+                logger.warning("RLM: malformed llm_query request payload — batch skipped.")
+                payload = None
+            if isinstance(payload, list):
+                prompts.extend(str(p) for p in payload if isinstance(p, (str, int, float)))
+        # Keep anything the block printed before the marker on the same line.
+        if line[:idx]:
+            kept.append(line[:idx])
+
+    if markers > _LLM_MAX_MARKERS_PER_BLOCK:
+        logger.warning(
+            f"RLM: {markers} llm_query request markers in one block — only the first {_LLM_MAX_MARKERS_PER_BLOCK} parsed."
+        )
+
+    return "\n".join(kept), prompts[:_LLM_MAX_PROMPTS_PER_BATCH]
 
 
 # Chunking Helpers (shared by parallel and rag modes)
@@ -442,9 +660,19 @@ class RLM(BaseResource, ToolableMixin):
       ``parallel`` when the index is reused across many calls.
 
     The recursive mode's sandbox is an aiXplain managed Python execution
-    environment. Each recursive ``run()`` call gets its own isolated session
-    (UUID), so variables persist across REPL iterations within a single run
-    but are cleaned up afterwards.
+    environment. Each recursive ``run()`` call gets its own pair of isolated
+    sessions (fresh UUIDs): a **setup** session that only ever receives
+    SDK-generated code, and a **repl** session holding the context and every
+    block the orchestrator emits. Variables persist across REPL iterations
+    within a single run; both sessions are torn down in a ``finally`` when the
+    run ends, on the success and the failure path alike. Use RLM as a context
+    manager (``with aix.RLM(...) as rlm:``) or call :meth:`close` to force
+    teardown early.
+
+    No credential is ever placed inside the sandbox. ``llm_query`` submits its
+    prompts on stdout and the SDK answers them in-process, so code the
+    orchestrator writes — which is steered by the analysed context and must be
+    treated as untrusted — has nothing to steal.
 
     RLM is a **local orchestrator** — it does not correspond to a platform
     endpoint and is not saved via ``save()``. It is registered on the
@@ -471,7 +699,9 @@ class RLM(BaseResource, ToolableMixin):
     Attributes:
         orchestrator_id: Platform model ID of the orchestrator LLM.
         worker_id: Platform model ID of the worker LLM.
-        max_iterations: Maximum orchestrator loop iterations (default 10).
+        max_iterations: Maximum orchestrator loop iterations (default 10). A
+            batch of ``llm_query`` calls costs two iterations in recursive mode
+            — one to submit the prompts and one to consume the answers.
         timeout: Maximum wall-clock seconds per ``run()`` call (default 600).
     """
 
@@ -498,7 +728,19 @@ class RLM(BaseResource, ToolableMixin):
     rag_max_chunk_chars: int = field(default=_RAG_DEFAULT_MAX_CHUNK_CHARS)
 
     # Runtime state — excluded from serialization
-    _session_id: Optional[str] = field(
+    #
+    # Two sandbox sessions per recursive run (see the session constants above):
+    # ``_setup_session_id`` only ever receives SDK-generated code, while
+    # ``_repl_session_id`` holds the context, the credential-free ``llm_query``
+    # prelude, and all orchestrator-emitted blocks.
+    _setup_session_id: Optional[str] = field(
+        default=None,
+        repr=False,
+        compare=False,
+        metadata=dj_config(exclude=lambda x: True),
+        init=False,
+    )
+    _repl_session_id: Optional[str] = field(
         default=None,
         repr=False,
         compare=False,
@@ -551,6 +793,9 @@ class RLM(BaseResource, ToolableMixin):
         if not self.id:
             self.id = str(uuid.uuid4())
         self._credits_lock = threading.Lock()
+        # Resolved lazily on first teardown; ``_UNRESOLVED`` distinguishes
+        # "not looked up yet" from "the sandbox exposes no close action".
+        self._teardown_action_name: Any = _UNRESOLVED
 
     # Validation
 
@@ -667,10 +912,74 @@ class RLM(BaseResource, ToolableMixin):
                 pass
         return _DEFAULT_WORKER_WINDOW_TOKENS
 
+    # Secret Tripwire (BUG-936)
+
+    def _secret_values(self) -> Tuple[str, ...]:
+        """Credential values that must never reach the sandbox or its output.
+
+        Covers the client's resolved key plus the environment variables it is
+        normally sourced from, so the tripwire still fires if a credential
+        arrives by a path this class does not own.
+        """
+        candidates = (
+            getattr(self.context, "api_key", None),
+            os.environ.get("TEAM_API_KEY"),
+            os.environ.get("AIXPLAIN_API_KEY"),
+        )
+        return tuple({v for v in candidates if isinstance(v, str) and len(v) >= _MIN_SECRET_LEN})
+
+    def _contains_secret(self, text: str) -> bool:
+        """Return ``True`` if ``text`` contains any known credential value."""
+        if not isinstance(text, str) or not text:
+            return False
+        return any(secret in text for secret in self._secret_values())
+
+    def _assert_no_secrets(self, code: str) -> None:
+        """Refuse to transmit SDK-generated code containing a credential.
+
+        This is the BUG-936 regression tripwire: the worker call is made
+        SDK-side precisely so that no key is ever materialised in sandbox
+        source. Reaching this branch means that invariant was broken.
+
+        Raises:
+            ResourceError: If ``code`` contains a credential value.
+        """
+        if self._contains_secret(code):
+            raise ResourceError(
+                "RLM: refusing to send code containing an API key to the sandbox. "
+                "This is the BUG-936 guard — the worker call must be made SDK-side."
+            )
+
+    def _redact(self, text: str) -> str:
+        """Mask any credential value found in sandbox output.
+
+        Closes the reverse channel: emitted code that manages to print a
+        credential (e.g. by dumping ``os.environ``) must not get it into the
+        orchestrator transcript, ``repl_logs``, or the result.
+        """
+        if not isinstance(text, str) or not text:
+            return text
+        for secret in self._secret_values():
+            text = text.replace(secret, _REDACTION_PLACEHOLDER)
+        return text
+
     # Sandbox Setup
 
+    def _preflight(self) -> None:
+        """Start the setup session and confirm the sandbox is reachable.
+
+        The setup session receives SDK-generated code only — orchestrator-emitted
+        blocks are hard-wired to the REPL session — so it is the enforced home
+        for any bootstrap step that has to handle a credential. Nothing secret
+        is sent there today; the probe keeps the boundary live and turns a dead
+        sandbox into an early, clearly-attributed failure.
+        """
+        self._setup_session_id = str(uuid.uuid4())
+        logger.debug(f"RLM: sandbox setup session started (id={self._setup_session_id}).")
+        self._run_sandbox(self._get_sandbox(), _PREFLIGHT_CODE, session=_SETUP_SESSION)
+
     def _setup_repl(self, context: Union[str, dict, list]) -> None:
-        """Initialize a fresh sandbox session and load context + ``llm_query`` into it.
+        """Initialize a fresh REPL session and load context + ``llm_query`` into it.
 
         Two paths are used to get context into the sandbox:
 
@@ -683,15 +992,17 @@ class RLM(BaseResource, ToolableMixin):
           to aiXplain storage via :class:`~aixplain.v2.upload_utils.FileUploader`,
           then downloaded inside the sandbox.
 
-        In both cases a ``llm_query(prompt)`` helper is injected into the sandbox
-        after the context is loaded.
+        In both cases the credential-free ``llm_query(prompt)`` prelude is
+        injected after the context is loaded. It carries no API key and makes no
+        network call: prompts leave on stdout and the SDK answers them
+        in-process (see :data:`_LLM_QUERY_PRELUDE`).
 
         Args:
             context: Normalized context (str, dict, or list).
         """
-        self._session_id = str(uuid.uuid4())
+        self._repl_session_id = str(uuid.uuid4())
         sandbox = self._get_sandbox()
-        logger.info(f"RLM: sandbox session started (id={self._session_id}).")
+        logger.info(f"RLM: sandbox repl session started (id={self._repl_session_id}).")
 
         # --- URL fast path: stream directly into the sandbox, no re-upload ---
         if isinstance(context, str) and (context.startswith("http://") or context.startswith("https://")):
@@ -721,8 +1032,10 @@ if _is_json:
 else:
     with open(_filename, "r", encoding="utf-8") as _f:
         context = _f.read()
+
+del _url, _url_path, _r
 """
-            self._run_sandbox(sandbox, context_code)
+            self._run_sandbox(sandbox, context_code, session=_REPL_SESSION)
             logger.debug("RLM: context loaded into sandbox from URL (direct stream).")
 
         else:
@@ -769,6 +1082,13 @@ else:
 
             sandbox_filename = f"context{ext}"
 
+            # The temp download link is a bearer capability, so it is unbound as
+            # soon as the context is loaded: emitted code — which is steered by
+            # the analysed context — must not be able to read it back out and
+            # exfiltrate a reusable link. Same reasoning as the API key
+            # (BUG-936); the link is still transmitted to the sandbox service,
+            # which only per-session context injection from the platform could
+            # avoid, but it is no longer readable from the REPL namespace.
             context_code = f"""import requests as __requests
 
 _url = {repr(download_url)}
@@ -782,73 +1102,199 @@ with __requests.get(_url, stream=True) as _r:
                 _f.write(_chunk)
 
 {load_code}
+
+del _url, _r
 """
-            self._run_sandbox(sandbox, context_code)
+            self._run_sandbox(sandbox, context_code, session=_REPL_SESSION)
             logger.debug(f"RLM: context loaded into sandbox ({sandbox_filename}).")
 
-        # Inject llm_query
-        # worker_url = https://models.aixplain.com/api/v2/execute/<worker_id>
-        worker_url = f"{self.context.model_url}/{self.worker_id}"
-
-        llm_query_code = f"""import requests as __requests
-import time as __time
-import json as __json
-
-_total_llm_query_credits = 0.0
-
-def llm_query(prompt):
-    global _total_llm_query_credits
-    _headers = {{"x-api-key": "{self.context.api_key}", "Content-Type": "application/json"}}
-    _payload = __json.dumps({{"data": prompt, "max_tokens": 8192}})
-    try:
-        _resp = __requests.post("{worker_url}", headers=_headers, data=_payload, timeout=60)
-        _result = _resp.json()
-        if _result.get("status") == "IN_PROGRESS":
-            _poll_url = _result.get("url")
-            _wait = 0.5
-            _start = __time.time()
-            while not _result.get("completed") and (__time.time() - _start) < 300:
-                __time.sleep(_wait)
-                _r = __requests.get(_poll_url, headers=_headers, timeout=30)
-                _result = _r.json()
-                _wait = min(_wait * 1.1, 60)
-        _total_llm_query_credits += float(_result.get("usedCredits", 0) or 0)
-        return str(_result.get("data", "Error: no data in worker response"))
-    except Exception as _e:
-        return f"Error: llm_query failed \u2014 {{_e}}"
-"""
-        self._run_sandbox(sandbox, llm_query_code)
-        logger.debug("RLM: llm_query injected into sandbox.")
+        # Inject the credential-free llm_query prelude. It is a module-level
+        # constant with no interpolation precisely so no caller value — least of
+        # all an API key — can end up inside sandbox-executed source (BUG-936).
+        self._run_sandbox(sandbox, _LLM_QUERY_PRELUDE, session=_REPL_SESSION)
+        logger.debug("RLM: credential-free llm_query prelude injected into sandbox.")
 
     # Sandbox Helpers
 
-    def _run_sandbox(self, sandbox: Any, code: str) -> Any:
-        """Execute code in the sandbox and return the raw ToolResult."""
+    def _session_id_for(self, session: str) -> str:
+        """Resolve a session name to its live session id.
+
+        Raises:
+            ValueError: If ``session`` is not a known session name.
+            ResourceError: If that session has not been started yet.
+        """
+        if session == _SETUP_SESSION:
+            session_id = self._setup_session_id
+        elif session == _REPL_SESSION:
+            session_id = self._repl_session_id
+        else:
+            raise ValueError(f"RLM: unknown sandbox session {session!r}.")
+        if not session_id:
+            raise ResourceError(f"RLM: sandbox {session!r} session has not been started.")
+        return session_id
+
+    def _run_sandbox(self, sandbox: Any, code: str, *, session: str) -> Any:
+        """Execute code in the named sandbox session and return the raw ToolResult.
+
+        ``session`` is a required keyword so that every call site has to state
+        which trust boundary it is on. Model-emitted code is always routed to
+        :data:`_REPL_SESSION`; it can never reach the setup session.
+
+        Args:
+            sandbox: Resolved sandbox Tool instance.
+            code: Python source to execute.
+            session: :data:`_SETUP_SESSION` or :data:`_REPL_SESSION`.
+
+        Returns:
+            The raw ToolResult from the sandbox.
+
+        Raises:
+            ResourceError: If the code contains a credential value, or the
+                requested session has not been started.
+        """
+        session_id = self._session_id_for(session)
+        self._assert_no_secrets(code)
         result = sandbox.run(
-            data={"code": code, "sessionId": self._session_id},
+            data={"code": code, "sessionId": session_id},
             action="run",
         )
         self._used_credits += float(getattr(result, "used_credits", 0) or 0)
         return result
 
-    def _execute_code(self, code: str) -> str:
-        """Execute a code block in the sandbox and return formatted output.
+    # Sandbox Teardown
 
-        Runs the code in the current session (preserving all previously defined
-        variables), captures stdout and stderr, and returns them as a string
-        truncated to :data:`_REPL_OUTPUT_MAX_CHARS` characters.
+    def _teardown_action(self, sandbox: Any) -> Optional[str]:
+        """Discover the sandbox's session-close action name, or ``None``.
+
+        ``Tool.run`` validates ``action`` against the tool's advertised actions,
+        so the name cannot be hard-coded. Resolved once per instance; failures
+        are non-fatal and fall back to wiping session state.
+        """
+        cached = getattr(self, "_teardown_action_name", _UNRESOLVED)
+        if cached is not _UNRESOLVED:
+            return cached
+
+        action: Optional[str] = None
+        try:
+            available = set()
+            for spec in sandbox.list_actions() or []:
+                for attr in ("name", "slug", "code"):
+                    value = getattr(spec, attr, None)
+                    if isinstance(value, str):
+                        available.add(value)
+            for candidate in _TEARDOWN_ACTION_CANDIDATES:
+                if candidate in available:
+                    action = candidate
+                    break
+        except Exception as exc:
+            logger.debug(f"RLM: could not list sandbox actions for teardown: {exc}")
+
+        self._teardown_action_name = action
+        return action
+
+    def _close_session(self, session_id: str) -> None:
+        """Close one sandbox session, best effort.
+
+        Never raises: a teardown failure must not convert a successful run into
+        a failure, nor mask an exception already in flight.
+        """
+        sandbox = self._sandbox_tool
+        if sandbox is None:
+            return
+
+        action = None
+        try:
+            action = self._teardown_action(sandbox)
+            if action:
+                sandbox.run(data={"sessionId": session_id}, action=action)
+                logger.debug(f"RLM: sandbox session closed (id={session_id}).")
+                return
+        except Exception as exc:
+            # A rejected close action must not leave the session untouched —
+            # fall through to the wipe rather than leaking the uploaded context.
+            logger.warning(f"RLM: sandbox close action {action!r} failed (id={session_id}): {exc}")
+
+        try:
+            # No usable close action — at minimum drop what the session holds
+            # (uploaded context, cached answers, download URL).
+            sandbox.run(data={"code": _SESSION_WIPE_CODE, "sessionId": session_id}, action="run")
+            if action is None:
+                logger.warning("RLM: sandbox exposes no session-close action; wiped session state instead.")
+            logger.debug(f"RLM: sandbox session state wiped (id={session_id}).")
+        except Exception as exc:
+            logger.warning(f"RLM: sandbox session teardown failed (id={session_id}): {exc}")
+
+    def close(self) -> None:
+        """Tear down any live sandbox sessions. Idempotent; never raises.
+
+        Called automatically in a ``finally`` at the end of every recursive run
+        and on ``__exit__``. Safe to call directly, and safe to call twice.
+        """
+        for attr in ("_repl_session_id", "_setup_session_id"):
+            session_id = getattr(self, attr, None)
+            if session_id:
+                self._close_session(session_id)
+            setattr(self, attr, None)
+
+    def __enter__(self) -> "RLM":
+        """Enter a context manager whose exit tears down sandbox sessions."""
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        """Tear down sandbox sessions on scope exit."""
+        self.close()
+
+    # Model-Emitted Code Execution
+
+    def _execute_code(self, code: str) -> str:
+        """Execute an orchestrator-emitted code block and return formatted output.
+
+        Runs in the REPL session (preserving all previously defined variables),
+        captures stdout and stderr, resolves any ``llm_query`` prompts the block
+        submitted, and returns the result truncated to
+        :data:`_REPL_OUTPUT_MAX_CHARS` characters.
+
+        Emitted code is steered by the analysed context and treated as
+        untrusted: it is hard-wired to the REPL session, screened for credential
+        values before execution, and its output is redacted on the way back.
 
         Args:
             code: Python source code to execute.
 
         Returns:
-            Formatted string combining stdout and stderr. Returns ``"No output"``
-            if both are empty.
+            Formatted string combining stdout, stderr, and any protocol notes.
+            Returns ``"No output"`` if there is nothing to report.
         """
-        result = self._run_sandbox(self._get_sandbox(), code)
+        if self._contains_secret(code):
+            # Not fatal — refusing the block and telling the orchestrator keeps
+            # the run alive while denying the exfiltration attempt.
+            logger.error("RLM: refusing to execute emitted code containing a credential (BUG-936 guard).")
+            return "[blocked] This block referenced a credential and was not executed."
+
+        result = self._run_sandbox(self._get_sandbox(), code, session=_REPL_SESSION)
         inner = result.data if isinstance(result.data, dict) else {}
-        stdout = inner.get("stdout", "")
-        stderr = inner.get("stderr", "")
+        stdout = inner.get("stdout", "") or ""
+        stderr = inner.get("stderr", "") or ""
+
+        # Whether the block submitted at all is tracked separately from what was
+        # successfully parsed: a payload the sandbox truncated mid-batch yields
+        # no prompts, and the sandbox-side pending list would keep suppressing
+        # those prompts forever if it were not cleared.
+        submitted = _LLM_REQUEST_MARKER in stdout
+        stdout, prompts = _extract_llm_requests(stdout)
+
+        notes: List[str] = []
+        if submitted:
+            answers = self._resolve_llm_queries(prompts) if prompts else {}
+            # Always injected, even when empty: this is also what clears the
+            # sandbox's pending list so unrecovered prompts resubmit next turn.
+            self._inject_llm_answers(answers)
+            if answers:
+                notes.append(
+                    f"[aiXplain] {len(answers)} llm_query answer(s) are now cached in the REPL. "
+                    f"Any llm_query call that returned {_LLM_PENDING_SENTINEL} did NOT get a real "
+                    "answer — re-run that same block now to receive the real answers."
+                )
 
         parts = []
         if stdout:
@@ -856,47 +1302,111 @@ def llm_query(prompt):
         if stderr:
             parts.append(f"[stderr]: {stderr}")
 
-        raw_output = "\n".join(parts) if parts else "No output"
-        return _truncate(raw_output)
+        # Truncate the block's own output *before* appending protocol notes:
+        # notes are the orchestrator's signal that answers are ready, and a
+        # block printing more than _REPL_OUTPUT_MAX_CHARS would otherwise push
+        # them off the end. Redact first so a secret cannot survive as a
+        # fragment split by the truncation boundary.
+        body = _truncate(self._redact("\n".join(parts))) if parts else ""
+
+        output = "\n".join(([body] if body else []) + notes)
+        return output if output else "No output"
 
     def _get_repl_variable(self, variable_name: str) -> Optional[str]:
-        """Retrieve a named variable's string value from the current sandbox session.
+        """Retrieve a named variable's string value from the REPL session.
 
-        Called when the orchestrator declares ``FINAL_VAR(variable_name)``.
+        Called when the orchestrator declares ``FINAL_VAR(variable_name)``. The
+        name is model-controlled and gets interpolated into SDK-generated code,
+        so anything that is not a plain identifier is rejected outright rather
+        than executed.
 
         Args:
             variable_name: Name of the variable to retrieve (quotes are stripped).
 
         Returns:
-            String representation of the variable, or ``None`` on error.
+            String representation of the variable, or ``None`` if the name is
+            invalid, the lookup errored, or the value still holds an unresolved
+            ``llm_query`` placeholder.
         """
         var = variable_name.strip().strip("\"'")
-        result = self._run_sandbox(self._get_sandbox(), f"print(str({var}))")
+        if not var.isidentifier():
+            logger.warning(f"RLM: FINAL_VAR({variable_name!r}) is not a valid identifier — ignored.")
+            return None
+
+        result = self._run_sandbox(self._get_sandbox(), f"print(str({var}))", session=_REPL_SESSION)
         inner = result.data if isinstance(result.data, dict) else {}
-        stdout = inner.get("stdout", "")
-        stderr = inner.get("stderr", "")
+        stdout = inner.get("stdout", "") or ""
+        stderr = inner.get("stderr", "") or ""
 
         if stderr and not stdout:
             logger.warning(f"RLM: FINAL_VAR('{var}') error: {stderr.strip()}")
             return None
-        return stdout.strip() if stdout else None
+        if not stdout:
+            return None
 
-    # Credit Tracking
+        value = self._redact(stdout.strip())
+        if _LLM_PENDING_SENTINEL in value:
+            logger.warning(f"RLM: FINAL_VAR('{var}') still holds an unresolved llm_query placeholder — rejected.")
+            return None
+        return value
 
-    def _collect_llm_query_credits(self) -> None:
-        """Retrieve accumulated ``llm_query`` worker credits from the sandbox.
+    # llm_query Resolution (SDK-side, credentialled)
 
-        The injected ``llm_query`` function tracks per-call ``usedCredits``
-        from the worker model API in a global ``_total_llm_query_credits``
-        variable inside the sandbox session. This method reads that variable
-        and adds it to ``self._used_credits``.
+    def _resolve_llm_queries(self, prompts: List[str]) -> Dict[str, str]:
+        """Answer submitted prompts with the worker model, in-process.
+
+        This is where the credential stays: the worker call is made by the SDK,
+        which already holds the key, instead of by sandbox-resident code. Runs
+        the batch concurrently, deduplicates by prompt hash, and never lets a
+        single failure kill the run — a failed prompt is answered with an error
+        marker, matching :meth:`_parallel_map`.
+
+        Args:
+            prompts: Prompts submitted by the sandbox this turn.
+
+        Returns:
+            Mapping of prompt hash → answer, keyed exactly as the sandbox
+            prelude keys ``_llm_answers``.
         """
-        try:
-            raw = self._get_repl_variable("_total_llm_query_credits")
-            if raw is not None:
-                self._used_credits += float(raw)
-        except Exception:
-            logger.debug("RLM: could not retrieve llm_query credits from sandbox.")
+        uniq: Dict[str, str] = {}
+        for prompt in prompts[:_LLM_MAX_PROMPTS_PER_BATCH]:
+            # Key on the full prompt (the sandbox hashed it untruncated); only
+            # the text forwarded to the worker is bounded.
+            uniq.setdefault(_prompt_key(prompt), prompt[:_LLM_MAX_PROMPT_CHARS])
+        if not uniq:
+            return {}
+
+        # Warm the lazy worker cache before threads start, as parallel mode does.
+        self._get_worker()
+
+        answers: Dict[str, str] = {}
+        with ThreadPoolExecutor(max_workers=min(len(uniq), _MAX_PARALLEL_WORKERS)) as ex:
+            futures = {ex.submit(self._worker_call, prompt, _LLM_QUERY_MAX_TOKENS): key for key, prompt in uniq.items()}
+            for f in as_completed(futures):
+                key = futures[f]
+                try:
+                    answers[key] = f.result()
+                except Exception as exc:
+                    logger.warning(f"RLM: llm_query failed: {exc}")
+                    answers[key] = f"Error: llm_query failed — {exc}"
+
+        logger.debug(f"RLM: resolved {len(answers)} llm_query prompt(s) SDK-side.")
+        return answers
+
+    def _inject_llm_answers(self, answers: Dict[str, str]) -> None:
+        """Push resolved answers into the REPL session as a JSON string literal.
+
+        Answer text may itself be attacker-influenced, so it is carried as the
+        ``repr()`` of a ``json.dumps`` result — a plain Python string literal
+        that cannot break out into executable code.
+
+        Also clears the sandbox's pending list, which is why it is called even
+        with an empty mapping: a prompt left pending is never re-printed, so
+        skipping the clear would strand it for the rest of the run.
+        """
+        payload = json.dumps(answers)
+        code = f"_llm_answers.update(__json.loads({payload!r}))\n_llm_query_pending.clear()"
+        self._run_sandbox(self._get_sandbox(), code, session=_REPL_SESSION)
 
     # Orchestrator
 
@@ -925,13 +1435,14 @@ def llm_query(prompt):
 
     # Parallel Mode
 
-    def _worker_call(self, prompt: str) -> str:
+    def _worker_call(self, prompt: str, max_tokens: int = _RESERVED_OUTPUT_TOKENS) -> str:
         """Call the worker model once and return its text output.
 
         Thread-safe credit accumulation so this can run inside a
-        ``ThreadPoolExecutor`` from the parallel map step.
+        ``ThreadPoolExecutor`` from the parallel map step or from
+        :meth:`_resolve_llm_queries`.
         """
-        response = self._get_worker().run(text=prompt, max_tokens=_RESERVED_OUTPUT_TOKENS)
+        response = self._get_worker().run(text=prompt, max_tokens=max_tokens)
         credits = float(getattr(response, "used_credits", 0) or 0)
         with self._credits_lock:
             self._used_credits += credits
@@ -1369,16 +1880,22 @@ def llm_query(prompt):
         start_time: float,
         effective_timeout: float,
     ) -> RLMResult:
-        """Iterative REPL-loop path: orchestrator drives a sandbox session."""
+        """Iterative REPL-loop path: orchestrator drives a sandbox session.
+
+        Setup runs inside the ``try`` so a failure while bootstrapping the
+        sandbox still reaches the ``finally`` that tears down whichever sessions
+        were started.
+        """
         iterations_used = 0
         final_answer: Optional[str] = None
         repl_logs: List[Dict] = []
         self._used_credits = 0.0
 
-        self._setup_repl(context)
-        self._messages = _build_system_messages(self._get_worker_context_window())
-
         try:
+            self._preflight()
+            self._setup_repl(context)
+            self._messages = _build_system_messages(self._get_worker_context_window())
+
             for iteration in range(self.max_iterations):
                 iterations_used = iteration + 1
 
@@ -1414,25 +1931,36 @@ def llm_query(prompt):
                 if final_result is not None:
                     answer_type, content = final_result
                     if answer_type == "FINAL":
-                        final_answer = content
+                        # An unresolved llm_query placeholder is not an answer —
+                        # send the orchestrator back to re-run its block.
+                        if _LLM_PENDING_SENTINEL in content:
+                            logger.warning(f"RLM '{name}': FINAL(...) contained a pending placeholder — rejected.")
+                            self._messages.append({"role": "user", "content": _PENDING_REJECTED_PROMPT})
+                            continue
+                        final_answer = self._redact(content)
                         break
                     elif answer_type == "FINAL_VAR":
                         retrieved = self._get_repl_variable(content)
                         if retrieved is not None:
                             final_answer = retrieved
                             break
-                        logger.warning(f"RLM '{name}': FINAL_VAR('{content}') not found in sandbox — continuing.")
+                        logger.warning(f"RLM '{name}': FINAL_VAR('{content}') unusable — continuing.")
 
             # Force a final answer if loop exhausted or timed out without one
             if final_answer is None:
                 logger.info(f"RLM '{name}': requesting forced final answer after {iterations_used} iteration(s).")
                 self._messages.append(_next_action_message(query, iterations_used, force_final=True))
-                final_answer = self._orchestrator_completion(self._messages)
+                final_answer = self._redact(self._orchestrator_completion(self._messages))
+                if _LLM_PENDING_SENTINEL in final_answer:
+                    # Last resort: the placeholder must never surface as content.
+                    logger.warning(f"RLM '{name}': forced final answer contained pending placeholder(s) — stripped.")
+                    final_answer = final_answer.replace(_LLM_PENDING_SENTINEL, "[unanswered]")
 
         except Exception as exc:
-            error_msg = f"RLM run error: {exc}"
+            # Redacted before it is logged or returned: an exception raised deep
+            # in the client stack can quote a request that carried the key.
+            error_msg = self._redact(f"RLM run error: {exc}")
             logger.error(error_msg)
-            self._collect_llm_query_credits()
             result = RLMResult(
                 status="FAILED",
                 completed=True,
@@ -1443,8 +1971,10 @@ def llm_query(prompt):
             result.used_credits = self._used_credits
             result.repl_logs = repl_logs
             return result
+        finally:
+            # Unconditional: success, exception, and timeout paths all land here.
+            self.close()
 
-        self._collect_llm_query_credits()
         run_time = time.time() - start_time
         logger.info(f"RLM '{name}': done in {iterations_used} iteration(s), {run_time:.1f}s.")
 

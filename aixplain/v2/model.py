@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import re
-import time
 from typing import Dict, Union, List, Optional, Any, TYPE_CHECKING, Iterator
+from urllib.parse import urlparse
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
 from dataclasses import dataclass, field
@@ -24,7 +24,7 @@ from .resource import (
 )
 from .enums import Function, Supplier, Language, AssetStatus, ResponseStatus
 from .mixins import ToolableMixin, ToolDict
-from .exceptions import APIError, ValidationError
+from .exceptions import ValidationError
 from .actions import Actions, Action, Inputs
 
 if TYPE_CHECKING:
@@ -32,12 +32,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_MODEL_POLL_URL_RE = re.compile(
-    r"^(?:https?://[^/?#]+)?/?(?:"
-    r"api/v1/data/[A-Za-z0-9_-]+|"
-    r"sdk/(?:models|runs)/[A-Za-z0-9_-]+(?:/result)?"
-    r")(?:[?#].*)?$"
-)
+# Path shape only. This decides *routing* -- "does this URL look like a poll
+# endpoint rather than a media output URL?" -- and is NOT an authorization
+# decision: a path-shape match says nothing about who owns the host. Host trust
+# is enforced by ``AixplainClient.ensure_trusted_url`` on the poll path itself.
+_MODEL_POLL_PATH_RE = re.compile(r"^/?(?:api/v1/data/[A-Za-z0-9_-]+|sdk/(?:models|runs)/[A-Za-z0-9_-]+(?:/result)?)/?$")
 
 
 def _normalize_reasoning(
@@ -787,28 +786,27 @@ class Model(
 
     @staticmethod
     def _is_poll_url(url: str) -> bool:
-        """Return True when a model URL matches a known polling endpoint."""
-        return bool(_MODEL_POLL_URL_RE.match(url))
+        """Return True when *url*'s path matches a known polling endpoint.
+
+        Routing only, never authorization: a poll-shaped URL on a foreign host
+        still matches here and is then refused by the trusted-host guard inside
+        :meth:`poll`, which is the desired outcome -- silently treating it as
+        data would hide an active attack.
+        """
+        return bool(_MODEL_POLL_PATH_RE.match(urlparse(url).path))
 
     def _run_sync_v2(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model synchronously using V2 endpoint directly.
 
         This bypasses run_async() to avoid V1 fallback for sync-only models.
-        Honors ``run_retries`` / ``run_retry_wait`` like :meth:`RunnableResourceMixin.run`.
+        Honors ``run_retries`` / ``run_retry_wait`` like :meth:`RunnableResourceMixin.run`:
+        retries cover the submission only, and a business ``FAILED`` response is
+        never re-submitted.
 
         Returns:
             ModelResult: Direct result from V2 endpoint
         """
-        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
-        for attempt in range(run_retries + 1):
-            try:
-                return self._post_and_handle_run(**kwargs)
-            except APIError as e:
-                if not self._is_retryable_run_error(e) or attempt >= run_retries:
-                    raise
-                time.sleep(run_retry_wait)
-
-        raise RuntimeError("_run_sync_v2 retry loop exhausted without return")
+        return self._submit_with_retries(**kwargs)
 
     def run_async(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model asynchronously.

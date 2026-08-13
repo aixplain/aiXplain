@@ -2004,18 +2004,21 @@ class Agent(
             deprecated_iterations = execution_params.pop("max_iterations", None)
         if deprecated_iterations is not None:
             # Point past the SDK run plumbing (build_run_payload ->
-            # _post_and_handle_run -> RunnableResourceMixin.run -> Agent.run) to
-            # the user's agent.run(...) call site. The conflict warning (below) is
-            # emitted from this same frame, so it shares the stacklevel.
+            # _post_and_handle_run -> _submit_with_retries ->
+            # RunnableResourceMixin.run -> Agent.run) to the user's agent.run(...)
+            # call site. The conflict warning (below) is emitted from this same
+            # frame, so it shares the stacklevel. ``_submit_with_retries`` is the
+            # POST-only retry boundary added for BUG-1090; it sits on both the
+            # run and run_async paths, so both stay at this depth.
             warnings.warn(
                 "Execution param 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
                 "It will be removed in a future release.",
                 DeprecationWarning,
-                stacklevel=5,
+                stacklevel=6,
             )
             normalized_budget, conflicted = self._fold_iter_into_budget(budget, deprecated_iterations)
             if conflicted:
-                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=5)
+                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=6)
         else:
             normalized_budget = self._normalize_budget(budget)
 

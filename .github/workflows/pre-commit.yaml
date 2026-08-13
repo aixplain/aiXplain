@@ -5,6 +5,13 @@ on:
     branches:
       - '**'
 
+# Least privilege (ENG-3428): `pre-commit run --all-files` executes hook code
+# from the third-party repos pinned in .pre-commit-config.yaml, plus the repo's
+# own pytest suite. None of it writes to the repository, so a read-only token is
+# all this job should ever hold.
+permissions:
+  contents: read
+
 jobs:
   pre-commit:
     runs-on: ubuntu-latest

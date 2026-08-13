@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from aixplain.v2.enums import Function, ResponseStatus
+from aixplain.v2.exceptions import APIError, create_operation_failed_error
 from aixplain.v2.model import (
     Message,
     Model,
@@ -1272,6 +1273,41 @@ class TestModelIntegrationGaps:
         assert result.used_credits == 3.725e-05
         assert result.run_time == 1.766
         assert result.asset == {"assetId": "test-model-id", "id": "openai/gpt-5-mini/openai"}
+
+    def test_run_sync_v2_retries_only_the_submission(self):
+        """A sync-only model retries a retryable POST up to run_retries times."""
+        model = self._create_sync_model()
+        ok = {"status": "SUCCESS", "completed": True, "data": "done"}
+        model.context.client.request = Mock(
+            side_effect=[APIError("upstream unavailable", status_code=503, response_data={}), ok]
+        )
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value={"text": "hi"}):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    with patch("aixplain.v2.resource.time.sleep") as mock_sleep:
+                        result = model._run_sync_v2(text="hi", run_retries=1, run_retry_wait=0.01)
+
+        assert result.status == "SUCCESS"
+        assert model.context.client.request.call_count == 2
+        mock_sleep.assert_called_once()
+
+    def test_run_sync_v2_does_not_retry_failed_response(self):
+        """A FAILED response from a sync model is submitted exactly once (BUG-1090)."""
+        model = self._create_sync_model()
+        model.context.client.request = Mock(
+            side_effect=create_operation_failed_error({"status": "FAILED", "error": "invalid input"})
+        )
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value={"text": "hi"}):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    with patch("aixplain.v2.resource.time.sleep") as mock_sleep:
+                        with pytest.raises(APIError):
+                            model._run_sync_v2(text="hi", run_retries=3, run_retry_wait=0.01)
+
+        model.context.client.request.assert_called_once()
+        mock_sleep.assert_not_called()
 
     def test_stream_chunk_coerces_non_string_data(self):
         """StreamChunk should enforce text chunks even when data is non-string."""

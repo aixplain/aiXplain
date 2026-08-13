@@ -134,9 +134,13 @@ class Aixplain:
 
     def init_client(self) -> None:
         """Initialize the client."""
+        # Runs POST to ``model_url``/``pipeline_url`` while ``base_url`` is the
+        # platform API, and poll URLs legitimately come back on any of them, so
+        # all three are trusted with the API key.
         self.client = AixplainClient(
             base_url=self.backend_url,
             team_api_key=self.api_key,
+            trusted_urls=[self.pipeline_url, self.model_url],
         )
 
     def init_resources(self) -> None:
