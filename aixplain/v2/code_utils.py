@@ -16,6 +16,7 @@ from uuid import uuid4
 import requests
 import validators
 
+from .client import default_timeout
 from .enums import DataType
 from .upload_utils import FileUploader
 
@@ -163,7 +164,7 @@ def parse_code(
         with open(code, "r") as f:
             str_code = f.read()
     elif validators.url(code):
-        str_code = requests.get(code).text
+        str_code = requests.get(code, timeout=default_timeout()).text
     else:
         str_code = code
 
@@ -273,7 +274,7 @@ def parse_code_decorated(
             with open(code, "r") as f:
                 str_code = f.read()
         elif validators.url(code):
-            str_code = requests.get(code).text
+            str_code = requests.get(code, timeout=default_timeout()).text
         else:
             str_code = code
 

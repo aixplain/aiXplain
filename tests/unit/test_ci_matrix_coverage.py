@@ -14,11 +14,19 @@ credential-free on purpose: it runs in the `unit-coverage` job and in
 pre-commit (which runs `tests/unit` on every branch push), so an orphaned file
 is caught at the moment the matrix is edited rather than at the next release.
 
+Parking a directory stays available -- 04dea96e parked three of them precisely
+because they were failing, and a guard that forbade parking would only be
+satisfied by re-attaching unproven legs or deleting the tests. What the guard
+removes is *silent* parking: an unclaimed file must be named in
+`PARKED_TARGETS` with a ticket reference, so the backlog is in the repo instead
+of in a commit message nobody reads.
+
 The dynamic half of the guard -- a leg that collects fine but skips itself at
 runtime -- lives in tests/ci_guards.py, because no static check can see it.
 """
 
 import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -39,6 +47,30 @@ TEST_FILE_PATTERNS = ("test_*.py", "*_test.py")
 DIRS_WITHOUT_TESTS = {
     "finetune": "tests removed in 1539df13; only __init__.py and fixture data remain (ENG-3544 open question: delete or restore)",
 }
+
+#: Repo-relative file or directory -> why it has no CI leg. Parking is a real
+#: option, but only a declared one: each entry needs a ticket reference so the
+#: dead coverage is tracked rather than forgotten. Dropping an entry and adding
+#: the leg (both the `test-suite` name and its `include` block) belong in the
+#: same change, and the tests below hold the two halves together.
+PARKED_TARGETS = {
+    "tests/functional/benchmark": (
+        "parked by 04dea96e for failing against the test backend; MetricFactory/BenchmarkFactory "
+        "have no functional coverage until someone reruns this with a test-backend credential "
+        "and proves it green (ENG-3544)"
+    ),
+    "tests/functional/pipelines/designer_test.py": (
+        "parked by 04dea96e together with 265 lines of deleted flaky pipeline tests; "
+        "unproven against the test backend (ENG-3544)"
+    ),
+    "tests/functional/pipelines/create_test.py": (
+        "parked by 04dea96e together with 265 lines of deleted flaky pipeline tests; "
+        "unproven against the test backend (ENG-3544)"
+    ),
+}
+
+#: A parking reason has to point at something trackable, not just say "flaky".
+_TICKET_PATTERN = re.compile(r"[A-Z]{2,}-\d+")
 
 
 def _matrix() -> dict:
@@ -77,14 +109,19 @@ def _matching_files(directory: Path) -> set:
     return found
 
 
-def _files_claimed_by(target: str) -> set:
-    """The test files a leg pointed at *target* would execute."""
+def _files_under(target: str) -> set:
+    """The test files a leg (or a parking entry) pointed at *target* covers."""
     path = REPO_ROOT / target
     if path.is_file():
         return {path.relative_to(REPO_ROOT)}
     if not path.is_dir():
         return set()
     return _matching_files(path)
+
+
+def _parked_files() -> set:
+    """Every test file covered by a PARKED_TARGETS entry."""
+    return {file for target in PARKED_TARGETS for file in _files_under(target)}
 
 
 def test_every_leg_path_exists():
@@ -108,16 +145,27 @@ def test_matrix_names_and_include_entries_agree():
     )
 
 
-def test_every_functional_test_file_is_claimed_by_exactly_one_leg():
-    claims = {}
-    for leg, target in _running_leg_targets().items():
-        for file in _files_claimed_by(target):
-            claims.setdefault(file, []).append(leg)
+def _claims_pairs() -> list:
+    """(leg name, test file) for every file a running leg would execute."""
+    return [(leg, file) for leg, target in _running_leg_targets().items() for file in _files_under(target)]
 
-    unclaimed = sorted(str(file) for file in _matching_files(FUNCTIONAL_DIR) - set(claims))
-    assert not unclaimed, (
-        f"functional test files executed by NO CI leg: {unclaimed}. Add a leg to "
-        ".github/workflows/main.yaml (both the test-suite list and include), or delete the files."
+
+def _claims() -> dict:
+    """test file -> the leg names that would execute it."""
+    claims = {}
+    for leg, file in _claims_pairs():
+        claims.setdefault(file, []).append(leg)
+    return claims
+
+
+def test_every_functional_test_file_is_claimed_by_one_leg_or_explicitly_parked():
+    claims = _claims()
+
+    unaccounted = sorted(str(file) for file in _matching_files(FUNCTIONAL_DIR) - set(claims) - _parked_files())
+    assert not unaccounted, (
+        f"functional test files executed by NO CI leg: {unaccounted}. Add a leg to "
+        ".github/workflows/main.yaml (both the test-suite list and include), delete the files, or "
+        "park them explicitly by adding an entry with a ticket reference to PARKED_TARGETS in this file."
     )
 
     duplicated = {str(file): legs for file, legs in claims.items() if len(legs) > 1}
@@ -127,22 +175,30 @@ def test_every_functional_test_file_is_claimed_by_exactly_one_leg():
     )
 
 
-def test_every_functional_directory_maps_to_a_leg():
+def test_every_functional_directory_maps_to_a_leg_or_is_fully_parked():
     targets = list(_running_leg_targets().values())
+    parked = _parked_files()
     directories = sorted(p for p in FUNCTIONAL_DIR.iterdir() if p.is_dir() and p.name != "__pycache__")
     assert directories, f"no directories found under {FUNCTIONAL_DIR}; the audit would pass vacuously"
 
     for directory in directories:
         name = directory.name
-        if not _matching_files(directory):
+        files = _matching_files(directory)
+        if not files:
             assert name in DIRS_WITHOUT_TESTS, (
                 f"tests/functional/{name} contains no test module. Delete the directory, add "
                 "tests, or record the reason in DIRS_WITHOUT_TESTS in this file."
             )
             continue
+        if files <= parked:
+            # Wholly parked, so no leg is expected. The tests below are what keep
+            # that honest: each entry has to cite a ticket, still cover real test
+            # files, and not be running in CI under another name.
+            continue
         prefix = f"tests/functional/{name}"
         assert any(target == prefix or target.startswith(f"{prefix}/") for target in targets), (
-            f"tests/functional/{name} is not executed by any named CI leg"
+            f"tests/functional/{name} has unparked test files but is not executed by any named CI leg. "
+            f"Add a leg, or park the remaining files in PARKED_TARGETS: {sorted(str(f) for f in files - parked)}"
         )
 
 
@@ -154,6 +210,45 @@ def test_allowlisted_directories_still_exist_and_are_still_empty():
         assert not _matching_files(directory), (
             f"tests/functional/{name} has test files again; drop it from DIRS_WITHOUT_TESTS and give it a CI leg"
         )
+
+
+@pytest.mark.parametrize("target", sorted(PARKED_TARGETS))
+def test_parked_targets_still_exist_and_still_hold_tests(target):
+    """Keeps PARKED_TARGETS from outliving the files it excuses.
+
+    A stale entry is worse than none: it silently excuses whatever file later
+    appears at that path from ever needing a leg.
+    """
+    assert (REPO_ROOT / target).exists(), f"{target} no longer exists; drop its PARKED_TARGETS entry"
+    assert _files_under(target), (
+        f"{target} contains no test file, so parking it excuses nothing; drop its PARKED_TARGETS entry"
+    )
+
+
+@pytest.mark.parametrize("target", sorted(PARKED_TARGETS))
+def test_parked_targets_cite_a_ticket(target):
+    """"Parked because it was flaky" is how coverage disappears for a year."""
+    reason = PARKED_TARGETS[target]
+    assert _TICKET_PATTERN.search(reason), (
+        f"the PARKED_TARGETS reason for {target} cites no ticket ({reason!r}); parked coverage needs "
+        "an owner and a way back."
+    )
+
+
+@pytest.mark.parametrize("target", sorted(PARKED_TARGETS))
+def test_parked_targets_are_not_also_running_in_ci(target):
+    """A path cannot be both parked and executed; one of the two is a mistake.
+
+    This is the assertion that makes un-parking a single edit: attach the leg
+    without dropping the entry and this fails, rather than leaving a "parked"
+    note on a directory CI has quietly been running for months.
+    """
+    parked_files = _files_under(target)
+    executing = sorted(leg for leg, file in _claims_pairs() if file in parked_files)
+    assert not executing, (
+        f"{target} is listed in PARKED_TARGETS but CI legs {executing} execute its files. "
+        "Drop the PARKED_TARGETS entry."
+    )
 
 
 #: Anything that makes a skip conditional: an env read, a marker lookup, or a
@@ -311,12 +406,14 @@ def test_blanket_skip_detector_distinguishes_guarded_from_unconditional(tmp_path
     assert _blanket_skip_offenders(agent_dir.parent, tmp_path) == expected
 
 
-@pytest.mark.parametrize("directory", ["agent", "team_agent"])
+@pytest.mark.parametrize("directory", ["agent", "team_agent", "benchmark", "pipelines"])
 def test_the_real_conftests_are_the_guarded_shape(directory):
-    """The two files this ticket rewrote still skip only on a missing credential.
+    """The conftests this ticket wrote still skip only on a missing credential.
 
-    Matched against the parsed tree, not the file text, so the comments that
-    explain the defect are not mistaken for the defect.
+    `agent`/`team_agent` had the unconditional skip and were rewritten;
+    `benchmark`/`pipelines` had no guard at all and would have hit the backend
+    unauthenticated. Matched against the parsed tree, not the file text, so the
+    comments that explain the defect are not mistaken for the defect.
     """
     conftest = FUNCTIONAL_DIR / directory / "conftest.py"
     functions = [node for node in ast.walk(ast.parse(conftest.read_text())) if isinstance(node, ast.FunctionDef)]
