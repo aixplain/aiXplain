@@ -807,8 +807,7 @@ class Agent(
         # the original object so save_subcomponents can replace that placeholder
         # with the ID assigned during its save.
         effective_current = [
-            original[index] if file is None and index < len(original) else file
-            for index, file in enumerate(current)
+            original[index] if file is None and index < len(original) else file for index, file in enumerate(current)
         ]
         current_ids = [self._file_reference_id(file) for file in effective_current]
         original_ids = [self._file_reference_id(file) for file in original]

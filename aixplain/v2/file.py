@@ -311,9 +311,7 @@ class File(BaseResource):
         obj = cls._from_data(data)
         if recursive and obj.is_dir and obj.id:
             try:
-                nodes = cls.context.client.get(
-                    f"{cls.RESOURCE_PATH}/{quote(obj.id, safe='')}/children/recursive"
-                )
+                nodes = cls.context.client.get(f"{cls.RESOURCE_PATH}/{quote(obj.id, safe='')}/children/recursive")
             except APIError as exc:
                 if exc.status_code not in {403, 404, 405}:
                     raise
@@ -355,10 +353,7 @@ class File(BaseResource):
         body["sort"] = sort or [{"field": "createdAt", "dir": -1}]
         mapping = {"file_type": "fileType", "parent_type": "parentType"}
         body.update(
-            {
-                mapping.get(key, key): value.value if hasattr(value, "value") else value
-                for key, value in filters.items()
-            }
+            {mapping.get(key, key): value.value if hasattr(value, "value") else value for key, value in filters.items()}
         )
         body = {key: value for key, value in body.items() if value is not None}
         data = cls.context.client.post(f"{cls.RESOURCE_PATH}/paginate", json=body)
@@ -374,9 +369,7 @@ class File(BaseResource):
         if not self.id:
             raise ValidationError("File must be saved before it can be downloaded")
         target = Path(destination).expanduser()
-        response = self.context.client.request_stream(
-            "GET", f"{self.RESOURCE_PATH}/{quote(self.id, safe='')}/download"
-        )
+        response = self.context.client.request_stream("GET", f"{self.RESOURCE_PATH}/{quote(self.id, safe='')}/download")
         if self.is_dir:
             target.mkdir(parents=True, exist_ok=True)
             with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as archive:
