@@ -33,6 +33,7 @@ from aixplain.v2.eval_experiment import (
 )
 from aixplain.v2.model import Detail, Message, ModelResult
 from aixplain.v2.exceptions import APIError, ValidationError
+from aixplain.v2.file import File
 
 
 def _eval_ds(*cases: EvalCase) -> Dataset:
@@ -1166,6 +1167,36 @@ def test_experiment_cache_disabled_skips_write(tmp_path: Path) -> None:
     assert not list(tmp_path.glob("*.json"))
     exp.run()
     assert not list(tmp_path.glob("*.json"))
+
+
+def test_experiment_accepts_dataset_instance_as_is(tmp_path: Path) -> None:
+    """A Dataset passed to Experiment is stored unchanged."""
+    ds = _eval_ds(EvalCase(query="q"))
+    exp = Experiment(name="e", dataset=ds, agents=[MagicMock()], cache=False, cache_dir=tmp_path)
+    assert exp.dataset is ds
+
+
+def test_experiment_converts_csv_file_to_dataset(tmp_path: Path) -> None:
+    """A CSV-backed File passed as dataset= is converted via File.to_dataset()."""
+    p = tmp_path / "cases.csv"
+    p.write_text("query,reference\nq1,r1\nq2,r2\n", encoding="utf-8")
+    exp = Experiment(name="e", dataset=File(str(p)), agents=[MagicMock()], cache=False, cache_dir=tmp_path)
+    assert isinstance(exp.dataset, Dataset)
+    assert [c.query for c in exp.dataset.cases] == ["q1", "q2"]
+
+
+def test_experiment_rejects_non_csv_file(tmp_path: Path) -> None:
+    """A non-CSV File cannot be converted and raises during construction."""
+    p = tmp_path / "notes.txt"
+    p.write_text("hello", encoding="utf-8")
+    with pytest.raises(ValidationError, match="CSV"):
+        Experiment(name="e", dataset=File(str(p)), agents=[MagicMock()], cache=False, cache_dir=tmp_path)
+
+
+def test_experiment_rejects_invalid_dataset_type(tmp_path: Path) -> None:
+    """A dataset that is neither a Dataset nor a File raises a clear ValidationError."""
+    with pytest.raises(ValidationError, match="Dataset or File"):
+        Experiment(name="e", dataset="not-a-dataset", agents=[MagicMock()], cache=False, cache_dir=tmp_path)
 
 
 def test_experiment_local_cache_list_and_load(tmp_path: Path) -> None:

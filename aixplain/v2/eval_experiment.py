@@ -19,6 +19,7 @@ import pandas as pd
 from .agent import Agent
 from .exceptions import ValidationError
 from .eval_results_display import _is_metric_data_column
+from .file import File
 
 from .agent_evaluator import (
     AgentEvaluationRow,
@@ -469,13 +470,18 @@ class Experiment:
     (JSON files keyed by :attr:`id`) is on by default; see :attr:`cache`/:attr:`cache_dir`
     and :meth:`list_cached`/:meth:`load_cached`.
 
+    ``dataset`` accepts either a :class:`~aixplain.v2.agent_evaluator.Dataset` (kept as-is)
+    or a CSV-backed :class:`~aixplain.v2.file.File`, which is converted with
+    :meth:`~aixplain.v2.file.File.to_dataset` (default column names) during construction.
+    Pass a :class:`Dataset` directly when you need non-default column names.
+
     Use :meth:`runs_comparison_dataframe` to tabulate each :class:`ExperimentRun`, and
     :meth:`plot_runs_regression` for a line chart (with optional polynomial trend) across runs.
     Use :meth:`diff` to classify per-case changes between two runs on one metric.
     """
 
     name: str
-    dataset: Dataset
+    dataset: Union[Dataset, File]
     agents: Sequence[Agent] = field(default_factory=list, repr=False, compare=False)
     metrics: Optional[Sequence[Metric]] = field(default=None, repr=False, compare=False)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -493,8 +499,10 @@ class Experiment:
             raise ValidationError("Experiment.id must be non-empty.")
         if not isinstance(self.metadata, dict):
             raise ValidationError("Experiment.metadata must be a dict.")
+        if isinstance(self.dataset, File):
+            self.dataset = self.dataset.to_dataset()
         if not isinstance(self.dataset, Dataset):
-            raise ValidationError("Experiment.dataset must be a Dataset instance.")
+            raise ValidationError("Experiment.dataset must be a Dataset or File instance.")
 
     def _cache_store(self) -> ExperimentLocalCache:
         base = Path(self.cache_dir) if self.cache_dir is not None else default_experiment_cache_dir()
