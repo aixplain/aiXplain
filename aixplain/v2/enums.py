@@ -18,7 +18,15 @@ class AuthenticationScheme(str, Enum):
 
 
 class FileType(str, Enum):
-    """File types supported by the platform."""
+    """Structural types for File assets."""
+
+    FILE = "file"
+    FOLDER = "folder"
+    DIRECTORY = "folder"
+
+
+class FileContentType(str, Enum):
+    """Legacy content classifications formerly exposed as ``FileType``."""
 
     CSV = "CSV"
     JSON = "JSON"
@@ -304,6 +312,7 @@ class AttachmentType(str, Enum):
 
 __all__ = [
     "AuthenticationScheme",
+    "FileContentType",
     "FileType",
     "Function",
     "Language",

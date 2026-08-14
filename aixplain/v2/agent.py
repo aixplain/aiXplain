@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from .enums import AssetStatus, ResponseStatus
 from .model import Model
+from .file import File
 from .skill import Skill
 from .mixins import ToolableMixin
 from ..utils.user_info_utils import build_run_metadata
@@ -643,6 +644,13 @@ class Agent(
     # the same way `tools` and `agents` are passed.
     skills: Optional[List[Union[str, "Skill"]]] = field(default_factory=list, metadata=config(field_name="skills"))
 
+    # Persistent File assets available to every run. These are definition-level
+    # references and are intentionally separate from per-run ``attachments``.
+    files: Optional[List[Union[str, Dict[str, Any], "File"]]] = field(
+        default_factory=list,
+        metadata=config(field_name="files"),
+    )
+
     # Output and execution fields
     output_format: Optional[Union[str, OutputFormat]] = field(
         default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
@@ -748,6 +756,15 @@ class Agent(
             s if isinstance(s, str) else s.get("id") if isinstance(s, dict) else s.id for s in (self.skills or [])
         ]
 
+        # Persistent files follow the same dependency pattern as skills. Keep
+        # the original objects for validation and payload construction while
+        # the public serialized state carries their ids.
+        self._original_files = list(self.files or [])
+        self.files = [
+            file if isinstance(file, str) else file.get("id") if isinstance(file, dict) else file.id
+            for file in (self.files or [])
+        ]
+
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
 
@@ -770,6 +787,39 @@ class Agent(
         # Snapshot the (post-hydration) tool objects so save can restore them
         # after the create response would otherwise overwrite them with dicts.
         self._original_tools = list(self.tools) if self.tools else []
+
+    @staticmethod
+    def _file_reference_id(file: Optional[Union[str, Dict[str, Any], "File"]]) -> Optional[str]:
+        """Return the backend ID represented by one persistent File reference."""
+        if file is None:
+            return None
+        if isinstance(file, str):
+            return file
+        if isinstance(file, dict):
+            return file.get("id") or file.get("fileId")
+        return file.id
+
+    def _sync_file_references(self) -> None:
+        """Capture direct mutations to ``agent.files`` before validation or save."""
+        current = list(self.files or [])
+        original = list(getattr(self, "_original_files", []) or [])
+        # ``None`` is the initialization placeholder for an unsaved File. Keep
+        # the original object so save_subcomponents can replace that placeholder
+        # with the ID assigned during its save.
+        effective_current = [
+            original[index] if file is None and index < len(original) else file
+            for index, file in enumerate(current)
+        ]
+        current_ids = [self._file_reference_id(file) for file in effective_current]
+        original_ids = [self._file_reference_id(file) for file in original]
+        if current_ids != original_ids or any(isinstance(file, (File, dict)) for file in effective_current):
+            original_by_id = {
+                self._file_reference_id(file): file for file in original if self._file_reference_id(file) is not None
+            }
+            self._original_files = [
+                original_by_id.get(file, file) if isinstance(file, str) else file for file in effective_current
+            ]
+            self.files = current_ids
 
         # TODO: Re-enable this validation after backend data consistency is fixed
         # if self.agents and (self.tasks or self.tools):
@@ -1251,6 +1301,7 @@ class Agent(
 
     def _save_subcomponents(self) -> None:
         """Recursively save all unsaved child components."""
+        self._sync_file_references()
         failed_components = []
 
         # Save tools
@@ -1287,6 +1338,19 @@ class Agent(
                         skill_name = getattr(skill, "name", f"skill_{i}")
                         failed_components.append(("skill", skill_name, str(e)))
 
+        # Save persistent File assets only when recursive dependency saving was
+        # explicitly requested. A normal Agent save never re-uploads a File.
+        if getattr(self, "_original_files", None):
+            for i, file in enumerate(self._original_files):
+                if isinstance(file, (str, dict)):
+                    continue
+                if isinstance(file, File) and not file.id:
+                    try:
+                        file.save()
+                    except Exception as e:
+                        file_name = getattr(file, "name", f"file_{i}")
+                        failed_components.append(("file", file_name, str(e)))
+
         if failed_components:
             error_details = "; ".join(
                 [f"{comp_type} '{name}': {error}" for comp_type, name, error in failed_components]
@@ -1295,6 +1359,7 @@ class Agent(
 
     def _validate_run_dependencies(self) -> None:
         """Validate that all child components are saved before running."""
+        self._sync_file_references()
         unsaved_components = []
 
         # Check tools
@@ -1321,6 +1386,14 @@ class Agent(
                     skill_name = getattr(skill, "name", "unnamed")
                     unsaved_components.append(f"skill '{skill_name}'")
 
+        # Check persistent files
+        if getattr(self, "_original_files", None):
+            for file in self._original_files:
+                if isinstance(file, (str, dict)):
+                    continue
+                if isinstance(file, File) and not file.id:
+                    unsaved_components.append(f"file '{file.name or 'unnamed'}'")
+
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
             raise ValueError(
@@ -1331,6 +1404,7 @@ class Agent(
 
     def _validate_dependencies(self) -> None:
         """Validate that all child components are saved."""
+        self._sync_file_references()
         unsaved_components = []
 
         # Check tools
@@ -1357,6 +1431,14 @@ class Agent(
                 if hasattr(skill, "id") and not skill.id:
                     skill_name = getattr(skill, "name", "unnamed")
                     unsaved_components.append(f"skill '{skill_name}'")
+
+        # Check persistent files
+        if getattr(self, "_original_files", None):
+            for file in self._original_files:
+                if isinstance(file, (str, dict)):
+                    continue
+                if isinstance(file, File) and not file.id:
+                    unsaved_components.append(f"file '{file.name or 'unnamed'}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -1827,6 +1909,7 @@ class Agent(
 
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
+        self._sync_file_references()
         # Import Inspector from v2 module
         from .inspector import Inspector
 
@@ -1928,6 +2011,37 @@ class Agent(
             payload["skills"] = converted_skills
         else:
             payload.pop("skills", None)
+
+        # Persistent Agent files are references to already-saved File assets.
+        # Never upload them here and never reinterpret them as run attachments.
+        if getattr(self, "_original_files", None):
+            converted_files = []
+            for file in self._original_files:
+                if isinstance(file, File):
+                    file_id = file.id
+                    name = file.name
+                    description = file.description
+                elif isinstance(file, dict):
+                    file_id = file.get("id") or file.get("fileId")
+                    name = file.get("name")
+                    description = file.get("description")
+                elif isinstance(file, str):
+                    file_id = file
+                    name = None
+                    description = None
+                else:
+                    raise ValueError("An agent file must be a File instance, a dict, or a File id string.")
+                if not file_id:
+                    raise ValueError("All files must be saved before saving the agent.")
+                item = {"id": file_id}
+                if name:
+                    item["name"] = name
+                if description:
+                    item["description"] = description
+                converted_files.append(item)
+            payload["files"] = converted_files
+        else:
+            payload.pop("files", None)
 
         # Persist expected_output server-side so fetched agents and runs that
         # don't pass executionParams.expectedOutput (the backend falls back to
