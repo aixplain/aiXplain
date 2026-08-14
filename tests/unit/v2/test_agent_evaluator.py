@@ -767,6 +767,48 @@ def test_configure_insights_sets_context_and_clears_model_cache() -> None:
         AgentEvaluationRun.DEFAULT_INSIGHT_MODEL = saved_model
 
 
+def test_auto_insight_context_returns_none_without_api_key_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No TEAM_API_KEY/AIXPLAIN_API_KEY in the environment -> no auto-bootstrapped client."""
+    monkeypatch.delenv("TEAM_API_KEY", raising=False)
+    monkeypatch.delenv("AIXPLAIN_API_KEY", raising=False)
+    assert AgentEvaluationRun._auto_insight_context() is None
+
+
+def test_auto_insight_context_bootstraps_client_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TEAM_API_KEY in the environment is enough to bootstrap a default Aixplain client."""
+    monkeypatch.setenv("TEAM_API_KEY", "fake-key")
+    mock_client = MagicMock()
+    with patch("aixplain.v2.core.Aixplain", return_value=mock_client) as mock_aixplain:
+        out = AgentEvaluationRun._auto_insight_context()
+    mock_aixplain.assert_called_once_with()
+    assert out is mock_client
+
+
+def test_resolve_default_insight_model_auto_bootstraps_without_configure_insights() -> None:
+    """_resolve_default_insight_model no longer requires an explicit configure_insights() call."""
+    mock_aix = MagicMock()
+    bound_model_cls = MagicMock()
+    bound_model_cls.context = object()
+    resolved = MagicMock()
+    bound_model_cls.get = MagicMock(return_value=resolved)
+    mock_aix.Model = bound_model_cls
+
+    saved_ctx = AgentEvaluationRun.insight_context
+    saved_dm = AgentEvaluationRun.DEFAULT_INSIGHT_MODEL
+    try:
+        AgentEvaluationRun.insight_context = None
+        AgentEvaluationRun.DEFAULT_INSIGHT_MODEL = None
+        with patch.object(AgentEvaluationRun, "_auto_insight_context", return_value=mock_aix) as mock_auto:
+            out = AgentEvaluationRun._resolve_default_insight_model()
+        mock_auto.assert_called_once()
+        bound_model_cls.get.assert_called_once_with("openai/gpt-5.4-mini/openai")
+        assert out is resolved
+        assert AgentEvaluationRun.insight_context is mock_aix
+    finally:
+        AgentEvaluationRun.insight_context = saved_ctx
+        AgentEvaluationRun.DEFAULT_INSIGHT_MODEL = saved_dm
+
+
 def test_chatbot_uses_default_insight_model_when_none_passed() -> None:
     """chatbot() resolves default insight model when model arg is omitted."""
     run = AgentEvaluationRun(rows=[])

@@ -13,6 +13,7 @@ from __future__ import annotations
 import ast
 import enum
 import json
+import os
 import re
 import warnings
 from dataclasses import dataclass, field
@@ -1418,13 +1419,15 @@ class AgentEvaluationRun:
     :mod:`aixplain.v2.eval_results_display`.
 
     Default LLM-backed insight features (:meth:`executive_summary`, :meth:`chatbot`
-    without ``model=``) resolve the model at :attr:`DEFAULT_INSIGHT_MODEL_PATH`
-    using the client bound by :meth:`configure_insights`. After creating
-    ``aix = Aixplain(...)``, call ``AgentEvaluationRun.configure_insights(aix)``
-    so :meth:`aix.Model.get` with the path-style model id uses the same API key and
-    URLs as your agents. :attr:`DEFAULT_INSIGHT_MODEL` stays ``None`` until the
-    first successful resolution; call :meth:`ensure_insight_model_loaded` to
-    populate it without generating a summary.
+    without ``model=``) resolve the model at :attr:`DEFAULT_INSIGHT_MODEL_PATH`.
+    This works out of the box once ``TEAM_API_KEY``/``AIXPLAIN_API_KEY`` is set
+    (which happens automatically after creating ``Aixplain(api_key=...)``): a
+    client is bootstrapped from that env var and used to resolve the model.
+    Call :meth:`configure_insights` only when you need to override this — for
+    example, to bind a specific ``Aixplain`` instance (custom ``backend_url`` or
+    a different API key than the ambient one). :attr:`DEFAULT_INSIGHT_MODEL`
+    stays ``None`` until the first successful resolution; call
+    :meth:`ensure_insight_model_loaded` to populate it without generating a summary.
     """
 
     DEFAULT_INSIGHT_MODEL_PATH: ClassVar[str] = "openai/gpt-5.4-mini/openai"
@@ -1435,7 +1438,13 @@ class AgentEvaluationRun:
 
     @classmethod
     def configure_insights(cls, client: Any) -> None:
-        """Bind default insight model resolution to an :class:`~aixplain.v2.core.Aixplain` client.
+        """Bind default insight model resolution to a specific :class:`~aixplain.v2.core.Aixplain` client.
+
+        Optional: :meth:`executive_summary`/:meth:`chatbot` already resolve a
+        default client automatically from ``TEAM_API_KEY``/``AIXPLAIN_API_KEY``
+        (see class docstring). Call this only to override that with a specific
+        instance, e.g. one using a non-default ``backend_url`` or a different
+        API key than the ambient environment.
 
         Clears any cached default model so the next resolution uses ``client.Model``.
 
@@ -1500,16 +1509,38 @@ class AgentEvaluationRun:
         return cls(rows=rows)
 
     @classmethod
+    def _auto_insight_context(cls) -> Optional[Any]:
+        """Best-effort default client bootstrapped from ambient API key env vars.
+
+        Lets :meth:`executive_summary`/:meth:`chatbot` work without an explicit
+        :meth:`configure_insights` call whenever ``TEAM_API_KEY``/``AIXPLAIN_API_KEY``
+        is already set — which happens automatically once the caller has
+        constructed any ``Aixplain(api_key=...)`` instance in this process.
+        """
+        if not (os.getenv("TEAM_API_KEY") or os.getenv("AIXPLAIN_API_KEY")):
+            return None
+        try:
+            from .core import Aixplain
+
+            return Aixplain()
+        except Exception:
+            return None
+
+    @classmethod
     def _resolve_default_insight_model(cls) -> Optional[Model]:
         """Resolve and cache the default model for executive summary and chatbot.
 
         Uses ``client.Model.get`` with :attr:`DEFAULT_INSIGHT_MODEL_PATH` (path-style
         id, e.g. ``openai/gpt-5.4-mini/openai``). If that fails, falls back to
-        ``search(path=...)`` then ``get(id)``.
+        ``search(path=...)`` then ``get(id)``. The client is either the one bound
+        via :meth:`configure_insights`, or one auto-bootstrapped from
+        ``TEAM_API_KEY``/``AIXPLAIN_API_KEY`` (see :meth:`_auto_insight_context`).
         """
         if cls.DEFAULT_INSIGHT_MODEL is not None:
             return cls.DEFAULT_INSIGHT_MODEL
         model_cls: Any = Model
+        if cls.insight_context is None:
+            cls.insight_context = cls._auto_insight_context()
         if cls.insight_context is not None:
             bound = getattr(cls.insight_context, "Model", None)
             if bound is not None and getattr(bound, "context", None) is not None:
@@ -2123,8 +2154,8 @@ class AgentEvaluationRun:
             model: Optional :class:`~aixplain.v2.model.Model` used to generate
                 richer narrative insights from run statistics and compact context.
                 If omitted, :attr:`AgentEvaluationRun.DEFAULT_INSIGHT_MODEL_PATH` is
-                resolved via :meth:`AgentEvaluationRun.configure_insights` (bound
-                ``client.Model``); otherwise a deterministic template summary is returned.
+                resolved automatically (see :class:`AgentEvaluationRun` docstring);
+                otherwise a deterministic template summary is returned.
             prompt_input_kw: Optional explicit keyword for ``model.run`` (for
                 example ``"text"`` or ``"data"``). When omitted it is inferred
                 from model parameters.
@@ -2203,7 +2234,7 @@ class AgentEvaluationRun:
 
         When ``include_executive_summary`` is true and ``summary_model`` is not
         provided, :attr:`AgentEvaluationRun.DEFAULT_INSIGHT_MODEL_PATH` is resolved
-        using the client from :meth:`AgentEvaluationRun.configure_insights` when set.
+        automatically (see :class:`AgentEvaluationRun` docstring).
 
         Args:
             include_executive_summary: Generate an LLM-backed executive summary.
@@ -2628,8 +2659,8 @@ class AgentEvaluationRun:
 
         Args:
             model: Optional loaded :class:`~aixplain.v2.model.Model`. If omitted,
-                the default insight model is resolved via
-                :meth:`AgentEvaluationRun.configure_insights` when set.
+                the default insight model is resolved automatically (see
+                :class:`AgentEvaluationRun` docstring).
             system_prompt: Override the default analyst instructions.
             max_context_chars: Truncate embedded evaluation context to this size.
             prompt_input_kw: Explicit keyword for :meth:`~aixplain.v2.model.Model.run`
@@ -2645,7 +2676,9 @@ class AgentEvaluationRun:
         if resolved_model is None:
             raise ValidationError(
                 "No model provided and default insight model could not be loaded. "
-                "Call AgentEvaluationRun.configure_insights(aix) after Aixplain(...), or pass model=... explicitly.",
+                "Set TEAM_API_KEY/AIXPLAIN_API_KEY (e.g. by constructing Aixplain(api_key=...)), "
+                "call AgentEvaluationRun.configure_insights(aix) to use a specific client, "
+                "or pass model=... explicitly.",
             )
         resolved_kw = prompt_input_kw if prompt_input_kw is not None else _infer_prompt_input_field_name(resolved_model)
         return AgentEvaluationResultsChatbot(
