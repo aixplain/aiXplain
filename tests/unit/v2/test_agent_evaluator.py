@@ -769,20 +769,38 @@ def test_configure_insights_sets_context_and_clears_model_cache() -> None:
 
 
 def test_auto_insight_context_returns_none_without_api_key_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No TEAM_API_KEY/AIXPLAIN_API_KEY in the environment -> no auto-bootstrapped client."""
+    """No prior Aixplain instance and no TEAM_API_KEY/AIXPLAIN_API_KEY -> no auto-bootstrapped client."""
+    from aixplain.v2.core import Aixplain
+
+    monkeypatch.setattr(Aixplain, "_last_instance", None)
     monkeypatch.delenv("TEAM_API_KEY", raising=False)
     monkeypatch.delenv("AIXPLAIN_API_KEY", raising=False)
     assert AgentEvaluationRun._auto_insight_context() is None
 
 
 def test_auto_insight_context_bootstraps_client_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """TEAM_API_KEY in the environment is enough to bootstrap a default Aixplain client."""
+    """No prior Aixplain instance: TEAM_API_KEY in the environment bootstraps a default client."""
+    from aixplain.v2.core import Aixplain
+
+    monkeypatch.setattr(Aixplain, "_last_instance", None)
     monkeypatch.setenv("TEAM_API_KEY", "fake-key")
     mock_client = MagicMock()
     with patch("aixplain.v2.core.Aixplain", return_value=mock_client) as mock_aixplain:
+        mock_aixplain._last_instance = None
         out = AgentEvaluationRun._auto_insight_context()
     mock_aixplain.assert_called_once_with()
     assert out is mock_client
+
+
+def test_auto_insight_context_prefers_last_constructed_instance(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A previously constructed Aixplain instance is reused without needing configure_insights()."""
+    from aixplain.v2.core import Aixplain
+
+    sentinel = MagicMock()
+    monkeypatch.setattr(Aixplain, "_last_instance", sentinel)
+    monkeypatch.delenv("TEAM_API_KEY", raising=False)
+    monkeypatch.delenv("AIXPLAIN_API_KEY", raising=False)
+    assert AgentEvaluationRun._auto_insight_context() is sentinel
 
 
 def test_resolve_default_insight_model_auto_bootstraps_without_configure_insights() -> None:

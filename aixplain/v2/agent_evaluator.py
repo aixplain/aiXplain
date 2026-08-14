@@ -1420,13 +1420,15 @@ class AgentEvaluationRun:
 
     Default LLM-backed insight features (:meth:`executive_summary`, :meth:`chatbot`
     without ``model=``) resolve the model at :attr:`DEFAULT_INSIGHT_MODEL_PATH`.
-    This works out of the box once ``TEAM_API_KEY``/``AIXPLAIN_API_KEY`` is set
-    (which happens automatically after creating ``Aixplain(api_key=...)``): a
-    client is bootstrapped from that env var and used to resolve the model.
-    Call :meth:`configure_insights` only when you need to override this — for
-    example, to bind a specific ``Aixplain`` instance (custom ``backend_url`` or
-    a different API key than the ambient one). :attr:`DEFAULT_INSIGHT_MODEL`
-    stays ``None`` until the first successful resolution; call
+    This works out of the box - no setup call required. Resolution automatically
+    reuses whichever ``Aixplain`` instance you constructed most recently in this
+    process (so its ``api_key``/``backend_url``/``model_url`` all match what you're
+    already using, e.g. a dev environment), falling back to a fresh default
+    ``Aixplain()`` bootstrapped from ``TEAM_API_KEY``/``AIXPLAIN_API_KEY`` only if
+    no instance exists yet. Call :meth:`configure_insights` only when you need to
+    pin insight resolution to a *specific* ``Aixplain`` instance regardless of
+    which one was constructed most recently. :attr:`DEFAULT_INSIGHT_MODEL` stays
+    ``None`` until the first successful resolution; call
     :meth:`ensure_insight_model_loaded` to populate it without generating a summary.
     """
 
@@ -1441,10 +1443,10 @@ class AgentEvaluationRun:
         """Bind default insight model resolution to a specific :class:`~aixplain.v2.core.Aixplain` client.
 
         Optional: :meth:`executive_summary`/:meth:`chatbot` already resolve a
-        default client automatically from ``TEAM_API_KEY``/``AIXPLAIN_API_KEY``
-        (see class docstring). Call this only to override that with a specific
-        instance, e.g. one using a non-default ``backend_url`` or a different
-        API key than the ambient environment.
+        default client automatically - reusing the most recently constructed
+        ``Aixplain`` instance in this process (see class docstring). Call this
+        only to pin resolution to a specific instance regardless of what else
+        gets constructed afterward.
 
         Clears any cached default model so the next resolution uses ``client.Model``.
 
@@ -1510,18 +1512,25 @@ class AgentEvaluationRun:
 
     @classmethod
     def _auto_insight_context(cls) -> Optional[Any]:
-        """Best-effort default client bootstrapped from ambient API key env vars.
+        """Best-effort default client for insight resolution, no :meth:`configure_insights` required.
 
-        Lets :meth:`executive_summary`/:meth:`chatbot` work without an explicit
-        :meth:`configure_insights` call whenever ``TEAM_API_KEY``/``AIXPLAIN_API_KEY``
-        is already set — which happens automatically once the caller has
-        constructed any ``Aixplain(api_key=...)`` instance in this process.
+        Prefers the most recently constructed :class:`~aixplain.v2.core.Aixplain`
+        instance in this process, so insight resolution reuses the caller's own
+        ``api_key``/``backend_url``/``model_url`` (e.g. a dev environment) instead
+        of guessing production defaults. Falls back to bootstrapping a fresh
+        default ``Aixplain()`` from ``TEAM_API_KEY``/``AIXPLAIN_API_KEY`` only if
+        no instance has been constructed yet.
         """
+        try:
+            from .core import Aixplain
+        except Exception:
+            return None
+        last = getattr(Aixplain, "_last_instance", None)
+        if last is not None:
+            return last
         if not (os.getenv("TEAM_API_KEY") or os.getenv("AIXPLAIN_API_KEY")):
             return None
         try:
-            from .core import Aixplain
-
             return Aixplain()
         except Exception:
             return None

@@ -2,7 +2,7 @@
 
 import os
 import sys
-from typing import Optional, TypeVar
+from typing import ClassVar, Optional, TypeVar
 
 from .client import AixplainClient
 from .model import Model
@@ -47,6 +47,12 @@ class Aixplain:
     This class can be instantiated multiple times with different API keys,
     allowing for multi-instance usage with different authentication contexts.
     """
+
+    # Most recently constructed instance in this process. Lets code elsewhere
+    # (e.g. AgentEvaluationRun's insight-model auto-bootstrap) reuse the
+    # caller's actual client - including its backend_url/model_url - instead
+    # of guessing defaults from env vars alone.
+    _last_instance: ClassVar[Optional["Aixplain"]] = None
 
     # Here below we're defining both resources and enums as class level
     # attributes manually instead of populating them dynamically
@@ -132,6 +138,7 @@ class Aixplain:
 
         self.init_client()
         self.init_resources()
+        Aixplain._last_instance = self
 
     def init_client(self) -> None:
         """Initialize the client."""
