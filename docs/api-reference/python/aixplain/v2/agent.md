@@ -11,7 +11,7 @@ Agent module for aiXplain v2 SDK.
 class ConversationMessage(TypedDict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L45)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L45)
 
 Type definition for a conversation message in agent history.
 
@@ -29,7 +29,7 @@ Type definition for a conversation message in agent history.
 def validate_history(history: List[Dict[str, Any]]) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L62)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L62)
 
 Validates conversation history for agent sessions.
 
@@ -65,7 +65,7 @@ with each message containing the required &#x27;role&#x27; and &#x27;content&#x2
 class OutputFormat(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L120)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L120)
 
 Output format options for agent responses.
 
@@ -75,7 +75,7 @@ Output format options for agent responses.
 class ContextOverflowStrategy(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L128)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L128)
 
 Strategy for condensing the working context when a run exceeds the model&#x27;s context window.
 
@@ -96,7 +96,7 @@ Available in SDK 0.2.46+ (use the current 0.2.47). Set it as the agent&#x27;s sa
 class AgentRunParams(BaseRunParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L230)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L230)
 
 Parameters for running an agent.
 
@@ -140,7 +140,7 @@ Parameters for running an agent.
 class Budget()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L285)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L285)
 
 Budget caps governing an agent run (cost / duration / iterations).
 
@@ -167,7 +167,7 @@ from ``to_dict()``.
 class AgentResponseData()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L319)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L319)
 
 Data structure for agent response.
 
@@ -177,7 +177,7 @@ Data structure for agent response.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L340)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L340)
 
 Assemble the nested ``governance`` dict from the flat wire fields.
 
@@ -190,7 +190,7 @@ Assemble the nested ``governance`` dict from the flat wire fields.
 class AgentRunResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L352)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L352)
 
 Result from running an agent.
 
@@ -204,7 +204,7 @@ Override type from base class
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L362)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L362)
 
 Promote diagnostic codes the backend nests under ``data``.
 
@@ -218,7 +218,7 @@ inside ``executionStats`` on older builds), never top-level.
 def execution_id() -> Optional[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L401)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L401)
 
 Extract the execution ID from the poll URL or request_id.
 
@@ -235,10 +235,11 @@ without persisting the full URL.
 ```python
 def debug(prompt: Optional[str] = None,
           execution_id: Optional[str] = None,
+          debugger_agent_id: Optional[str] = None,
           **kwargs: Any) -> "DebugResult"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L421)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L421)
 
 Debug this agent response using the Debugger meta-agent.
 
@@ -256,6 +257,9 @@ use the Debugger directly: aix.Debugger().debug_response(result)
 - `execution_id` - Optional execution ID (poll ID) for the run. If not provided,
   it will be extracted from the response&#x27;s request_id or poll URL.
   This allows the debugger to fetch additional logs and information.
+- `debugger_agent_id` - Optional debugger agent ID override. If not provided,
+  uses AIXPLAIN_DEBUGGER_AGENT_ID at call time, then the
+  default debugger agent ID.
 - `**kwargs` - Additional parameters to pass to the debugger.
   
 
@@ -276,6 +280,7 @@ use the Debugger directly: aix.Debugger().debug_response(result)
   debug_result = response.debug()  # Uses default prompt
   debug_result = response.debug(&quot;Why did it take so long?&quot;)  # Custom prompt
   debug_result = response.debug(execution_id=&quot;abc-123&quot;)  # With explicit ID
+  debug_result = response.debug(debugger_agent_id=&quot;my-debugger-id&quot;)  # With explicit debugger
   print(debug_result.analysis)
 
 ### Task Objects
@@ -287,7 +292,7 @@ use the Debugger directly: aix.Debugger().debug_response(result)
 class Task()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L474)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L485)
 
 A task definition for agent workflows.
 
@@ -297,7 +302,7 @@ A task definition for agent workflows.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L482)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L493)
 
 Initialize task dependencies after dataclass creation.
 
@@ -314,7 +319,7 @@ class Agent(BaseResource, SearchResourceMixin[BaseSearchParams, "Agent"],
             RunnableResourceMixin[AgentRunParams, AgentRunResult])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L492)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L503)
 
 Agent resource class.
 
@@ -324,7 +329,7 @@ Agent resource class.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L596)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L607)
 
 Initialize agent after dataclass creation.
 
@@ -334,7 +339,7 @@ Initialize agent after dataclass creation.
 def __setattr__(name: str, value: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L682)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L693)
 
 Keep ``self.budget`` a (never-None) ``Budget`` instance.
 
@@ -351,7 +356,7 @@ by the time ``__post_init__`` executes.
 def mark_as_deleted() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L723)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L734)
 
 Mark the agent as deleted by setting status to DELETED and calling parent method.
 
@@ -362,7 +367,7 @@ def before_run(*args: Any,
                **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L788)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L799)
 
 Hook called before running the agent to validate and prepare state.
 
@@ -373,7 +378,7 @@ def on_poll(response: AgentRunResult,
             **kwargs: Unpack[AgentRunParams]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L806)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L817)
 
 Hook called after each poll to update progress display.
 
@@ -389,7 +394,7 @@ def after_run(result: Union[AgentRunResult, Exception], *args: Any,
               **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L818)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L829)
 
 Hook called after running the agent for result transformation.
 
@@ -399,7 +404,7 @@ Hook called after running the agent for result transformation.
 def run(*args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L921)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L932)
 
 Run the agent with optional progress display.
 
@@ -434,7 +439,7 @@ Run the agent with optional progress display.
 def run_async(*args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L956)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L967)
 
 Run the agent asynchronously.
 
@@ -459,7 +464,7 @@ Run the agent asynchronously.
 def poll(poll_url: str) -> AgentRunResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1003)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L1014)
 
 Poll for the result of an asynchronous agent execution.
 
@@ -486,7 +491,7 @@ def sync_poll(poll_url: str,
               **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1021)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L1032)
 
 Poll until an asynchronous agent execution completes.
 
@@ -509,7 +514,7 @@ Accepts either a full URL or a bare execution ID (see
 def save(*args: Any, **kwargs: Any) -> "Agent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1068)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L1079)
 
 Save the agent with dependency management.
 
@@ -539,7 +544,7 @@ child components before the agent itself is saved.
 def before_save(*args: Any, **kwargs: Any) -> Optional[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1270)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L1281)
 
 Callback to be called before the resource is saved.
 
@@ -552,7 +557,7 @@ def after_duplicate(result: Union["Agent", Exception],
                     **kwargs: Any) -> Optional["Agent"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1285)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L1296)
 
 Callback called after the agent is duplicated.
 
@@ -566,7 +571,7 @@ def duplicate(duplicate_subagents: bool = False,
               name: Optional[str] = None) -> "Agent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1295)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L1306)
 
 Duplicate this agent on the aiXplain platform (server-side).
 
@@ -601,7 +606,7 @@ def search(cls: type["Agent"],
            **kwargs: Unpack[BaseSearchParams]) -> "Page[Agent]"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1334)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L1345)
 
 Search agents with optional query and filtering.
 
@@ -622,7 +627,7 @@ Search agents with optional query and filtering.
 def llm_id() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1722)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L1733)
 
 Return main LLM id whether llm is a string or Model.
 
@@ -632,7 +637,7 @@ Return main LLM id whether llm is a string or Model.
 def build_save_payload(**kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1730)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L1741)
 
 Build the payload for the save action.
 
@@ -642,7 +647,7 @@ Build the payload for the save action.
 def build_run_payload(**kwargs: Unpack[AgentRunParams]) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1847)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/agent.py#L1858)
 
 Build the payload for the run action.
 

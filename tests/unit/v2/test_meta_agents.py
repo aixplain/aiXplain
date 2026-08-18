@@ -674,6 +674,18 @@ class TestDebuggerRun:
         assert call_kwargs.get("timeout") == 60
         assert call_kwargs.get("custom_param") == "value"
 
+    def test_run_passes_debugger_agent_id(self):
+        """Should pass the debugger agent ID to the agent resolver."""
+        debugger = self._create_debugger()
+
+        mock_agent = Mock()
+        mock_agent.run.return_value = AgentRunResult(status="SUCCESS", completed=True)
+
+        with patch.object(debugger, "_get_debugger_agent", return_value=mock_agent) as mock_get:
+            debugger.run(content="Content", debugger_agent_id="custom-debugger-id")
+
+        mock_get.assert_called_once_with(debugger_agent_id="custom-debugger-id")
+
 
 # =============================================================================
 # Debugger.debug_response Tests
@@ -767,6 +779,16 @@ class TestDebuggerDebugResponse:
         assert call_kwargs.get("timeout") == 120
         assert call_kwargs.get("custom") == "value"
 
+    def test_debug_response_passes_debugger_agent_id(self):
+        """Should pass the debugger agent ID to run method."""
+        debugger = self._create_debugger()
+        response = AgentRunResult(status="SUCCESS", completed=True)
+
+        with patch.object(debugger, "run", return_value=DebugResult(status="SUCCESS", completed=True)) as mock_run:
+            debugger.debug_response(response, debugger_agent_id="custom-debugger-id")
+
+        assert mock_run.call_args.kwargs["debugger_agent_id"] == "custom-debugger-id"
+
 
 # =============================================================================
 # Debugger._get_debugger_agent Tests
@@ -776,8 +798,9 @@ class TestDebuggerDebugResponse:
 class TestDebuggerGetDebuggerAgent:
     """Tests for Debugger._get_debugger_agent method."""
 
-    def test_get_debugger_agent_uses_correct_id(self):
+    def test_get_debugger_agent_uses_correct_id(self, monkeypatch):
         """Should call Agent.get with DEBUGGER_AGENT_ID."""
+        monkeypatch.delenv("AIXPLAIN_DEBUGGER_AGENT_ID", raising=False)
         mock_context = Mock()
         BoundDebugger = type("Debugger", (Debugger,), {"context": mock_context})
         debugger = BoundDebugger()
@@ -795,9 +818,51 @@ class TestDebuggerGetDebuggerAgent:
             mock_get.assert_called_once_with(DEBUGGER_AGENT_ID)
             assert agent is mock_agent
 
+    def test_get_debugger_agent_uses_environment_override(self, monkeypatch):
+        """Should use the environment override when no explicit ID is provided."""
+        mock_context = Mock()
+        BoundDebugger = type("Debugger", (Debugger,), {"context": mock_context})
+        debugger = BoundDebugger()
+
+        from aixplain.v2.agent import Agent
+
+        with patch.object(Agent, "get", return_value=Mock()) as mock_get:
+            monkeypatch.setenv("AIXPLAIN_DEBUGGER_AGENT_ID", "environment-debugger-id")
+            debugger._get_debugger_agent()
+
+        mock_get.assert_called_once_with("environment-debugger-id")
+
+    def test_get_debugger_agent_reads_environment_at_call_time(self, monkeypatch):
+        """Should honor an environment override set after module import."""
+        mock_context = Mock()
+        BoundDebugger = type("Debugger", (Debugger,), {"context": mock_context})
+        debugger = BoundDebugger()
+
+        from aixplain.v2.agent import Agent
+
+        with patch.object(Agent, "get", return_value=Mock()) as mock_get:
+            monkeypatch.setenv("AIXPLAIN_DEBUGGER_AGENT_ID", "late-environment-debugger-id")
+            debugger._get_debugger_agent()
+
+        mock_get.assert_called_once_with("late-environment-debugger-id")
+
+    def test_get_debugger_agent_explicit_id_overrides_environment(self, monkeypatch):
+        """Should prefer an explicit debugger agent ID over the environment."""
+        mock_context = Mock()
+        BoundDebugger = type("Debugger", (Debugger,), {"context": mock_context})
+        debugger = BoundDebugger()
+
+        from aixplain.v2.agent import Agent
+
+        with patch.object(Agent, "get", return_value=Mock()) as mock_get:
+            monkeypatch.setenv("AIXPLAIN_DEBUGGER_AGENT_ID", "environment-debugger-id")
+            debugger._get_debugger_agent("explicit-debugger-id")
+
+        mock_get.assert_called_once_with("explicit-debugger-id")
+
     def test_debugger_agent_id_constant(self):
         """DEBUGGER_AGENT_ID should have expected value."""
-        assert DEBUGGER_AGENT_ID == "696fdccad63e898317c097a0"
+        assert DEBUGGER_AGENT_ID == "6a83989b20d5ce8082cdc775"
 
 
 # =============================================================================
@@ -879,6 +944,19 @@ class TestAgentRunResultDebug:
 
         call_kwargs = mock_debug_response.call_args.kwargs
         assert call_kwargs.get("execution_id") == "exec-123"
+
+    def test_debug_passes_debugger_agent_id(self):
+        """Should forward debugger_agent_id to debugger."""
+        result = AgentRunResult(status="SUCCESS", completed=True)
+        result._context = Mock()
+
+        mock_debug_result = DebugResult(status="SUCCESS", completed=True)
+
+        with patch.object(Debugger, "debug_response", return_value=mock_debug_result) as mock_debug_response:
+            with patch.object(Debugger, "__init__", return_value=None):
+                result.debug(debugger_agent_id="custom-debugger-id")
+
+        assert mock_debug_response.call_args.kwargs["debugger_agent_id"] == "custom-debugger-id"
 
     def test_debug_passes_kwargs(self):
         """Should forward additional kwargs to debugger."""

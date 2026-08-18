@@ -534,6 +534,7 @@ class AgentRunResult(Result):
         self,
         prompt: Optional[str] = None,
         execution_id: Optional[str] = None,
+        debugger_agent_id: Optional[str] = None,
         **kwargs: Any,
     ) -> "DebugResult":
         """Debug this agent response using the Debugger meta-agent.
@@ -551,6 +552,9 @@ class AgentRunResult(Result):
             execution_id: Optional execution ID (poll ID) for the run. If not provided,
                          it will be extracted from the response's request_id or poll URL.
                          This allows the debugger to fetch additional logs and information.
+            debugger_agent_id: Optional debugger agent ID override. If not provided,
+                               uses AIXPLAIN_DEBUGGER_AGENT_ID at call time, then the
+                               default debugger agent ID.
             **kwargs: Additional parameters to pass to the debugger.
 
         Returns:
@@ -565,6 +569,7 @@ class AgentRunResult(Result):
             debug_result = response.debug()  # Uses default prompt
             debug_result = response.debug("Why did it take so long?")  # Custom prompt
             debug_result = response.debug(execution_id="abc-123")  # With explicit ID
+            debug_result = response.debug(debugger_agent_id="my-debugger-id")  # With explicit debugger
             print(debug_result.analysis)
         """
         from .meta_agents import Debugger, DebugResult
@@ -578,7 +583,13 @@ class AgentRunResult(Result):
         # Create a bound Debugger class with the context
         BoundDebugger = type("Debugger", (Debugger,), {"context": self._context})
         debugger = BoundDebugger()
-        return debugger.debug_response(self, prompt=prompt, execution_id=execution_id, **kwargs)
+        return debugger.debug_response(
+            self,
+            prompt=prompt,
+            execution_id=execution_id,
+            debugger_agent_id=debugger_agent_id,
+            **kwargs,
+        )
 
 
 @dataclass_json
