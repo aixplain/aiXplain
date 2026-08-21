@@ -8,8 +8,8 @@ import zipfile
 import pytest
 
 from aixplain import Aixplain
-from aixplain.v2 import File, FileType, Page, Resource
-from aixplain.v2.exceptions import APIError, ResourceError, ValidationError
+from aixplain.v2 import File, FileType, Page, Privacy, Resource
+from aixplain.v2.exceptions import APIError, FileUploadError, ResourceError, ValidationError
 
 
 @pytest.fixture
@@ -64,6 +64,7 @@ def test_save_local_file_promotes_upload_to_asset(tmp_path, aix):
     """Upload first, then create a permanent root File asset."""
     local_file = tmp_path / "data.csv"
     local_file.write_text("a,b\n1,2\n")
+    aix.client.get = Mock(return_value={"allowed": True})
     aix.client.post = Mock(
         side_effect=[
             {"uploadUrl": "https://upload.test", "downloadUrl": "s3://bucket/temp/data.csv"},
@@ -84,8 +85,62 @@ def test_save_local_file_promotes_upload_to_asset(tmp_path, aix):
     )
     assert aix.client.post.call_args_list[1] == call(
         "sdk/file-asset",
-        json={"name": "data.csv", "fileType": "file", "url": "s3://bucket/temp/data.csv"},
+        json={
+            "name": "data.csv",
+            "fileType": "file",
+            "url": "s3://bucket/temp/data.csv",
+            "description": "",
+            "tags": [],
+            "privacy": "Private",
+            "whitelist": [],
+        },
     )
+
+
+def test_save_local_file_sends_description_tags_and_privacy(tmp_path, aix):
+    """Metadata set before save() must reach the backend, not just structural fields."""
+    local_file = tmp_path / "report.pdf"
+    local_file.write_bytes(b"pdf")
+    aix.client.get = Mock(return_value={"allowed": True})
+    aix.client.post = Mock(
+        side_effect=[
+            {"uploadUrl": "https://upload.test", "downloadUrl": "s3://bucket/temp/report.pdf"},
+            _asset("file-1", "report.pdf"),
+        ]
+    )
+
+    document = aix.File(local_file, description="Quarterly report", tags=["finance", "q3"])
+    document.privacy = Privacy.PUBLIC
+    with patch("aixplain.v2.file.requests.put", return_value=Mock(ok=True)):
+        document.save()
+
+    assert aix.client.post.call_args_list[1] == call(
+        "sdk/file-asset",
+        json={
+            "name": "report.pdf",
+            "fileType": "file",
+            "url": "s3://bucket/temp/report.pdf",
+            "description": "Quarterly report",
+            "tags": ["finance", "q3"],
+            "privacy": "Public",
+            "whitelist": [],
+        },
+    )
+
+
+def test_save_rejects_upload_over_quota_without_uploading(tmp_path, aix):
+    """Ask the backend's quota check before streaming bytes, and stop if it says no."""
+    local_file = tmp_path / "huge.bin"
+    local_file.write_bytes(b"x" * 10)
+    aix.client.get = Mock(return_value={"allowed": False, "reason": "file_too_large", "remainingSize": 0})
+    aix.client.post = Mock()
+
+    with patch("aixplain.v2.file.requests.put") as upload:
+        with pytest.raises(FileUploadError, match="file_too_large"):
+            aix.File(local_file).save()
+
+    upload.assert_not_called()
+    aix.client.post.assert_not_called()
 
 
 def test_save_directory_preserves_parent_relationships_and_empty_folders(tmp_path, aix):
@@ -95,6 +150,7 @@ def test_save_directory_preserves_parent_relationships_and_empty_folders(tmp_pat
     (root / "policies" / "regional").mkdir(parents=True)
     (root / "policies" / "security.pdf").write_bytes(b"pdf")
     (root / "policies" / "regional" / "eu.txt").write_text("eu")
+    aix.client.get = Mock(return_value={"allowed": True})
     aix.client.post = Mock(
         side_effect=[
             _asset("root", "reference", "folder"),

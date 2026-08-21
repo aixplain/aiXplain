@@ -111,6 +111,52 @@ def test_mutating_fetched_agent_files_changes_next_save_payload(aix):
     ]
 
 
+def test_deleting_an_unsaved_file_keeps_the_right_one(aix, tmp_path: Path):
+    """Removing one unsaved file must not attach a different unsaved file instead."""
+    first_path = tmp_path / "first.txt"
+    first_path.write_text("first")
+    second_path = tmp_path / "second.txt"
+    second_path.write_text("second")
+    first = aix.File(first_path)
+    second = aix.File(second_path)
+    agent = aix.Agent(name="doc-agent", files=[first, second])
+
+    del agent.files[0]
+    agent._sync_file_references()
+
+    assert agent._original_files == [second]
+
+
+def test_inserting_an_id_does_not_orphan_an_unsaved_file(aix, tmp_path: Path):
+    """A raw id inserted ahead of an unsaved File must not push it out as a bare None."""
+    path = tmp_path / "notes.txt"
+    path.write_text("notes")
+    document = aix.File(path)
+    agent = aix.Agent(name="doc-agent", files=[document])
+
+    agent.files.insert(0, "saved-id")
+
+    with pytest.raises(ValueError, match="file 'notes.txt'.*saved before saving"):
+        agent.save()
+
+
+def test_clearing_all_files_sends_an_empty_list(aix):
+    """Detaching every file must send files=[] so the backend actually clears it."""
+    document = aix.File(id="file-id", name="handbook.pdf")
+    agent = aix.Agent(name="doc-agent", files=[document])
+
+    agent.files = []
+
+    assert agent.build_save_payload()["files"] == []
+
+
+def test_agent_never_configured_with_files_omits_the_key(aix):
+    """An agent that never touched files must not start sending files=[]."""
+    agent = aix.Agent(name="plain-agent", instructions="hi")
+
+    assert "files" not in agent.build_save_payload()
+
+
 def test_persistent_files_do_not_enter_run_attachments(aix):
     """Keep definition files separate from per-run attachment payloads."""
     agent = aix.Agent(id="agent-id", name="doc-agent", files=["persistent-file-id"])

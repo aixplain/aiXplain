@@ -32,7 +32,7 @@ from dataclasses_json import config, dataclass_json
 
 from .enums import FileType, Privacy
 from .exceptions import APIError, FileUploadError, ResourceError, ValidationError
-from .resource import BaseResource, Page
+from .resource import BaseResource, Page, _is_excluded_from_serialization
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class File(BaseResource):
     status: Optional[str] = None
     created_at: Optional[str] = field(default=None, metadata=config(field_name="createdAt"))
     updated_at: Optional[str] = field(default=None, metadata=config(field_name="updatedAt"))
-    s3_url: Optional[str] = field(default=None, metadata=config(field_name="s3Url"))
+    url: Optional[str] = None
 
     def __init__(
         self,
@@ -157,11 +157,6 @@ class File(BaseResource):
         return self.file_type == FileType.FOLDER
 
     @property
-    def url(self) -> Optional[str]:
-        """Return the uploaded URL for compatibility with the early Resource API."""
-        return self.s3_url
-
-    @property
     def file_path(self) -> Optional[str]:
         """Return the original local path for compatibility with the early Resource API."""
         return self.source
@@ -188,11 +183,23 @@ class File(BaseResource):
     def _apply_data(self, data: Dict[str, Any]) -> None:
         fresh = type(self)._from_data(data)
         for item in fields(type(self)):
-            if item.name not in {"context", "RESOURCE_PATH"}:
+            if not _is_excluded_from_serialization(item):
                 setattr(self, item.name, getattr(fresh, item.name))
         self.context = type(self).context
 
+    def _check_upload_allowance(self, local_path: str) -> None:
+        """Ask the backend whether this upload fits the team's quota before sending its bytes."""
+        size = os.path.getsize(local_path)
+        allowance = self.context.client.get(f"{self.RESOURCE_PATH}/upload-allowance", params={"size": size})
+        if not allowance.get("allowed", True):
+            raise FileUploadError(
+                f"Upload of {Path(local_path).name} ({size} bytes) is not allowed: "
+                f"{allowance.get('reason', 'quota exceeded')}. "
+                f"Remaining size: {allowance.get('remainingSize')}, remaining files: {allowance.get('remainingFiles')}."
+            )
+
     def _upload_local_file(self, local_path: str) -> str:
+        self._check_upload_allowance(local_path)
         content_type = mimetypes.guess_type(local_path)[0] or "application/octet-stream"
         response = self.context.client.post(
             "sdk/file/upload/temp-url",
@@ -217,7 +224,15 @@ class File(BaseResource):
         reference = self._upload_local_file(local_path)
         data = self.context.client.post(
             self.RESOURCE_PATH,
-            json={"name": self.name, "fileType": "file", "url": reference},
+            json={
+                "name": self.name,
+                "fileType": "file",
+                "url": reference,
+                "description": self.description or "",
+                "tags": self.tags,
+                "privacy": self.privacy.value,
+                "whitelist": self.whitelist,
+            },
         )
         self._apply_data(data)
 

@@ -756,13 +756,11 @@ class Agent(
             s if isinstance(s, str) else s.get("id") if isinstance(s, dict) else s.id for s in (self.skills or [])
         ]
 
-        # Persistent files follow the same dependency pattern as skills. Keep
-        # the original objects for validation and payload construction while
-        # the public serialized state carries their ids.
+        # Unsaved files keep the object itself, not None, so list edits never lose track of which is which.
+        self._files_ever_configured = bool(self.files)
         self._original_files = list(self.files or [])
         self.files = [
-            file if isinstance(file, str) else file.get("id") if isinstance(file, dict) else file.id
-            for file in (self.files or [])
+            file if isinstance(file, str) else (self._file_reference_id(file) or file) for file in (self.files or [])
         ]
 
         if isinstance(self.output_format, OutputFormat):
@@ -803,15 +801,17 @@ class Agent(
         """Capture direct mutations to ``agent.files`` before validation or save."""
         current = list(self.files or [])
         original = list(getattr(self, "_original_files", []) or [])
-        # ``None`` is the initialization placeholder for an unsaved File. Keep
-        # the original object so save_subcomponents can replace that placeholder
-        # with the ID assigned during its save.
+        # A None slot is a still-unsaved placeholder; only safe to refresh by position if lengths match.
+        same_length = len(current) == len(original)
         effective_current = [
-            original[index] if file is None and index < len(original) else file for index, file in enumerate(current)
+            original[index] if file is None and same_length else file for index, file in enumerate(current)
         ]
         current_ids = [self._file_reference_id(file) for file in effective_current]
         original_ids = [self._file_reference_id(file) for file in original]
         if current_ids != original_ids or any(isinstance(file, (File, dict)) for file in effective_current):
+            if current_ids != original_ids:
+                self._files_ever_configured = True
+            # Re-attach by id, not position, so edits can't pair a string with the wrong original object.
             original_by_id = {
                 self._file_reference_id(file): file for file in original if self._file_reference_id(file) is not None
             }
@@ -2013,7 +2013,8 @@ class Agent(
 
         # Persistent Agent files are references to already-saved File assets.
         # Never upload them here and never reinterpret them as run attachments.
-        if getattr(self, "_original_files", None):
+        # Use _files_ever_configured, not _original_files truthiness, so a fully-cleared list still sends [].
+        if getattr(self, "_files_ever_configured", False):
             converted_files = []
             for file in self._original_files:
                 if isinstance(file, File):
