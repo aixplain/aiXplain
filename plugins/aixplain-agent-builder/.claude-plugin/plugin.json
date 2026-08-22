@@ -1,0 +1,13 @@
+{
+  "name": "aixplain-agent-builder",
+  "displayName": "aixplain Agent Builder",
+  "description": "Build, connect, deploy, verify, debug, update, and export production aixplain agents with the SDK v2.",
+  "version": "1.0.0",
+  "author": {
+    "name": "aixplain",
+    "url": "https://aixplain.com"
+  },
+  "homepage": "https://docs.aixplain.com",
+  "repository": "https://github.com/aixplain/aiXplain",
+  "keywords": ["aixplain", "agents", "agent-builder", "sdk", "integrations", "governance"]
+}

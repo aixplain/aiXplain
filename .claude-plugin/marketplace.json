@@ -9,6 +9,7 @@
   "plugins": [
     {
       "name": "aixplain-marketplace",
+      "displayName": "aixplain Marketplace",
       "description": "Search the aixplain marketplace from your editor — find agents, models, tools, and integrations across the whole catalog, read pricing and hosting, and get working code to call any asset via SDK, REST, or MCP.",
       "source": "./plugins/aixplain-marketplace",
       "category": "development",
@@ -17,6 +18,19 @@
         "url": "https://aixplain.com"
       },
       "homepage": "https://studio.aixplain.com"
+    },
+    {
+      "name": "aixplain-agent-builder",
+      "displayName": "aixplain Agent Builder",
+      "description": "Build, connect, deploy, verify, debug, update, and export production aixplain agents with the SDK v2.",
+      "source": "./plugins/aixplain-agent-builder",
+      "category": "development",
+      "author": {
+        "name": "aixplain",
+        "url": "https://aixplain.com"
+      },
+      "homepage": "https://docs.aixplain.com",
+      "repository": "https://github.com/aixplain/aiXplain"
     }
   ]
 }

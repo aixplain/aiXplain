@@ -13,6 +13,7 @@ to do something, a plugin also hands it the tools.
 | Plugin | Description |
 |--------|-------------|
 | [aixplain-marketplace](./aixplain-marketplace) | Search the aixplain marketplace from your editor — find agents, models, tools, and integrations in one call, read pricing and hosting, and get working code to call any asset via SDK, REST, or MCP. |
+| [aixplain-agent-builder](./aixplain-agent-builder) | Build, connect, deploy, verify, debug, update, and export production aixplain agents with the SDK v2. |
 
 ---
 
