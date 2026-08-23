@@ -112,20 +112,26 @@ Sessions are synchronous. `run_async(..., session=...)` is not supported.
 Configure tools, model, `output_format`, `expected_output`, and the default `agent.budget` on the agent. `run()` controls one execution:
 
 ```python
+# Stateless reusable run: variables are currently unreliable; validate the result.
 result = agent.run(
-    query="Create the customer briefing from the supplied context.",
-    session=session,  # omit for a stateless run
+    query="Create the customer briefing for Acme from the supplied context.",
     variables={"account_name": "Acme"},
     identifier="customer-123",
     attachments=["/absolute/path/to/brief.pdf"],
     criteria="Include sources and flag unsupported claims.",
 )
+
+# Stateful conversation: resolve non-secret values into the query; do not pass variables.
+follow_up = agent.run(
+    query="For Acme, turn the prior briefing into an executive summary.",
+    session=session,
+)
 ```
 
 | Need | `run()` controls | Notes |
 |---|---|---|
-| Conversation | `query`, `session` | `session` accepts a `Session` or ID. |
-| Per-run input | `variables`, `identifier`, `attachments` | Use `attachments`, not deprecated `files`; local paths upload automatically. |
+| Conversation | `query`, `session` | `session` accepts a `Session` or ID; do not combine it with `variables`. |
+| Per-run input | `variables`, `identifier`, `attachments` | Variables are currently unreliable. For stateful runs, resolve non-secret values into `query`; use `attachments`, not deprecated `files`. |
 | Quality and oversight | `criteria`, `inspectors` | Add inspectors only for consequential output checks. |
 | Progress display | `progress_format`, `progress_verbosity`, `progress_truncate` | Use `status` or `logs`; leave unset in normal production runs. |
 | Advanced execution | `tasks`, `prompt`, `history`, `execution_params`, `evolve` | Use only when the execution strategy requires them. `execution_params.max_iterations` is deprecated. |
@@ -243,22 +249,17 @@ Fix the smallest responsible layer—tool, action scope, description, instructio
 
 ## Reusable run variables
 
-SDK `0.2.47` supports `{{variable}}` placeholders in instructions and descriptions. Use them when one deployed agent should handle repeatable variants without cloning:
+SDK `0.2.47` exposes `variables=`, but current platform substitution is unreliable and the SDK rejects `session=...` combined with `variables=...`. Until that is repaired, do not promise placeholder substitution.
+
+For a stateless run, use `variables=` only when a focused verification proves substitution occurred. For a stateful run—or whenever correctness matters—resolve non-secret values into the per-run query instead:
 
 ```python
-agent = aix.Agent(
-    name="Briefing Agent",
-    description="Creates a {{briefing_type}} briefing.",
-    instructions="Create a {{briefing_type}} briefing for {{audience}}.",
-).save()
-
-result = agent.run(
-    query="Use the supplied context.",
-    variables={"briefing_type": "customer", "audience": "account team"},
-)
+account_name = "Acme"  # Never resolve secrets into prompts.
+query = f"Create a customer briefing for {account_name} from the supplied context."
+result = agent.run(query=query, session=session)
 ```
 
-Do not use variables for secrets; pass credentials only through approved integration/auth flows.
+Pass credentials only through approved integration/auth flows.
 
 ## Export an existing agent to portable SDK v2 code
 
@@ -279,6 +280,8 @@ Portability rules for generated code:
 - Inline agent-specific Python Sandbox source using `config={"code": ..., "function_name": ...}`.
 - Emit subagents before the root and attach them with `agents=[...]`.
 - End with `.save()` and print `https://app.aixplain.com/agents/<AGENT_ID>`.
+- Generate `llm=...`, never unsupported `llm_id=...`; keep iteration limits in `agent.budget`, never top-level `max_iterations`.
+- Before presenting an export, run `python -m py_compile <generated_file>`, inspect constructor arguments against SDK `0.2.47`, and ensure save/run side effects are guarded by `if __name__ == "__main__":`.
 - Run the generated script in a clean workspace when practical and compare the resolved schema before calling the export portable.
 
 ## Choose the execution strategy

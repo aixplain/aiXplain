@@ -17,13 +17,13 @@ Infer the mode from the request; do not make the user choose:
 
 - **Build:** turn an intent into a configured, deployed, verified agent.
 - **Run/debug:** load an agent by ID or exact name, reproduce the problem, inspect steps/governance/tool behavior, fix in place, and re-verify.
-- **Export:** load an existing agent and recursively generate portable SDK v2 code for its tools, skills, inspectors, and subagents. See `references/agent-patterns.md`.
+- **Export:** load an existing agent and recursively generate portable SDK v2 code for its tools, skills, inspectors, and subagents; syntax- and constructor-validate it before presenting it. See `references/agent-patterns.md`.
 
 ## Operating contract
 
 1. **Start from intent.** Infer the job, users, inputs, outputs, success criteria, and likely next request. Prefer one capable agent; use a team only when roles genuinely need different tools, context, or delegation.
 2. **Do not interview the user about routine configuration.** Choose names, descriptions, instructions, output format, budgets, models, action scopes, and iteration limits using safe defaults.
-3. **Search before building.** Search tools and integrations before declaring a capability missing. Prefer native first-party assets, then supported integrations, then custom code.
+3. **Search before building.** Use the bundled Marketplace Search MCP when available to discover assets, actions, and input schemas before declaring a capability missing. Prefer native first-party assets, then supported integrations, then custom code.
 4. **Ask only at the connection boundary.** Pause only when the user must choose whether to connect an external integration, authorize OAuth, provide a provider credential, or approve a consequential/irreversible action. Never invent secrets.
 5. **Build proactively.** Anticipate the next useful capability when it is low-risk and clearly implied. Do not silently add access to external systems, broad permissions, or expensive behavior.
 6. **Show configuration when it is ready.** After resolving assets and defaults, present the compact final schema so the user can request changes; do not expose a stream of intermediate choices.
@@ -238,6 +238,7 @@ Draft a public issue only after the user asks. Target https://github.com/aixplai
 
 ## Reference routing
 
+- Marketplace discovery and exact MCP schemas: `../marketplace-search/references/effective-mcp-use.md`
 - Connections, OAuth, SQL, custom `code=`, Code Execution, file handling: `references/integration-playbooks.md`
 - Teams, updates, memory/knowledge, budgets, portability: `references/agent-patterns.md`
 - Runtime inspectors and validation: `references/inspectors.md`

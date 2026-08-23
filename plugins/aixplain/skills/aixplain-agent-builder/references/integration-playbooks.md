@@ -21,6 +21,29 @@ integration = aix.Integration.get(matches[0].id)
 print(integration.list_actions())
 ```
 
+## Slack: discover and scope the exact action
+
+Preserve the explicit connection checkpoint. After the user agrees to connect Slack, inspect the action list and use the exact platform action name—not a conceptual alias:
+
+```python
+slack = aix.Integration.get("686432941223092cb4294d3f")
+actions = list(slack.list_actions())
+assert "SLACK_SEND_MESSAGE" in actions
+
+slack_tool = aix.Tool(
+    name="Approved Slack Sender",
+    description="Sends an approved message to the selected Slack destination.",
+    integration=slack,
+    allowed_actions=["SLACK_SEND_MESSAGE"],
+).save()
+```
+
+Request only the minimum `chat:write` permission needed to send the approved message. Do not use `send_message` as an action name.
+
+## Web Search: inspect before generating runnable code
+
+Prefer the first-party aixplain Web Search tool when it satisfies the request. With this unified plugin, use Marketplace Search to find the tool, then call `list_actions_tools` and `list_inputs_tools` for the selected asset before writing code. Emit only the returned action name and input fields; never invent nested parameters. Validate the resulting SDK snippet before presenting it.
+
 Do not choose solely by display name. Prefer `aixplain/...` first-party paths over brokered connectors when both meet the requirement.
 
 ## Existing marketplace tool

@@ -1,213 +1,263 @@
 ---
 name: aixplain-agent-builder
-description: A skill to design, deploy, and run production-grade AI agents on aiXplain.
+description: Build, configure, deploy, run, debug, export, verify, and update aixplain agents from a user's problem or intent using the Python SDK v2. Use for single agents, teams, marketplace tools, integrations, custom Python tools, runtime Code Execution, knowledge, sessions, budgets, and inspectors. The skill works autonomously, asks only when an external integration or secret needs the user's decision, and returns a working app link.
 metadata: {"requires": {"env": ["AIXPLAIN_API_KEY"], "bins": ["python3", "pip"]}}
 ---
 
-# aiXplain Agent Builder
+# aixplain agent builder
 
-Design, deploy, run, and manage aiXplain agents — single agents, team agents, tools, and OAuth integrations.
+Turn a user's intent into a working, verified aixplain agent. Do the SDK work yourself; do not make the user design the schema, select routine defaults, or debug tracebacks.
 
-> **Last updated:** 2026-05-31 · **Verified against aiXplain SDK:** v0.2.44 (inspector API verified live)
+> **Current stable SDK:** `aixplain==0.2.47` (verified against the public release and repository on 2026-08-22).
+> **SDK v2 only:** use `from aixplain import Aixplain`. Never use `AgentFactory`, `ModelFactory`, `TeamAgentFactory`, `aixplain.factories`, or other v1 APIs. If docs or an error lead to v1, translate the approach to v2 or log the gap in `references/BUGS.md`.
 
-## Audience & Self-Containment
+## Modes
 
-This skill is used on behalf of **both non-developers and developers**. They will not read the SDK source, API reference, or GitHub. Therefore:
+Infer the mode from the request; do not make the user choose:
 
-- **This skill is the single source of truth.** Every code block here is verified against the SDK version above — use it as written. Do not tell the user to consult the SDK docs, GitHub, or source code.
-- **Do the technical work yourself.** Write and run the code; the user should not have to. Never hand a non-developer a traceback — diagnose it, fix it, and report the outcome in plain language (what happened, what you did, what's next).
-- **Explain in plain terms for non-developers**, but keep full code available for developers who want it. Lead with the result and the Studio link, not the implementation.
-- **If a snippet here ever fails against the installed SDK, the skill is wrong, not the user.** Fix the skill in place, then follow the "Report aiXplain-Caused Issues" habit (see Debugging) — never redirect the user to external docs to work around it.
+- **Build:** turn an intent into a configured, deployed, verified agent.
+- **Run/debug:** load an agent by ID or exact name, reproduce the problem, inspect steps/governance/tool behavior, fix in place, and re-verify.
+- **Export:** load an existing agent and recursively generate portable SDK v2 code for its tools, skills, inspectors, and subagents; syntax- and constructor-validate it before presenting it. See `references/agent-patterns.md`.
 
-## How It Works
+## Operating contract
 
-This skill accepts the following commands:
-
-- **Build agent** — plan, search tools, create tools, assemble and save the agent
-- **Deploy agent** — save and share Studio links for visual editing and analytics
-- **Run agent** — execute sync or async and return the output
-- **Debug agent** — diagnose tool, action, OAuth, or runtime issues
-- **Export agent** — generate a standalone Python script from a deployed agent
+1. **Start from intent.** Infer the job, users, inputs, outputs, success criteria, and likely next request. Prefer one capable agent; use a team only when roles genuinely need different tools, context, or delegation.
+2. **Do not interview the user about routine configuration.** Choose names, descriptions, instructions, output format, budgets, models, action scopes, and iteration limits using safe defaults.
+3. **Search before building.** Use the bundled Marketplace Search MCP when available to discover assets, actions, and input schemas before declaring a capability missing. Prefer native first-party assets, then supported integrations, then custom code.
+4. **Ask only at the connection boundary.** Pause only when the user must choose whether to connect an external integration, authorize OAuth, provide a provider credential, or approve a consequential/irreversible action. Never invent secrets.
+5. **Build proactively.** Anticipate the next useful capability when it is low-risk and clearly implied. Do not silently add access to external systems, broad permissions, or expensive behavior.
+6. **Show configuration when it is ready.** After resolving assets and defaults, present the compact final schema so the user can request changes; do not expose a stream of intermediate choices.
+7. **Deploy and prove it.** `save()` is not completion. Run realistic checks, inspect tool usage and governance, fix failures, then provide the app link.
+8. **Never overwrite by accident.** If the request clearly targets an existing agent, update it in place. For a new build whose exact name already exists, choose a descriptive unique name and report the collision; do not overwrite or create opaque `(1)` duplicates.
+9. **Log platform quirks.** Append reproducible SDK/runtime/integration defects to `references/BUGS.md`; do not bury them in chat or automatically open a public issue.
 
 ## 1. Setup
 
-Always install/upgrade to the latest SDK before doing anything: `pip install --upgrade aixplain`.
+Install the exact tested stable release:
 
-This skill is verified against **SDK v0.2.44**. If the installed version differs, tell the user.
+```bash
+python3 -m pip install --upgrade "aixplain==0.2.47"
+```
+
+Read the key from a secret source and pass it explicitly. Never print, commit, or embed it in generated code.
 
 ```python
 import os
-from dotenv import load_dotenv
 from aixplain import Aixplain
 
-load_dotenv()  # loads AIXPLAIN_API_KEY from .env if present
-
-api_key = os.getenv("AIXPLAIN_API_KEY")
-if not api_key:
-    raise ValueError("AIXPLAIN_API_KEY not set. Add it to your .env file or environment.")
-
+api_key = os.environ["AIXPLAIN_API_KEY"]
 aix = Aixplain(api_key=api_key)
 ```
 
-> **Passing local files to agents or aiXplain assets:** Use `FileUploader` to upload a file to aiXplain S3 and get a presigned URL. Pass that URL anywhere a URL input is accepted (tools, models, integrations). `Resource.save()` is internal and not usable standalone.
-> ```python
-> from aixplain.v2.upload_utils import FileUploader
-> uploader = FileUploader(api_key=api_key)
-> file_url = uploader.upload("/path/to/file.mp3", is_temp=True, return_download_link=True)
-> ```
->
-> **Downloadable links:** If the agent needs to return files the user can click and download, always set `return_download_link=True`. Without it, `upload()` returns a raw `s3://` path that is not browser-accessible.
->
-> **MIME type patch for `.html` and `.zip`:** The SDK's `MimeTypeDetector` does not include these extensions — both fall back to `text/csv`, causing browsers to save files with the wrong extension. Always patch before uploading when generating these file types:
-> ```python
-> from aixplain.v2.upload_utils import MimeTypeDetector
-> MimeTypeDetector.EXTENSION_MAPPING['.html'] = 'text/html'
-> MimeTypeDetector.EXTENSION_MAPPING['.zip']  = 'application/zip'
-> ```
+Keys are workspace-specific. `Forbidden resource` across known-valid assets usually means the key belongs to another workspace.
 
-## 2. Plan
+## 2. Derive the schema
 
-Before building, present a plan to the user covering: agent name, description, instructions, which tools/integrations to use, and whether it's a single or team agent. Wait for approval before proceeding.
+Silently draft this internal blueprint from the user's intent:
 
-**Always search before creating or hardcoding a tool or integration.** `Tool`, `Model`, and `Integration` all support `.search(query=...).results`. Never say "not available" without searching first.
-
-```python
-results = aix.Tool.search(query="web search").results
-# Names may be concatenated (e.g. "Googledrive"). Normalize before comparing.
+```yaml
+name: concise job-based name
+description: who it helps and the outcome
+instructions: goal, workflow, tool-use rules, constraints, completion criteria
+architecture: single | team
+inputs: what a run needs
+output_format: markdown | text | json
+tools: minimum required capabilities
+integrations: external systems requiring connection
+knowledge_or_memory: none | session | shared-memory | knowledge-base | skill
+runtime_code: true only if the agent must write/run code during a run
+governance: least privilege, budget, inspectors when justified
+verification: one realistic test per capability
 ```
 
-If a needed capability has no marketplace tool or integration, announce you'll build it as a **Python Sandbox** function (see `references/integration-playbooks.md § 4`).
+Defaults:
+- Use the platform default LLM unless the user requests a model or the default is incompatible with a tool.
+- Use `markdown` for human deliverables and `json` only when another system consumes the output.
+- Use a single agent unless specialist delegation improves reliability.
+- Scope every tool to the smallest non-empty `allowed_actions` set.
+- Give each tool a concise, action-oriented description that states when to use it and what it returns; distinct descriptions improve tool and subagent routing.
+- Add runtime Code Execution only when the deployed agent needs calculations, transforms, plots, file processing, or dynamic code during a run.
+- Use a Python Sandbox custom tool when the missing capability is deterministic code authored at build time.
 
-## 3. Create Tools
+## 3. Resolve capabilities
 
-**MANDATORY: Scope `allowed_actions` on every tool.** Never attach a tool to an agent without first narrowing its actions to the minimum needed for the task. Tools loaded via `Tool.get()` come with all actions enabled by default — this is over-privileged and degrades agent reasoning. Inspect `tool.actions` to see the full set, then assign `tool.allowed_actions = [...]` (or pass `allowed_actions=[...]` in the constructor) before adding to the agent. If you genuinely need all actions, state that explicitly to the user and confirm.
+Search first:
 
 ```python
-tool = aix.Tool.get("<ID>")
-print(tool.actions)              # discover available actions
-tool.allowed_actions = ["search_models", "list_filters"]  # scope to task
+tools = aix.Tool.search(query="web search").results
+integrations = aix.Integration.search(query="calendar").results
+models = aix.Model.search(query="reasoning").results
 ```
 
-Three paths, in order of preference:
+For broad discovery, use the aixplain Marketplace Search tool:
 
 ```python
-# Path A: Marketplace tool by ID — REMEMBER to scope allowed_actions after .get()
-tool = aix.Tool.get("698cda188bbb345db14ac13b")  # Code Execution
-tool.allowed_actions = [...]  # required
-
-# Path B: Non-OAuth integration (KB, SQLite)
-# READ references/integration-playbooks.md for config payloads.
-# Ask the user for any missing inputs — never invent placeholders.
-# Always create fresh; do not reuse by name unless explicitly asked.
-tool = aix.Tool(name="KB Search", description="Search product docs",
-    integration="6904bcf672a6e36b68bb72fb", allowed_actions=["search", "get"]).save()
-
-# Path C: OAuth integration (Gmail, Slack, Jira, Google Drive)
-# READ references/integration-playbooks.md § 5 for full workflow.
-# (1) integration = aix.Integration.get("<ID>")
-# (2) integration.list_actions() → discover action names
-# (3) Create tool with allowed_actions in constructor
-# (4) User completes OAuth via redirect URL emitted at .save()
-# (5) Attach in-memory tool object to agent and save
-
-# Path D: Python Sandbox (last resort)
-# READ references/integration-playbooks.md § 4 for config shape.
+search = aix.Tool.get("6960f934f316da19e5f22494")
+result = search.run(action="search", data={"query": "microsoft calendar"})
+for kind in ("agent", "model", "tool", "integration"):
+    for item in result.data.get(kind, {}).get("results", []):
+        print(kind, item["name"], item["path"], item["id"])
 ```
 
-## 4. Build Agent
+Selection order:
+1. Existing first-party marketplace tool.
+2. Existing native integration.
+3. Supported connector integration.
+4. Custom Python Sandbox tool with `config={"code": ..., "function_name": ...}`.
 
-Agents use the platform default LLM — do not specify `llm` unless the user requests a specific model.
+If an existing integration can do the job, ask whether the user wants to connect it. If no suitable tool exists, develop the missing deterministic tool with `code=` rather than asking the user to invent the implementation. Read `references/integration-playbooks.md` before connecting or authoring code.
+
+### Build-time code vs runtime code
+
+- **Python Sandbox integration** (`688779d8bfb8e46c273982ca`): you write fixed code now. Use when a capability is missing and should become a deterministic tool.
+- **Code Execution tool** (`698cda188bbb345db14ac13b`): the agent writes/runs code later. Add only when runtime work actually requires it.
+
+## 4. Build
 
 ```python
 agent = aix.Agent(
-    name="My Agent", description="...", instructions="...",
-    tools=[tool], output_format="markdown",
-    max_tokens=6000,  # set at creation, not per-run
-).save()
+    name="Customer Briefing Agent",
+    description="Produces an evidence-backed customer briefing.",
+    instructions=(
+        "Gather the required evidence with the attached tools, reconcile conflicts, "
+        "and return a concise briefing with sources. Do not claim completion until "
+        "all required sections are present."
+    ),
+    tools=[tool],
+    output_format="markdown",
+    max_tokens=6000,
+)
+agent.save()
 ```
 
-If `save()` raises `name_already_exists`, ask the user: update existing or create with a new name.
-
-## 5. Deploy & Run
-
-After deploy, share these links with the user:
-- **Visual builder:** `https://studio.aixplain.com/build/<AGENT_ID>/schema`
-- **Analytics:** `https://studio.aixplain.com/dashboard/analytics/?agent=<AGENT_ID>`
-
-Default: leave `runResponseGeneration` unset. Only pass `runResponseGeneration=True` when you specifically need structured/JSON output.
+For structured output, set it on the agent:
 
 ```python
-# Sync — default text output
-result = agent.run(query="...")
-print(result.data.output)
-
-# Sync — structured/JSON output
-result = agent.run(query="...", runResponseGeneration=True)
-
-# Async — SDK handles polling; no manual HTTP needed
-ar = agent.run_async(query="...")
-result = agent.sync_poll(ar.url)   # blocks until SUCCESS/FAILED, returns the same result shape as run()
-print(result.data.output)
+agent = aix.Agent(
+    name="Lead Qualifier",
+    description="Qualifies a lead against the supplied criteria.",
+    instructions="Evaluate every criterion and explain the result.",
+    output_format="json",
+    expected_output={
+        "type": "object",
+        "properties": {
+            "qualified": {"type": "boolean"},
+            "reasons": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["qualified", "reasons"],
+    },
+)
+agent.save()
 ```
 
-## 6. Debugging
+For teams, updates, budgets, and inspectors, read `references/agent-patterns.md` and `references/inspectors.md`.
 
-### Inspect Intermediate Steps
+## 5. Integration checkpoint
+
+Do not ask for general approval of the inferred schema. Ask a focused question only when connection is required:
+
+- Name the integration and why it is needed.
+- List the minimum actions requested.
+- State whether OAuth or a provider key is required.
+- Offer the no-connection alternative, if one exists.
+
+After consent, create the tool from the integration in the current workspace and return the generated connect URL. Never hardcode a workspace-bound integration tool instance.
+
+## 6. Verify before reporting success
+
+Run one realistic query per capability. For every run:
 
 ```python
-result = agent.run(query="...")
+result = agent.run(query="Create this week's customer briefing from the available sources.")
 
-# Step-by-step trace: thought, action, tool used, input/output, tokens
-for step in result.data.steps:
-    print(step['thought'], step['action'], step['unit']['name'])
+used_units = [
+    step.get("unit", {}).get("name")
+    for step in (result.data.steps or [])
+    if isinstance(step, dict)
+]
 
-# Aggregate costs and timing
-stats = result.data.execution_stats
-print(stats['credits'], stats['runtime'], stats['api_calls'])
+governance = result.data.governance or {}
+assert governance.get("status", "ALLOWED") == "ALLOWED", governance
+print(result.data.output)
+print(used_units)
 ```
 
-Or view traces visually in Studio: `https://studio.aixplain.com/build/<AGENT_ID>/schema`
+Completion gate:
+- Every intended tool fired at least once when relevant.
+- Output satisfies the user's requested result and format.
+- Governance did not block the run; run `SUCCESS` alone is insufficient.
+- Generated files have clickable HTTPS download links.
+- Team output is synthesized, not an internal `delegate_task` trace.
+- Integration permissions are the minimum required.
+- Actual spend comes from `result.data.execution_stats["credits"]`.
 
-### Report aiXplain-Caused Issues
+If a tool works standalone but fails inside the agent, isolate the orchestration issue before changing the schema. Record reproducible aixplain-caused behavior in `references/BUGS.md`.
 
-When you hit a quirk or error that is **aiXplain-caused** — not a mistake in the user's code, query, or config — make it a habit to propose filing a GitHub issue at https://github.com/aixplain/aiXplain. Examples: an action advertised by an integration that always fails, an SDK method that misbehaves, a documented parameter the backend ignores, a connector requesting insufficient OAuth scopes.
+## 7. Final response
 
-Workflow:
-1. Confirm the cause is on aiXplain's side (reproduce it; rule out user input, missing scopes the user controls, rate limits, etc.).
-2. Propose the issue to the user with a draft title and body. Do not post without confirmation — the repo is public.
-3. **Redact personal data** from the public issue: no API keys, real email addresses, tool/agent IDs, message counts, or any account-specific data. Keep repro steps generic.
-4. On approval, post with `gh issue create --repo aixplain/aiXplain` and share the issue link.
+Lead with the result, not the code. Include:
 
-Issue body should include: SDK version, integration/asset type, a minimal repro, the exact error, and expected vs. actual behavior.
+1. What the agent does.
+2. App link: `https://app.aixplain.com/agents/<AGENT_ID>`.
+3. Compact final configuration: architecture, tools/integrations, action scopes, output, memory/knowledge, model override if any, budget/guardrails.
+4. Verification evidence: test prompts, tools observed, pass/fail, governance status.
+5. Connection link or remaining user action, only if required.
+6. One likely next improvement, phrased as optional rather than another setup questionnaire.
 
-## Quick Asset IDs
+Keep build code available on request. When the user asks for integration code, provide a complete v2 snippet based on `references/integration-playbooks.md`.
+
+## Updating an existing agent
+
+SDK `0.2.47` has a critical hydration bug: `Agent.get()` can populate each tool's `allowed_actions` from every returned parameter definition instead of the backend's persisted `actions` scope. Before any get→mutate→save cycle, fetch the raw agent and reapply its stored scopes:
+
+```python
+agent_id = "<AGENT_ID>"
+raw = aix.Agent.context.client.get(f"v2/agents/{agent_id}")
+agent = aix.Agent.get(agent_id)
+
+scopes_by_id = {
+    item.get("id"): list(item.get("actions") or [])
+    for item in (raw.get("tools") or [])
+    if isinstance(item, dict) and item.get("id")
+}
+for tool in agent.tools or []:
+    if getattr(tool, "id", None) in scopes_by_id:
+        tool.allowed_actions = scopes_by_id[tool.id]
+
+agent.instructions = "Updated instructions..."
+agent.save()
+```
+
+This keeps the ID and external references stable without widening permissions. Verify behavior and raw persisted scopes again after every update. See `references/agent-patterns.md` and `references/BUGS.md` (`BUG-009`).
+
+## Issue handling
+
+Use `references/BUGS.md` as the working ledger. Log only reproduced aixplain-caused quirks with SDK version, minimal repro, expected/actual behavior, impact, and workaround. Redact keys, user data, and workspace-bound IDs.
+
+Draft a public issue only after the user asks. Target https://github.com/aixplain/aiXplain and use SDK v2 examples only.
+
+## Reference routing
+
+- Marketplace discovery and exact MCP schemas: `../marketplace-search/references/effective-mcp-use.md`
+- Connections, OAuth, SQL, custom `code=`, Code Execution, file handling: `references/integration-playbooks.md`
+- Teams, updates, memory/knowledge, budgets, portability: `references/agent-patterns.md`
+- Runtime inspectors and validation: `references/inspectors.md`
+- Reproduced quirks and bug candidates: `references/BUGS.md`
+
+## Stable asset IDs
 
 | Type | Name | ID |
-|------|------|----|
-| Tool | Tavily Web Search | `6931bdf462eb386b7158def3` |
+|---|---|---|
 | Tool | Code Execution | `698cda188bbb345db14ac13b` |
-| Tool | Google Search API | `692f18557b2cc45d29150cb0` |
-| Tool | Firecrawl API | `69442021f2e6cb73e286ff0f` |
-| Tool | Docling Document Parser | `6944350ff2e6cb73e286ff20` |
+| Tool | Marketplace Search | `6960f934f316da19e5f22494` |
+| Tool | File Manager | `6a0216cffb2a801f1c41e32e` |
+| Integration | Python Sandbox | `688779d8bfb8e46c273982ca` |
 | Integration | Gmail | `6864328d1223092cb4294d30` |
 | Integration | Slack | `686432941223092cb4294d3f` |
 | Integration | Google Drive | `6864329b1223092cb4294d4e` |
-| Integration | Google Sheets | `686432931223092cb4294d3c` |
-| Integration | Google Docs | `6864329c1223092cb4294d51` |
 | Integration | Google Calendar | `686432901223092cb4294d36` |
 | Integration | aiR Knowledge Base | `6904bcf672a6e36b68bb72fb` |
 | Integration | PostgreSQL | `693ac6e8217c7b13b480970f` |
 | Integration | SQLite | `689e06ed3ce71f58d73cc999` |
-| Integration | Python Sandbox | `688779d8bfb8e46c273982ca` |
 
-## Reference Files
-
-- `references/integration-playbooks.md` — config payloads, file upload, authoring constraints, and OAuth workflow for all integration types
-- `references/agent-patterns.md` — team agents, updating deployed agents, inspectors, export to Python, Code Execution vs Python Sandbox
-- `references/inspectors.md` — inspector policies, action values, and post-change validation
-
-## External Links
-
-- **Docs:** https://docs.aixplain.com
-- **Pricing:** https://aixplain.com/pricing
-- **Studio:** https://studio.aixplain.com
+Docs: https://docs.aixplain.com · App: https://app.aixplain.com · SDK: https://github.com/aixplain/aiXplain

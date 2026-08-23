@@ -12,8 +12,7 @@ to do something, a plugin also hands it the tools.
 
 | Plugin | Description |
 |--------|-------------|
-| [aixplain-marketplace](./aixplain-marketplace) | Search the aixplain marketplace from your editor — find agents, models, tools, and integrations in one call, read pricing and hosting, and get working code to call any asset via SDK, REST, or MCP. |
-| [aixplain-agent-builder](./aixplain-agent-builder) | Build, connect, deploy, verify, debug, update, and export production aixplain agents with the SDK v2. |
+| [aixplain](./aixplain) | Search the aixplain marketplace through a bundled MCP, inspect real asset schemas, and build, verify, debug, update, or export production aixplain agents with SDK v2. |
 
 ---
 
@@ -23,8 +22,7 @@ to do something, a plugin also hands it the tools.
 /plugin marketplace add aixplain/aiXplain
 ```
 
-Then install the plugin you want. Each plugin's README lists the environment variables it expects —
-typically just an aixplain API key:
+Then install the unified `aixplain` plugin. It expects an aixplain API key:
 
 ```bash
 export AIXPLAIN_API_KEY=your_api_key

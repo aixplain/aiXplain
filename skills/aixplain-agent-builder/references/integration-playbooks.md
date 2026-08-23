@@ -1,139 +1,296 @@
-# Integration Playbooks
+# Integration playbooks (SDK v2)
 
-Connection patterns per integration type.
-Linked from the main skill — consult when wiring tools.
-
-Canonical v2 entry point:
-- Use `from aixplain import Aixplain`.
-- Use `aix.Tool`, `aix.Integration` directly from the v2 client surface.
-
-Use `integration.list_actions()` and `integration.list_inputs(action_name)` before connecting in SDK flows. Always scope actions to a non-empty least-privilege set.
-
----
-
-## 1. aiR Knowledge Base (`6904bcf672a6e36b68bb72fb`)
-
-Connect with uploaded files (`.pdf`, `.docx`, `.txt`, `.md`, `.html`, `.csv`) or start empty and write with `upsert`.
-
-**Typical actions:** `search`, `get`, `count`, `metadata`, optional `upsert`.
-**Best practice:** Keep retrieval-first scope (`search`, `get`, `metadata`) unless runtime writing is explicitly required.
+Read only the section needed for the current agent. All examples assume:
 
 ```python
-index_tool = aix.Tool(
-    name="My Knowledge Base",
-    description="Semantic search over uploaded documents",
-    integration="6904bcf672a6e36b68bb72fb",
-).save()
+from aixplain import Aixplain
 
-# Populate
-records = [
-    {"id": "doc1", "text": "Python is a programming language", "metadata": {"category": "tech"}},
-    {"id": "doc2", "text": "Machine learning uses algorithms", "metadata": {"category": "ai"}},
-]
-index_tool.run(action="upsert", data={"records": records})
-
-# Query
-index_tool.run(action="search", data={"query": "programming", "filters": []})
-index_tool.run(action="count", data={})
+aix = Aixplain(api_key=api_key)
 ```
 
-Semantic search works immediately after `upsert`; `count` returns indexed document total.
+Never use v1 factories. Before connecting, call `integration.list_actions()` and `integration.list_inputs(action_name)`. Scope every attached tool to a non-empty least-privilege `allowed_actions` list.
 
----
-
-## 2. PostgreSQL (`693ac6e8217c7b13b480970f`)
-
-Connect with database URL: `postgresql://<user>:<pass>@<host>:<port>/<dbname>`.
-
-- Prefer read-only DB users for analysis assistants.
-- Scope query actions first; enable write actions only when explicitly required.
-
----
-
-## 3. SQLite Database (`689e06ed3ce71f58d73cc999`)
-
-Connect using `.db` file URL via `config={"url": "<download_url_to_db_file>"}`.
-
-- Valid actions: `query`, `schema`, `commit`.
-- Default safe scope: `["query", "schema"]`.
-- SQLite connect rejects non-`.db` file types.
+## Discover before connecting
 
 ```python
-from aixplain.v2.upload_utils import FileUploader
+matches = aix.Integration.search(query="slack").results
+for item in matches:
+    print(item.name, item.id, item.path)
 
-integration = aix.Integration.get("689e06ed3ce71f58d73cc999")
-uploader = FileUploader(api_key=api_key, backend_url=aix.backend_url)
-db_url = uploader.upload("/absolute/path/to/data.db", is_temp=True, return_download_link=True)
+integration = aix.Integration.get(matches[0].id)
+print(integration.list_actions())
+```
 
-sqlite_tool = aix.Tool(
-    name="SQLite Reader",
-    description="Read-only DB access",
-    integration=integration,
-    config={"url": db_url},
-    allowed_actions=["query", "schema"],
+## Slack: discover and scope the exact action
+
+Preserve the explicit connection checkpoint. After the user agrees to connect Slack, inspect the action list and use the exact platform action name—not a conceptual alias:
+
+```python
+slack = aix.Integration.get("686432941223092cb4294d3f")
+actions = list(slack.list_actions())
+assert "SLACK_SEND_MESSAGE" in actions
+
+slack_tool = aix.Tool(
+    name="Approved Slack Sender",
+    description="Sends an approved message to the selected Slack destination.",
+    integration=slack,
+    allowed_actions=["SLACK_SEND_MESSAGE"],
 ).save()
 ```
 
----
+Request only the minimum `chat:write` permission needed to send the approved message. Do not use `send_message` as an action name.
 
-## 4. Python Sandbox (`688779d8bfb8e46c273982ca`)
+## Web Search: inspect before generating runnable code
 
-Connect with `.py` file or inline source code and set `function_name` for the exposed function.
+Prefer the first-party aixplain Web Search tool when it satisfies the request. With this unified plugin, use Marketplace Search to find the tool, then call `list_actions_tools` and `list_inputs_tools` for the selected asset before writing code. Emit only the returned action name and input fields; never invent nested parameters. Validate the resulting SDK snippet before presenting it.
 
-### Authoring Constraints
+Do not choose solely by display name. Prefer `aixplain/...` first-party paths over brokered connectors when both meet the requirement.
 
-Verified against aiXplain SDK v0.2.44. Follow these authoring constraints:
-
-1. **`function_name` must match a function defined in `code`.** If you include multiple functions in one code block, only the one whose name equals `function_name` is registered as the tool.
-2. **Use `int` (0/1) instead of `bool` parameters.** The runtime serializer passes JSON `true`/`false` (lowercase), which Python interprets as undefined names. Using `int` avoids this.
-3. **Return `dict` or `list`, not tuples.** A `return a, b` round-trips as the string `"(a, b)"`. For structured output, always return a `dict` or `list`.
-
-### v2 Notes
-
-- Integration action/input specs are discovered after connection (`list_actions`/`list_inputs`).
-- Custom utility code (`aix.Utility`) has separate parser rules and requires `def main(...)`; do not confuse with Python Sandbox integration tools.
+## Existing marketplace tool
 
 ```python
-script_content = """def sum_then_square(first_number: int, second_number: int):
-    total = first_number + second_number
-    return total * total
-"""
-tool = aix.Tool(
-    name="Sum and Square",
-    description="Sums two numbers and squares the result.",
-    integration="688779d8bfb8e46c273982ca",
-    config={"code": script_content, "function_name": "sum_then_square"},
-).save()
-
-result = tool.run(action="sum_then_square", data={"first_number": 2, "second_number": 3})
+tool = aix.Tool.get("<TOOL_ID_OR_PATH>")
+print(list(tool.actions))
+tool.allowed_actions = ["required_action"]
 ```
 
----
+`tool.actions` is an `Actions` collection. Use `list(tool.actions)`; `.keys()` and numeric indexing are not reliable.
 
-## 5. OAuth Integrations (Gmail, Slack, Jira, Google Drive)
+## OAuth integration
 
-The workflow is described in SKILL.md § 3 (Create Tools, Path C). This section provides the code.
+Ask before initiating the external connection. State the minimum actions and why they are needed.
 
 ```python
 import warnings
 
 integration = aix.Integration.get("6864328d1223092cb4294d30")  # Gmail
-actions = integration.list_actions()
+print(integration.list_actions())
 
-with warnings.catch_warnings(record=True) as w:
+with warnings.catch_warnings(record=True) as captured:
     warnings.simplefilter("always")
-    gmail_tool = aix.Tool(
-        name="My Gmail Tool",
-        description="Send emails",
+    tool = aix.Tool(
+        name="Customer Email Sender",
+        description="Sends the final approved customer email.",
         integration=integration,
         allowed_actions=["GMAIL_SEND_EMAIL"],
     ).save()
-    oauth_url = next((str(x.message) for x in w if "http" in str(x.message)), None)
 
-print(f"Connect Gmail: {oauth_url}")
-# User completes OAuth, then attach to agent:
-agent = aix.Agent(
-    name="Gmail Agent", instructions="Use Gmail to send emails.",
-    tools=[gmail_tool], output_format="markdown",
+connect_url = next(
+    (str(item.message) for item in captured if "http" in str(item.message)),
+    None,
+)
+print(connect_url)
+```
+
+The connection is workspace-specific. Create the tool fresh from the integration in each workspace; do not ship a saved connector tool ID in portable build code.
+
+OAuth is a deliberate two-phase checkpoint: print/present the connect URL and stop that execution. Never call `input()` or wait interactively inside generated scripts. After the user confirms authorization, continue agent creation or verification in a new execution using the in-memory tool when available or its recorded workspace-local ID.
+
+## Provider API-key integration
+
+Ask for the provider key only after the user agrees to connect the provider. Keep it in memory/environment and never commit or print it.
+
+```python
+integration = aix.Integration.get("<INTEGRATION_ID>")
+connected = integration.run(
+    name="Provider Tool",
+    authScheme="API_KEY",
+    data={"generic_api_key": provider_api_key},
+)
+tool = aix.Tool.get(connected.data.id)
+tool.allowed_actions = ["MINIMUM_REQUIRED_ACTION"]
+tool.save()
+```
+
+The authentication field is `generic_api_key`; `api_key` and `apiKey` can fail with an unhelpful generic error.
+
+## Missing capability: build a deterministic tool with `code=`
+
+Use the Python Sandbox integration when no existing tool/integration meets the need and the implementation should be fixed at build time.
+
+```python
+code = """def normalize_account(name: str, domain: str):
+    clean_name = " ".join(name.split()).strip()
+    clean_domain = domain.lower().removeprefix("https://").rstrip("/")
+    return {"name": clean_name, "domain": clean_domain}
+"""
+
+tool = aix.Tool(
+    name="Normalize Account",
+    description="Normalizes an account name and website domain.",
+    integration="688779d8bfb8e46c273982ca",
+    config={"code": code, "function_name": "normalize_account"},
+    allowed_actions=["normalize_account"],
 ).save()
 ```
+
+Authoring constraints verified on `0.2.47`:
+- `function_name` must exactly match a function defined in `code`.
+- Prefer `int` (`0`/`1`) over `bool` parameters because boolean serialization has produced invalid Python literals.
+- Return `dict` or `list`, not tuples.
+- Define custom code inline in portable build code; custom tool instance IDs are workspace-bound.
+- Test the tool standalone before attaching it.
+
+```python
+result = tool.run(
+    action="normalize_account",
+    data={"name": "  Acme   Corp ", "domain": "https://ACME.EXAMPLE/"},
+)
+assert result.data["domain"] == "acme.example"
+```
+
+## Runtime Code Execution
+
+Use Code Execution only when the deployed agent must decide and write code during a run (analysis, calculations, data transforms, plots, dynamic file processing, or API/URL processing).
+
+```python
+code_execution = aix.Tool.get("698cda188bbb345db14ac13b")
+code_execution.allowed_actions = ["run"]
+```
+
+Do not add it merely because the build itself uses Python. For deterministic logic, prefer a Python Sandbox tool.
+
+When generated files must be returned, instruct the runtime code to print metadata:
+
+```json
+[{"name":"analysis.csv","file":"analysis.csv"}]
+```
+
+Without file metadata, generated files may be lost.
+
+## PostgreSQL
+
+Use read-only credentials whenever possible and reinforce read-only behavior in the agent instructions.
+
+```python
+pg = aix.Tool(
+    name="Customer Database Reader",
+    description="Reads approved customer reporting tables.",
+    integration="693ac6e8217c7b13b480970f",
+    config={"url": database_url},
+    allowed_actions=["schema", "query"],
+).save()
+```
+
+Never enable write actions unless the user explicitly requires and approves them.
+
+## SQLite
+
+```python
+from aixplain.v2.upload_utils import FileUploader
+
+url = FileUploader(api_key=api_key, backend_url=aix.backend_url).upload(
+    "/absolute/path/to/data.db",
+    is_temp=True,
+    return_download_link=True,
+)
+
+sqlite = aix.Tool(
+    name="SQLite Reader",
+    description="Reads the supplied SQLite database.",
+    integration="689e06ed3ce71f58d73cc999",
+    config={"url": url},
+    allowed_actions=["schema", "query"],
+).save()
+```
+
+SQLite writes apply to an in-memory copy and are not a persistence strategy.
+
+## Knowledge base
+
+```python
+index = aix.Tool(
+    name="Product Knowledge",
+    description="Searches approved product documentation.",
+    integration="6904bcf672a6e36b68bb72fb",
+).save()
+
+index.run(action="upsert", data={"records": [
+    {"id": "doc-1", "text": "Approved product facts.", "metadata": {"type": "product"}},
+]})
+index.allowed_actions = ["search", "get"]
+index.save()
+```
+
+Tell the agent explicitly to search the index. Otherwise it may answer from the LLM while the knowledge tool remains unused.
+
+## Files in and out
+
+Local paths are not portable runtime inputs. Upload and use HTTPS URLs:
+
+```python
+from aixplain.v2.upload_utils import FileUploader
+
+url = FileUploader(api_key=api_key).upload(
+    "/absolute/path/to/input.pdf",
+    is_temp=True,
+    return_download_link=True,
+)
+```
+
+Always use `return_download_link=True` for a browser-accessible URL.
+
+### HTML and ZIP MIME safeguard
+
+Stable `0.2.47` omits `.html` and `.zip` from the fallback MIME map; unrecognized files fall back to `text/csv`. Patch before uploading these deliverables:
+
+```python
+from aixplain.v2.upload_utils import MimeTypeDetector
+
+MimeTypeDetector.EXTENSION_MAPPING[".html"] = "text/html"
+MimeTypeDetector.EXTENSION_MAPPING[".zip"] = "application/zip"
+```
+
+When a tool config needs an uploaded resource URL, construction alone does not upload. Call `.save()` and then read `.url`:
+
+```python
+resource = aix.Resource(name="Input Database", file_path="/absolute/path/to/data.db")
+resource.save()
+assert resource.url
+```
+
+`aix.Resource.create_from_file(...)` only constructs the object in `0.2.47`; its URL remains empty until `.save()` uploads it.
+
+For deliverables, the File Manager tool is preferred:
+
+```python
+import uuid
+
+file_manager = aix.Tool.get("6a0216cffb2a801f1c41e32e")
+file_manager.allowed_actions = ["save_content"]
+result = file_manager.run(
+    action="save_content",
+    data={
+        "requestid": str(uuid.uuid4()),
+        "contents": ["final report"],
+        "names": ["report.md"],
+    },
+)
+```
+
+`requestid` is required.
+
+## Remote MCP server
+
+```python
+mcp = aix.Tool(
+    name="Remote MCP Tool",
+    description="Uses the approved remote MCP capability.",
+    integration="aixplain/mcp-server",
+    config={"url": "https://example.com/mcp"},
+).save()
+mcp.allowed_actions = ["required_action"]
+mcp.save()
+```
+
+Keep the exposed action set small; large MCP surfaces degrade tool selection.
+
+## Verification sequence
+
+For every connected or custom tool:
+1. Run it directly with realistic input.
+2. Attach it to the agent.
+3. Run an agent prompt that requires it.
+4. Confirm its unit name appears in `result.data.steps`.
+5. Confirm governance allowed the run.
+6. Record any reproducible platform defect in `BUGS.md`.

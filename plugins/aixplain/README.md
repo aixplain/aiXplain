@@ -1,6 +1,17 @@
-# aixplain Marketplace plugin
+# aixplain plugin
 
-Search the aixplain marketplace from inside Claude Code, and get working code back.
+One Claude Code plugin for two connected jobs:
+
+- **Discover:** search the live aixplain marketplace through the bundled Marketplace Search MCP, inspect real schemas, and generate runnable SDK, REST, or MCP code.
+- **Build:** create, verify, debug, update, and export production aixplain agents with the bundled Agent Builder skill.
+
+Install it once, then use either skill as the task requires:
+
+```text
+/plugin marketplace add aixplain/aiXplain
+/plugin install aixplain@aixplain
+```
+
 
 Driven by the first-party Marketplace Search tool (`6960f934f316da19e5f22494`). A hosted equivalent —
 the **Marketplace Concierge** agent — is published on the marketplace at
@@ -32,7 +43,7 @@ packaging is Claude Code specific. See [Other clients](#other-clients) below.
 /plugin marketplace add aixplain/aiXplain
 ```
 
-then install `aixplain-marketplace`. This also installs the `marketplace-search` skill and wires up the
+then install `aixplain`. This also installs the `marketplace-search` skill and wires up the
 MCP server in one step.
 
 ## Other clients
@@ -113,10 +124,11 @@ produce:
 ## Layout
 
 ```
-plugins/aixplain-marketplace/
+plugins/aixplain/
   .claude-plugin/plugin.json    manifest
-  .mcp.json                     marketplace search server, ${AIXPLAIN_API_KEY}
-  skills/marketplace-search/    the skill
+  .mcp.json                     Marketplace Search MCP, ${AIXPLAIN_API_KEY}
+  skills/marketplace-search/    marketplace discovery and runnable-code guidance
+  skills/aixplain-agent-builder/ agent build, verification, update, and export guidance
 ```
 
 The skill is usable on its own: copy `skills/marketplace-search/SKILL.md` to
@@ -128,3 +140,10 @@ The skill is usable on its own: copy `skills/marketplace-search/SKILL.md` to
 - Pricing comes back in two shapes — per-unit (`price` + `unit_type`) and per-token (`input_price` /
   `output_price`). The skill reports whichever applies.
 - The search MCP tool ID (`6960f934f316da19e5f22494`) is stable across environments.
+
+
+## Agent Builder
+
+Use the bundled `aixplain-agent-builder` skill to build, run, verify, debug, update, or export aixplain agents with SDK v2. It uses the same `AIXPLAIN_API_KEY` and can use Marketplace Search to discover an asset before attaching it to an agent.
+
+The skill validates generated export code before presenting it, keeps iteration limits in `agent.budget`, requires explicit consent before external connections, and verifies real runs before reporting success.
