@@ -31,6 +31,15 @@ Infer the mode from the request; do not make the user choose:
 8. **Never overwrite by accident.** If the request clearly targets an existing agent, update it in place. For a new build whose exact name already exists, choose a descriptive unique name and report the collision; do not overwrite or create opaque `(1)` duplicates.
 9. **Log platform quirks.** Append reproducible SDK/runtime/integration defects to `references/BUGS.md`; do not bury them in chat or automatically open a public issue.
 
+## Standalone compatibility
+
+This skill must work when it is installed directly as a Claude Code skill or used by an agent host that does not support Claude Code plugins or MCP servers. The aixplain Python SDK and `AIXPLAIN_API_KEY` are the only runtime requirements for core build, run, debug, update, verify, and export workflows.
+
+- Treat the bundled Marketplace Search MCP as an optional discovery enhancement, never as a prerequisite.
+- When that MCP is unavailable, incompatible, or unauthenticated, use the SDK searches in **Resolve capabilities** and continue with the best supported asset, integration, or custom Python Sandbox tool.
+- Do not report a capability as unavailable merely because the plugin or MCP cannot load. State that Marketplace discovery was skipped only when it materially limits the answer.
+- Keep connection consent, least-privilege scopes, SDK v2 validation, and realistic verification requirements unchanged in standalone mode.
+
 ## 1. Setup
 
 Install the exact tested stable release:
