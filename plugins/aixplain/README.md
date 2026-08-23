@@ -12,6 +12,8 @@ Install it once, then use either skill as the task requires:
 /plugin install aixplain@aixplain
 ```
 
+**Prefer a visual walkthrough?** Open the interactive [Install & Use aixplain guide](./install-guide.html) for copyable commands, first-use examples, and a standalone Agent Builder fallback.
+
 
 Driven by the first-party Marketplace Search tool (`6960f934f316da19e5f22494`). A hosted equivalent —
 the **Marketplace Concierge** agent — is published on the marketplace at
