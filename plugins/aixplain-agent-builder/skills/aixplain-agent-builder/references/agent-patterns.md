@@ -107,6 +107,32 @@ second = agent.run("Which company did I mention?", session=session)
 
 Sessions are synchronous. `run_async(..., session=...)` is not supported.
 
+## Invocation and runtime controls
+
+Configure tools, model, `output_format`, `expected_output`, and the default `agent.budget` on the agent. `run()` controls one execution:
+
+```python
+result = agent.run(
+    query="Create the customer briefing from the supplied context.",
+    session=session,  # omit for a stateless run
+    variables={"account_name": "Acme"},
+    identifier="customer-123",
+    attachments=["/absolute/path/to/brief.pdf"],
+    criteria="Include sources and flag unsupported claims.",
+)
+```
+
+| Need | `run()` controls | Notes |
+|---|---|---|
+| Conversation | `query`, `session` | `session` accepts a `Session` or ID. |
+| Per-run input | `variables`, `identifier`, `attachments` | Use `attachments`, not deprecated `files`; local paths upload automatically. |
+| Quality and oversight | `criteria`, `inspectors` | Add inspectors only for consequential output checks. |
+| Progress display | `progress_format`, `progress_verbosity`, `progress_truncate` | Use `status` or `logs`; leave unset in normal production runs. |
+| Advanced execution | `tasks`, `prompt`, `history`, `execution_params`, `evolve` | Use only when the execution strategy requires them. `execution_params.max_iterations` is deprecated. |
+| Transport | `timeout`, `wait_time`, `run_retries`, `run_retry_wait` | Client wait/retry controls, not agent behavior. |
+
+There is no `output_format=`, `expected_output=`, or `budget=` run override in SDK `0.2.47`. Set output contracts on `Agent`; set limits through `agent.budget` before running. `run_response_generation` is deprecated/ignored; do not use it in new builds.
+
 ## Shared memory (across conversations)
 
 Use only when long-term memory is required. Always isolate by user/customer identity.
