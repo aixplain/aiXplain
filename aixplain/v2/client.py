@@ -363,6 +363,8 @@ class AixplainClient:
             except Exception as e:
                 logger.error(f"Error parsing error response: {e}")
 
+            if isinstance(error_obj, list):
+                raise APIError(error_obj, status_code=response.status_code, response_data={"errors": error_obj})
             if error_obj:
                 # supplierError carries the actionable detail (e.g. "Name already
                 # exists"); the "error" field is often just a code like
