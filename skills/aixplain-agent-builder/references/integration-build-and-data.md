@@ -29,6 +29,17 @@ Authoring constraints verified on `0.2.47`:
 - Define custom code inline in portable build code; custom tool instance IDs are workspace-bound.
 - Test the tool standalone before attaching it.
 
+### Python Sandbox authoring contract
+
+Use Python Sandbox for a small, deterministic function authored at build time—not for an agent to generate code during a run, and not as an implicit replacement for an approved external integration.
+
+- Define one clear entry function with JSON-compatible inputs and a `dict` or `list` result.
+- Prefer the Python standard library. Do not assume third-party packages, network access, filesystem persistence, environment variables, or credentials are available unless the live integration schema and a standalone run prove the requirement works.
+- Never embed API keys, tokens, customer data, or workspace-bound IDs in `code`.
+- Keep side effects explicit and minimal. Use a supported integration with explicit user consent when the job needs an external system.
+- Inspect the current integration actions and input schema before generating code that depends on a Sandbox capability.
+- Run one representative success case and one expected failure case directly through the tool before attaching it to an agent; then verify the agent trace includes the tool when the capability is required.
+
 ```python
 result = tool.run(
     action="normalize_account",
