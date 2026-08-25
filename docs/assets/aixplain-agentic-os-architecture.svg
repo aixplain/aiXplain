@@ -24,60 +24,49 @@
 <text x="262" y="256" font-family="&#39;SF Mono&#39;, &#39;JetBrains Mono&#39;, &#39;Roboto Mono&#39;, ui-monospace, monospace" font-size="10.5" font-weight="500" fill="#e0640a" text-anchor="start" letter-spacing="1.6">EXECUTION LOOP    ·    GOVERNED ON EVERY ACTION</text>
 <rect x="262" y="278" width="56" height="44" rx="10" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
 <text x="290" y="304" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Goal</text>
-<rect x="350" y="278" width="76" height="44" rx="10" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
-<text x="388" y="304" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Planner</text>
-<rect x="458" y="278" width="108" height="44" rx="10" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
-<text x="512" y="304" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Orchestrator</text>
-<rect x="598" y="278" width="156" height="44" rx="10" fill="#FF7512" stroke="#e0640a" stroke-width="1"></rect>
-<text x="676" y="297" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">Inspector · Bodyguard</text>
-<text x="676" y="312" font-family="&#39;SF Mono&#39;, &#39;JetBrains Mono&#39;, &#39;Roboto Mono&#39;, ui-monospace, monospace" font-size="9" font-weight="400" fill="#ffe3cc" text-anchor="middle" letter-spacing="0.4">validate · authorize</text>
-<rect x="786" y="278" width="68" height="44" rx="10" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
-<text x="820" y="304" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Action</text>
-<rect x="886" y="278" width="68" height="44" rx="10" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
-<text x="920" y="304" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Result</text>
-<line x1="318" y1="300" x2="348" y2="300" stroke="#d3d3d6" stroke-width="1.3" marker-end="url(#ah)"></line>
-<line x1="426" y1="300" x2="456" y2="300" stroke="#d3d3d6" stroke-width="1.3" marker-end="url(#ah)"></line>
-<line x1="566" y1="300" x2="596" y2="300" stroke="#d3d3d6" stroke-width="1.3" marker-end="url(#ah)"></line>
-<line x1="754" y1="300" x2="784" y2="300" stroke="#d3d3d6" stroke-width="1.3" marker-end="url(#ah)"></line>
-<line x1="854" y1="300" x2="884" y2="300" stroke="#d3d3d6" stroke-width="1.3" marker-end="url(#ah)"></line>
+<rect x="362" y="278" width="170" height="44" rx="10" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
+<text x="447" y="304" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Planner · Orchestrator</text>
+<rect x="576" y="278" width="156" height="44" rx="10" fill="#FF7512" stroke="#e0640a" stroke-width="1"></rect>
+<text x="654" y="297" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">Inspector · Bodyguard</text>
+<text x="654" y="312" font-family="&#39;SF Mono&#39;, &#39;JetBrains Mono&#39;, &#39;Roboto Mono&#39;, ui-monospace, monospace" font-size="9" font-weight="400" fill="#ffe3cc" text-anchor="middle" letter-spacing="0.4">validate · authorize</text>
+<rect x="776" y="278" width="68" height="44" rx="10" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
+<text x="810" y="304" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Action</text>
+<rect x="888" y="278" width="68" height="44" rx="10" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
+<text x="922" y="304" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Result</text>
+<line x1="318" y1="300" x2="360" y2="300" stroke="#d3d3d6" stroke-width="1.3" marker-end="url(#ah)"></line>
+<line x1="532" y1="300" x2="574" y2="300" stroke="#d3d3d6" stroke-width="1.3" marker-end="url(#ah)"></line>
+<line x1="732" y1="300" x2="774" y2="300" stroke="#d3d3d6" stroke-width="1.3" marker-end="url(#ah)"></line>
+<line x1="844" y1="300" x2="886" y2="300" stroke="#d3d3d6" stroke-width="1.3" marker-end="url(#ah)"></line>
 <line x1="974" y1="300" x2="1000" y2="300" stroke="#d3d3d6" stroke-width="1.3" marker-end="url(#ah)"></line>
 <rect x="1004" y="276" width="110" height="48" rx="11" fill="#f4f4f5" stroke="#e2e2e4" stroke-width="1"></rect>
 <text x="1059" y="304" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="12.5" font-weight="600" fill="#5a5a5a" text-anchor="middle">Apps · Clients</text>
-<path d="M676,322 L676,342 Q676,352 666,352 L398,352 Q388,352 388,342 L388,325" fill="none" stroke="#b6b6ba" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ah)"></path>
-<rect x="474" y="343" width="116" height="18" rx="9" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
-<text x="532" y="355.5" font-family="&#39;SF Mono&#39;, &#39;JetBrains Mono&#39;, &#39;Roboto Mono&#39;, ui-monospace, monospace" font-size="10" font-weight="400" fill="#5a5a5a" text-anchor="middle">replan on failure</text>
+<path d="M654,322 L654,342 Q654,352 644,352 L457,352 Q447,352 447,342 L447,325" fill="none" stroke="#b6b6ba" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ah)"></path>
+<rect x="492" y="343" width="116" height="18" rx="9" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
+<text x="550" y="355.5" font-family="&#39;SF Mono&#39;, &#39;JetBrains Mono&#39;, &#39;Roboto Mono&#39;, ui-monospace, monospace" font-size="10" font-weight="400" fill="#5a5a5a" text-anchor="middle">replan on failure</text>
 <text x="66" y="415" font-family="&#39;SF Mono&#39;, &#39;JetBrains Mono&#39;, &#39;Roboto Mono&#39;, ui-monospace, monospace" font-size="10" font-weight="500" fill="#8a8a8a" text-anchor="start" letter-spacing="2.4">RUNS ON THE INFRASTRUCTURE</text>
-<rect x="66" y="424" width="165" height="60" rx="11" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
-<text x="80" y="448" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#1f1f1f" text-anchor="start" letter-spacing="-0.1">Agent Engine</text>
+<rect x="66" y="424" width="189" height="60" rx="11" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
+<text x="80" y="448" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#1f1f1f" text-anchor="start" letter-spacing="-0.1">Agent Runtime</text>
 <text x="80" y="467" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="11.5" font-weight="400" fill="#8a8a8a" text-anchor="start">execution + system agents</text>
-<rect x="242" y="424" width="165" height="60" rx="11" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
-<text x="256" y="448" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#1f1f1f" text-anchor="start" letter-spacing="-0.1">Asset Serving</text>
-<text x="256" y="467" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="11.5" font-weight="400" fill="#8a8a8a" text-anchor="start">models, tools, router</text>
-<rect x="418" y="424" width="165" height="60" rx="11" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
-<text x="432" y="448" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#1f1f1f" text-anchor="start" letter-spacing="-0.1">aiR</text>
-<text x="432" y="467" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="11.5" font-weight="400" fill="#8a8a8a" text-anchor="start">knowledge + memory</text>
-<rect x="594" y="424" width="165" height="60" rx="11" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
-<text x="608" y="448" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#1f1f1f" text-anchor="start" letter-spacing="-0.1">Deployment Engine</text>
-<text x="608" y="467" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="11.5" font-weight="400" fill="#8a8a8a" text-anchor="start">provision + scale</text>
-<rect x="770" y="424" width="165" height="60" rx="11" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
-<text x="784" y="448" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#1f1f1f" text-anchor="start" letter-spacing="-0.1">Workspace Engine</text>
-<text x="784" y="467" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="11.5" font-weight="400" fill="#8a8a8a" text-anchor="start">auth, workspaces, billing</text>
-<rect x="946" y="424" width="165" height="60" rx="11" fill="#ffffff" stroke="#FF7512" stroke-width="1" stroke-opacity="0.4"></rect>
-<text x="960" y="448" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#1f1f1f" text-anchor="start" letter-spacing="-0.1">Observability</text>
-<text x="960" y="467" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="11.5" font-weight="400" fill="#8a8a8a" text-anchor="start">traces, audit, monitor</text>
-<path d="M920,322 L920,390 Q920,400 930,400 L1018.5,400 Q1028.5,400 1028.5,410 L1028.5,421" fill="none" stroke="#b6b6ba" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ah)"></path>
-<rect x="882.25" y="391" width="184" height="18" rx="9" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
-<text x="974.25" y="403.5" font-family="&#39;SF Mono&#39;, &#39;JetBrains Mono&#39;, &#39;Roboto Mono&#39;, ui-monospace, monospace" font-size="10" text-anchor="middle" fill="#5a5a5a"><tspan fill="#e0640a" font-weight="600">Evolver</tspan> · learns from production</text>
-<text x="66" y="508" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="12.5" fill="#5a5a5a"><tspan font-weight="700" fill="#1f1f1f">Marketplace:</tspan> hundreds of models, tools &amp; integrations · bring your own models, data, code &amp; MCP (BYOM/BYOK)</text>
+<rect x="280" y="424" width="189" height="60" rx="11" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
+<text x="294" y="448" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#1f1f1f" text-anchor="start" letter-spacing="-0.1">Asset Serving</text>
+<text x="294" y="467" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="11.5" font-weight="400" fill="#8a8a8a" text-anchor="start">models, tools, router</text>
+<rect x="494" y="424" width="189" height="60" rx="11" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
+<text x="508" y="448" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#1f1f1f" text-anchor="start" letter-spacing="-0.1">aiR</text>
+<text x="508" y="467" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="11.5" font-weight="400" fill="#8a8a8a" text-anchor="start">knowledge + memory</text>
+<rect x="708" y="424" width="189" height="60" rx="11" fill="#ffffff" stroke="#e2e2e4" stroke-width="1"></rect>
+<text x="722" y="448" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#1f1f1f" text-anchor="start" letter-spacing="-0.1">Workspaces</text>
+<text x="722" y="467" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="11.5" font-weight="400" fill="#8a8a8a" text-anchor="start">auth, roles, billing</text>
+<rect x="922" y="424" width="189" height="60" rx="11" fill="#ffffff" stroke="#FF7512" stroke-width="1" stroke-opacity="0.4"></rect>
+<text x="936" y="448" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="700" fill="#1f1f1f" text-anchor="start" letter-spacing="-0.1">Observability</text>
+<text x="936" y="467" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="11.5" font-weight="400" fill="#8a8a8a" text-anchor="start">traces, audit, monitor</text>
+<text x="66" y="508" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="12.5" fill="#5a5a5a"><tspan font-weight="700" fill="#1f1f1f">Marketplace:</tspan> hundreds of models, tools, and integrations · bring your own models, data, code, and MCP (BYOM/BYOK)</text>
 <rect x="46" y="540" width="1088" height="58" rx="14" fill="#fafafa" stroke="#ededee" stroke-width="1"></rect>
 <text x="68" y="566" font-family="&#39;SF Mono&#39;, &#39;JetBrains Mono&#39;, &#39;Roboto Mono&#39;, ui-monospace, monospace" font-size="10" font-weight="500" fill="#adadad" text-anchor="start" letter-spacing="2.4">DEPLOY ANYWHERE</text>
 <text x="68" y="584" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="12.5" font-weight="400" fill="#5a5a5a" text-anchor="start">Same runtime — data stays in your perimeter</text>
-<rect x="776" y="553" width="70" height="32" rx="16" fill="#ffffff" stroke="#d3d3d6" stroke-width="1"></rect>
-<text x="811" y="573" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Cloud</text>
-<rect x="856" y="553" width="88" height="32" rx="16" fill="#ffffff" stroke="#d3d3d6" stroke-width="1"></rect>
-<text x="900" y="573" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">On-Prem</text>
-<rect x="954" y="553" width="64" height="32" rx="16" fill="#ffffff" stroke="#d3d3d6" stroke-width="1"></rect>
-<text x="986" y="573" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Edge</text>
+<rect x="850" y="553" width="70" height="32" rx="16" fill="#ffffff" stroke="#d3d3d6" stroke-width="1"></rect>
+<text x="885" y="573" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Cloud</text>
+<rect x="930" y="553" width="88" height="32" rx="16" fill="#ffffff" stroke="#d3d3d6" stroke-width="1"></rect>
+<text x="974" y="573" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">On-Prem</text>
 <rect x="1028" y="553" width="84" height="32" rx="16" fill="#ffffff" stroke="#d3d3d6" stroke-width="1"></rect>
 <text x="1070" y="573" font-family="&#39;Trebuchet MS&#39;, Trebuchet, &#39;Lucida Sans Unicode&#39;, sans-serif" font-size="13" font-weight="600" fill="#1f1f1f" text-anchor="middle">Desktop</text>
 </svg>
