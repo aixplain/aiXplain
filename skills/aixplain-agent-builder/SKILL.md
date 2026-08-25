@@ -17,7 +17,7 @@ Infer the mode from the request; do not make the user choose:
 
 - **Build:** turn an intent into a configured, deployed, verified agent.
 - **Run/debug:** load an agent by ID or exact name, reproduce the problem, inspect steps/governance/tool behavior, fix in place, and re-verify.
-- **Export:** load an existing agent and recursively generate portable SDK v2 code for its tools, skills, inspectors, and subagents; syntax- and constructor-validate it before presenting it. See `references/agent-patterns.md`.
+- **Export:** load an existing agent and recursively generate portable SDK v2 code for its tools, skills, inspectors, and subagents; syntax- and constructor-validate it before presenting it. See `references/agent-lifecycle.md`.
 
 ## Operating contract
 
@@ -114,7 +114,7 @@ Selection order:
 3. Supported connector integration.
 4. Custom Python Sandbox tool with `config={"code": ..., "function_name": ...}`.
 
-If an existing integration can do the job, ask whether the user wants to connect it. If no suitable tool exists, develop the missing deterministic tool with `code=` rather than asking the user to invent the implementation. Read `references/integration-playbooks.md` before connecting or authoring code.
+If an existing integration can do the job, ask whether the user wants to connect it. If no suitable tool exists, develop the missing deterministic tool with `code=` rather than asking the user to invent the implementation. Read `references/integration-connections.md` before connecting, and `references/integration-build-and-data.md` before authoring code.
 
 ### Build-time code vs runtime code
 
@@ -159,7 +159,7 @@ agent = aix.Agent(
 agent.save()
 ```
 
-For teams, updates, budgets, and inspectors, read `references/agent-patterns.md` and `references/inspectors.md`.
+For teams, budgets, sessions, memory, and knowledge, read `references/agent-architecture.md`. For run controls and execution strategy, read `references/agent-runtime.md`. For updates or exports, read `references/agent-lifecycle.md`; read `references/inspectors.md` for runtime validation.
 
 ## 5. Integration checkpoint
 
@@ -213,7 +213,7 @@ Lead with the result, not the code. Include:
 5. Connection link or remaining user action, only if required.
 6. One likely next improvement, phrased as optional rather than another setup questionnaire.
 
-Keep build code available on request. When the user asks for integration code, provide a complete v2 snippet based on `references/integration-playbooks.md`.
+Keep build code available on request. When the user asks for integration code, provide a complete v2 snippet based on the relevant `integration-connections.md` or `integration-build-and-data.md` reference.
 
 ## Updating an existing agent
 
@@ -237,7 +237,7 @@ agent.instructions = "Updated instructions..."
 agent.save()
 ```
 
-This keeps the ID and external references stable without widening permissions. Verify behavior and raw persisted scopes again after every update. See `references/agent-patterns.md` and `references/reliability-guidelines.md`.
+This keeps the ID and external references stable without widening permissions. Verify behavior and raw persisted scopes again after every update. See `references/agent-lifecycle.md` and `references/reliability-guidelines.md`.
 
 ## Reliability follow-up
 
@@ -246,8 +246,11 @@ Use `references/reliability-guidelines.md` to choose a safe, verified path. If b
 ## Reference routing
 
 - Marketplace discovery and exact MCP schemas: `../marketplace-search/references/effective-mcp-use.md`
-- Connections, OAuth, SQL, custom `code=`, Code Execution, file handling: `references/integration-playbooks.md`
-- Teams, updates, memory/knowledge, budgets, portability: `references/agent-patterns.md`
+- Connection consent, Slack, Web Search, OAuth, provider keys, MCP: `references/integration-connections.md`
+- Custom Python tools, Code Execution, databases, knowledge, files: `references/integration-build-and-data.md`
+- Agent shape, teams, budgets, sessions, memory, knowledge: `references/agent-architecture.md`
+- Run controls, variables, execution strategy, reasoning models: `references/agent-runtime.md`
+- Safe updates, debugging, portability, exports: `references/agent-lifecycle.md`
 - Runtime inspectors and validation: `references/inspectors.md`
 - Verified reliability practices and safe fallbacks: `references/reliability-guidelines.md`
 
