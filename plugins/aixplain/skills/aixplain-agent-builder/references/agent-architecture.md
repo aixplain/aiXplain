@@ -74,15 +74,33 @@ second = agent.run("Which company did I mention?", session=session)
 
 Sessions are synchronous. `run_async(..., session=...)` is not supported.
 
+## Choose the right context mechanism
+
+| Need | Use | Do not use it for |
+| --- | --- | --- |
+| A self-contained request | no retained context | facts needed only for one run |
+| Continuity in one active conversation | `Session` | durable preferences or cross-conversation recall |
+| Confirmed user or account context across conversations | Shared Memory | a large document corpus, secrets, or unverified model inferences |
+| Retrieval from many documents by relevance | aiR Knowledge Base | durable per-user preferences or conversation state |
+| A stable policy, procedure, or playbook always needed by the agent | `aix.Skill` | mutable customer facts or personal history |
+
 ## Shared memory (across conversations)
 
-Use only when long-term memory is required. Always isolate by user/customer identity.
+Use Shared Memory only when the agent must recall **confirmed, useful context** for the same user, customer, or account in a later conversation—for example, a reporting preference, approved account facts, or an agreed working convention.
+
+Before enabling it:
+
+1. Confirm that cross-conversation retention is required by the request; do not persist context merely because it might be useful later.
+2. Explain the retained scope when it includes personal or customer information, and ask before enabling retention when that choice is not already clear from the request.
+3. Store the minimum durable fact. Never store API keys, credentials, access tokens, payment data, or unverified model conclusions.
+4. Use a stable, explicit `identifier` for the user/customer/account. Never use a global/default identity in a multi-user agent.
+5. In teams, verify that every memory read and write carries the same intended identity, then test that one identity cannot retrieve another identity's context.
 
 ```python
 memory = aix.Tool(
     integration="aixplain/shared-memory/aixplain",
     name="Account Memory",
-    description="Stores durable account context.",
+    description="Stores confirmed, durable account context for the current account only.",
     config={
         "max_memory_size": 256,
         "size_management_policy": "summarize",
@@ -90,13 +108,14 @@ memory = aix.Tool(
     allowed_actions=["insert", "get"],
 ).save()
 
+account_id = "customer-123"
 memory.run(
     action="insert",
-    data={"identifier": "customer-123", "content": "Prefers weekly summaries."},
+    data={"identifier": account_id, "content": "Prefers weekly summaries."},
 )
 ```
 
-Never use a global/default identity for multi-user agents. Verify identity forwarding in teams.
+Use a `Session` instead when the context belongs only to the current conversation. Use a Knowledge Base when the agent must search a larger source corpus rather than recall durable account-specific facts.
 
 ## Knowledge base vs skill
 
