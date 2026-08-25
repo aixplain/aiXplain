@@ -77,12 +77,18 @@ class ContextOverflowStrategy(str, Enum)
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L128)
 
-Strategy applied when input messages exceed the model&#x27;s context window.
+Strategy for condensing the working context when a run exceeds the model&#x27;s context window.
+
+Context condensation shapes only the working context sent to the model on a given run. It does not modify Shared Memory or the stored session history — the complete session history is always retained.
 
 **Attributes**:
 
-- `TRUNCATE` - Remove the oldest chat-history messages until the context fits.
-- `SUMMARIZE` - Replace the full chat history with an LLM-generated summary.
+- `TRUNCATE` - Default. Remove the oldest unprotected turns until the context fits.
+- `SUMMARIZE` - Summarize older context into a shorter form the model can still use. Retains more of the conversation&#x27;s meaning than truncation, but adds latency and model cost.
+
+**Notes**:
+
+Available in SDK 0.2.46+ (use the current 0.2.47). Set it as the agent&#x27;s saved default (`agent.context_overflow_strategy`) or override it per run via the `execution_params` argument (`context_overflow_strategy`). Precedence, highest first: per-run override, then the saved agent setting, then the Agent Engine default (`truncate`).
 
 ### AgentRunParams Objects
 
