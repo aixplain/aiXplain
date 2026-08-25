@@ -9,7 +9,7 @@ metadata: {"requires": {"env": ["AIXPLAIN_API_KEY"], "bins": ["python3", "pip"]}
 Turn a user's intent into a working, verified aixplain agent. Do the SDK work yourself; do not make the user design the schema, select routine defaults, or debug tracebacks.
 
 > **Current stable SDK:** `aixplain==0.2.47` (verified against the public release and repository on 2026-08-22).
-> **SDK v2 only:** use `from aixplain import Aixplain`. Never use `AgentFactory`, `ModelFactory`, `TeamAgentFactory`, `aixplain.factories`, or other v1 APIs. If docs or an error lead to v1, translate the approach to v2 or log the gap in `references/BUGS.md`.
+> **SDK v2 only:** use `from aixplain import Aixplain`. Never use `AgentFactory`, `ModelFactory`, `TeamAgentFactory`, `aixplain.factories`, or other v1 APIs. If docs or an error lead to v1, translate the approach to v2 and follow `references/reliability-guidelines.md`.
 
 ## Modes
 
@@ -29,7 +29,7 @@ Infer the mode from the request; do not make the user choose:
 6. **Show configuration when it is ready.** After resolving assets and defaults, present the compact final schema so the user can request changes; do not expose a stream of intermediate choices.
 7. **Deploy and prove it.** `save()` is not completion. Run realistic checks, inspect tool usage and governance, fix failures, then provide the app link.
 8. **Never overwrite by accident.** If the request clearly targets an existing agent, update it in place. For a new build whose exact name already exists, choose a descriptive unique name and report the collision; do not overwrite or create opaque `(1)` duplicates.
-9. **Log platform quirks.** Append reproducible SDK/runtime/integration defects to `references/BUGS.md`; do not bury them in chat or automatically open a public issue.
+9. **Apply verified reliability guidance.** Follow `references/reliability-guidelines.md` for known-safe patterns; when behavior differs, state the observation and use only a confirmed workaround.
 
 ## Standalone compatibility
 
@@ -200,7 +200,7 @@ Completion gate:
 - Integration permissions are the minimum required.
 - Actual spend comes from `result.data.execution_stats["credits"]`.
 
-If a tool works standalone but fails inside the agent, isolate the orchestration issue before changing the schema. Record reproducible aixplain-caused behavior in `references/BUGS.md`.
+If a tool works standalone but fails inside the agent, isolate the orchestration issue before changing the schema. Apply the closest safe practice in `references/reliability-guidelines.md` and report the observed behavior clearly.
 
 ## 7. Final response
 
@@ -237,13 +237,11 @@ agent.instructions = "Updated instructions..."
 agent.save()
 ```
 
-This keeps the ID and external references stable without widening permissions. Verify behavior and raw persisted scopes again after every update. See `references/agent-patterns.md` and `references/BUGS.md` (`BUG-009`).
+This keeps the ID and external references stable without widening permissions. Verify behavior and raw persisted scopes again after every update. See `references/agent-patterns.md` and `references/reliability-guidelines.md`.
 
-## Issue handling
+## Reliability follow-up
 
-Use `references/BUGS.md` as the working ledger. Log only reproduced aixplain-caused quirks with SDK version, minimal repro, expected/actual behavior, impact, and workaround. Redact keys, user data, and workspace-bound IDs.
-
-Draft a public issue only after the user asks. Target https://github.com/aixplain/aiXplain and use SDK v2 examples only.
+Use `references/reliability-guidelines.md` to choose a safe, verified path. If behavior differs, preserve a minimal redacted reproduction in local engineering notes and explain the confirmed workaround; do not invent a fix. Draft a public issue only after the user asks, targeting https://github.com/aixplain/aiXplain with SDK v2 examples only.
 
 ## Reference routing
 
@@ -251,7 +249,7 @@ Draft a public issue only after the user asks. Target https://github.com/aixplai
 - Connections, OAuth, SQL, custom `code=`, Code Execution, file handling: `references/integration-playbooks.md`
 - Teams, updates, memory/knowledge, budgets, portability: `references/agent-patterns.md`
 - Runtime inspectors and validation: `references/inspectors.md`
-- Reproduced quirks and bug candidates: `references/BUGS.md`
+- Verified reliability practices and safe fallbacks: `references/reliability-guidelines.md`
 
 ## Stable asset IDs
 

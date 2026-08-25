@@ -293,4 +293,4 @@ For every connected or custom tool:
 3. Run an agent prompt that requires it.
 4. Confirm its unit name appears in `result.data.steps`.
 5. Confirm governance allowed the run.
-6. Record any reproducible platform defect in `BUGS.md`.
+6. If observed behavior differs, follow the safe fallback in `reliability-guidelines.md` and keep a redacted local reproduction.

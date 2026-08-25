@@ -95,7 +95,7 @@ After saving, fetch `v2/agents/<ID>` again and assert each raw tool's `actions` 
 
 Do not recreate by default. Verify the same capabilities after every update.
 
-`0.2.47` fixed the earlier `Agent.get()`/`save()` default-LLM overwrite. If behavior suggests a regression, compare the backend model before/after and log it in `BUGS.md` rather than adding a permanent workaround without evidence.
+`0.2.47` fixed the earlier `Agent.get()`/`save()` default-LLM overwrite. If behavior suggests a regression, compare the backend model before/after and follow `reliability-guidelines.md` rather than adding a permanent workaround without evidence.
 
 ## Sessions (one conversation)
 
