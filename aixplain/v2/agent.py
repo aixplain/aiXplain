@@ -749,11 +749,13 @@ class Agent(
         # Convert to IDs for serialization (to_dict), using None as placeholder for unsaved agents
         self.agents = [a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.agents]
 
-        # Skills behave exactly like agents: keep the originals to resolve ids
-        # at save time, and serialize as a list of ids.
+        # Keep originals to resolve ids at save time. Unsaved skills remain as
+        # objects in the public list so later list edits cannot lose them.
+        self._skills_ever_configured = bool(self.skills)
         self._original_skills = list(self.skills or [])
         self.skills = [
-            s if isinstance(s, str) else s.get("id") if isinstance(s, dict) else s.id for s in (self.skills or [])
+            skill if isinstance(skill, str) else (self._skill_reference_id(skill) or skill)
+            for skill in (self.skills or [])
         ]
 
         # Unsaved files keep the object itself, not None, so list edits never lose track of which is which.
@@ -825,6 +827,41 @@ class Agent(
         #     raise ValueError(
         #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
         #     )
+
+    @staticmethod
+    def _skill_reference_id(skill: Optional[Union[str, Dict[str, Any], "Skill"]]) -> Optional[str]:
+        """Return the backend ID represented by one Skill reference."""
+        if skill is None:
+            return None
+        if isinstance(skill, str):
+            return skill
+        if isinstance(skill, dict):
+            return skill.get("id") or skill.get("asset_id") or skill.get("assetId")
+        return skill.id
+
+    def _sync_skill_references(self) -> None:
+        """Capture direct mutations to ``agent.skills`` before validation or save."""
+        current = list(self.skills or [])
+        original = list(getattr(self, "_original_skills", []) or [])
+        # A None slot is a still-unsaved placeholder; only safe to refresh by position if lengths match.
+        same_length = len(current) == len(original)
+        effective_current = [
+            original[index] if skill is None and same_length else skill for index, skill in enumerate(current)
+        ]
+        current_ids = [self._skill_reference_id(skill) for skill in effective_current]
+        original_ids = [self._skill_reference_id(skill) for skill in original]
+        if current_ids != original_ids or any(isinstance(skill, (Skill, dict)) for skill in effective_current):
+            if current_ids != original_ids:
+                self._skills_ever_configured = True
+            original_by_id = {
+                self._skill_reference_id(skill): skill
+                for skill in original
+                if self._skill_reference_id(skill) is not None
+            }
+            self._original_skills = [
+                original_by_id.get(skill, skill) if isinstance(skill, str) else skill for skill in effective_current
+            ]
+            self.skills = [self._skill_reference_id(skill) or skill for skill in self._original_skills]
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Keep ``self.budget`` a (never-None) ``Budget`` instance.
@@ -1301,6 +1338,7 @@ class Agent(
     def _save_subcomponents(self) -> None:
         """Recursively save all unsaved child components."""
         self._sync_file_references()
+        self._sync_skill_references()
         failed_components = []
 
         # Save tools
@@ -1359,6 +1397,7 @@ class Agent(
     def _validate_run_dependencies(self) -> None:
         """Validate that all child components are saved before running."""
         self._sync_file_references()
+        self._sync_skill_references()
         unsaved_components = []
 
         # Check tools
@@ -1404,6 +1443,7 @@ class Agent(
     def _validate_dependencies(self) -> None:
         """Validate that all child components are saved."""
         self._sync_file_references()
+        self._sync_skill_references()
         unsaved_components = []
 
         # Check tools
@@ -1909,6 +1949,7 @@ class Agent(
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         self._sync_file_references()
+        self._sync_skill_references()
         # Import Inspector from v2 module
         from .inspector import Inspector
 
@@ -1993,9 +2034,9 @@ class Agent(
 
         # Convert skills to API format. Skills follow the same wire design as
         # tools: each is sent as an object (via as_tool()), never a bare id.
-        if getattr(self, "_original_skills", None):
+        if getattr(self, "_skills_ever_configured", False):
             converted_skills = []
-            for skill in self._original_skills:
+            for skill in getattr(self, "_original_skills", []) or []:
                 if isinstance(skill, ToolableMixin):
                     skill_dict = skill.as_tool()
                 elif isinstance(skill, dict):
