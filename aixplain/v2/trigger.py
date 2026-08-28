@@ -114,6 +114,7 @@ class TriggerConfiguration:
     days_of_month: Optional[List[int]] = field(default=None, metadata=dj_config(field_name="daysOfMonth"))
     run_at: Optional[str] = field(default=None, metadata=dj_config(field_name="runAt"))
     start_at: Optional[str] = field(default=None, metadata=dj_config(field_name="startAt"))
+    next_run_at: Optional[str] = field(default=None, metadata=dj_config(field_name="nextRunAt"))
     repeat: Optional[TriggerRepeatRule] = None
 
 
@@ -218,11 +219,12 @@ class Trigger(
     def __post_init__(self) -> None:
         """Translate friendly construction kwargs into backend-shaped fields.
 
-        Skipped when rehydrating from the backend (``id`` already set), so that
-        ``from_dict`` in get/search/create is left untouched.
+        When rehydrating from the backend (``id`` already set), populate the
+        friendly schedule fields from ``configuration`` without rebuilding it.
         """
         if self.id is not None:
-            return  # rehydration path — nothing to translate
+            self._hydrate_schedule_fields()
+            return
 
         # Resolve the target agent -> assetId.
         if self.agent is not None and not self.asset_id:
@@ -240,6 +242,34 @@ class Trigger(
         elif self.run_at is not None or self.every is not None or self.start_at is not None:
             self.trigger_type = "time"
             self.configuration = self._build_configuration()
+
+    def _hydrate_schedule_fields(self) -> None:
+        """Populate friendly schedule attributes from a fetched configuration."""
+        config = self.configuration
+        if config is None:
+            return
+
+        self.timezone = config.timezone
+        self.run_at = config.run_at
+        self.at = config.time
+        self.start_at = config.start_at
+        if self.next_run_at is None:
+            self.next_run_at = config.next_run_at
+
+        if config.type == "daily":
+            self.every = "day"
+            self.interval = 1
+        elif config.type == "weekly":
+            self.every = "week"
+            self.interval = 1
+            self.on = config.days_of_week
+        elif config.type == "monthly":
+            self.every = "month"
+            self.interval = 1
+            self.on = config.days_of_month
+        elif config.type == "recurring" and config.repeat is not None:
+            self.every = config.repeat.unit
+            self.interval = 1 if config.repeat.every is None else config.repeat.every
 
     # ------------------------------------------------------------------
     # Event configuration
@@ -369,7 +399,9 @@ class Trigger(
         if trigger_type == "external":
             payload["triggerId"] = self.trigger_id
         elif self.configuration is not None:
-            payload["configuration"] = _strip_none(self.configuration.to_dict())
+            configuration = self.configuration.to_dict()
+            configuration.pop("nextRunAt", None)
+            payload["configuration"] = _strip_none(configuration)
         else:
             raise ValueError(
                 "A time trigger needs a schedule. Pass run_at=... (one-off) or "
