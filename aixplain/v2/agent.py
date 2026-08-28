@@ -820,6 +820,39 @@ class Agent(
             ]
             self.files = current_ids
 
+    @staticmethod
+    def _skill_reference_id(skill: Optional[Union[str, Dict[str, Any], "Skill"]]) -> Optional[str]:
+        """Return the backend ID represented by one Skill reference."""
+        if skill is None:
+            return None
+        if isinstance(skill, str):
+            return skill
+        if isinstance(skill, dict):
+            return skill.get("id") or skill.get("asset_id") or skill.get("assetId")
+        return skill.id
+
+    def _sync_skill_references(self) -> None:
+        """Capture direct mutations to ``agent.skills`` before validation or save."""
+        current = list(self.skills or [])
+        original = list(getattr(self, "_original_skills", []) or [])
+        # A None slot is a still-unsaved placeholder; only safe to refresh by position if lengths match.
+        same_length = len(current) == len(original)
+        effective_current = [
+            original[index] if skill is None and same_length else skill for index, skill in enumerate(current)
+        ]
+        current_ids = [self._skill_reference_id(skill) for skill in effective_current]
+        original_ids = [self._skill_reference_id(skill) for skill in original]
+        if current_ids != original_ids or any(not isinstance(skill, str) for skill in effective_current):
+            original_by_id = {
+                self._skill_reference_id(skill): skill
+                for skill in original
+                if self._skill_reference_id(skill) is not None
+            }
+            self._original_skills = [
+                original_by_id.get(skill, skill) if isinstance(skill, str) else skill for skill in effective_current
+            ]
+            self.skills = current_ids
+
         # TODO: Re-enable this validation after backend data consistency is fixed
         # if self.agents and (self.tasks or self.tools):
         #     raise ValueError(
@@ -1301,6 +1334,7 @@ class Agent(
     def _save_subcomponents(self) -> None:
         """Recursively save all unsaved child components."""
         self._sync_file_references()
+        self._sync_skill_references()
         failed_components = []
 
         # Save tools
@@ -1359,6 +1393,7 @@ class Agent(
     def _validate_run_dependencies(self) -> None:
         """Validate that all child components are saved before running."""
         self._sync_file_references()
+        self._sync_skill_references()
         unsaved_components = []
 
         # Check tools
@@ -1404,6 +1439,7 @@ class Agent(
     def _validate_dependencies(self) -> None:
         """Validate that all child components are saved."""
         self._sync_file_references()
+        self._sync_skill_references()
         unsaved_components = []
 
         # Check tools
@@ -1909,6 +1945,7 @@ class Agent(
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
         self._sync_file_references()
+        self._sync_skill_references()
         # Import Inspector from v2 module
         from .inspector import Inspector
 
@@ -1993,23 +2030,20 @@ class Agent(
 
         # Convert skills to API format. Skills follow the same wire design as
         # tools: each is sent as an object (via as_tool()), never a bare id.
-        if getattr(self, "_original_skills", None):
-            converted_skills = []
-            for skill in self._original_skills:
-                if isinstance(skill, ToolableMixin):
-                    skill_dict = skill.as_tool()
-                elif isinstance(skill, dict):
-                    skill_dict = skill
-                elif isinstance(skill, str):
-                    skill_dict = {"id": skill, "type": "skill", "asset_id": skill}
-                else:
-                    raise ValueError("A skill must be a Skill instance, a dict, or a skill id string.")
-                if not skill_dict.get("id"):
-                    raise ValueError("All skills must be saved before saving the agent.")
-                converted_skills.append(self._normalize_tool_dict_for_api(skill_dict))
-            payload["skills"] = converted_skills
-        else:
-            payload.pop("skills", None)
+        converted_skills = []
+        for skill in getattr(self, "_original_skills", []) or []:
+            if isinstance(skill, ToolableMixin):
+                skill_dict = skill.as_tool()
+            elif isinstance(skill, dict):
+                skill_dict = skill
+            elif isinstance(skill, str):
+                skill_dict = {"id": skill, "type": "skill", "asset_id": skill}
+            else:
+                raise ValueError("A skill must be a Skill instance, a dict, or a skill id string.")
+            if not skill_dict.get("id"):
+                raise ValueError("All skills must be saved before saving the agent.")
+            converted_skills.append(self._normalize_tool_dict_for_api(skill_dict))
+        payload["skills"] = converted_skills
 
         # Persistent Agent files are references to already-saved File assets.
         # Never upload them here and never reinterpret them as run attachments.
