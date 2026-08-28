@@ -49,6 +49,29 @@ def test_clearing_agent_skills_emits_empty_list(aix):
     assert agent.build_save_payload()["skills"] == []
 
 
+def test_agent_never_configured_with_skills_omits_the_key(aix):
+    """An agent that never touched skills must not start sending skills=[]."""
+    agent = aix.Agent(name="plain-agent", instructions="hi")
+
+    assert "skills" not in agent.build_save_payload()
+
+
+def test_unsaved_skill_survives_validation_then_list_append(aix):
+    """Keep an unsaved Skill attached when the public list later changes length."""
+    unsaved = aix.Skill(name="Unsaved One")
+    saved = aix.Skill(id="saved-2", name="Two")
+    agent = aix.Agent(name="skill-agent", instructions="hi", skills=[unsaved])
+
+    with pytest.raises(ValueError, match="skill 'Unsaved One'.*saved before saving"):
+        agent._validate_dependencies()
+
+    agent.skills.append(saved)
+
+    with pytest.raises(ValueError, match="All skills must be saved before saving the agent"):
+        agent.build_save_payload()
+    assert agent._original_skills == [unsaved, saved]
+
+
 def test_save_subcomponents_uses_newly_assigned_skill(aix):
     """Recursively save an unsaved Skill assigned after Agent construction."""
     skill = aix.Skill(name="New Skill")

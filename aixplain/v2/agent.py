@@ -749,11 +749,13 @@ class Agent(
         # Convert to IDs for serialization (to_dict), using None as placeholder for unsaved agents
         self.agents = [a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.agents]
 
-        # Skills behave exactly like agents: keep the originals to resolve ids
-        # at save time, and serialize as a list of ids.
+        # Keep originals to resolve ids at save time. Unsaved skills remain as
+        # objects in the public list so later list edits cannot lose them.
+        self._skills_ever_configured = bool(self.skills)
         self._original_skills = list(self.skills or [])
         self.skills = [
-            s if isinstance(s, str) else s.get("id") if isinstance(s, dict) else s.id for s in (self.skills or [])
+            skill if isinstance(skill, str) else (self._skill_reference_id(skill) or skill)
+            for skill in (self.skills or [])
         ]
 
         # Unsaved files keep the object itself, not None, so list edits never lose track of which is which.
@@ -820,6 +822,12 @@ class Agent(
             ]
             self.files = current_ids
 
+        # TODO: Re-enable this validation after backend data consistency is fixed
+        # if self.agents and (self.tasks or self.tools):
+        #     raise ValueError(
+        #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
+        #     )
+
     @staticmethod
     def _skill_reference_id(skill: Optional[Union[str, Dict[str, Any], "Skill"]]) -> Optional[str]:
         """Return the backend ID represented by one Skill reference."""
@@ -842,7 +850,9 @@ class Agent(
         ]
         current_ids = [self._skill_reference_id(skill) for skill in effective_current]
         original_ids = [self._skill_reference_id(skill) for skill in original]
-        if current_ids != original_ids or any(not isinstance(skill, str) for skill in effective_current):
+        if current_ids != original_ids or any(isinstance(skill, (Skill, dict)) for skill in effective_current):
+            if current_ids != original_ids:
+                self._skills_ever_configured = True
             original_by_id = {
                 self._skill_reference_id(skill): skill
                 for skill in original
@@ -851,13 +861,7 @@ class Agent(
             self._original_skills = [
                 original_by_id.get(skill, skill) if isinstance(skill, str) else skill for skill in effective_current
             ]
-            self.skills = current_ids
-
-        # TODO: Re-enable this validation after backend data consistency is fixed
-        # if self.agents and (self.tasks or self.tools):
-        #     raise ValueError(
-        #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
-        #     )
+            self.skills = [self._skill_reference_id(skill) or skill for skill in self._original_skills]
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Keep ``self.budget`` a (never-None) ``Budget`` instance.
@@ -2030,20 +2034,23 @@ class Agent(
 
         # Convert skills to API format. Skills follow the same wire design as
         # tools: each is sent as an object (via as_tool()), never a bare id.
-        converted_skills = []
-        for skill in getattr(self, "_original_skills", []) or []:
-            if isinstance(skill, ToolableMixin):
-                skill_dict = skill.as_tool()
-            elif isinstance(skill, dict):
-                skill_dict = skill
-            elif isinstance(skill, str):
-                skill_dict = {"id": skill, "type": "skill", "asset_id": skill}
-            else:
-                raise ValueError("A skill must be a Skill instance, a dict, or a skill id string.")
-            if not skill_dict.get("id"):
-                raise ValueError("All skills must be saved before saving the agent.")
-            converted_skills.append(self._normalize_tool_dict_for_api(skill_dict))
-        payload["skills"] = converted_skills
+        if getattr(self, "_skills_ever_configured", False):
+            converted_skills = []
+            for skill in getattr(self, "_original_skills", []) or []:
+                if isinstance(skill, ToolableMixin):
+                    skill_dict = skill.as_tool()
+                elif isinstance(skill, dict):
+                    skill_dict = skill
+                elif isinstance(skill, str):
+                    skill_dict = {"id": skill, "type": "skill", "asset_id": skill}
+                else:
+                    raise ValueError("A skill must be a Skill instance, a dict, or a skill id string.")
+                if not skill_dict.get("id"):
+                    raise ValueError("All skills must be saved before saving the agent.")
+                converted_skills.append(self._normalize_tool_dict_for_api(skill_dict))
+            payload["skills"] = converted_skills
+        else:
+            payload.pop("skills", None)
 
         # Persistent Agent files are references to already-saved File assets.
         # Never upload them here and never reinterpret them as run attachments.
