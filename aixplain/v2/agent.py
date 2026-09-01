@@ -18,6 +18,8 @@ from .enums import AssetStatus, AssetStatusValue, ResponseStatus
 from .model import Model
 from .file import File
 from .skill import Skill
+from .graph import Graph, StaticGraphStrategy
+from .exceptions import ValidationError
 from .mixins import ToolableMixin
 from .plain_data import coerce_struct_list, struct_fields
 from .exceptions import ValidationError
@@ -710,6 +712,22 @@ class Agent(
     tasks: Optional[List[Union[Task, "TaskDict"]]] = field(default_factory=list)
     agents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
 
+    graph: Optional[Graph] = field(
+        default=None,
+        metadata=config(exclude=lambda value: True, decoder=lambda value: Graph.from_dict(value) if value else None),
+    )
+    graph_version: Optional[str] = field(
+        default=None,
+        metadata=config(field_name="graphVersion", exclude=lambda value: True),
+    )
+    strategy: Optional[StaticGraphStrategy] = field(
+        default=None,
+        metadata=config(
+            exclude=lambda value: True,
+            decoder=lambda value: StaticGraphStrategy.from_dict(value) if value else None,
+        ),
+    )
+
     # Deprecated alias for `agents` — will be removed in a future release
     subagents: Optional[List[Union[str, "Agent"]]] = field(
         default=None,
@@ -780,6 +798,17 @@ class Agent(
         # objects both, on the user-facing field names. The previous
         # ``Task.from_dict(task)`` here assumed a dict and raised
         # ``AttributeError`` on a ``Task`` the caller had constructed.
+
+        if isinstance(self.graph, dict):
+            self.graph = Graph.from_dict(self.graph)
+        if isinstance(self.strategy, dict):
+            self.strategy = StaticGraphStrategy.from_dict(self.strategy)
+        if self.graph is not None:
+            self.graph.validate()
+            self.graph_version = self.graph_version or "1"
+            self.strategy = self.strategy or StaticGraphStrategy()
+        elif self.strategy is not None or self.graph_version is not None:
+            raise ValidationError("Agent strategy and graph_version cannot be set without a graph.")
 
         # Deserialize inspectors to Inspector objects so mutate-and-save round-trips.
         # Prebuilt guards and custom inspectors are the same Inspector type, so a
@@ -2327,6 +2356,15 @@ class Agent(
         payload["tools"] = converted_assets
 
         self._apply_llm_fields_to_payload(payload)
+
+        if self.graph is not None:
+            payload["graphVersion"] = "1"
+            payload["graph"] = self.graph.to_dict()
+            payload["strategy"] = (self.strategy or StaticGraphStrategy()).to_dict()
+        else:
+            payload.pop("graphVersion", None)
+            payload.pop("graph", None)
+            payload.pop("strategy", None)
 
         # Convert agents to API format, resolving IDs from original objects
         if hasattr(self, "_original_agents") and self._original_agents:
