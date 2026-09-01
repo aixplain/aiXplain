@@ -29,6 +29,7 @@ from aixplain._compat import install as _install_compat  # noqa: E402
 _install_compat()
 
 from .v2.core import Aixplain  # noqa: E402
+from .v2.file import File  # noqa: E402
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=LOG_LEVEL)
@@ -41,4 +42,4 @@ except Exception:
     pass
 
 
-__all__ = ["Aixplain", "aixplain_v2"]
+__all__ = ["Aixplain", "File", "aixplain_v2"]

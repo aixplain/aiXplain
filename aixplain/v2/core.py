@@ -13,7 +13,7 @@ from .skill import Skill
 from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
 from .integration import Integration
 from .trigger import Trigger
-from .file import Resource
+from .file import File, Resource
 from .inspector import Inspector
 from .meta_agents import Debugger
 from .api_key import APIKey
@@ -32,6 +32,7 @@ MetricType = TypeVar("MetricType", bound=MetricBase)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
 TriggerType = TypeVar("TriggerType", bound=Trigger)
 ResourceType = TypeVar("ResourceType", bound=Resource)
+FileResourceType = TypeVar("FileResourceType", bound=File)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
 DebuggerType = TypeVar("DebuggerType", bound=Debugger)
 APIKeyType = TypeVar("APIKeyType", bound=APIKey)
@@ -63,6 +64,7 @@ class Aixplain:
     Integration: IntegrationType = None
     Trigger: TriggerType = None
     Resource: ResourceType = None
+    File: FileResourceType = None
     Inspector: InspectorType = None
     Debugger: DebuggerType = None
     APIKey: APIKeyType = None
@@ -134,9 +136,13 @@ class Aixplain:
 
     def init_client(self) -> None:
         """Initialize the client."""
+        # Runs POST to ``model_url``/``pipeline_url`` while ``base_url`` is the
+        # platform API, and poll URLs legitimately come back on any of them, so
+        # all three are trusted with the API key.
         self.client = AixplainClient(
             base_url=self.backend_url,
             team_api_key=self.api_key,
+            trusted_urls=[self.pipeline_url, self.model_url],
         )
 
     def init_resources(self) -> None:
@@ -155,6 +161,7 @@ class Aixplain:
         self.Integration = type("Integration", (Integration,), {"context": self})
         self.Trigger = type("Trigger", (Trigger,), {"context": self})
         self.Resource = type("Resource", (Resource,), {"context": self})
+        self.File = type("File", (File,), {"context": self})
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
         self.Debugger = type("Debugger", (Debugger,), {"context": self})
         self.APIKey = type("APIKey", (APIKey,), {"context": self})

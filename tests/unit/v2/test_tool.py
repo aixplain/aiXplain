@@ -430,6 +430,48 @@ class TestToolCreate:
         assert tool.id == mock_connection.id
 
 
+class TestScriptToolDefaultIntegration:
+    """Tests that Tool(code=...) targets the Python Sandbox integration."""
+
+    PYTHON_SANDBOX_ID = "688779d8bfb8e46c273982ca"
+
+    def test_default_integration_id_is_python_sandbox(self):
+        """DEFAULT_INTEGRATION_ID must be the Python Sandbox integration,
+        not Slack (686432941223092cb4294d3f) — a script tool wired to Slack
+        serializes with the full SLACK_* action catalog and never runs its code."""
+        assert Tool.DEFAULT_INTEGRATION_ID == self.PYTHON_SANDBOX_ID
+
+    def test_code_only_tool_uses_python_sandbox_integration(self):
+        tool = Tool(name="Script Tool", description="desc", code="def main(): pass")
+        assert tool.integration == self.PYTHON_SANDBOX_ID
+        assert tool.config == {"code": "def main(): pass", "function_name": "main"}
+
+    def test_function_name_inferred_from_non_main_function(self):
+        """The sandbox requires function_name; a single function of any name works."""
+        code = "def get_fact(city: str) -> str:\n    return city\n"
+        tool = Tool(name="Script Tool", description="desc", code=code)
+        assert tool.config == {"code": code, "function_name": "get_fact"}
+
+    def test_explicit_function_name_in_config_survives(self):
+        """Extra config keys must not be dropped on the code= route."""
+        code = "def helper(): pass\ndef entry(): pass\n"
+        tool = Tool(name="Script Tool", description="desc", code=code, config={"function_name": "entry"})
+        assert tool.config == {"code": code, "function_name": "entry"}
+
+    def test_multiple_functions_without_function_name_raises(self):
+        code = "def a(): pass\ndef b(): pass\n"
+        with pytest.raises(ValueError, match="Multiple functions"):
+            Tool(name="Script Tool", description="desc", code=code)
+
+    def test_function_name_not_in_code_raises(self):
+        with pytest.raises(ValueError, match="not found in code"):
+            Tool(name="Script Tool", description="desc", code="def main(): pass", config={"function_name": "nope"})
+
+    def test_code_without_any_function_raises(self):
+        with pytest.raises(ValueError, match="No function"):
+            Tool(name="Script Tool", description="desc", code="x = 1\n")
+
+
 # =============================================================================
 # save() integration (update path)
 # =============================================================================
@@ -670,16 +712,24 @@ class TestMergeWithDynamicAttrs:
         assert result["data"] == ["x"]
 
     def test_run_metadata_survives_merge_and_stays_header_only(self):
-        """``identifier``/``session_id`` must survive the merge (so
-        ``_headers_for_run`` can see them) while staying out of the action payload."""
+        """Every ``_RUN_HEADER_KEYS`` kwarg must survive the merge (so
+        ``_headers_for_run`` can see it) while staying out of the action payload."""
         tool = self._make_tool()
 
         merged = tool._merge_with_dynamic_attrs(
-            action="search", data={"q": "hi"}, identifier="alice", session_id="sess-1"
+            action="search",
+            data={"q": "hi"},
+            identifier="alice",
+            session_id="sess-1",
+            agent_name="Researcher",
         )
 
-        assert tool._headers_for_run(merged) == {"x-user-id": "alice", "x-session-id": "sess-1"}
+        assert tool._headers_for_run(merged) == {
+            "x-user-id": "alice",
+            "x-session-id": "sess-1",
+            "x-agent": "Researcher",
+        }
         payload_kwargs = tool._payload_kwargs_for_run(merged)
-        assert "identifier" not in payload_kwargs
-        assert "session_id" not in payload_kwargs
+        for key, _ in tool._RUN_HEADER_KEYS:
+            assert key not in payload_kwargs
         assert payload_kwargs["data"] == {"q": "hi"}

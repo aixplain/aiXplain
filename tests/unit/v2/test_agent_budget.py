@@ -260,9 +260,14 @@ class TestDeprecatedPersistedMaxIterations:
         assert "maxIterations" not in payload
 
     def test_no_warning_when_unset(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", DeprecationWarning)
-            _build_agent()  # must not raise
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            agent = _build_agent()
+
+        assert [w for w in caught if issubclass(w.category, DeprecationWarning)] == []
+        # Nothing to fold in, so the budget stays empty rather than picking up a
+        # default max_iterations.
+        assert agent.budget.max_iterations is None
 
     def test_conflict_budget_wins(self):
         with warnings.catch_warnings(record=True) as caught:
@@ -445,6 +450,21 @@ class TestRunPathWarningStacklevel:
         dep = [w for w in caught if w.category is DeprecationWarning and "max_iterations" in str(w.message)]
         assert dep, "expected a run-path DeprecationWarning"
         # The warning must resolve to THIS test file (the user call site), not agent.py.
+        assert dep[0].filename == __file__, dep[0].filename
+
+    def test_run_async_deprecation_warning_points_at_call_site(self):
+        """run_async shares build_run_payload's stacklevel, so it must agree with run().
+
+        Both paths reach the warning through ``_submit_with_retries`` ->
+        ``_post_and_handle_run``; a depth change on one silently mislocates the
+        other.
+        """
+        agent = self._runnable_agent()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            agent.run_async(query="hi", execution_params={"max_iterations": 7})
+        dep = [w for w in caught if w.category is DeprecationWarning and "max_iterations" in str(w.message)]
+        assert dep, "expected a run_async-path DeprecationWarning"
         assert dep[0].filename == __file__, dep[0].filename
 
     def test_run_conflict_warning_points_at_call_site(self):

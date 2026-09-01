@@ -33,6 +33,7 @@ from .exceptions import (
     ValidationError,
     APIError,
     TimeoutError,
+    UntrustedURLError,
     create_operation_failed_error,
 )
 
@@ -576,14 +577,18 @@ class BaseRunParams(BaseParams):
     Attributes:
         timeout: Maximum time in seconds to wait for completion.
         wait_time: Initial interval in seconds between poll attempts.
-        run_retries: Extra attempts after the first failure (total attempts = 1 + run_retries).
+        run_retries: Extra *submission* attempts after the first failure (total
+            attempts = 1 + run_retries). Covers only the POST that starts the
+            run: a failure while polling an already-running job is not retried,
+            because re-submitting would start and bill a second execution.
         run_retry_wait: Seconds to wait between retry attempts (default 1.0).
 
     Note:
-        ``session_id`` is a header-only run key handled by every runnable
-        (``_headers_for_run`` → ``x-session-id``, stripped from the body by
-        ``_RUN_CONTROL_KEYS``). It is declared on :class:`ModelRunParams` rather
-        than here: :class:`~aixplain.v2.agent.AgentRunParams` deliberately has no
+        ``session_id`` and ``agent_name`` are header-only run keys handled by every
+        runnable (``_headers_for_run`` → ``x-session-id`` / ``x-agent``, stripped
+        from the body by ``_RUN_CONTROL_KEYS``). They are declared on
+        :class:`ModelRunParams` rather than here:
+        :class:`~aixplain.v2.agent.AgentRunParams` deliberately has no
         ``session_id`` — agent runs join a conversation via ``session=``, and a
         look-alike key that only set a header would be a footgun.
     """
@@ -1226,17 +1231,29 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     RUN_ACTION_PATH: str = "run"
     RESPONSE_CLASS: type = Result  # Default response class
 
+    # Run kwargs emitted as per-run request headers, in wire order. Single source
+    # of truth: ``_headers_for_run`` builds from it, and Model derives its
+    # ``_SDK_ONLY_PARAMS`` from it, so adding a header here cannot be forgotten in
+    # one of the payload filters (a merge once dropped such a duplicated entry).
+    _RUN_HEADER_KEYS: tuple[tuple[str, str], ...] = (
+        ("identifier", "x-user-id"),
+        ("session_id", "x-session-id"),
+        ("agent_name", "x-agent"),
+    )
+
     # SDK-only keys: never forwarded to build_run_payload / build_run_url.
     # NOTE: ``identifier`` is intentionally NOT excluded here — for Agent runs it
     # is a legitimate execution-config body field (see Agent). Model/Tool, where
     # it is header-only, add it to their own override so it never leaks into the
     # model/action input payload.
     #
-    # ``session_id`` IS excluded here (unlike ``identifier``): it is header-only
-    # for every runnable. No run params type declares it as a body field — the
-    # Agent session path takes ``session=`` (a Session or id) and routes through
-    # ``POST /v1/sessions/{id}/messages``, so a top-level ``session_id`` kwarg is
-    # purely the per-run correlation channel emitted as ``x-session-id``.
+    # ``session_id`` and ``agent_name`` ARE excluded here (unlike ``identifier``):
+    # both are header-only for every runnable, since no run params type declares
+    # either as a body field. The Agent session path takes ``session=`` (a Session
+    # or id) and routes through ``POST /v1/sessions/{id}/messages``, so a
+    # top-level ``session_id`` kwarg is purely the per-run correlation channel
+    # emitted as ``x-session-id``; ``agent_name`` is likewise only the calling
+    # agent's name, emitted as ``x-agent``.
     _RUN_CONTROL_KEYS: frozenset[str] = frozenset(
         {
             "run_retries",
@@ -1245,14 +1262,24 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "wait_time",
             "show_progress",
             "session_id",
+            "agent_name",
         }
     )
 
     @staticmethod
     def _is_retryable_run_error(exc: BaseException) -> bool:
-        """Return True if a failed run may succeed on retry."""
+        """Return True if a failed *submission* may succeed on retry.
+
+        An explicit ``retryable`` on the error wins; only errors with no opinion
+        fall through to the status-code heuristic, where ``0`` means "no HTTP
+        response at all" (a transport failure). Business ``FAILED`` responses
+        carry ``retryable=False`` precisely so they stop sharing that sentinel.
+        """
         if not isinstance(exc, APIError):
             return False
+        explicit = getattr(exc, "retryable", None)
+        if explicit is not None:
+            return bool(explicit)
         code = exc.status_code
         return code == 0 or code == 429 or code >= 500
 
@@ -1262,6 +1289,35 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         run_retries = max(0, int(kwargs.get("run_retries", 0) or 0))
         run_retry_wait = float(kwargs.get("run_retry_wait", 1.0) or 0.0)
         return run_retries, max(run_retry_wait, 0.0)
+
+    def _submit_with_retries(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
+        """POST the run, retrying only retryable *submission* failures.
+
+        The retry boundary deliberately covers the POST alone: a submission is
+        billable and not idempotent, so polling must never re-enter this loop —
+        a poll-time network blip used to re-submit an already-running job
+        (BUG-1090).
+
+        Args:
+            **kwargs: Run parameters, including ``run_retries`` / ``run_retry_wait``.
+
+        Returns:
+            Response instance from the configured response class.
+
+        Raises:
+            APIError: If the submission fails and is not retryable, or if every
+                attempt has been used.
+        """
+        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
+        for attempt in range(run_retries + 1):
+            try:
+                return self._post_and_handle_run(**kwargs)
+            except APIError as e:
+                if not self._is_retryable_run_error(e) or attempt >= run_retries:
+                    raise
+                time.sleep(run_retry_wait)
+
+        raise RuntimeError("run submission retry loop exhausted without return")
 
     def _begin_run(self, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
         """Invoke before_run; return early result or None to continue."""
@@ -1279,19 +1335,38 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     def _headers_for_run(self, kwargs: dict) -> Optional[dict]:
         """Build per-run headers from optional runtime metadata.
 
-        ``identifier`` → ``x-user-id`` (caller identity) and ``session_id`` →
-        ``x-session-id`` (conversation the run belongs to). Both are optional and
-        independent: a key that is absent or ``None`` simply omits its header, and
-        with neither present this returns ``None`` so no headers are attached.
+        Emits the ``_RUN_HEADER_KEYS`` mapping: ``identifier`` → ``x-user-id``
+        (caller identity), ``session_id`` → ``x-session-id`` (conversation the run
+        belongs to), and ``agent_name`` → ``x-agent`` (the agent making the call).
+        All are optional and independent: a key that is absent or ``None`` simply
+        omits its header, and with none present this returns ``None`` so no headers
+        are attached.
+
+        Raises:
+            ValueError: If a value is not ASCII. HTTP header values cannot carry
+                non-ASCII text, and the underlying stack would otherwise fail
+                deep inside ``send()`` with a bare ``UnicodeEncodeError`` that
+                names neither the run kwarg nor the header.
         """
         headers = {}
-        identifier = kwargs.get("identifier")
-        if identifier is not None:
-            headers["x-user-id"] = str(identifier)
-        session_id = kwargs.get("session_id")
-        if session_id is not None:
-            headers["x-session-id"] = str(session_id)
+        for key, header in self._RUN_HEADER_KEYS:
+            value = kwargs.get(key)
+            if value is not None:
+                headers[header] = self._validate_header_value(key, header, str(value))
         return headers or None
+
+    @staticmethod
+    def _validate_header_value(key: str, header: str, value: str) -> str:
+        """Return *value* unchanged, or raise if it cannot be sent as a header.
+
+        Never sanitizes: a caller who named an agent ``"Ürün Asistanı"`` gets told
+        the name cannot ride in ``x-agent``, rather than silently having it
+        transliterated or dropped and then wondering why downstream attribution
+        shows something else.
+        """
+        if not value.isascii():
+            raise ValueError(f"{key} {value!r} cannot be sent as the {header} header: header values must be ASCII")
+        return value
 
     def _post_and_handle_run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Single POST + handle_run_response (no retries, no before_run)."""
@@ -1455,28 +1530,22 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         Note:
             ``before_run`` runs once per ``run()`` call. Retries (if configured)
-            restart POST and polling without invoking ``before_run`` again.
+            re-submit the POST only, without invoking ``before_run`` again;
+            polling happens outside the retry boundary, so a failure while
+            watching an already-running job raises instead of starting — and
+            billing — a second execution.
         """
         early = self._begin_run(**kwargs)
         if early is not None:
             return self._apply_after_run(early, **kwargs)
 
-        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
-        for attempt in range(run_retries + 1):
-            try:
-                result = self._post_and_handle_run(**kwargs)
-                if result.url and not result.completed:
-                    request_id = getattr(result, "request_id", None)
-                    result = self.sync_poll(result.url, **kwargs)
-                    if request_id is not None and hasattr(result, "request_id") and not result.request_id:
-                        result.request_id = request_id
-                return self._apply_after_run(result, **kwargs)
-            except APIError as e:
-                if not self._is_retryable_run_error(e) or attempt >= run_retries:
-                    raise
-                time.sleep(run_retry_wait)
-
-        raise RuntimeError("run() retry loop exhausted without return")
+        result = self._submit_with_retries(**kwargs)
+        if result.url and not result.completed:
+            request_id = getattr(result, "request_id", None)
+            result = self.sync_poll(result.url, **kwargs)
+            if request_id is not None and hasattr(result, "request_id") and not result.request_id:
+                result.request_id = request_id
+        return self._apply_after_run(result, **kwargs)
 
     def run_async(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Run the resource asynchronously.
@@ -1484,7 +1553,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Args:
             **kwargs: Run parameters specific to the resource type, including
                 optional ``run_retries`` and ``run_retry_wait`` for failed POST
-                or immediate FAILED responses.
+                submissions. An immediate ``FAILED`` response is a business
+                outcome and is never retried.
 
         Returns:
             Response instance from the configured RESPONSE_CLASS
@@ -1493,16 +1563,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         if early is not None:
             return early
 
-        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
-        for attempt in range(run_retries + 1):
-            try:
-                return self._post_and_handle_run(**kwargs)
-            except APIError as e:
-                if not self._is_retryable_run_error(e) or attempt >= run_retries:
-                    raise
-                time.sleep(run_retry_wait)
-
-        raise RuntimeError("run_async() retry loop exhausted without return")
+        return self._submit_with_retries(**kwargs)
 
     def poll(self, poll_url: str) -> ResultT:
         """Poll for the result of an asynchronous operation.
@@ -1514,9 +1575,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             Response instance from the configured RESPONSE_CLASS
 
         Raises:
+            UntrustedURLError: If poll_url resolves to a host outside the trusted set
             APIError: If the polling request fails
             OperationFailedError: If the operation has failed
         """
+        # A poll URL comes from a response body, so validate the host before the
+        # credential is attached. ``client.get`` re-checks; doing it here keeps the
+        # error precise instead of being rewrapped as "Polling failed: ..." below.
+        self.context.client.ensure_trusted_url(poll_url)
         try:
             # Use context.client for all polling operations
             # If poll_url is a full URL, urljoin will use it directly
@@ -1627,8 +1693,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                         logger.info(f"Operation completed successfully ({elapsed_time:.1f}s total)")
                     return result
 
-            except (APIError, ResourceError) as e:
-                # Re-raise API and resource errors immediately
+            except (APIError, ResourceError, UntrustedURLError) as e:
+                # Re-raise API, resource and untrusted-URL errors immediately.
+                # Without UntrustedURLError here the broad ``except`` below would
+                # turn a refused credential leak into a silent poll-until-timeout.
                 raise e
             except Exception as e:
                 # Log other errors but continue polling

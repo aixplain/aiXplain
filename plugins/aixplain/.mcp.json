@@ -1,0 +1,10 @@
+{
+  "aixplain-marketplace-search": {
+    "type": "http",
+    "url": "https://models-mcp.aixplain.com/mcp/6960f934f316da19e5f22494",
+    "headers": {
+      "Authorization": "Bearer ${AIXPLAIN_API_KEY}",
+      "Accept": "application/json, text/event-stream"
+    }
+  }
+}

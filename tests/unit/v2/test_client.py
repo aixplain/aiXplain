@@ -17,6 +17,7 @@ from aixplain.v2.client import (
     DEFAULT_TIMEOUT_READ,
     DEFAULT_RETRY_BACKOFF_FACTOR,
     DEFAULT_RETRY_STATUS_FORCELIST,
+    RETRY_ALLOWED_METHODS,
 )
 from aixplain.v2.exceptions import APIError
 
@@ -94,13 +95,107 @@ class TestCreateRetrySession:
         adapter = session.get_adapter("https://example.com")
         assert set(adapter.max_retries.status_forcelist) == set(custom_list)
 
-    def test_allowed_methods_include_get_and_post(self):
-        """Retry should be allowed for GET and POST methods."""
+    @pytest.mark.parametrize("url", ["https://example.com", "http://example.com"])
+    def test_post_is_never_retried(self, url):
+        """POST must not be retried at the transport layer (BUG-1090).
+
+        urllib3 retries on read/connect errors too, so a POST here means a slow
+        ``/execute`` gets re-submitted — and re-billed — below the SDK.
+        """
         session = create_retry_session()
 
-        adapter = session.get_adapter("https://example.com")
+        adapter = session.get_adapter(url)
         assert "GET" in adapter.max_retries.allowed_methods
-        assert "POST" in adapter.max_retries.allowed_methods
+        assert "POST" not in adapter.max_retries.allowed_methods
+        assert adapter.max_retries.allowed_methods == RETRY_ALLOWED_METHODS
+
+    def test_server_error_retry_is_method_scoped(self):
+        """``status_forcelist`` alone does not decide a retry -- the method does.
+
+        Asserting ``allowed_methods`` only pins configuration; this pins the
+        urllib3 semantics we depend on, so a future urllib3 that stopped
+        consulting ``allowed_methods`` for status retries would fail here.
+        """
+        session = create_retry_session()
+        retry = session.get_adapter("https://example.com").max_retries
+
+        assert retry.is_retry("GET", 503) is True
+        assert retry.is_retry("POST", 503) is False
+
+
+class TestTransportRetryBehaviour:
+    """End-to-end urllib3 behaviour for the BUG-1090 acceptance criteria.
+
+    These drive the real ``Retry`` machinery with the wire faulted out, because
+    the defect was urllib3 silently re-sending a POST *below* the SDK -- a
+    behaviour no assertion about ``allowed_methods`` can prove on its own.
+    """
+
+    @staticmethod
+    def _timeout_session(**kwargs):
+        """Session whose every wire attempt raises ReadTimeoutError, plus a counter."""
+        from urllib3.exceptions import ReadTimeoutError
+
+        session = create_retry_session(**kwargs)
+        attempts = []
+
+        def fail(self, conn, method, url, **_):
+            attempts.append((method, url))
+            raise ReadTimeoutError(self, url, "read timed out")
+
+        return session, attempts, patch("urllib3.connectionpool.HTTPSConnectionPool._make_request", fail)
+
+    def test_read_timeout_on_post_sends_exactly_one_request(self):
+        """A read timeout on ``/execute`` must produce exactly one submission.
+
+        A slow model exceeding DEFAULT_TIMEOUT_READ used to be retried by
+        urllib3, turning one billable run into up to ``total + 1`` (BUG-1090).
+        """
+        session, attempts, patcher = self._timeout_session()
+
+        with patcher:
+            with pytest.raises(requests.exceptions.RequestException):
+                session.post("https://example.com/execute", json={"q": "hi"})
+
+        assert len(attempts) == 1, attempts
+
+    def test_read_timeout_on_get_is_still_retried(self):
+        """Control case: GET keeps its retries, so the count above is meaningful.
+
+        Without this, a harness that never reached the retry machinery at all
+        would make the POST assertion vacuously pass.
+        """
+        session, attempts, patcher = self._timeout_session(total=2, backoff_factor=0)
+
+        with patcher:
+            with pytest.raises(requests.exceptions.RequestException):
+                session.get("https://example.com/results/123")
+
+        assert len(attempts) == 3, attempts
+
+    def test_connect_error_on_post_is_still_retried(self):
+        """Documents the limit of the ``allowed_methods`` guarantee.
+
+        urllib3 deliberately skips the method check for connect errors, and that
+        is safe: no connection means no request bytes and therefore no
+        submission to bill. Pinned so nobody reads
+        ``RETRY_ALLOWED_METHODS = {"GET"}`` as "urllib3 never re-sends a POST"
+        and builds a stronger assumption on top of it.
+        """
+        from urllib3.exceptions import NewConnectionError
+
+        session = create_retry_session(total=2, backoff_factor=0)
+        attempts = []
+
+        def fail(self, conn, method, url, **_):
+            attempts.append(method)
+            raise NewConnectionError(self.pool or self, "connection refused")
+
+        with patch("urllib3.connectionpool.HTTPSConnectionPool._make_request", fail):
+            with pytest.raises(requests.exceptions.RequestException):
+                session.post("https://example.com/execute", json={"q": "hi"})
+
+        assert len(attempts) == 3, attempts
 
 
 class TestAixplainClientInitialization:
@@ -196,21 +291,39 @@ class TestAixplainClientInitialization:
 class TestAixplainClientHeaders:
     """Tests for client header configuration."""
 
-    def test_team_api_key_sets_x_api_key_header(self):
-        """team_api_key should set x-api-key header."""
+    def test_team_api_key_sent_per_request(self):
+        """team_api_key should be injected per request, not pinned to the session.
+
+        Session headers ride along with every absolute URL handed to the client,
+        which is how the key used to reach body-supplied hosts (BUG-937).
+        """
         client = AixplainClient(
             base_url="https://test.com",
             team_api_key="my_team_key",
         )
-        assert client.session.headers.get("x-api-key") == "my_team_key"
+        assert client.session.headers.get("x-api-key") is None
 
-    def test_aixplain_api_key_sets_x_aixplain_key_header(self):
-        """aixplain_api_key should set x-aixplain-key header."""
+        mock_response = Mock()
+        mock_response.ok = True
+        with patch.object(client.session, "request", return_value=mock_response) as mock_request:
+            client.request_raw("GET", "resource")
+
+        assert mock_request.call_args[1]["headers"]["x-api-key"] == "my_team_key"
+
+    def test_aixplain_api_key_sent_per_request(self):
+        """aixplain_api_key should be injected per request, not pinned to the session."""
         client = AixplainClient(
             base_url="https://test.com",
             aixplain_api_key="my_aixplain_key",
         )
-        assert client.session.headers.get("x-aixplain-key") == "my_aixplain_key"
+        assert client.session.headers.get("x-aixplain-key") is None
+
+        mock_response = Mock()
+        mock_response.ok = True
+        with patch.object(client.session, "request", return_value=mock_response) as mock_request:
+            client.request_raw("GET", "resource")
+
+        assert mock_request.call_args[1]["headers"]["x-aixplain-key"] == "my_aixplain_key"
 
     def test_content_type_header_set(self):
         """Client should set Content-Type: application/json."""
@@ -221,20 +334,36 @@ class TestAixplainClientHeaders:
         assert client.session.headers.get("Content-Type") == "application/json"
 
     def test_team_key_does_not_set_aixplain_header(self):
-        """team_api_key should not set x-aixplain-key header."""
+        """team_api_key should not produce an x-aixplain-key header."""
         client = AixplainClient(
             base_url="https://test.com",
             team_api_key="my_team_key",
         )
-        assert client.session.headers.get("x-aixplain-key") is None
+        assert "x-aixplain-key" not in client._auth_headers()
 
     def test_aixplain_key_does_not_set_team_header(self):
-        """aixplain_api_key should not set x-api-key header."""
+        """aixplain_api_key should not produce an x-api-key header."""
         client = AixplainClient(
             base_url="https://test.com",
             aixplain_api_key="my_aixplain_key",
         )
-        assert client.session.headers.get("x-api-key") is None
+        assert "x-api-key" not in client._auth_headers()
+
+    def test_caller_headers_are_preserved_alongside_credentials(self):
+        """Per-request headers should merge with, not replace, the credential."""
+        client = AixplainClient(
+            base_url="https://test.com",
+            team_api_key="my_team_key",
+        )
+
+        mock_response = Mock()
+        mock_response.ok = True
+        with patch.object(client.session, "request", return_value=mock_response) as mock_request:
+            client.request_raw("POST", "resource", headers={"x-agent": "agent-1"})
+
+        headers = mock_request.call_args[1]["headers"]
+        assert headers["x-agent"] == "agent-1"
+        assert headers["x-api-key"] == "my_team_key"
 
 
 class TestAixplainClientRequestRaw:
@@ -258,11 +387,12 @@ class TestAixplainClientRequestRaw:
             call_args = mock_request.call_args
             assert call_args[1]["url"] == "https://api.example.com/v2/models"
 
-    def test_request_with_absolute_url(self):
-        """Absolute URL should be used directly, not joined with base_url."""
+    def test_request_with_trusted_absolute_url(self):
+        """A trusted absolute URL should be used directly, not joined with base_url."""
         client = AixplainClient(
             base_url="https://api.example.com",
             team_api_key="key",
+            trusted_urls=["https://other.example.com"],
         )
 
         mock_response = Mock()
@@ -274,10 +404,10 @@ class TestAixplainClientRequestRaw:
             call_args = mock_request.call_args
             assert call_args[1]["url"] == "https://other.example.com/resource"
 
-    def test_request_with_http_absolute_url(self):
-        """HTTP absolute URLs should also be used directly."""
+    def test_request_with_trusted_http_absolute_url(self):
+        """An explicitly configured http endpoint should be used directly."""
         client = AixplainClient(
-            base_url="https://api.example.com",
+            base_url="http://local.example.com",
             team_api_key="key",
         )
 
@@ -401,6 +531,30 @@ class TestAixplainClientErrorHandling:
             assert exc_info.value.message == "Resource not found"
             assert exc_info.value.status_code == 404
             assert exc_info.value.error == "NOT_FOUND"
+
+    def test_error_prefers_supplier_error_detail(self):
+        """supplierError carries the actionable detail (e.g. 'Name already exists')
+        and must win over the generic 'error' code (e.g. 'err.supplier_error')."""
+        client = AixplainClient(
+            base_url="https://api.example.com",
+            team_api_key="key",
+        )
+
+        mock_response = Mock()
+        mock_response.ok = False
+        mock_response.status_code = 422
+        mock_response.json.return_value = {
+            "completed": True,
+            "error": "err.supplier_error",
+            "supplierError": "Name already exists",
+        }
+
+        with patch.object(client.session, "request", return_value=mock_response):
+            with pytest.raises(APIError) as exc_info:
+                client.request_raw("GET", "resource")
+
+            assert exc_info.value.message == "Name already exists"
+            assert exc_info.value.error == "err.supplier_error"
 
     def test_error_falls_back_to_error_field(self):
         """When 'message' is absent, should use 'error' field."""

@@ -1,5 +1,6 @@
 """Tool resource module for managing tools and their integrations."""
 
+import ast
 import re
 import warnings
 from typing import Union, List, Optional, Any
@@ -39,7 +40,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
 
     RESOURCE_PATH = "v2/tools"
     RESPONSE_CLASS = ToolResult
-    DEFAULT_INTEGRATION_ID = "686432941223092cb4294d3f"  # Script integration
+    DEFAULT_INTEGRATION_ID = "688779d8bfb8e46c273982ca"  # Python Sandbox (script) integration
 
     # Tool-specific fields
     asset_id: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
@@ -67,17 +68,40 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """Initialize tool after dataclass creation."""
         if not self.id:
             if self.integration is None:
-                code = self.code or (self.config.pop("code", None) if self.config else None)
+                config = dict(self.config) if self.config else {}
+                code = self.code or config.pop("code", None)
                 assert code is not None, "Code is required to create a (script) Tool"
                 self.integration = self.DEFAULT_INTEGRATION_ID
-                self.config = {
-                    "code": code,
-                }
+                config["code"] = code
+                config["function_name"] = self._resolve_script_function_name(code, config.get("function_name"))
+                self.config = config
             else:
                 if isinstance(self.integration, str):
                     pass
                 elif not isinstance(self.integration, Integration):
                     raise ValueError("Integration must be an Integration object or a string")
+
+    @staticmethod
+    def _resolve_script_function_name(code: str, function_name: Optional[str] = None) -> str:
+        """Infer or validate the sandbox entrypoint — the integration requires ``function_name``."""
+        try:
+            tree = ast.parse(code)
+        except SyntaxError as e:
+            raise ValueError(f"code is not valid Python: {e}") from e
+
+        names = [node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        if function_name:
+            if function_name not in names:
+                raise ValueError(f"Function '{function_name}' not found in code. Available functions: {names}")
+            return function_name
+        if not names:
+            raise ValueError("No function found in code. Define at least one top-level function.")
+        if len(names) > 1:
+            raise ValueError(
+                f"Multiple functions found in code: {names}. "
+                "Specify the entrypoint via config={'function_name': '<name>'}."
+            )
+        return names[0]
 
     # ------------------------------------------------------------------
     # Override ``actions`` so ActionMixin's multi-action behaviour is used

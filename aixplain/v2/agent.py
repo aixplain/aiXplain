@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from .enums import AssetStatus, ResponseStatus
 from .model import Model
+from .file import File
 from .skill import Skill
 from .mixins import ToolableMixin
 from ..utils.user_info_utils import build_run_metadata
@@ -316,6 +317,74 @@ class Budget:
 
 @dataclass_json
 @dataclass
+class Artifact:
+    """A user-facing deliverable produced during an agent run.
+
+    Artifacts are captured by the agent engine and come from two sources:
+
+    - ``source="tool_output"`` — media a tool generated (image/audio/video/page).
+      Carries a ``url``, usually a **presigned** URL.
+    - ``source="workspace"`` — a file the agent wrote into its workspace.
+      Carries inline UTF-8 text in ``content`` (binary workspace files are
+      skipped by the engine; there is no uploader yet).
+
+    Exactly one of ``url`` / ``content`` is populated.
+
+    .. warning::
+       ``url_expires_at`` is when the **presigned URL** dies, not the artifact.
+       Observed in the wild: a 24h window on a generated image URL. If you
+       persist artifact URLs (database, cache, sent email), re-host the bytes
+       before ``url_expires_at`` or the links will rot.
+
+    ``category`` and ``source`` are plain strings, not enums: the engine may add
+    new media categories before this SDK knows about them, and an unknown value
+    must pass through rather than raise.
+
+    Both wire casings deserialize: the poll/``checkRequest`` path emits
+    snake_case (``mime_type``) while the webhook body is camelCased
+    (``mimeType``). If a payload somehow carries both spellings of a field, the
+    one appearing last in the payload wins.
+    """
+
+    id: str = ""
+    name: str = ""
+    title: Optional[str] = None
+    mime_type: Optional[str] = field(default=None, metadata=config(field_name="mimeType"))
+    category: str = "other"
+    source: str = ""
+    tool_name: Optional[str] = field(default=None, metadata=config(field_name="toolName"))
+    url: Optional[str] = None
+    url_expires_at: Optional[str] = field(default=None, metadata=config(field_name="urlExpiresAt"))
+    content: Optional[str] = None
+    sha256: Optional[str] = None
+    byte_size: Optional[int] = field(default=None, metadata=config(field_name="byteSize"))
+    mentioned_in_answer: bool = field(default=False, metadata=config(field_name="mentionedInAnswer"))
+    created_at: str = field(default="", metadata=config(field_name="createdAt"))
+
+    @classmethod
+    def _coerce_list(cls, value: Any) -> List["Artifact"]:
+        """Decode an ``artifacts`` payload without ever raising.
+
+        Used as the ``decoder=`` for :attr:`AgentResponseData.artifacts`.
+        Non-list values yield ``[]``; individual entries that fail to decode are
+        dropped rather than failing the whole response.
+        """
+        if not isinstance(value, list):
+            return []
+        artifacts: List["Artifact"] = []
+        for item in value:
+            if isinstance(item, cls):
+                artifacts.append(item)
+            elif isinstance(item, dict):
+                try:
+                    artifacts.append(cls.from_dict(item))
+                except Exception:  # pragma: no cover - defensive; engine shape drift
+                    logger.debug("Skipping undecodable artifact entry: %r", item)
+        return artifacts
+
+
+@dataclass_json
+@dataclass
 class AgentResponseData:
     """Data structure for agent response."""
 
@@ -326,6 +395,14 @@ class AgentResponseData:
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
     critiques: Optional[str] = ""
+    # Declared Optional only to keep dataclasses_json quiet: an explicit
+    # ``"artifacts": null`` on a non-Optional field makes it emit a
+    # "non-optional type ... detected when decoding" RuntimeWarning on every
+    # decode. The attribute itself is never None — ``__post_init__`` normalizes.
+    artifacts: Optional[List[Artifact]] = field(
+        default_factory=list,
+        metadata=config(decoder=Artifact._coerce_list),
+    )
     governance: Optional[Dict[str, Any]] = None
     _governance_status: Optional[str] = field(
         default=None, repr=False, metadata=config(field_name="governanceStatus", exclude=lambda x: True)
@@ -338,7 +415,13 @@ class AgentResponseData:
     )
 
     def __post_init__(self) -> None:
-        """Assemble the nested ``governance`` dict from the flat wire fields."""
+        """Normalize ``artifacts`` and assemble ``governance`` from flat wire fields."""
+        # Also runs for direct construction, which never touches the field
+        # decoder: ``AgentResponseData(artifacts=[{...}])`` must type its raw
+        # dicts the way v1 does, and an explicit ``artifacts=None`` must land on
+        # ``[]`` rather than ``None``. Re-coercing an already-decoded list is a
+        # cheap no-op, since ``Artifact`` instances pass straight through.
+        self.artifacts = Artifact._coerce_list(self.artifacts)
         if self.governance is None:
             self.governance = {
                 "status": self._governance_status,
@@ -396,6 +479,22 @@ class AgentRunResult(Result):
         metadata=config(exclude=lambda x: True),
         init=False,
     )
+
+    @property
+    def artifacts(self) -> List[Artifact]:
+        """Deliverables produced during the run (see :class:`Artifact`).
+
+        Always a list — empty when the run produced nothing, when artifact
+        capture is disabled, or when the backend predates artifact support.
+        """
+        data = self.data
+        if isinstance(data, AgentResponseData):
+            return data.artifacts or []
+        if isinstance(data, dict):
+            # ``data`` is a bare dict when the result was built by hand rather
+            # than decoded through ``from_dict``.
+            return Artifact._coerce_list(data.get("artifacts"))
+        return []
 
     @property
     def execution_id(self) -> Optional[str]:
@@ -545,6 +644,13 @@ class Agent(
     # the same way `tools` and `agents` are passed.
     skills: Optional[List[Union[str, "Skill"]]] = field(default_factory=list, metadata=config(field_name="skills"))
 
+    # Persistent File assets available to every run. These are definition-level
+    # references and are intentionally separate from per-run ``attachments``.
+    files: Optional[List[Union[str, Dict[str, Any], "File"]]] = field(
+        default_factory=list,
+        metadata=config(field_name="files"),
+    )
+
     # Output and execution fields
     output_format: Optional[Union[str, OutputFormat]] = field(
         default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
@@ -643,11 +749,20 @@ class Agent(
         # Convert to IDs for serialization (to_dict), using None as placeholder for unsaved agents
         self.agents = [a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in self.agents]
 
-        # Skills behave exactly like agents: keep the originals to resolve ids
-        # at save time, and serialize as a list of ids.
+        # Keep originals to resolve ids at save time. Unsaved skills remain as
+        # objects in the public list so later list edits cannot lose them.
+        self._skills_ever_configured = bool(self.skills)
         self._original_skills = list(self.skills or [])
         self.skills = [
-            s if isinstance(s, str) else s.get("id") if isinstance(s, dict) else s.id for s in (self.skills or [])
+            skill if isinstance(skill, str) else (self._skill_reference_id(skill) or skill)
+            for skill in (self.skills or [])
+        ]
+
+        # Unsaved files keep the object itself, not None, so list edits never lose track of which is which.
+        self._files_ever_configured = bool(self.files)
+        self._original_files = list(self.files or [])
+        self.files = [
+            file if isinstance(file, str) else (self._file_reference_id(file) or file) for file in (self.files or [])
         ]
 
         if isinstance(self.output_format, OutputFormat):
@@ -673,11 +788,80 @@ class Agent(
         # after the create response would otherwise overwrite them with dicts.
         self._original_tools = list(self.tools) if self.tools else []
 
+    @staticmethod
+    def _file_reference_id(file: Optional[Union[str, Dict[str, Any], "File"]]) -> Optional[str]:
+        """Return the backend ID represented by one persistent File reference."""
+        if file is None:
+            return None
+        if isinstance(file, str):
+            return file
+        if isinstance(file, dict):
+            return file.get("id") or file.get("fileId")
+        return file.id
+
+    def _sync_file_references(self) -> None:
+        """Capture direct mutations to ``agent.files`` before validation or save."""
+        current = list(self.files or [])
+        original = list(getattr(self, "_original_files", []) or [])
+        # A None slot is a still-unsaved placeholder; only safe to refresh by position if lengths match.
+        same_length = len(current) == len(original)
+        effective_current = [
+            original[index] if file is None and same_length else file for index, file in enumerate(current)
+        ]
+        current_ids = [self._file_reference_id(file) for file in effective_current]
+        original_ids = [self._file_reference_id(file) for file in original]
+        if current_ids != original_ids or any(isinstance(file, (File, dict)) for file in effective_current):
+            if current_ids != original_ids:
+                self._files_ever_configured = True
+            # Re-attach by id, not position, so edits can't pair a string with the wrong original object.
+            original_by_id = {
+                self._file_reference_id(file): file for file in original if self._file_reference_id(file) is not None
+            }
+            self._original_files = [
+                original_by_id.get(file, file) if isinstance(file, str) else file for file in effective_current
+            ]
+            self.files = current_ids
+
         # TODO: Re-enable this validation after backend data consistency is fixed
         # if self.agents and (self.tasks or self.tools):
         #     raise ValueError(
         #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
         #     )
+
+    @staticmethod
+    def _skill_reference_id(skill: Optional[Union[str, Dict[str, Any], "Skill"]]) -> Optional[str]:
+        """Return the backend ID represented by one Skill reference."""
+        if skill is None:
+            return None
+        if isinstance(skill, str):
+            return skill
+        if isinstance(skill, dict):
+            return skill.get("id") or skill.get("asset_id") or skill.get("assetId")
+        return skill.id
+
+    def _sync_skill_references(self) -> None:
+        """Capture direct mutations to ``agent.skills`` before validation or save."""
+        current = list(self.skills or [])
+        original = list(getattr(self, "_original_skills", []) or [])
+        # A None slot is a still-unsaved placeholder; only safe to refresh by position if lengths match.
+        same_length = len(current) == len(original)
+        effective_current = [
+            original[index] if skill is None and same_length else skill for index, skill in enumerate(current)
+        ]
+        current_ids = [self._skill_reference_id(skill) for skill in effective_current]
+        original_ids = [self._skill_reference_id(skill) for skill in original]
+        if current_ids != original_ids or any(isinstance(skill, (Skill, dict)) for skill in effective_current):
+            if current_ids != original_ids:
+                self._skills_ever_configured = True
+            original_by_id = {
+                self._skill_reference_id(skill): skill
+                for skill in original
+                if self._skill_reference_id(skill) is not None
+            }
+            self._original_skills = [
+                original_by_id.get(skill, skill) if isinstance(skill, str) else skill for skill in effective_current
+            ]
+            self.skills = [self._skill_reference_id(skill) or skill for skill in self._original_skills]
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Keep ``self.budget`` a (never-None) ``Budget`` instance.
@@ -1153,6 +1337,8 @@ class Agent(
 
     def _save_subcomponents(self) -> None:
         """Recursively save all unsaved child components."""
+        self._sync_file_references()
+        self._sync_skill_references()
         failed_components = []
 
         # Save tools
@@ -1189,6 +1375,19 @@ class Agent(
                         skill_name = getattr(skill, "name", f"skill_{i}")
                         failed_components.append(("skill", skill_name, str(e)))
 
+        # Save persistent File assets only when recursive dependency saving was
+        # explicitly requested. A normal Agent save never re-uploads a File.
+        if getattr(self, "_original_files", None):
+            for i, file in enumerate(self._original_files):
+                if isinstance(file, (str, dict)):
+                    continue
+                if isinstance(file, File) and not file.id:
+                    try:
+                        file.save()
+                    except Exception as e:
+                        file_name = getattr(file, "name", f"file_{i}")
+                        failed_components.append(("file", file_name, str(e)))
+
         if failed_components:
             error_details = "; ".join(
                 [f"{comp_type} '{name}': {error}" for comp_type, name, error in failed_components]
@@ -1197,6 +1396,8 @@ class Agent(
 
     def _validate_run_dependencies(self) -> None:
         """Validate that all child components are saved before running."""
+        self._sync_file_references()
+        self._sync_skill_references()
         unsaved_components = []
 
         # Check tools
@@ -1223,6 +1424,14 @@ class Agent(
                     skill_name = getattr(skill, "name", "unnamed")
                     unsaved_components.append(f"skill '{skill_name}'")
 
+        # Check persistent files
+        if getattr(self, "_original_files", None):
+            for file in self._original_files:
+                if isinstance(file, (str, dict)):
+                    continue
+                if isinstance(file, File) and not file.id:
+                    unsaved_components.append(f"file '{file.name or 'unnamed'}'")
+
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
             raise ValueError(
@@ -1233,6 +1442,8 @@ class Agent(
 
     def _validate_dependencies(self) -> None:
         """Validate that all child components are saved."""
+        self._sync_file_references()
+        self._sync_skill_references()
         unsaved_components = []
 
         # Check tools
@@ -1259,6 +1470,14 @@ class Agent(
                 if hasattr(skill, "id") and not skill.id:
                     skill_name = getattr(skill, "name", "unnamed")
                     unsaved_components.append(f"skill '{skill_name}'")
+
+        # Check persistent files
+        if getattr(self, "_original_files", None):
+            for file in self._original_files:
+                if isinstance(file, (str, dict)):
+                    continue
+                if isinstance(file, File) and not file.id:
+                    unsaved_components.append(f"file '{file.name or 'unnamed'}'")
 
         if unsaved_components:
             components_list = ", ".join(unsaved_components)
@@ -1729,6 +1948,8 @@ class Agent(
 
     def build_save_payload(self, **kwargs: Any) -> dict:
         """Build the payload for the save action."""
+        self._sync_file_references()
+        self._sync_skill_references()
         # Import Inspector from v2 module
         from .inspector import Inspector
 
@@ -1813,9 +2034,9 @@ class Agent(
 
         # Convert skills to API format. Skills follow the same wire design as
         # tools: each is sent as an object (via as_tool()), never a bare id.
-        if getattr(self, "_original_skills", None):
+        if getattr(self, "_skills_ever_configured", False):
             converted_skills = []
-            for skill in self._original_skills:
+            for skill in getattr(self, "_original_skills", []) or []:
                 if isinstance(skill, ToolableMixin):
                     skill_dict = skill.as_tool()
                 elif isinstance(skill, dict):
@@ -1830,6 +2051,38 @@ class Agent(
             payload["skills"] = converted_skills
         else:
             payload.pop("skills", None)
+
+        # Persistent Agent files are references to already-saved File assets.
+        # Never upload them here and never reinterpret them as run attachments.
+        # Use _files_ever_configured, not _original_files truthiness, so a fully-cleared list still sends [].
+        if getattr(self, "_files_ever_configured", False):
+            converted_files = []
+            for file in self._original_files:
+                if isinstance(file, File):
+                    file_id = file.id
+                    name = file.name
+                    description = file.description
+                elif isinstance(file, dict):
+                    file_id = file.get("id") or file.get("fileId")
+                    name = file.get("name")
+                    description = file.get("description")
+                elif isinstance(file, str):
+                    file_id = file
+                    name = None
+                    description = None
+                else:
+                    raise ValueError("An agent file must be a File instance, a dict, or a File id string.")
+                if not file_id:
+                    raise ValueError("All files must be saved before saving the agent.")
+                item = {"id": file_id}
+                if name:
+                    item["name"] = name
+                if description:
+                    item["description"] = description
+                converted_files.append(item)
+            payload["files"] = converted_files
+        else:
+            payload.pop("files", None)
 
         # Persist expected_output server-side so fetched agents and runs that
         # don't pass executionParams.expectedOutput (the backend falls back to
@@ -1906,18 +2159,21 @@ class Agent(
             deprecated_iterations = execution_params.pop("max_iterations", None)
         if deprecated_iterations is not None:
             # Point past the SDK run plumbing (build_run_payload ->
-            # _post_and_handle_run -> RunnableResourceMixin.run -> Agent.run) to
-            # the user's agent.run(...) call site. The conflict warning (below) is
-            # emitted from this same frame, so it shares the stacklevel.
+            # _post_and_handle_run -> _submit_with_retries ->
+            # RunnableResourceMixin.run -> Agent.run) to the user's agent.run(...)
+            # call site. The conflict warning (below) is emitted from this same
+            # frame, so it shares the stacklevel. ``_submit_with_retries`` is the
+            # POST-only retry boundary added for BUG-1090; it sits on both the
+            # run and run_async paths, so both stay at this depth.
             warnings.warn(
                 "Execution param 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
                 "It will be removed in a future release.",
                 DeprecationWarning,
-                stacklevel=5,
+                stacklevel=6,
             )
             normalized_budget, conflicted = self._fold_iter_into_budget(budget, deprecated_iterations)
             if conflicted:
-                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=5)
+                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=6)
         else:
             normalized_budget = self._normalize_budget(budget)
 

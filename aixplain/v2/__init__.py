@@ -3,13 +3,14 @@
 from .core import Aixplain
 from .rlm import RLM, RLMResult
 from .utility import Utility
-from .agent import Agent, Budget, ContextOverflowStrategy
+from .agent import Agent, Artifact, Budget, ContextOverflowStrategy
 from .tool import Tool
 from .skill import Skill
 from .actions import Input, Inputs, Action, Actions
 from .integration import TriggerTypeSpec, TriggerEventOption, TriggerTypes
 from .trigger import Trigger, TriggerConfiguration, TriggerRepeatRule
-from .file import Resource
+from .file import File, Resource
+from .resource import Page
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
 from .inspector import Inspector
 from .session import (
@@ -61,9 +62,11 @@ from .exceptions import (
     ValidationError,
     TimeoutError,
     FileUploadError,
+    UntrustedURLError,
 )
 from .enums import (
     AuthenticationScheme,
+    FileContentType,
     FileType,
     Function,
     Language,
@@ -95,11 +98,14 @@ __all__ = [
     "RLMResult",
     "Utility",
     "Agent",
+    "Artifact",
     "Budget",
     "ContextOverflowStrategy",
     "Tool",
     "Skill",
     "Resource",
+    "File",
+    "Page",
     "FileUploader",
     "upload_file",
     "validate_file_for_upload",
@@ -160,8 +166,10 @@ __all__ = [
     "ValidationError",
     "TimeoutError",
     "FileUploadError",
+    "UntrustedURLError",
     # V2 enum exports
     "AuthenticationScheme",
+    "FileContentType",
     "FileType",
     "Function",
     "Language",

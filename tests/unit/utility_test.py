@@ -327,6 +327,12 @@ def test_validate_existing_model():
         )
         utility_model.validate()  # Should not raise any exception
 
+        # validate() must actually perform the existence check against the
+        # backend rather than short-circuiting on an S3 code reference.
+        assert mock.call_count == 1
+        assert mock.last_request.path.endswith(f"/sdk/models/{model_id}")
+        assert utility_model.code == "s3://bucket/path/to/code"
+
 
 def test_model_exists_success():
     """Test _model_exists when model exists"""
