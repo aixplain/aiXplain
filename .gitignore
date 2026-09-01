@@ -32,6 +32,9 @@ share/python-wheels/
 *.egg
 MANIFEST
 notebooks/
+!notebooks/
+notebooks/*
+!notebooks/static_graph_end_to_end.ipynb
 scripts/
 .claude/
 .cursor/
