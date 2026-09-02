@@ -114,7 +114,7 @@ class TriggerConfiguration:
     days_of_month: Optional[List[int]] = field(default=None, metadata=dj_config(field_name="daysOfMonth"))
     run_at: Optional[str] = field(default=None, metadata=dj_config(field_name="runAt"))
     start_at: Optional[str] = field(default=None, metadata=dj_config(field_name="startAt"))
-    next_run_at: Optional[str] = field(default=None, metadata=dj_config(field_name="nextRunAt"))
+    next_run_at: Optional[str] = field(default=None, metadata=dj_config(field_name="nextRunAt", exclude=lambda x: True))
     repeat: Optional[TriggerRepeatRule] = None
 
 
@@ -399,8 +399,11 @@ class Trigger(
         if trigger_type == "external":
             payload["triggerId"] = self.trigger_id
         elif self.configuration is not None:
+            if self.id and (self.run_at is not None or self.every is not None or self.start_at is not None):
+                # Hydrated flat schedule fields (at/every/on/...) are the editable
+                # surface; rebuild so an edit made after fetch is actually sent.
+                self.configuration = self._build_configuration()
             configuration = self.configuration.to_dict()
-            configuration.pop("nextRunAt", None)
             payload["configuration"] = _strip_none(configuration)
         else:
             raise ValueError(
