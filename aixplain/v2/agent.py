@@ -778,13 +778,6 @@ class Agent(
             file if isinstance(file, str) else (self._file_reference_id(file) or file) for file in (self.files or [])
         ]
 
-        # Unsaved files keep the object itself, not None, so list edits never lose track of which is which.
-        self._files_ever_configured = bool(self.files)
-        self._original_files = list(self.files or [])
-        self.files = [
-            file if isinstance(file, str) else (self._file_reference_id(file) or file) for file in (self.files or [])
-        ]
-
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
 
