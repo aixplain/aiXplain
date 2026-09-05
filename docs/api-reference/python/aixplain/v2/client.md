@@ -5,6 +5,19 @@ title: aixplain.v2.client
 
 Client module for making HTTP requests to the aiXplain API.
 
+#### default\_timeout
+
+```python
+def default_timeout() -> Tuple[float, float]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L52)
+
+Resolve the default (connect, read) timeout, honouring env overrides.
+
+``AIXPLAIN_HTTP_CONNECT_TIMEOUT`` / ``AIXPLAIN_HTTP_READ_TIMEOUT`` (seconds)
+override the built-in defaults per environment without a code change.
+
 #### create\_retry\_session
 
 ```python
@@ -14,7 +27,7 @@ def create_retry_session(total: Optional[int] = None,
                          **kwargs: Any) -> requests.Session
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L19)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L64)
 
 Creates a requests.Session with a specified retry strategy.
 
@@ -36,7 +49,7 @@ Creates a requests.Session with a specified retry strategy.
 class AixplainClient()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L53)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L98)
 
 HTTP client for aiXplain API with retry support.
 
@@ -44,16 +57,16 @@ HTTP client for aiXplain API with retry support.
 
 ```python
 def __init__(
-    base_url: str,
-    aixplain_api_key: Optional[str] = None,
-    team_api_key: Optional[str] = None,
-    retry_total: int = DEFAULT_RETRY_TOTAL,
-    retry_backoff_factor: float = DEFAULT_RETRY_BACKOFF_FACTOR,
-    retry_status_forcelist: List[int] = DEFAULT_RETRY_STATUS_FORCELIST
-) -> None
+        base_url: str,
+        aixplain_api_key: Optional[str] = None,
+        team_api_key: Optional[str] = None,
+        retry_total: int = DEFAULT_RETRY_TOTAL,
+        retry_backoff_factor: float = DEFAULT_RETRY_BACKOFF_FACTOR,
+        retry_status_forcelist: List[int] = DEFAULT_RETRY_STATUS_FORCELIST,
+        timeout: Optional[TimeoutType] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L56)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L101)
 
 Initialize AixplainClient with authentication and retry configuration.
 
@@ -65,6 +78,10 @@ Initialize AixplainClient with authentication and retry configuration.
 - `retry_total` _int_ - Total number of retries allowed. Defaults to 5.
 - `retry_backoff_factor` _float_ - Backoff factor between retry attempts. Defaults to 0.1.
 - `retry_status_forcelist` _list_ - HTTP status codes that trigger a retry. Defaults to [500, 502, 503, 504].
+  timeout (float or (float, float) tuple, optional): Default timeout for every
+  request that doesn&#x27;t pass its own ``timeout=``. Defaults to
+  (AIXPLAIN_HTTP_CONNECT_TIMEOUT or 10, AIXPLAIN_HTTP_READ_TIMEOUT or 300)
+  seconds. Individual calls can still override it per request.
 
 #### request\_raw
 
@@ -72,7 +89,7 @@ Initialize AixplainClient with authentication and retry configuration.
 def request_raw(method: str, path: str, **kwargs: Any) -> requests.Response
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L99)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L150)
 
 Sends an HTTP request.
 
@@ -93,7 +110,7 @@ Sends an HTTP request.
 def request(method: str, path: str, **kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L138)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L190)
 
 Sends an HTTP request.
 
@@ -114,7 +131,7 @@ Sends an HTTP request.
 def get(path: str, **kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L152)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L204)
 
 Sends an HTTP GET request.
 
@@ -134,7 +151,7 @@ Sends an HTTP GET request.
 def post(path: str, **kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L164)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L216)
 
 Sends an HTTP POST request.
 
@@ -154,7 +171,7 @@ Sends an HTTP POST request.
 def request_stream(method: str, path: str, **kwargs: Any) -> requests.Response
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L176)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L228)
 
 Sends a streaming HTTP request.
 

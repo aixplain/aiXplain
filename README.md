@@ -10,13 +10,13 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square" alt="License"></a>
-  <a href="https://studio.aixplain.com/browse"><img src="https://img.shields.io/badge/Marketplace-900%2B%20models%20%26%20tools-0b74de?style=flat-square" alt="Marketplace size"></a>
+  <a href="https://app.aixplain.com/marketplace"><img src="https://img.shields.io/badge/Marketplace-900%2B%20models%20%26%20tools-0b74de?style=flat-square" alt="Marketplace size"></a>
   <a href="https://discord.gg/aixplain"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 **Build, deploy, and run autonomous AI agents — governed by default, in a few lines of Python.**
 
-aixplain is the operating system for autonomous AI: multi-agent orchestration with **runtime governance on every action**, across cloud, on-prem, edge, and local. The full lifecycle — build → evaluate → deploy → monitor → evolve — on one runtime, instead of stitching tools together.
+aixplain is the operating system for autonomous AI: multi-agent orchestration with **runtime governance on every action**, across cloud, on-prem, and local. The full lifecycle — build → evaluate → deploy → monitor → evolve — on one runtime, instead of stitching tools together.
 
 **On your terms** — **your data** in your perimeter, **your cost** free on local models and tools, pay as you go in the cloud, **your independence** across any model or infrastructure, no lock-in.
 
@@ -30,15 +30,15 @@ Less to build, less to operate:
 - **No integration glue** — reach [900+ models, tools, and integrations](#marketplace) through one key; skip per-provider SDKs, auth, and rate-limit handling.
 - **Guardrails you don't have to build** — allow-lists, per-asset permissions, rate and usage limits, and access control enforced at runtime.
 - **Self-debugging** — step-level traces of every plan, tool call, and outcome.
-- **Run it anywhere** — the same definition runs in the cloud, on-prem, at the edge, or locally.
+- **Run it anywhere** — the same definition runs in the cloud, on-prem, or locally.
 - **Works with your coding agent** — native [MCP support](#marketplace) for MCP-compatible IDEs and coding agents.
 
 ## How it works
 
-The portable runtime behind aixplain agents: orchestration, governed asset serving, and observability across cloud, on-prem, edge, and local. See the [documentation](https://docs.aixplain.com) for the full architecture.
+The portable runtime behind aixplain agents: orchestration, governed asset serving, and observability across cloud, on-prem, and local. See the [documentation](https://docs.aixplain.com) for the full architecture.
 
 <p align="center">
-  <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aixplain Agentic OS architecture — governed execution loop (Planner, Orchestrator, Inspector, Bodyguard) over the infrastructure services, deployable on cloud, on-prem, edge, and local" width="100%">
+  <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aixplain Agentic OS architecture — governed execution loop (Planner, Orchestrator, Inspector, Bodyguard) over the infrastructure services, deployable on cloud, on-prem, and local" width="100%">
 </p>
 
 ---
@@ -150,9 +150,9 @@ Team agent
 
 ## Marketplace
 
-The [aixplain Marketplace](https://studio.aixplain.com/browse) is a catalog of **900+ models, tools, and integrations**. Every asset is reachable through the same three outlets — **SDK, API, and MCP** — with a single API key 🔑.
+The [aixplain Marketplace](https://app.aixplain.com/marketplace) is a catalog of **900+ models, tools, and integrations**. Every asset is reachable through the same three outlets — **SDK, API, and MCP** — with a single API key 🔑.
 
-For MCP-compatible clients and IDEs, assets (for example Opus 4.6, Kimi, Qwen, Airtable, Slack) are served through aixplain-hosted MCP endpoints. See the [MCP servers docs](https://docs.aixplain.com/api-reference/mcp-servers).
+For MCP-compatible clients and IDEs, assets (for example Opus 4.6, Kimi, Qwen, Airtable, Slack) are served through aixplain-hosted MCP endpoints. See the [Marketplace docs](https://docs.aixplain.com/api-reference/marketplace).
 
 ```json
 {
@@ -172,7 +172,7 @@ For MCP-compatible clients and IDEs, assets (for example Opus 4.6, Kimi, Qwen, A
 
 - **Your data stays yours** — never used to train foundation models; agent memory is opt-in. SOC 2 Type II; TLS 1.2+ in transit, encrypted at rest.
 - **Governed at runtime** — Inspector and Bodyguard enforce allow-lists, per-asset permissions, rate and usage limits, and access control on every execution.
-- **Deploy anywhere** — cloud, on-prem, edge, or local; air-gapped and VPC available on-prem or local.
+- **Deploy anywhere** — cloud, on-prem, or local; air-gapped and VPC available on-prem or local.
 
 Learn more at aixplain [Security](https://aixplain.com/security/) and aixplain [pricing](https://aixplain.com/pricing/).
 
