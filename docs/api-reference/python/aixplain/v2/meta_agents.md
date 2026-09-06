@@ -27,6 +27,10 @@ Example usage:
     debug_result = response.debug()  # Uses default prompt
     debug_result = response.debug(&quot;Why did it take so long?&quot;)  # Custom prompt
 
+The debugger agent can be overridden per call with ``debugger_agent_id`` or by
+setting ``AIXPLAIN_DEBUGGER_AGENT_ID``. The explicit argument takes precedence,
+followed by the environment variable and then the default agent ID.
+
 ### DebugResult Objects
 
 ```python
@@ -36,7 +40,7 @@ Example usage:
 class DebugResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L42)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/meta_agents.py#L62)
 
 Result from running the Debugger meta-agent.
 
@@ -56,7 +60,7 @@ Result from running the Debugger meta-agent.
 def analysis() -> Optional[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L61)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/meta_agents.py#L81)
 
 Extract the debugging analysis text from the result data.
 
@@ -70,12 +74,15 @@ Extract the debugging analysis text from the result data.
 class Debugger()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L82)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/meta_agents.py#L102)
 
 Meta-agent for debugging and analyzing agent responses.
 
 The Debugger uses a pre-configured aiXplain agent to provide insights into
 agent runs, errors, and potential improvements.
+
+The debugger agent can be overridden per call with ``debugger_agent_id`` or
+by setting ``AIXPLAIN_DEBUGGER_AGENT_ID``.
 
 **Attributes**:
 
@@ -101,7 +108,7 @@ agent runs, errors, and potential improvements.
 def __init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L106)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/meta_agents.py#L129)
 
 Initialize the Debugger.
 
@@ -113,10 +120,11 @@ when creating the Debugger class dynamically.
 ```python
 def run(content: Optional[str] = None,
         prompt: Optional[str] = None,
+        debugger_agent_id: Optional[str] = None,
         **kwargs: Any) -> DebugResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L130)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/meta_agents.py#L156)
 
 Run the debugger on provided content.
 
@@ -129,6 +137,9 @@ or agent output directly.
   error messages, or any text requiring analysis.
 - `prompt` - Optional custom prompt to guide the debugging analysis.
   If not provided, uses a default debugging prompt.
+- `debugger_agent_id` - Optional debugger agent ID override. If not provided,
+  uses AIXPLAIN_DEBUGGER_AGENT_ID at call time, then the
+  default debugger agent ID.
 - `**kwargs` - Additional parameters to pass to the underlying agent.
   
 
@@ -149,10 +160,11 @@ or agent output directly.
 def debug_response(response: "AgentRunResult",
                    prompt: Optional[str] = None,
                    execution_id: Optional[str] = None,
+                   debugger_agent_id: Optional[str] = None,
                    **kwargs: Any) -> DebugResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L167)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/fm/sdk-debugger-agent-id-e5/aixplain/v2/meta_agents.py#L197)
 
 Debug an agent response.
 
@@ -167,6 +179,9 @@ insights into what happened during the agent execution.
   extracted from the response&#x27;s request_id or poll URL.
   The execution_id allows the debugger to fetch additional
   information like logs from the backend.
+- `debugger_agent_id` - Optional debugger agent ID override. If not provided,
+  uses AIXPLAIN_DEBUGGER_AGENT_ID at call time, then the
+  default debugger agent ID.
 - `**kwargs` - Additional parameters to pass to the underlying agent.
   
 

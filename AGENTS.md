@@ -230,3 +230,10 @@ Before finishing, check the following:
 | **Meta-agent** | Agents that improve other agents. The **Evolver** monitors KPIs and refines behavior. |
 | **Static orchestration** | Deterministic execution with predefined `AgentTask` ordering. |
 | **Dynamic orchestration** | Adaptive execution where the Mentalist generates the plan at runtime (default). |
+
+## Maintaining this file
+
+Keep this file for knowledge useful to almost every future agent session in this project.
+Do not repeat what the codebase already shows; point to the authoritative file or command instead.
+Prefer rewriting or pruning existing entries over appending new ones.
+When updating this file, preserve this bar for all agents and keep entries concise.
