@@ -835,12 +835,6 @@ class Agent(
             ]
             self.files = current_ids
 
-        # TODO: Re-enable this validation after backend data consistency is fixed
-        # if self.agents and (self.tasks or self.tools):
-        #     raise ValueError(
-        #         "Team agents cannot have tasks or tools. Please remove the tasks or tools and try again."
-        #     )
-
     @staticmethod
     def _skill_reference_id(skill: Optional[Union[str, Dict[str, Any], "Skill"]]) -> Optional[str]:
         """Return the backend ID represented by one Skill reference."""

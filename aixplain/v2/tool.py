@@ -175,8 +175,12 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             if self._ensure_integration():
                 try:
                     return self.integration._list_inputs(*actions)
-                except Exception:
-                    pass
+                except Exception as fallback_error:
+                    # Returning [] below makes the lazy input loader raise
+                    # "not found or has no input parameters defined", which
+                    # _validate_params now surfaces as a run failure (BUG-946).
+                    # Without this the real cause never reaches the caller.
+                    warnings.warn(f"Error listing inputs via the integration fallback: {fallback_error}.")
 
             return []
 
@@ -485,8 +489,13 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             data = kwargs.get("data", {})
             action_errors = action_obj.inputs.validate(data)
             errors.extend(action_errors)
-        except Exception:
-            pass
+        except Exception as e:
+            # A crashed validation is not a pass (BUG-946). An unknown action name
+            # reaches here as a ValueError from the lazy input loader -- Actions
+            # fabricates an ActionView rather than raising on __getitem__ -- and the
+            # empty list this used to return was indistinguishable from
+            # "validated clean", so the run proceeded to the backend unchecked.
+            errors.append(f"Could not validate inputs for '{action}': {e}")
 
         return errors
 
