@@ -175,8 +175,12 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             if self._ensure_integration():
                 try:
                     return self.integration._list_inputs(*actions)
-                except Exception:
-                    pass
+                except Exception as fallback_error:
+                    # Returning [] below makes the lazy input loader raise
+                    # "not found or has no input parameters defined", which
+                    # _validate_params now surfaces as a run failure (BUG-946).
+                    # Without this the real cause never reaches the caller.
+                    warnings.warn(f"Error listing inputs via the integration fallback: {fallback_error}.")
 
             return []
 
