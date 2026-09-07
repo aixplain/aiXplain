@@ -86,3 +86,31 @@ def test_dotenv_neutralisation_actually_works(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "''", f"a credential leaked into the subprocess: {result.stdout!r}"
+
+
+def test_cli_help_without_api_key(tmp_path):
+    """`aixplain --help` must render usage and exit 0 with no credential set.
+
+    The eight CLI commands each declare `--api-key`, which can only be the sole
+    source of the key if the process survives long enough for click to parse
+    argv. The import-time `validate_api_keys()` call killed it first (BUG-946),
+    so a first-run user got a traceback instead of usage text.
+    """
+    (tmp_path / "sitecustomize.py").write_text(SITECUSTOMIZE)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from aixplain.cli_groups import cli; cli(['--help'])",
+        ],
+        cwd=str(REPO_ROOT),
+        env=_credential_free_env(tmp_path),
+        capture_output=True,
+        text=True,
+    )
+
+    output = result.stdout + result.stderr
+    assert "has been set" not in output, f"--help still requires a credential:\n{output[-4000:]}"
+    assert "Usage:" in result.stdout, f"no usage text:\n{output[-4000:]}"
+    assert result.returncode == 0, f"exit code {result.returncode}:\n{output[-4000:]}"

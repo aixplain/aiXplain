@@ -49,6 +49,25 @@ A `filterwarnings` entry in your `pytest.ini` or `pyproject.toml` works too.
 
 One ordering caveat: to make the notice visible at all, the SDK inserts a `default` filter for its own category while `aixplain` is being imported — but only when `sys.warnoptions` is empty, i.e. when you passed no `-W` and set no `PYTHONWARNINGS`. A bare `warnings.simplefilter("ignore")` issued *before* `import aixplain` is therefore overridden. Use the environment variable, use `-W`/`PYTHONWARNINGS`, or register your filter after the import — all three win.
 
+## `aixplain.aixplain_v2` is deprecated
+
+The module-level `aixplain_v2` client is deprecated and will be removed in a future release. Construct a client explicitly instead:
+
+```python
+# deprecated
+from aixplain import aixplain_v2
+agent = aixplain_v2.Agent.get("...")
+
+# use instead
+from aixplain import Aixplain
+aix = Aixplain()            # or Aixplain(api_key="...")
+agent = aix.Agent.get("...")
+```
+
+It used to be built at import time with the failure swallowed, so a missing `TEAM_API_KEY` left the symbol bound to `None` and the first use failed with `AttributeError: 'NoneType' object has no attribute 'Agent'` rather than the actual cause. It is now constructed on first access and raises the real error (`API key is required. Pass api_key=... to Aixplain() or set TEAM_API_KEY or AIXPLAIN_API_KEY.`), and the first access emits a `DeprecationWarning`.
+
+`from aixplain import aixplain_v2` still works. It is no longer part of `from aixplain import *`, so a star import no longer needs a credential.
+
 ## Factory map at a glance
 
 | v1 factory | v2 equivalent | Status |

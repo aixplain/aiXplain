@@ -703,7 +703,13 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result = self.sync_poll(
+                poll_url,
+                name=name,
+                timeout=timeout,
+                wait_time=wait_time,
+                progress_verbosity=progress_verbosity,
+            )
             result_data = result.data or {}
             diagnostic_error_codes = result.diagnostic_error_codes
             if result.status == ResponseStatus.FAILED:
