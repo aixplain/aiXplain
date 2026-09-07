@@ -24,11 +24,12 @@ from aixplain.v2.integration import Integration
 from aixplain.v2.model import Model
 from aixplain.v2.skill import Skill
 from aixplain.v2.tool import Tool
+from aixplain.v2.utility import Utility
 
 # Resources whose filters come straight from ``_populate_base_filters``, plus
 # the ones with overrides, so the fix is proven to be inherited rather than
 # per-class.
-RESOURCES = [Agent, Model, Tool, Integration, Skill]
+RESOURCES = [Agent, Model, Tool, Integration, Skill, Utility]
 RESOURCE_IDS = [cls.__name__ for cls in RESOURCES]
 
 
@@ -227,3 +228,81 @@ def test_find_supplier_by_id_is_gone():
     import aixplain.v2.model as model_module
 
     assert not hasattr(model_module, "find_supplier_by_id")
+
+
+# =============================================================================
+# sort direction robustness
+# =============================================================================
+
+
+class _V1SortOrder(Enum):
+    """Stand-in for v1's integer-valued ``SortOrder`` enum."""
+
+    ASCENDING = 1
+    DESCENDING = -1
+
+
+@pytest.mark.parametrize(
+    "sort_order, expected_dir",
+    [
+        (_V1SortOrder.ASCENDING, 1),
+        (_V1SortOrder.DESCENDING, -1),
+        (1, 1),
+        (-1, -1),
+        ("ascending", 1),
+        ("DESCENDING", -1),
+    ],
+    ids=["v1-enum-asc", "v1-enum-desc", "int-asc", "int-desc", "str-ascending", "str-DESCENDING"],
+)
+def test_model_sort_dir_accepts_numeric_and_long_spellings(monkeypatch, sort_order, expected_dir):
+    """Numeric (v1-shaped) and ``*ENDING`` sort orders keep their direction."""
+    client = _bind(monkeypatch, Model)
+
+    Model.search(sort_by=SortBy.NAME, sort_order=sort_order)
+
+    assert _body(client)["sort"] == [{"field": "NAME", "dir": expected_dir}]
+
+
+def test_model_sort_dir_unknown_order_defaults_to_ascending(monkeypatch):
+    """An unrecognized sort order falls back to the documented default."""
+    client = _bind(monkeypatch, Model)
+
+    Model.search(sort_by=SortBy.NAME, sort_order="sideways")
+
+    assert _body(client)["sort"] == [{"field": "NAME", "dir": 1}]
+
+
+# =============================================================================
+# explicit ``None`` halves must not be serialized
+# =============================================================================
+
+
+def test_model_sort_with_explicit_none_field(monkeypatch):
+    """``sort_by=None`` falls back to ``"name"`` instead of sending ``"None"``."""
+    client = _bind(monkeypatch, Model)
+
+    Model.search(sort_by=None, sort_order=SortOrder.DESC)
+
+    assert _body(client)["sort"] == [{"field": "name", "dir": -1}]
+
+
+def test_model_sort_with_explicit_none_order(monkeypatch):
+    """``sort_order=None`` falls back to ascending."""
+    client = _bind(monkeypatch, Model)
+
+    Model.search(sort_by=SortBy.CREATED_AT, sort_order=None)
+
+    assert _body(client)["sort"] == [{"field": "CREATED_AT", "dir": 1}]
+
+
+@pytest.mark.parametrize("cls", RESOURCES, ids=RESOURCE_IDS)
+def test_explicit_none_filters_are_omitted(monkeypatch, cls):
+    """``None`` filters stay out of the body entirely."""
+    client = _bind(monkeypatch, cls)
+
+    cls.search(ownership=None, sort_by=None, sort_order=None)
+
+    body = _body(client)
+    assert "ownership" not in body
+    assert "sortBy" not in body
+    assert "sortOrder" not in body

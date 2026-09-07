@@ -90,13 +90,21 @@ def _filter_values(value: Any) -> List[str]:
 def _sort_direction(sort_order: Any) -> int:
     """Return the backend's sort direction for a sort order argument.
 
+    Handles v2's string-valued ``SortOrder`` (``"ASC"``/``"DESC"``), the
+    longer ``"ASCENDING"``/``"DESCENDING"`` spellings, and already-numeric
+    inputs (v1's ``SortOrder`` is valued ``1``/``-1``), which are mapped by
+    sign so that a caller migrating from v1 keeps the direction they asked for.
+
     Args:
-        sort_order: ``SortOrder`` member or equivalent string.
+        sort_order: ``SortOrder`` member, equivalent string, or +/-1.
 
     Returns:
         int: ``-1`` for descending, ``1`` for ascending (the default).
     """
-    return -1 if _filter_value(sort_order).upper() == _DESCENDING else 1
+    raw = getattr(sort_order, "value", sort_order)
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        return -1 if raw < 0 else 1
+    return -1 if _filter_value(raw).upper().startswith(_DESCENDING) else 1
 
 
 # Hook decorator system
@@ -882,8 +890,8 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
 
         if params.get("ownership") is not None:
             ownership = params["ownership"]
-            if isinstance(ownership, (list, tuple)):
-                filters["ownership"] = [_filter_value(o) for o in ownership]
+            if isinstance(ownership, (list, tuple, set)):
+                filters["ownership"] = _filter_values(ownership)
             else:
                 filters["ownership"] = _filter_value(ownership)
 

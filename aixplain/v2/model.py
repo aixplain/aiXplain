@@ -1175,11 +1175,15 @@ class Model(
             filters["isFineTunable"] = params["is_finetunable"]
 
         # sort - array of {field, dir}; ``dir`` is +/-1 per the backend contract
-        if params.get("sort_by") is not None or params.get("sort_order") is not None:
+        sort_by = params.get("sort_by")
+        sort_order = params.get("sort_order")
+        if sort_by is not None or sort_order is not None:
+            # Either half may be omitted (or explicitly ``None``); fall back to
+            # the documented defaults rather than serializing ``None``.
             filters["sort"] = [
                 {
-                    "field": _filter_value(params.get("sort_by", "name")),
-                    "dir": _sort_direction(params.get("sort_order", "asc")),
+                    "field": _filter_value("name" if sort_by is None else sort_by),
+                    "dir": _sort_direction("ASC" if sort_order is None else sort_order),
                 }
             ]
         else:
