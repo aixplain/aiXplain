@@ -1,4 +1,15 @@
-"""Helpers for attaching client-side user metadata to execution payloads.
+"""Client-side run metadata attached to agent execution payloads.
+
+Agent runs carry a ``metaData`` object built by :func:`build_run_metadata`. It
+reports the caller's environment to the aiXplain backend so runs can be
+locale-aware: ``region``, ``language`` and ``timezone``, plus the public
+``ipAddress`` and city-level ``latitude`` / ``longitude`` they are derived from.
+
+Those values come from a single ``https://ipinfo.io/json`` request made from the
+machine running the SDK, cached once per process and skipped silently on failure.
+See ``docs/run-metadata.md`` for the user-facing disclosure: every field, why it
+is collected, which call sites send it, and what happens when the lookup is
+blocked.
 
 Copyright 2024 The aiXplain SDK authors
 
@@ -35,9 +46,23 @@ _IPINFO_TIMEOUT = 2.0
 def _fetch_ipinfo() -> Dict[str, Any]:
     """Fetch and cache the ipinfo.io payload for the current public IP.
 
+    Issues one ``GET https://ipinfo.io/json`` from the machine running the SDK,
+    bounded by a ``_IPINFO_TIMEOUT``-second timeout. The response describes the
+    host's egress connection — its public IP, country, city-level coordinates and
+    IANA timezone; :func:`build_run_metadata` forwards those fields to the
+    backend. ipinfo.io receives only the bare request: no API key, no query text,
+    and no agent data.
+
+    ``lru_cache(maxsize=1)`` makes this exactly one request per Python process,
+    on the first agent run. The cache also memoises failures, so a blocked or
+    unreachable lookup costs the timeout once and never retries.
+
     All errors degrade silently to ``{}`` — this is auxiliary metadata
     and an outage / network-isolation / test-mock should never break a
     caller's run.
+
+    Returns:
+        Dict[str, Any]: The decoded ipinfo.io response, or ``{}`` on any failure.
     """
     try:
         response = requests.get(_IPINFO_URL, timeout=_IPINFO_TIMEOUT)
@@ -57,7 +82,7 @@ def _fetch_ipinfo() -> Dict[str, Any]:
 
 
 def _primary_language_for_territory(cc: str) -> Optional[str]:
-    """Most preferred official language for the country code"""
+    """Most preferred official language for the country code."""
     langs = get_official_languages(cc, de_facto=True)
     if not langs:
         langs = get_official_languages(cc)
@@ -78,10 +103,28 @@ def _region_and_language_from_country(country: str) -> Tuple[Optional[str], Opti
 
 
 def build_run_metadata() -> Dict[str, Any]:
-    """Build metaData for agent run payloads.
+    """Build the ``metaData`` object sent with every agent run payload.
+
+    The returned dict is forwarded verbatim to the backend by the v2 agent run
+    path (:meth:`aixplain.v2.agent.Agent.build_run_payload`) and by the legacy v1
+    agent / team-agent run and session-bootstrap paths. It is derived from one
+    cached ``https://ipinfo.io/json`` lookup (see :func:`_fetch_ipinfo`).
+
+    Keys, all present on every call:
+
+    * ``userAgent`` — always ``"sdk"``, marking the traffic as SDK-originated.
+    * ``region`` / ``language`` — locale derived from the lookup's country code,
+      used for locale-aware agent execution.
+    * ``ipAddress`` — the SDK host's public IP address.
+    * ``latitude`` / ``longitude`` — city-level coordinates for that IP.
+    * ``timezone`` — IANA timezone name for that IP.
+
+    Every key except ``userAgent`` is ``None`` when the lookup failed, was blocked
+    or omitted the underlying field; a run is never blocked by it.
+    ``docs/run-metadata.md`` carries the user-facing disclosure.
 
     Returns:
-        Dict[str, Any]: Metadata suitable for the metaData JSON field.
+        Dict[str, Any]: The run payload's ``metaData`` value.
     """
     meta: Dict[str, Any] = {
         "userAgent": "sdk",

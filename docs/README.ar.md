@@ -61,4 +61,16 @@ AgenticOS هو منصة التشغيل القابلة للنقل وراء وكل
 
 ## سوق خوادم MCP
 
-<!-- ملاحظات الترجمة: [أُبقي على AgenticOS وAgentEngine وAssetServing كأسماء علامة تجارية دون ترجمة] | [أُبقي على MCP كاختصار تقني دون ترجمة] | [kept EN: PAYG — اختصار تقني شائع لنظام الدفع حسب الاستخدام] | [استُخدم "وكلاء فرعيين" لـ subagents وفق المسرد] | [kept EN: Discord — اسم علامة تجارية] | [تُرجم deprecation→الإهمال وremoval→الإزالة وmigration guide→دليل الترحيل حسب المسرد] | [kept EN: DeprecationWarning، MIGRATION.md، AIXPLAIN_SUPPRESS_V1_DEPRECATION — معرّفات تقنية في الشيفرة لا تُترجم] -->
+---
+
+## بيانات التشغيل
+
+يرسل كل تشغيل لوكيل كائن `metaData` مرفقًا بطلبك. يحمل هذا الكائن `userAgent`، إضافةً إلى `region` و`language` و`ipAddress` و`latitude` و`longitude` و`timezone` المستخلصة من استعلام واحد إلى `https://ipinfo.io/json` يُجرى من الجهاز الذي يشغّل SDK. تستخدم المنصة `region`/`language`/`timezone` لتنفيذ الوكلاء بما يراعي اللغة والمنطقة.
+
+- يُنفَّذ الاستعلام **مرة واحدة لكل عملية**، عند أول تشغيل لوكيل، بمهلة ثانيتين.
+- إذا فشل أو كان محجوبًا، يستمر التشغيل بشكل طبيعي مع وصول تلك الحقول بقيمة `null`.
+- ينطبق ذلك على تشغيل الوكلاء في SDK v2 وv1 معًا؛ أما تشغيل النماذج وخطوط المعالجة فلا يرسلها.
+
+الإفصاح الكامل حقلًا بحقل: [run-metadata.ar.md](./run-metadata.ar.md).
+
+<!-- ملاحظات الترجمة: [أُبقي على AgenticOS وAgentEngine وAssetServing كأسماء علامة تجارية دون ترجمة] | [أُبقي على MCP كاختصار تقني دون ترجمة] | [kept EN: PAYG — اختصار تقني شائع لنظام الدفع حسب الاستخدام] | [استُخدم "وكلاء فرعيين" لـ subagents وفق المسرد] | [kept EN: Discord — اسم علامة تجارية] | [تُرجم deprecation→الإهمال وremoval→الإزالة وmigration guide→دليل الترحيل حسب المسرد] | [kept EN: DeprecationWarning، MIGRATION.md، AIXPLAIN_SUPPRESS_V1_DEPRECATION — معرّفات تقنية في الشيفرة لا تُترجم] | [تُرجم run metadata→بيانات التشغيل؛ kept EN: metaData، ipinfo.io، userAgent، region، language، ipAddress، latitude، longitude، timezone — أسماء حقول ومعرّفات تقنية لا تُترجم] -->
