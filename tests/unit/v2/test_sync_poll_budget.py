@@ -93,6 +93,63 @@ class TestPollRequestTimeout:
         assert agent.context.client.get.call_args.kwargs["timeout"][1] == 1.0
 
 
+class TestPollHonoursTheClientTimeout:
+    """The cap must come from the client, not from the module default.
+
+    A deployment that narrowed ``AixplainClient(timeout=...)`` did so to bound
+    its own requests; reading ``default_timeout()`` instead would silently
+    widen a poll back out to the 300s module default.
+    """
+
+    @staticmethod
+    def _agent_with_client_timeout(timeout):
+        agent = _create_agent([SUCCESS])
+        agent.context.client.timeout = timeout
+        return agent
+
+    def test_tuple_timeout_is_honoured(self):
+        agent = self._agent_with_client_timeout((3.0, 20.0))
+
+        agent.poll("exec-1", timeout=999.0)
+
+        assert agent.context.client.get.call_args.kwargs["timeout"] == (3.0, 20.0)
+
+    def test_scalar_timeout_is_honoured_for_both_phases(self):
+        agent = self._agent_with_client_timeout(15.0)
+
+        agent.poll("exec-1", timeout=999.0)
+
+        assert agent.context.client.get.call_args.kwargs["timeout"] == (15.0, 15.0)
+
+    def test_a_budget_below_the_client_bound_still_wins(self):
+        agent = self._agent_with_client_timeout((3.0, 200.0))
+
+        agent.poll("exec-1", timeout=7.0)
+
+        assert agent.context.client.get.call_args.kwargs["timeout"] == (3.0, 7.0)
+
+    @pytest.mark.parametrize("configured", [None, "not-a-timeout", (1.0, 2.0, 3.0)])
+    def test_unrecognisable_client_timeout_falls_back_to_the_defaults(self, configured):
+        """A mock or a malformed value must still produce a bounded request."""
+        agent = self._agent_with_client_timeout(configured)
+
+        agent.poll("exec-1", timeout=999.0)
+
+        assert agent.context.client.get.call_args.kwargs["timeout"] == (
+            DEFAULT_TIMEOUT_CONNECT,
+            DEFAULT_TIMEOUT_READ,
+        )
+
+    def test_a_real_client_reports_its_own_configuration(self):
+        """End-to-end through the actual client, not a mock."""
+        from aixplain.v2.client import AixplainClient
+        from aixplain.v2.resource import _client_timeout_bounds
+
+        client = AixplainClient(base_url=BACKEND_URL, team_api_key="k", timeout=(2.0, 8.0))
+
+        assert _client_timeout_bounds(client) == (2.0, 8.0)
+
+
 class TestSyncPollBudget:
     """A single poll must not be able to over-run the caller's ``timeout``."""
 
@@ -182,6 +239,62 @@ class TestSyncPollBudget:
         for wait_time, max_sleep in recorded:
             assert max_sleep is not None
             assert max_sleep <= 50
+
+
+class TestDeadlineWinsOverTheErrorItCauses:
+    """The bound must not change which exception a timed-out run reports.
+
+    Each poll is now bounded by the remaining budget, so the last poll before
+    the deadline can fail *because* the deadline arrived. That must still
+    surface as the documented ``TimeoutError``, not as an ``APIError`` about a
+    read timeout.
+    """
+
+    def test_read_timeout_at_the_deadline_raises_timeout_error(self):
+        import requests
+
+        from aixplain.v2.exceptions import APIError
+
+        agent = _create_agent()
+        # Budget gone by the time the (bounded) request gives up.
+        clock = {"t": 0.0}
+
+        def hang(path, **kwargs):
+            clock["t"] += 40.0
+            raise requests.exceptions.ReadTimeout("read timed out")
+
+        agent.context.client.get = Mock(side_effect=hang)
+
+        with patch("aixplain.v2.resource.time.time", lambda: clock["t"]):
+            with patch("aixplain.v2.resource.sleep_with_jitter", return_value=0.0):
+                with pytest.raises(AixplainTimeoutError):
+                    agent.sync_poll("exec-1", timeout=30, wait_time=0.5)
+
+        assert agent.context.client.get.call_count == 1
+        # Sanity: the underlying failure really is an APIError from ``poll``.
+        with pytest.raises(APIError):
+            agent.poll("exec-1", timeout=5.0)
+
+    def test_an_api_error_inside_the_budget_still_propagates(self):
+        """Only budget exhaustion softens the error; a live failure must not."""
+        from aixplain.v2.exceptions import APIError
+
+        agent = _create_agent([APIError("upstream exploded", 500, {})])
+
+        with patch("aixplain.v2.resource.sleep_with_jitter", return_value=0.0):
+            with pytest.raises(APIError):
+                agent.sync_poll("exec-1", timeout=300, wait_time=0.5)
+
+    def test_untrusted_url_is_never_softened_into_a_timeout(self):
+        """A refused credential leak must stay a security error, budget or not."""
+        from aixplain.v2.exceptions import UntrustedURLError
+
+        agent = _create_agent()
+        agent.context.client.ensure_trusted_url = Mock(side_effect=UntrustedURLError("nope"))
+
+        with patch("aixplain.v2.resource.sleep_with_jitter", return_value=0.0):
+            with pytest.raises(UntrustedURLError):
+                agent.sync_poll("exec-1", timeout=30, wait_time=0.5)
 
 
 class TestSyncPollJitter:

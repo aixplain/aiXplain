@@ -593,7 +593,12 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             print(completion_msg, flush=True)
 
         if response_body["completed"] is True:
-            logging.debug(f"Polling for Team Agent: Final status of polling for {name}: {response_body}")
+            # Status only, lazily -- never the body; see BUG-942 item 5.
+            logging.debug(
+                "Polling for Team Agent: Final status of polling for %s: %s",
+                name,
+                getattr(response_body, "status", None),
+            )
         else:
             response_body = AgentResponse(
                 status=ResponseStatus.FAILED,
@@ -923,7 +928,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     error_message = resp.get("error_message")
             else:
                 status = ResponseStatus.IN_PROGRESS
-            logging.debug(f"Single Poll for Team Agent: Status of polling for {name}: {resp}")
+            # Status only, lazily -- never the body; see BUG-942 item 5.
+            logging.debug("Single Poll for Team Agent: Status of polling for %s: %s", name, resp.get("status"))
 
             resp_data = resp.get("data") or {}
             diagnostic_error_codes = self._extract_diagnostic_error_codes(resp, resp_data)

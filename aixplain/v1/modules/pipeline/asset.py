@@ -117,7 +117,9 @@ class Pipeline(Asset, DeployableMixin):
         while not response_body["completed"] and (end - start) < timeout:
             try:
                 response_body = self.poll(poll_url, name=name)
-                logging.debug(f"Polling for Pipeline: Status of polling for {name} : {response_body}")
+                # Status only, lazily: an eager f-string stringifies the whole
+                # response body on every poll even when DEBUG is off (BUG-942 item 5).
+                logging.debug("Polling for Pipeline: Status of polling for %s: %s", name, response_body.get("status"))
                 end = time.time()
                 if not response_body["completed"]:
                     # Jittered: a deterministic interval keeps every client
@@ -129,18 +131,21 @@ class Pipeline(Asset, DeployableMixin):
             except Exception:
                 logging.error(f"Polling for Pipeline '{self.id}': polling for {name} ({poll_url}): Continue")
                 break
+        # Lazy ``%s`` args and no response body: see BUG-942 item 5.
         if response_body["status"] == ResponseStatus.SUCCESS:
-            try:
-                logging.debug(
-                    f"Polling for Pipeline '{self.id}' - Final status of polling for {name} ({poll_url}): SUCCESS - {response_body}"
-                )
-            except Exception:
-                logging.error(
-                    f"Polling for Pipeline '{self.id}' - Final status of polling for {name} ({poll_url}): ERROR - {response_body}"
-                )
+            logging.debug(
+                "Polling for Pipeline '%s' - Final status of polling for %s (%s): SUCCESS",
+                self.id,
+                name,
+                poll_url,
+            )
         else:
             logging.error(
-                f"Polling for Pipeline '{self.id}' - Final status of polling for {name} ({poll_url}): No response in {timeout} seconds - {response_body}"
+                "Polling for Pipeline '%s' - Final status of polling for %s (%s): No response in %s seconds",
+                self.id,
+                name,
+                poll_url,
+                timeout,
             )
         return response_body
 

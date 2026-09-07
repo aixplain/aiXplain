@@ -877,10 +877,17 @@ class TestBuildRetryFallback:
     environment resolving to 1.26 has to lose the jitter, not fail at import.
     """
 
-    def test_unsupported_kwargs_are_dropped(self):
+    def test_optional_kwargs_are_dropped_when_unsupported(self, monkeypatch):
+        import aixplain.v2.client as client_module
         from aixplain.v2.client import _build_retry
 
-        retry = _build_retry(total=3, backoff_factor=0.1, kwarg_from_a_future_urllib3=1)
+        monkeypatch.setattr(
+            client_module,
+            "_RETRY_INIT_PARAMS",
+            frozenset({"self", "total", "backoff_factor"}),
+        )
+
+        retry = _build_retry(total=3, backoff_factor=0.1, backoff_jitter=0.3, retry_after_max=60.0)
 
         assert retry.total == 3
         assert retry.backoff_factor == 0.1
@@ -888,10 +895,25 @@ class TestBuildRetryFallback:
     def test_supported_kwargs_survive(self):
         from aixplain.v2.client import _build_retry
 
-        retry = _build_retry(total=2, backoff_jitter=0.4, not_a_real_kwarg="x")
+        retry = _build_retry(total=2, backoff_jitter=0.4)
 
         assert retry.total == 2
         assert retry.backoff_jitter == 0.4
+
+    def test_an_unknown_kwarg_is_not_silently_swallowed(self):
+        """Only the SDK's own hardening kwargs are droppable.
+
+        Treating every unknown name as "an older urllib3" would turn a caller's
+        typo into a silently-ignored setting.
+        """
+        from aixplain.v2.client import _build_retry
+
+        with pytest.raises(TypeError):
+            _build_retry(total=2, bakoff_factor=0.5)
+
+    def test_a_typo_on_the_public_factory_still_raises(self):
+        with pytest.raises(TypeError):
+            create_retry_session(bakoff_jitter=0.9)
 
     def test_simulated_urllib3_1_26_still_builds_a_session(self, monkeypatch):
         """With the modern kwargs unknown, session creation must still succeed."""

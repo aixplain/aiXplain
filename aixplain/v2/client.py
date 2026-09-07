@@ -231,22 +231,40 @@ class _AixplainSession(requests.Session):
 
 _RETRY_INIT_PARAMS = frozenset(inspect.signature(Retry.__init__).parameters)
 
+# The hardening kwargs this module adds that a pre-2.x urllib3 may not accept:
+# ``backoff_jitter``/``backoff_max`` landed in 2.0 and ``retry_after_max`` in
+# 2.1, while the only declared bound is ``requests``' own loose ``urllib3<3``.
+# Deliberately a closed list -- anything *outside* it still reaches ``Retry``
+# and raises, so a caller's typo is not silently discarded as "unsupported".
+_OPTIONAL_RETRY_KWARGS = frozenset(
+    {
+        "backoff_jitter",
+        "backoff_max",
+        "respect_retry_after_header",
+        "retry_after_max",
+    }
+)
+
 
 def _build_retry(**kwargs: Any) -> Retry:
-    """Construct a ``Retry``, dropping kwargs the installed urllib3 doesn't accept.
+    """Construct a ``Retry``, dropping optional kwargs this urllib3 doesn't accept.
 
-    ``backoff_jitter`` landed in urllib3 2.0 and ``retry_after_max`` in 2.1,
-    while the only declared bound is ``requests``' own loose ``urllib3<3`` --
-    so an environment resolving to 1.26 must lose the jitter, not raise
-    ``TypeError``.
+    Only the names in :data:`_OPTIONAL_RETRY_KWARGS` are droppable: an
+    environment resolving to urllib3 1.26 must lose the jitter rather than raise
+    ``TypeError``. Every other keyword is passed through untouched, so an
+    unrecognised one still fails loudly instead of being quietly ignored.
 
     Args:
         **kwargs: Candidate ``Retry`` keyword arguments.
 
     Returns:
         urllib3.util.Retry: Configured with every supported kwarg.
+
+    Raises:
+        TypeError: If a keyword outside the optional set is not a ``Retry``
+            parameter.
     """
-    unsupported = sorted(key for key in kwargs if key not in _RETRY_INIT_PARAMS)
+    unsupported = sorted(key for key in kwargs if key in _OPTIONAL_RETRY_KWARGS and key not in _RETRY_INIT_PARAMS)
     for key in unsupported:
         kwargs.pop(key)
     if unsupported:

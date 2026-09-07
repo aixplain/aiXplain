@@ -48,6 +48,55 @@ class TestSessionReuse:
         assert len(set(seen)) == 1
 
 
+class TestPoolSizing:
+    """A shared session needs a sized pool, or reuse is cancelled out.
+
+    urllib3 defaults to 10/10 with ``block=False``: above 10 in-flight requests
+    the adapter opens a connection, uses it once and *discards* it, logging
+    "Connection pool is full" each time. Per-call sessions never hit that
+    because each had its own pool; the shared one would.
+    """
+
+    def test_adapter_pool_is_sized_explicitly(self):
+        adapter = request_utils._SESSION.get_adapter("https://example.com")
+
+        assert adapter._pool_connections == request_utils._POOL_CONNECTIONS
+        assert adapter._pool_maxsize == request_utils._POOL_MAXSIZE
+
+    def test_pool_is_larger_than_the_urllib3_default(self):
+        assert request_utils._POOL_CONNECTIONS > 10
+        assert request_utils._POOL_MAXSIZE > 10
+
+    def test_value_reaches_urllib3(self):
+        adapter = request_utils._SESSION.get_adapter("https://example.com")
+        pool = adapter.poolmanager.connection_from_url("https://example.com")
+
+        assert pool.pool.maxsize == request_utils._POOL_MAXSIZE
+
+    def test_fifty_concurrent_checkouts_do_not_warn_about_a_full_pool(self, caplog):
+        import threading
+
+        adapter = request_utils._SESSION.get_adapter("https://example.com")
+        pool = adapter.poolmanager.connection_from_url("https://example.com")
+
+        barrier = threading.Barrier(50)
+        conns = [None] * 50
+
+        def hold(index):
+            conns[index] = pool._get_conn()
+            barrier.wait()  # all 50 out at once
+            pool._put_conn(conns[index])
+
+        threads = [threading.Thread(target=hold, args=(i,)) for i in range(50)]
+        with caplog.at_level("WARNING", logger="urllib3.connectionpool"):
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+        assert not [r for r in caplog.records if "pool is full" in r.getMessage().lower()]
+
+
 class TestRetryConfigPreserved:
     """The change is connection reuse only -- retry behaviour is untouched."""
 

@@ -193,3 +193,101 @@ class TestPipelinePollLogging:
 
         assert 'logging.info(f"Single Poll' not in source
         assert "): {resp}" not in source
+
+
+# Functions that run once per poll, i.e. up to ~44 times per job.
+POLL_FUNCTIONS = frozenset({"poll", "sync_poll", "_Pipeline__polling", "__polling"})
+
+# Names holding a full response body in those functions.
+BODY_NAMES = frozenset({"resp", "response_body"})
+
+
+def _poll_path_logs_with_body(path):
+    """``logging.*(f"... {resp} ...")`` calls inside a per-poll function."""
+    tree = ast.parse((REPO_ROOT / path).read_text())
+    offenders = []
+
+    for func in ast.walk(tree):
+        if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if func.name.lstrip("_") not in {name.lstrip("_") for name in POLL_FUNCTIONS}:
+            continue
+        for node in ast.walk(func):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+                continue
+            if not (isinstance(node.func.value, ast.Name) and node.func.value.id == "logging"):
+                continue
+            first = node.args[0] if node.args else None
+            if not isinstance(first, ast.JoinedStr):
+                continue
+            for part in ast.walk(first):
+                if isinstance(part, ast.Name) and part.id in BODY_NAMES:
+                    offenders.append((func.name, node.lineno))
+    return offenders
+
+
+class TestNoResponseBodyInPollLogs:
+    """BUG-942 item 5b acceptance criterion, across every v1 poll path.
+
+    An eager f-string stringifies the payload even when the level is disabled,
+    so a 500KB transcript is built ~44 times per job whether or not anything
+    consumes it.
+    """
+
+    @pytest.mark.parametrize("path", V1_POLL_LOOPS)
+    def test_no_poll_log_interpolates_the_response_body(self, path):
+        offenders = _poll_path_logs_with_body(path)
+
+        assert not offenders, f"{path} logs a full response body at {offenders}"
+
+    def test_the_guard_detects_a_regression(self):
+        """Meta-test: the AST walk really does flag an eager body log."""
+        tree = ast.parse('import logging\ndef poll(self):\n    logging.debug(f"x {resp}")\n')
+        found = [
+            node.lineno
+            for func in ast.walk(tree)
+            if isinstance(func, ast.FunctionDef) and func.name == "poll"
+            for node in ast.walk(func)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "logging"
+            and node.args
+            and isinstance(node.args[0], ast.JoinedStr)
+            and any(isinstance(p, ast.Name) and p.id in BODY_NAMES for p in ast.walk(node.args[0]))
+        ]
+
+        assert found == [3]
+
+    def test_model_single_poll_logs_status_only(self, caplog):
+        from aixplain.v1.modules.model import Model
+
+        model = Model(id="m-1", name="m", api_key="k")
+        secret_body = "y" * 5000
+        response = Mock()
+        response.json.return_value = {"completed": False, "status": "IN_PROGRESS", "transcript": secret_body}
+
+        with patch("aixplain.v1.modules.model._request_with_retry", return_value=response):
+            with caplog.at_level(logging.DEBUG):
+                model.poll("https://example.com/poll")
+
+        records = [r for r in caplog.records if "Single Poll for Model" in r.getMessage()]
+        assert records
+        assert records[0].args == ("model_process", "IN_PROGRESS")
+        assert all(secret_body not in r.getMessage() for r in caplog.records)
+
+    def test_pipeline_polling_loop_logs_status_only(self, caplog):
+        from aixplain.v1.modules.pipeline.asset import Pipeline
+
+        pipeline = Pipeline(id="p-1", name="p", api_key="k", nodes=[])
+        secret_body = "z" * 5000
+        polled = {"completed": True, "status": "SUCCESS", "transcript": secret_body}
+
+        with patch.object(Pipeline, "poll", return_value=polled):
+            with caplog.at_level(logging.DEBUG):
+                pipeline._Pipeline__polling("https://example.com/poll", timeout=5)
+
+        records = [r for r in caplog.records if "Polling for Pipeline: Status" in r.getMessage()]
+        assert records
+        assert records[0].args == ("pipeline_process", "SUCCESS")
+        assert all(secret_body not in r.getMessage() for r in caplog.records)

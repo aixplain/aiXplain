@@ -574,7 +574,12 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             print(completion_msg, flush=True)
 
         if response_body["completed"] is True:
-            logging.debug(f"Polling for Agent: Final status of polling for {name}: {response_body}")
+            # Status only, lazily -- never the body; see BUG-942 item 5.
+            logging.debug(
+                "Polling for Agent: Final status of polling for %s: %s",
+                name,
+                getattr(response_body, "status", None),
+            )
         else:
             response_body = AgentResponse(
                 status=ResponseStatus.FAILED,

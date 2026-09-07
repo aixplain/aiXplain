@@ -52,6 +52,28 @@ logger = logging.getLogger(__name__)
 _POLL_TIMEOUT_SUPPORT: dict = {}
 
 
+def _client_timeout_bounds(client: Any) -> Tuple[float, float]:
+    """The ``(connect, read)`` timeout the *client* is actually configured with.
+
+    ``AixplainClient.timeout`` is either a single float or a ``(connect, read)``
+    pair, and a deployment may have narrowed it below the module defaults --
+    reading the module default instead would silently widen the bound a caller
+    asked for. Anything unrecognisable (a mock, ``None``) falls back to the
+    defaults so a poll is still bounded.
+    """
+    configured = getattr(client, "timeout", None)
+    if isinstance(configured, (tuple, list)) and len(configured) == 2:
+        connect, read = configured
+    elif isinstance(configured, (int, float)) and not isinstance(configured, bool):
+        connect = read = configured
+    else:
+        return default_timeout()
+    try:
+        return float(connect), float(read)
+    except (TypeError, ValueError):
+        return default_timeout()
+
+
 # Hook decorator system
 def with_hooks(func: Callable) -> Callable:
     """Generic decorator to add before/after hooks to resource operations.
@@ -1599,10 +1621,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         self.context.client.ensure_trusted_url(poll_url)
         request_kwargs: dict = {}
         if timeout is not None:
-            connect_timeout, read_timeout = default_timeout()
+            connect_timeout, read_timeout = _client_timeout_bounds(self.context.client)
             # Floor at 1s so a nearly-exhausted budget still sends a real request
-            # instead of one guaranteed to time out, and never exceed the client
-            # default the deployment configured.
+            # instead of one guaranteed to time out, and never exceed the read
+            # timeout the deployment configured.
             request_kwargs["timeout"] = (connect_timeout, max(1.0, min(timeout, read_timeout)))
         try:
             # Use context.client for all polling operations
@@ -1747,11 +1769,22 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                         logger.info(f"Operation completed successfully ({elapsed_time:.1f}s total)")
                     return result
 
-            except (APIError, ResourceError, UntrustedURLError) as e:
-                # Re-raise API, resource and untrusted-URL errors immediately.
-                # Without UntrustedURLError here the broad ``except`` below would
+            except UntrustedURLError:
+                # Never softened: without this the broad ``except`` below would
                 # turn a refused credential leak into a silent poll-until-timeout.
-                raise e
+                raise
+            except (APIError, ResourceError) as e:
+                # Re-raise API and resource errors immediately -- unless the
+                # budget is already gone. Each poll is now bounded by the
+                # remaining budget (BUG-1097), so the *last* poll before the
+                # deadline can fail precisely because the deadline arrived;
+                # reporting that as an APIError rather than the documented
+                # TimeoutError would be an artefact of the bound. Logged so the
+                # underlying failure is still visible.
+                if timeout - (time.time() - start_time) > 0:
+                    raise
+                logger.warning(f"Final poll failed as the {timeout}s budget expired: {e}")
+                break
             except Exception as e:
                 # Log other errors but continue polling
                 logger.warning(f"Polling error: {e}, continuing...")

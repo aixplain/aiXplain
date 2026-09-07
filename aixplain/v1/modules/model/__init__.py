@@ -254,7 +254,11 @@ class Model(Asset):
                 logging.error(f"Polling for Model: polling for {name}: {e}")
                 break
         if response_body["completed"] is True:
-            logging.debug(f"Polling for Model: Final status of polling for {name}: {response_body}")
+            logging.debug(
+                "Polling for Model: Final status of polling for %s: %s",
+                name,
+                getattr(response_body, "status", None),
+            )
         else:
             response_body = ModelResponse(
                 status=ResponseStatus.FAILED,
@@ -262,7 +266,9 @@ class Model(Asset):
                 error_message="No response from the service.",
             )
             logging.error(
-                f"Polling for Model: Final status of polling for {name}: No response in {timeout} seconds - {response_body}"
+                "Polling for Model: Final status of polling for %s: No response in %s seconds",
+                name,
+                timeout,
             )
         return response_body
 
@@ -293,7 +299,8 @@ class Model(Asset):
             else:
                 status = ResponseStatus.IN_PROGRESS
 
-            logging.debug(f"Single Poll for Model: Status of polling for {name}: {resp}")
+            # Status only, lazily -- never the body; see BUG-942 item 5.
+            logging.debug("Single Poll for Model: Status of polling for %s: %s", name, resp.get("status"))
 
             raw_status = resp.pop("status", status)
             # Convert string status to ResponseStatus enum if needed
