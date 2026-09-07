@@ -6,6 +6,8 @@ This module tests Model-specific functionality including:
 - V1 payload conversion for sync-only models
 """
 
+import json
+
 import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -341,8 +343,15 @@ class TestModelRunRouting:
         mock_super_run_async.assert_called_once()
         assert result.status == "IN_PROGRESS"
 
-    def test_build_run_payload_strips_sdk_params(self):
-        """build_run_payload should exclude timeout, wait_time, show_progress, stream."""
+    def test_build_run_payload_keeps_sdk_control_keys_out_of_the_body(self):
+        """SDK-control kwargs must not ride in the model *input body*.
+
+        ``stream`` in particular is a path selector expressed on the wire as
+        ``options.stream`` by ``run_stream`` — see
+        ``TestModelStreamDispatch`` for the dispatch half. Stripping it here is
+        correct but is *not* on its own evidence that ``run(stream=True)``
+        streams (BUG-1091).
+        """
         model = self._create_model_with_mocks(connection_type=["asynchronous"])
         payload = model.build_run_payload(
             text="hello",
@@ -506,6 +515,184 @@ class TestRunHeaderKeysAreSingleSourceOfTruth:
 
     def test_header_kwargs_covered_by_sdk_only_params(self):
         assert {key for key, _ in Model._RUN_HEADER_KEYS} <= Model._SDK_ONLY_PARAMS
+
+    def test_sdk_only_params_is_derived_not_duplicated(self):
+        """``_SDK_ONLY_PARAMS`` must *be* ``_RUN_CONTROL_KEYS``, not a copy of it.
+
+        Two hand-maintained literals is how ``session_id`` was once filtered on
+        one path and shipped on the other. Identity here makes that drift
+        impossible rather than merely absent (BUG-1091).
+        """
+        assert Model._SDK_ONLY_PARAMS == Model._RUN_CONTROL_KEYS
+
+    @pytest.mark.parametrize("path", ["run", "run_stream", "_run_async_v1"])
+    def test_every_header_kwarg_rides_as_header_on_every_request_path(self, path):
+        """Each ``_RUN_HEADER_KEYS`` entry must become a header — and stay out of
+        the body — on *all three* request-issuing model paths.
+
+        ``run_stream`` and ``_run_async_v1`` build their own requests, which is
+        exactly where the shared filters silently stopped applying (BUG-1091).
+        """
+        for key, header in Model._RUN_HEADER_KEYS:
+            model = _model_with_mock_client(sync_only=(path != "run"))
+            client = model.context.client
+            kwargs = {"text": "hi", key: "v"}
+
+            if path == "run":
+                model.run(**kwargs)
+                call = client.request.call_args
+                body = call.kwargs["json"]
+            elif path == "run_stream":
+                model.run_stream(**kwargs)
+                call = client.request_stream.call_args
+                body = call.kwargs["json"]
+            else:
+                model._run_async_v1(**kwargs)
+                call = client.request_raw.call_args
+                body = json.loads(call.kwargs["data"])
+
+            assert call.kwargs["headers"][header] == "v", f"{path} dropped {header}"
+            assert key not in body, f"{path} leaked {key} into the body"
+
+
+def _model_with_mock_client(sync_only: bool = True) -> Model:
+    """A Model wired to a mock client that answers every request-issuing path."""
+    model = Model.__new__(Model)
+    model.id = "test-model-id"
+    model.name = "Test Model"
+    model.connection_type = ["synchronous"] if sync_only else ["asynchronous"]
+    model.params = None
+    model.supports_streaming = True
+    model.__post_init__()
+    model.context = Mock()
+    model.context.model_url = "https://models.aixplain.com/api/v2/execute"
+    model.context.client.request.return_value = {"status": "SUCCESS", "completed": True, "data": "ok"}
+    model.context.client.request_raw.return_value.json.return_value = {
+        "status": "IN_PROGRESS",
+        "data": "https://models.aixplain.com/api/v1/data/poll-id",
+    }
+    return model
+
+
+class TestModelStreamDispatch:
+    """``run(stream=True)`` must actually stream (BUG-1091).
+
+    The flag was declared, documented in four shipped places (including the
+    ``Model`` docstring and the bundled skill), stripped from the payload — and
+    never read by ``run``, so callers silently got a blocking ``ModelResult``.
+    """
+
+    def test_stream_true_dispatches_to_run_stream(self):
+        model = _model_with_mock_client()
+        result = model.run(text="hello", stream=True)
+
+        assert isinstance(result, ModelResponseStreamer)
+        assert model.context.client.request_stream.call_count == 1
+        assert model.context.client.request.call_count == 0
+
+    def test_stream_true_sets_options_stream_on_the_wire(self):
+        """The flag is expressed as ``options.stream``, never as a body field."""
+        model = _model_with_mock_client()
+        model.run(text="hello", stream=True)
+
+        body = model.context.client.request_stream.call_args.kwargs["json"]
+        assert body["options"]["stream"] is True
+        assert "stream" not in body
+
+    def test_stream_false_runs_normally(self):
+        model = _model_with_mock_client()
+        result = model.run(text="hello", stream=False)
+
+        assert isinstance(result, ModelResult)
+        assert model.context.client.request_stream.call_count == 0
+        assert model.context.client.request.call_count == 1
+        assert "stream" not in model.context.client.request.call_args.kwargs["json"]
+
+    def test_run_without_stream_kwarg_unchanged(self):
+        model = _model_with_mock_client()
+        result = model.run(text="hello")
+
+        assert isinstance(result, ModelResult)
+        assert model.context.client.request_stream.call_count == 0
+        assert model.context.client.request.call_args.kwargs["json"] == {"text": "hello"}
+
+    def test_stream_dispatch_forwards_remaining_kwargs(self):
+        """Model params and identity metadata survive the hand-off to run_stream."""
+        model = _model_with_mock_client()
+        model.run(text="hello", temperature=0.7, stream=True, identifier="alice")
+
+        call = model.context.client.request_stream.call_args
+        assert call.kwargs["json"]["temperature"] == 0.7
+        assert call.kwargs["headers"] == {"x-user-id": "alice"}
+
+
+class TestModelStreamPathFilters:
+    """``run_stream`` is still a run: same body filter, same identity headers."""
+
+    def test_run_stream_sends_identity_headers(self):
+        model = _model_with_mock_client()
+        model.run_stream(text="hi", identifier="alice", session_id="sess-1", agent_name="Researcher")
+
+        headers = model.context.client.request_stream.call_args.kwargs["headers"]
+        assert headers == {"x-user-id": "alice", "x-session-id": "sess-1", "x-agent": "Researcher"}
+
+    def test_run_stream_omits_headers_when_no_metadata(self):
+        model = _model_with_mock_client()
+        model.run_stream(text="hi")
+
+        assert "headers" not in model.context.client.request_stream.call_args.kwargs
+
+    def test_run_stream_strips_api_key_from_body(self):
+        model = _model_with_mock_client()
+        model.run_stream(text="hi", api_key="SECRET", resource_path="v2/models")
+
+        body = model.context.client.request_stream.call_args.kwargs["json"]
+        assert "api_key" not in body
+        assert "resource_path" not in body
+        assert body["text"] == "hi"
+
+
+class TestRunAsyncV1Headers:
+    """The sync-only async fallback builds its own request — it must still send
+    the identity headers the sync path sends (BUG-1091)."""
+
+    def test_run_async_v1_sends_identity_headers(self):
+        model = _model_with_mock_client()
+        model._run_async_v1(text="hi", identifier="alice", session_id="sess-1", agent_name="Researcher")
+
+        headers = model.context.client.request_raw.call_args.kwargs["headers"]
+        assert headers == {"x-user-id": "alice", "x-session-id": "sess-1", "x-agent": "Researcher"}
+
+    def test_run_async_v1_omits_headers_when_no_metadata(self):
+        model = _model_with_mock_client()
+        model._run_async_v1(text="hi")
+
+        assert "headers" not in model.context.client.request_raw.call_args.kwargs
+
+    def test_run_async_v1_strips_sdk_keys_from_body(self):
+        model = _model_with_mock_client()
+        model._run_async_v1(text="hi", api_key="SECRET", resource_path="v2/models", temperature=0.7)
+
+        body = json.loads(model.context.client.request_raw.call_args.kwargs["data"])
+        assert body == {"data": "hi", "temperature": 0.7}
+
+
+class TestOpenEndedModelParamsStillPassThrough:
+    """Model parameters are declared per-model by the backend and ship without an
+    SDK release, so ``run()`` deliberately does **not** reject unknown kwargs —
+    only the known SDK-control keys are stripped.
+
+    Pinned so a later tidy-up cannot quietly close the open channel and break
+    ``temperature`` / ``max_tokens`` / every future backend parameter. See the
+    BUG-1091 PR body for the deviation rationale.
+    """
+
+    def test_known_and_unknown_model_params_are_both_forwarded(self):
+        model = _model_with_mock_client()
+        model.run(text="hi", temperature=0.7, maxTokns=100)
+
+        body = model.context.client.request.call_args.kwargs["json"]
+        assert body == {"text": "hi", "temperature": 0.7, "maxTokns": 100}
 
 
 class TestRunHeaderValuesMustBeAscii:

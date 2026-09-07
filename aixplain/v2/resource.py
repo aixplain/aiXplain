@@ -668,12 +668,31 @@ class BaseResource:
         return encode_resource_id(self.id)
 
 
+# Keys the SDK consumes itself when *dispatching* a request (choosing the path,
+# authenticating). They are declared on ``BaseParams`` for every operation, so
+# they can arrive on any call — and must never be forwarded to a backend body or
+# to ``requests.Session.request``, which would raise ``TypeError``.
+#
+# ``api_key`` authenticates nothing: ``Client.request_raw`` always overlays
+# ``_auth_headers()`` from the Aixplain context, so a per-call ``api_key``'s only
+# observable effect was riding into the model input body (BUG-1091).
+_SDK_REQUEST_KEYS: frozenset[str] = frozenset({"api_key", "resource_path"})
+
+
 class BaseParams(TypedDict):
     """Base class for parameters that include API key and resource path.
 
     Attributes:
-        api_key: str: The API key for authentication.
-        resource_path: str: Custom resource path for actions (optional).
+        api_key: Accepted for backward compatibility and **ignored**.
+            Authentication always comes from the ``Aixplain`` context
+            (``Client._auth_headers``), which overrides any per-call value. It is
+            stripped from every request so it can never reach a model input body
+            or a supplier's prompt logs. Configure credentials via
+            ``Aixplain(api_key=...)`` or ``TEAM_API_KEY`` / ``AIXPLAIN_API_KEY``
+            instead.
+        resource_path: Custom resource path for actions (optional). Consumed by
+            the URL builders; never forwarded to the backend body or to
+            ``requests``.
     """
 
     api_key: NotRequired[str]
@@ -1246,6 +1265,11 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         if host is not None:
             kwargs["params"] = {"host": host}
 
+        # ``api_key`` is inert (the client supplies auth) and is not a ``requests``
+        # kwarg; ``resource_path`` was already popped above. Same root cause as
+        # ``delete`` (BUG-1091).
+        kwargs = {k: v for k, v in kwargs.items() if k not in _SDK_REQUEST_KEYS}
+
         obj = context.client.get(path, **kwargs)
 
         # Flatten assetInfo structure before deserialization
@@ -1389,8 +1413,14 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         # Build the delete URL
         delete_url = self.build_delete_url(**kwargs)
 
+        # ``resource_path`` was consumed by build_delete_url and ``api_key`` is
+        # inert (the client supplies auth); neither is a ``requests`` kwarg.
+        # Forwarding them made ``delete(resource_path=…)`` raise TypeError deep
+        # inside requests (BUG-1091).
+        request_kwargs = {k: v for k, v in kwargs.items() if k not in _SDK_REQUEST_KEYS}
+
         # Execute the delete operation (delete endpoints don't return JSON)
-        response = self.context.client.request_raw("delete", delete_url, **kwargs)
+        response = self.context.client.request_raw("delete", delete_url, **request_kwargs)
 
         # Handle the response using the extensible response handler
         return self.handle_delete_response(response, **kwargs)
@@ -1530,16 +1560,34 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     # top-level ``session_id`` kwarg is purely the per-run correlation channel
     # emitted as ``x-session-id``; ``agent_name`` is likewise only the calling
     # agent's name, emitted as ``x-agent``.
-    _RUN_CONTROL_KEYS: frozenset[str] = frozenset(
-        {
-            "run_retries",
-            "run_retry_wait",
-            "timeout",
-            "wait_time",
-            "show_progress",
-            "session_id",
-            "agent_name",
-        }
+    #
+    # ``api_key`` / ``resource_path`` (``_SDK_REQUEST_KEYS``) are excluded for a
+    # different reason: they are declared on ``BaseParams`` for *every* operation,
+    # so they can arrive on a run call, and neither is a backend body field.
+    # ``api_key`` in particular authenticated nothing — its only observable effect
+    # was riding into the model input body and the supplier's prompt logs
+    # (BUG-1091).
+    #
+    # The ``progress_*`` trio configures the client-side progress display (the
+    # ``show_progress`` toggle already lived here). ``before_run`` / ``after_run``
+    # still receive the *unfiltered* kwargs, so the tracker keeps seeing them —
+    # only the payload/URL builders are filtered.
+    _RUN_CONTROL_KEYS: frozenset[str] = (
+        frozenset(
+            {
+                "run_retries",
+                "run_retry_wait",
+                "timeout",
+                "wait_time",
+                "show_progress",
+                "progress_format",
+                "progress_verbosity",
+                "progress_truncate",
+                "session_id",
+                "agent_name",
+            }
+        )
+        | _SDK_REQUEST_KEYS
     )
 
     @staticmethod
