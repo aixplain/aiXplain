@@ -1,8 +1,10 @@
 # Run metadata
 
-Every agent run issued by the aiXplain SDK sends a `metaData` object alongside your
-query. This page is the complete disclosure of what that object contains, why it is
-collected, where it goes, and what happens when the lookup behind it fails.
+Agent runs issued by the aiXplain SDK send a `metaData` object alongside your query.
+This page is the complete disclosure of what that object contains, why it is collected,
+where it goes, and what happens when the lookup behind it fails. [Which calls send
+it](#which-calls-send-it) below is the exact list — notably, v2 runs routed through a
+session do not carry it.
 
 `metaData` is built by
 [`aixplain.utils.user_info_utils.build_run_metadata()`](../aixplain/utils/user_info_utils.py).
@@ -53,8 +55,7 @@ device GPS: the SDK never asks the operating system for a location.
 ## Why it is collected
 
 - **`region`, `language`, `timezone`** — locale-aware agent execution. The platform uses
-  them to pick response language defaults and to resolve relative dates in a query
-  ("tomorrow", "next Monday") against the caller's local time rather than UTC.
+  them to adapt a run to the caller's locale; this is the stated purpose of the lookup.
 - **`userAgent`** — distinguishes SDK traffic from console and direct-API traffic.
 - **`ipAddress`, `latitude`, `longitude`** — collected as part of the same lookup and
   forwarded with the run. They are named here explicitly rather than folded into a
@@ -109,8 +110,10 @@ If you see `latitude: null` in a trace, this is why.
 | v1 `TeamAgent.run_async` | `aixplain/v1/modules/team_agent/__init__.py` | every v1 team-agent run |
 | v1 `TeamAgent.generate_session_id` | `aixplain/v1/modules/team_agent/__init__.py` | v1 team-agent session bootstrap |
 
-All v2 agent runs reach the single v2 call site through
-`RunnableResourceMixin._post_and_handle_run`, which calls `build_run_payload`.
+Direct v2 agent runs reach the single v2 call site through
+`RunnableResourceMixin._post_and_handle_run`, which calls `build_run_payload`. A v2 run
+routed through a session (`agent.run(query, session=…)`) does not go through
+`build_run_payload` at all — see below.
 
 **These do _not_ send `metaData`:**
 

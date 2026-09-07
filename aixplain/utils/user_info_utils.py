@@ -103,12 +103,14 @@ def _region_and_language_from_country(country: str) -> Tuple[Optional[str], Opti
 
 
 def build_run_metadata() -> Dict[str, Any]:
-    """Build the ``metaData`` object sent with every agent run payload.
+    """Build the ``metaData`` object sent with agent run payloads.
 
-    The returned dict is forwarded verbatim to the backend by the v2 agent run
-    path (:meth:`aixplain.v2.agent.Agent.build_run_payload`) and by the legacy v1
-    agent / team-agent run and session-bootstrap paths. It is derived from one
-    cached ``https://ipinfo.io/json`` lookup (see :func:`_fetch_ipinfo`).
+    The returned dict is forwarded verbatim to the backend by the direct v2 agent
+    run path (:meth:`aixplain.v2.agent.Agent.build_run_payload`) and by the legacy
+    v1 agent / team-agent run and session-bootstrap paths. v2 runs routed through
+    a session post to ``/v1/sessions/{id}/messages`` instead and carry no
+    ``metaData``. It is derived from one cached ``https://ipinfo.io/json`` lookup
+    (see :func:`_fetch_ipinfo`).
 
     Keys, all present on every call:
 

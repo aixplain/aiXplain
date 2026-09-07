@@ -173,7 +173,7 @@ For MCP-compatible clients and IDEs, assets (for example Opus 4.6, Kimi, Qwen, A
 - **Your data stays yours** — never used to train foundation models; agent memory is opt-in. SOC 2 Type II; TLS 1.2+ in transit, encrypted at rest.
 - **Governed at runtime** — Inspector and Bodyguard enforce allow-lists, per-asset permissions, rate and usage limits, and access control on every execution.
 - **Deploy anywhere** — cloud, on-prem, or local; air-gapped and VPC available on-prem or local.
-- **Run metadata is sent with every agent run** — `userAgent`, plus `region`, `language`, `ipAddress`, `latitude`, `longitude` and `timezone` from a one-time `ipinfo.io` lookup. See [docs/run-metadata.md](docs/run-metadata.md).
+- **Run metadata is sent with agent runs** — `userAgent`, plus `region`, `language`, `ipAddress`, `latitude`, `longitude` and `timezone` from a one-time `ipinfo.io` lookup. See [docs/run-metadata.md](docs/run-metadata.md).
 
 Learn more at aixplain [Security](https://aixplain.com/security/) and aixplain [pricing](https://aixplain.com/pricing/).
 
@@ -181,7 +181,7 @@ Learn more at aixplain [Security](https://aixplain.com/security/) and aixplain [
 
 ## Run metadata
 
-Every agent run sends a `metaData` object alongside your query. It carries `userAgent`
+Agent runs send a `metaData` object alongside your query. It carries `userAgent`
 and — derived from a one-time `https://ipinfo.io/json` lookup made from the machine
 running the SDK — `region`, `language`, `ipAddress`, `latitude`, `longitude`, and
 `timezone`. The platform uses `region`/`language`/`timezone` for locale-aware agent
@@ -189,7 +189,7 @@ execution.
 
 - The lookup runs **once per process**, on your first agent run, with a 2-second timeout.
 - If it fails or is blocked, the run proceeds normally with those fields `null`.
-- It applies to agent runs on both SDK v2 and SDK v1; model and pipeline runs do not send it.
+- It applies to direct agent runs on both SDK v2 and SDK v1. Runs routed through a v2 session (`agent.run(query, session=...)`), model runs and pipeline runs do not send it.
 
 Full field-by-field disclosure: [docs/run-metadata.md](docs/run-metadata.md).
 

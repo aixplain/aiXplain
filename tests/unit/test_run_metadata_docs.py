@@ -9,8 +9,11 @@ matching the code — when a ``metaData`` key is added, renamed or dropped witho
 docs following, when a doc loses the disclosure, or when a new module starts sending
 ``metaData`` without appearing in the call-site tables.
 
-Network-free by construction: ``_fetch_ipinfo`` is patched out, exercising only the
-pure key-construction path.
+They also pin the two wiring claims the disclosure makes about v2: a direct
+``Agent.build_run_payload`` carries ``metaData``, and a session-routed run does not.
+
+Network-free by construction: ``_fetch_ipinfo`` is patched out and the client is a
+mock, so no request ever leaves the process.
 """
 
 import pathlib
@@ -155,3 +158,62 @@ def test_metadata_degrades_to_nulls_without_a_lookup():
         meta = user_info_utils.build_run_metadata()
     assert meta["userAgent"] == "sdk"
     assert all(value is None for key, value in meta.items() if key != "userAgent"), meta
+
+
+def test_v2_run_payload_carries_the_documented_metadata():
+    """The v2 claim in the disclosure: a direct v2 agent run really does send ``metaData``.
+
+    v1 coverage lives in ``tests/unit/agent/agent_test.py``
+    (``test_run_async_includes_run_metadata``); this is the v2 half, and the reason
+    the call-site table lists ``aixplain/v2/agent.py``.
+    """
+    from unittest.mock import MagicMock
+
+    from aixplain.v2.agent import Agent
+
+    agent = Agent.from_dict({"id": "agent-123", "name": "test-agent"})
+    agent.context = MagicMock()
+
+    ipinfo = {
+        "ip": "192.0.2.10",
+        "country": "US",
+        "loc": "37.7749,-122.4194",
+        "timezone": "America/Los_Angeles",
+    }
+    with mock.patch.object(user_info_utils, "_fetch_ipinfo", return_value=ipinfo):
+        payload = agent.build_run_payload(query="q")
+
+    assert set(payload["metaData"]) == DOCUMENTED_FIELDS
+    assert payload["metaData"] == {
+        "userAgent": "sdk",
+        "region": "en-US",
+        "language": "en",
+        "ipAddress": "192.0.2.10",
+        "latitude": pytest.approx(37.7749),
+        "longitude": pytest.approx(-122.4194),
+        "timezone": "America/Los_Angeles",
+    }
+
+
+def test_v2_session_messages_carry_no_metadata():
+    """The documented exception: session-routed v2 runs post a message, not a run payload.
+
+    The disclosure says so explicitly; if the session path ever starts attaching
+    ``metaData``, the docs become wrong in the direction that matters.
+    """
+    from unittest.mock import MagicMock
+
+    from aixplain.v2.session import Session
+
+    session = Session.from_dict({"id": "session-123"})
+    session.context = MagicMock()
+    session.context.client.request.return_value = {"id": "msg-1", "role": "user", "content": "q"}
+    session.status = "active"
+
+    session.add_message(role="user", content="q")
+
+    _, kwargs = session.context.client.request.call_args
+    payload = kwargs["json"]
+    # Guard against a vacuous pass: we must be looking at the real message body.
+    assert payload["role"] == "user"
+    assert "metaData" not in payload, payload
