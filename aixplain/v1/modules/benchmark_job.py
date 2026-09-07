@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.utils.file_utils import save_file
+from aixplain.utils.url_safety import validate_fetch_url
 
 
 class BenchmarkJob:
@@ -111,6 +112,9 @@ class BenchmarkJob:
                 )
                 return None
             csv_url = resp["reportUrl"]
+            # ``reportUrl`` comes from a backend response, so it is SSRF-gated
+            # before ``save_file`` fetches it (BUG-939).
+            validate_fetch_url(csv_url)
             if return_dataframe:
                 downloaded_path = save_file(csv_url, save_path)
                 df = pd.read_csv(downloaded_path)

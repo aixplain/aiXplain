@@ -10,7 +10,9 @@ import json
 import logging
 import ast
 import inspect
+import requests
 from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.url_safety import safe_get
 from typing import Callable, Dict, List, Text, Tuple, Union, Optional
 from aixplain.exceptions import get_error_from_status_code
 import copy
@@ -150,6 +152,11 @@ def build_payload(
             return [_serialize_value(item) for item in obj]
         return obj
 
+    # ``deepcopy`` is the first statement in the try and can itself raise
+    # TypeError (a lock, a socket, a module), leaving ``parametersTemp``
+    # unbound when the handler below reads it (BUG-941). ``_serialize_value``
+    # does not mutate its argument, so falling back to the original is safe.
+    parametersTemp = parameters
     try:
         parametersTemp = copy.deepcopy(parameters)
         if not payload:
@@ -197,17 +204,39 @@ def call_run_endpoint(url: Text, api_key: Text, payload: Dict) -> Dict:
     try:
         logging.debug(f"Calling {url} with payload: {payload}")
         r = _request_with_retry("post", url, headers=headers, data=payload)
-        resp = r.json()
-    except Exception as e:
+    except (requests.exceptions.RequestException, OSError) as e:
+        # This handler used to build the FAILED response and then fall through
+        # to ``r.status_code``, which is unbound when the request itself raised
+        # -- an UnboundLocalError instead of the documented FAILED response
+        # (BUG-941). The catch stays wide enough for the builtin
+        # ``ConnectionError``/``OSError`` the socket layer can raise, which are
+        # not ``requests.exceptions.RequestException`` subclasses, but narrow
+        # enough that a genuine bug in our own code still surfaces.
         logging.error(f"Error in request: {e}")
-        response = {
+        return {
             "status": "FAILED",
             "completed": True,
             "error_message": "Model Run: An error occurred while processing your request.",
         }
 
+    try:
+        resp = r.json()
+    except ValueError as e:
+        # ``requests.exceptions.JSONDecodeError`` subclasses ValueError. ``resp``
+        # deliberately keeps its sentinel: for a non-2xx body the branch below
+        # still maps the HTTP status onto a specific error message (BUG-941).
+        logging.error(f"Error parsing the response of {url}: {e}")
+
     if 200 <= r.status_code < 300:
         logging.info(f"Result of request: {r.status_code} - {resp}")
+        if not isinstance(resp, dict):
+            # A 2xx body we could not decode: ``resp.get`` used to raise
+            # AttributeError on the sentinel string (BUG-941).
+            return {
+                "status": "FAILED",
+                "completed": True,
+                "error_message": "Model Run: An error occurred while processing your request.",
+            }
         status = resp.get("status", "IN_PROGRESS")
         data = resp.get("data", None)
         if status == "IN_PROGRESS":
@@ -289,7 +318,7 @@ def parse_code(code: Union[Text, Callable], api_key: Optional[Text] = None) -> T
         with open(code, "r") as f:
             str_code = f.read()
     elif validators.url(code):
-        str_code = requests.get(code).text
+        str_code = safe_get(code).text
     else:
         str_code = code
     # assert str_code has a main function
@@ -506,7 +535,7 @@ def parse_code_decorated(code: Union[Text, Callable], api_key: Optional[Text] = 
             with open(code, "r") as f:
                 str_code = f.read()
         elif validators.url(code):
-            str_code = requests.get(code).text
+            str_code = safe_get(code).text
         else:
             str_code = code
 

@@ -12,6 +12,8 @@ from typing import Dict, List, Optional, Union, Any
 from urllib.parse import urljoin
 import requests
 
+from aixplain.utils.url_safety import validate_upload_url
+
 from .exceptions import FileUploadError
 
 
@@ -196,7 +198,19 @@ class S3Uploader:
 
     @classmethod
     def upload_file(cls, file_path: str, presigned_url: str, content_type: str) -> None:
-        """Upload file to S3 using pre-signed URL."""
+        """Upload file to S3 using pre-signed URL.
+
+        Raises:
+            UnsafeURLError: If ``presigned_url`` does not point at an allowed
+                upload host. The check sits *outside* the ``try`` below so the
+                generic ``FileUploadError`` wrapper cannot mask why the upload
+                was refused (BUG-939).
+        """
+        # The URL comes straight from a backend response; a compromised or
+        # redirected backend would otherwise receive the file while the SDK
+        # reported success.
+        validate_upload_url(presigned_url)
+
         headers = {"Content-Type": content_type}
 
         try:

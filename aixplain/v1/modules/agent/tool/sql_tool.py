@@ -33,6 +33,7 @@ import numpy as np
 from typing import Text, Optional, Dict, List, Union
 import sqlite3
 from aixplain.enums import AssetStatus
+from aixplain.utils.url_safety import safe_get
 from aixplain.modules.agent.tool import DeployableTool
 
 
@@ -499,7 +500,7 @@ class SQLTool(DeployableTool):
 
         # Download database file
         if str(self.database).startswith(("http://", "https://")):
-            response = requests.get(self.database)
+            response = safe_get(self.database)
             response.raise_for_status()
             with open(local_path, "wb") as f:
                 f.write(response.content)
