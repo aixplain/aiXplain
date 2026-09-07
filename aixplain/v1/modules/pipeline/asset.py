@@ -166,6 +166,10 @@ class Pipeline(Asset, DeployableMixin):
             "Content-Type": "application/json",
         }
         r = _request_with_retry("get", poll_url, headers=headers)
+        # Bound before the try: ``r.json()`` is the first statement inside it and
+        # raises on a non-JSON body (a 502/504 gateway page, an empty body), yet
+        # the handler below reads ``resp`` -- UnboundLocalError (BUG-941).
+        resp = {}
         try:
             resp = r.json()
             if "data" in resp and isinstance(resp["data"], str):
@@ -196,6 +200,11 @@ class Pipeline(Asset, DeployableMixin):
             return response
 
         except Exception:
+            if not isinstance(resp, dict):
+                # A JSON array or scalar body binds ``resp`` to a non-dict, and
+                # ``.pop("error", None)`` then raises TypeError out of this
+                # handler instead of returning FAILED (BUG-941).
+                resp = {}
             return PipelineResponse(
                 status=ResponseStatus.FAILED,
                 error=resp.pop("error", None),
