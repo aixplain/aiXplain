@@ -21,6 +21,9 @@ from .resource import (
     RunnableResourceMixin,
     BaseRunParams,
     Result,
+    _filter_value,
+    _filter_values,
+    _sort_direction,
 )
 from .enums import Function, Supplier, Language, AssetStatus, ResponseStatus
 from .mixins import ToolableMixin, ToolDict
@@ -392,15 +395,6 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
 
 
 InputsProxy = Inputs
-
-
-def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]:
-    """Find supplier enum by ID."""
-    supplier_id_str = str(supplier_id)
-    return next(
-        (supplier for supplier in Supplier if supplier.value.get("id") == supplier_id_str),
-        None,
-    )
 
 
 def find_function_by_id(function_id: str) -> Optional[Function]:
@@ -1157,97 +1151,37 @@ class Model(
 
         # functions - backend validates "each value in functions must be a string"
         if params.get("functions") is not None:
-            functions_param = params["functions"]
-            if isinstance(functions_param, list):
-                filters["functions"] = [(f.value if hasattr(f, "value") else str(f)) for f in functions_param]
-            else:
-                filters["functions"] = [
-                    functions_param.value if hasattr(functions_param, "value") else str(functions_param)
-                ]
+            filters["functions"] = _filter_values(params["functions"])
 
         # suppliers - should be array of strings
         if params.get("vendors") is not None:
-            suppliers = params["vendors"]
-            if isinstance(suppliers, list):
-                filters["suppliers"] = [
-                    (s.value["code"] if hasattr(s, "value") and isinstance(s.value, dict) else str(s))
-                    for s in suppliers
-                ]
-            else:
-                supplier_value = (
-                    suppliers.value["code"]
-                    if (hasattr(suppliers, "value") and isinstance(suppliers.value, dict))
-                    else str(suppliers)
-                )
-                filters["suppliers"] = [supplier_value]
+            filters["suppliers"] = _filter_values(params["vendors"])
 
         # status - should be array of strings
         if params.get("status") is not None:
-            status = params["status"]
-            if isinstance(status, list):
-                filters["status"] = [
-                    (s.value if (hasattr(s, "value") and isinstance(s.value, str)) else str(s)) for s in status
-                ]
-            else:
-                if hasattr(status, "value") and isinstance(status.value, str):
-                    status_value = status.value
-                else:
-                    status_value = str(status)
-                filters["status"] = [status_value]
+            filters["status"] = _filter_values(params["status"])
 
         # source_languages - should be array of language codes
         if params.get("source_languages") is not None:
-            source_langs = params["source_languages"]
-            if isinstance(source_langs, list):
-                filters["sourceLanguages"] = [
-                    (lang.value if hasattr(lang, "value") and isinstance(lang.value, str) else str(lang))
-                    for lang in source_langs
-                ]
-            else:
-                lang_value = (
-                    source_langs.value
-                    if hasattr(source_langs, "value") and isinstance(source_langs.value, str)
-                    else str(source_langs)
-                )
-                filters["sourceLanguages"] = [lang_value]
+            filters["sourceLanguages"] = _filter_values(params["source_languages"])
 
         # target_languages - should be array of language codes
         if params.get("target_languages") is not None:
-            target_langs = params["target_languages"]
-            if isinstance(target_langs, list):
-                filters["targetLanguages"] = [
-                    (lang.value if hasattr(lang, "value") and isinstance(lang.value, str) else str(lang))
-                    for lang in target_langs
-                ]
-            else:
-                lang_value = (
-                    target_langs.value
-                    if hasattr(target_langs, "value") and isinstance(target_langs.value, str)
-                    else str(target_langs)
-                )
-                filters["targetLanguages"] = [lang_value]
+            filters["targetLanguages"] = _filter_values(params["target_languages"])
 
         # is_finetunable - boolean filter
         # Note: v1 API uses "isFineTunable" (capital T), v2 API uses "isFinetunable" (lowercase t)
         if params.get("is_finetunable") is not None:
             filters["isFineTunable"] = params["is_finetunable"]
 
-        # sort - should be array of objects with field and dir
+        # sort - array of {field, dir}; ``dir`` is +/-1 per the backend contract
         if params.get("sort_by") is not None or params.get("sort_order") is not None:
-            sort_field = params.get("sort_by", "name")
-            sort_order = params.get("sort_order", "asc")
-
-            # Convert enum to string if needed
-            if hasattr(sort_field, "value"):
-                sort_field = sort_field.value
-
-            # Convert sort order to integer
-            if hasattr(sort_order, "value"):
-                sort_dir = sort_order.value
-            else:
-                sort_dir = 1 if str(sort_order).lower() == "asc" else -1
-
-            filters["sort"] = [{"field": str(sort_field), "dir": sort_dir}]
+            filters["sort"] = [
+                {
+                    "field": _filter_value(params.get("sort_by", "name")),
+                    "dir": _sort_direction(params.get("sort_order", "asc")),
+                }
+            ]
         else:
             # Always include empty sort array as backend requires it
             filters["sort"] = [{}]

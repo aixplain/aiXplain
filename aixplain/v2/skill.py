@@ -40,6 +40,7 @@ from .resource import (
     GetResourceMixin,
     DeleteResourceMixin,
     Page,
+    _filter_values,
 )
 from .enums import Privacy
 from .mixins import ToolableMixin
@@ -193,7 +194,7 @@ class Skill(
         if params.get("tags") is not None:
             filters["tags"] = params["tags"]
         if params.get("suppliers") is not None:
-            filters["suppliers"] = params["suppliers"]
+            filters["suppliers"] = _filter_values(params["suppliers"])
         if params.get("saved") is not None:
             filters["saved"] = params["saved"]
         return filters

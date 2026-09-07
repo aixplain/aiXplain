@@ -45,6 +45,60 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+_DESCENDING = "DESC"
+
+
+def _filter_value(value: Any) -> str:
+    """Return the wire value for a search filter argument.
+
+    Accepts a plain string, a string-valued enum member (v2) or a dict-valued
+    enum member exposing a ``code``/``id`` key (the legacy v1 ``Supplier``
+    shape). ``str(member)`` is deliberately avoided: for a
+    ``class X(str, Enum)`` it returns the member repr
+    (``"OwnershipType.PRIVATE"``) rather than the value (``"PRIVATE"``), which
+    the backend silently fails to match.
+
+    Args:
+        value: The filter argument as supplied by the caller.
+
+    Returns:
+        str: The value to place in the request body.
+    """
+    raw = getattr(value, "value", value)
+    if isinstance(raw, dict):
+        raw = raw.get("code") or raw.get("id") or ""
+    return str(raw)
+
+
+def _filter_values(value: Any) -> List[str]:
+    """Return the wire values for a filter that the backend expects as an array.
+
+    A scalar argument is wrapped in a single-element list, so callers may pass
+    either ``Supplier.OPENAI`` or ``[Supplier.OPENAI, "cohere"]``.
+
+    Args:
+        value: A single filter argument or a sequence of them.
+
+    Returns:
+        List[str]: The values to place in the request body.
+    """
+    if isinstance(value, (list, tuple, set)):
+        return [_filter_value(item) for item in value]
+    return [_filter_value(value)]
+
+
+def _sort_direction(sort_order: Any) -> int:
+    """Return the backend's sort direction for a sort order argument.
+
+    Args:
+        sort_order: ``SortOrder`` member or equivalent string.
+
+    Returns:
+        int: ``-1`` for descending, ``1`` for ascending (the default).
+    """
+    return -1 if _filter_value(sort_order).upper() == _DESCENDING else 1
+
+
 # Hook decorator system
 def with_hooks(func: Callable) -> Callable:
     """Generic decorator to add before/after hooks to resource operations.
@@ -827,13 +881,17 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
             filters["q"] = params["query"]
 
         if params.get("ownership") is not None:
-            filters["ownership"] = str(params["ownership"])
+            ownership = params["ownership"]
+            if isinstance(ownership, (list, tuple)):
+                filters["ownership"] = [_filter_value(o) for o in ownership]
+            else:
+                filters["ownership"] = _filter_value(ownership)
 
         if params.get("sort_by") is not None:
-            filters["sortBy"] = str(params["sort_by"])
+            filters["sortBy"] = _filter_value(params["sort_by"])
 
         if params.get("sort_order") is not None:
-            filters["sortOrder"] = str(params["sort_order"])
+            filters["sortOrder"] = _filter_value(params["sort_order"])
 
         return filters
 
