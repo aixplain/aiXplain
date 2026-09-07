@@ -6,7 +6,7 @@ import re
 import warnings
 from datetime import datetime
 from enum import Enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
 from dataclasses_json import dataclass_json, config
@@ -2158,7 +2158,17 @@ class Agent(
         return payload
 
     def build_run_payload(self, **kwargs: Unpack[AgentRunParams]) -> dict:
-        """Build the payload for the run action."""
+        """Build the payload for the run action.
+
+        SDK-control kwargs (``_RUN_CONTROL_KEYS``: retries/timeouts, the
+        ``progress_*`` display trio, ``api_key`` / ``resource_path``, and the
+        header-only run metadata) are dropped up front. The run path already
+        filters them via ``_payload_kwargs_for_run``; repeating it here means the
+        catch-all snake_case→camelCase forwarder below cannot put them on the
+        wire even when this builder is called directly (BUG-1091).
+        """
+        kwargs = {k: v for k, v in kwargs.items() if k not in self._RUN_CONTROL_KEYS}
+
         # Extract execution_params if provided, otherwise use defaults
         execution_params = kwargs.pop("execution_params", {})
 
@@ -2365,8 +2375,46 @@ class Agent(
                         values[name] = value
         return values
 
-    @staticmethod
-    def _apply_run_overrides_to_session(session: "Session", kwargs: Dict[str, Any]) -> None:
+    # Per-run kwargs that map onto ``ExecutionConfig`` fields. ``budget`` is
+    # intentionally absent: it is not a run kwarg (``build_run_payload`` pops any
+    # stray one) and reaches the session via the agent's own budget instead.
+    _SESSION_EXECUTION_OVERRIDES: ClassVar[tuple] = (
+        "execution_params",
+        "criteria",
+        "evolve",
+        "identifier",
+        "run_response_generation",
+    )
+
+    def _budget_for_session(self, session_budget: Optional["Budget"]) -> Optional["Budget"]:
+        """Fill unset session budget caps from ``self.budget``; session values win.
+
+        A session's stored cap is an explicit, persisted ceiling: the agent's own
+        budget may only fill slots the session leaves unset, never widen or
+        replace one.
+
+        Returns *session_budget* itself (identity, so the caller can tell nothing
+        changed) when the agent has no budget or contributes no new cap.
+        """
+        agent_budget = getattr(self, "budget", None)
+        if agent_budget is None:
+            return session_budget
+        fields = ("max_cost", "max_duration_seconds", "max_iterations")
+        if session_budget is None:
+            has_cap = any(getattr(agent_budget, name, None) is not None for name in fields)
+            # Copy, never alias: ``agent.budget`` is documented as mutated in
+            # place (``agent.budget.max_cost = ...``), so handing the same object
+            # to the session would let a later agent-side edit silently rewrite
+            # the session's persisted cap.
+            return replace(agent_budget) if has_cap else None
+        filled = {
+            name: getattr(agent_budget, name, None)
+            for name in fields
+            if getattr(session_budget, name, None) is None and getattr(agent_budget, name, None) is not None
+        }
+        return replace(session_budget, **filled) if filled else session_budget
+
+    def _apply_run_overrides_to_session(self, session: "Session", kwargs: Dict[str, Any]) -> None:
         """Apply per-run execution overrides onto a session.
 
         When a caller runs within a ``session`` but also passes
@@ -2379,37 +2427,40 @@ class Agent(
         result differs from what's stored, persist it so the overrides
         take effect.
 
+        The agent's own ``budget`` applies on this path too (it already does on
+        the direct run path), but only fills caps the session leaves unset.
+
         We warn because this mutates the session's ``executionConfig`` for
         every subsequent message in the session, not just this run.
         """
         from .session import ExecutionConfig
 
-        overrides = {
-            "execution_params": kwargs.get("execution_params"),
-            "criteria": kwargs.get("criteria"),
-            "evolve": kwargs.get("evolve"),
-            "identifier": kwargs.get("identifier"),
-            "run_response_generation": kwargs.get("run_response_generation"),
-        }
-        provided = {key: value for key, value in overrides.items() if value is not None}
-        if not provided:
+        provided = {key: kwargs[key] for key in self._SESSION_EXECUTION_OVERRIDES if kwargs.get(key) is not None}
+
+        current = ExecutionConfig.coerce(session.execution_config)
+
+        # Rebuild *from the stored config*, never from an enumerated field list:
+        # a hardcoded ``base`` dict omitted ``budget``, so every session run with
+        # any override silently deleted the session's persisted spend cap — and
+        # the same trap would reopen for any field added to ExecutionConfig
+        # (BUG-1091).
+        merged = replace(current, **provided) if current is not None else ExecutionConfig(**provided)
+
+        seeded = self._budget_for_session(merged.budget)
+        budget_seeded = seeded is not merged.budget
+        if budget_seeded:
+            merged = replace(merged, budget=seeded)
+
+        # Nothing to apply: keep today's semantics that a plain session run (no
+        # overrides, no cap the agent can contribute) performs no write.
+        if not provided and not budget_seeded:
             return
-
-        current = session.execution_config
-        base = {
-            "execution_params": getattr(current, "execution_params", None),
-            "criteria": getattr(current, "criteria", None),
-            "evolve": getattr(current, "evolve", None),
-            "identifier": getattr(current, "identifier", None),
-            "run_response_generation": getattr(current, "run_response_generation", None),
-        }
-        merged = ExecutionConfig(**{**base, **provided})
-
         if current is not None and merged.to_api_dict() == current.to_api_dict():
             return
 
+        changed = sorted(provided) + (["budget (from agent.budget)"] if budget_seeded else [])
         warnings.warn(
-            f"Per-run execution overrides ({', '.join(sorted(provided))}) were "
+            f"Per-run execution overrides ({', '.join(changed)}) were "
             f"passed alongside session '{session.id}'. Updating the session's "
             f"stored executionConfig so the overrides take effect; this also "
             f"applies to every subsequent message in this session.",
