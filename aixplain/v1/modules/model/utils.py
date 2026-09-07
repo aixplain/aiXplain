@@ -12,6 +12,7 @@ import ast
 import inspect
 import requests
 from aixplain.utils.file_utils import _request_with_retry
+from aixplain.utils.url_safety import safe_get
 from typing import Callable, Dict, List, Text, Tuple, Union, Optional
 from aixplain.exceptions import get_error_from_status_code
 import copy
@@ -317,7 +318,7 @@ def parse_code(code: Union[Text, Callable], api_key: Optional[Text] = None) -> T
         with open(code, "r") as f:
             str_code = f.read()
     elif validators.url(code):
-        str_code = requests.get(code).text
+        str_code = safe_get(code).text
     else:
         str_code = code
     # assert str_code has a main function
@@ -534,7 +535,7 @@ def parse_code_decorated(code: Union[Text, Callable], api_key: Optional[Text] = 
             with open(code, "r") as f:
                 str_code = f.read()
         elif validators.url(code):
-            str_code = requests.get(code).text
+            str_code = safe_get(code).text
         else:
             str_code = code
 

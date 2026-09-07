@@ -4,6 +4,7 @@ from typing import Any, Iterable, Optional, Tuple, Union, List, FrozenSet
 import inspect
 import logging
 import os
+import re
 import requests
 from requests.adapters import HTTPAdapter, Retry
 from urllib.parse import urljoin, urlparse
@@ -117,6 +118,150 @@ DEFAULT_TRUSTED_URLS = (
     "https://platform-api.aixplain.com",
     "https://models.aixplain.com",
 )
+
+
+# Opt-in that re-enables (redacted, truncated) body logging at DEBUG.
+LOG_BODIES_ENV_VAR = "AIXPLAIN_LOG_BODIES"
+LOG_BODY_MAX_BYTES = 2048
+
+# Keys whose *value* is a credential, whatever the surrounding structure.
+_REDACT_KEYS = frozenset(
+    {
+        "x-api-key",
+        "x-aixplain-key",
+        "authorization",
+        "api_key",
+        "apikey",
+        "access_key",
+        "accesskey",
+        "secret",
+        "client_secret",
+        "password",
+        "token",
+        "access_token",
+        "refresh_token",
+        "credential",
+        "credentials",
+    }
+)
+
+# Values that look like a credential even under a key we don't recognise: the
+# leak this closes was a *third-party* Slack token nested inside a tool payload.
+_TOKEN_PATTERNS = (
+    re.compile(r"xox[baprs]-[\w-]+"),  # Slack
+    re.compile(r"\b(?:sk|pk|rk)-[A-Za-z0-9]{16,}"),  # OpenAI-style
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}"),  # GitHub
+    re.compile(r"\bBearer\s+[A-Za-z0-9._\-]{16,}"),
+    re.compile(r"\beyJ[A-Za-z0-9._\-]{20,}"),  # JWT
+)
+
+_REDACTED = "***REDACTED***"
+
+
+def _log_path(url: str) -> str:
+    """Return *url* reduced to scheme, host and path, dropping the query string.
+
+    Query strings carry presigned signatures and one-time tokens, so only the
+    path is safe to put in a log record.
+    """
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return "<unparseable url>"
+    if not parsed.netloc:
+        return parsed.path or url
+    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
+
+def _redact(value: Any) -> Any:
+    """Return *value* with credential-shaped keys and token-shaped strings masked.
+
+    Recurses through dicts and lists so a token nested inside a tool payload is
+    caught as well as a top-level one.
+    """
+    if isinstance(value, dict):
+        return {key: (_REDACTED if str(key).lower() in _REDACT_KEYS else _redact(item)) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_redact(item) for item in value]
+    if isinstance(value, str):
+        redacted = value
+        for pattern in _TOKEN_PATTERNS:
+            redacted = pattern.sub(_REDACTED, redacted)
+        return redacted
+    return value
+
+
+def _truncate(text: str) -> str:
+    """Cap *text* at :data:`LOG_BODY_MAX_BYTES` characters with a visible marker."""
+    if len(text) <= LOG_BODY_MAX_BYTES:
+        return text
+    return f"{text[:LOG_BODY_MAX_BYTES]}…(truncated)"
+
+
+def _log_request(method: str, url: str, kwargs: Optional[dict] = None) -> None:
+    """Log the outline of an outgoing request: method and path, nothing more.
+
+    Headers are never logged, opt-in or not: ``request_raw`` merges the API key
+    into ``kwargs["headers"]`` before this point, which is exactly how the team
+    key -- and the third-party tokens inside tool payloads -- used to reach DEBUG
+    logs (BUG-939). The body is logged only under ``AIXPLAIN_LOG_BODIES=1``, and
+    then redacted and truncated.
+    """
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
+    logger.debug(f"Requesting {method} {_log_path(url)}")
+    if not _log_bodies_enabled() or not kwargs:
+        return
+    body = kwargs.get("json", kwargs.get("data"))
+    if body is None:
+        return
+    logger.debug(f"Request body ({method} {_log_path(url)}): {_truncate(str(_redact(body)))}")
+
+
+def _log_bodies_enabled() -> bool:
+    """True when the operator explicitly opted into body logging."""
+    return os.getenv(LOG_BODIES_ENV_VAR, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _response_size(response: requests.Response, read_body: bool) -> Optional[int]:
+    """Best-effort byte count for *response* without consuming a stream.
+
+    ``read_body`` is False on the streaming path, where touching ``.content``
+    would consume the very stream the caller is about to iterate.
+    """
+    length = response.headers.get("Content-Length")
+    if length is not None:
+        try:
+            return int(length)
+        except (TypeError, ValueError):
+            pass
+    if not read_body:
+        return None
+    try:
+        return len(response.content)
+    except Exception:
+        return None
+
+
+def _log_response(method: str, url: str, response: requests.Response, *, read_body: bool = True) -> None:
+    """Log the outline of a response: method, path, status and byte count.
+
+    The body itself is logged only under ``AIXPLAIN_LOG_BODIES=1`` (redacted and
+    truncated) and never on the streaming path.
+    """
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
+    size = _response_size(response, read_body)
+    size_text = f"{size} bytes" if size is not None else "unknown size"
+    logger.debug(f"Response {method} {_log_path(url)} -> {response.status_code} ({size_text})")
+    if not (read_body and _log_bodies_enabled()):
+        return
+    try:
+        body = response.text
+    except Exception:
+        return
+    logger.debug(f"Response body ({method} {_log_path(url)}): {_truncate(_redact(body))}")
+
 
 # Every header that carries an aiXplain credential.  These are custom headers,
 # so ``requests`` does not strip them across a redirect the way it does
@@ -441,10 +586,11 @@ class AixplainClient:
         url = self.ensure_trusted_url(path)
         kwargs["headers"] = {**self._auth_headers(), **(kwargs.pop("headers", None) or {})}
         kwargs.setdefault("timeout", self.timeout)
-        # ``headers`` now carries the API key, so it stays out of the log line.
-        logger.debug(f"Requesting {method} {url} with kwargs: {kwargs}")
+        # ``headers`` now carries the API key, and ``kwargs`` carries the request
+        # body, so neither is ever formatted into a log record (BUG-939).
+        _log_request(method, url, kwargs)
         response = self.session.request(method=method, url=url, **kwargs)
-        logger.debug(f"Response: {response.text}")
+        _log_response(method, url, response)
         if not response.ok:
             error_obj = None
             try:
@@ -534,8 +680,6 @@ class AixplainClient:
         """
         url = self.ensure_trusted_url(path)
 
-        logger.debug(f"Requesting streaming {method} {url}")
-
         kwargs["headers"] = {**self._auth_headers(), **(kwargs.pop("headers", None) or {})}
         # Enable streaming mode
         kwargs["stream"] = True
@@ -544,7 +688,11 @@ class AixplainClient:
         # as the server keeps sending (events or keep-alives).
         kwargs.setdefault("timeout", self.timeout)
 
+        _log_request(method, url, kwargs)
         response = self.session.request(method=method, url=url, **kwargs)
+        # ``read_body=False``: the caller iterates this stream, so the log line
+        # must not consume it.
+        _log_response(method, url, response, read_body=False)
 
         # For streaming, we check status but don't consume the response body
         if not response.ok:

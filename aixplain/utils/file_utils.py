@@ -22,6 +22,7 @@ import requests
 import aixplain.utils.config as config
 from aixplain.enums.license import License
 from aixplain.utils.request_utils import _request_with_retry
+from aixplain.utils.url_safety import UnsafeURLError, validate_upload_url
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Optional, Text, Tuple, Union, Dict, List
@@ -237,6 +238,9 @@ def upload_data(
         path = response["key"]
         # Upload data
         presigned_url = response["uploadUrl"]  # pre-signed URL
+        # The upload target is chosen by a backend response, so it is validated
+        # before any file bytes leave the machine (BUG-939).
+        validate_upload_url(presigned_url)
         download_link = response.get("downloadUrl", "")
         headers = {"Content-Type": content_type}
         if content_encoding is not None:
@@ -263,6 +267,11 @@ def upload_data(
         if return_download_link is False:
             return _build_s3_link_from_presigned_url(presigned_url, path)
         return download_link
+    except UnsafeURLError:
+        # A refused upload host is a configuration/trust failure, not a transient
+        # one: retrying cannot fix it, and the generic handler below would mask
+        # the reason behind "Failure on Uploading to S3."
+        raise
     except Exception:
         if nattempts > 0:
             return upload_data(

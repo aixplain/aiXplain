@@ -67,7 +67,7 @@ def test_save_local_file_promotes_upload_to_asset(tmp_path, aix):
     aix.client.get = Mock(return_value={"allowed": True})
     aix.client.post = Mock(
         side_effect=[
-            {"uploadUrl": "https://upload.test", "downloadUrl": "s3://bucket/temp/data.csv"},
+            {"uploadUrl": "https://bucket.s3.amazonaws.com/upload", "downloadUrl": "s3://bucket/temp/data.csv"},
             _asset("file-1", "data.csv"),
         ]
     )
@@ -104,7 +104,7 @@ def test_save_local_file_sends_description_tags_and_privacy(tmp_path, aix):
     aix.client.get = Mock(return_value={"allowed": True})
     aix.client.post = Mock(
         side_effect=[
-            {"uploadUrl": "https://upload.test", "downloadUrl": "s3://bucket/temp/report.pdf"},
+            {"uploadUrl": "https://bucket.s3.amazonaws.com/upload", "downloadUrl": "s3://bucket/temp/report.pdf"},
             _asset("file-1", "report.pdf"),
         ]
     )
@@ -157,9 +157,9 @@ def test_save_directory_preserves_parent_relationships_and_empty_folders(tmp_pat
             _asset("empty-id", "empty", "folder"),
             _asset("policies-id", "policies", "folder"),
             _asset("regional-id", "regional", "folder"),
-            {"uploadUrl": "https://upload.test/one", "downloadUrl": "s3://one"},
+            {"uploadUrl": "https://bucket.s3.amazonaws.com/one", "downloadUrl": "s3://one"},
             _asset("security", "security.pdf"),
-            {"uploadUrl": "https://upload.test/two", "downloadUrl": "s3://two"},
+            {"uploadUrl": "https://bucket.s3.amazonaws.com/two", "downloadUrl": "s3://two"},
             _asset("eu", "eu.txt"),
         ]
     )

@@ -22,7 +22,28 @@ import os
 import logging
 from dotenv import load_dotenv
 
-load_dotenv()
+
+def _load_cwd_dotenv() -> bool:
+    """Load only the ``.env`` in the current working directory, never an ancestor's.
+
+    A bare ``load_dotenv()`` -- and ``find_dotenv(usecwd=True)`` -- searches
+    *parent* directories, so a ``.env`` shipped inside a cloned sample project or
+    a bug-report attachment could set ``BACKEND_URL``, ``TEAM_API_KEY``,
+    ``LOG_LEVEL`` or ``SENTRY_DSN`` for a user who merely ``cd``s into a
+    subdirectory and runs their own script with their own key (BUG-939). Loading
+    an explicit path removes the walk-up while keeping the documented behaviour
+    for a ``.env`` in the working directory itself.
+
+    Existing environment variables still win (``override=False``), as with the
+    bare call this replaces.
+
+    Returns:
+        bool: True when a ``.env`` was found in the working directory and loaded.
+    """
+    return load_dotenv(os.path.join(os.getcwd(), ".env"), override=False)
+
+
+_load_cwd_dotenv()
 
 from aixplain._compat import install as _install_compat  # noqa: E402
 
