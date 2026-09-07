@@ -1310,6 +1310,12 @@ class TestRagResolvesURLContext:
         assert any(_RAG_DOC in record.value for record in upserted)
         assert not any(_RAG_URL in record.value for record in upserted)
 
+        # The user-visible symptom: the worker was asked to answer from the URL
+        # string instead of the document it points at.
+        synthesis_prompt = rlm._worker_call.call_args[0][0]
+        assert _RAG_DOC in synthesis_prompt
+        assert _RAG_URL not in synthesis_prompt
+
     def test_non_url_context_is_not_fetched(self):
         """A plain-string context still chunks to itself with no HTTP call."""
         rlm = _make_rag_v1_rlm()
