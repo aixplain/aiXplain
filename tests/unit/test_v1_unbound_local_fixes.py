@@ -20,6 +20,7 @@ The non-2xx + non-JSON path already worked (the sentinel flows into
 guards it against regression.
 """
 
+import json
 import threading
 from unittest.mock import Mock, patch
 
@@ -112,21 +113,34 @@ class TestCallRunEndpointNonJsonBody:
         assert result == {"status": "IN_PROGRESS", "url": "https://example.com/poll/1", "completed": False}
 
 
+class _NonCopyableDict(dict):
+    """JSON-serializable, but ``copy.deepcopy`` refuses it.
+
+    Separates the two failure modes ``threading.Lock`` conflates: a lock breaks
+    *both* ``deepcopy`` and ``json.dumps``, so it can only show that the fallback
+    does not crash. This one breaks ``deepcopy`` alone, so the fallback has to
+    run to completion and produce the real payload.
+    """
+
+    def __deepcopy__(self, memo):
+        raise TypeError("cannot deepcopy")
+
+
 class TestBuildPayloadDeepcopyFailure:
     """``copy.deepcopy`` raising must not take out the serialization fallback."""
 
-    def test_non_copyable_parameter_still_builds_payload(self):
-        """A non-copyable parameter must not raise UnboundLocalError."""
-        try:
-            payload = build_payload("some data", {"lock": threading.Lock()})
-        except UnboundLocalError:  # pragma: no cover - the bug under test
-            pytest.fail("build_payload raised UnboundLocalError from its fallback")
-        except TypeError:
-            # json.dumps legitimately cannot serialize a lock; that error is the
-            # caller's to see. Only UnboundLocalError is the defect.
-            pass
-        else:
-            assert isinstance(payload, str)
+    def test_deepcopy_failure_still_produces_the_full_payload(self):
+        """The fallback must emit the real payload, not merely avoid a crash."""
+        payload = build_payload("some data", {"cfg": _NonCopyableDict({"a": 1})})
+        # ``data`` is folded into ``parameters`` upstream when it is not JSON, so
+        # the fallback's ``_serialize_value(parametersTemp)`` must carry it too --
+        # aliasing ``parametersTemp`` to ``parameters`` keeps that true.
+        assert json.loads(payload) == {"cfg": {"a": 1}, "data": "some data"}
+
+    def test_wholly_unserializable_parameter_raises_the_honest_error(self):
+        """A lock cannot be serialized; the caller must see that, not UnboundLocalError."""
+        with pytest.raises(TypeError):
+            build_payload("some data", {"lock": threading.Lock()})
 
 
 class TestPipelinePollNonJsonBody:
