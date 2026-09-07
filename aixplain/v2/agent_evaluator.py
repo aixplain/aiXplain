@@ -1306,7 +1306,9 @@ class AgentEvaluationRun:
         except Exception:
             pass
         try:
-            page = model_cls.search(path=path, page_size=50)
+            # Best-effort discovery: one unparseable row in the page must not
+            # cost us the default insight model, so opt out of strict listing.
+            page = model_cls.search(path=path, page_size=50, strict=False)
         except Exception:
             return None
         results = list(getattr(page, "results", []) or [])

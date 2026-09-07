@@ -259,6 +259,71 @@ class TestRunWithSessionOverrides:
             agent.run("hi again", session="sess_abc", criteria="be brief")
         existing.save.assert_not_called()
 
+    def test_override_does_not_delete_the_session_budget(self):
+        """A per-run override must not silently drop the session's spend cap.
+
+        The merge used to rebuild ExecutionConfig from a hardcoded field list
+        that omitted ``budget`` and then ``save()`` the loss, so the session ran
+        uncapped from that point on (BUG-1091).
+        """
+        from aixplain.v2.agent import Budget
+
+        ctx = _make_mock_context()
+
+        existing = Mock(spec=Session)
+        existing.id = "sess_abc"
+        existing.context = ctx
+        existing.execution_config = ExecutionConfig(criteria="old", budget=Budget(max_cost=5.0, max_iterations=7))
+        existing.save = Mock()
+        existing.add_message = Mock(return_value=_user_message(request_id="req_budget"))
+
+        ctx.Session = Mock()
+        ctx.Session.get = Mock(return_value=existing)
+        ctx.client.get.return_value = _success_result(session_id="sess_abc", request_id="req_budget")
+
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A")
+        agent._update_saved_state()
+
+        with pytest.warns(UserWarning, match="session 'sess_abc'"):
+            agent.run("hi again", session="sess_abc", criteria="be brief")
+
+        existing.save.assert_called_once()
+        assert existing.execution_config.criteria == "be brief"
+        assert existing.execution_config.budget == Budget(max_cost=5.0, max_iterations=7)
+        assert existing.execution_config.to_api_dict()["executionParams"]["budget"] == {
+            "maxCost": 5.0,
+            "maxIterations": 7,
+        }
+
+    def test_agent_budget_seeds_a_session_without_one(self):
+        """``agent.budget`` applied on the direct run path only; now on both."""
+        from aixplain.v2.agent import Budget
+
+        ctx = _make_mock_context()
+
+        existing = Mock(spec=Session)
+        existing.id = "sess_abc"
+        existing.context = ctx
+        existing.execution_config = None
+        existing.save = Mock()
+        existing.add_message = Mock(return_value=_user_message(request_id="req_seed"))
+
+        ctx.Session = Mock()
+        ctx.Session.get = Mock(return_value=existing)
+        ctx.client.get.return_value = _success_result(session_id="sess_abc", request_id="req_seed")
+
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A")
+        agent.budget = Budget(max_cost=1.0)
+        agent._update_saved_state()
+
+        with pytest.warns(UserWarning, match=r"budget \(from agent\.budget\)"):
+            agent.run("hi again", session="sess_abc")
+
+        existing.save.assert_called_once()
+        assert existing.execution_config.budget == Budget(max_cost=1.0)
+
 
 # ---------------------------------------------------------------------------
 # 4. Attachments / files / audio-as-prompt
