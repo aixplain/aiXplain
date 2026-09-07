@@ -23,7 +23,7 @@ from aixplain.v2.upload_utils import FileUploader, RequestManager
 def _ok_response():
     response = Mock()
     response.status_code = 200
-    response.json.return_value = {"key": "uploads/x.csv", "uploadUrl": "https://s3.example.com/x"}
+    response.json.return_value = {"key": "uploads/x.csv", "uploadUrl": "https://bucket.s3.amazonaws.com/x"}
     return response
 
 

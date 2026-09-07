@@ -17,10 +17,19 @@ import os
 import logging
 import sentry_sdk
 
+from aixplain.utils.url_safety import validate_config_url
+
 logger = logging.getLogger(__name__)
 
 BACKEND_URL = os.getenv("BACKEND_URL", "https://platform-api.aixplain.com")
 MODELS_RUN_URL = os.getenv("MODELS_RUN_URL", "https://models.aixplain.com/api/v1/execute")
+
+# Both are read straight from the environment, so any ``.env`` on the machine can
+# choose where the team API key is sent. Fail closed on a non-https endpoint and
+# warn once on a non-aiXplain host, before ``ENV`` or Sentry is derived from a
+# value that may not be ours (BUG-939).
+validate_config_url(BACKEND_URL, "BACKEND_URL")
+validate_config_url(MODELS_RUN_URL, "MODELS_RUN_URL")
 # GET THE API KEY FROM CMD
 TEAM_API_KEY = os.getenv("TEAM_API_KEY", "")
 AIXPLAIN_API_KEY = os.getenv("AIXPLAIN_API_KEY", "")

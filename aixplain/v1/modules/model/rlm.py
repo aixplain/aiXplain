@@ -890,8 +890,9 @@ def llm_query(prompt):
         """
         if not (isinstance(context, str) and (context.startswith("http://") or context.startswith("https://"))):
             return context
-        import requests
-        r = requests.get(context, timeout=60)
+        from aixplain.utils.url_safety import safe_get
+
+        r = safe_get(context, timeout=60)
         r.raise_for_status()
         ct = r.headers.get("Content-Type", "")
         url_path = context.split("?")[0].lower()

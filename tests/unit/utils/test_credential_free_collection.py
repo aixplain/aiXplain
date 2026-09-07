@@ -86,3 +86,78 @@ def test_dotenv_neutralisation_actually_works(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "''", f"a credential leaked into the subprocess: {result.stdout!r}"
+
+
+def test_cli_help_without_api_key(tmp_path):
+    """`aixplain --help` must render usage and exit 0 with no credential set.
+
+    The eight CLI commands each declare `--api-key`, which can only be the sole
+    source of the key if the process survives long enough for click to parse
+    argv. The import-time `validate_api_keys()` call killed it first (BUG-946),
+    so a first-run user got a traceback instead of usage text.
+    """
+    (tmp_path / "sitecustomize.py").write_text(SITECUSTOMIZE)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from aixplain.cli_groups import cli; cli(['--help'])",
+        ],
+        cwd=str(REPO_ROOT),
+        env=_credential_free_env(tmp_path),
+        capture_output=True,
+        text=True,
+    )
+
+    output = result.stdout + result.stderr
+    assert "has been set" not in output, f"--help still requires a credential:\n{output[-4000:]}"
+    assert "Usage:" in result.stdout, f"no usage text:\n{output[-4000:]}"
+    assert result.returncode == 0, f"exit code {result.returncode}:\n{output[-4000:]}"
+
+
+def test_cli_api_key_flag_is_the_sole_key_source(tmp_path):
+    """`--api-key K` must authenticate the request with no key in the environment.
+
+    All eight CLI commands declare the flag, but the import-time
+    `validate_api_keys()` call killed the process before click ever parsed argv,
+    so the flag could never be the only source of the credential (BUG-946). This
+    drives one command end to end and asserts the key reaches the outgoing
+    `x-api-key` header.
+    """
+    (tmp_path / "sitecustomize.py").write_text(SITECUSTOMIZE)
+
+    child = """
+from unittest.mock import patch, Mock
+from click.testing import CliRunner
+from aixplain.cli_groups import cli
+
+captured = {}
+
+
+def fake_request(method, url, **kwargs):
+    captured["headers"] = kwargs.get("headers")
+    response = Mock()
+    response.text = "[]"
+    return response
+
+
+with patch("aixplain.factories.model_factory._request_with_retry", fake_request):
+    result = CliRunner().invoke(cli, ["list", "hosts", "--api-key", "cli-only-key"])
+
+print("EXIT", result.exit_code)
+print("EXC", repr(result.exception))
+print("KEY", (captured.get("headers") or {}).get("x-api-key"))
+"""
+
+    result = subprocess.run(
+        [sys.executable, "-c", child],
+        cwd=str(REPO_ROOT),
+        env=_credential_free_env(tmp_path),
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr[-4000:]
+    assert "EXIT 0" in result.stdout, f"CLI command failed:\n{result.stdout}\n{result.stderr[-2000:]}"
+    assert "KEY cli-only-key" in result.stdout, f"--api-key never reached the request:\n{result.stdout}"

@@ -4,6 +4,8 @@ import os
 import sys
 from typing import Optional, TypeVar
 
+from aixplain.utils.url_safety import validate_config_url
+
 from .client import AixplainClient
 from .model import Model
 from .agent import Agent
@@ -130,6 +132,14 @@ class Aixplain:
         self.backend_url = backend_url or os.getenv("BACKEND_URL") or self.BACKEND_URL
         self.pipeline_url = pipeline_url or os.getenv("PIPELINES_RUN_URL") or self.PIPELINES_RUN_URL
         self.model_url = model_url or os.getenv("MODELS_RUN_URL") or self.MODELS_RUN_URL
+
+        # All three become trusted origins for the API key below, and all three
+        # default to an environment variable, so each has to satisfy the config
+        # URL policy first (BUG-939). ``PIPELINES_RUN_URL`` in particular is read
+        # nowhere else, so this is its only check.
+        validate_config_url(self.backend_url, "BACKEND_URL")
+        validate_config_url(self.pipeline_url, "PIPELINES_RUN_URL")
+        validate_config_url(self.model_url, "MODELS_RUN_URL")
 
         self.init_client()
         self.init_resources()
