@@ -746,41 +746,37 @@ class Model(
         else:
             super().__setattr__(name, value)
 
-    # Orchestration params the SDK consumes itself, plus every per-run header
-    # kwarg. The header half is derived from RunnableResourceMixin._RUN_HEADER_KEYS
-    # rather than re-listed, so a new header can't be added to the wire while
-    # still leaking into the v1/URL payloads (a merge once silently dropped such a
-    # duplicated entry — see the _RUN_HEADER_KEYS note).
-    _SDK_ONLY_PARAMS = frozenset(
-        {
-            "timeout",
-            "wait_time",
-            "show_progress",
-            "stream",
-            "run_retries",
-            "run_retry_wait",
-        }
-    ) | {key for key, _ in RunnableResourceMixin._RUN_HEADER_KEYS}
-
     # ``identifier`` is a per-run caller identity emitted as the ``x-user-id``
     # header (RunnableResourceMixin._headers_for_run), never a model/action
-    # input. Exclude it from the v2 payload builder here (and from the v1/URL
-    # builders via _SDK_ONLY_PARAMS above) so it cannot leak into model inputs
-    # or supplier-facing logs. Agent keeps it in the body by NOT overriding this.
+    # input. Exclude it from the payload builders here so it cannot leak into
+    # model inputs or supplier-facing logs. Agent keeps it in the body by NOT
+    # overriding this.
     #
     # ``session_id`` (→ ``x-session-id``) and ``agent_name`` (→ ``x-agent``) are
     # the same kind of per-run metadata but header-only for every runnable, so the
-    # base _RUN_CONTROL_KEYS already excludes them; _SDK_ONLY_PARAMS above covers
-    # them again for the v1/URL builder paths.
-    _RUN_CONTROL_KEYS = RunnableResourceMixin._RUN_CONTROL_KEYS | {"identifier"}
+    # base _RUN_CONTROL_KEYS already excludes them.
+    #
+    # ``stream`` selects the streaming *path* (see ``run``) and is expressed on
+    # the wire as ``options.stream`` by ``run_stream`` — never as a top-level
+    # body field.
+    _RUN_CONTROL_KEYS = RunnableResourceMixin._RUN_CONTROL_KEYS | {"identifier", "stream"}
+
+    # The v1/URL builder path (``_run_async_v1``) and ``build_run_payload`` filter
+    # with the *same* set rather than a second hand-maintained literal: a merge
+    # once dropped a duplicated entry and silently put ``session_id`` back on the
+    # wire (BUG-1091). Kept as a distinct name because it is referenced by
+    # existing tests and by ``build_run_payload``'s docstring.
+    _SDK_ONLY_PARAMS = _RUN_CONTROL_KEYS
 
     def build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> dict:
         """Build the JSON payload for a model execution request.
 
         Strips SDK-only orchestration params (``timeout``, ``wait_time``,
-        ``show_progress``, ``stream``, ``run_retries``, ``run_retry_wait``) and
-        the header-only run metadata (``identifier``, ``session_id``,
-        ``agent_name``) so they are never forwarded to the backend API.
+        ``show_progress``, ``progress_*``, ``stream``, ``run_retries``,
+        ``run_retry_wait``), the request-dispatch params (``api_key``,
+        ``resource_path``) and the header-only run metadata (``identifier``,
+        ``session_id``, ``agent_name``) so they are never forwarded to the
+        backend API.
         """
         filtered = {k: v for k, v in kwargs.items() if k not in self._SDK_ONLY_PARAMS}
         return super().build_run_payload(**filtered)
@@ -828,13 +824,24 @@ class Model(
         # Use v2 endpoint - it uses "results" as the items key (default)
         return super().search(**kwargs)
 
-    def run(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
+    def run(self, **kwargs: Unpack[ModelRunParams]) -> Union[ModelResult, "ModelResponseStreamer"]:
         """Run the model with dynamic parameter validation and default handling.
 
         This method routes the execution based on the model's connection type:
         - Sync models: Uses V2 endpoint directly (returns result immediately)
         - Async models: Uses V2 endpoint and polls until completion
+
+        Returns:
+            ModelResult, or a :class:`ModelResponseStreamer` when ``stream=True``
+            — the flag selects the streaming path rather than being silently
+            dropped (BUG-1091).
         """
+        # ``stream`` selects the path, so it is consumed here rather than
+        # forwarded: run_stream sets ``options.stream`` on the wire itself and
+        # runs its own merge/validation, so passing it on would be redundant.
+        if kwargs.pop("stream", None):
+            return self.run_stream(**kwargs)
+
         # Merge dynamic attributes with provided kwargs
         effective_params = self._merge_with_dynamic_attrs(**kwargs)
 
@@ -929,9 +936,16 @@ class Model(
         v1_base_url = self.context.model_url.replace("/api/v2/", "/api/v1/")
         url = f"{v1_base_url}/{self.id}"
 
+        # Same identity headers as the sync path: this fallback is still a run,
+        # so its caller must stay attributable downstream (BUG-1091).
+        request_kwargs: dict = {"data": json_payload}
+        headers = self._headers_for_run(kwargs)
+        if headers:
+            request_kwargs["headers"] = headers
+
         # Use the v2 client's raw request method (raises APIError on non-2xx)
         try:
-            r = self.context.client.request_raw("post", url, data=json_payload)
+            r = self.context.client.request_raw("post", url, **request_kwargs)
             resp = r.json()
         except Exception as e:
             logger.error(f"Error in V1 async request: {e}")
@@ -1017,7 +1031,12 @@ class Model(
 
         self._ensure_valid_state()
 
-        payload = self.build_run_payload(**effective_params)
+        # Same body filter and identity headers as the sync path: a stream is
+        # still a run, so ``api_key`` must not reach the model input and the
+        # caller must stay attributable downstream (BUG-1091).
+        payload_input = self._payload_kwargs_for_run(effective_params)
+
+        payload = self.build_run_payload(**payload_input)
 
         if "options" not in payload:
             payload["options"] = {}
@@ -1025,11 +1044,15 @@ class Model(
         if payload.get("tools") is not None:
             payload["options"]["raw"] = True
 
-        run_url = self.build_run_url(**effective_params)
+        run_url = self.build_run_url(**payload_input)
 
         logger.debug(f"Model Run Stream: Start service for {run_url}")
 
-        response = self.context.client.request_stream("POST", run_url, json=payload)
+        request_kwargs: dict = {"json": payload}
+        headers = self._headers_for_run(effective_params)
+        if headers:
+            request_kwargs["headers"] = headers
+        response = self.context.client.request_stream("POST", run_url, **request_kwargs)
 
         return ModelResponseStreamer(response)
 

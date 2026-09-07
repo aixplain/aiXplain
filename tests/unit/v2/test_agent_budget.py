@@ -293,18 +293,14 @@ class TestDeprecatedRunTimeMaxIterations:
     def test_folds_into_execution_budget(self):
         agent = _create_agent()
         with pytest.warns(DeprecationWarning):
-            payload = agent.build_run_payload(
-                query="q", execution_params={"max_iterations": 7}
-            )
+            payload = agent.build_run_payload(query="q", execution_params={"max_iterations": 7})
         assert payload["executionParams"]["budget"] == {"maxIterations": 7}
         assert "maxIterations" not in payload["executionParams"]
 
     def test_camel_case_exec_param_also_folds(self):
         agent = _create_agent()
         with pytest.warns(DeprecationWarning):
-            payload = agent.build_run_payload(
-                query="q", execution_params={"maxIterations": 7}
-            )
+            payload = agent.build_run_payload(query="q", execution_params={"maxIterations": 7})
         assert payload["executionParams"]["budget"] == {"maxIterations": 7}
         assert "maxIterations" not in payload["executionParams"]
 
@@ -411,9 +407,7 @@ class TestFromDictLegacyMaxIterations:
                 "id": "a",
                 "name": "t",
                 "maxIterations": 3,
-                "tasks": [
-                    {"name": "task1", "description": "desc", "expectedOutput": "o"}
-                ],
+                "tasks": [{"name": "task1", "description": "desc", "expectedOutput": "o"}],
             }
         )
         assert agent.budget.max_iterations == 3
@@ -479,3 +473,183 @@ class TestRunPathWarningStacklevel:
         conflict = [w for w in caught if w.category is UserWarning and "precedence" in str(w.message)]
         assert conflict, "expected a run-path conflict UserWarning"
         assert conflict[0].filename == __file__, conflict[0].filename
+
+
+class TestSessionBudgetPreservation:
+    """A per-run override must never delete a session's persisted spend cap.
+
+    ``_apply_run_overrides_to_session`` used to rebuild ``ExecutionConfig`` from a
+    hardcoded five-field ``base`` dict that omitted ``budget``, then ``save()``
+    the loss — so the session (and every later message in it) ran uncapped
+    (BUG-1091). The merge now rebuilds from the stored config object, and the
+    agent's own budget may only *fill* caps the session leaves unset.
+    """
+
+    @staticmethod
+    def _session(execution_config=None):
+        from aixplain.v2.session import Session
+
+        session = MagicMock(spec=Session)
+        session.id = "sess_abc"
+        session.execution_config = execution_config
+        session.save = MagicMock()
+        return session
+
+    @staticmethod
+    def _apply(agent, session, **kwargs):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            agent._apply_run_overrides_to_session(session, kwargs)
+
+    def test_override_preserves_session_budget(self):
+        """Row 1: session cap, no agent cap → the cap survives the override."""
+        from aixplain.v2.session import ExecutionConfig
+
+        agent = _create_agent()
+        session = self._session(ExecutionConfig(criteria="old", budget=Budget(max_cost=5.0, max_iterations=7)))
+
+        self._apply(agent, session, criteria="be terse")
+
+        assert session.execution_config.criteria == "be terse"
+        assert session.execution_config.budget == Budget(max_cost=5.0, max_iterations=7)
+        assert session.execution_config.to_api_dict()["executionParams"]["budget"] == {
+            "maxCost": 5.0,
+            "maxIterations": 7,
+        }
+        assert session.save.call_count == 1
+
+    def test_preserves_every_other_execution_config_field(self):
+        """The same trap would reopen for any other field, so pin them all."""
+        from aixplain.v2.session import ExecutionConfig
+
+        agent = _create_agent()
+        stored = ExecutionConfig(
+            execution_params={"maxTokens": 64},
+            criteria="old",
+            evolve="{}",
+            identifier="corr-1",
+            run_response_generation=True,
+            budget=Budget(max_cost=5.0),
+        )
+        session = self._session(stored)
+
+        self._apply(agent, session, criteria="be terse")
+
+        merged = session.execution_config
+        assert merged.execution_params == {"maxTokens": 64}
+        assert merged.evolve == "{}"
+        assert merged.identifier == "corr-1"
+        assert merged.run_response_generation is True
+        assert merged.budget == Budget(max_cost=5.0)
+
+    def test_session_cap_wins_over_agent_cap(self):
+        """Row 2: a persisted session cap is never widened or replaced."""
+        from aixplain.v2.session import ExecutionConfig
+
+        agent = _create_agent()
+        agent.budget = Budget(max_cost=1.0)
+        session = self._session(ExecutionConfig(criteria="old", budget=Budget(max_cost=5.0)))
+
+        self._apply(agent, session, criteria="be terse")
+
+        assert session.execution_config.budget == Budget(max_cost=5.0)
+
+    def test_agent_cap_fills_unset_session_slot(self):
+        """Row 3: the agent's budget only fills caps the session leaves unset."""
+        from aixplain.v2.session import ExecutionConfig
+
+        agent = _create_agent()
+        agent.budget = Budget(max_iterations=7)
+        session = self._session(ExecutionConfig(budget=Budget(max_cost=5.0)))
+
+        self._apply(agent, session)
+
+        assert session.execution_config.budget == Budget(max_cost=5.0, max_iterations=7)
+        assert session.save.call_count == 1
+
+    def test_agent_budget_applies_when_session_has_none(self):
+        """Row 4: ``agent.budget`` was applied on the direct run path only."""
+        agent = _create_agent()
+        agent.budget = Budget(max_cost=1.0)
+        session = self._session(None)
+
+        self._apply(agent, session, criteria="be terse")
+
+        assert session.execution_config.budget == Budget(max_cost=1.0)
+        assert session.execution_config.criteria == "be terse"
+        assert session.save.call_count == 1
+
+    def test_empty_agent_budget_contributes_nothing(self):
+        """Row 5: the default empty ``Budget()`` must stay inert."""
+        agent = _create_agent()
+        session = self._session(None)
+
+        self._apply(agent, session, criteria="be terse")
+
+        assert session.execution_config.budget is None
+
+    def test_no_overrides_and_no_new_cap_does_not_save(self):
+        """Row 6: a plain session run must still perform no write."""
+        from aixplain.v2.session import ExecutionConfig
+
+        agent = _create_agent()
+        session = self._session(ExecutionConfig(criteria="be brief", budget=Budget(max_cost=5.0)))
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            agent._apply_run_overrides_to_session(session, {})
+
+        session.save.assert_not_called()
+
+    def test_no_overrides_and_no_config_does_not_save(self):
+        agent = _create_agent()
+        session = self._session(None)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            agent._apply_run_overrides_to_session(session, {})
+
+        session.save.assert_not_called()
+        assert session.execution_config is None
+
+    def test_warning_names_the_seeded_budget(self):
+        agent = _create_agent()
+        agent.budget = Budget(max_cost=1.0)
+        session = self._session(None)
+
+        with pytest.warns(UserWarning, match=r"budget \(from agent\.budget\)"):
+            agent._apply_run_overrides_to_session(session, {"criteria": "be terse"})
+
+    def test_backend_hydrated_session_cap_still_wins(self):
+        """The session's cap must win even when it arrives in the wire shape.
+
+        ``to_api_dict`` nests the cap inside ``executionParams.budget``. If the
+        decoder leaves it there, ``execution_config.budget`` reads as ``None``,
+        the agent's budget looks like it is filling an unset slot, and the next
+        ``to_api_dict`` overwrites the session's persisted cap wholesale
+        (BUG-1091).
+        """
+        from aixplain.v2.session import ExecutionConfig
+
+        agent = _create_agent()
+        agent.budget = Budget(max_cost=0.01, max_iterations=3)
+        wire = ExecutionConfig(execution_params={"maxTokens": 64}, budget=Budget(max_cost=5.0)).to_api_dict()
+        session = self._session(ExecutionConfig.from_dict(wire))
+
+        self._apply(agent, session, criteria="be terse")
+
+        # Session's max_cost survives; the agent only fills the unset slot.
+        assert session.execution_config.to_api_dict()["executionParams"]["budget"] == {
+            "maxCost": 5.0,
+            "maxIterations": 3,
+        }
+
+    def test_accepts_a_dict_execution_config(self):
+        """Sessions hydrated from the backend may carry a raw dict."""
+        agent = _create_agent()
+        session = self._session({"criteria": "old", "budget": {"maxCost": 5.0}})
+
+        self._apply(agent, session, criteria="be terse")
+
+        assert session.execution_config.criteria == "be terse"
+        assert session.execution_config.budget == Budget(max_cost=5.0)
