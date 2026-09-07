@@ -240,6 +240,10 @@ _ROLES: List[_RoleSpec] = [
     _RoleSpec("response_generator", "responder", "responder"),
 ]
 
+# Attributes that hold a role ref, for the explicit-assignment tracking in
+# ``Agent.__setattr__``.
+_ROLE_ATTRS = frozenset(spec.attr for spec in _ROLES)
+
 
 class AgentRunParams(BaseRunParams):
     """Parameters for running an agent.
@@ -877,7 +881,7 @@ class Agent(
             self.skills = [self._skill_reference_id(skill) or skill for skill in self._original_skills]
 
     def __setattr__(self, name: str, value: Any) -> None:
-        """Keep ``self.budget`` a (never-None) ``Budget`` instance.
+        """Keep ``self.budget`` a (never-None) ``Budget`` instance, and note role assignments.
 
         Assigning ``agent.budget`` a dict / ``Budget`` / ``None`` is coerced into
         a ``Budget`` so attribute access (``agent.budget.max_cost = ...``) always
@@ -885,11 +889,27 @@ class Agent(
         ``Model.__setattr__`` coerces bulk ``inputs`` assignment). This runs for
         the generated ``__init__`` assignment too, so the field is a ``Budget``
         by the time ``__post_init__`` executes.
+
+        A role ref assigned *after* hydration is the caller's intent and must
+        always be sent on save, even when it happens to equal the class default
+        (BUG-1093). Assignments made by the generated ``__init__`` are not
+        recorded — ``_explicit_roles`` does not exist yet at that point — but
+        such an object also has no recorded server fields, so suppression is off
+        for it anyway. Hydration resets the set (see ``_record_server_fields``).
         """
         if name == "budget":
             coerced = self._coerce_budget(value)
             value = coerced if coerced is not None else Budget()
+        if name in _ROLE_ATTRS:
+            explicit = getattr(self, "_explicit_roles", None)
+            if explicit is not None:
+                explicit.add(name)
         super().__setattr__(name, value)
+
+    def _record_server_fields(self, data: Any) -> None:
+        """Reset explicit-role tracking: post-hydration role values came from the server."""
+        super()._record_server_fields(data)
+        self._explicit_roles = set()
 
     @classmethod
     def _fold_legacy_max_iterations(cls, kvs: Any) -> Any:
@@ -1278,8 +1298,15 @@ class Agent(
             Agent: The saved agent instance
 
         Raises:
+            ValidationError: If the agent has been deleted.
             ValueError: If child components are not saved and save_subcomponents is False
         """
+        # Guard before any child component is saved and before before_save()
+        # flips status DELETED -> ONBOARDED: a deleted agent must not touch the
+        # backend at all (BUG-1093).
+        if self.id or self.is_deleted:
+            self._ensure_valid_state()
+
         save_subcomponents = kwargs.pop("save_subcomponents", False)
 
         # Save all child components recursively if requested
@@ -1916,13 +1943,28 @@ class Agent(
 
         Each entry is ``{id, parameters?: [{name, value}]}`` (matches backend
         ``AgentModelInput``). Driven by the module-level ``_ROLES`` table.
+
+        A role whose value is still the SDK class default is omitted when the
+        response that hydrated this agent did not carry that key and the caller
+        never assigned it: sending it would write an SDK default (e.g.
+        ``DEFAULT_LLM``) over whatever the platform actually has (BUG-1093).
+        Creates are unaffected — a locally built Agent has no recorded server
+        fields, so nothing is suppressed.
         """
+        explicit = getattr(self, "_explicit_roles", None) or frozenset()
         for spec in _ROLES:
             ref = getattr(self, spec.attr, None)
-            if ref is not None:
-                payload[spec.save_key] = self._role_ref_to_save_manifest(ref)
-            else:
+            if ref is None:
                 payload.pop(spec.save_key, None)
+                continue
+            if (
+                spec.attr not in explicit
+                and self._is_at_field_default(spec.attr)
+                and self._server_omitted(spec.save_key)
+            ):
+                payload.pop(spec.save_key, None)
+                continue
+            payload[spec.save_key] = self._role_ref_to_save_manifest(ref)
         for k in self._LEGACY_ROLE_KEYS:
             payload.pop(k, None)
 

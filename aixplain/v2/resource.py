@@ -5,7 +5,7 @@ import logging
 import time
 import reprlib
 from datetime import datetime
-from dataclasses import dataclass, field
+from dataclasses import MISSING, dataclass, field
 from dataclasses_json import dataclass_json, config
 from urllib.parse import quote
 from typing import (
@@ -375,6 +375,45 @@ class BaseResource:
         """
         return getattr(self, "_deleted", False)
 
+    # -- hydration provenance -------------------------------------------------
+    #
+    # Stored as plain instance attributes (like ``_deleted``), never dataclass
+    # fields, so they stay invisible to ``to_dict``/``from_dict``, the
+    # ``__dataclass_fields__`` copy loop in ``_create`` and
+    # ``_get_serializable_state``.
+
+    @property
+    def _server_fields(self) -> Optional[frozenset]:
+        """Wire keys present in the response that last hydrated this instance.
+
+        ``None`` means "never hydrated from a server response" (a locally
+        constructed object): nothing is known to be absent, so no save-payload
+        key may be suppressed. A ``frozenset`` means the instance mirrors a
+        server record, and any key *not* in it was genuinely not reported by
+        the backend.
+        """
+        return getattr(self, "_server_field_names", None)
+
+    @_server_fields.setter
+    def _server_fields(self, value: Optional[frozenset]) -> None:
+        self._server_field_names = value
+
+    def _record_server_fields(self, data: Any) -> None:
+        """Remember which top-level wire keys the hydrating response carried."""
+        self._server_fields = frozenset(data.keys()) if isinstance(data, dict) else None
+
+    def _server_omitted(self, wire_key: str) -> bool:
+        """Return True when this instance came from the server and *wire_key* was absent."""
+        server_fields = self._server_fields
+        return server_fields is not None and wire_key not in server_fields
+
+    def _is_at_field_default(self, attr: str) -> bool:
+        """Return True when *attr* still holds its declared dataclass default."""
+        field_def = self.__dataclass_fields__.get(attr)
+        if field_def is None or field_def.default is MISSING:
+            return False
+        return getattr(self, attr, None) == field_def.default
+
     def _update_saved_state(self) -> None:
         """Update the saved state to match the current state.
 
@@ -428,9 +467,28 @@ class BaseResource:
         result = self.context.client.request("post", f"{resource_path}", json=payload)
         # Flatten assetInfo structure before deserialization
         result = _flatten_asset_info(dict(result)) if isinstance(result, dict) else result
+
+        # Record the server id BEFORE hydrating. The POST already succeeded, so
+        # the resource exists remotely; if from_dict() below fails (an
+        # unmodelled enum value, a new nested shape) the caller must still be
+        # able to reach it. Without this the object is left with id=None and
+        # the obvious reaction — retrying save() — creates a second resource
+        # and orphans the first (BUG-1093).
+        created_id = result.get("id") if isinstance(result, dict) else None
+        if created_id is not None:
+            self.id = created_id
+
         # Update the object from the full response
         if isinstance(self, HasFromDict):
-            updated = self.from_dict(result)
+            try:
+                updated = self.from_dict(result)
+            except Exception as e:
+                raise ResourceError(
+                    f"{type(self).__name__} was created (id={self.id!r}) but its response could not be "
+                    f"deserialized: {e}. The resource exists on the platform — do NOT retry save(), which "
+                    f"would create a duplicate. Re-fetch it with {type(self).__name__}.get({self.id!r}), "
+                    f"or delete it."
+                ) from e
             # Copy each field from the freshly-parsed ``updated`` onto self.
             # A field that is excluded from serialization is normally
             # authoritative locally (we never sent it, the response can't
@@ -439,8 +497,15 @@ class BaseResource:
             for field_name, field_def in self.__dataclass_fields__.items():
                 if _is_excluded_from_serialization(field_def) and not _is_auto_deserialize_only(field_def):
                     continue
-                if hasattr(updated, field_name):
-                    setattr(self, field_name, getattr(updated, field_name))
+                if not hasattr(updated, field_name):
+                    continue
+                value = getattr(updated, field_name)
+                # Never let a response the parser could not map back to "id"
+                # un-record the id we just captured.
+                if field_name == "id" and value is None and created_id is not None:
+                    continue
+                setattr(self, field_name, value)
+            self._record_server_fields(result)
         else:
             # Fallback: just set the ID
             self.id = result["id"]
@@ -469,8 +534,17 @@ class BaseResource:
             BaseResource: The saved resource instance
 
         Raises:
+            ValidationError: If the resource has been deleted.
             Backend validation errors as appropriate
         """
+        # save() is the only mutating path that may legitimately run without an
+        # id (the create branch below), so the state check is conditional. A
+        # deleted resource has id=None *and* _deleted=True, and must never fall
+        # through to _create(): that POSTs a duplicate and rebinds self.id to
+        # the new server id (BUG-1093).
+        if self.id or self.is_deleted:
+            self._ensure_valid_state()
+
         resource_path = kwargs.pop("resource_path", self.RESOURCE_PATH)
 
         # Set attributes from kwargs before saving
@@ -514,6 +588,11 @@ class BaseResource:
         # Reset ID and saved state for new asset
         cloned.id = None
         cloned._saved_state = None
+        # A clone is a brand-new resource: it is not the deleted original (so
+        # save() must not refuse it), and none of its field values came from a
+        # server response for *it*, so save() must send them all (BUG-1093).
+        cloned._deleted = False
+        cloned._server_fields = None
 
         # Set attributes from kwargs
         for key, value in kwargs.items():
@@ -920,6 +999,13 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
                     errors.append(f"item[{index}]: {e}")
                     continue
             setattr(obj, "context", context)
+            # Remember which keys the backend actually reported, so save() can
+            # tell "server said null" from "server never mentioned it". The
+            # fallback branch above accepts any resource-shaped class, so this
+            # stays optional.
+            record_server_fields = getattr(obj, "_record_server_fields", None)
+            if callable(record_server_fields):
+                record_server_fields(item)
             # Set the saved state to match the loaded state
             obj._update_saved_state()
             resources.append(obj)
@@ -1162,6 +1248,12 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         else:
             instance = cls(**obj)  # type: ignore[call-arg]
         setattr(instance, "context", context)
+        # Remember which keys the backend actually reported, so save() can tell
+        # "server said null" from "server never mentioned it". The ``cls(**obj)``
+        # fallback above accepts any resource-shaped class, so this stays optional.
+        record_server_fields = getattr(instance, "_record_server_fields", None)
+        if callable(record_server_fields):
+            record_server_fields(obj)
         # Set the saved state to match the loaded state
         instance._update_saved_state()
         return instance
