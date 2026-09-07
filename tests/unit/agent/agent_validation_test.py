@@ -1,3 +1,11 @@
+"""Argument-validation tests for `AgentFactory.create`.
+
+Moved out of `tests/functional/` by BUG-947: every create here is inside
+`pytest.raises` and the SDK raises while validating its arguments, before any
+HTTP call is made, so this needs neither a credential nor a network -- and used
+to occupy a CI leg running against the production tenant.
+"""
+
 import pytest
 from aixplain.factories import AgentFactory
 

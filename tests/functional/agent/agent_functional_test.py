@@ -64,18 +64,6 @@ def build_tools_from_input_map(run_input_map):
     return tools
 
 
-@pytest.fixture
-def resource_tracker():
-    """Tracks resources created during a test for guaranteed cleanup."""
-    resources = []
-    yield resources
-    for resource in reversed(resources):
-        try:
-            resource.delete()
-        except Exception:
-            pass
-
-
 @pytest.fixture(scope="module")
 def slack_token():
     """Get Slack token for integration tests."""
@@ -618,9 +606,13 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
 def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
     from aixplain.factories.pipeline_factory import PipelineFactory
 
-    for pipeline in PipelineFactory.list(query="Hello Pipeline")["results"]:
-        pipeline.delete()
-    pipeline = PipelineFactory.init("Hello Pipeline")
+    # The fixed name "Hello Pipeline" used to be preceded by a sweep that
+    # deleted *every* pipeline in the tenant matching that query -- the same
+    # name-based delete as the apikey fixture, and on `main` it ran against
+    # production. A unique name per run removes the collision the sweep existed
+    # to resolve, and the tracker deletes the one pipeline this test owns
+    # (BUG-947). The agent tool below references `pipeline.id`, not its name.
+    pipeline = PipelineFactory.init(f"Hello Pipeline {str(uuid4())[:8]}")
     input_node = pipeline.input()
     input_node.label = "TextInput"
     middle_node = pipeline.asset(asset_id="69b7e5f1b2fe44704ab0e7d0")

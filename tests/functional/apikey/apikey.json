@@ -1,5 +1,5 @@
 {
-    "name": "Test API Key",
+    "name": "TEST_API_KEY_FUNCTIONAL_overridden_by_the_test",
     "asset_limits": [
       {
         "model": "69b7e5f1b2fe44704ab0e7d0",

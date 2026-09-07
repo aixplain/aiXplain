@@ -37,30 +37,6 @@ from tests.functional.team_agent.test_utils import (
 )
 
 
-@pytest.fixture
-def resource_tracker():
-    """Tracks resources created during a test for guaranteed cleanup."""
-    resources = []
-    yield resources
-    for resource in reversed(resources):
-        try:
-            resource.delete()
-        except Exception:
-            pass
-
-
-@pytest.fixture
-def resource_tracker():
-    """Tracks resources created during a test for guaranteed cleanup."""
-    resources = []
-    yield resources
-    for resource in reversed(resources):
-        try:
-            resource.delete()
-        except Exception:
-            pass
-
-
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
 def run_input_map(request):
     return request.param
