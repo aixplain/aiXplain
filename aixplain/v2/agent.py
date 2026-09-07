@@ -2228,6 +2228,8 @@ class Agent(
             "id": self.id,
             "executionParams": execution_params,
             "runResponseGeneration": run_response_generation,
+            # Client run metadata: userAgent plus locale/IP/coordinate fields from a
+            # once-per-process ipinfo.io lookup. Disclosed in docs/run-metadata.md.
             "metaData": build_run_metadata(),
         }
 

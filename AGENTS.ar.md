@@ -116,6 +116,7 @@ pre-commit install
 - **الخطاف**: خطافات دورة الحياة `before_save` / `after_save` على الموارد (V2).
 - **الباني**: طرق `build_run_payload()` / `build_save_payload()`.
 - **الاستراتيجية**: مسارات تنفيذ متزامنة، وغير متزامنة، وتدفقية.
+- **بيانات التشغيل**: تحمل حمولات تشغيل الوكلاء كائن `metaData` من `aixplain.utils.user_info_utils.build_run_metadata()` (استعلام `ipinfo.io` واحد مخزَّن مؤقتًا). إذا غيّرت ما يُرسل، فحدّث [docs/run-metadata.ar.md](docs/run-metadata.ar.md) — يفرض ذلك `tests/unit/test_run_metadata_docs.py`.
 
 ---
 
