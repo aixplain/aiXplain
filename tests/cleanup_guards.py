@@ -18,7 +18,7 @@ neither `test_*.py` nor `*_test.py`, so pytest does not collect it.
 
 import logging
 import os
-from typing import Any, Callable, List, NamedTuple
+from typing import Any, Callable, List, NamedTuple, Optional
 
 #: Set to a falsy value to downgrade cleanup failures to warnings. Strict by
 #: default -- the whole point of BUG-947 is that a swallowed teardown made
@@ -269,3 +269,34 @@ def cleanup_failure_message(failures: List[CleanupFailure]) -> str:
         f"target tenant:\n{lines}\n\n"
         f"Set {STRICT_ENV}=0 to downgrade this to a warning."
     )
+
+
+def finish_cleanup(
+    tracker: ResourceTracker, nodeid: str = "", ledger: Optional[List[CleanupFailure]] = None
+) -> List[CleanupFailure]:
+    """Run *tracker*'s cleanup, record what leaked, and raise if strict.
+
+    The whole body of the `resource_tracker` teardown, kept here rather than in
+    `tests/functional/conftest.py` so it is reachable from a unit test. A fixture
+    body can only be exercised by a live pytest session, and this is the part of
+    BUG-947 that must not silently regress: a delete that failed has to reach
+    both the session ledger and the failing test.
+
+    Args:
+        tracker: The tracker to drain.
+        nodeid: The pytest nodeid to attribute failures to.
+        ledger: Where to record failures; defaults to :data:`LEAK_LEDGER`.
+
+    Returns:
+        One :class:`CleanupFailure` per resource that could not be deleted.
+
+    Raises:
+        CleanupError: If anything could not be deleted and :func:`strict_cleanup`
+            is on.
+    """
+    ledger = LEAK_LEDGER if ledger is None else ledger
+    failures = tracker.cleanup(nodeid)
+    ledger.extend(failures)
+    if failures and strict_cleanup():
+        raise CleanupError(cleanup_failure_message(failures))
+    return failures

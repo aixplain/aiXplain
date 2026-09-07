@@ -1,3 +1,15 @@
+"""Functional tests for benchmarks.
+
+BUG-947 asks every functional test that creates a resource to register it with
+the shared `resource_tracker` fixture. These two cannot: neither `Benchmark` nor
+`BenchmarkFactory` exposes a delete, so the benchmarks created below cannot be
+cleaned up through the SDK at all. `benchmark` is deliberately not a CI leg
+either (see the matrix comment in .github/workflows/main.yaml), so this leaks
+only when the file is run by hand.
+`tests/unit/test_functional_hygiene.py::test_benchmark_cleanup_is_still_unimplementable`
+fails the day a delete lands, so this stops being true silently.
+"""
+
 import uuid
 import pandas as pd
 import json

@@ -13,12 +13,14 @@ import logging
 import pytest
 
 from tests.cleanup_guards import (
+    LEAK_LEDGER,
     STRICT_ENV,
     CleanupError,
     CleanupFailure,
     ResourceTracker,
     cleanup_failure_message,
     describe,
+    finish_cleanup,
     is_already_gone,
     strict_cleanup,
 )
@@ -371,3 +373,71 @@ def test_cleanup_failure_message_names_every_orphan_and_the_escape_hatch():
 def test_cleanup_error_is_an_assertion_error():
     """So a strict teardown reads as a test failure rather than a suite error."""
     assert issubclass(CleanupError, AssertionError)
+
+
+# ---------------------------------------------------------------------------
+# finish_cleanup: the whole `resource_tracker` teardown
+# ---------------------------------------------------------------------------
+
+
+def test_finish_cleanup_deletes_and_reports_nothing_when_everything_goes():
+    deleted = []
+    tracker = ResourceTracker([FakeResource("agent", deleted)])
+    ledger = []
+
+    assert finish_cleanup(tracker, "nodeid", ledger=ledger) == []
+    assert deleted == ["agent"]
+    assert ledger == []
+
+
+def test_finish_cleanup_raises_and_records_when_a_delete_fails(monkeypatch):
+    """Strict by default: the leak fails the test *and* reaches the ledger."""
+    monkeypatch.delenv(STRICT_ENV, raising=False)
+    tracker = ResourceTracker([FakeResource("agent", [], error=RuntimeError("nope"))])
+    ledger = []
+
+    with pytest.raises(CleanupError) as excinfo:
+        finish_cleanup(tracker, "tests/functional/x.py::test_y", ledger=ledger)
+
+    assert "FakeResource name='agent'" in str(excinfo.value)
+    assert [failure.nodeid for failure in ledger] == ["tests/functional/x.py::test_y"]
+
+
+def test_finish_cleanup_records_without_raising_when_not_strict(monkeypatch):
+    """The escape hatch must still leave the orphan visible in the summary."""
+    monkeypatch.setenv(STRICT_ENV, "0")
+    tracker = ResourceTracker([FakeResource("agent", [], error=RuntimeError("nope"))])
+    ledger = []
+
+    failures = finish_cleanup(tracker, "nodeid", ledger=ledger)
+
+    assert len(failures) == 1
+    assert ledger == failures
+
+
+def test_finish_cleanup_attempts_every_resource_before_raising(monkeypatch):
+    """A failure must not abandon the resources the tracker had not reached."""
+    monkeypatch.delenv(STRICT_ENV, raising=False)
+    deleted = []
+    tracker = ResourceTracker(
+        [
+            FakeResource("first", deleted),
+            FakeResource("second", deleted, error=RuntimeError("nope")),
+        ]
+    )
+
+    with pytest.raises(CleanupError):
+        finish_cleanup(tracker, "nodeid", ledger=[])
+
+    assert deleted == ["second", "first"]
+
+
+def test_finish_cleanup_defaults_to_the_session_ledger(monkeypatch):
+    monkeypatch.setenv(STRICT_ENV, "0")
+    LEAK_LEDGER.clear()
+    tracker = ResourceTracker([FakeResource("agent", [], error=RuntimeError("nope"))])
+    try:
+        finish_cleanup(tracker, "nodeid")
+        assert [failure.label for failure in LEAK_LEDGER] == ["FakeResource name='agent'"]
+    finally:
+        LEAK_LEDGER.clear()

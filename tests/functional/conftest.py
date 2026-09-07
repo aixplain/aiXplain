@@ -12,13 +12,7 @@ backend; this module only wires it into pytest.
 
 import pytest
 
-from tests.cleanup_guards import (
-    LEAK_LEDGER,
-    CleanupError,
-    ResourceTracker,
-    cleanup_failure_message,
-    strict_cleanup,
-)
+from tests.cleanup_guards import ResourceTracker, finish_cleanup
 
 
 @pytest.fixture
@@ -41,7 +35,4 @@ def resource_tracker(request):
     """
     tracker = ResourceTracker()
     yield tracker
-    failures = tracker.cleanup(request.node.nodeid)
-    LEAK_LEDGER.extend(failures)
-    if failures and strict_cleanup():
-        raise CleanupError(cleanup_failure_message(failures))
+    finish_cleanup(tracker, request.node.nodeid)

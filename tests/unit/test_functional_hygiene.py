@@ -55,9 +55,13 @@ _LISTING_METHODS = ("list", "paginate")
 
 #: Files that still end a cleanup `except` with a bare `pass`, and why they are
 #: not fixed here. BUG-947's file list is apikey, file_asset, data_asset,
-#: benchmark, sql_tool and test_rlm plus the four `resource_tracker` copies; all
-#: of those are fixed, and every one of these files is a `v2` or `agent` module
-#: outside it. Declared rather than silently tolerated, following PARKED_TARGETS
+#: benchmark, sql_tool and test_rlm plus the four `resource_tracker` copies;
+#: apikey, file_asset and data_asset are fixed, sql_tool and test_rlm create
+#: nothing on a backend to leak (local SQLite files, already removed in a
+#: `finally`, and an in-process RLM handle), benchmark is covered by
+#: BENCHMARK_UNDELETABLE below, and every one of these files is a `v2` or
+#: `agent` module outside that list. Declared rather than silently tolerated,
+#: following PARKED_TARGETS
 #: in test_ci_matrix_coverage.py: adopting the shared `resource_tracker` fixture
 #: is a one-line change per test, so each entry is a small, separately reviewable
 #: follow-up rather than 39 unrelated edits bolted onto the production-mutation
@@ -126,6 +130,37 @@ def test_swallowed_cleanup_backlog_is_not_stale(file):
     assert file in offenders, (
         f"{file} no longer swallows a cleanup failure; drop its SWALLOWED_CLEANUP_BACKLOG entry so "
         "the guard starts holding it to the rule."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Benchmark: on BUG-947's list, but there is nothing to register
+# ---------------------------------------------------------------------------
+
+#: BUG-947 asks for `resource_tracker` in `tests/functional/benchmark/`, and
+#: `benchmark_functional_test.py` does create real benchmarks with no cleanup.
+#: It cannot register them: neither `Benchmark` nor `BenchmarkFactory` exposes a
+#: delete, so there is no call for a tracker entry to make, and adding one to the
+#: SDK is out of scope for a test-hygiene fix on an unmaintained `v1` surface.
+#: `benchmark` is also not a CI leg (see the matrix comment in
+#: .github/workflows/main.yaml), so it leaks only when run by hand. The guard
+#: below is what stops that reasoning from going stale: the day a delete lands,
+#: this test fails and names the file to fix.
+BENCHMARK_CREATING_TEST = "tests/functional/benchmark/benchmark_functional_test.py"
+
+
+def test_benchmark_cleanup_is_still_unimplementable():
+    """When Benchmark gains a delete, register the benchmark tests with the tracker."""
+    from aixplain.factories import BenchmarkFactory
+    from aixplain.modules.benchmark import Benchmark
+
+    deletable = [
+        f"{owner.__module__}.{owner.__name__}" for owner in (Benchmark, BenchmarkFactory) if hasattr(owner, "delete")
+    ]
+    assert not deletable, (
+        f"{deletable} now exposes a delete, so {BENCHMARK_CREATING_TEST} can finally clean up the "
+        "benchmarks it creates. Register them with the shared `resource_tracker` fixture and drop "
+        "this guard (BUG-947)."
     )
 
 

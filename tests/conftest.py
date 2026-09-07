@@ -381,6 +381,11 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
 def pytest_terminal_summary(terminalreporter, exitstatus: int, config: pytest.Config):
     """List every resource the functional suite failed to delete (BUG-947).
 
+    Best-effort under pytest-xdist: the ledger is process-local, so a `-n`
+    run's failures stay in the workers and this prints nothing. The strict
+    teardown still fails each leaking test, which is the signal that matters;
+    CI runs the functional legs without `-n`.
+
     Args:
         terminalreporter: pytest's terminal reporter.
         exitstatus: The exit status pytest is about to report.
