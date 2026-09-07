@@ -350,6 +350,30 @@ Beyond the factories, three more legacy prefixes redirect into v1:
 | `from aixplain.modules import Agent, Model, ...` | `aix.Agent`, `aix.Model`, … — v2 resources replace the v1 domain objects |
 | `from aixplain.decorators import ...`, `aixplain.base`, `aixplain.processes` | Internal helpers with no public v2 counterpart |
 
+## v2 behavior notes
+
+### `search()` is strict about records it cannot parse
+
+`search()` (and the `list()` wrappers built on it) raises `ResourceError` if the
+API returns a record the SDK cannot deserialize, matching the long-standing
+contract of `get()`. Previously such records were logged and dropped while
+`Page.total` still counted them, so `len(page.results) < page.total` was a
+normal state and bulk loops skipped rows with no error.
+
+If you prefer to skip the bad records, opt in per call:
+
+```python
+page = aix.Model.search(strict=False)
+
+page.total    # never counts the records that were skipped
+page.skipped  # how many were skipped on this page
+```
+
+`strict=False` is a client-side option and is never sent to the backend. A
+resource class whose records are known to be heterogeneous can set
+`PAGINATE_STRICT = False` to make lenient listing its default; a per-call
+`strict=` always wins.
+
 ## Getting help
 
 - Open an issue at <https://github.com/aixplain/aiXplain/issues> — especially if a gap above blocks you; that feedback shapes the removal timeline.

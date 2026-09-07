@@ -196,12 +196,14 @@ class StreamChunk:
     """A chunk of streamed response data.
 
     Attributes:
-        status: The current status of the streaming operation (IN_PROGRESS or SUCCESS)
+        status: The current status of the streaming operation (IN_PROGRESS,
+            SUCCESS, or FAILED when the stream reported an error)
         data: The content/token of this chunk
         reasoning_content: Reasoning-model chain-of-thought text delta, when provided
         tool_calls: Tool call deltas when stream uses OpenAI-style chunk format
         usage: Usage payload when provided in a stream chunk
         finish_reason: Completion reason for the current choice, when provided
+        error_message: The error reported by the stream, when status is FAILED
     """
 
     status: ResponseStatus
@@ -210,11 +212,46 @@ class StreamChunk:
     tool_calls: Optional[List[dict[str, Any]]] = None
     usage: Optional[dict[str, Any]] = None
     finish_reason: Optional[str] = None
+    error_message: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Ensure data remains a text chunk."""
         if not isinstance(self.data, str):
             self.data = ""
+
+
+_TERMINAL_FINISH_REASONS = frozenset({"stop", "length", "tool_calls", "content_filter", "function_call"})
+
+
+def _extract_stream_error(data: Any) -> Optional[str]:
+    """Return an error message if an SSE payload represents a failure.
+
+    Args:
+        data: The decoded JSON payload of a single SSE event.
+
+    Returns:
+        Optional[str]: The reported error message, or None if the payload does
+        not represent a failure.
+    """
+    if not isinstance(data, dict):
+        return None
+
+    error = data.get("error")
+    if error:
+        if isinstance(error, dict):
+            return str(error.get("message") or error)
+        return str(error)
+
+    status = data.get("status")
+    if isinstance(status, str) and status.upper() in {"FAILED", "ERROR"}:
+        return str(data.get("errorMessage") or data.get("message") or f"stream reported status={status}")
+
+    choices = data.get("choices")
+    choice = choices[0] if isinstance(choices, list) and choices else None
+    if isinstance(choice, dict) and choice.get("finish_reason") == "error":
+        return str(choice.get("error") or "stream finished with finish_reason='error'")
+
+    return None
 
 
 class ModelResponseStreamer(Iterator[StreamChunk]):
@@ -223,6 +260,14 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
     This class provides an iterator interface for streaming model responses.
     It handles the conversion of Server-Sent Events (SSE) into StreamChunk objects
     and manages the response status.
+
+    ``status`` only becomes ``SUCCESS`` once the stream terminates cleanly — a
+    ``[DONE]`` marker or a terminal ``finish_reason``. An error event, or a
+    stream cut before either of those, leaves ``status`` at ``FAILED``, so a
+    truncated generation is never reported as a complete one. Error events also
+    yield a final ``StreamChunk`` with ``status=FAILED`` and ``error_message``
+    set, rather than raising, so existing ``for chunk in stream`` loops keep
+    working.
 
     The streamer can be used directly in a for loop or as a context manager
     for proper resource cleanup.
@@ -252,6 +297,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
         self.status = ResponseStatus.IN_PROGRESS
         self._done = False
         self._buffered_line: Optional[str] = None
+        self._saw_terminal_finish_reason = False
 
     def __iter__(self) -> Iterator[StreamChunk]:
         """Return the iterator for the ModelResponseStreamer."""
@@ -278,7 +324,13 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                     line = next(self._iterator)
             except StopIteration:
                 self._done = True
-                self.status = ResponseStatus.SUCCESS
+                if self._saw_terminal_finish_reason:
+                    # The server closed cleanly after a terminal finish_reason
+                    # but without a [DONE] marker; that is a complete stream.
+                    self.status = ResponseStatus.SUCCESS
+                else:
+                    self.status = ResponseStatus.FAILED
+                    logger.warning("Model stream ended without a [DONE] marker; treating it as truncated.")
                 raise
 
             # Skip empty lines (SSE uses blank lines as separators)
@@ -328,6 +380,16 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                     return StreamChunk(status=self.status, data=buffered_payload)
                 continue
 
+            # A failure event carries no choices, so it would otherwise fall
+            # through as an empty content chunk and the stream would still be
+            # reported as a success.
+            error_message = _extract_stream_error(data)
+            if error_message is not None:
+                self._done = True
+                self.status = ResponseStatus.FAILED
+                logger.warning("Model stream reported an error: %s", error_message)
+                return StreamChunk(status=ResponseStatus.FAILED, data="", error_message=error_message)
+
             # OpenAI-style stream chunk format:
             # {"choices":[{"delta":{"content":"...", "tool_calls":[...]},"finish_reason":...}],"usage":...}
             if isinstance(data, dict) and "choices" in data:
@@ -356,6 +418,8 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
 
                 finish_reason = choice.get("finish_reason")
                 finish_reason = finish_reason if isinstance(finish_reason, str) else None
+                if finish_reason in _TERMINAL_FINISH_REASONS:
+                    self._saw_terminal_finish_reason = True
 
                 usage = data.get("usage")
                 usage = usage if isinstance(usage, dict) else None

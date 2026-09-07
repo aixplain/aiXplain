@@ -605,6 +605,8 @@ class BaseSearchParams(BaseParams):
                           RESOURCE_PATH.
         paginate_items_key: str: Optional key name for items in paginated
                                 response (overrides PAGINATE_ITEMS_KEY).
+        strict: bool: Whether a record that cannot be deserialized raises
+                     (default) or is skipped. Overrides PAGINATE_STRICT.
     """
 
     query: NotRequired[str]
@@ -615,6 +617,7 @@ class BaseSearchParams(BaseParams):
     page_size: NotRequired[int]
     resource_path: NotRequired[str]
     paginate_items_key: NotRequired[str]
+    strict: NotRequired[bool]
 
 
 class BaseGetParams(BaseParams):
@@ -781,15 +784,27 @@ class Page(Generic[ResourceT]):
         results: The list of resources in this page.
         page_number: Current page number (0-indexed).
         page_total: Total number of pages.
-        total: Total number of resources across all pages.
+        total: Total number of resources across all pages. Never counts a
+            record that was returned by the API but skipped by this page.
+        skipped: Number of records the API returned for this page that could
+            not be deserialized and were skipped. Always ``0`` in strict mode
+            (the default), where such records raise instead.
     """
 
     results: List[ResourceT]
     page_number: int
     page_total: int
     total: int
+    skipped: int
 
-    def __init__(self, results: List[ResourceT], page_number: int, page_total: int, total: int):
+    def __init__(
+        self,
+        results: List[ResourceT],
+        page_number: int,
+        page_total: int,
+        total: int,
+        skipped: int = 0,
+    ):
         """Initialize a Page instance.
 
         Args:
@@ -797,11 +812,13 @@ class Page(Generic[ResourceT]):
             page_number: Current page number (0-indexed)
             page_total: Total number of pages
             total: Total number of resources across all pages
+            skipped: Number of returned records that could not be deserialized
         """
         self.results = results
         self.page_number = page_number
         self.page_total = page_total
         self.total = total
+        self.skipped = skipped
 
     def __repr__(self) -> str:
         """Return JSON representation of the page."""
@@ -829,6 +846,9 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         PAGINATE_PAGE_TOTAL_KEY: str: The key for the total number of pages.
         PAGINATE_DEFAULT_PAGE_NUMBER: int: The default page number.
         PAGINATE_DEFAULT_PAGE_SIZE: int: The default page size.
+        PAGINATE_STRICT: bool: Whether a record that cannot be deserialized
+            raises instead of being skipped. A per-call ``strict=`` keyword
+            takes precedence over this class-level default.
     """
 
     PAGINATE_PATH: str = "paginate"
@@ -839,6 +859,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
     PAGINATE_PAGE_NUMBER_KEY: str = "pageNumber"
     PAGINATE_DEFAULT_PAGE_NUMBER: int = 0
     PAGINATE_DEFAULT_PAGE_SIZE: int = 20
+    PAGINATE_STRICT: bool = True
 
     @classmethod
     def _get_context_and_path(cls: type, **kwargs: Any) -> Tuple["Aixplain", str, Optional[str]]:
@@ -856,10 +877,25 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         return context, resource_path, custom_path
 
     @classmethod
-    def _build_resources(cls: type, items: List[dict], context: "Aixplain") -> List[ResourceT]:
-        """Build resource instances from response items."""
-        resources = []
-        for item in items:
+    def _deserialize_items(cls: type, items: List[dict], context: "Aixplain") -> Tuple[List[ResourceT], List[str]]:
+        """Build resource instances from response items, reporting failures.
+
+        Errors are returned alongside the successfully built resources instead of
+        being swallowed, so that :meth:`_build_page` can decide whether to raise
+        (strict, the default) or to correct ``Page.total`` so it never counts a
+        record the page does not contain.
+
+        Args:
+            items: The raw records from the paginated response.
+            context: The Aixplain context to attach to each resource.
+
+        Returns:
+            Tuple[List[ResourceT], List[str]]: The resources that were built and
+            a message per record that could not be deserialized.
+        """
+        resources: List[ResourceT] = []
+        errors: List[str] = []
+        for index, item in enumerate(items):
             # Flatten assetInfo structure before deserialization
             item = _flatten_asset_info(dict(item)) if isinstance(item, dict) else item
             # Use dataclasses_json's from_dict to handle field aliasing
@@ -870,6 +906,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
                     obj = cls.from_dict(item)
                 except Exception as e:
                     logger.warning("Skipping item during %s deserialization: %s", cls.__name__, e)
+                    errors.append(f"item[{index}]: {e}")
                     continue
             else:
                 # Fallback for classes without from_dict
@@ -878,6 +915,18 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
             # Set the saved state to match the loaded state
             obj._update_saved_state()
             resources.append(obj)
+        return resources, errors
+
+    @classmethod
+    def _build_resources(cls: type, items: List[dict], context: "Aixplain") -> List[ResourceT]:
+        """Build resource instances from response items.
+
+        Backward-compatible wrapper around :meth:`_deserialize_items`. It
+        discards deserialization errors, so internal callers should prefer
+        :meth:`_deserialize_items`; subclasses customising deserialization
+        should override that hook instead of this one.
+        """
+        resources, _ = cls._deserialize_items(items, context)
         return resources
 
     @classmethod
@@ -907,11 +956,22 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
     def search(cls: type, **kwargs: Unpack[SearchParamsT]) -> Page[ResourceT]:
         """Search resources across the first n pages with optional filtering.
 
+        If any record returned by the API cannot be deserialized, this raises
+        :class:`ResourceError`, matching the contract of ``get()``. Pass
+        ``strict=False`` to skip such records instead; in that mode
+        ``Page.total`` is reduced by the number skipped and ``Page.skipped``
+        reports the count, so ``page.total`` never counts a record the page
+        does not contain.
+
         Args:
             kwargs: The keyword arguments.
 
         Returns:
             Page[ResourceT]: Page of BaseResource instances
+
+        Raises:
+            ResourceError: If a returned record cannot be deserialized and
+                ``strict`` is enabled (the default).
         """
         # Set default pagination values
         default_page_number = getattr(cls, "PAGINATE_DEFAULT_PAGE_NUMBER", 0)
@@ -938,7 +998,14 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
     def _build_page(cls: type, response: "Any", context: "Aixplain", **kwargs: Any) -> Page[ResourceT]:
         """Build a page of resources from the response.
 
-        Accepts either a requests.Response or already-decoded dict/list.
+        Accepts either a requests.Response or already-decoded dict/list. A
+        missing envelope key falls back to the computed default (an empty item
+        list, or ``len(items)`` for the counts) and logs a warning rather than
+        raising.
+
+        Raises:
+            ResourceError: If a returned record cannot be deserialized and
+                ``strict`` is enabled (the default).
         """
         if hasattr(response, "json"):
             json_data = response.json()
@@ -949,27 +1016,60 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         # Check for override in kwargs first, then fall back to class attribute
         paginate_items_key = kwargs.get("paginate_items_key") or getattr(cls, "PAGINATE_ITEMS_KEY", "items")
         if paginate_items_key and isinstance(json_data, dict):
-            items = json_data[paginate_items_key]
+            if paginate_items_key not in json_data:
+                logger.warning(
+                    "%s: paginated response is missing the %r key; treating the page as empty",
+                    cls.__name__,
+                    paginate_items_key,
+                )
+            # The honest default for a missing items key is an empty page: falling
+            # back to ``json_data`` itself would iterate the envelope's keys and
+            # build garbage resources out of strings.
+            items = json_data.get(paginate_items_key) or []
+        if not isinstance(items, list):
+            items = []
 
         total = len(items)
         paginate_total_key = getattr(cls, "PAGINATE_TOTAL_KEY", "total")
         if paginate_total_key and isinstance(json_data, dict):
-            total = json_data[paginate_total_key]
+            total = json_data.get(paginate_total_key, total)
+        if not isinstance(total, int) or isinstance(total, bool):
+            total = len(items)
 
         page_total = len(items)
         paginate_page_total_key = getattr(cls, "PAGINATE_PAGE_TOTAL_KEY", "pageTotal")
         if paginate_page_total_key and isinstance(json_data, dict):
-            page_total = json_data[paginate_page_total_key]
+            page_total = json_data.get(paginate_page_total_key, page_total)
+        if not isinstance(page_total, int) or isinstance(page_total, bool):
+            page_total = len(items)
 
         # Build resources using shared method
-        results = cls._build_resources(items, context)
+        results, errors = cls._deserialize_items(items, context)
 
-        return Page(
+        skipped = len(errors)
+        if skipped:
+            strict = kwargs.get("strict")
+            if strict is None:
+                strict = getattr(cls, "PAGINATE_STRICT", True)
+            if strict:
+                raise ResourceError(
+                    f"Failed to deserialize {skipped} of {len(items)} {cls.__name__} record(s) "
+                    f"returned by the API; pass strict=False to skip them. "
+                    f"Details: {'; '.join(errors[:3])}"
+                )
+            # Lenient mode: never report a total that counts records we did not
+            # return. ``total`` spans every page, so subtract this page's drops
+            # rather than collapsing it to ``len(results)``.
+            total = max(total - skipped, len(results))
+
+        page = Page(
             results=results,
             total=total,
             page_number=kwargs["page_number"],
             page_total=page_total,
         )
+        page.skipped = skipped
+        return page
 
     @classmethod
     def _populate_path(cls, path: str, custom_path: Optional[str] = None) -> str:
@@ -1663,7 +1763,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         # Handle polling response - use camelCase keys (what backend sends)
         # dataclass_json with config(field_name=...) handles mapping to snake_case
         run_time, used_credits = _extract_run_time_and_used_credits(response)
-        data = response.get("data") or {}
+        data = response.get("data")
+        if data is None:
+            # Absent data keeps the historical {} shape, but a falsy-but-present
+            # value ("", 0, False, []) is passed through unchanged so that a poll
+            # returns the same value and type as the synchronous path in
+            # handle_run_response.
+            data = {}
         data_error = data.get("error") if isinstance(data, dict) else None
         error_message = response.get("errorMessage") or data_error
         filtered_response = {
@@ -1697,11 +1803,12 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                     "Poll response deserialization failed for a completed response. "
                     "Building fallback result from raw data."
                 )
+                fallback_data = filtered_response.get("data")
                 result = response_class.from_dict(
                     {
                         "status": filtered_response["status"],
                         "completed": True,
-                        "data": filtered_response.get("data") or {},
+                        "data": {} if fallback_data is None else fallback_data,
                     }
                 )
             else:

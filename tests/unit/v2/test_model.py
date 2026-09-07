@@ -1449,3 +1449,134 @@ class TestModelStreamerSseEncoding:
         ModelResponseStreamer(response)
 
         assert response.encoding == "utf-16"
+
+
+# =============================================================================
+# BUG-1094: an errored or truncated stream must not report SUCCESS
+# =============================================================================
+
+
+class TestModelStreamerFailureReporting:
+    """A stream that errored or was cut short must report a non-SUCCESS status.
+
+    Before BUG-1094 the streamer never looked at ``error`` / ``status`` /
+    ``finish_reason == "error"`` events -- a JSON error event carries no
+    ``choices``, so it decayed into an empty content chunk -- and the
+    ``StopIteration`` handler set ``SUCCESS`` unconditionally, so a connection
+    cut mid-generation surfaced a truncated answer that claimed to be complete.
+    """
+
+    @staticmethod
+    def _create_streamer(lines):
+        """Create a response streamer from raw SSE lines."""
+        response = Mock()
+        response.iter_lines.return_value = iter(lines)
+        return ModelResponseStreamer(response)
+
+    def test_error_event_reports_failed(self):
+        """A ``{"error": {...}}`` event ends the stream at FAILED."""
+        streamer = self._create_streamer(
+            [
+                'data: {"choices":[{"delta":{"content":"Ship "}}]}',
+                'data: {"error":{"message":"context length exceeded"}}',
+                "data: [DONE]",
+            ]
+        )
+
+        first = next(streamer)
+        assert first.status == ResponseStatus.IN_PROGRESS
+        assert first.data == "Ship "
+
+        failure = next(streamer)
+        assert failure.status == ResponseStatus.FAILED
+        assert failure.error_message == "context length exceeded"
+        assert failure.data == ""
+
+        # The stream is over: a trailing [DONE] must not flip it back to SUCCESS.
+        with pytest.raises(StopIteration):
+            next(streamer)
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_string_error_event_reports_failed(self):
+        """An ``error`` given as a bare string is still a failure."""
+        streamer = self._create_streamer(['data: {"error":"upstream refused"}'])
+
+        failure = next(streamer)
+
+        assert failure.status == ResponseStatus.FAILED
+        assert failure.error_message == "upstream refused"
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_finish_reason_error_reports_failed(self):
+        """``finish_reason == "error"`` is a failure, not a terminal success."""
+        streamer = self._create_streamer(['data: {"choices":[{"delta":{},"finish_reason":"error"}]}', "data: [DONE]"])
+
+        failure = next(streamer)
+
+        assert failure.status == ResponseStatus.FAILED
+        assert failure.error_message == "stream finished with finish_reason='error'"
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_failed_status_event_reports_failed(self):
+        """A top-level ``status: FAILED`` event is a failure."""
+        streamer = self._create_streamer(['data: {"status":"FAILED","errorMessage":"boom"}'])
+
+        failure = next(streamer)
+
+        assert failure.status == ResponseStatus.FAILED
+        assert failure.error_message == "boom"
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_truncated_stream_reports_failed(self):
+        """A stream cut before ``[DONE]`` must not report SUCCESS."""
+        streamer = self._create_streamer(
+            [
+                'data: {"choices":[{"delta":{"content":"Ship "}}]}',
+                'data: {"choices":[{"delta":{"content":"aiX"}}]}',
+            ]
+        )
+
+        assert [chunk.data for chunk in streamer] == ["Ship ", "aiX"]
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_truncated_aixplain_style_stream_reports_failed(self):
+        """The aiXplain ``{"data": ...}`` chunk shape is guarded too."""
+        streamer = self._create_streamer(['data: {"data":"Ship aiX"}'])
+
+        assert [chunk.data for chunk in streamer] == ["Ship aiX"]
+        assert streamer.status == ResponseStatus.FAILED
+
+    @pytest.mark.parametrize("finish_reason", ["stop", "length", "tool_calls", "content_filter"])
+    def test_terminal_finish_reason_without_done_reports_success(self, finish_reason):
+        """A server that closes after a terminal finish_reason is not truncated."""
+        streamer = self._create_streamer(
+            [
+                'data: {"choices":[{"delta":{"content":"Ship aiX"}}]}',
+                'data: {"choices":[{"delta":{},"finish_reason":"%s"}]}' % finish_reason,
+            ]
+        )
+
+        list(streamer)
+
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_done_marker_still_reports_success(self):
+        """Regression guard: the happy path is untouched."""
+        streamer = self._create_streamer(['data: {"data":"Ship aiX"}', "data: [DONE]"])
+
+        list(streamer)
+
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_empty_error_field_is_not_a_failure(self):
+        """A falsy ``error`` key (``null``/``""``) is not an error event."""
+        streamer = self._create_streamer(
+            ['data: {"error":null,"choices":[{"delta":{"content":"Ship aiX"}}]}', "data: [DONE]"]
+        )
+
+        chunk = next(streamer)
+
+        assert chunk.status == ResponseStatus.IN_PROGRESS
+        assert chunk.data == "Ship aiX"
+        list(streamer)
+        assert streamer.status == ResponseStatus.SUCCESS
