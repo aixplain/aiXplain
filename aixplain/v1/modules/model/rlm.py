@@ -1083,6 +1083,8 @@ def llm_query(prompt):
         iterations_used = 0
         ephemeral_index = None
         try:
+            context = self._resolve_url_context(context)
+
             # Size chunks so that the top_k retrieved chunks together fit
             # comfortably in the synthesis call (assembly_fraction × window),
             # but never exceed the embedding model's input limit.
