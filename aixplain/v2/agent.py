@@ -2402,7 +2402,11 @@ class Agent(
         fields = ("max_cost", "max_duration_seconds", "max_iterations")
         if session_budget is None:
             has_cap = any(getattr(agent_budget, name, None) is not None for name in fields)
-            return agent_budget if has_cap else None
+            # Copy, never alias: ``agent.budget`` is documented as mutated in
+            # place (``agent.budget.max_cost = ...``), so handing the same object
+            # to the session would let a later agent-side edit silently rewrite
+            # the session's persisted cap.
+            return replace(agent_budget) if has_cap else None
         filled = {
             name: getattr(agent_budget, name, None)
             for name in fields

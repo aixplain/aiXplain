@@ -293,18 +293,14 @@ class TestDeprecatedRunTimeMaxIterations:
     def test_folds_into_execution_budget(self):
         agent = _create_agent()
         with pytest.warns(DeprecationWarning):
-            payload = agent.build_run_payload(
-                query="q", execution_params={"max_iterations": 7}
-            )
+            payload = agent.build_run_payload(query="q", execution_params={"max_iterations": 7})
         assert payload["executionParams"]["budget"] == {"maxIterations": 7}
         assert "maxIterations" not in payload["executionParams"]
 
     def test_camel_case_exec_param_also_folds(self):
         agent = _create_agent()
         with pytest.warns(DeprecationWarning):
-            payload = agent.build_run_payload(
-                query="q", execution_params={"maxIterations": 7}
-            )
+            payload = agent.build_run_payload(query="q", execution_params={"maxIterations": 7})
         assert payload["executionParams"]["budget"] == {"maxIterations": 7}
         assert "maxIterations" not in payload["executionParams"]
 
@@ -411,9 +407,7 @@ class TestFromDictLegacyMaxIterations:
                 "id": "a",
                 "name": "t",
                 "maxIterations": 3,
-                "tasks": [
-                    {"name": "task1", "description": "desc", "expectedOutput": "o"}
-                ],
+                "tasks": [{"name": "task1", "description": "desc", "expectedOutput": "o"}],
             }
         )
         assert agent.budget.max_iterations == 3
@@ -625,6 +619,30 @@ class TestSessionBudgetPreservation:
 
         with pytest.warns(UserWarning, match=r"budget \(from agent\.budget\)"):
             agent._apply_run_overrides_to_session(session, {"criteria": "be terse"})
+
+    def test_backend_hydrated_session_cap_still_wins(self):
+        """The session's cap must win even when it arrives in the wire shape.
+
+        ``to_api_dict`` nests the cap inside ``executionParams.budget``. If the
+        decoder leaves it there, ``execution_config.budget`` reads as ``None``,
+        the agent's budget looks like it is filling an unset slot, and the next
+        ``to_api_dict`` overwrites the session's persisted cap wholesale
+        (BUG-1091).
+        """
+        from aixplain.v2.session import ExecutionConfig
+
+        agent = _create_agent()
+        agent.budget = Budget(max_cost=0.01, max_iterations=3)
+        wire = ExecutionConfig(execution_params={"maxTokens": 64}, budget=Budget(max_cost=5.0)).to_api_dict()
+        session = self._session(ExecutionConfig.from_dict(wire))
+
+        self._apply(agent, session, criteria="be terse")
+
+        # Session's max_cost survives; the agent only fills the unset slot.
+        assert session.execution_config.to_api_dict()["executionParams"]["budget"] == {
+            "maxCost": 5.0,
+            "maxIterations": 3,
+        }
 
     def test_accepts_a_dict_execution_config(self):
         """Sessions hydrated from the backend may carry a raw dict."""
