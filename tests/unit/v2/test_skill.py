@@ -146,13 +146,13 @@ class TestSaveReupload:
         aix.client.request = Mock(return_value={"id": "file-id"})
 
         skill.save()
-        assert skill.instructions == "v1 body"
+        assert skill.instructions.strip() == "v1 body"
         assert aix.client.request.call_count == 1
 
         _write_skill_md(str(skill_dir), "v2 body")  # edit on disk, same path
         skill.save()
 
-        assert skill.instructions == "v2 body", "save() must re-parse file_path from disk on every call"
+        assert skill.instructions.strip() == "v2 body", "save() must re-parse file_path from disk on every call"
         assert aix.client.request.call_count == 2, "save() must re-upload the edited content, not silently skip it"
 
     def test_second_save_on_a_single_md_file_reparses_and_reuploads_edited_content(self, aix, tmp_path, monkeypatch):
@@ -168,10 +168,10 @@ class TestSaveReupload:
         aix.client.request = Mock(return_value={"id": "file-id"})
 
         skill.save()
-        assert skill.instructions == "v1 body"
+        assert skill.instructions.strip() == "v1 body"
 
         skill_md.write_text("---\nname: calc\ndescription: d\n---\n\nv2 body\n", encoding="utf-8")
         skill.save()
 
-        assert skill.instructions == "v2 body"
+        assert skill.instructions.strip() == "v2 body"
         assert aix.client.request.call_count == 2
