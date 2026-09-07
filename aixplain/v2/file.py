@@ -30,7 +30,7 @@ from urllib.parse import quote, unquote, urlparse
 import requests
 from dataclasses_json import config, dataclass_json
 
-from aixplain.utils.url_safety import validate_upload_url
+from aixplain.utils.url_safety import validate_fetch_url, validate_upload_url
 
 from .enums import FileType, Privacy
 from .exceptions import APIError, FileUploadError, ResourceError, ValidationError
@@ -303,6 +303,10 @@ class File(BaseResource):
         try:
             if parsed.scheme in {"http", "https"}:
                 suffix = Path(parsed.path).suffix
+                # ``source`` is caller-supplied and its body is uploaded to the
+                # platform, so it is the same SSRF sink as the remote-code fetch
+                # in ``code_utils`` and is gated the same way (BUG-939).
+                validate_fetch_url(self.source)
                 with requests.get(self.source, stream=True, timeout=self.context.client.timeout) as response:
                     response.raise_for_status()
                     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:

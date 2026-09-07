@@ -146,3 +146,75 @@ def test_env_example_does_not_ship_debug_logging():
     lines = [line.strip() for line in env_example.read_text().splitlines() if not line.strip().startswith("#")]
     assert "LOG_LEVEL=DEBUG" not in lines
     assert "LOG_LEVEL=INFO" in lines
+
+
+def test_opt_in_redacts_credential_keys_in_a_serialised_body(client, caplog, monkeypatch):
+    """A body that arrives already serialised is still redacted *by key*.
+
+    ``response.text`` and ``data=<json string>`` are plain strings, so key-based
+    redaction only applies once they are parsed back. ``APIKey.list()`` returns
+    the ``accessKey`` of every key on the account as JSON text, and it matches
+    none of the token patterns.
+    """
+    monkeypatch.setenv(LOG_BODIES_ENV_VAR, "1")
+    serialised = '{"headers": {"x-api-key": "%s"}, "note": "hi"}' % TEAM_KEY
+    with caplog.at_level(logging.DEBUG):
+        with patch.object(client.session, "request", return_value=_mock_response()):
+            client.request_raw("POST", "sdk/tools", data=serialised)
+
+    joined = "\n".join(_messages(caplog))
+    assert "hi" in joined  # the body really is logged
+    for secret in SECRETS:
+        if secret == "x-api-key":
+            continue  # the key *name* is fine; the value is not
+        assert secret not in joined
+
+
+def test_opt_in_redacts_a_non_json_body(client, caplog, monkeypatch):
+    """A body that is not JSON still gets pattern redaction."""
+    monkeypatch.setenv(LOG_BODIES_ENV_VAR, "1")
+    with caplog.at_level(logging.DEBUG):
+        with patch.object(client.session, "request", return_value=_mock_response(body="plain " + SLACK_TOKEN)):
+            client.request_raw("GET", "sdk/x")
+
+    joined = "\n".join(_messages(caplog))
+    assert SLACK_TOKEN not in joined
+    assert "***REDACTED***" in joined
+
+
+def test_opt_in_does_not_crash_on_a_binary_body(client, caplog, monkeypatch):
+    """A ``data=`` payload of raw bytes must not raise from the log path."""
+    monkeypatch.setenv(LOG_BODIES_ENV_VAR, "1")
+    with caplog.at_level(logging.DEBUG):
+        with patch.object(client.session, "request", return_value=_mock_response()):
+            client.request_raw("POST", "sdk/upload", data=b"\xff\xfe\x00binary")
+
+    assert any("sdk/upload" in message for message in _messages(caplog))
+
+
+def test_opt_in_never_lets_the_log_path_break_the_request(client, caplog, monkeypatch):
+    """Rendering a pathological body degrades to a placeholder, not a traceback."""
+    monkeypatch.setenv(LOG_BODIES_ENV_VAR, "1")
+
+    class Explodes:
+        def __str__(self):
+            raise RuntimeError("boom")
+
+    with caplog.at_level(logging.DEBUG):
+        with patch.object(client.session, "request", return_value=_mock_response()):
+            client.request_raw("POST", "sdk/tools", data=Explodes())
+
+    joined = "\n".join(_messages(caplog))
+    assert "could not be redacted" in joined
+
+
+def test_opt_in_survives_a_deeply_nested_response_body(client, caplog, monkeypatch):
+    """``json.loads`` raises RecursionError on deep nesting; the caller must not see it."""
+    monkeypatch.setenv(LOG_BODIES_ENV_VAR, "1")
+    deep = "[" * 5000 + "]" * 5000
+
+    with caplog.at_level(logging.DEBUG):
+        with patch.object(client.session, "request", return_value=_mock_response(body=deep)):
+            response = client.request_raw("GET", "sdk/x")
+
+    assert response.status_code == 200

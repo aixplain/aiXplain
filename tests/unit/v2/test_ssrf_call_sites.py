@@ -9,6 +9,7 @@ before any socket is opened.
 
 import ast
 import socket
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -97,6 +98,21 @@ def test_v1_benchmark_report_url_is_guarded():
     assert benchmark_job.validate_fetch_url is validate_fetch_url
     with pytest.raises(UnsafeURLError):
         benchmark_job.validate_fetch_url("http://169.254.169.254/latest/meta-data/")
+
+
+def test_v2_file_source_url_is_guarded(tmp_path):
+    """``File(source=<url>).save()`` fetches a caller URL and uploads the body.
+
+    Same sink shape as the utility-model code fetch, in a different module: it
+    is what would turn ``File("http://169.254.169.254/...")`` into an
+    instance-credentials upload.
+    """
+    from aixplain.v2.file import File
+
+    file = File(source=METADATA_URL)
+    file.context = SimpleNamespace(client=SimpleNamespace(timeout=(1, 1)))
+    with pytest.raises(UnsafeURLError):
+        file.save()
 
 
 def _fetch_sinks(path):

@@ -236,7 +236,11 @@ def validate_fetch_url(url: str) -> str:
     unspecified or a known cloud-metadata endpoint.
 
     Set ``AIXPLAIN_ALLOW_PRIVATE_FETCH=1`` on an on-prem deployment whose
-    artifact host lives on a private range.
+    artifact host lives on a private range. That opt-in relaxes the *private
+    range* rule only -- the cloud metadata endpoints stay refused either way.
+    Nobody's artifact host is ``169.254.169.254``, and the flag exists to reach
+    an internal file server, not to let a caller-supplied (or model-generated)
+    URL read the container's instance credentials and upload them.
 
     Args:
         url: The URL about to be fetched.
@@ -250,16 +254,22 @@ def validate_fetch_url(url: str) -> str:
     """
     parsed = _parse_http_url(url, "URL")
     host = parsed.hostname.lower().rstrip(".")
-    if _env_flag(ALLOW_PRIVATE_FETCH_ENV_VAR):
-        return url
     if host in _METADATA_HOSTS:
         raise UnsafeURLError(f"Refusing to fetch cloud metadata host {host!r}: {url}")
+    allow_private = _env_flag(ALLOW_PRIVATE_FETCH_ENV_VAR)
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     for raw in _resolve(host, port):
         try:
             address = _classify_address(raw)
         except ValueError as exc:
             raise UnsafeURLError(f"Host {host!r} resolved to an unusable address {raw!r}: {exc}")
+        if str(address) in _METADATA_IPS:
+            raise UnsafeURLError(
+                f"Refusing to fetch {url!r}: host {host!r} resolves to the cloud metadata address "
+                f"{address}, which stays blocked even under {ALLOW_PRIVATE_FETCH_ENV_VAR}."
+            )
+        if allow_private:
+            continue
         if _is_blocked_address(address):
             raise UnsafeURLError(
                 f"Refusing to fetch {url!r}: host {host!r} resolves to the non-public address {address}. "
@@ -340,12 +350,13 @@ def safe_get(
         timeout = (FETCH_TIMEOUT_CONNECT, FETCH_TIMEOUT_READ)
     requester = session or requests
     current = url
+    current_headers = headers
     for _ in range(max_redirects + 1):
         validate_fetch_url(current)
         response = requester.get(
             current,
             timeout=timeout,
-            headers=headers,
+            headers=current_headers,
             stream=True if max_bytes is not None else stream,
             allow_redirects=False,
             **kwargs,
@@ -353,7 +364,13 @@ def safe_get(
         location = response.headers.get("Location") if response.status_code in _REDIRECT_STATUSES else None
         if location:
             response.close()
-            current = urljoin(current, location)
+            following = urljoin(current, location)
+            if current_headers and urlparse(following).netloc != urlparse(current).netloc:
+                # ``requests`` drops ``Authorization`` across a host change; following
+                # redirects by hand means doing that here, for every header, or a
+                # 302 becomes a way to harvest whatever the caller passed in.
+                current_headers = None
+            current = following
             continue
         if max_bytes is not None:
             _read_bounded(response, max_bytes, current)

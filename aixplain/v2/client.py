@@ -2,6 +2,7 @@
 
 from typing import Any, Iterable, Optional, Tuple, Union, List, FrozenSet
 import inspect
+import json
 import logging
 import os
 import re
@@ -191,6 +192,49 @@ def _redact(value: Any) -> Any:
     return value
 
 
+def _render_redacted_body(value: Any) -> str:
+    """Render *value* as text with credential-shaped keys and values masked.
+
+    A body arrives here either as a structure (``json=``) or already serialised
+    (``data=`` and ``response.text``). The serialised form has to be parsed back
+    before it can be redacted *by key*: ``{"accessKey": "..."}`` -- which is what
+    ``APIKey.list()`` returns for every key on the account -- and an ``x-api-key``
+    nested in a serialised payload match none of the token patterns, so treating
+    the body as an opaque string would log them verbatim (BUG-939). Anything that
+    is not JSON falls back to pattern redaction alone.
+    """
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            value = value.decode("utf-8")
+        except UnicodeDecodeError:
+            return f"<{len(value)} bytes of non-text body>"
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return _redact(value)
+        if isinstance(parsed, (dict, list)):
+            return json.dumps(_redact(parsed), default=str)
+        return _redact(value)
+    return str(_redact(value))
+
+
+def _redact_body(value: Any) -> str:
+    """Total wrapper around :func:`_render_redacted_body`.
+
+    Rendering a body walks an arbitrary structure that a *response* can shape,
+    so it can fail in ways the request itself would not -- deeply nested JSON
+    raises ``RecursionError`` out of ``json.loads``, and a ``__str__`` on a
+    caller's object can raise anything. A diagnostic must never turn a working
+    call into a traceback, and it must never fall back to emitting the raw body,
+    so every failure collapses to a placeholder.
+    """
+    try:
+        return _render_redacted_body(value)
+    except Exception:  # noqa: BLE001 -- a log line must not break the request
+        return "<body omitted: could not be redacted>"
+
+
 def _truncate(text: str) -> str:
     """Cap *text* at :data:`LOG_BODY_MAX_BYTES` characters with a visible marker."""
     if len(text) <= LOG_BODY_MAX_BYTES:
@@ -215,7 +259,7 @@ def _log_request(method: str, url: str, kwargs: Optional[dict] = None) -> None:
     body = kwargs.get("json", kwargs.get("data"))
     if body is None:
         return
-    logger.debug(f"Request body ({method} {_log_path(url)}): {_truncate(str(_redact(body)))}")
+    logger.debug(f"Request body ({method} {_log_path(url)}): {_truncate(_redact_body(body))}")
 
 
 def _log_bodies_enabled() -> bool:
@@ -260,7 +304,7 @@ def _log_response(method: str, url: str, response: requests.Response, *, read_bo
         body = response.text
     except Exception:
         return
-    logger.debug(f"Response body ({method} {_log_path(url)}): {_truncate(_redact(body))}")
+    logger.debug(f"Response body ({method} {_log_path(url)}): {_truncate(_redact_body(body))}")
 
 
 # Every header that carries an aiXplain credential.  These are custom headers,

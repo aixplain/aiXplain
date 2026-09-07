@@ -221,6 +221,32 @@ def test_private_fetch_opt_in(resolver, monkeypatch):
     assert validate_fetch_url("http://10.0.0.1/code.py") == "http://10.0.0.1/code.py"
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+        "http://metadata.google.internal/computeMetadata/v1/",
+    ],
+)
+def test_private_fetch_opt_in_does_not_reopen_cloud_metadata(url, resolver, monkeypatch):
+    """The on-prem opt-in relaxes private ranges, not the credential endpoints.
+
+    An agent container running with the flag set would otherwise let a
+    model-generated URL read its own instance credentials and upload them.
+    """
+    monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
+    resolver({"metadata.google.internal": ["169.254.169.254"]})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url(url)
+
+
+def test_private_fetch_opt_in_still_allows_an_internal_name(resolver, monkeypatch):
+    """The flag's actual purpose keeps working: a private artifact host by name."""
+    monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
+    resolver({"artifacts.internal": ["10.1.2.3"]})
+    assert validate_fetch_url("http://artifacts.internal/code.py") == "http://artifacts.internal/code.py"
+
+
 # --------------------------------------------------------------------------
 # safe_get
 # --------------------------------------------------------------------------
@@ -318,6 +344,41 @@ def test_safe_get_follows_a_safe_redirect(resolver):
     )
     assert safe_get("https://example.com/x", session=session).text == "payload"
     assert adapter.requests == ["https://example.com/x", "https://cdn.example.com/y"]
+
+
+def test_safe_get_drops_headers_on_a_cross_host_redirect(resolver):
+    """Caller headers must not follow a redirect onto a different host."""
+    resolver({"example.com": ["93.184.216.34"], "cdn.example.net": ["93.184.216.35"]})
+    session, _ = _session_with(
+        {
+            "https://example.com/x": (302, {"Location": "https://cdn.example.net/y"}, b""),
+            "https://cdn.example.net/y": (200, {}, b"payload"),
+        }
+    )
+    seen = []
+    original = session.get
+    session.get = lambda url, **kwargs: (seen.append((url, kwargs.get("headers"))), original(url, **kwargs))[1]
+
+    safe_get("https://example.com/x", session=session, headers={"Authorization": "token SECRET"})
+    assert seen[0][1] == {"Authorization": "token SECRET"}
+    assert seen[1][1] is None
+
+
+def test_safe_get_keeps_headers_on_a_same_host_redirect(resolver):
+    """A redirect within the same host is not a credential boundary."""
+    resolver({"example.com": ["93.184.216.34"]})
+    session, _ = _session_with(
+        {
+            "https://example.com/x": (302, {"Location": "https://example.com/y"}, b""),
+            "https://example.com/y": (200, {}, b"payload"),
+        }
+    )
+    seen = []
+    original = session.get
+    session.get = lambda url, **kwargs: (seen.append(kwargs.get("headers")), original(url, **kwargs))[1]
+
+    safe_get("https://example.com/x", session=session, headers={"Authorization": "token SECRET"})
+    assert seen == [{"Authorization": "token SECRET"}, {"Authorization": "token SECRET"}]
 
 
 def test_safe_get_caps_redirects(resolver):
