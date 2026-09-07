@@ -233,3 +233,17 @@ def test_create_preserves_recorded_id_when_response_omits_id_field():
     thing.save()
 
     assert thing.id == "SERVER-ID-123"
+
+
+def test_create_hydration_failure_without_id_gives_actionable_message():
+    """A response with no id cannot be re-fetched, so the hint must not claim it can."""
+    thing = _thing(name="thing")
+    thing.context.client.request.return_value = {"name": "thing", "kind": "WEIRD_NEW_ENUM"}
+
+    with pytest.raises(ResourceError) as excinfo:
+        thing.save()
+
+    message = str(excinfo.value)
+    assert thing.id is None
+    assert "Thing.get(None)" not in message
+    assert "check before retrying" in message

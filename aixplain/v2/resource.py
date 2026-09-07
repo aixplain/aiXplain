@@ -483,11 +483,19 @@ class BaseResource:
             try:
                 updated = self.from_dict(result)
             except Exception as e:
+                name = type(self).__name__
+                if created_id is not None:
+                    hint = (
+                        f"The resource exists on the platform — do NOT retry save(), which would create a "
+                        f"duplicate. Re-fetch it with {name}.get({created_id!r}), or delete it."
+                    )
+                else:
+                    hint = (
+                        "The resource may exist on the platform even though the response carried no id — "
+                        "check before retrying save(), which would create a duplicate."
+                    )
                 raise ResourceError(
-                    f"{type(self).__name__} was created (id={self.id!r}) but its response could not be "
-                    f"deserialized: {e}. The resource exists on the platform — do NOT retry save(), which "
-                    f"would create a duplicate. Re-fetch it with {type(self).__name__}.get({self.id!r}), "
-                    f"or delete it."
+                    f"{name} was created (id={created_id!r}) but its response could not be deserialized: {e}. {hint}"
                 ) from e
             # Copy each field from the freshly-parsed ``updated`` onto self.
             # A field that is excluded from serialization is normally
@@ -534,7 +542,10 @@ class BaseResource:
             BaseResource: The saved resource instance
 
         Raises:
-            ValidationError: If the resource has been deleted.
+            ResourceError: If the resource has been deleted. The guard raises
+                ``ValidationError``, which the ``@with_hooks`` wrapper re-raises
+                as ``ResourceError`` — the same shape ``delete()`` already had.
+                Both derive from ``AixplainV2Error``.
             Backend validation errors as appropriate
         """
         # save() is the only mutating path that may legitimately run without an

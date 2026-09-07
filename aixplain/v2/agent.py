@@ -1585,6 +1585,11 @@ class Agent(
 
         duplicated = Agent.from_dict(response_data)
         duplicated.context = self.context
+        # Record which keys the duplicate response carried, like get()/search()
+        # do: without this the duplicate has no provenance and a later save()
+        # would PUT the SDK default model over whatever the platform gave the
+        # copy (BUG-1093).
+        duplicated._record_server_fields(response_data)
         duplicated._update_saved_state()
 
         return duplicated

@@ -129,3 +129,28 @@ def test_update_payload_omits_model_for_model_less_agent(context):
 
     payload = context.client.request.call_args.kwargs["json"]
     assert "model" not in payload
+
+
+def test_duplicate_response_records_provenance(context):
+    """duplicate() hydrates like get() does, so it must record provenance too."""
+    agent = _fetch(context, {"id": "A1", "name": "agent", "model": {"id": "SERVER-LLM"}})
+    context.client.request.return_value = {"id": "A2", "name": "agent (copy)"}
+
+    duplicated = agent.duplicate()
+
+    assert duplicated.id == "A2"
+    assert "model" not in duplicated.build_save_payload()
+
+
+def test_duplicate_keeps_model_reported_by_the_copy(context):
+    """A duplicate whose response carries "model" still echoes it back."""
+    agent = _fetch(context, {"id": "A1", "name": "agent"})
+    context.client.request.return_value = {
+        "id": "A2",
+        "name": "agent (copy)",
+        "model": {"id": "COPY-LLM"},
+    }
+
+    duplicated = agent.duplicate()
+
+    assert duplicated.build_save_payload()["model"] == {"id": "COPY-LLM"}
