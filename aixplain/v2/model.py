@@ -220,9 +220,6 @@ class StreamChunk:
             self.data = ""
 
 
-_TERMINAL_FINISH_REASONS = frozenset({"stop", "length", "tool_calls", "content_filter", "function_call"})
-
-
 def _extract_stream_error(data: Any) -> Optional[str]:
     """Return an error message if an SSE payload represents a failure.
 
@@ -262,12 +259,12 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
     and manages the response status.
 
     ``status`` only becomes ``SUCCESS`` once the stream terminates cleanly — a
-    ``[DONE]`` marker or a terminal ``finish_reason``. An error event, or a
-    stream cut before either of those, leaves ``status`` at ``FAILED``, so a
-    truncated generation is never reported as a complete one. Error events also
-    yield a final ``StreamChunk`` with ``status=FAILED`` and ``error_message``
-    set, rather than raising, so existing ``for chunk in stream`` loops keep
-    working.
+    ``[DONE]`` marker, a terminal ``finish_reason`` or a terminal ``status``
+    envelope. An error event, or a stream cut before any of those, leaves
+    ``status`` at ``FAILED``, so a truncated generation is never reported as a
+    complete one. Error events also yield a final ``StreamChunk`` with
+    ``status=FAILED`` and ``error_message`` set, rather than raising, so
+    existing ``for chunk in stream`` loops keep working.
 
     The streamer can be used directly in a for loop or as a context manager
     for proper resource cleanup.
@@ -297,7 +294,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
         self.status = ResponseStatus.IN_PROGRESS
         self._done = False
         self._buffered_line: Optional[str] = None
-        self._saw_terminal_finish_reason = False
+        self._saw_terminal_event = False
 
     def __iter__(self) -> Iterator[StreamChunk]:
         """Return the iterator for the ModelResponseStreamer."""
@@ -324,9 +321,10 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                     line = next(self._iterator)
             except StopIteration:
                 self._done = True
-                if self._saw_terminal_finish_reason:
-                    # The server closed cleanly after a terminal finish_reason
-                    # but without a [DONE] marker; that is a complete stream.
+                if self._saw_terminal_event:
+                    # The server closed cleanly after a terminal event (a
+                    # finish_reason or a SUCCESS envelope) but without a [DONE]
+                    # marker; that is a complete stream, not a truncated one.
                     self.status = ResponseStatus.SUCCESS
                 else:
                     self.status = ResponseStatus.FAILED
@@ -390,6 +388,14 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                 logger.warning("Model stream reported an error: %s", error_message)
                 return StreamChunk(status=ResponseStatus.FAILED, data="", error_message=error_message)
 
+            # The aiXplain envelope announces a clean end with a terminal status
+            # rather than a finish_reason; that closes the stream as cleanly as
+            # a [DONE] marker would.
+            if isinstance(data, dict):
+                status_value = data.get("status")
+                if isinstance(status_value, str) and status_value.upper() in {"SUCCESS", "COMPLETED"}:
+                    self._saw_terminal_event = True
+
             # OpenAI-style stream chunk format:
             # {"choices":[{"delta":{"content":"...", "tool_calls":[...]},"finish_reason":...}],"usage":...}
             if isinstance(data, dict) and "choices" in data:
@@ -418,8 +424,13 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
 
                 finish_reason = choice.get("finish_reason")
                 finish_reason = finish_reason if isinstance(finish_reason, str) else None
-                if finish_reason in _TERMINAL_FINISH_REASONS:
-                    self._saw_terminal_finish_reason = True
+                if finish_reason:
+                    # Any non-null finish_reason terminates the choice. Suppliers
+                    # emit values well beyond OpenAI's own set ("end_turn",
+                    # "max_tokens", "guardrail_intervened", ...), so accept them
+                    # all instead of allowlisting and calling a complete stream
+                    # truncated; "error" never reaches here (handled above).
+                    self._saw_terminal_event = True
 
                 usage = data.get("usage")
                 usage = usage if isinstance(usage, dict) else None

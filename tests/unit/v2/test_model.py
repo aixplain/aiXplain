@@ -1546,7 +1546,12 @@ class TestModelStreamerFailureReporting:
         assert [chunk.data for chunk in streamer] == ["Ship aiX"]
         assert streamer.status == ResponseStatus.FAILED
 
-    @pytest.mark.parametrize("finish_reason", ["stop", "length", "tool_calls", "content_filter"])
+    @pytest.mark.parametrize(
+        "finish_reason",
+        # The last two are supplier-specific reasons outside OpenAI's own set:
+        # they still end the choice, so they must not be read as a truncation.
+        ["stop", "length", "tool_calls", "content_filter", "end_turn", "guardrail_intervened"],
+    )
     def test_terminal_finish_reason_without_done_reports_success(self, finish_reason):
         """A server that closes after a terminal finish_reason is not truncated."""
         streamer = self._create_streamer(
@@ -1558,6 +1563,14 @@ class TestModelStreamerFailureReporting:
 
         list(streamer)
 
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    @pytest.mark.parametrize("status", ["SUCCESS", "COMPLETED", "success"])
+    def test_terminal_status_envelope_without_done_reports_success(self, status):
+        """The aiXplain envelope ends with a status rather than a finish_reason."""
+        streamer = self._create_streamer(['data: {"status":"%s","data":"Ship aiX"}' % status])
+
+        assert [chunk.data for chunk in streamer] == ["Ship aiX"]
         assert streamer.status == ResponseStatus.SUCCESS
 
     def test_done_marker_still_reports_success(self):

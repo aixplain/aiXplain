@@ -40,6 +40,7 @@ from aixplain.v2.resource import (
     Page,
     Result,
     RunnableResourceMixin,
+    SearchResourceMixin,
 )
 
 # A record the deserializer cannot handle at all: ``from_dict`` needs a mapping.
@@ -200,6 +201,30 @@ class TestStrictListing:
         assert page.results == []
         assert page.total == 6
         assert page.skipped == 1
+
+    def test_constructor_fallback_failure_is_reported_not_raised(self):
+        """The no-``from_dict`` branch reports failures like the main one does.
+
+        It used to build ``cls(**item)`` unguarded, so a record the constructor
+        rejects escaped as a raw ``TypeError`` -- even from a call that asked to
+        be lenient.
+        """
+
+        class Stub:
+            """A resource-shaped class without ``from_dict``."""
+
+            def __init__(self, id=None):
+                self.id = id
+
+            def _update_saved_state(self):
+                pass
+
+        deserialize = SearchResourceMixin.__dict__["_deserialize_items"].__func__
+        resources, errors = deserialize(Stub, [{"id": "s1"}, {"unexpected": "field"}], Mock())
+
+        assert [r.id for r in resources] == ["s1"]
+        assert len(errors) == 1
+        assert errors[0].startswith("item[1]:")
 
     def test_page_defaults_skipped_to_zero(self):
         """``Page`` gains ``skipped`` additively, so old constructions still work."""

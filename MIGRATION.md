@@ -374,6 +374,37 @@ resource class whose records are known to be heterogeneous can set
 `PAGINATE_STRICT = False` to make lenient listing its default; a per-call
 `strict=` always wins.
 
+### A streamed run only reports `SUCCESS` when it finished
+
+`ModelResponseStreamer.status` used to become `SUCCESS` as soon as the
+connection ended, so an error event mid-generation, or a stream cut before its
+`[DONE]` marker, handed you a truncated answer that claimed to be complete. It
+now stays `FAILED` unless the stream terminated cleanly (a `[DONE]` marker, a
+terminal `finish_reason`, or a terminal `status` envelope), and an error event
+yields one final chunk carrying the reason:
+
+```python
+with model.run_stream(text="Explain LLMs") as stream:
+    for chunk in stream:
+        print(chunk.data, end="", flush=True)
+
+if stream.status != aix.ResponseStatus.SUCCESS:
+    ...  # the text above is partial
+```
+
+Iteration itself does not raise, so existing `for chunk in stream` loops keep
+working — but check `stream.status` (or `chunk.error_message`) before treating
+the concatenated text as a full answer.
+
+### A polled falsy result keeps its value and type
+
+`poll()` coerced any falsy `data` to `{}`, so a classifier that legitimately
+answers `0`, or a model whose correct answer is `""`, came back as `{}` — and
+`result.data.strip()` raised `AttributeError`. Falsy-but-present payloads
+(`""`, `0`, `False`, `[]`) now pass through unchanged, matching what the same
+model returns on the synchronous path. A genuinely absent (or `null`) `data`
+still arrives as `{}`.
+
 ## Getting help
 
 - Open an issue at <https://github.com/aixplain/aiXplain/issues> — especially if a gap above blocks you; that feedback shapes the removal timeline.

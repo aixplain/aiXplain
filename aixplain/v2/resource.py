@@ -909,8 +909,16 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
                     errors.append(f"item[{index}]: {e}")
                     continue
             else:
-                # Fallback for classes without from_dict
-                obj = cls(**item)  # type: ignore[call-arg]
+                # Fallback for classes without from_dict. It fails the same way
+                # from_dict does (a non-mapping record, an unexpected field), so
+                # report it rather than letting a raw TypeError escape a call the
+                # caller asked to be lenient.
+                try:
+                    obj = cls(**item)  # type: ignore[call-arg]
+                except Exception as e:
+                    logger.warning("Skipping item during %s deserialization: %s", cls.__name__, e)
+                    errors.append(f"item[{index}]: {e}")
+                    continue
             setattr(obj, "context", context)
             # Set the saved state to match the loaded state
             obj._update_saved_state()
@@ -1062,14 +1070,13 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
             # rather than collapsing it to ``len(results)``.
             total = max(total - skipped, len(results))
 
-        page = Page(
+        return Page(
             results=results,
             total=total,
             page_number=kwargs["page_number"],
             page_total=page_total,
+            skipped=skipped,
         )
-        page.skipped = skipped
-        return page
 
     @classmethod
     def _populate_path(cls, path: str, custom_path: Optional[str] = None) -> str:
