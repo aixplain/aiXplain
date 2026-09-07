@@ -1,6 +1,7 @@
 """Resource management module for v2 API."""
 
 import requests
+import inspect
 import logging
 import time
 import reprlib
@@ -27,6 +28,8 @@ from functools import wraps
 from copy import deepcopy
 
 
+from ._backoff import next_wait, sleep_with_jitter
+from .client import default_timeout
 from .enums import OwnershipType, SortBy, SortOrder
 from .exceptions import (
     ResourceError,
@@ -43,6 +46,10 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+# Whether a given ``poll`` callable accepts the per-request ``timeout`` bound.
+# Keyed by the underlying function so every instance of a class shares one answer.
+_POLL_TIMEOUT_SUPPORT: dict = {}
 
 
 # Hook decorator system
@@ -1315,7 +1322,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             except APIError as e:
                 if not self._is_retryable_run_error(e) or attempt >= run_retries:
                     raise
-                time.sleep(run_retry_wait)
+                # Jittered: a platform blip otherwise makes every client
+                # re-submit in the same instant (BUG-942).
+                sleep_with_jitter(run_retry_wait)
 
         raise RuntimeError("run submission retry loop exhausted without return")
 
@@ -1565,11 +1574,16 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         return self._submit_with_retries(**kwargs)
 
-    def poll(self, poll_url: str) -> ResultT:
+    def poll(self, poll_url: str, timeout: Optional[float] = None) -> ResultT:
         """Poll for the result of an asynchronous operation.
 
         Args:
             poll_url: URL to poll for results
+            timeout: Optional upper bound, in seconds, on this single request's
+                read phase -- normally the budget ``sync_poll`` has left. When
+                omitted the client's own default read timeout applies, which is
+                long enough for one hung poll to consume an entire poll budget
+                (BUG-1097).
 
         Returns:
             Response instance from the configured RESPONSE_CLASS
@@ -1583,11 +1597,18 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         # credential is attached. ``client.get`` re-checks; doing it here keeps the
         # error precise instead of being rewrapped as "Polling failed: ..." below.
         self.context.client.ensure_trusted_url(poll_url)
+        request_kwargs: dict = {}
+        if timeout is not None:
+            connect_timeout, read_timeout = default_timeout()
+            # Floor at 1s so a nearly-exhausted budget still sends a real request
+            # instead of one guaranteed to time out, and never exceed the client
+            # default the deployment configured.
+            request_kwargs["timeout"] = (connect_timeout, max(1.0, min(timeout, read_timeout)))
         try:
             # Use context.client for all polling operations
             # If poll_url is a full URL, urljoin will use it directly
             # If it's a relative path, it will be joined with base_url
-            response = self.context.client.get(poll_url)
+            response = self.context.client.get(poll_url, **request_kwargs)
         except Exception as e:
             # Re-raise as APIError instead of silently returning failed result
             from .exceptions import APIError
@@ -1645,6 +1666,27 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         result._raw_data = response
         return result
 
+    def _poll_accepts_timeout(self) -> bool:
+        """Whether ``self.poll`` accepts the per-request ``timeout`` bound.
+
+        ``poll`` gained ``timeout`` additively, so a third-party subclass may
+        still override it with the old ``poll(self, poll_url)`` signature.
+        Passing the budget to such an override would raise ``TypeError``; it
+        should simply lose the bound instead. Resolved per callable and cached,
+        so ``sync_poll`` pays the introspection cost once, not once per poll.
+        """
+        func = getattr(type(self).poll, "__func__", type(self).poll)
+        cached = _POLL_TIMEOUT_SUPPORT.get(func)
+        if cached is None:
+            try:
+                params = inspect.signature(func).parameters
+            except (TypeError, ValueError):  # C-implemented or unintrospectable
+                cached = True
+            else:
+                cached = "timeout" in params or any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
+            _POLL_TIMEOUT_SUPPORT[func] = cached
+        return cached
+
     def on_poll(self, response: ResultT, **kwargs: Unpack[RunParamsT]) -> None:
         """Hook called after each successful poll with the poll response.
 
@@ -1679,10 +1721,22 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         start_time = time.time()
         wait_time = max(wait_time, 0.2)  # Minimum wait time
+        poll_accepts_timeout = self._poll_accepts_timeout()
 
-        while (time.time() - start_time) < timeout:
+        while True:
+            remaining = timeout - (time.time() - start_time)
+            if remaining <= 0:
+                break
             try:
-                result = self.poll(poll_url)
+                # Bound the request by what is left of the caller's budget.
+                # Without this the client's own read timeout applies, so a single
+                # hung poll eats the whole ``timeout`` -- and, because GET is
+                # still retryable at the transport layer, up to
+                # ``DEFAULT_RETRY_TOTAL`` times that (BUG-1097).
+                if poll_accepts_timeout:
+                    result = self.poll(poll_url, timeout=remaining)
+                else:
+                    result = self.poll(poll_url)
 
                 # Call the hook with the poll response
                 self.on_poll(result, **kwargs)
@@ -1702,9 +1756,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 # Log other errors but continue polling
                 logger.warning(f"Polling error: {e}, continuing...")
 
-            time.sleep(wait_time)
-            if wait_time < 60:
-                wait_time *= 1.1  # Exponential backoff
+            remaining = timeout - (time.time() - start_time)
+            if remaining <= 0:
+                break
+            # Jittered so a batch of clients started together doesn't stay
+            # phase-locked for the whole run (BUG-942); clamped to the remaining
+            # budget so jitter can shorten a sleep but never overrun ``timeout``.
+            sleep_with_jitter(wait_time, max_sleep=remaining)
+            wait_time = next_wait(wait_time)
 
         if show_progress:
             logger.error(f"Operation timeout - No response after {timeout}s")

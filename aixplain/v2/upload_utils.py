@@ -6,6 +6,7 @@ logic from the legacy FileFactory while maintaining a clean, modular architectur
 
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any
 from urllib.parse import urljoin
@@ -108,12 +109,24 @@ class MimeTypeDetector:
 class RequestManager:
     """Handles HTTP requests with retry logic."""
 
+    # One shared session for the process instead of one per request. A
+    # per-request session pays a fresh TLS handshake every time and pools
+    # nothing, which is the cost BUG-942 item 3 is about. Safe to share: the
+    # session carries no credentials (auth headers are passed per request), so
+    # nothing leaks across ``Aixplain()`` instances.
+    _session: Optional[requests.Session] = None
+    _session_lock = threading.Lock()
+
     @classmethod
     def create_session(cls) -> requests.Session:
-        """Create a requests session with retry configuration."""
-        from .client import create_retry_session
+        """Return the shared retry session, creating it on first use."""
+        if cls._session is None:
+            with cls._session_lock:
+                if cls._session is None:
+                    from .client import create_retry_session
 
-        return create_retry_session()
+                    cls._session = create_retry_session()
+        return cls._session
 
     @classmethod
     def request_with_retry(cls, method: str, url: str, **kwargs) -> requests.Response:

@@ -1,6 +1,7 @@
 """Client module for making HTTP requests to the aiXplain API."""
 
 from typing import Any, Iterable, Optional, Tuple, Union, List, FrozenSet
+import inspect
 import logging
 import os
 import requests
@@ -14,7 +15,35 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_RETRY_TOTAL = 5
 DEFAULT_RETRY_BACKOFF_FACTOR = 0.1
-DEFAULT_RETRY_STATUS_FORCELIST = [500, 502, 503, 504]
+
+# 429 belongs in the forcelist now that ``allowed_methods`` is GET-only: retrying
+# a throttled *poll* is safe, and is what lets the client honour the server's own
+# backoff signal instead of hammering through it. A throttled POST is still never
+# re-sent (see RETRY_ALLOWED_METHODS below), so this cannot duplicate a billable
+# submission.
+DEFAULT_RETRY_STATUS_FORCELIST = [429, 500, 502, 503, 504]
+
+# urllib3's ``backoff_jitter`` is *additive*: the sleep becomes
+# ``backoff_factor * 2**(n-1) + uniform(0, backoff_jitter)``. With
+# backoff_factor=0.1 the nominal sleeps are 0.1/0.2/0.4/0.8/1.6s, so 0.3s of
+# spread decorrelates a fleet across that whole window without materially
+# slowing any one client. Without it, a platform 5xx makes every installed copy
+# of the SDK retry inside the same ~3s window, and the recovery wave
+# re-degrades the platform it is recovering (BUG-942).
+DEFAULT_RETRY_BACKOFF_JITTER = 0.3
+
+# Bound both sleep sources. urllib3's own defaults are 120s of backoff and
+# **6 hours** of Retry-After; honouring an unbounded header would hand a
+# misconfigured (or hostile) edge the ability to pin a caller's thread.
+DEFAULT_RETRY_BACKOFF_MAX = 60.0
+DEFAULT_RETRY_AFTER_MAX = 60.0
+
+# urllib3 defaults to 10/10 with block=False, so above 10 in-flight requests the
+# adapter opens connections and then *discards* them instead of pooling them --
+# a fresh TLS handshake per request plus a "Connection pool is full" warning
+# each time. That peaks exactly when the poll burst does.
+DEFAULT_POOL_CONNECTIONS = 32
+DEFAULT_POOL_MAXSIZE = 64
 
 # Methods urllib3 may retry once a request has actually been put on the wire.
 # Dropping POST is what closes BUG-1090: with POST listed, a single ``/execute``
@@ -200,6 +229,34 @@ class _AixplainSession(requests.Session):
                 prepared_request.headers.pop(name, None)
 
 
+_RETRY_INIT_PARAMS = frozenset(inspect.signature(Retry.__init__).parameters)
+
+
+def _build_retry(**kwargs: Any) -> Retry:
+    """Construct a ``Retry``, dropping kwargs the installed urllib3 doesn't accept.
+
+    ``backoff_jitter`` landed in urllib3 2.0 and ``retry_after_max`` in 2.1,
+    while the only declared bound is ``requests``' own loose ``urllib3<3`` --
+    so an environment resolving to 1.26 must lose the jitter, not raise
+    ``TypeError``.
+
+    Args:
+        **kwargs: Candidate ``Retry`` keyword arguments.
+
+    Returns:
+        urllib3.util.Retry: Configured with every supported kwarg.
+    """
+    unsupported = sorted(key for key in kwargs if key not in _RETRY_INIT_PARAMS)
+    for key in unsupported:
+        kwargs.pop(key)
+    if unsupported:
+        logger.debug(
+            "Installed urllib3 Retry does not support %s; continuing without it",
+            ", ".join(unsupported),
+        )
+    return Retry(**kwargs)
+
+
 def create_retry_session(
     total: Optional[int] = None,
     backoff_factor: Optional[float] = None,
@@ -217,7 +274,9 @@ def create_retry_session(
     Args:
         total (int, optional): Total number of retries allowed. Defaults to 5.
         backoff_factor (float, optional): Backoff factor to apply between retry attempts. Defaults to 0.1.
-        status_forcelist (list, optional): List of HTTP status codes to force a retry on. Defaults to [500, 502, 503, 504].
+        status_forcelist (list, optional): List of HTTP status codes to force a retry on.
+            Defaults to [429, 500, 502, 503, 504]. Retries are jittered and honour ``Retry-After``
+            (bounded by DEFAULT_RETRY_AFTER_MAX).
         trusted_origins (frozenset, optional): ``(scheme, host, port)`` triples allowed
             to receive aiXplain credentials across a redirect. Defaults to none, i.e.
             any redirect drops them.
@@ -229,15 +288,26 @@ def create_retry_session(
     total = total or DEFAULT_RETRY_TOTAL
     backoff_factor = backoff_factor or DEFAULT_RETRY_BACKOFF_FACTOR
     status_forcelist = status_forcelist or DEFAULT_RETRY_STATUS_FORCELIST
-    retry_strategy = Retry(
-        total=total,
-        backoff_factor=backoff_factor,
-        status_forcelist=status_forcelist,
-        allowed_methods=RETRY_ALLOWED_METHODS,
-        **kwargs,
-    )
+    retry_kwargs: dict = {
+        "total": total,
+        "backoff_factor": backoff_factor,
+        "status_forcelist": status_forcelist,
+        "allowed_methods": RETRY_ALLOWED_METHODS,
+        "backoff_jitter": DEFAULT_RETRY_BACKOFF_JITTER,
+        "backoff_max": DEFAULT_RETRY_BACKOFF_MAX,
+        "respect_retry_after_header": True,
+        "retry_after_max": DEFAULT_RETRY_AFTER_MAX,
+    }
+    # Caller kwargs win over the defaults above rather than colliding with them.
+    retry_kwargs.update(kwargs)
+    retry_strategy = _build_retry(**retry_kwargs)
     session = _AixplainSession(trusted_origins=trusted_origins)
-    adapter = HTTPAdapter(max_retries=retry_strategy)
+    adapter = HTTPAdapter(
+        max_retries=retry_strategy,
+        pool_connections=DEFAULT_POOL_CONNECTIONS,
+        pool_maxsize=DEFAULT_POOL_MAXSIZE,
+        pool_block=False,
+    )
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
@@ -265,7 +335,8 @@ class AixplainClient:
             team_api_key (str, optional): The team API key.
             retry_total (int): Total number of retries allowed. Defaults to 5.
             retry_backoff_factor (float): Backoff factor between retry attempts. Defaults to 0.1.
-            retry_status_forcelist (list): HTTP status codes that trigger a retry. Defaults to [500, 502, 503, 504].
+            retry_status_forcelist (list): HTTP status codes that trigger a retry.
+                Defaults to [429, 500, 502, 503, 504].
             timeout (float or (float, float) tuple, optional): Default timeout for every
                 request that doesn't pass its own ``timeout=``. Defaults to
                 (AIXPLAIN_HTTP_CONNECT_TIMEOUT or 10, AIXPLAIN_HTTP_READ_TIMEOUT or 300)

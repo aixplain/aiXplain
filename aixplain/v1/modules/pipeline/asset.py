@@ -21,6 +21,7 @@ Description:
     Pipeline Asset Class
 """
 
+import random
 import time
 import json
 import os
@@ -95,7 +96,7 @@ class Pipeline(Asset, DeployableMixin):
         poll_url: Text,
         name: Text = "pipeline_process",
         wait_time: float = 1.0,
-        timeout: float = 20000.0,
+        timeout: float = 1800.0,
     ) -> Dict:
         """Keeps polling the platform to check whether an asynchronous call is done.
 
@@ -103,7 +104,7 @@ class Pipeline(Asset, DeployableMixin):
             poll_url (str): polling URL
             name (str, optional): ID given to a call. Defaults to "pipeline_process".
             wait_time (float, optional): wait time in seconds between polling calls. Defaults to 1.0.
-            timeout (float, optional): total polling time. Defaults to 20000.0.
+            timeout (float, optional): total polling time. Defaults to 1800.0 (30 minutes).
 
         Returns:
             dict: response obtained by polling call
@@ -119,7 +120,10 @@ class Pipeline(Asset, DeployableMixin):
                 logging.debug(f"Polling for Pipeline: Status of polling for {name} : {response_body}")
                 end = time.time()
                 if not response_body["completed"]:
-                    time.sleep(wait_time)
+                    # Jittered: a deterministic interval keeps every client
+                    # launched together phase-locked for the whole run, so the
+                    # fleet polls in synchronized waves (BUG-942).
+                    time.sleep(wait_time * random.uniform(0.8, 1.2))
                     if wait_time < 60:
                         wait_time *= 1.1
             except Exception:
@@ -164,7 +168,17 @@ class Pipeline(Asset, DeployableMixin):
                     resp["data"] = json.loads(resp["data"])["response"]
                 except Exception:
                     resp = r.json()
-            logging.info(f"Single Poll for Pipeline '{self.id}' - Status of polling for {name} ({poll_url}): {resp}")
+            # Lazy ``%s`` args and status only: this ran at INFO on every poll
+            # with the whole response interpolated eagerly, so a pipeline
+            # returning a 500KB transcript emitted ~180MB of logs per run
+            # (BUG-942 item 5).
+            logging.debug(
+                "Single Poll for Pipeline '%s' - Status of polling for %s (%s): %s",
+                self.id,
+                name,
+                poll_url,
+                resp.get("status") if isinstance(resp, dict) else None,
+            )
             if response_version == "v1":
                 return resp
             status = ResponseStatus(resp.pop("status", "failed"))
@@ -189,7 +203,7 @@ class Pipeline(Asset, DeployableMixin):
         data: Union[Text, Dict],
         data_asset: Optional[Union[Text, Dict]] = None,
         name: Text = "pipeline_process",
-        timeout: float = 20000.0,
+        timeout: float = 1800.0,
         wait_time: float = 1.0,
         version: Optional[Text] = None,
         response_version: Text = "v2",
@@ -211,7 +225,7 @@ class Pipeline(Asset, DeployableMixin):
             name (Text, optional): Identifier for this pipeline run. Used for
                 logging. Defaults to "pipeline_process".
             timeout (float, optional): Maximum time in seconds to wait for
-                completion. Defaults to 20000.0.
+                completion. Defaults to 1800.0 (30 minutes).
             wait_time (float, optional): Initial time in seconds between polling
                 attempts. May increase over time. Defaults to 1.0.
             version (Optional[Text], optional): Specific pipeline version to run.

@@ -27,6 +27,7 @@ __author__ = "aiXplain"
 
 import json
 import logging
+import random
 import time
 import traceback
 import re
@@ -567,7 +568,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
                 end = time.time()
                 if completed is False:
-                    time.sleep(wait_time)
+                    # Jittered: a deterministic interval keeps every client
+                    # launched together phase-locked for the whole run, so the
+                    # fleet polls in synchronized waves (BUG-942).
+                    time.sleep(wait_time * random.uniform(0.8, 1.2))
                     if wait_time < 60:
                         wait_time *= 1.1
             except Exception as e:

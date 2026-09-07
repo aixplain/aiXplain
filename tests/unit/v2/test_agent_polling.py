@@ -334,7 +334,10 @@ class TestAgentSyncPollWithExecutionId:
 
         agent.sync_poll(full_url)
 
-        agent.context.client.get.assert_called_once_with(full_url)
+        # ``sync_poll`` also bounds the request by its remaining budget, so
+        # assert on the URL rather than the whole call signature.
+        assert agent.context.client.get.call_count == 1
+        assert agent.context.client.get.call_args.args == (full_url,)
 
     def test_sync_poll_with_execution_id(self):
         """sync_poll() with a bare execution ID should construct the correct URL."""
@@ -350,7 +353,8 @@ class TestAgentSyncPollWithExecutionId:
         agent.sync_poll("exec-id-1")
 
         expected_url = f"{BACKEND_URL}/sdk/agents/exec-id-1/result"
-        agent.context.client.get.assert_called_once_with(expected_url)
+        assert agent.context.client.get.call_count == 1
+        assert agent.context.client.get.call_args.args == (expected_url,)
 
     def test_sync_poll_does_not_use_sdk_runs_endpoint(self):
         """sync_poll() must NOT use /sdk/runs/{id}."""

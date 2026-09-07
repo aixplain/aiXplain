@@ -964,9 +964,11 @@ class Agent(
         progress_truncate = kwargs.get("progress_truncate", True)
         fmt = ProgressFormat(progress_format)
 
+        # ``poll_interval`` is deliberately not set: this tracker is driven by the
+        # start/update/finish hooks off ``sync_poll``, which owns the interval.
+        # It would only be slept on by ``stream_progress``, which is not used here.
         self._progress_tracker = AgentProgressTracker(
             poll_func=lambda url: self.poll(url),
-            poll_interval=0.05,
             max_polls=None,
         )
         self._progress_tracker.start(
@@ -1197,7 +1199,7 @@ class Agent(
         path = self.POLL_URL_TEMPLATE.format(execution_id=poll_url)
         return f"{backend_url}/{path}"
 
-    def poll(self, poll_url: str) -> AgentRunResult:
+    def poll(self, poll_url: str, timeout: Optional[float] = None) -> AgentRunResult:
         """Poll for the result of an asynchronous agent execution.
 
         Unlike the base implementation, *poll_url* may be either a full URL
@@ -1209,11 +1211,13 @@ class Agent(
 
         Args:
             poll_url: Full poll URL or execution ID.
+            timeout: Optional upper bound, in seconds, on this single request's
+                read phase. See :meth:`RunnableResourceMixin.poll`.
 
         Returns:
             AgentRunResult with current execution status.
         """
-        return super().poll(self._resolve_poll_url(poll_url))
+        return super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
 
     def sync_poll(self, poll_url: str, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Poll until an asynchronous agent execution completes.
