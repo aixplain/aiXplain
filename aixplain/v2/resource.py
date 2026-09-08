@@ -2046,12 +2046,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                     "Poll response deserialization failed for a completed response. "
                     "Building fallback result from raw data."
                 )
-                fallback_data = filtered_response.get("data")
+                # ``data`` was already defaulted to {} above when the response
+                # omitted it, so it is never None here.
                 result = response_class.from_dict(
                     {
                         "status": filtered_response["status"],
                         "completed": True,
-                        "data": {} if fallback_data is None else fallback_data,
+                        "data": filtered_response["data"],
                     }
                 )
             else:
