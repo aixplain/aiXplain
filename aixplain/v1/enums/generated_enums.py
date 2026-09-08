@@ -6,7 +6,7 @@
 from enum import Enum
 from typing import Dict, Any, Tuple
 from dataclasses import dataclass
-from aixplain.base.parameters import BaseParameters, Parameter
+from aixplain.v1.base.parameters import BaseParameters, Parameter
 
 
 class Function(str, Enum):
@@ -4523,7 +4523,7 @@ class Supplier(Enum):
     """Enum representing available suppliers in the aiXplain platform."""
 
     AIXPLAIN = {"id": 1, "name": "aixplain", "code": "aixplain"}
-    GOOGLE = {"id": 1769, "name": "google", "code": "google"}
+    GOOGLE = {"id": 1769, "name": "Google", "code": "google"}
     TIMECHAT = {"id": 11688, "name": "TimeChat", "code": "timechat"}
     CANOPY_LABS = {"id": 29334, "name": "Canopy Labs", "code": "canopy-labs"}
     COMPOSIO = {"id": 29342, "name": "Composio", "code": "composio"}
@@ -4602,6 +4602,10 @@ class Supplier(Enum):
     GROQ = {"id": 6839, "name": "Groq", "code": "groq"}
     CEREBRAS = {"id": 19790, "name": "Cerebras", "code": "cerebras"}
     TOGETHER_AI = {"id": 17845, "name": "Together AI", "code": "together-ai"}
+    ALIBABA_CLOUD = {"id": 67623, "name": "Alibaba Cloud", "code": "alibaba-cloud"}
+    ANTHROPIC = {"id": 66303, "name": "Anthropic", "code": "anthropic"}
+    BYTEDANCE = {"id": 65945, "name": "ByteDance", "code": "bytedance"}
+    OPENROUTER = {"id": 67145, "name": "OpenRouter", "code": "openrouter"}
 
     def __str__(self):
         """Return the supplier name."""

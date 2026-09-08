@@ -48,6 +48,18 @@ ruff check --fix .      # Lint with auto-fix
 ruff format .           # Format
 ```
 
+### توليد الشيفرة
+
+تُولَّد ثلاث وحدات بواسطة `generate.py` ولا يجوز تعديلها يدويًا: `aixplain/v1/enums/generated_enums.py` و`aixplain/v1/modules/pipeline/pipeline.py` و`aixplain/v2/enums_include.py`. تعيش تعدادات `Function` و`Supplier` و`Language` و`License` التي يستخدمها `v2` في أولها، لذا فإن المولّد أساسي لـ `v2` رغم وجود الملفات ضمن `v1`.
+
+```bash
+python generate.py                # render (default): offline, no credential
+python generate.py render --check # exit non-zero if the committed modules drifted
+python generate.py fetch          # refresh tools/generator/fixtures/ (network + API key)
+```
+
+تقرأ خطوة العرض (render) ملفات البيانات المثبَّتة في `tools/generator/fixtures/` فقط، لذا فهي حتمية ولا تحتاج إلى خادم خلفي ولا إلى مفتاح؛ وتشغّلها مهمة `generator-drift` في CI وتفشل عند وجود `git diff` غير فارغ. خطوة `fetch` هي الوحيدة التي تتصل بالشبكة وتُشغَّل يدويًا — راجع `tools/generator/fixtures/README.md`.
+
 ### Pre-commit
 
 ```bash

@@ -26,6 +26,7 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | Tier | Context | Workflow | Runs on a PR today? | Precondition to require |
 | ---- | ------- | -------- | ------------------- | ----------------------- |
 | 1 | `pre-commit` | `pre-commit.yaml` | Yes (`push: '**'`) | None — requireable as soon as it is green |
+| 1 | `generator-drift` | `generator-drift.yaml` | Yes (`push: '**'`) | None — requireable as soon as it is green |
 | 1 | `unit-coverage` | `main.yaml` | **No** | `main.yaml` gains a `pull_request` trigger |
 | 1 | `package-integrity` | `main.yaml` | **No** | `main.yaml` gains a `pull_request` trigger |
 | 2 | `setup-and-test (file_asset)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
@@ -53,9 +54,12 @@ feature branch therefore never produces a `unit-coverage`, `package-integrity`, 
 `setup-and-test (...)` check. Marking those contexts required **right now** would leave every PR
 permanently "Expected — Waiting for status to be reported": a merge deadlock, not a merge gate.
 
-`pre-commit.yaml` triggers on `push` to `'**'`, so `pre-commit` is the only context that reports on a
-feature-branch PR today — and it runs `tests/unit`, which includes the coverage-relevant suite and all
-the static CI guards.
+`pre-commit.yaml` and `generator-drift.yaml` trigger on `push` to `'**'`, so `pre-commit` and
+`generator-drift` are the only contexts that report on a feature-branch PR today. `pre-commit` runs
+`tests/unit`, which includes the coverage-relevant suite and all the static CI guards;
+`generator-drift` re-renders the generated modules from the committed fixtures and fails on a
+non-empty `git diff` (ENG-3435). It takes no secret: the render step is offline by construction, so
+unlike the Tier 2 legs its redness always means an SDK-side problem.
 
 ## Ordered procedure
 

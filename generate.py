@@ -1,45 +1,63 @@
-"""Generate static enum modules from backend API data."""
+"""Generate the static enum, pipeline and v2 enum-include modules from backend catalog data.
 
-import re
+The generator is split into two steps that never run together:
+
+``python generate.py fetch``
+    The only networked step. Snapshots the four backend catalog endpoints into the
+    committed JSON fixtures under ``tools/generator/fixtures/``. It needs a credential
+    and is run by hand when someone wants to refresh the data.
+
+``python generate.py render`` (the default)
+    Deterministic, offline and credential-free. Renders the generated modules from those
+    fixtures, which is what lets CI gate on drift without a backend or a secret.
+
+Every backend-derived value is emitted through :func:`py_literal` (never interpolated
+raw), and every value used as a Python identifier is validated by :func:`py_identifier`.
+A value that cannot be emitted safely fails the render instead of being mangled into a
+module that every SDK user imports.
+"""
+
+import argparse
+import json
+import keyword
 import os
-import requests
+import re
+import subprocess
+import sys
+import tempfile
+import textwrap
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 from urllib.parse import urljoin
-from jinja2 import Environment, BaseLoader
-from dotenv import load_dotenv
 
-load_dotenv()
+import requests
+from jinja2 import BaseLoader, Environment
 
 # Note: We don't import anything from aixplain.* here to avoid circular
 # dependency. All configuration is handled via environment variables.
 
+#: Repo root, so paths resolve the same no matter which directory the generator is
+#: invoked from. Resolving against the CWD used to scatter an ``aixplain/`` tree
+#: wherever the script happened to run (ENG-3435).
+REPO_ROOT = Path(__file__).resolve().parent
 
-def enumify(s):
-    """Slugify a string and convert to uppercase."""
-    s = re.sub(r"\s+", "_", s)
-    s = re.sub(r"[-.]+", "_", s)
-    s = re.sub(r"[^a-zA-Z0-9-_.]+", "", s)
-    s = s.upper()
+ENUMS_MODULE_PATH = REPO_ROOT / "aixplain" / "v1" / "enums" / "generated_enums.py"
+PIPELINE_MODULE_PATH = REPO_ROOT / "aixplain" / "v1" / "modules" / "pipeline" / "pipeline.py"
+ENUMS_INCLUDE_PATH = REPO_ROOT / "aixplain" / "v2" / "enums_include.py"
 
-    # Handle numeric-only strings by prefixing with underscore
-    if s.isdigit():
-        s = f"_{s}"
+#: Committed snapshots of the backend catalog. The render step reads only these.
+FIXTURE_DIR = REPO_ROOT / "tools" / "generator" / "fixtures"
+RUFF_CONFIG_PATH = REPO_ROOT / "ruff.toml"
 
-    return s
+#: ``sdk/<name>`` endpoints backing each fixture, and the key each one is ordered by.
+ENDPOINTS = {
+    "functions": "id",
+    "suppliers": "code",
+    "languages": "label",
+    "licenses": "name",
+}
 
-
-def none_to_none(value):
-    """Convert None to string 'None' for Python code generation."""
-    if value is None:
-        return "None"
-    return value
-
-
-def escape_quotes(value):
-    """Escape double quotes in strings for Python code generation."""
-    if value is None:
-        return ""
-    return value.replace('"', '\\"')
-
+DEFAULT_BACKEND_URL = "https://platform-api.aixplain.com"
 
 SEGMENTOR_FUNCTIONS = [
     "split-on-linebreak",
@@ -49,9 +67,150 @@ SEGMENTOR_FUNCTIONS = [
 
 RECONSTRUCTOR_FUNCTIONS = ["text-reconstruction", "audio-reconstruction"]
 
-# Centralized enum generation - only generate in main enums directory
-ENUMS_MODULE_PATH = "aixplain/enums/generated_enums.py"
-PIPELINE_MODULE_PATH = "aixplain/modules/pipeline/pipeline.py"
+#: Names ``aixplain/v2/enums_include.py`` re-exports. All of them are exported by
+#: ``aixplain.v1.enums``; the list is declared once so the import block and ``__all__``
+#: cannot drift apart.
+ENUMS_INCLUDE_NAMES = [
+    "AssetStatus",
+    "ErrorHandler",
+    "FileType",
+    "Function",
+    "Language",
+    "License",
+    "OnboardStatus",
+    "OwnershipType",
+    "Privacy",
+    "ResponseStatus",
+    "SortBy",
+    "SortOrder",
+    "StorageType",
+    "Supplier",
+    "FunctionType",
+    "EvolveType",
+    "CodeInterpreterModel",
+]
+
+IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+#: Width Jinja's ``wordwrap`` filter used, kept so regenerated docstrings do not
+#: reflow against the committed output.
+DOCSTRING_WIDTH = 79
+
+
+class GeneratorValueError(ValueError):
+    """A backend value cannot be emitted safely into generated Python source."""
+
+
+def enumify(value: str, source: str = "backend value") -> str:
+    """Slugify a string, uppercase it and validate it as an enum member name.
+
+    Args:
+        value (str): The backend value to convert.
+        source (str): Human-readable origin, used in the error message.
+
+    Returns:
+        str: A valid Python identifier usable as an enum member name.
+
+    Raises:
+        GeneratorValueError: If the value cannot become a valid identifier.
+    """
+    slug = re.sub(r"\s+", "_", value or "")
+    slug = re.sub(r"[-.]+", "_", slug)
+    slug = re.sub(r"[^a-zA-Z0-9-_.]+", "", slug)
+    slug = slug.upper()
+
+    # Handle numeric-only strings by prefixing with underscore
+    if slug.isdigit():
+        slug = f"_{slug}"
+
+    return py_identifier(slug, source=f"{source} {value!r}")
+
+
+def py_identifier(value: Any, *, source: str) -> str:
+    """Validate a value as a Python identifier, or fail the render.
+
+    Surrounding whitespace is stripped first: the backend does serve values such as
+    ``"text "`` (the OutputType of ``text-detection``), and whitespace is never part of
+    an identifier, so removing it loses nothing. Anything else is rejected rather than
+    rewritten.
+
+    Args:
+        value (Any): The candidate identifier.
+        source (str): Human-readable origin, used in the error message.
+
+    Returns:
+        str: The stripped value, once it is known to be safe.
+
+    Raises:
+        GeneratorValueError: If the value is not a usable Python identifier.
+    """
+    text = value.strip() if isinstance(value, str) else ""
+    if not IDENTIFIER_RE.match(text) or keyword.iskeyword(text):
+        raise GeneratorValueError(
+            f"{source}: {value!r} is not a usable Python identifier. "
+            "Fix the value at the backend or add an explicit mapping; the generator "
+            "will not mangle it into something that imports."
+        )
+    return text
+
+
+def py_literal(value: Any) -> str:
+    """Render a backend value as a Python literal.
+
+    This is the only way any backend-derived value reaches the generated source.
+    ``repr`` is used rather than ``json.dumps`` because ``json.dumps`` defaults to
+    ``ensure_ascii=True`` and would rewrite the non-ASCII characters already present in
+    the committed output (curly quotes) into unicode escapes.
+
+    Args:
+        value (Any): A string, number, boolean, ``None``, list or dict.
+
+    Returns:
+        str: The value as Python source.
+
+    Raises:
+        GeneratorValueError: If the value is of a type with no safe literal form.
+    """
+    if isinstance(value, str) or value is None or isinstance(value, bool):
+        return repr(value)
+    if isinstance(value, (int, float)):
+        return repr(value)
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(py_literal(item) for item in value) + "]"
+    if isinstance(value, dict):
+        return "{" + ", ".join(f"{py_literal(k)}: {py_literal(v)}" for k, v in value.items()) + "}"
+    raise GeneratorValueError(f"{type(value).__name__} value {value!r} has no safe Python literal form.")
+
+
+def py_docstring(value: Optional[str], indent: int = 4) -> str:
+    """Escape and wrap a backend string for embedding inside a triple-quoted docstring.
+
+    Args:
+        value (Optional[str]): The backend text.
+        indent (int): Column the continuation lines are indented to.
+
+    Returns:
+        str: Wrapped, escaped text safe to interpolate between triple-quote delimiters.
+    """
+    text = (value or "").replace("\\", "\\\\").replace('"""', '\\"\\"\\"')
+    if text.endswith('"'):
+        text = text[:-1] + '\\"'
+
+    lines: List[str] = []
+    for line in text.splitlines():
+        lines.extend(
+            textwrap.wrap(
+                line,
+                width=DOCSTRING_WIDTH,
+                expand_tabs=False,
+                replace_whitespace=False,
+                break_long_words=True,
+                break_on_hyphens=True,
+            )
+            or [""]
+        )
+    return ("\n" + " " * indent).join(lines)
+
 
 ENUMS_MODULE_TEMPLATE = """\"\"\"Auto-generated enum module containing static values from the backend API.\"\"\"
 
@@ -61,14 +220,14 @@ ENUMS_MODULE_TEMPLATE = """\"\"\"Auto-generated enum module containing static va
 from enum import Enum
 from typing import Dict, Any, Tuple
 from dataclasses import dataclass
-from aixplain.base.parameters import BaseParameters, Parameter
+from aixplain.v1.base.parameters import BaseParameters, Parameter
 
 
 class Function(str, Enum):
     \"\"\"Enum representing available functions in the aiXplain platform.\"\"\"
 
     {% for function in functions %}
-    {{ function.id|enumify }} = "{{ function.id }}"
+    {{ function.id|enumify("Function member for function id") }} = {{ function.id|pyrepr }}
     {% endfor %}
 
     def get_input_output_params(self) -> Tuple[Dict, Dict]:
@@ -102,37 +261,37 @@ class Function(str, Enum):
 # Static FunctionInputOutput dictionary
 FunctionInputOutput = {
     {% for function in functions %}
-    "{{ function.id }}": {
+    {{ function.id|pyrepr }}: {
         "input": {
             {% for param in function.params %}
-            {% if param.required %}"{{ param.dataType }}"{% if not loop.last %}, {% endif %}{% endif %}
+            {% if param.required %}{{ param.dataType|pyrepr }}{% if not loop.last %}, {% endif %}{% endif %}
             {% endfor %}
         },
         "output": {
-            {% for output in function.output %}"{{ output.dataType }}"{% if not loop.last %}, {% endif %}{% endfor %}
+            {% for output in function.output %}{{ output.dataType|pyrepr }}{% if not loop.last %}, {% endif %}{% endfor %}
         },
         "spec": {
-            "id": "{{ function.id }}",
-            "name": "{{ function.name }}",
-            "description": "{{ function.metaData.description|escape_quotes }}",
+            "id": {{ function.id|pyrepr }},
+            "name": {{ function.name|pyrepr }},
+            "description": {{ function.metaData.description|pyrepr }},
             "params": [
                 {% for param in function.params %}
                 {
-                    "code": "{{ param.code }}",
-                    "dataType": "{{ param.dataType }}",
-                    "required": {{ param.required }},
-                    "multipleValues": {{ param.multipleValues|default(false) }},
-                    "defaultValues": {{ param.defaultValues|none_to_none|default("None") }},
-                    "isFixed": {{ param.isFixed|default(false) }}
+                    "code": {{ param.code|pyrepr }},
+                    "dataType": {{ param.dataType|pyrepr }},
+                    "required": {{ param.required|pyrepr }},
+                    "multipleValues": {{ param.multipleValues|default(false)|pyrepr }},
+                    "defaultValues": {{ param.defaultValues|default(none)|pyrepr }},
+                    "isFixed": {{ param.isFixed|default(false)|pyrepr }}
                 }{% if not loop.last %},{% endif %}
                 {% endfor %}
             ],
             "output": [
                 {% for output in function.output %}
                 {
-                    "code": "{{ output.code }}",
-                    "dataType": "{{ output.dataType }}",
-                    "defaultValue": {{ output.defaultValue|none_to_none|default("None") }}
+                    "code": {{ output.code|pyrepr }},
+                    "dataType": {{ output.dataType|pyrepr }},
+                    "defaultValue": {{ output.defaultValue|default(none)|pyrepr }}
                 }{% if not loop.last %},{% endif %}
                 {% endfor %}
             ]
@@ -163,10 +322,10 @@ class Supplier(Enum):
     \"\"\"Enum representing available suppliers in the aiXplain platform.\"\"\"
 
     {% for supplier in suppliers %}
-    {{ supplier.code|enumify }} = {
-        "id": {{ supplier.id }},
-        "name": "{{ supplier.name }}",
-        "code": "{{ supplier.code }}"
+    {{ supplier.code|enumify("Supplier member for supplier code") }} = {
+        "id": {{ supplier.id|pyrepr }},
+        "name": {{ supplier.name|pyrepr }},
+        "code": {{ supplier.code|pyrepr }}
     }
     {% endfor %}
 
@@ -179,14 +338,14 @@ class Language(Enum):
     \"\"\"Enum representing available languages in the aiXplain platform.\"\"\"
 
     {% for language in languages %}
-    {{ language.label|enumify }} = {
-        "language": "{{ language.value }}",
+    {{ language.label|enumify("Language member for language label") }} = {
+        "language": {{ language.value|pyrepr }},
         "dialect": ""
     }
     {% for dialect in language.dialects %}
-    {{ language.label|enumify }}_{{ dialect.label|enumify }} = {
-        "language": "{{ language.value }}",
-        "dialect": "{{ dialect.value }}"
+    {{ language.label|enumify("Language member for language label") }}_{{ dialect.label|enumify("Language member for dialect label") }} = {
+        "language": {{ language.value|pyrepr }},
+        "dialect": {{ dialect.value|pyrepr }}
     }
     {% endfor %}
     {% endfor %}
@@ -196,7 +355,7 @@ class License(str, Enum):
     \"\"\"Enum representing available licenses in the aiXplain platform.\"\"\"
 
     {% for license in licenses %}
-    {{ license.name|enumify }} = "{{ license.id }}"
+    {{ license.name|enumify("License member for license name") }} = {{ license.id|pyrepr }}
     {% endfor %}
 
 """
@@ -207,7 +366,7 @@ PIPELINE_MODULE_TEMPLATE = """\"\"\"Auto-generated pipeline module containing no
 
 
 from typing import Union, Type
-from aixplain.enums import DataType
+from aixplain.v1.enums import DataType
 
 from .designer import (
     InputParam,
@@ -222,7 +381,7 @@ from .designer import (
     BaseMetric
 )
 from .default import DefaultPipeline
-from aixplain.modules import asset
+from aixplain.v1.modules import asset
 
 {% for spec in specs %}
 
@@ -238,9 +397,9 @@ class {{ spec.class_name }}Inputs(Inputs):
         super().__init__(node=node)
 {% for input in spec.inputs %}
         self.{{ input.name }} = self.create_param(
-            code="{{ input.name }}",
+            code={{ input.name|pyrepr }},
             data_type=DataType.{{ input.data_type | upper }},
-            is_required={{ input.is_required }}
+            is_required={{ input.is_required|pyrepr }}
         )
 {% endfor %}
 
@@ -260,7 +419,7 @@ class {{ spec.class_name }}Outputs(Outputs):
         super().__init__(node=node)
 {% for output in spec.outputs %}
         self.{{ output.name }} = self.create_param(
-            code="{{ output.name }}",
+            code={{ output.name|pyrepr }},
             data_type=DataType.{{ output.data_type | upper }}
         )
 {% endfor %}
@@ -272,12 +431,14 @@ class {{ spec.class_name }}Outputs(Outputs):
 class {{ spec.class_name }}({{spec.base_class}}[{{ spec.class_name }}Inputs, {{ spec.class_name }}Outputs]):
     \"\"\"{{ spec.class_name }} node.
 
-    {{ spec.description | wordwrap }}
+{% if spec.description|docstring(4) %}
+    {{ spec.description | docstring(4) }}
 
+{% endif %}
     InputType: {{ spec.input_type }}
     OutputType: {{ spec.output_type }}
     \"\"\"
-    function: str = "{{ spec.id }}"
+    function: str = {{ spec.id|pyrepr }}
     input_type: str = DataType.{{ spec.input_type | upper }}
     output_type: str = DataType.{{ spec.output_type | upper }}
 
@@ -293,38 +454,73 @@ class Pipeline(DefaultPipeline):
 {% for spec in specs %}
     def {{ spec.function_name }}(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> {{ spec.class_name }}:
         \"\"\"Create a {{ spec.class_name }} node.
+{% if spec.description|docstring(8) %}
 
-        {{ spec.description | wordwrap }}
+        {{ spec.description | docstring(8) }}
+{% endif %}
         \"\"\"
         return {{ spec.class_name }}(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
 {% endfor %}
 """
 
+ENUMS_INCLUDE_TEMPLATE = """\"\"\"Compatibility imports for legacy enums in v2.
 
-def get_config():
-    """Get configuration from environment variables."""
+This is an auto generated module. PLEASE DO NOT EDIT.
+\"\"\"
+
+# Import all enums from legacy system for compatibility
+from aixplain.v1.enums import (
+{% for name in names %}
+    {{ name }},
+{% endfor %}
+)
+
+# Re-export for compatibility
+__all__ = [
+{% for name in names %}
+    {{ name|pyrepr }},
+{% endfor %}
+]
+"""
+
+
+def get_config() -> Dict[str, Optional[str]]:
+    """Get the fetch-step configuration from environment variables.
+
+    Returns:
+        Dict[str, Optional[str]]: The API key and backend URL to fetch with.
+    """
     return {
-        "TEAM_API_KEY": os.getenv("TEAM_API_KEY"),
-        "BACKEND_URL": os.getenv("BACKEND_URL", "https://api.aixplain.com/"),
+        "api_key": os.getenv("AIXPLAIN_API_KEY") or os.getenv("TEAM_API_KEY"),
+        "backend_url": os.getenv("BACKEND_URL", DEFAULT_BACKEND_URL),
     }
 
 
-def api_request(path: str):
-    """Fetch functions from the backend."""
+def api_request(path: str) -> Any:
+    """Fetch one catalog endpoint from the backend.
+
+    Args:
+        path (str): Endpoint name under ``sdk/``.
+
+    Returns:
+        Any: The decoded JSON response.
+
+    Raises:
+        ValueError: If no API key is configured.
+    """
     config = get_config()
-    api_key = config["TEAM_API_KEY"]
-    backend_url = config["BACKEND_URL"]
+    api_key = config["api_key"]
+    backend_url = config["backend_url"]
 
     if not api_key:
-        raise ValueError("TEAM_API_KEY environment variable is required")
+        raise ValueError("AIXPLAIN_API_KEY (or TEAM_API_KEY) environment variable is required to fetch")
 
-    url = urljoin(backend_url, f"sdk/{path}")
+    url = urljoin(backend_url if backend_url.endswith("/") else f"{backend_url}/", f"sdk/{path}")
     headers = {
         "Content-Type": "application/json",
+        "x-api-key": api_key,
     }
-
-    headers["x-api-key"] = api_key
 
     r = requests.get(url, headers=headers)
     try:
@@ -335,28 +531,145 @@ def api_request(path: str):
     return r.json()
 
 
-def fetch_functions():
-    """Fetch functions from the backend."""
-    return api_request("functions")["items"]
+def fixture_path(name: str) -> Path:
+    """Return the committed fixture path for an endpoint.
+
+    Args:
+        name (str): Endpoint name.
+
+    Returns:
+        Path: Path to the fixture file.
+    """
+    return FIXTURE_DIR / f"{name}.json"
 
 
-def fetch_suppliers():
-    """Fetch suppliers from the backend."""
-    return api_request("suppliers")
+def load_fixture(name: str) -> List[Dict[str, Any]]:
+    """Load one committed fixture.
+
+    Args:
+        name (str): Endpoint name.
+
+    Returns:
+        List[Dict[str, Any]]: The snapshotted catalog items.
+
+    Raises:
+        GeneratorValueError: If the fixture is missing.
+    """
+    path = fixture_path(name)
+    if not path.exists():
+        raise GeneratorValueError(f"Missing fixture {path}. Run `python generate.py fetch` to create it.")
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def fetch_languages():
-    """Fetch languages from the backend."""
-    return api_request("languages")
+def stable_order(items: Sequence[Dict[str, Any]], previous: Sequence[Dict[str, Any]], key: str) -> List[Dict[str, Any]]:
+    """Order freshly fetched items like the previous fixture, appending new ones at the end.
+
+    The backend does not return the catalog in a stable order, so a naive refresh
+    reshuffles thousands of generated lines and buries the actual change. Keeping the
+    previous order makes a fixture refresh reviewable as a diff.
+
+    Args:
+        items (Sequence[Dict[str, Any]]): Freshly fetched items.
+        previous (Sequence[Dict[str, Any]]): Items from the committed fixture.
+        key (str): Field identifying an item across refreshes.
+
+    Returns:
+        List[Dict[str, Any]]: The fetched items in the previous fixture's order.
+    """
+    order = {item.get(key): index for index, item in enumerate(previous)}
+    return sorted(items, key=lambda item: order.get(item.get(key), len(order)))
 
 
-def fetch_licenses():
-    """Fetch licenses from the backend."""
-    return api_request("licenses")
+def fetch() -> None:
+    """Snapshot the backend catalog endpoints into the committed fixtures."""
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
+    for name, key in ENDPOINTS.items():
+        print(f"Fetching {name}")
+        payload = api_request(name)
+        items = payload["items"] if isinstance(payload, dict) else payload
+
+        path = fixture_path(name)
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                items = stable_order(items, json.load(f), key)
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(items, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        print(f"Wrote {len(items)} {name} to {path.relative_to(REPO_ROOT)}")
 
 
-def populate_data_types(functions: list):
-    """Populate the data types."""
+def check_unique_members(names: Iterable[Tuple[str, str]], family: str) -> None:
+    """Fail the render when two backend values collapse to the same enum member name.
+
+    Left unchecked this surfaces as ``TypeError: Attempted to reuse key`` at import
+    time, in every user's process, rather than here where a human is present.
+
+    Args:
+        names (Iterable[Tuple[str, str]]): ``(member_name, backend_value)`` pairs.
+        family (str): Enum name, used in the error message.
+
+    Raises:
+        GeneratorValueError: If two values produce the same member name.
+    """
+    seen: Dict[str, str] = {}
+    for member, value in names:
+        if member in seen:
+            raise GeneratorValueError(
+                f"{family}.{member} would be defined twice, from {seen[member]!r} and {value!r}. "
+                "Fix the colliding values at the backend or add an explicit mapping."
+            )
+        seen[member] = value
+
+
+def validate_enum_data(
+    functions: List[Dict[str, Any]],
+    suppliers: List[Dict[str, Any]],
+    languages: List[Dict[str, Any]],
+    licenses: List[Dict[str, Any]],
+) -> None:
+    """Validate every backend value the enum module turns into an identifier.
+
+    Args:
+        functions (List[Dict[str, Any]]): Function catalog.
+        suppliers (List[Dict[str, Any]]): Supplier catalog.
+        languages (List[Dict[str, Any]]): Language catalog.
+        licenses (List[Dict[str, Any]]): License catalog.
+    """
+    check_unique_members(
+        ((enumify(f["id"], "Function member for function id"), f["id"]) for f in functions), "Function"
+    )
+    check_unique_members(
+        ((enumify(s["code"], "Supplier member for supplier code"), s["code"]) for s in suppliers), "Supplier"
+    )
+    check_unique_members(
+        ((enumify(x["name"], "License member for license name"), x["name"]) for x in licenses), "License"
+    )
+
+    language_members: List[Tuple[str, str]] = []
+    for language in languages:
+        label = enumify(language["label"], "Language member for language label")
+        language_members.append((label, language["label"]))
+        for dialect in language.get("dialects", []):
+            dialect_label = enumify(dialect["label"], "Language member for dialect label")
+            language_members.append((f"{label}_{dialect_label}", f"{language['label']}/{dialect['label']}"))
+    check_unique_members(language_members, "Language")
+
+
+def populate_data_types(functions: List[Dict[str, Any]]) -> set:
+    """Populate the data types.
+
+    Args:
+        functions (List[Dict[str, Any]]): Function catalog.
+
+    Returns:
+        set: Every data type referenced by a function parameter or output.
+    """
     data_types = set()
     for function in functions:
         for param in function["params"]:
@@ -366,8 +679,34 @@ def populate_data_types(functions: list):
     return data_types
 
 
-def populate_specs(functions: list):
-    """Populate the function class specs."""
+def deduplicate_by_name(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Drop repeated entries so a node class never declares the same attribute twice.
+
+    Args:
+        entries (List[Dict[str, Any]]): Input or output specs, each with a ``name``.
+
+    Returns:
+        List[Dict[str, Any]]: The entries, first occurrence of each name only.
+    """
+    seen = set()
+    unique = []
+    for entry in entries:
+        if entry["name"] in seen:
+            continue
+        seen.add(entry["name"])
+        unique.append(entry)
+    return unique
+
+
+def populate_specs(functions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Populate the function class specs, validating every generated identifier.
+
+    Args:
+        functions (List[Dict[str, Any]]): Function catalog.
+
+    Returns:
+        List[Dict[str, Any]]: One render spec per pipeline node class.
+    """
     function_class_specs = []
     for function in functions:
         # Utility functions has dynamic input parameters so they are not
@@ -378,6 +717,7 @@ def populate_specs(functions: list):
         # slugify function name by trimming some special chars and
         # transforming it to snake case
         function_name = function["id"].replace("-", "_").replace("(", "_").replace(")", "_")
+        py_identifier(function_name, source=f"Pipeline factory method for function id {function['id']!r}")
         base_class = "AssetNode"
         is_segmentor = function["id"] in SEGMENTOR_FUNCTIONS
         is_reconstructor = function["id"] in RECONSTRUCTOR_FUNCTIONS
@@ -388,20 +728,29 @@ def populate_specs(functions: list):
         elif "metric" in function_name.split("_"):  # TODO: Advise a better distinguisher please
             base_class = "BaseMetric"
 
+        class_name = "".join([w.title() for w in function_name.split("_")])
+        py_identifier(class_name, source=f"Pipeline node class for function id {function['id']!r}")
+
         spec = {
             "id": function["id"],
             "is_segmentor": function["id"] in SEGMENTOR_FUNCTIONS,
             "is_reconstructor": function["id"] in RECONSTRUCTOR_FUNCTIONS,
             "function_name": function_name,
             "base_class": base_class,
-            "class_name": "".join([w.title() for w in function_name.split("_")]),
+            "class_name": class_name,
             "description": function["metaData"]["description"],
-            "input_type": function["metaData"]["InputType"],
-            "output_type": function["metaData"]["OutputType"],
+            "input_type": py_identifier(
+                function["metaData"]["InputType"], source=f"InputType of function {function['id']!r}"
+            ),
+            "output_type": py_identifier(
+                function["metaData"]["OutputType"], source=f"OutputType of function {function['id']!r}"
+            ),
             "inputs": [
                 {
-                    "name": param["code"],
-                    "data_type": param["dataType"],
+                    "name": py_identifier(param["code"], source=f"Input parameter of function {function['id']!r}"),
+                    "data_type": py_identifier(
+                        param["dataType"], source=f"Input data type of function {function['id']!r}"
+                    ),
                     "is_required": param["required"],
                     "is_list": param.get("multipleValues", False),
                     "default": param.get("defaultValues"),
@@ -411,54 +760,181 @@ def populate_specs(functions: list):
             ],
             "outputs": [
                 {
-                    "name": output["code"],
-                    "data_type": output["dataType"],
+                    "name": py_identifier(output["code"], source=f"Output of function {function['id']!r}"),
+                    "data_type": py_identifier(
+                        output["dataType"], source=f"Output data type of function {function['id']!r}"
+                    ),
                     "default": output.get("defaultValue"),
                 }
                 for output in function["output"]
             ],
         }
+        # The catalog does serve the same parameter code twice for a function
+        # (``benchmark-scoring-asr`` lists ``text`` twice). Two class attributes of the
+        # same name are not two parameters, so keep the first and drop the rest.
+        spec["inputs"] = deduplicate_by_name(spec["inputs"])
+        spec["outputs"] = deduplicate_by_name(spec["outputs"])
 
         function_class_specs.append(spec)
 
     return function_class_specs
 
 
-if __name__ == "__main__":
-    print("Fetching function specs")
+def build_environment() -> Environment:
+    """Build the Jinja environment with the safe-emission filters registered.
 
-    functions = fetch_functions()
-    suppliers = fetch_suppliers()
-    languages = fetch_languages()
-    licenses = fetch_licenses()
-    data_types = populate_data_types(functions)
-    specs = populate_specs(functions)
-
-    print(f"Populating module with {len(data_types)} data types and {len(specs)} specs")
+    Returns:
+        Environment: The configured environment.
+    """
     env = Environment(
         loader=BaseLoader(),
         trim_blocks=True,
         lstrip_blocks=True,
     )
     env.filters["enumify"] = enumify
-    env.filters["none_to_none"] = none_to_none
-    env.filters["escape_quotes"] = escape_quotes
+    env.filters["pyrepr"] = py_literal
+    env.filters["docstring"] = py_docstring
+    return env
 
-    # Generate pipeline module
-    pipeline_template = env.from_string(PIPELINE_MODULE_TEMPLATE)
-    pipeline_output = pipeline_template.render(data_types=data_types, specs=specs)
 
-    print(f"Writing module to file: {PIPELINE_MODULE_PATH}")
-    with open(PIPELINE_MODULE_PATH, "w") as f:
-        f.write(pipeline_output)
+def render_modules() -> Dict[Path, str]:
+    """Render every generated module from the committed fixtures.
 
-    # Generate centralized enums file
-    enums_template = env.from_string(ENUMS_MODULE_TEMPLATE)
-    enums_output = enums_template.render(
-        functions=functions, suppliers=suppliers, languages=languages, licenses=licenses
+    Returns:
+        Dict[Path, str]: Repo path to unformatted module source.
+    """
+    functions = load_fixture("functions")
+    suppliers = load_fixture("suppliers")
+    languages = load_fixture("languages")
+    licenses = load_fixture("licenses")
+
+    validate_enum_data(functions, suppliers, languages, licenses)
+    data_types = populate_data_types(functions)
+    specs = populate_specs(functions)
+    print(f"Populating module with {len(data_types)} data types and {len(specs)} specs")
+
+    env = build_environment()
+    return {
+        PIPELINE_MODULE_PATH: env.from_string(PIPELINE_MODULE_TEMPLATE).render(data_types=data_types, specs=specs),
+        ENUMS_MODULE_PATH: env.from_string(ENUMS_MODULE_TEMPLATE).render(
+            functions=functions, suppliers=suppliers, languages=languages, licenses=licenses
+        ),
+        ENUMS_INCLUDE_PATH: env.from_string(ENUMS_INCLUDE_TEMPLATE).render(
+            names=[py_identifier(name, source="Re-exported enum name") for name in ENUMS_INCLUDE_NAMES]
+        ),
+    }
+
+
+def ruff_format(paths: Sequence[Path]) -> None:
+    """Format the rendered modules with the repo's pinned ruff configuration.
+
+    The committed output is ``ruff format``-stable, so this pass is what makes the
+    render reproducible byte-for-byte -- and idempotent, since a formatted file is a
+    fixed point.
+
+    ruff is invoked as ``python -m ruff`` so it is the version pinned in the ``test``
+    extra rather than whatever happens to be on ``PATH``: an unpinned formatter would
+    turn a ruff release into a red drift job on an unrelated PR.
+
+    Args:
+        paths (Sequence[Path]): Files to format in place.
+
+    Raises:
+        GeneratorValueError: If ruff is not installed in the running interpreter.
+    """
+    result = subprocess.run(
+        [sys.executable, "-m", "ruff", "format", "--quiet", "--config", str(RUFF_CONFIG_PATH)]
+        + [str(path) for path in paths],
+        capture_output=True,
+        text=True,
     )
-    print(f"Writing centralized enums module to file: {ENUMS_MODULE_PATH}")
-    with open(ENUMS_MODULE_PATH, "w") as f:
-        f.write(enums_output)
+    if result.returncode != 0:
+        raise GeneratorValueError(
+            f"`{sys.executable} -m ruff format` failed with exit code {result.returncode}. "
+            "The render step formats its output, so ruff must be installed in this "
+            "interpreter: `pip install '.[test]'`.\n"
+            f"{result.stderr.strip()}"
+        )
 
-    print("Modules generated successfully")
+
+def write_modules(target_root: Path) -> Dict[Path, Path]:
+    """Render and format every generated module under a target root.
+
+    Args:
+        target_root (Path): Root to write under; ``REPO_ROOT`` writes in place.
+
+    Returns:
+        Dict[Path, Path]: Repo path to the file actually written.
+    """
+    written: Dict[Path, Path] = {}
+    for repo_path, source in render_modules().items():
+        destination = target_root / repo_path.relative_to(REPO_ROOT)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with open(destination, "w", encoding="utf-8") as f:
+            f.write(source)
+        written[repo_path] = destination
+
+    ruff_format(list(written.values()))
+    return written
+
+
+def render(check: bool = False) -> int:
+    """Render the generated modules, or check the committed ones against a fresh render.
+
+    Args:
+        check (bool): Compare instead of writing.
+
+    Returns:
+        int: Process exit code.
+    """
+    if not check:
+        for repo_path in write_modules(REPO_ROOT):
+            print(f"Writing module to file: {repo_path.relative_to(REPO_ROOT)}")
+        print("Modules generated successfully")
+        return 0
+
+    with tempfile.TemporaryDirectory() as tmp:
+        drifted = [
+            repo_path
+            for repo_path, rendered in write_modules(Path(tmp)).items()
+            if not repo_path.exists() or repo_path.read_bytes() != rendered.read_bytes()
+        ]
+
+    if drifted:
+        for repo_path in drifted:
+            print(f"Drift: {repo_path.relative_to(REPO_ROOT)} differs from a fresh render")
+        print("Run `python generate.py render` and commit the result.")
+        return 1
+
+    print("Generated modules are up to date")
+    return 0
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    """Run the generator CLI.
+
+    Args:
+        argv (Optional[Sequence[str]]): Argument list, defaulting to ``sys.argv``.
+
+    Returns:
+        int: Process exit code.
+    """
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    subparsers = parser.add_subparsers(dest="command")
+    subparsers.add_parser("fetch", help="Snapshot the backend catalog into the committed fixtures (needs a credential)")
+    render_parser = subparsers.add_parser("render", help="Render the generated modules from the fixtures (default)")
+    render_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit non-zero if the committed modules differ from a fresh render, without writing",
+    )
+    args = parser.parse_args(argv)
+
+    if args.command == "fetch":
+        fetch()
+        return 0
+    return render(check=getattr(args, "check", False))
+
+
+if __name__ == "__main__":
+    sys.exit(main())
