@@ -1305,7 +1305,11 @@ class TestRagResolvesURLContext:
         with patch("requests.get", return_value=_fake_url_response(_RAG_DOC)) as mock_get:
             response, upserted = _run_v1_rag(rlm, _RAG_URL)
 
-        mock_get.assert_called_once_with(_RAG_URL, timeout=60)
+        # Assert the URL was fetched, not how ``safe_get`` shapes the request:
+        # its redirect and streaming kwargs are its own business (BUG-939).
+        mock_get.assert_called_once()
+        assert mock_get.call_args.args[0] == _RAG_URL
+        assert mock_get.call_args.kwargs["timeout"] == 60
         assert response.status == ResponseStatus.SUCCESS
         assert any(_RAG_DOC in record.value for record in upserted)
         assert not any(_RAG_URL in record.value for record in upserted)
