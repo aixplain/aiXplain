@@ -18,15 +18,17 @@ backend** — a drift check whose input moved under it would just be a flake gen
 
 ## Provenance
 
-Captured **2026-09-08** from **production** (`https://platform-api.aixplain.com`).
-
-`fetch` prints the backend host it captured from and warns when that host is not production;
-update this line whenever the fixtures are refreshed.
+`provenance.json`, written by `fetch` next to the fixtures, records the backend host, the capture
+time and a SHA-256 digest of each fixture. `tests/unit/test_generator.py` asserts that the host is
+production and that the digests match the committed files, so neither a refresh from the wrong
+backend nor a hand edit can land without the provenance moving with it.
 
 Production is not an arbitrary choice: supplier ids are environment-specific, and the committed
 `Supplier` members carry the production ids (`google` is `1769` on production, `195` on dev and `212`
 on test). A fixture captured against dev or test would silently rewrite every
-`Supplier.*.value["id"]` in the shipped SDK.
+`Supplier.*.value["id"]` in the shipped SDK. `fetch` therefore refuses any host other than
+production unless `--allow-nonprod` is passed, and even then it records that host, so committing
+such a snapshot fails the test.
 
 ## Refreshing them
 
@@ -36,10 +38,13 @@ python generate.py render
 ```
 
 `fetch` is the only networked step and is run by hand. It reads the repo-root `.env` (never a
-parent directory's), requires `https` for `BACKEND_URL` like every other SDK request, and refuses to
-run when `TEAM_API_KEY` and `AIXPLAIN_API_KEY` are both set but differ. It keeps each item in the
-order of the existing fixture and appends new items at the end, because the backend does not return
-a stable order and a reshuffled fixture buries the actual change under thousands of moved lines.
+parent directory's; importing the SDK also loads the working directory's `.env`, and the host and
+key are resolved once, after that), requires `https` for `BACKEND_URL` like every other SDK request,
+and refuses to run when `TEAM_API_KEY` and `AIXPLAIN_API_KEY` are both set but differ. It fetches
+all four endpoints before writing any of them, so a failure part-way leaves the committed set
+untouched rather than half-refreshed. It keeps each item in the order of the existing fixture and
+appends new items at the end, because the backend does not return a stable order and a reshuffled
+fixture buries the actual change under thousands of moved lines.
 
 Review the regenerated modules as a diff before committing. **Additions are fine; a removed enum
 member is a breaking API change** for every user holding a reference to it, and belongs in a

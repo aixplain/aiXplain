@@ -18,6 +18,7 @@ module that every SDK user imports.
 """
 
 import argparse
+import hashlib
 import json
 import keyword
 import math
@@ -27,6 +28,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 from urllib.parse import urljoin, urlparse
@@ -36,7 +38,7 @@ from jinja2 import BaseLoader, Environment
 
 # The render path imports nothing from aixplain.*: the generated modules are what
 # `import aixplain` loads, so the generator cannot depend on them. The fetch path
-# imports the SDK's URL policy lazily, at the one place a key goes on the wire.
+# imports the SDK's URL policy lazily, before it resolves the host a key goes to.
 
 #: Repo root, so paths resolve the same no matter which directory the generator is
 #: invoked from. Resolving against the CWD used to scatter an ``aixplain/`` tree
@@ -51,6 +53,11 @@ ENUMS_INCLUDE_PATH = REPO_ROOT / "aixplain" / "v2" / "enums_include.py"
 FIXTURE_DIR = REPO_ROOT / "tools" / "generator" / "fixtures"
 RUFF_CONFIG_PATH = REPO_ROOT / "ruff.toml"
 
+#: The one ``.env`` the fetch step reads. An explicit path: a bare ``load_dotenv()``
+#: walks up parent directories, which is what let a stray ``.env`` redirect the SDK's
+#: key in BUG-939.
+DOTENV_PATH = REPO_ROOT / ".env"
+
 #: ``sdk/<name>`` endpoints backing each fixture, and the key each one is ordered by.
 ENDPOINTS = {
     "functions": "id",
@@ -59,7 +66,19 @@ ENDPOINTS = {
     "licenses": "name",
 }
 
+#: Production. Supplier ids are environment-specific and the committed ``Supplier``
+#: members carry production ids, so this is the only host a committed fixture may come
+#: from; ``fetch`` refuses any other unless told otherwise.
 DEFAULT_BACKEND_URL = "https://platform-api.aixplain.com"
+
+#: Values of ``aixplain.v1.enums.DataType``, frozen here because the render path cannot
+#: import the package it generates. The pipeline template emits ``DataType.<VALUE>`` for
+#: every type, so a value outside this set would render, format and pass the drift gate,
+#: then raise ``AttributeError`` when ``aixplain.v1.modules`` is imported.
+#: ``tests/unit/test_generator.py`` asserts this set and the enum agree.
+DATA_TYPES = frozenset(
+    {"audio", "float", "image", "integer", "label", "tensor", "text", "video", "embedding", "number", "boolean"}
+)
 
 SEGMENTOR_FUNCTIONS = [
     "split-on-linebreak",
@@ -69,21 +88,25 @@ SEGMENTOR_FUNCTIONS = [
 
 RECONSTRUCTOR_FUNCTIONS = ["text-reconstruction", "audio-reconstruction"]
 
-#: Function ids whose catalog entry lists one parameter code twice, and the attribute
-#: name that pair collapses to. The backend serves the hypothesis (``name: "output"``)
-#: and the reference (``name: "reference"``) of the two benchmark scorers under the
-#: single code ``text``; a node class can only expose one ``text`` attribute, and the
-#: pair is identical in every field the generator emits, so the first is kept and the
-#: second dropped from both generated modules. Any other duplicate fails the render:
-#: it may be two different parameters, and quietly keeping one of them would ship a
-#: node class and a ``FunctionInputOutput`` entry that disagree.
-KNOWN_DUPLICATE_PARAMETERS: Dict[str, Tuple[str, ...]] = {
-    "benchmark-scoring-asr": ("text",),
-    "benchmark-scoring-mt": ("text",),
+#: Function ids whose catalog entry lists one input parameter code twice: attribute
+#: name to the ``name`` of each copy, in catalog order. The two benchmark scorers serve
+#: two different inputs, the hypothesis (``name: "output"``) and the reference
+#: (``name: "reference"``), under the single code ``text``. A node class can only
+#: expose one ``text`` attribute and the platform can only address one ``text`` code,
+#: so the first copy is kept and the rest dropped from both generated modules -- which
+#: is what has always shipped. The names are pinned so the entry describes exactly the
+#: pair it was written for: a different pair, a pair that no longer exists, or copies
+#: that differ in any emitted field fail the render. Any other duplicate fails too, and
+#: outputs have no allow-list at all: quietly keeping one of two parameters would ship
+#: a node class and a ``FunctionInputOutput`` entry that disagree.
+KNOWN_DUPLICATE_PARAMETERS: Dict[str, Dict[str, Tuple[str, ...]]] = {
+    "benchmark-scoring-asr": {"text": ("output", "reference")},
+    "benchmark-scoring-mt": {"text": ("output", "reference")},
 }
 
 #: Fields the templates read from every parameter, so a duplicate is only droppable
-#: when the copies agree on all of them.
+#: when the copies agree on all of them. ``name`` is not emitted; it is what the
+#: allow-list pins instead.
 PARAMETER_FIELDS = ("code", "dataType", "required", "multipleValues", "defaultValues", "isFixed")
 OUTPUT_FIELDS = ("code", "dataType", "defaultValue")
 
@@ -134,7 +157,9 @@ def enumify(value: str, source: str = "backend value") -> str:
     Raises:
         GeneratorValueError: If the value cannot become a valid identifier.
     """
-    slug = re.sub(r"\s+", "_", value or "")
+    # Strip before the whitespace substitution: ``"google "`` must become ``GOOGLE``,
+    # the same member as ``"google"``, so check_unique_members can see the collision.
+    slug = re.sub(r"\s+", "_", (value or "").strip())
     slug = re.sub(r"[-.]+", "_", slug)
     slug = re.sub(r"[^a-zA-Z0-9-_.]+", "", slug)
     slug = slug.upper()
@@ -205,8 +230,40 @@ def py_literal(value: Any) -> str:
     raise GeneratorValueError(f"{type(value).__name__} value {value!r} has no safe Python literal form.")
 
 
+def require_printable(value: str, source: str) -> str:
+    """Fail the render when a string destined for a docstring holds a control character.
+
+    A docstring is the one place a backend value is embedded as text rather than through
+    ``repr``, so escaping cannot save it: a NUL renders, formats and passes the drift
+    gate, then makes ``import aixplain`` fail with "source code string cannot contain
+    null bytes". Newlines are the only non-printable characters a docstring can carry.
+
+    Args:
+        value (str): The backend text.
+        source (str): Human-readable origin, used in the error message.
+
+    Returns:
+        str: The value, once it is known to be safe.
+
+    Raises:
+        GeneratorValueError: If the value contains a non-printable character other
+            than a newline.
+    """
+    bad = sorted({char for char in value if char != "\n" and not char.isprintable()})
+    if bad:
+        raise GeneratorValueError(
+            f"{source} contains the non-printable character(s) {', '.join(repr(c) for c in bad)}, "
+            "which cannot be embedded in a docstring. Fix the value at the backend."
+        )
+    return value
+
+
 def py_docstring(value: Optional[str], indent: int = 4) -> str:
     """Escape and wrap a backend string for embedding inside a triple-quoted docstring.
+
+    Callers pass text that :func:`require_printable` has accepted. Both template sites
+    put a newline between this text and the closing delimiter, so a trailing quote
+    needs no special handling.
 
     Args:
         value (Optional[str]): The backend text.
@@ -232,8 +289,6 @@ def py_docstring(value: Optional[str], indent: int = 4) -> str:
     # then never be split between the two characters of an escaped backslash, which
     # would leave a line continuation followed by a fresh escape sequence.
     lines = [line.replace("\\", "\\\\").replace('"""', '\\"\\"\\"') for line in lines]
-    if lines and lines[-1].endswith('"'):
-        lines[-1] = lines[-1][:-1] + '\\"'
     return ("\n" + " " * indent).join(lines)
 
 
@@ -541,19 +596,28 @@ def get_config() -> Dict[str, Optional[str]]:
     }
 
 
-def api_request(path: str) -> Any:
-    """Fetch one catalog endpoint from the backend.
+def resolve_fetch_config() -> Tuple[str, str]:
+    """Resolve the credential and host the fetch step will use, exactly once.
 
-    Args:
-        path (str): Endpoint name under ``sdk/``.
+    Order matters here. ``aixplain/__init__.py`` runs ``load_dotenv(<cwd>/.env)`` on
+    first import, so any SDK import changes the environment; resolving the config
+    before that import and again after it is how the banner came to name one host while
+    the requests went to another. The repo-root ``.env`` is loaded first, so it keeps
+    precedence over a working-directory one, then the SDK is imported, and only then is
+    the environment read.
 
     Returns:
-        Any: The decoded JSON response.
+        Tuple[str, str]: ``(api_key, backend_url)``, the URL already through the SDK's
+            config-URL policy.
 
     Raises:
         ValueError: If no API key is configured, or ``BACKEND_URL`` fails the SDK's
             URL policy (``aixplain.utils.url_safety``).
     """
+    from dotenv import load_dotenv
+
+    load_dotenv(DOTENV_PATH, override=False)
+
     # Lazy: the SDK's config-URL policy is the one gate every other request carrying
     # the key goes through, and importing it here keeps the render path SDK-free.
     from aixplain.utils.url_safety import validate_config_url
@@ -563,7 +627,20 @@ def api_request(path: str) -> Any:
     if not api_key:
         raise ValueError("AIXPLAIN_API_KEY (or TEAM_API_KEY) environment variable is required to fetch")
     backend_url = validate_config_url(config["backend_url"], "BACKEND_URL")
+    return api_key, backend_url
 
+
+def api_request(path: str, api_key: str, backend_url: str) -> Any:
+    """Fetch one catalog endpoint from the backend.
+
+    Args:
+        path (str): Endpoint name under ``sdk/``.
+        api_key (str): The credential, as resolved by :func:`resolve_fetch_config`.
+        backend_url (str): The host, as resolved by :func:`resolve_fetch_config`.
+
+    Returns:
+        Any: The decoded JSON response.
+    """
     url = urljoin(backend_url if backend_url.endswith("/") else f"{backend_url}/", f"sdk/{path}")
     headers = {
         "Content-Type": "application/json",
@@ -573,9 +650,9 @@ def api_request(path: str) -> Any:
     r = requests.get(url, headers=headers, timeout=(10, 30))
     try:
         r.raise_for_status()
-    except requests.exceptions.HTTPError as e:
+    except requests.exceptions.HTTPError:
         print(f"{path} could not be loaded, see error below")
-        raise e
+        raise
     return r.json()
 
 
@@ -604,6 +681,31 @@ def fixture_path(name: str) -> Path:
         Path: Path to the fixture file.
     """
     return FIXTURE_DIR / f"{name}.json"
+
+
+def provenance_path() -> Path:
+    """Return the path of the file recording where and when the fixtures were captured.
+
+    Returns:
+        Path: Path to ``provenance.json``, next to the fixtures it describes.
+    """
+    return FIXTURE_DIR / "provenance.json"
+
+
+def write_text(path: Path, text: str) -> None:
+    """Write text with LF line endings on every platform.
+
+    ``Path.write_text`` translates LF to ``os.linesep``, so on Windows the staged
+    render and the fixtures would come out CRLF and the byte compare behind
+    ``render --check`` would report every module drifted on a clean tree.
+    ``Path.write_text(newline=...)`` only exists from 3.10; ``requires-python`` is 3.9.
+
+    Args:
+        path (Path): File to write.
+        text (str): Content.
+    """
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
 
 
 def load_fixture(name: str) -> List[Dict[str, Any]]:
@@ -649,37 +751,59 @@ def stable_order(items: Sequence[Dict[str, Any]], previous: Sequence[Dict[str, A
     return sorted(items, key=lambda item: order.get(item.get(key), len(order)))
 
 
-def fetch() -> None:
-    """Snapshot the backend catalog endpoints into the committed fixtures."""
-    from dotenv import load_dotenv
+def fetch(allow_nonprod: bool = False) -> None:
+    """Snapshot the backend catalog endpoints into the committed fixtures.
 
-    # An explicit path: a bare ``load_dotenv()`` walks up parent directories, which is
-    # what let a stray ``.env`` redirect the SDK's key in BUG-939.
-    load_dotenv(REPO_ROOT / ".env", override=False)
+    Every endpoint is fetched before anything is written, so a 403 or a timeout on a
+    later endpoint cannot leave the set half-refreshed with two catalog states that a
+    subsequent ``render`` would silently mix. The host and capture time go into
+    ``provenance.json`` next to the fixtures, with a digest of each, so the claim that
+    the committed fixtures come from production is checked by a test rather than
+    maintained by hand.
 
-    backend_url = get_config()["backend_url"]
-    print(f"Fetching from {backend_url} (record this host in {display_path(FIXTURE_DIR)}/README.md)")
+    Args:
+        allow_nonprod (bool): Capture from a non-production host anyway. The snapshot
+            still records that host, so a test fails if it is committed.
+
+    Raises:
+        ValueError: If the host is not production and ``allow_nonprod`` is not set.
+    """
+    api_key, backend_url = resolve_fetch_config()
+    print(f"Fetching from {backend_url}")
     if urlparse(backend_url).hostname != urlparse(DEFAULT_BACKEND_URL).hostname:
-        print(
-            f"WARNING: {backend_url} is not the production backend. Supplier ids are environment-specific, "
+        message = (
+            f"{backend_url} is not the production backend. Supplier ids are environment-specific, "
             "so committing this snapshot would rewrite every Supplier id in the shipped SDK."
         )
+        if not allow_nonprod:
+            raise ValueError(f"{message} Pass --allow-nonprod to capture it anyway.")
+        print(f"WARNING: {message}")
 
-    FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
+    captured_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    rendered: Dict[str, str] = {}
     for name, key in ENDPOINTS.items():
         print(f"Fetching {name}")
-        payload = api_request(name)
+        payload = api_request(name, api_key, backend_url)
         items = payload["items"] if isinstance(payload, dict) else payload
 
         path = fixture_path(name)
         if path.exists():
             with open(path, "r", encoding="utf-8") as f:
                 items = stable_order(items, json.load(f), key)
+        rendered[name] = json.dumps(items, indent=2, ensure_ascii=False) + "\n"
 
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(items, f, indent=2, ensure_ascii=False)
-            f.write("\n")
-        print(f"Wrote {len(items)} {name} to {display_path(path)}")
+    provenance = {
+        "backend_url": backend_url,
+        "captured_at": captured_at,
+        "fixtures": {name: hashlib.sha256(text.encode("utf-8")).hexdigest() for name, text in rendered.items()},
+    }
+
+    FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
+    for name, text in rendered.items():
+        write_text(fixture_path(name), text)
+        print(f"Wrote {name} to {display_path(fixture_path(name))}")
+    write_text(provenance_path(), json.dumps(provenance, indent=2) + "\n")
+    print(f"Wrote {display_path(provenance_path())}")
 
 
 def check_unique_members(names: Iterable[Tuple[str, str]], family: str) -> None:
@@ -784,48 +908,66 @@ def validate_enum_data(
 
 
 def resolve_duplicates(
-    entries: List[Dict[str, Any]], fields: Sequence[str], allowed: Sequence[str], source: str
+    entries: List[Dict[str, Any]], fields: Sequence[str], allowed: Dict[str, Tuple[str, ...]], source: str
 ) -> List[Dict[str, Any]]:
     """Collapse entries that share an attribute name, or fail the render.
 
     Two entries collide when their codes strip to the same identifier, since that is
     the attribute the node class exposes. A collision is only dropped when it is listed
-    in :data:`KNOWN_DUPLICATE_PARAMETERS` and the copies agree on every emitted field;
-    then the first is kept, for both generated modules.
+    in :data:`KNOWN_DUPLICATE_PARAMETERS` with exactly the ``name`` of each copy and the
+    copies agree on every emitted field; then the first is kept, for both generated
+    modules. An entry the catalog no longer exercises fails too, so the special case
+    cannot outlive the data it was written for.
 
     Args:
         entries (List[Dict[str, Any]]): Parameter or output specs of one function.
         fields (Sequence[str]): Fields the templates emit for each entry.
-        allowed (Sequence[str]): Attribute names whose duplication is known and accepted.
+        allowed (Dict[str, Tuple[str, ...]]): Attribute name to the ``name`` of each
+            copy the catalog is known to serve under it, in order.
         source (str): Human-readable origin, used in the error message.
 
     Returns:
         List[Dict[str, Any]]: The entries with accepted duplicates removed.
 
     Raises:
-        GeneratorValueError: On a duplicate that is not accepted, or that is accepted
-            but whose copies differ.
+        GeneratorValueError: On a duplicate that is not accepted, on an accepted one
+            whose copies are not the listed pair or differ in an emitted field, and on
+            an accepted attribute that is not duplicated.
     """
-    kept: Dict[str, Dict[str, Any]] = {}
+    copies: Dict[str, List[Dict[str, Any]]] = {}
     for entry in entries:
-        attribute = py_identifier(entry["code"], source=source)
-        first = kept.get(attribute)
-        if first is None:
-            kept[attribute] = entry
+        copies.setdefault(py_identifier(entry["code"], source=source), []).append(entry)
+
+    for attribute, group in copies.items():
+        if len(group) == 1:
             continue
-        pair = f"{source}: {first['code']!r} ({first.get('name')!r}) and {entry['code']!r} ({entry.get('name')!r})"
+        first, second = group[0], group[1]
+        pair = f"{source}: {first['code']!r} ({first.get('name')!r}) and {second['code']!r} ({second.get('name')!r})"
         if attribute not in allowed:
             raise GeneratorValueError(
                 f"{pair} both map to the attribute {attribute!r}. Fix the duplicate at the backend, or if the "
                 "copies are one parameter served twice, list it in KNOWN_DUPLICATE_PARAMETERS."
             )
-        differing = [field for field in fields if first.get(field) != entry.get(field)]
+        names = tuple(entry.get("name") for entry in group)
+        if names != allowed[attribute]:
+            raise GeneratorValueError(
+                f"{pair}: KNOWN_DUPLICATE_PARAMETERS lists {attribute!r} for the names {allowed[attribute]!r} "
+                f"but the catalog serves {names!r}. Update the entry once the new pair has been reviewed."
+            )
+        differing = [field for field in fields if any(entry.get(field) != first.get(field) for entry in group)]
         if differing:
             raise GeneratorValueError(
                 f"{pair} are listed as a known duplicate but differ in {', '.join(repr(f) for f in differing)}; "
                 "dropping one would lose a real parameter."
             )
-    return list(kept.values())
+
+    stale = [attribute for attribute in allowed if len(copies.get(attribute, [])) < 2]
+    if stale:
+        raise GeneratorValueError(
+            f"{source}: KNOWN_DUPLICATE_PARAMETERS lists {', '.join(repr(a) for a in stale)} but the catalog "
+            "no longer serves it twice. Remove the entry."
+        )
+    return [group[0] for group in copies.values()]
 
 
 def prepare_functions(functions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -852,18 +994,49 @@ def prepare_functions(functions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         for output in function["output"]:
             require_fields(output, ("code", "dataType"), f"output {output.get('code')!r} of {source}")
 
-        allowed = KNOWN_DUPLICATE_PARAMETERS.get(function["id"], ())
+        description = require_printable(function["metaData"].get("description") or "", f"description of {source}")
+        allowed = KNOWN_DUPLICATE_PARAMETERS.get(function["id"], {})
         prepared.append(
             {
                 **function,
-                "metaData": {**function["metaData"], "description": function["metaData"].get("description") or ""},
+                "metaData": {**function["metaData"], "description": description},
                 "params": resolve_duplicates(
                     function["params"], PARAMETER_FIELDS, allowed, f"input parameters of {source}"
                 ),
-                "output": resolve_duplicates(function["output"], OUTPUT_FIELDS, allowed, f"outputs of {source}"),
+                "output": resolve_duplicates(function["output"], OUTPUT_FIELDS, {}, f"outputs of {source}"),
             }
         )
+
+    unlisted = sorted(set(KNOWN_DUPLICATE_PARAMETERS) - {function["id"] for function in functions})
+    if unlisted:
+        raise GeneratorValueError(
+            f"KNOWN_DUPLICATE_PARAMETERS lists {', '.join(repr(f) for f in unlisted)} but functions.json has no "
+            "such function. Remove the entry."
+        )
     return prepared
+
+
+def data_type(value: Any, *, source: str) -> str:
+    """Validate a backend type as a ``DataType`` value, or fail the render.
+
+    Args:
+        value (Any): The candidate type.
+        source (str): Human-readable origin, used in the error message.
+
+    Returns:
+        str: The stripped value, once it is known to name a ``DataType`` member.
+
+    Raises:
+        GeneratorValueError: If the value is not a ``DataType`` value.
+    """
+    text = py_identifier(value, source=source)
+    if text not in DATA_TYPES:
+        raise GeneratorValueError(
+            f"{source}: {value!r} is not a value of aixplain.v1.enums.DataType ({', '.join(sorted(DATA_TYPES))}). "
+            "The generated pipeline module would fail to import. Add the member to DataType and to DATA_TYPES "
+            "in generate.py, or fix the value at the backend."
+        )
+    return text
 
 
 def populate_specs(functions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -915,19 +1088,17 @@ def populate_specs(functions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "base_class": base_class,
             "class_name": class_name,
             "description": function["metaData"]["description"],
-            "input_type": py_identifier(
+            "input_type": data_type(
                 function["metaData"]["InputType"], source=f"InputType of function {function['id']!r}"
             ),
-            "output_type": py_identifier(
+            "output_type": data_type(
                 function["metaData"]["OutputType"], source=f"OutputType of function {function['id']!r}"
             ),
             "inputs": [
                 {
                     "name": py_identifier(param["code"], source=f"Input parameter of function {function['id']!r}"),
                     "code": param["code"],
-                    "data_type": py_identifier(
-                        param["dataType"], source=f"Input data type of function {function['id']!r}"
-                    ),
+                    "data_type": data_type(param["dataType"], source=f"Input data type of function {function['id']!r}"),
                     "is_required": param["required"],
                     "is_list": param.get("multipleValues", False),
                     "default": param.get("defaultValues"),
@@ -939,7 +1110,7 @@ def populate_specs(functions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 {
                     "name": py_identifier(output["code"], source=f"Output of function {function['id']!r}"),
                     "code": output["code"],
-                    "data_type": py_identifier(
+                    "data_type": data_type(
                         output["dataType"], source=f"Output data type of function {function['id']!r}"
                     ),
                     "default": output.get("defaultValue"),
@@ -1044,7 +1215,7 @@ def render_formatted() -> Dict[Path, bytes]:
         for repo_path, source in render_modules().items():
             staged_path = Path(tmp) / repo_path.relative_to(REPO_ROOT)
             staged_path.parent.mkdir(parents=True, exist_ok=True)
-            staged_path.write_text(source, encoding="utf-8")
+            write_text(staged_path, source)
             staged[repo_path] = staged_path
         ruff_format(list(staged.values()))
         return {repo_path: staged_path.read_bytes() for repo_path, staged_path in staged.items()}
@@ -1110,7 +1281,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     subparsers = parser.add_subparsers(dest="command")
-    subparsers.add_parser("fetch", help="Snapshot the backend catalog into the committed fixtures (needs a credential)")
+    fetch_parser = subparsers.add_parser(
+        "fetch", help="Snapshot the backend catalog into the committed fixtures (needs a credential)"
+    )
+    fetch_parser.add_argument(
+        "--allow-nonprod",
+        action="store_true",
+        help="Capture from a non-production BACKEND_URL; the committed fixtures must come from production",
+    )
     render_parser = subparsers.add_parser("render", help="Render the generated modules from the fixtures (default)")
     render_parser.add_argument(
         "--check",
@@ -1120,7 +1298,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "fetch":
-        fetch()
+        fetch(allow_nonprod=args.allow_nonprod)
         return 0
     return render(check=getattr(args, "check", False))
 

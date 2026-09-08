@@ -23,13 +23,20 @@ Everything runs offline from `tools/generator/fixtures/`: no network, no credent
 from __future__ import annotations
 
 import ast
+import builtins
+import hashlib
 import importlib.util
+import io
 import json
 import os
 import re
 import subprocess
 import sys
+import textwrap
+import warnings
+from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 
@@ -115,9 +122,22 @@ def _synthetic_dataset(payload: str = "a harmless description"):
             "name": "Benchmark Scoring Mt",
             "metaData": {"description": "A metric.", "InputType": "text", "OutputType": "label "},
             "params": [
-                {"code": "text", "dataType": "text", "required": True},
+                {"code": "text", "name": "output", "dataType": "text", "required": True},
                 # The catalog does serve a duplicated parameter code; see ENG-3435.
-                {"code": "text", "dataType": "text", "required": True},
+                {"code": "text", "name": "reference", "dataType": "text", "required": True},
+            ],
+            "output": [{"code": "data", "dataType": "label", "defaultValue": None}],
+        },
+        # Every KNOWN_DUPLICATE_PARAMETERS entry must be exercised, so the second
+        # scorer is here too.
+        {
+            "id": "benchmark-scoring-asr",
+            "name": "Benchmark Scoring Asr",
+            "metaData": {"description": "A metric.", "InputType": "audio", "OutputType": "label"},
+            "params": [
+                {"code": "input", "name": "input", "dataType": "audio", "required": True},
+                {"code": "text", "name": "output", "dataType": "text", "required": True},
+                {"code": "text", "name": "reference", "dataType": "text", "required": True},
             ],
             "output": [{"code": "data", "dataType": "label", "defaultValue": None}],
         },
@@ -335,13 +355,28 @@ def test_render_runs_without_credentials(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
-def test_fetch_requires_a_credential(monkeypatch):
-    """The fetch step names both accepted env vars when neither is set."""
+@pytest.fixture
+def fetch_env(tmp_path, monkeypatch):
+    """A fetch environment with one key, no `.env` on disk and a scratch fixture directory.
+
+    Returns:
+        Path: The scratch fixture directory.
+    """
     monkeypatch.delenv("TEAM_API_KEY", raising=False)
-    monkeypatch.delenv("AIXPLAIN_API_KEY", raising=False)
+    monkeypatch.delenv("AIXPLAIN_ALLOW_INSECURE_URLS", raising=False)
+    monkeypatch.delenv("BACKEND_URL", raising=False)
+    monkeypatch.setenv("AIXPLAIN_API_KEY", "a-key")
+    monkeypatch.setattr(generate, "DOTENV_PATH", tmp_path / "absent.env")
+    monkeypatch.setattr(generate, "FIXTURE_DIR", tmp_path / "fixtures")
+    return tmp_path / "fixtures"
+
+
+def test_fetch_requires_a_credential(fetch_env, monkeypatch):
+    """The fetch step names both accepted env vars when neither is set."""
+    monkeypatch.delenv("AIXPLAIN_API_KEY")
 
     with pytest.raises(ValueError, match="AIXPLAIN_API_KEY"):
-        generate.api_request("functions")
+        generate.resolve_fetch_config()
 
 
 @pytest.mark.parametrize("env_var", ["TEAM_API_KEY", "AIXPLAIN_API_KEY"])
@@ -420,7 +455,7 @@ def test_docstring_escapes_after_wrapping():
 
 
 def test_padded_function_id_renders_stripped_identifiers(tmp_path, monkeypatch):
-    """A whitespace-padded function id becomes a clean class and method name, not a SyntaxError."""
+    """A whitespace-padded function id becomes a clean class, method and enum member name."""
     dataset = _synthetic_dataset()
     dataset["functions"][0]["id"] = "text-generation "
     rendered = _render_synthetic(tmp_path, monkeypatch, dataset)
@@ -432,6 +467,27 @@ def test_padded_function_id_renders_stripped_identifiers(tmp_path, monkeypatch):
     pipeline = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Pipeline")
     assert "text_generation" in {n.name for n in pipeline.body if isinstance(n, ast.FunctionDef)}
     assert 'function: str = "text-generation "' in source, "the wire-level id is emitted raw"
+
+    enums = rendered[generate.ENUMS_MODULE_PATH].read_text(encoding="utf-8")
+    assert 'TEXT_GENERATION = "text-generation "' in enums, "the enum member is stripped, the value raw"
+    assert "TEXT_GENERATION_ " not in enums and "TEXT_GENERATION_ =" not in enums
+
+
+def test_enumify_strips_before_slugifying():
+    """Padding never becomes a trailing underscore, so a padded and a clean value are the same member."""
+    assert generate.enumify("google ") == "GOOGLE"
+    assert generate.enumify(" google") == "GOOGLE"
+    assert generate.enumify("google") == generate.enumify("google ")
+
+
+def test_padded_and_unpadded_supplier_codes_collide(tmp_path, monkeypatch):
+    """`google` and `google ` are one member name, so the pair fails the render instead of shipping two."""
+    dataset = _synthetic_dataset()
+    dataset["suppliers"].append({"id": 3, "name": "Google", "code": "google"})
+    dataset["suppliers"].append({"id": 4, "name": "Google", "code": "google "})
+
+    with pytest.raises(generate.GeneratorValueError, match="Supplier.GOOGLE would be defined twice"):
+        _render_synthetic(tmp_path, monkeypatch, dataset)
 
 
 def test_padded_parameter_code_agrees_across_modules(tmp_path, monkeypatch):
@@ -586,15 +642,11 @@ def _fake_get(calls):
 
 
 def test_fetch_passes_a_timeout(monkeypatch):
-    """The catalog request cannot hang `fetch` forever."""
-    monkeypatch.delenv("AIXPLAIN_API_KEY", raising=False)
-    monkeypatch.delenv("AIXPLAIN_ALLOW_INSECURE_URLS", raising=False)
-    monkeypatch.setenv("TEAM_API_KEY", "a-key")
-    monkeypatch.setenv("BACKEND_URL", "https://platform-api.aixplain.com")
+    """The catalog request cannot hang `fetch` forever, and sends exactly what it was given."""
     calls = []
     monkeypatch.setattr(generate.requests, "get", _fake_get(calls))
 
-    generate.api_request("suppliers")
+    generate.api_request("suppliers", "a-key", "https://platform-api.aixplain.com")
 
     assert calls == [
         (
@@ -604,53 +656,192 @@ def test_fetch_passes_a_timeout(monkeypatch):
     ]
 
 
-def test_fetch_refuses_a_plain_http_backend(monkeypatch):
+def test_fetch_refuses_a_plain_http_backend(fetch_env, monkeypatch):
     """`BACKEND_URL` goes through the SDK's URL policy, so the key is never sent in clear."""
-    monkeypatch.delenv("AIXPLAIN_API_KEY", raising=False)
-    monkeypatch.delenv("AIXPLAIN_ALLOW_INSECURE_URLS", raising=False)
-    monkeypatch.setenv("TEAM_API_KEY", "a-key")
     monkeypatch.setenv("BACKEND_URL", "http://platform-api.aixplain.com")
     calls = []
     monkeypatch.setattr(generate.requests, "get", _fake_get(calls))
 
     with pytest.raises(ValueError, match="BACKEND_URL must use https"):
-        generate.api_request("suppliers")
+        generate.fetch()
 
     assert calls == []
 
 
-def test_fetch_loads_only_the_repo_dotenv_and_prints_the_host(tmp_path, monkeypatch, capsys):
-    """`fetch` loads an explicit `.env` path (no parent walk-up) and says which backend it captured."""
+def _stub_api_request(monkeypatch, responses=None):
+    """Replace `api_request` with a stand-in that records the endpoints asked for.
+
+    Args:
+        monkeypatch: pytest monkeypatch fixture.
+        responses (dict, optional): Endpoint name to payload, or to an exception to raise.
+
+    Returns:
+        list: Receives one `(path, api_key, backend_url)` tuple per call.
+    """
+    calls = []
+
+    def api_request(path, api_key, backend_url):
+        calls.append((path, api_key, backend_url))
+        response = (responses or {}).get(path, [])
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(generate, "api_request", api_request)
+    return calls
+
+
+def test_fetch_loads_only_the_repo_dotenv(fetch_env, monkeypatch):
+    """`fetch` loads an explicit `.env` path (no parent walk-up)."""
     import dotenv
 
     loads = []
     monkeypatch.setattr(dotenv, "load_dotenv", lambda path=None, **kwargs: loads.append((path, kwargs)) or False)
-    monkeypatch.setattr(generate, "api_request", lambda name: [])
-    monkeypatch.setattr(generate, "FIXTURE_DIR", tmp_path / "fixtures")
-    monkeypatch.setenv("BACKEND_URL", "https://dev-platform-api.aixplain.com")
+    _stub_api_request(monkeypatch)
 
     generate.fetch()
 
-    assert loads == [(REPO_ROOT / ".env", {"override": False})]
+    assert loads == [(generate.DOTENV_PATH, {"override": False})]
+    assert _load_generator().DOTENV_PATH == REPO_ROOT / ".env", "the default is the repo-root .env"
+
+
+def test_fetch_refuses_a_non_production_host(fetch_env, monkeypatch, capsys):
+    """A dev or test `BACKEND_URL` is refused before any request, so dev ids cannot reach the fixtures."""
+    monkeypatch.setenv("BACKEND_URL", "https://dev-platform-api.aixplain.com")
+    calls = _stub_api_request(monkeypatch)
+
+    with pytest.raises(ValueError, match="not the production backend.*--allow-nonprod"):
+        generate.fetch()
+
+    assert calls == []
+    assert not fetch_env.exists()
+
+
+def test_fetch_from_a_non_production_host_needs_the_flag_and_is_recorded(fetch_env, monkeypatch, capsys):
+    """`--allow-nonprod` captures anyway, warns, and writes the host into the provenance file."""
+    monkeypatch.setenv("BACKEND_URL", "https://dev-platform-api.aixplain.com")
+    calls = _stub_api_request(monkeypatch)
+
+    generate.fetch(allow_nonprod=True)
+
     out = capsys.readouterr().out
     assert "Fetching from https://dev-platform-api.aixplain.com" in out
     assert "WARNING" in out and "not the production backend" in out
+    assert {backend_url for _, _, backend_url in calls} == {"https://dev-platform-api.aixplain.com"}
+    provenance = json.loads((fetch_env / "provenance.json").read_text(encoding="utf-8"))
+    assert provenance["backend_url"] == "https://dev-platform-api.aixplain.com"
 
 
-def test_fetch_from_production_does_not_warn(tmp_path, monkeypatch, capsys):
+def test_fetch_from_production_does_not_warn_and_records_provenance(fetch_env, monkeypatch, capsys):
     """The production host is the documented source of the committed fixtures."""
-    import dotenv
-
-    monkeypatch.setattr(dotenv, "load_dotenv", lambda path=None, **kwargs: False)
-    monkeypatch.setattr(generate, "api_request", lambda name: [])
-    monkeypatch.setattr(generate, "FIXTURE_DIR", tmp_path / "fixtures")
-    monkeypatch.delenv("BACKEND_URL", raising=False)
+    calls = _stub_api_request(monkeypatch, {"suppliers": [{"id": 1769, "name": "Google", "code": "google"}]})
 
     generate.fetch()
 
     out = capsys.readouterr().out
     assert "Fetching from https://platform-api.aixplain.com" in out
     assert "WARNING" not in out
+    assert [path for path, _, _ in calls] == list(generate.ENDPOINTS)
+    assert {key for _, key, _ in calls} == {"a-key"}
+
+    provenance = json.loads((fetch_env / "provenance.json").read_text(encoding="utf-8"))
+    assert provenance["backend_url"] == "https://platform-api.aixplain.com"
+    assert datetime.fromisoformat(provenance["captured_at"]).tzinfo is not None
+    assert provenance["fixtures"] == {
+        name: hashlib.sha256((fetch_env / f"{name}.json").read_bytes()).hexdigest() for name in generate.ENDPOINTS
+    }
+
+
+def test_committed_fixtures_are_provenanced_from_production():
+    """The committed snapshot names production and the digests match the committed files.
+
+    Supplier ids are environment-specific (`google` is 1769 on production, 195 on dev, 212 on
+    test), so a fixture from the wrong host would rewrite every `Supplier.*.value["id"]` in the
+    shipped SDK; the digests make the provenance file describe these exact bytes.
+    """
+    provenance = json.loads(generate.provenance_path().read_text(encoding="utf-8"))
+    assert urlparse(provenance["backend_url"]).hostname == "platform-api.aixplain.com"
+    assert provenance["fixtures"] == {
+        name: hashlib.sha256(generate.fixture_path(name).read_bytes()).hexdigest() for name in generate.ENDPOINTS
+    }
+    google = next(s for s in generate.load_fixture("suppliers") if s["code"] == "google")
+    assert google["id"] == 1769
+
+
+def test_main_wires_allow_nonprod_to_fetch(monkeypatch):
+    """The CLI flag reaches `fetch`, and is off by default."""
+    seen = []
+    monkeypatch.setattr(generate, "fetch", lambda allow_nonprod: seen.append(allow_nonprod))
+
+    assert generate.main(["fetch"]) == 0
+    assert generate.main(["fetch", "--allow-nonprod"]) == 0
+    assert seen == [False, True]
+
+
+def test_failed_fetch_leaves_every_fixture_untouched(fetch_env, monkeypatch):
+    """A failure on a later endpoint writes nothing, so a render cannot mix two catalog states."""
+    committed = {name: f'[{{"{key}": "old-{name}"}}]\n'.encode() for name, key in generate.ENDPOINTS.items()}
+    fetch_env.mkdir()
+    for name, content in committed.items():
+        (fetch_env / f"{name}.json").write_bytes(content)
+    responses = {"languages": RuntimeError("403 Forbidden")}
+    calls = _stub_api_request(monkeypatch, responses)
+
+    with pytest.raises(RuntimeError, match="403"):
+        generate.fetch()
+
+    assert [path for path, _, _ in calls] == ["functions", "suppliers", "languages"]
+    assert {name: (fetch_env / f"{name}.json").read_bytes() for name in committed} == committed
+    assert not (fetch_env / "provenance.json").exists()
+
+
+def test_fetch_uses_the_host_it_prints_even_with_a_cwd_dotenv(tmp_path):
+    """The banner and the requests agree when a working-directory `.env` sets the host.
+
+    `import aixplain` loads the CWD `.env`; resolving the config before that import and
+    again after it made the banner say production while every request went to dev.
+    """
+    (tmp_path / ".env").write_text(
+        "BACKEND_URL=https://dev-platform-api.aixplain.com\nAIXPLAIN_API_KEY=dotenv-key\n", encoding="utf-8"
+    )
+    script = textwrap.dedent(
+        f"""
+        import importlib.util, json
+        from pathlib import Path
+        spec = importlib.util.spec_from_file_location("aixplain_generate", {str(REPO_ROOT / "generate.py")!r})
+        generate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generate)
+
+        calls = []
+
+        class Response:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return []
+
+        generate.requests.get = lambda url, **kwargs: calls.append([url, kwargs["headers"]["x-api-key"]]) or Response()
+        generate.DOTENV_PATH = Path({str(tmp_path / "absent.env")!r})
+        generate.FIXTURE_DIR = Path({str(tmp_path / "fixtures")!r})
+        generate.fetch(allow_nonprod=True)
+        print("CALLS " + json.dumps(calls))
+        """
+    )
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k not in {"TEAM_API_KEY", "AIXPLAIN_API_KEY", "BACKEND_URL", "AIXPLAIN_ALLOW_INSECURE_URLS"}
+    }
+    env.update(PYTHONPATH=str(REPO_ROOT), AIXPLAIN_SUPPRESS_V1_DEPRECATION="1")
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env, cwd=str(tmp_path))
+    assert result.returncode == 0, result.stderr
+
+    printed = re.search(r"^Fetching from (\S+)$", result.stdout, re.M).group(1)
+    calls = json.loads(result.stdout.split("CALLS ", 1)[1])
+    assert printed == "https://dev-platform-api.aixplain.com", "the CWD .env did not take effect"
+    assert {url.split("/sdk/")[0] for url, _ in calls} == {printed}
+    assert {key for _, key in calls} == {"dotenv-key"}
 
 
 def test_team_api_key_takes_precedence_like_the_sdk(monkeypatch):
@@ -670,3 +861,179 @@ def test_conflicting_api_keys_are_refused(monkeypatch):
 
     with pytest.raises(ValueError, match="TEAM_API_KEY and AIXPLAIN_API_KEY are both set and differ"):
         generate.get_config()
+
+
+def test_data_types_agree_with_the_sdk_enum():
+    """The frozen set the render validates against is exactly `aixplain.v1.enums.DataType`.
+
+    The render path cannot import the package it generates, so the values are copied;
+    this is what keeps the copy honest when a member is added to the enum.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # the v1 deprecation notice, on first import
+        from aixplain.v1.enums.data_type import DataType
+
+    assert generate.DATA_TYPES == {member.value for member in DataType}
+    assert all(DataType(value).name == value.upper() for value in generate.DATA_TYPES), (
+        "the pipeline template emits DataType.<VALUE.upper()>"
+    )
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda f: f["params"][0].__setitem__("dataType", "hologram"),
+        lambda f: f["output"][0].__setitem__("dataType", "hologram"),
+        lambda f: f["metaData"].__setitem__("InputType", "hologram"),
+        lambda f: f["metaData"].__setitem__("OutputType", "hologram"),
+    ],
+    ids=["param", "output", "InputType", "OutputType"],
+)
+def test_unknown_data_type_fails_the_render(tmp_path, monkeypatch, mutate):
+    """A type outside `DataType` fails here, not as an AttributeError in `import aixplain.v1.modules`."""
+    dataset = _synthetic_dataset()
+    mutate(dataset["functions"][0])
+
+    with pytest.raises(generate.GeneratorValueError) as excinfo:
+        _render_synthetic(tmp_path, monkeypatch, dataset)
+
+    message = str(excinfo.value)
+    assert "'hologram'" in message and "text-generation" in message and "DataType" in message
+
+
+def test_rendered_pipeline_module_executes(tmp_path, monkeypatch):
+    """The rendered `pipeline.py` imports against the real package and resolves every `DataType`."""
+    rendered = _render_synthetic(tmp_path, monkeypatch, _synthetic_dataset())
+    pipeline_module = rendered[generate.PIPELINE_MODULE_PATH]
+
+    script = textwrap.dedent(
+        f"""
+        import importlib.util
+        import aixplain.v1.modules.pipeline  # the real package, so the relative imports resolve
+        from aixplain.v1.enums import DataType
+
+        spec = importlib.util.spec_from_file_location("aixplain.v1.modules.pipeline.pipeline", {str(pipeline_module)!r})
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        assert module.TextGeneration.input_type is DataType.TEXT
+        assert module.BenchmarkScoringAsr.input_type is DataType.AUDIO
+        assert module.BenchmarkScoringMt.output_type is DataType.LABEL, "the padded OutputType"
+        inputs = module.BenchmarkScoringMtInputs()
+        assert inputs.text.data_type is DataType.TEXT
+        assert issubclass(module.Pipeline, aixplain.v1.modules.pipeline.pipeline.DefaultPipeline)
+        print("ok")
+        """
+    )
+    env = dict(os.environ, PYTHONPATH=str(REPO_ROOT), AIXPLAIN_SUPPRESS_V1_DEPRECATION="1")
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env, cwd=str(tmp_path))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "ok"
+
+
+@pytest.mark.parametrize("char", ["\x00", "\x1b", "\u200b"], ids=["nul", "escape", "zero-width-space"])
+def test_control_character_in_description_fails_the_render(tmp_path, monkeypatch, char):
+    """A control character in a docstring survives escaping, so it is refused with the function named."""
+    dataset = _synthetic_dataset()
+    dataset["functions"][0]["metaData"]["description"] = f"Generates{char}text."
+
+    with pytest.raises(generate.GeneratorValueError) as excinfo:
+        _render_synthetic(tmp_path, monkeypatch, dataset)
+
+    message = str(excinfo.value)
+    assert "text-generation" in message and repr(char) in message and "docstring" in message
+
+
+def test_description_ending_in_quotes_round_trips(tmp_path, monkeypatch):
+    """A description ending in `\"\"\"` or `"` is neither a SyntaxError nor double-escaped."""
+    dataset = _synthetic_dataset()
+    dataset["functions"][0]["metaData"]["description"] = 'Ends in triple """'
+    dataset["functions"][1]["metaData"]["description"] = 'Ends in one "'
+    rendered = _render_synthetic(tmp_path, monkeypatch, dataset)
+
+    docstrings = _docstrings(rendered[generate.PIPELINE_MODULE_PATH].read_text(encoding="utf-8"))
+    assert 'node.Ends in triple """InputType' in docstrings["TextGeneration"]
+    assert docstrings["text_generation"].endswith('node.Ends in triple """')
+    assert 'node.Ends in one "InputType' in docstrings["SplitOnLinebreak"]
+    assert docstrings["split_on_linebreak"].endswith('node.Ends in one "')
+
+
+def _crlf_open(file, mode="r", buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
+    """`open` as Windows behaves: a text-mode write with no `newline=` translates LF to CRLF."""
+    if "b" not in mode and newline is None and set(mode) & set("wax"):
+        newline = "\r\n"
+    return _real_open(file, mode, buffering, encoding, errors, newline, closefd, opener)
+
+
+_real_open = builtins.open
+
+
+def test_written_files_are_lf_even_where_the_platform_default_is_crlf(tmp_path, monkeypatch, fetch_env):
+    """Staged renders and fixtures are written with explicit LF, so a Windows render matches the committed bytes."""
+    _write_fixtures(tmp_path / "fixtures", _synthetic_dataset())
+    _stub_api_request(monkeypatch, {"suppliers": [{"id": 1, "name": "aixplain", "code": "aixplain"}]})
+
+    with monkeypatch.context() as context:
+        # `builtins.open` is what generate.py calls; `io.open` is what pathlib calls.
+        context.setattr(builtins, "open", _crlf_open)
+        context.setattr(io, "open", _crlf_open)
+        assert (tmp_path / "probe.txt").write_text("a\n") and b"\r\n" in (tmp_path / "probe.txt").read_bytes(), (
+            "the emulation must actually produce CRLF, or this test proves nothing"
+        )
+        written = generate.write_modules(tmp_path / "out")
+        generate.fetch()
+
+    for path in written.values():
+        assert b"\r" not in path.read_bytes(), f"{path.name} was written with CRLF"
+    for path in fetch_env.iterdir():
+        assert b"\r" not in path.read_bytes(), f"{path.name} was written with CRLF"
+
+
+def test_duplicate_output_code_fails_even_for_an_allow_listed_function(tmp_path, monkeypatch):
+    """The allow-list covers inputs only; a duplicated output code always fails."""
+    dataset = _synthetic_dataset()
+    metric = next(f for f in dataset["functions"] if f["id"] == "benchmark-scoring-mt")
+    metric["output"].append({"code": "data", "dataType": "label", "defaultValue": None})
+
+    with pytest.raises(generate.GeneratorValueError) as excinfo:
+        _render_synthetic(tmp_path, monkeypatch, dataset)
+
+    assert "outputs of functions.json" in str(excinfo.value) and "benchmark-scoring-mt" in str(excinfo.value)
+
+
+def test_known_duplicate_with_unexpected_names_fails_the_render(tmp_path, monkeypatch):
+    """The entry pins the names of the pair it was written for; a different pair fails."""
+    dataset = _synthetic_dataset()
+    metric = next(f for f in dataset["functions"] if f["id"] == "benchmark-scoring-mt")
+    metric["params"][1]["name"] = "hypothesis"
+
+    with pytest.raises(generate.GeneratorValueError) as excinfo:
+        _render_synthetic(tmp_path, monkeypatch, dataset)
+
+    message = str(excinfo.value)
+    assert "('output', 'reference')" in message and "('output', 'hypothesis')" in message
+
+
+def test_stale_known_duplicate_entry_fails_the_render(tmp_path, monkeypatch):
+    """An entry the catalog no longer exercises fails, so the special case cannot outlive its data."""
+    dataset = _synthetic_dataset()
+    metric = next(f for f in dataset["functions"] if f["id"] == "benchmark-scoring-mt")
+    del metric["params"][1]
+
+    with pytest.raises(generate.GeneratorValueError) as excinfo:
+        _render_synthetic(tmp_path, monkeypatch, dataset)
+
+    message = str(excinfo.value)
+    assert "benchmark-scoring-mt" in message and "'text'" in message and "no longer serves it twice" in message
+
+
+def test_known_duplicate_for_a_missing_function_fails_the_render(tmp_path, monkeypatch):
+    """An entry for a function the catalog does not have fails too."""
+    monkeypatch.setattr(
+        generate,
+        "KNOWN_DUPLICATE_PARAMETERS",
+        {**generate.KNOWN_DUPLICATE_PARAMETERS, "benchmark-scoring-retired": {"text": ("output", "reference")}},
+    )
+
+    with pytest.raises(generate.GeneratorValueError, match="'benchmark-scoring-retired'.*no such function"):
+        _render_synthetic(tmp_path, monkeypatch, _synthetic_dataset())
