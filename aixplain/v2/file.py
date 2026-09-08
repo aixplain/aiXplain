@@ -291,12 +291,12 @@ class File(BaseResource):
         """Upload the source and persist it as a backend File asset.
 
         Raises:
-            ValidationError: If the file has been deleted.
+            ResourceError: If the file has been deleted.
         """
         # File.save() never reaches BaseResource.save(), so it needs its own
         # deleted-state guard (BUG-1093).
         if self.id or self.is_deleted:
-            self._ensure_valid_state()
+            self._ensure_saveable()
 
         if self.context is None:
             self.context = type(self).context

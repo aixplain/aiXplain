@@ -332,6 +332,25 @@ class BaseResource:
             else:
                 raise ValidationError(f"{resource_name} has been deleted or is invalid. {resource_name} ID is missing.")
 
+    def _ensure_saveable(self) -> None:
+        """Guard ``save()`` on a resource that is deleted or otherwise unusable.
+
+        ``BaseResource.save`` runs inside :func:`with_hooks`, which re-raises
+        anything that is not a ``ResourceError`` as one, while the sibling
+        guards in ``Agent.save`` and ``File.save`` run outside it. Raising
+        ``ValidationError`` from the guard therefore split one rule across two
+        exception types, and ``except ResourceError`` around ``agent.save()``
+        caught only some of the paths. Every deleted-save guard raises
+        ``ResourceError`` through this helper (BUG-1093).
+
+        Raises:
+            ResourceError: If the resource is deleted or has no usable id.
+        """
+        try:
+            self._ensure_valid_state()
+        except ValidationError as exc:
+            raise ResourceError(str(exc)) from exc
+
     def _get_serializable_state(self) -> dict:
         """Get the current state of the resource as a serializable dictionary.
 
@@ -542,10 +561,9 @@ class BaseResource:
             BaseResource: The saved resource instance
 
         Raises:
-            ResourceError: If the resource has been deleted. The guard raises
-                ``ValidationError``, which the ``@with_hooks`` wrapper re-raises
-                as ``ResourceError`` — the same shape ``delete()`` already had.
-                Both derive from ``AixplainV2Error``.
+            ResourceError: If the resource has been deleted — the same type
+                every other deleted-save guard raises, so one ``except`` clause
+                covers ``BaseResource.save``, ``Agent.save`` and ``File.save``.
             Backend validation errors as appropriate
         """
         # save() is the only mutating path that may legitimately run without an
@@ -554,7 +572,7 @@ class BaseResource:
         # through to _create(): that POSTs a duplicate and rebinds self.id to
         # the new server id (BUG-1093).
         if self.id or self.is_deleted:
-            self._ensure_valid_state()
+            self._ensure_saveable()
 
         resource_path = kwargs.pop("resource_path", self.RESOURCE_PATH)
 

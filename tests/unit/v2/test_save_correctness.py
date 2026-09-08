@@ -8,6 +8,12 @@ Covers two failure modes that damaged the user's resources:
 * ``_create()`` hydrated the POST response *before* recording the returned id,
   so a deserialization failure orphaned a resource that already existed
   remotely — and the obvious retry created a second one.
+
+The deleted-save assertions name ``ResourceError`` rather than the shared
+``AixplainV2Error`` base on purpose: asserting the base is what hid the guard
+raising ``ValidationError`` from ``Agent.save`` / ``File.save`` (outside
+``@with_hooks``) and ``ResourceError`` from ``BaseResource.save`` (inside it),
+so ``except ResourceError`` around ``agent.save()`` caught only some paths.
 """
 
 from dataclasses import dataclass, field
@@ -19,7 +25,7 @@ from dataclasses_json import config, dataclass_json
 
 from aixplain.v2.agent import Agent
 from aixplain.v2.enums import AssetStatus
-from aixplain.v2.exceptions import AixplainV2Error, ResourceError
+from aixplain.v2.exceptions import ResourceError, ValidationError
 from aixplain.v2.resource import (
     BaseResource,
     DeleteResourceMixin,
@@ -68,7 +74,7 @@ def test_save_after_delete_raises_and_issues_no_request():
     thing.mark_as_deleted()
     thing.context.client.request.reset_mock()
 
-    with pytest.raises(AixplainV2Error, match="deleted"):
+    with pytest.raises(ResourceError, match="deleted"):
         thing.save()
 
     assert thing.context.client.request.call_args_list == []
@@ -93,7 +99,7 @@ def test_save_after_delete_is_not_one_shot():
     thing.mark_as_deleted()
 
     for _ in range(2):
-        with pytest.raises(AixplainV2Error, match="deleted"):
+        with pytest.raises(ResourceError, match="deleted"):
             thing.save()
 
     assert _methods(thing.context) == []
@@ -128,7 +134,7 @@ def test_agent_save_after_delete_does_not_touch_subcomponents_or_status():
     agent.mark_as_deleted()
     agent.status = AssetStatus.DELETED
 
-    with pytest.raises(AixplainV2Error, match="deleted"):
+    with pytest.raises(ResourceError, match="deleted"):
         agent.save(save_subcomponents=True)
 
     assert agent.status == AssetStatus.DELETED
@@ -153,10 +159,63 @@ def test_file_save_after_delete_raises():
     file._deleted = True
     file.context.client.request.reset_mock()
 
-    with pytest.raises(AixplainV2Error, match="deleted"):
+    with pytest.raises(ResourceError, match="deleted"):
         file.save()
 
     assert file.context.client.request.call_args_list == []
+
+
+def _deleted_base_resource():
+    """A plain resource whose save() runs inside ``@with_hooks``."""
+    thing = _thing(id="ID1", name="thing")
+    thing._update_saved_state()
+    thing.mark_as_deleted()
+    return thing
+
+
+def _deleted_agent():
+    """An Agent, whose save() override guards before ``@with_hooks`` runs."""
+    agent = Agent(name="agent")
+    agent.context = MagicMock()
+    agent.id = "AGENT-1"
+    agent._update_saved_state()
+    agent.mark_as_deleted()
+    return agent
+
+
+def _deleted_file():
+    """A File, whose save() never reaches ``BaseResource.save`` at all."""
+    from aixplain.v2.file import File
+
+    file = File(id="FILE-1", name="report.pdf")
+    file.context = MagicMock()
+    file._update_saved_state()
+    file.id = None
+    file._deleted = True
+    return file
+
+
+@pytest.mark.parametrize(
+    "make_resource",
+    [_deleted_base_resource, _deleted_agent, _deleted_file],
+    ids=["base-resource", "agent", "file"],
+)
+def test_deleted_save_guards_raise_one_catchable_type(make_resource):
+    """``except ResourceError`` must catch the guard on every save path.
+
+    ``BaseResource.save`` is wrapped by ``@with_hooks``, which converts the
+    guard's error to ``ResourceError``; ``Agent.save`` and ``File.save`` guard
+    outside it and used to surface the raw ``ValidationError``. They are
+    sibling subclasses of ``AixplainV2Error``, so the split silently escaped
+    callers' ``except ResourceError``.
+    """
+    resource = make_resource()
+
+    with pytest.raises(ResourceError) as exc_info:
+        resource.save()
+
+    assert "deleted" in str(exc_info.value)
+    assert not isinstance(exc_info.value, ValidationError)
 
 
 # =============================================================================

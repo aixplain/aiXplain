@@ -1298,14 +1298,14 @@ class Agent(
             Agent: The saved agent instance
 
         Raises:
-            ValidationError: If the agent has been deleted.
+            ResourceError: If the agent has been deleted.
             ValueError: If child components are not saved and save_subcomponents is False
         """
         # Guard before any child component is saved and before before_save()
         # flips status DELETED -> ONBOARDED: a deleted agent must not touch the
         # backend at all (BUG-1093).
         if self.id or self.is_deleted:
-            self._ensure_valid_state()
+            self._ensure_saveable()
 
         save_subcomponents = kwargs.pop("save_subcomponents", False)
 
