@@ -29,7 +29,7 @@ from copy import deepcopy
 
 
 from ._backoff import next_wait, sleep_with_jitter
-from .client import default_timeout
+from .client import DEFAULT_RETRY_TOTAL, default_timeout
 from .enums import OwnershipType, SortBy, SortOrder
 from .exceptions import (
     ResourceError,
@@ -72,6 +72,26 @@ def _client_timeout_bounds(client: Any) -> Tuple[float, float]:
         return float(connect), float(read)
     except (TypeError, ValueError):
         return default_timeout()
+
+
+def _client_retry_attempts(client: Any) -> int:
+    """How many times the transport may send one poll before giving up.
+
+    ``GET`` is in ``RETRY_ALLOWED_METHODS``, so urllib3 re-sends a poll that
+    raises ``ReadTimeoutError`` up to ``retry_total`` further times *underneath*
+    ``requests``. Bounding one request's read phase by the remaining budget is
+    therefore not enough on its own: ``sync_poll(timeout=300)`` against a hung
+    endpoint would still block ``300 * (retry_total + 1)`` seconds before the
+    deadline is re-checked (BUG-1097). Dividing by the value returned here is
+    what makes the wall-clock budget hold.
+
+    Anything unrecognisable (a mock, an old client) falls back to the module
+    default, which is the conservative direction: a shorter per-request bound.
+    """
+    total = getattr(client, "retry_total", None)
+    if isinstance(total, bool) or not isinstance(total, int) or total < 0:
+        return DEFAULT_RETRY_TOTAL + 1
+    return total + 1
 
 
 # Hook decorator system
@@ -1601,11 +1621,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         Args:
             poll_url: URL to poll for results
-            timeout: Optional upper bound, in seconds, on this single request's
-                read phase -- normally the budget ``sync_poll`` has left. When
-                omitted the client's own default read timeout applies, which is
-                long enough for one hung poll to consume an entire poll budget
-                (BUG-1097).
+            timeout: Optional upper bound, in seconds, on the *wall clock* this
+                single poll may consume -- normally the budget ``sync_poll`` has
+                left. It is divided by the number of transport-level attempts
+                before being applied as a read timeout, because urllib3 retries a
+                timed-out GET underneath ``requests``. When omitted the client's
+                own default read timeout applies, which is long enough for one
+                hung poll to consume an entire poll budget (BUG-1097).
 
         Returns:
             Response instance from the configured RESPONSE_CLASS
@@ -1622,10 +1644,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         request_kwargs: dict = {}
         if timeout is not None:
             connect_timeout, read_timeout = _client_timeout_bounds(self.context.client)
-            # Floor at 1s so a nearly-exhausted budget still sends a real request
-            # instead of one guaranteed to time out, and never exceed the read
-            # timeout the deployment configured.
-            request_kwargs["timeout"] = (connect_timeout, max(1.0, min(timeout, read_timeout)))
+            # Divided by the number of transport attempts, because urllib3 may
+            # re-send a timed-out GET underneath ``requests``: without this the
+            # caller's budget is silently multiplied by ``retry_total + 1``
+            # (BUG-1097). Floor at 1s so a nearly-exhausted budget still sends a
+            # real request instead of one guaranteed to time out, and never
+            # exceed the read timeout the deployment configured.
+            attempts = _client_retry_attempts(self.context.client)
+            request_kwargs["timeout"] = (connect_timeout, max(1.0, min(timeout / attempts, read_timeout)))
         try:
             # Use context.client for all polling operations
             # If poll_url is a full URL, urljoin will use it directly
@@ -1735,7 +1761,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             Response instance from the configured RESPONSE_CLASS
 
         Raises:
-            TimeoutError: If the operation exceeds the timeout duration
+            TimeoutError: If the operation exceeds the timeout duration. When the
+                budget expired on a poll that also failed (a 401 on the last
+                attempt, say), that failure is chained as ``__cause__`` rather
+                than being flattened into "Operation timed out".
         """
         timeout = kwargs.get("timeout", 300)
         wait_time = kwargs.get("wait_time", 0.5)
@@ -1744,6 +1773,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         start_time = time.time()
         wait_time = max(wait_time, 0.2)  # Minimum wait time
         poll_accepts_timeout = self._poll_accepts_timeout()
+        last_error: Optional[Exception] = None
 
         while True:
             remaining = timeout - (time.time() - start_time)
@@ -1754,7 +1784,8 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 # Without this the client's own read timeout applies, so a single
                 # hung poll eats the whole ``timeout`` -- and, because GET is
                 # still retryable at the transport layer, up to
-                # ``DEFAULT_RETRY_TOTAL`` times that (BUG-1097).
+                # ``retry_total + 1`` times that. ``poll`` divides by that factor
+                # so the wall-clock budget actually holds (BUG-1097).
                 if poll_accepts_timeout:
                     result = self.poll(poll_url, timeout=remaining)
                 else:
@@ -1784,6 +1815,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 if timeout - (time.time() - start_time) > 0:
                     raise
                 logger.warning(f"Final poll failed as the {timeout}s budget expired: {e}")
+                # Kept so the TimeoutError raised below chains it: a real 401 or
+                # 403 on the last poll must stay visible, not be flattened into
+                # "Operation timed out".
+                last_error = e
                 break
             except Exception as e:
                 # Log other errors but continue polling
@@ -1800,4 +1835,4 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         if show_progress:
             logger.error(f"Operation timeout - No response after {timeout}s")
-        raise TimeoutError(f"Operation timed out after {timeout} seconds")
+        raise TimeoutError(f"Operation timed out after {timeout} seconds") from last_error

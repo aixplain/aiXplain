@@ -6,7 +6,10 @@ Two defects are pinned here:
   its request with no ``timeout``, so the client's own 300s read timeout
   applied.  With the 300s ``sync_poll`` default one hung poll consumed the whole
   budget -- and up to ``DEFAULT_RETRY_TOTAL`` times that, since GET is still
-  retryable at the transport layer (BUG-1097, second-order item).
+  retryable at the transport layer (BUG-1097, second-order item). The read
+  timeout is therefore divided by ``retry_total + 1``: bounding one *request*
+  is not the same as bounding the wall clock when urllib3 re-sends it
+  underneath ``requests``.
 * The sleep between polls was deterministic, keeping a fleet phase-locked
   (BUG-942 item 1).
 """
@@ -19,7 +22,7 @@ import pytest
 from dataclasses_json import dataclass_json
 
 from aixplain.v2.agent import Agent
-from aixplain.v2.client import DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ
+from aixplain.v2.client import DEFAULT_RETRY_TOTAL, DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ
 from aixplain.v2.exceptions import TimeoutError as AixplainTimeoutError
 
 BACKEND_URL = "https://platform-api.aixplain.com"
@@ -39,6 +42,9 @@ def _create_agent(responses=None):
     agent = BoundAgent(id="agent-123", name="test-agent")
     agent.context = Mock()
     agent.context.backend_url = BACKEND_URL
+    # A Mock attribute is not an int, so spell the transport retry budget out
+    # rather than leaning on ``_client_retry_attempts``'s fallback.
+    agent.context.client.retry_total = DEFAULT_RETRY_TOTAL
     if responses is not None:
         agent.context.client.get = Mock(side_effect=list(responses))
     return agent
@@ -66,11 +72,15 @@ class TestPollRequestTimeout:
         assert "timeout" not in agent.context.client.get.call_args.kwargs
 
     def test_poll_with_timeout_passes_a_connect_read_tuple(self):
+        """The budget is a *wall-clock* bound, so it is split across attempts."""
         agent = _create_agent([SUCCESS])
 
         agent.poll("exec-1", timeout=42.0)
 
-        assert agent.context.client.get.call_args.kwargs["timeout"] == (DEFAULT_TIMEOUT_CONNECT, 42.0)
+        assert agent.context.client.get.call_args.kwargs["timeout"] == (
+            DEFAULT_TIMEOUT_CONNECT,
+            42.0 / (DEFAULT_RETRY_TOTAL + 1),
+        )
 
     def test_read_timeout_is_capped_at_the_client_default(self):
         """A caller's budget must not widen the bound the deployment configured."""
@@ -126,7 +136,10 @@ class TestPollHonoursTheClientTimeout:
 
         agent.poll("exec-1", timeout=7.0)
 
-        assert agent.context.client.get.call_args.kwargs["timeout"] == (3.0, 7.0)
+        assert agent.context.client.get.call_args.kwargs["timeout"] == (
+            3.0,
+            7.0 / (DEFAULT_RETRY_TOTAL + 1),
+        )
 
     @pytest.mark.parametrize("configured", [None, "not-a-timeout", (1.0, 2.0, 3.0)])
     def test_unrecognisable_client_timeout_falls_back_to_the_defaults(self, configured):
@@ -137,7 +150,7 @@ class TestPollHonoursTheClientTimeout:
 
         assert agent.context.client.get.call_args.kwargs["timeout"] == (
             DEFAULT_TIMEOUT_CONNECT,
-            DEFAULT_TIMEOUT_READ,
+            999.0 / (DEFAULT_RETRY_TOTAL + 1),
         )
 
     def test_a_real_client_reports_its_own_configuration(self):
@@ -148,6 +161,69 @@ class TestPollHonoursTheClientTimeout:
         client = AixplainClient(base_url=BACKEND_URL, team_api_key="k", timeout=(2.0, 8.0))
 
         assert _client_timeout_bounds(client) == (2.0, 8.0)
+
+
+class TestTransportRetriesDoNotMultiplyTheBudget:
+    """The wall-clock budget must survive urllib3's retries (BUG-1097).
+
+    ``GET`` is in ``RETRY_ALLOWED_METHODS``, so a ``ReadTimeoutError`` is
+    re-sent up to ``retry_total`` more times *below* ``requests``. A read
+    timeout equal to the whole remaining budget therefore let a hung endpoint
+    block ``timeout * (retry_total + 1)`` seconds before ``sync_poll`` looked at
+    its deadline again -- ~30 minutes for the 300s default.
+    """
+
+    @staticmethod
+    def _agent_with_retry_total(total):
+        agent = _create_agent([SUCCESS])
+        agent.context.client.retry_total = total
+        agent.context.client.timeout = (10.0, 10000.0)  # never the binding constraint
+        return agent
+
+    @pytest.mark.parametrize("retry_total", [0, 1, 3, 5, 10])
+    def test_read_timeout_times_attempts_never_exceeds_the_budget(self, retry_total):
+        agent = self._agent_with_retry_total(retry_total)
+
+        agent.poll("exec-1", timeout=600.0)
+
+        read = agent.context.client.get.call_args.kwargs["timeout"][1]
+        assert read * (retry_total + 1) <= 600.0
+
+    def test_a_zero_retry_client_gets_the_whole_budget(self):
+        """Nothing is given away when the transport cannot re-send at all."""
+        agent = self._agent_with_retry_total(0)
+
+        agent.poll("exec-1", timeout=600.0)
+
+        assert agent.context.client.get.call_args.kwargs["timeout"][1] == 600.0
+
+    def test_the_default_client_budget_is_not_multiplied_by_six(self):
+        """The reported symptom: ``sync_poll(timeout=300)`` blocking ~30 minutes."""
+        agent = self._agent_with_retry_total(DEFAULT_RETRY_TOTAL)
+
+        agent.poll("exec-1", timeout=300.0)
+
+        read = agent.context.client.get.call_args.kwargs["timeout"][1]
+        assert read == 50.0
+        assert read * (DEFAULT_RETRY_TOTAL + 1) == 300.0
+
+    @pytest.mark.parametrize("configured", [None, "five", -1, True])
+    def test_an_unusable_retry_total_falls_back_conservatively(self, configured):
+        """A mock or a nonsense value must shorten the bound, never widen it."""
+        from aixplain.v2.resource import _client_retry_attempts
+
+        agent = self._agent_with_retry_total(configured)
+
+        assert _client_retry_attempts(agent.context.client) == DEFAULT_RETRY_TOTAL + 1
+
+    def test_a_real_client_reports_its_own_retry_total(self):
+        """End-to-end through the actual client, not a mock."""
+        from aixplain.v2.client import AixplainClient
+        from aixplain.v2.resource import _client_retry_attempts
+
+        client = AixplainClient(base_url=BACKEND_URL, team_api_key="k", retry_total=2)
+
+        assert _client_retry_attempts(client) == 3
 
 
 class TestSyncPollBudget:
@@ -174,8 +250,9 @@ class TestSyncPollBudget:
             with patch("aixplain.v2.resource.sleep_with_jitter", return_value=0.0):
                 agent.sync_poll("exec-1", timeout=100, wait_time=0.5)
 
+        attempts = DEFAULT_RETRY_TOTAL + 1
         reads = _read_timeouts(agent.context.client.get)
-        assert reads == [100.0, 90.0, 80.0]
+        assert reads == [100.0 / attempts, 90.0 / attempts, 80.0 / attempts]
 
     def test_never_exceeds_the_client_read_timeout(self):
         """Even a huge ``sync_poll`` budget stays inside the transport bound."""
@@ -284,6 +361,37 @@ class TestDeadlineWinsOverTheErrorItCauses:
         with patch("aixplain.v2.resource.sleep_with_jitter", return_value=0.0):
             with pytest.raises(APIError):
                 agent.sync_poll("exec-1", timeout=300, wait_time=0.5)
+
+    def test_the_final_failure_is_chained_onto_the_timeout(self):
+        """A 401 on the last poll must stay visible, not become "timed out"."""
+        from aixplain.v2.exceptions import APIError
+
+        agent = _create_agent()
+        clock = {"t": 0.0}
+
+        def expire(poll_url, timeout=None):
+            clock["t"] += 40.0
+            raise APIError("Unauthorized", 401, {})
+
+        with patch("aixplain.v2.resource.time.time", lambda: clock["t"]):
+            with patch.object(type(agent), "poll", side_effect=expire):
+                with patch("aixplain.v2.resource.sleep_with_jitter", return_value=0.0):
+                    with pytest.raises(AixplainTimeoutError) as excinfo:
+                        agent.sync_poll("exec-1", timeout=30, wait_time=0.5)
+
+        cause = excinfo.value.__cause__
+        assert isinstance(cause, APIError)
+        assert cause.status_code == 401
+        assert "Unauthorized" in str(cause)
+
+    def test_a_plain_timeout_has_no_spurious_cause(self):
+        """Nothing failed, so nothing is chained."""
+        agent = _create_agent([SUCCESS])
+
+        with pytest.raises(AixplainTimeoutError) as excinfo:
+            agent.sync_poll("exec-1", timeout=0)
+
+        assert excinfo.value.__cause__ is None
 
     def test_untrusted_url_is_never_softened_into_a_timeout(self):
         """A refused credential leak must stay a security error, budget or not."""

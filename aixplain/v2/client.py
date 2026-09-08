@@ -555,6 +555,10 @@ class AixplainClient:
         """
         self.base_url = base_url
         self.timeout: TimeoutType = timeout if timeout is not None else default_timeout()
+        # How many times urllib3 may re-send one retryable request underneath
+        # ``requests``. Callers that need a wall-clock bound have to divide by
+        # ``retry_total + 1`` -- see ``BaseResource.poll`` (BUG-1097).
+        self.retry_total = retry_total
         self.team_api_key = team_api_key
         self.aixplain_api_key = aixplain_api_key
 
