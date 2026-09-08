@@ -40,8 +40,10 @@ class ModelGetterMixin:
             name (Optional[Text], optional): Name of the model to retrieve.
             api_key (Optional[Text], optional): API key for authentication.
                 Defaults to None, using the configured TEAM_API_KEY.
-            use_cache (bool, optional): Whether to attempt retrieving from cache.
-                Defaults to False.
+            use_cache (bool, optional): Whether to use the on-disk model cache.
+                Defaults to False. When False, the cache is neither read nor
+                written -- opting out of caching also opts out of persisting
+                anything about the model (BUG-940).
 
         Returns:
             Model: Retrieved model instance.
@@ -60,34 +62,39 @@ class ModelGetterMixin:
 
         # Continue with existing ID-based logic
         model_id = model_id.replace("/", "%2F")
-        cache = AssetCache(Model)
         if api_key is None:
             api_key = config.TEAM_API_KEY
 
         if use_cache:
+            # Shared instance: building one reads and deserializes the whole
+            # cache file, so a per-call instance made every get() O(cache size).
+            cache = AssetCache.shared(Model)
             try:
-                if cache.has_valid_cache():
-                    cached_model = cache.store.data.get(model_id)
-                    if cached_model:
-                        return cached_model
-                    logging.info("Model not found in valid cache, fetching individually...")
-                    model = cls._fetch_model_by_id(model_id, api_key)
-                    cache.add(model)
-                    return model
-                else:
+                cached_model = cache.get(model_id)
+                if cached_model is not None:
+                    # The cache never stores a credential, so stamp the one this
+                    # call is authorized with rather than leaking another
+                    # caller's key or a stale configured one.
+                    cached_model.api_key = api_key
+                    return cached_model
+
+                if not cache.has_valid_cache():
                     model_list_resp = cls.list(model_ids=None, api_key=api_key)
                     models = model_list_resp["results"]
                     cache.add_list(models)
                     for model in models:
                         if model.id == model_id:
                             return model
+
+                logging.info("Model not found in valid cache, fetching individually...")
+                model = cls._fetch_model_by_id(model_id, api_key)
+                cache.add(model)
+                return model
             except Exception as e:
                 logging.warning(f"Cache lookup failed, falling back to direct fetch: {e}")
 
         logging.info("Fetching model directly without cache...")
-        model = cls._fetch_model_by_id(model_id, api_key)
-        cache.add(model)
-        return model
+        return cls._fetch_model_by_id(model_id, api_key)
 
     @classmethod
     def _fetch_model_by_name(cls, name: Text, api_key: Optional[Text] = None) -> Model:

@@ -137,6 +137,62 @@ def build_tool(tool: Dict):
     return tool
 
 
+def prefetch_tool_models(tools_dict: List[Dict], payload: Dict, api_key: Text = config.TEAM_API_KEY) -> None:
+    """Resolve every model-backed tool of an agent in a single backend request.
+
+    Building a tool goes ``build_tool`` -> ``ModelTool.validate`` ->
+    ``ModelFactory.get``, which issues its own HTTP request. Loading an agent with
+    N model tools therefore cost N round trips even though the backend already
+    resolves a batch through ``sdk/models?ids=a,b,c``. Issuing that one request
+    up front and warming the shared cache turns the per-tool lookups into cache
+    hits (BUG-940).
+
+    Args:
+        tools_dict (List[Dict]): Raw tool payloads from the agent response.
+        payload (Dict): The agent payload, read for ``llmId`` so the agent's main
+            LLM joins the same batch.
+        api_key (Text, optional): API key for authentication. Defaults to
+            config.TEAM_API_KEY.
+
+    Note:
+        Best effort. A failed batch is logged and leaves each tool to fetch
+        itself, which is the behaviour this function optimizes away.
+    """
+    from aixplain.factories.model_factory.utils import get_model_from_ids
+    from aixplain.utils.asset_cache import AssetCache
+
+    wanted = []
+    for tool in tools_dict:
+        if (tool.get("type") or "").lower() != "model":
+            continue
+        asset_id = tool.get("assetId")
+        if isinstance(asset_id, str) and asset_id:
+            wanted.append(asset_id)
+
+    llm_id = payload.get("llmId")
+    if isinstance(llm_id, str) and llm_id:
+        wanted.append(llm_id)
+
+    cache = AssetCache.shared(Model)
+
+    missing, seen = [], set()
+    for asset_id in wanted:
+        if asset_id in seen or asset_id in cache:
+            continue
+        seen.add(asset_id)
+        missing.append(asset_id)
+
+    if len(missing) < 2:
+        # One id is no cheaper as a batch than as the direct fetch that follows.
+        return
+
+    logging.info(f"Resolving {len(missing)} agent tool models in a single request")
+    try:
+        cache.add_many(get_model_from_ids(missing, api_key))
+    except Exception as e:
+        logging.warning(f"Batch model resolution failed, falling back to per-tool fetch: {e}")
+
+
 def build_llm(payload: Dict, api_key: Text = config.TEAM_API_KEY) -> LLM:
     """Build a Large Language Model (LLM) instance from a dictionary configuration.
 
@@ -236,6 +292,10 @@ def build_agent(payload: Dict, tools: List[Tool] = None, api_key: Text = config.
 
         # Build all tools in parallel (only if there are tools to build)
         if len(tools_dict) > 0:
+            # Resolve the tools' models in one request first. Without this the
+            # workers below each issue their own, and the pool wins nothing
+            # because they queue behind the cache's exclusive file lock.
+            prefetch_tool_models(tools_dict, payload, api_key)
             with ThreadPoolExecutor(max_workers=min(len(tools_dict), 10)) as executor:
                 # Submit all tool build tasks
                 future_to_tool = {executor.submit(build_tool_safe, tool): tool for tool in tools_dict}

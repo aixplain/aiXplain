@@ -1,15 +1,22 @@
-import os
 import json
-import time
 import logging
+import os
+import time
+
 from filelock import FileLock
+
+from aixplain.utils.asset_cache import atomic_write_private, default_cache_folder, ensure_cache_folder
 
 logging.getLogger("filelock").setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
-CACHE_FOLDER = ".cache"
-CACHE_FILE = f"{CACHE_FOLDER}/cache.json"
+#: Cache location. Resolved under the per-user cache directory rather than the
+#: current working directory, which would expose the contents to anything sharing
+#: the checkout -- CI runners, Docker build contexts, co-tenant processes
+#: (BUG-940).
+CACHE_FOLDER = default_cache_folder()
+CACHE_FILE = os.path.join(CACHE_FOLDER, "cache.json")
 LOCK_FILE = f"{CACHE_FILE}.lock"
 CACHE_DURATION = 86400
 
@@ -38,19 +45,27 @@ def save_to_cache(cache_file: str, data: dict, lock_file: str) -> None:
         lock_file (str): Path to the lock file used for thread safety.
 
     Note:
-        - Creates the cache directory if it doesn't exist
+        - Creates the cache directory (owner-only) if it doesn't exist
+        - Writes atomically through a private temporary file, so the file is
+          never world-readable and never observed half-written
         - Logs an error if saving fails but doesn't raise an exception
         - The data is saved with a timestamp for expiration checking
     """
     logger.info(f"Attempting to save cache to {cache_file}")
     try:
-        os.makedirs(os.path.dirname(cache_file), exist_ok=True)
-        logger.info(f"Cache directory created/verified: {os.path.dirname(cache_file)}")
+        blob = json.dumps({"timestamp": time.time(), "data": data})
+    except Exception as e:
+        logger.error(f"Failed to serialize cache for {cache_file}: {e}")
+        return
+
+    try:
+        folder = os.path.dirname(cache_file) or "."
+        ensure_cache_folder(folder)
+        logger.info(f"Cache directory created/verified: {folder}")
 
         with FileLock(lock_file):
             logger.info(f"Acquired file lock: {lock_file}")
-            with open(cache_file, "w") as f:
-                json.dump({"timestamp": time.time(), "data": data}, f)
+            atomic_write_private(cache_file, blob)
             logger.info(f"Successfully saved cache to {cache_file}")
     except Exception as e:
         logger.error(f"Failed to save cache to {cache_file}: {e}")
