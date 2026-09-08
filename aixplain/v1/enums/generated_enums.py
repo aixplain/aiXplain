@@ -254,7 +254,7 @@ FunctionInputOutput = {
         },
     },
     "benchmark-scoring-asr": {
-        "input": {"audio", "text", "text"},
+        "input": {"audio", "text"},
         "output": {"label"},
         "spec": {
             "id": "benchmark-scoring-asr",
@@ -264,14 +264,6 @@ FunctionInputOutput = {
                 {
                     "code": "input",
                     "dataType": "audio",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False,
-                },
-                {
-                    "code": "text",
-                    "dataType": "text",
                     "required": True,
                     "multipleValues": False,
                     "defaultValues": [],
@@ -3500,7 +3492,7 @@ FunctionInputOutput = {
         },
     },
     "benchmark-scoring-mt": {
-        "input": {"text", "text", "text"},
+        "input": {"text", "text"},
         "output": {"label"},
         "spec": {
             "id": "benchmark-scoring-mt",
@@ -3509,14 +3501,6 @@ FunctionInputOutput = {
             "params": [
                 {
                     "code": "input",
-                    "dataType": "text",
-                    "required": True,
-                    "multipleValues": False,
-                    "defaultValues": [],
-                    "isFixed": False,
-                },
-                {
-                    "code": "text",
                     "dataType": "text",
                     "required": True,
                     "multipleValues": False,
