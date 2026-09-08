@@ -18,11 +18,18 @@ Each leaked thread then printed to stdout 20 times a second for the life of the
 process -- including in non-TTY server containers, where it is pure log garbage
 (hole 4: there was no ``isatty()`` check anywhere in the module).
 
+The fix gives ``Agent.run`` / ``Agent.sync_poll`` sole ownership of the
+tracker for the duration of the call, threads it down to ``on_poll`` as the
+``_progress_tracker`` run kwarg, and gates only the 20 Hz repaint thread on
+``isatty()`` -- the ``logs`` timeline and the completion summary are ordinary
+newline-terminated output and are still written off a terminal.
+
 Every assertion here is bounded: threads are joined with a timeout and the test
 fails loudly naming the survivors, rather than sleeping and hoping.
 """
 
 import io
+import logging
 import sys
 import threading
 import time
@@ -33,6 +40,7 @@ import pytest
 from aixplain.v2 import agent_progress
 from aixplain.v2.agent import Agent
 from aixplain.v2.agent_progress import AgentProgressTracker, ProgressFormat
+from aixplain.v2.exceptions import TimeoutError as AixplainTimeoutError
 from aixplain.v2.session import Session, SessionMessage
 
 JOIN_TIMEOUT = 2.0
@@ -220,18 +228,26 @@ class TestDirectPathFailuresStopTheThread:
         assert_all_stopped(trackers)
         assert_thread_count_restored(before)
 
-    def test_run_async_stops_the_thread(self, fake_tty, trackers):
-        """``run_async`` starts a tracker and never polls -- nobody else stops it."""
+    def test_run_async_starts_no_tracker_and_warns(self, fake_tty, trackers, caplog):
+        """``run_async`` returns at submission: it cannot drive a display.
+
+        It used to start a tracker in ``before_run`` that nothing ever fed or
+        stopped. Now it starts none and says so, pointing at ``sync_poll``.
+        """
         agent = _runnable_agent(submit_result=_FakeResult(url="http://poll/1", completed=False))
         before = threading.active_count()
 
-        agent.run_async(query="hi", **PROGRESS_KWARGS)
+        with caplog.at_level(logging.WARNING, logger="aixplain.v2.agent"):
+            result = agent.run_async(query="hi", **PROGRESS_KWARGS)
 
-        assert_all_stopped(trackers)
-        assert_thread_count_restored(before)
+        assert result.url == "http://poll/1"
+        assert trackers == [], "run_async must not build a tracker it cannot drive"
+        assert threading.active_count() == before
+        assert any("sync_poll" in record.getMessage() for record in caplog.records), (
+            "run_async accepted progress_format silently"
+        )
 
-    def test_failed_run_async_stops_the_thread(self, fake_tty, trackers):
-        """``run_async`` had no teardown on the submit-failure path either."""
+    def test_failed_run_async_leaves_no_thread(self, fake_tty, trackers):
         agent = _runnable_agent()
         agent._submit_with_retries = MagicMock(side_effect=RuntimeError("POST failed"))
         before = threading.active_count()
@@ -239,15 +255,106 @@ class TestDirectPathFailuresStopTheThread:
         with pytest.raises(RuntimeError, match="POST failed"):
             agent.run_async(query="hi", **PROGRESS_KWARGS)
 
-        assert trackers, "the run never built a progress tracker"
+        assert trackers == []
+        assert threading.active_count() == before
+
+    def test_run_async_then_sync_poll_with_progress_renders_and_stops(self, fake_tty, trackers, capsys):
+        """The documented pairing: submit with ``run_async``, watch with ``sync_poll``.
+
+        ``sync_poll`` owns a tracker of its own when handed the progress kwargs
+        and no enclosing ``run()`` is driving it.
+        """
+        agent = _runnable_agent(submit_result=_FakeResult(url="http://poll/1", completed=False))
+        steps = [{"agent": {"name": "Responder"}, "api_calls": 1}]
+        agent.poll = MagicMock(
+            side_effect=[
+                _FakeResult(completed=False, status="IN_PROGRESS", steps=steps),
+                _FakeResult(completed=True, status="SUCCESS", steps=steps),
+            ]
+        )
+        before = threading.active_count()
+
+        submitted = agent.run_async(query="hi")
+        result = agent.sync_poll(submitted.url, wait_time=0.2, **PROGRESS_KWARGS)
+
+        assert result.completed
+        assert len(trackers) == 1, "sync_poll should own exactly one tracker"
+        assert trackers[0]._poll_count == 2, "on_poll never reached sync_poll's tracker"
+        assert trackers[0].started_threads, "a TTY poll should have animated"
+        assert "✓ Completed" in capsys.readouterr().out
         assert_all_stopped(trackers)
         assert_thread_count_restored(before)
 
-    def test_the_run_local_tracker_still_receives_poll_updates(self, fake_tty, trackers, capsys):
+    def test_a_failing_standalone_sync_poll_stops_the_thread(self, fake_tty, trackers):
+        agent = _runnable_agent()
+        before = threading.active_count()
+
+        with pytest.raises(AixplainTimeoutError):
+            agent.sync_poll("http://poll/1", timeout=0, **PROGRESS_KWARGS)
+
+        assert trackers, "sync_poll never built a progress tracker"
+        assert_all_stopped(trackers)
+        assert_thread_count_restored(before)
+
+    def test_sync_poll_inside_run_does_not_start_a_second_tracker(self, fake_tty, trackers):
+        """``run()`` calls ``sync_poll`` with the progress kwargs still present."""
+        agent = _runnable_agent()
+        agent.poll = MagicMock(return_value=_FakeResult(completed=True))
+
+        agent.run(query="hi", **PROGRESS_KWARGS)
+
+        assert len(trackers) == 1, "the enclosing run() owns the display; sync_poll must not add one"
+        assert_all_stopped(trackers)
+
+    def test_an_after_run_override_that_skips_super_cannot_leak(self, fake_tty, trackers):
+        """Teardown belongs to ``run()``, not to a hook a subclass may replace."""
+        agent = _runnable_agent()
+        agent.after_run = lambda result, *args, **kwargs: None
+        agent.sync_poll = MagicMock(side_effect=[_FakeResult(completed=True), RuntimeError("second run fails")])
+        before = threading.active_count()
+
+        agent.run(query="hi", **PROGRESS_KWARGS)
+        with pytest.raises(RuntimeError):
+            agent.run(query="hi", **PROGRESS_KWARGS)
+
+        assert len(trackers) == 2
+        assert_all_stopped(trackers)
+        assert_thread_count_restored(before)
+
+    def test_a_nested_progress_less_run_cannot_touch_the_outer_display(self, fake_tty, trackers):
+        """Nothing is shared between runs, so a hook that starts another run is harmless.
+
+        With a context-wide slot, a nested ``run_async()`` without progress
+        adopted and stopped the *outer* run's tracker on its way out.
+        """
+        outer = _runnable_agent()
+        inner = _runnable_agent(submit_result=_FakeResult(url="http://poll/2", completed=False))
+        steps = [{"agent": {"name": "Responder"}, "api_calls": 1}]
+        seen_alive = []
+
+        def poll(url, timeout=None):
+            if not seen_alive:
+                inner.run_async(query="nested")
+                seen_alive.append(trackers[0].started_threads[0].is_alive())
+                return _FakeResult(completed=False, status="IN_PROGRESS", steps=steps)
+            return _FakeResult(completed=True, status="SUCCESS", steps=steps)
+
+        outer.poll = poll
+        before = threading.active_count()
+
+        outer.run(query="hi", wait_time=0.2, **PROGRESS_KWARGS)
+
+        assert len(trackers) == 1, "the nested progress-less run must not build a tracker"
+        assert seen_alive == [True], "the nested run stopped the outer display"
+        assert trackers[0]._poll_count == 2
+        assert_all_stopped(trackers)
+        assert_thread_count_restored(before)
+
+    def test_the_run_owned_tracker_still_receives_poll_updates(self, fake_tty, trackers, capsys):
         """Moving the tracker off ``self`` must not unhook ``on_poll``.
 
         ``on_poll`` is the only thing that feeds the display, and it now
-        resolves the tracker from the run-local slot rather than the instance.
+        receives the tracker as a run kwarg rather than reading the instance.
         Without this, every other assertion in the module would still pass
         against a tracker that was simply never fed.
         """
@@ -264,7 +371,7 @@ class TestDirectPathFailuresStopTheThread:
 
         assert len(trackers) == 1
         tracker = trackers[0]
-        assert tracker._poll_count == 2, "on_poll never reached the run-local tracker"
+        assert tracker._poll_count == 2, "on_poll never reached the run's tracker"
         assert tracker._total_api_calls == 1
         assert capsys.readouterr().out != "", "a TTY run rendered nothing at all"
 
@@ -363,21 +470,53 @@ def test_concurrent_runs_on_one_agent_leave_no_thread(fake_tty, trackers):
 
 
 class TestTtyGate:
-    """A pipe is not a human: off a terminal, print nothing and start nothing."""
+    """A pipe is not a human: off a terminal, no repaint thread.
 
-    def test_non_tty_run_emits_nothing_and_starts_no_thread(self, trackers, capsys):
+    Only the 20 Hz carriage-return animation is gated. The ``logs`` timeline and the
+    completion summary are written from the caller's thread with ordinary
+    newlines, and a CI log or a ``tee`` must still get them in full.
+    """
+
+    def test_non_tty_run_starts_no_thread_but_still_prints_the_summary(self, trackers, capsys):
+        assert not agent_progress._stdout_is_tty(), "capsys should not look like a terminal"
         agent = _runnable_agent()
-        agent.sync_poll = MagicMock(return_value=_FakeResult(completed=True))
+        agent.sync_poll = MagicMock(return_value=_FakeResult(completed=True, steps=[{"agent": {"name": "A"}}]))
         before = threading.active_count()
 
         agent.run(query="hi", **PROGRESS_KWARGS)
 
         assert trackers, "the run never built a progress tracker"
         assert all(tracker.started_threads == [] for tracker in trackers)
-        assert capsys.readouterr().out == ""
+        out = capsys.readouterr().out
+        assert "✓ Completed 1 steps" in out
+        assert out.endswith("\n")
         assert threading.active_count() == before
 
-    def test_non_tty_tracker_prints_nothing_across_its_whole_lifecycle(self, capsys):
+    def test_logs_format_under_a_pipe_prints_the_full_timeline(self, trackers, capsys):
+        """A run piped through ``tee`` or into a CI log keeps its step timeline."""
+        assert not agent_progress._stdout_is_tty()
+        agent = _runnable_agent()
+        running = [{"agent": {"name": "Researcher"}, "api_calls": 1}]
+        done = [{"agent": {"name": "Researcher"}, "api_calls": 1, "output": "found it", "used_credits": 0.5}]
+        agent.poll = MagicMock(
+            side_effect=[
+                _FakeResult(completed=False, status="IN_PROGRESS", steps=running),
+                _FakeResult(completed=True, status="SUCCESS", steps=done),
+            ]
+        )
+        before = threading.active_count()
+
+        agent.run(query="hi", wait_time=0.2, progress_format="logs")
+
+        assert all(tracker.started_threads == [] for tracker in trackers)
+        out = capsys.readouterr().out
+        assert "Researcher" in out, "the logs timeline was suppressed off a terminal"
+        assert "✓ Completed 1 steps" in out
+        assert "$0.5" in out, "the credits summary was suppressed off a terminal"
+        assert threading.active_count() == before
+
+    def test_non_tty_logs_tracker_prints_the_timeline_and_summary_without_a_thread(self, capsys):
+        assert not agent_progress._stdout_is_tty()
         tracker = AgentProgressTracker(poll_func=lambda _: None)
         response = _FakeResult(steps=[{"agent": {"name": "A"}, "output": "done"}])
 
@@ -386,47 +525,87 @@ class TestTtyGate:
         tracker.finish(response)
 
         assert tracker._display_thread is None
-        assert capsys.readouterr().out == ""
+        out = capsys.readouterr().out
+        assert "A" in out
+        assert "✓ Completed 1 steps" in out
+        assert out.endswith("\n")
 
-    def test_bookkeeping_still_runs_with_the_display_off(self, capsys):
-        """The poll counter and metrics are not display state (BUG-942)."""
+    def test_non_tty_status_tracker_prints_only_the_summary(self, capsys):
+        """Status mode paints from the thread; with no thread only the summary is left."""
+        assert not agent_progress._stdout_is_tty()
         tracker = AgentProgressTracker(poll_func=lambda _: None)
+        response = _FakeResult(steps=[{"agent": {"name": "A"}, "output": "done"}])
+
+        tracker.start(format=ProgressFormat.STATUS)
+        tracker.update(response)
+        assert capsys.readouterr().out == "", "status mode must not paint from the caller thread"
+        tracker.finish(response)
+
+        assert tracker._display_thread is None
+        out = capsys.readouterr().out
+        assert out.startswith("\n✓ Completed 1 steps")
+        assert out.endswith("\n")
+
+    def test_bookkeeping_still_runs_with_the_animation_off(self, fake_tty):
+        """The poll counter and metrics are not display state (BUG-942)."""
+        tracker = AgentProgressTracker(poll_func=lambda _: None, force_display=False)
         response = _FakeResult(steps=[{"agent": {"name": "A"}, "api_calls": 2}])
 
         tracker.start(format=ProgressFormat.LOGS)
         tracker.update(response)
         tracker.update(response)
 
+        assert tracker._display_thread is None
         assert tracker._poll_count == 2
         assert tracker._total_api_calls == 2
-        assert capsys.readouterr().out == ""
 
-    def test_force_display_kwarg_overrides_a_non_tty_stdout(self, capsys):
+    def test_force_display_kwarg_animates_a_non_tty_stdout(self, capsys):
         tracker = AgentProgressTracker(poll_func=lambda _: None, force_display=True)
         response = _FakeResult(steps=[{"agent": {"name": "A"}, "output": "done"}])
 
         tracker.start(format=ProgressFormat.LOGS)
         try:
+            assert tracker._display_thread is not None and tracker._display_thread.is_alive()
             tracker.update(response)
         finally:
             tracker.stop()
 
         assert capsys.readouterr().out != ""
 
-    def test_force_display_env_var_overrides_a_non_tty_stdout(self, monkeypatch, capsys):
-        monkeypatch.setenv("AIXPLAIN_PROGRESS_FORCE_DISPLAY", "1")
+    @pytest.mark.parametrize("value", ["1", "true", "YES", " on "])
+    def test_a_truthy_force_display_env_var_animates_a_non_tty_stdout(self, monkeypatch, value):
+        monkeypatch.setenv("AIXPLAIN_PROGRESS_FORCE_DISPLAY", value)
         tracker = AgentProgressTracker(poll_func=lambda _: None)
-        response = _FakeResult(steps=[{"agent": {"name": "A"}, "output": "done"}])
 
-        tracker.start(format=ProgressFormat.LOGS)
+        tracker.start(format=ProgressFormat.STATUS)
         try:
-            tracker.update(response)
+            assert tracker._display_thread is not None, f"{value!r} should opt in to the animation"
         finally:
             tracker.stop()
 
-        assert capsys.readouterr().out != ""
+    @pytest.mark.parametrize("value", ["false", "0", "no", "off", "", "maybe"])
+    def test_a_non_truthy_force_display_env_var_leaves_a_real_tty_animated(self, monkeypatch, fake_tty, value):
+        """The variable is an opt-in only: ``false`` is no opinion, not a veto."""
+        monkeypatch.setenv("AIXPLAIN_PROGRESS_FORCE_DISPLAY", value)
+        tracker = AgentProgressTracker(poll_func=lambda _: None)
 
-    def test_force_display_false_silences_a_real_tty(self, fake_tty, capsys):
+        tracker.start(format=ProgressFormat.STATUS)
+        try:
+            assert tracker._display_thread is not None, f"{value!r} disabled the animation on a real TTY"
+        finally:
+            tracker.stop()
+
+    @pytest.mark.parametrize("value", ["false", "0"])
+    def test_a_non_truthy_force_display_env_var_does_not_animate_a_pipe(self, monkeypatch, value):
+        monkeypatch.setenv("AIXPLAIN_PROGRESS_FORCE_DISPLAY", value)
+        tracker = AgentProgressTracker(poll_func=lambda _: None)
+
+        tracker.start(format=ProgressFormat.STATUS)
+        tracker.stop()
+
+        assert tracker._display_thread is None
+
+    def test_force_display_false_stops_the_animation_on_a_real_tty(self, fake_tty, capsys):
         tracker = AgentProgressTracker(poll_func=lambda _: None, force_display=False)
 
         tracker.start(format=ProgressFormat.STATUS)
@@ -562,6 +741,51 @@ class TestRefreshLoop:
         assert not second.is_alive()
         assert live_display_threads() == []
 
+    def test_a_thread_that_outlives_its_join_is_not_re_armed_by_the_next_start(self, caplog):
+        """A painter blocked in ``print()`` (full pipe, paused pager) survives ``stop()``.
+
+        ``start()`` used to ``clear()`` the one shared stop event, which
+        re-armed that survivor alongside the new thread: two painters on one
+        fd and no reference left to join the first. Each ``start()`` now binds
+        a fresh event, so the survivor's own event stays set and it exits the
+        moment ``print()`` returns.
+        """
+        tracker = AgentProgressTracker(poll_func=lambda _: None, force_display=True)
+        tracker.DISPLAY_JOIN_TIMEOUT = 0.05
+        entered = threading.Event()
+        release = threading.Event()
+
+        def stuck_render(steps):
+            entered.set()
+            assert release.wait(timeout=JOIN_TIMEOUT), "test never released the stuck painter"
+
+        tracker._refresh_status_display = stuck_render
+        tracker.start(format=ProgressFormat.STATUS)
+        first = tracker._display_thread
+        assert first is not None
+        tracker.update(_FakeResult(steps=[{"agent": {"name": "A"}}]))
+        assert entered.wait(timeout=JOIN_TIMEOUT), "the painter never reached the render"
+
+        with caplog.at_level(logging.WARNING, logger="aixplain.v2.agent_progress"):
+            tracker.stop()
+        assert first.is_alive(), "precondition: the painter must survive the bounded join"
+        assert any("did not exit" in record.getMessage() for record in caplog.records)
+
+        tracker.start(format=ProgressFormat.STATUS)
+        second = tracker._display_thread
+        assert second is not None and second is not first
+        try:
+            release.set()
+            first.join(timeout=JOIN_TIMEOUT)
+            assert not first.is_alive(), "the surviving painter was re-armed by the next start()"
+            assert second.is_alive()
+        finally:
+            tracker.stop()
+
+        second.join(timeout=JOIN_TIMEOUT)
+        assert not second.is_alive()
+        assert live_display_threads() == []
+
     def test_stop_is_idempotent_and_safe_when_never_started(self):
         never_started = AgentProgressTracker(poll_func=lambda _: None)
         never_started.stop()
@@ -644,13 +868,29 @@ class TestStreamProgressDisplayGate:
 
         assert "progress stream timed out" in capsys.readouterr().out
 
-    @pytest.mark.parametrize("status", ["SUCCESS", "FAILED"])
-    def test_nothing_is_printed_off_a_terminal(self, capsys, status):
+    @pytest.mark.parametrize(
+        ("status", "expected"),
+        [("SUCCESS", "✓ Completed"), ("FAILED", "✗ Agent failed")],
+        ids=["success", "failure"],
+    )
+    def test_off_a_terminal_the_timeline_and_summary_print_without_a_thread(self, capsys, status, expected):
+        assert not agent_progress._stdout_is_tty()
         tracker = _stream_tracker([_StreamResponse(status, self.STEPS)])
+        started = []
+        real_start = tracker.start
+
+        def spy_start(*args, **kwargs):
+            real_start(*args, **kwargs)
+            started.append(tracker._display_thread)
+
+        tracker.start = spy_start
 
         tracker.stream_progress("http://poll", format=ProgressFormat.LOGS)
 
-        assert capsys.readouterr().out == ""
+        assert started == [None], "stream_progress started a repaint thread off a terminal"
+        out = capsys.readouterr().out
+        assert "A" in out
+        assert expected in out
 
     def test_the_display_thread_is_stopped_even_when_the_loop_raises(self, fake_tty):
         tracker = _stream_tracker([_StreamResponse(steps=self.STEPS)])
@@ -713,6 +953,30 @@ class TestRunSemanticsArePreserved:
         with pytest.raises(RuntimeError, match="original"):
             agent.run(query="hi")
 
+    def test_a_render_error_in_finish_does_not_discard_the_result(self, fake_tty, trackers, monkeypatch, caplog):
+        """The run is complete and billed; a console that cannot print ``✓`` must not lose it.
+
+        ``finish`` here raises *before* stopping the thread, so the test also
+        pins that the owner's teardown still runs after a failed render.
+        """
+        agent = _runnable_agent()
+        expected = _FakeResult(completed=True)
+        agent.sync_poll = MagicMock(return_value=expected)
+
+        def exploding_finish(self, response):
+            raise UnicodeEncodeError("ascii", "✓", 0, 1, "ordinal not in range(128)")
+
+        monkeypatch.setattr(AgentProgressTracker, "finish", exploding_finish)
+        before = threading.active_count()
+
+        with caplog.at_level(logging.WARNING, logger="aixplain.v2.agent"):
+            result = agent.run(query="hi", **PROGRESS_KWARGS)
+
+        assert result is expected
+        assert any("completion summary" in record.getMessage() for record in caplog.records)
+        assert_all_stopped(trackers)
+        assert_thread_count_restored(before)
+
     def test_keyboard_interrupt_also_stops_the_thread(self, fake_tty, trackers):
         """A Ctrl-C in a notebook leaves the kernel -- and the leak -- alive."""
         agent = _runnable_agent()
@@ -731,11 +995,10 @@ class TestRunSemanticsArePreserved:
 # ---------------------------------------------------------------------------
 
 
-def test_progress_tracker_attribute_is_a_read_only_alias(fake_tty):
-    """Kept for out-of-tree readers; a per-instance slot is what caused hole 3."""
+def test_the_agent_holds_no_progress_tracker_state():
+    """A per-instance slot is what caused hole 3; the tracker now lives in the run's kwargs only."""
     agent = _runnable_agent()
-    agent.sync_poll = MagicMock(return_value=_FakeResult(completed=True))
 
-    assert agent._progress_tracker is None
-    with pytest.raises(AttributeError):
-        agent._progress_tracker = object()
+    assert not hasattr(agent, "_progress_tracker")
+    assert "_progress_tracker" in Agent._RUN_CONTROL_KEYS
+    assert "_progress_tracker" not in agent.build_run_payload(query="hi", _progress_tracker=object())

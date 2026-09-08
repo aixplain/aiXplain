@@ -29,10 +29,12 @@ logger = logging.getLogger(__name__)
 # Set to True to revert to the old behavior where centiseconds are always shown
 _USE_LEGACY_TIME_FORMAT = False
 
-# Opt-in override for callers who deliberately pipe progress output (a CI log,
-# ``tee``, a terminal wrapper with no PTY). The instance-scoped
-# ``force_display`` argument is preferred; this exists because run kwargs are
-# the only lever a caller of ``agent.run(progress_format=...)`` has.
+# Opt-in: run the animated repaint thread even when stdout is not a terminal
+# (a terminal wrapper with no PTY, say). Any other value, ``false`` and ``0``
+# included, expresses no opinion and leaves the auto-detection in charge. The
+# instance-scoped ``force_display`` argument is preferred; this exists because
+# run kwargs are the only lever a caller of ``agent.run(progress_format=...)``
+# has.
 _FORCE_DISPLAY_ENV = "AIXPLAIN_PROGRESS_FORCE_DISPLAY"
 _TRUTHY = {"1", "true", "yes", "on"}
 
@@ -40,7 +42,7 @@ _TRUTHY = {"1", "true", "yes", "on"}
 def _stdout_is_tty() -> bool:
     """Return True when stdout is an interactive terminal.
 
-    The progress display is a human affordance: repainting a spinner 20 times a
+    The spinner animation is a human affordance: repainting it 20 times a
     second into a pipe produces nothing but carriage-return-terminated log
     garbage (BUG-943). Never raises -- a closed, detached or replaced
     ``sys.stdout`` (pytest capture, a ``StringIO``, a daemonized process)
@@ -149,9 +151,13 @@ class AgentProgressTracker:
                 (default: 0.5). Unused by the start/update/finish flow, where
                 the caller's own poll loop owns the interval.
             max_polls: Maximum number of polls before stopping (default: None)
-            force_display: Override the terminal auto-detection. ``None``
-                (default) renders only when stdout is a TTY or we are in a
-                notebook; ``True`` always renders, ``False`` never does.
+            force_display: Override the terminal auto-detection for the
+                animated repaint thread. ``None`` (default) animates only when
+                stdout is a TTY or we are in a notebook; ``True`` always
+                animates, ``False`` never does. The caller-thread output --
+                the ``logs`` step timeline and the completion summary -- is
+                written regardless, so a piped or captured run still gets a
+                full, newline-terminated record.
         """
         self.poll = poll_func
         self.poll_interval = poll_interval
@@ -160,15 +166,11 @@ class AgentProgressTracker:
         # Detect notebook environment once at init time
         self._is_notebook = _is_notebook_environment()
 
-        # Display gating. Re-resolved in ``start()`` because ``sys.stdout`` can
-        # be swapped between construction and the run (``redirect_stdout``,
-        # notebooks, tests).
+        # Gate for the background repaint thread only. Re-resolved in
+        # ``start()`` because ``sys.stdout`` can be swapped between construction
+        # and the run (``redirect_stdout``, notebooks, tests).
         self._force_display = force_display
-        self._display_enabled = self._resolve_display_enabled()
-
-        # Set by the run path when the tracker is bound to a ContextVar, so
-        # teardown can unbind it. Declared here so the attribute always exists.
-        self._context_token: Optional[Any] = None
+        self._animate = self._resolve_animate()
 
         # Tracking state
         self._seen_steps: Dict[str, Dict] = {}
@@ -195,26 +197,24 @@ class AgentProgressTracker:
         self._verbosity = 1
         self._truncate = True
 
-    def _resolve_display_enabled(self) -> bool:
-        """Decide whether this tracker may write to stdout at all.
+    def _resolve_animate(self) -> bool:
+        """Decide whether the 20 Hz repaint thread may run.
 
-        Precedence: explicit ``force_display`` argument, then the
-        ``AIXPLAIN_PROGRESS_FORCE_DISPLAY`` environment override, then
-        auto-detection. Notebooks are checked before ``isatty()`` because
-        ipykernel's ``OutStream`` is not a terminal but is a real display.
+        Only the animation is gated: the ``logs`` timeline and the completion
+        summary are newline-terminated caller-thread output and are always
+        written. Precedence: explicit ``force_display`` argument, then a truthy
+        ``AIXPLAIN_PROGRESS_FORCE_DISPLAY`` (an opt-in only -- ``false`` is no
+        opinion), then auto-detection. Notebooks are checked before ``isatty()``
+        because ipykernel's ``OutStream`` is not a terminal but is a real
+        display.
         """
         if self._force_display is not None:
             return self._force_display
-        env = os.environ.get(_FORCE_DISPLAY_ENV, "").strip().lower()
-        if env:
-            return env in _TRUTHY
+        if os.environ.get(_FORCE_DISPLAY_ENV, "").strip().lower() in _TRUTHY:
+            return True
         if self._is_notebook:
             return True
         return _stdout_is_tty()
-
-    def _should_render(self) -> bool:
-        """True when progress output is both requested and destined somewhere useful."""
-        return self._format != ProgressFormat.NONE and self._display_enabled
 
     def stop(self) -> None:
         """Stop the display thread and wait for it to exit.
@@ -552,7 +552,7 @@ class AgentProgressTracker:
         step_line += f" · {agent_action_part}"
         return step_line
 
-    def _display_refresh_loop(self) -> None:
+    def _display_refresh_loop(self, stop_event: threading.Event) -> None:
         """Background thread that refreshes display for smooth spinner animation.
 
         The lock is taken only to copy the shared snapshot, never across the
@@ -562,8 +562,11 @@ class AgentProgressTracker:
 
         Waiting on the stop event rather than sleeping means :meth:`stop`
         is observed immediately instead of up to ``DISPLAY_REFRESH_RATE`` later.
+        *stop_event* is this thread's own: a thread that outlived its join
+        (blocked in ``print()`` on a full pipe) must never be re-armed when the
+        next ``start()`` arms a new one.
         """
-        while not self._stop_display.is_set():
+        while not stop_event.is_set():
             with self._display_lock:
                 data = self._current_display_data.copy() if self._current_display_data else None
 
@@ -574,7 +577,7 @@ class AgentProgressTracker:
                 elif self._format == ProgressFormat.LOGS:
                     self._refresh_logs_display(steps)
 
-            if self._stop_display.wait(self.DISPLAY_REFRESH_RATE):
+            if stop_event.wait(self.DISPLAY_REFRESH_RATE):
                 break
 
     def _refresh_status_display(self, steps: List[Dict]) -> None:
@@ -790,8 +793,9 @@ class AgentProgressTracker:
             format: Display format (status, logs, none)
             verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
             truncate: Whether to truncate long text
-            force_display: Override the terminal auto-detection for this run.
-                ``None`` keeps whatever was passed to ``__init__``.
+            force_display: Override the terminal auto-detection for the
+                animated repaint thread on this run. ``None`` keeps whatever
+                was passed to ``__init__``.
         """
         # Tear down any thread a previous start() left running. Without this a
         # second start() -- which ``stream_progress`` performs on every call --
@@ -818,23 +822,27 @@ class AgentProgressTracker:
         self._verbosity = verbosity
         self._truncate = truncate
 
-        # Re-resolve the display gate: stdout may have been swapped since
+        # Re-resolve the animation gate: stdout may have been swapped since
         # __init__ (redirect_stdout, a notebook kernel, a test harness).
         if force_display is not None:
             self._force_display = force_display
-        self._display_enabled = self._resolve_display_enabled()
+        self._animate = self._resolve_animate()
 
-        # Reset threading state
-        self._stop_display.clear()
+        # A fresh stop event per start(). Clearing a shared one would re-arm a
+        # previous thread that outlived its join -- stuck in print() on a full
+        # pipe -- and put two painters on one fd with no way to join either.
+        stop_event = threading.Event()
+        self._stop_display = stop_event
         self._current_display_data = None
 
         # Start display refresh thread for smooth spinner animation.
         # Skipped in notebook environments (it causes display issues) and off a
         # terminal, where the thread would print log garbage 20 times a second
         # for the life of the run (BUG-943).
-        if self._should_render() and not self._is_notebook:
+        if self._format != ProgressFormat.NONE and self._animate and not self._is_notebook:
             self._display_thread = threading.Thread(
                 target=self._display_refresh_loop,
+                args=(stop_event,),
                 name=self.DISPLAY_THREAD_NAME,
                 daemon=True,
             )
@@ -969,12 +977,8 @@ class AgentProgressTracker:
         if not steps:
             return
 
-        # Update metrics. Bookkeeping is not display state: the counter and the
-        # totals stay unconditional even with rendering gated off (BUG-942).
+        # Update metrics
         self._update_metrics(steps)
-
-        if not self._should_render():
-            return
 
         # Update shared display data for background thread (terminal mode)
         with self._display_lock:
@@ -994,7 +998,7 @@ class AgentProgressTracker:
         """
         self.stop()
 
-        if not self._should_render():
+        if self._format == ProgressFormat.NONE:
             return
 
         # Get final status and steps
@@ -1073,30 +1077,29 @@ class AgentProgressTracker:
                 if steps:
                     self._update_metrics(steps)
 
-                    if self._should_render():
-                        # Update shared display data for background thread (terminal mode)
-                        with self._display_lock:
-                            self._current_display_data = {"steps": steps}
+                    # Update shared display data for background thread (terminal mode)
+                    with self._display_lock:
+                        self._current_display_data = {"steps": steps}
 
-                        # Handle display based on format
-                        if self._format == ProgressFormat.LOGS:
-                            self._display_logs_format(steps)
-                        elif self._format == ProgressFormat.STATUS and self._is_notebook:
-                            self._display_status_format_notebook(steps)
+                    # Handle display based on format
+                    if self._format == ProgressFormat.LOGS:
+                        self._display_logs_format(steps)
+                    elif self._format == ProgressFormat.STATUS and self._is_notebook:
+                        self._display_status_format_notebook(steps)
 
                 # Check termination conditions
                 if status_up == terminal_success:
-                    if self._should_render():
+                    if self._format != ProgressFormat.NONE:
                         self._print_completion_message(status_up, steps)
                     return resp
 
                 if status_up in terminal_failures:
-                    if self._should_render():
+                    if self._format != ProgressFormat.NONE:
                         self._print_completion_message(status_up, steps)
                     return resp
 
                 if self.max_polls is not None and self._poll_count >= self.max_polls:
-                    if self._should_render():
+                    if self._format != ProgressFormat.NONE:
                         self._print_completion_message("MAX_POLLS", steps)
                     return resp
 
@@ -1107,7 +1110,7 @@ class AgentProgressTracker:
                         timeout,
                         status_up or "UNKNOWN",
                     )
-                    if self._should_render():
+                    if self._format != ProgressFormat.NONE:
                         self._print_completion_message("TIMEOUT", steps)
                     raise TimeoutError(
                         f"Operation timed out after {timeout} seconds (last status: {status_up or 'UNKNOWN'})"

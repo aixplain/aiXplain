@@ -895,7 +895,7 @@ Override this method to add custom logic before running.
 #### after\_run
 
 ```python
-def after_run(result: Union[ResultT, Exception], *args: Any,
+def after_run(result: Union[ResultT, BaseException], *args: Any,
               **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]
 ```
 
@@ -907,8 +907,11 @@ Override this method to add custom logic after running.
 
 **Arguments**:
 
-- `result` - The result from the run operation (ResultT on success,
-  Exception on failure)
+- `result` - The result from the run operation: `ResultT` on success,
+  or the raised `BaseException` on failure. This includes
+  `KeyboardInterrupt` and `SystemExit`, so a hook must test
+  `isinstance(result, BaseException)` rather than `Exception`
+  before treating *result* as a result.
 - `*args` - Positional arguments that were passed to the run operation
 - `**kwargs` - Keyword arguments that were passed to the run operation
   
@@ -917,7 +920,8 @@ Override this method to add custom logic after running.
 
 - `Optional[ResultT]` - If not None, this result will be returned instead
   of the original result. If None, the original result
-  will be returned.
+  will be returned. On the failure path the return
+  value is ignored and the exception propagates.
 
 #### run
 

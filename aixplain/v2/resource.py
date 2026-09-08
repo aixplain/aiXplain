@@ -1703,9 +1703,11 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     # (BUG-1091).
     #
     # The ``progress_*`` trio configures the client-side progress display (the
-    # ``show_progress`` toggle already lived here). ``before_run`` / ``after_run``
-    # still receive the *unfiltered* kwargs, so the tracker keeps seeing them —
-    # only the payload/URL builders are filtered.
+    # ``show_progress`` toggle already lived here) and ``_progress_tracker`` is
+    # the live display object an owning ``run()`` hands down to ``on_poll``.
+    # ``before_run`` / ``after_run`` / ``on_poll`` still receive the
+    # *unfiltered* kwargs, so the tracker keeps seeing them — only the
+    # payload/URL builders are filtered.
     _RUN_CONTROL_KEYS: frozenset[str] = (
         frozenset(
             {
@@ -1717,6 +1719,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 "progress_format",
                 "progress_verbosity",
                 "progress_truncate",
+                "_progress_tracker",
                 "session_id",
                 "agent_name",
             }
@@ -1978,7 +1981,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
     def after_run(
         self,
-        result: Union[ResultT, Exception],
+        result: Union[ResultT, BaseException],
         *args: Any,
         **kwargs: Unpack[RunParamsT],
     ) -> Optional[ResultT]:
@@ -1987,15 +1990,19 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         Override this method to add custom logic after running.
 
         Args:
-            result: The result from the run operation (ResultT on success,
-                   Exception on failure)
+            result: The result from the run operation: ``ResultT`` on success,
+                   or the raised ``BaseException`` on failure. This includes
+                   ``KeyboardInterrupt`` and ``SystemExit``, so a hook must test
+                   ``isinstance(result, BaseException)`` rather than
+                   ``Exception`` before treating *result* as a result.
             *args: Positional arguments that were passed to the run operation
             **kwargs: Keyword arguments that were passed to the run operation
 
         Returns:
             Optional[ResultT]: If not None, this result will be returned instead
                              of the original result. If None, the original result
-                             will be returned.
+                             will be returned. On the failure path the return
+                             value is ignored and the exception propagates.
         """
         return None
 
