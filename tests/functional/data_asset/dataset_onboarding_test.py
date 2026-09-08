@@ -70,8 +70,21 @@ def split():
     )
 
 
+def _track_dataset(resource_tracker, DatasetFactory, asset_id):
+    """Register an onboarded dataset for guaranteed cleanup (BUG-947).
+
+    ``DatasetFactory.create`` returns a dict, not a deletable object, so the
+    tracker is given a callback that resolves the id when teardown runs.
+
+    Returns:
+        The tracker entry, to pass to ``mark_cleaned`` if the test deletes the
+        dataset itself.
+    """
+    return resource_tracker.add_callback(f"Dataset id={asset_id}", lambda: DatasetFactory.get(asset_id).delete())
+
+
 @pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
-def test_dataset_onboard_get_delete(meta1, meta2, DatasetFactory):
+def test_dataset_onboard_get_delete(meta1, meta2, resource_tracker, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
 
     response = DatasetFactory.create(
@@ -86,6 +99,11 @@ def test_dataset_onboard_get_delete(meta1, meta2, DatasetFactory):
         privacy=Privacy.PRIVATE,
     )
     asset_id = response["asset_id"]
+    # `create` returns a dict rather than a deletable object, so the tracker gets
+    # a callback. Registered before the polling loop: an assertion failure or a
+    # timeout while waiting for ONBOARDED used to leak the dataset (BUG-947).
+    cleanup = _track_dataset(resource_tracker, DatasetFactory, asset_id)
+
     onboard_status = OnboardStatus(response["status"])
     while onboard_status == OnboardStatus.ONBOARDING:
         dataset = DatasetFactory.get(asset_id)
@@ -93,14 +111,20 @@ def test_dataset_onboard_get_delete(meta1, meta2, DatasetFactory):
         time.sleep(1)
     # assert the asset was onboarded
     assert onboard_status == OnboardStatus.ONBOARDED
-    # assert the asset was deleted
+    # assert the asset was deleted -- the delete is the behaviour under test, so
+    # deregister it rather than letting teardown delete a second time.
     dataset.delete()
+    resource_tracker.mark_cleaned(cleanup)
     with pytest.raises(Exception):
         dataset = DatasetFactory.get(asset_id)
 
 
 @pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
 def test_invalid_dataset_onboard(meta1, meta2, DatasetFactory):
+    # Nothing to register: `create` is expected to raise, so there is no asset_id
+    # to clean up. If the backend ever *accepted* this payload the assertion
+    # would fail (correctly) and one dataset would leak, with no id available to
+    # prevent it -- a documented residual risk of BUG-947, not an oversight.
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
 
     with pytest.raises(Exception):
@@ -156,7 +180,7 @@ def test_invalid_dataset_splitting(meta1, meta2, split, DatasetFactory):
 
 
 @pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
-def test_valid_dataset_splitting(meta1, meta2, split, DatasetFactory):
+def test_valid_dataset_splitting(meta1, meta2, split, resource_tracker, DatasetFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_with_split_url.csv"
 
     response = DatasetFactory.create(
@@ -172,8 +196,10 @@ def test_valid_dataset_splitting(meta1, meta2, split, DatasetFactory):
         privacy=Privacy.PRIVATE,
     )
 
-    assert response["status"] == "onboarding"
     asset_id = response["asset_id"]
+    cleanup = _track_dataset(resource_tracker, DatasetFactory, asset_id)
+
+    assert response["status"] == "onboarding"
     onboard_status = OnboardStatus(response["status"])
     while onboard_status == OnboardStatus.ONBOARDING:
         dataset = DatasetFactory.get(asset_id)
@@ -182,3 +208,4 @@ def test_valid_dataset_splitting(meta1, meta2, split, DatasetFactory):
     # assert the asset was onboarded
     assert onboard_status == OnboardStatus.ONBOARDED
     dataset.delete()
+    resource_tracker.mark_cleaned(cleanup)

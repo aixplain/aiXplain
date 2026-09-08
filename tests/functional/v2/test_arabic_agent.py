@@ -210,18 +210,6 @@ def _is_inspector_abort_message(output: str) -> bool:
     )
 
 
-@pytest.fixture
-def resource_tracker():
-    """Track created resources for reliable cleanup."""
-    resources = []
-    yield resources
-    for resource in reversed(resources):
-        try:
-            resource.delete()
-        except Exception:
-            pass
-
-
 def _make_single_agent(client, llm_id: str, model_name: str, agent_def: dict):
     agent = client.Agent(
         name=_build_name(agent_def["name"], model_name),

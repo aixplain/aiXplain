@@ -24,7 +24,7 @@ from uuid import uuid4
 
 
 @pytest.mark.parametrize("CorpusFactory", [CorpusFactory])
-def test_corpus_onboard_get_delete(CorpusFactory):
+def test_corpus_onboard_get_delete(resource_tracker, CorpusFactory):
     upload_file = "tests/functional/data_asset/input/audio-en_url.csv"
     schema = [
         {
@@ -51,6 +51,11 @@ def test_corpus_onboard_get_delete(CorpusFactory):
         schema=schema,
     )
     asset_id = response["asset_id"]
+    # `create` returns a dict rather than a deletable object, so the tracker gets
+    # a callback. Registered before the polling loop: an assertion failure or a
+    # timeout while waiting for ONBOARDED used to leak the corpus (BUG-947).
+    cleanup = resource_tracker.add_callback(f"Corpus id={asset_id}", lambda: CorpusFactory.get(asset_id).delete())
+
     onboard_status = OnboardStatus(response["status"])
     while onboard_status == OnboardStatus.ONBOARDING:
         corpus = CorpusFactory.get(asset_id)
@@ -58,8 +63,10 @@ def test_corpus_onboard_get_delete(CorpusFactory):
         time.sleep(1)
     # assert the asset was onboarded
     assert onboard_status == OnboardStatus.ONBOARDED
-    # assert the asset was deleted
+    # assert the asset was deleted -- the delete is the behaviour under test, so
+    # deregister it rather than letting teardown delete a second time.
     corpus.delete()
+    resource_tracker.mark_cleaned(cleanup)
     with pytest.raises(Exception):
         corpus = CorpusFactory.get(asset_id)
 

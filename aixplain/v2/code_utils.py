@@ -13,14 +13,18 @@ from dataclasses import dataclass
 from typing import Callable, List, Text, Tuple, Union, Optional
 from uuid import uuid4
 
-import requests
 import validators
 
-from .client import default_timeout
+from aixplain.utils.url_safety import safe_get
 from .enums import DataType
 from .upload_utils import FileUploader
 
 logger = logging.getLogger(__name__)
+
+# A remote code URL is fetched into memory and then uploaded as the utility
+# model's source, so a hostile endpoint must not be able to balloon the memory
+# of the process (often an agent container) that fetched it.
+MAX_REMOTE_CODE_BYTES = 5 * 1024 * 1024
 
 
 @dataclass
@@ -164,7 +168,7 @@ def parse_code(
         with open(code, "r") as f:
             str_code = f.read()
     elif validators.url(code):
-        str_code = requests.get(code, timeout=default_timeout()).text
+        str_code = safe_get(code, max_bytes=MAX_REMOTE_CODE_BYTES).text
     else:
         str_code = code
 
@@ -274,7 +278,7 @@ def parse_code_decorated(
             with open(code, "r") as f:
                 str_code = f.read()
         elif validators.url(code):
-            str_code = requests.get(code, timeout=default_timeout()).text
+            str_code = safe_get(code, max_bytes=MAX_REMOTE_CODE_BYTES).text
         else:
             str_code = code
 

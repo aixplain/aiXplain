@@ -16,7 +16,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import aixplain.v1.modules.model.rlm as rlm_v1
 import aixplain.v2.rlm as rlm_v2
+from aixplain.enums.response_status import ResponseStatus
 from aixplain.v1.modules.model.rlm import RLM as RLMV1
 from aixplain.v2.rlm import (
     RLM as RLMV2,
@@ -1219,3 +1221,154 @@ class TestFinalAnswerHardening:
         assert result.status == "SUCCESS"
         assert _LLM_PENDING_SENTINEL not in result.data
         assert "[unanswered]" in result.data
+
+
+# BUG-945 — RAG mode must resolve URL contexts before chunking
+_RAG_URL = "https://example.com/report.pdf"
+_RAG_DOC = "Q3 revenue was $4.2M, up 18% year over year, driven by enterprise renewals."
+
+
+def _fake_url_response(text: str) -> MagicMock:
+    """A ``requests`` response that serves ``text`` as plain text."""
+    resp = MagicMock()
+    resp.text = text
+    resp.headers = {"Content-Type": "text/plain"}
+    resp.raise_for_status.return_value = None
+    return resp
+
+
+def _make_rag_v1_rlm() -> RLMV1:
+    """v1 RLM wired for the ephemeral-index RAG path with stubbed worker calls."""
+    rlm = _make_v1_rlm()
+    rlm.rag_index_id = None
+    rlm.rag_top_k = rlm_v1._RAG_DEFAULT_TOP_K
+    rlm.rag_max_chunk_chars = rlm_v1._RAG_DEFAULT_MAX_CHUNK_CHARS
+    rlm._credits_lock = threading.Lock()
+    rlm._get_worker_context_tokens = MagicMock(return_value=8000)
+    rlm._worker_call = MagicMock(return_value="synthesised answer")
+    return rlm
+
+
+def _make_rag_v2_rlm() -> RLMV2:
+    """v2 RLM wired for the ephemeral-index RAG path with stubbed worker calls."""
+    rlm = _make_v2_rlm()
+    rlm.rag_index_id = None
+    rlm.rag_top_k = rlm_v2._RAG_DEFAULT_TOP_K
+    rlm.rag_max_chunk_chars = rlm_v2._RAG_DEFAULT_MAX_CHUNK_CHARS
+    rlm._get_worker = MagicMock(return_value=MagicMock())
+    rlm._get_worker_context_tokens = MagicMock(return_value=8000)
+    rlm._worker_call = MagicMock(return_value="synthesised answer")
+    return rlm
+
+
+def _run_v1_rag(rlm: RLMV1, context, query: str = "what was Q3 revenue?"):
+    """Drive v1 ``_run_rag`` offline; returns ``(response, upserted_records)``."""
+    index = MagicMock()
+    upserted: list = []
+    index.upsert.side_effect = lambda records: upserted.extend(records) or SimpleNamespace(used_credits=0.0)
+    index.search.side_effect = lambda query, top_k: SimpleNamespace(
+        data=[{"text": r.value, "metadata": r.attributes} for r in upserted[:top_k]],
+        used_credits=0.0,
+    )
+
+    with patch("aixplain.factories.index_factory.IndexFactory.create", return_value=index):
+        response = rlm._run_rag(context, query, "rag_test", time.time())
+    return response, upserted
+
+
+def _run_v2_rag(rlm: RLMV2, context, query: str = "what was Q3 revenue?"):
+    """Drive v2 ``_run_rag`` offline; returns ``(result, upserted_records)``."""
+    index = MagicMock()
+    upserted: list = []
+
+    def _index_run(action: str, data: dict):
+        if action == "upsert":
+            upserted.extend(data["records"])
+            return SimpleNamespace(used_credits=0.0)
+        return SimpleNamespace(
+            data=[{"text": r["text"], "metadata": r["metadata"]} for r in upserted[: data["top_k"]]],
+            used_credits=0.0,
+        )
+
+    index.run.side_effect = _index_run
+    rlm.context.Tool.return_value = index
+    return rlm._run_rag(context, query, "rag_test", time.time()), upserted
+
+
+class TestRagResolvesURLContext:
+    """BUG-945 — v1 RAG mode fetched nothing and embedded the URL string itself."""
+
+    def test_url_context_is_fetched_and_chunks_hold_the_document(self):
+        """The indexed chunks must contain the document, never the URL."""
+        rlm = _make_rag_v1_rlm()
+
+        with patch("requests.get", return_value=_fake_url_response(_RAG_DOC)) as mock_get:
+            response, upserted = _run_v1_rag(rlm, _RAG_URL)
+
+        # Assert the URL was fetched, not how ``safe_get`` shapes the request:
+        # its redirect and streaming kwargs are its own business (BUG-939).
+        mock_get.assert_called_once()
+        assert mock_get.call_args.args[0] == _RAG_URL
+        assert mock_get.call_args.kwargs["timeout"] == 60
+        assert response.status == ResponseStatus.SUCCESS
+        assert any(_RAG_DOC in record.value for record in upserted)
+        assert not any(_RAG_URL in record.value for record in upserted)
+
+        # The user-visible symptom: the worker was asked to answer from the URL
+        # string instead of the document it points at.
+        synthesis_prompt = rlm._worker_call.call_args[0][0]
+        assert _RAG_DOC in synthesis_prompt
+        assert _RAG_URL not in synthesis_prompt
+
+    def test_non_url_context_is_not_fetched(self):
+        """A plain-string context still chunks to itself with no HTTP call."""
+        rlm = _make_rag_v1_rlm()
+
+        with patch("requests.get") as mock_get:
+            response, upserted = _run_v1_rag(rlm, _RAG_DOC)
+
+        mock_get.assert_not_called()
+        assert response.status == ResponseStatus.SUCCESS
+        assert [record.value for record in upserted] == [_RAG_DOC]
+
+    def test_fetch_failure_returns_failed_response(self):
+        """A failed fetch degrades to a FAILED response, as on the parallel path."""
+        rlm = _make_rag_v1_rlm()
+
+        with patch("requests.get", side_effect=RuntimeError("boom")):
+            response, upserted = _run_v1_rag(rlm, _RAG_URL)
+
+        assert response.status == ResponseStatus.FAILED
+        assert "RLM rag error" in response.error_message
+        assert upserted == []
+
+
+class TestRagURLParity:
+    """BUG-945 — v1 and v2 must resolve URL contexts identically in RAG mode."""
+
+    def test_v1_and_v2_chunk_the_same_text_for_one_url_context(self):
+        """AC 2 — both implementations index the same chunks for the same URL."""
+        with patch("requests.get", return_value=_fake_url_response(_RAG_DOC)):
+            v1_response, v1_records = _run_v1_rag(_make_rag_v1_rlm(), _RAG_URL)
+            v2_result, v2_records = _run_v2_rag(_make_rag_v2_rlm(), _RAG_URL)
+
+        assert v1_response.status == ResponseStatus.SUCCESS
+        assert v2_result.status == "SUCCESS"
+        assert [record.value for record in v1_records] == [record["text"] for record in v2_records]
+        assert [record.value for record in v1_records] == [_RAG_DOC]
+
+    def test_resolve_url_context_call_site_counts_match(self):
+        """AC 3 — the two modules must reference the helper the same number of times."""
+        v1_src = inspect.getsource(rlm_v1)
+        v2_src = inspect.getsource(rlm_v2)
+        assert v1_src.count("_resolve_url_context") == v2_src.count("_resolve_url_context")
+
+    @pytest.mark.parametrize("module", [rlm_v1, rlm_v2], ids=["v1", "v2"])
+    def test_run_rag_resolves_the_url_context_first(self, module):
+        """Structural guard: ``_run_rag`` opens by reassigning ``context``."""
+        tree = ast.parse(inspect.getsource(module))
+        run_rag = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "_run_rag")
+        first_try = next(node for node in run_rag.body if isinstance(node, ast.Try))
+        first_stmt = first_try.body[0]
+        assert isinstance(first_stmt, ast.Assign)
+        assert ast.unparse(first_stmt) == "context = self._resolve_url_context(context)"

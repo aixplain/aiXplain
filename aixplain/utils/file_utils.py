@@ -21,7 +21,8 @@ import requests
 
 import aixplain.utils.config as config
 from aixplain.enums.license import License
-from aixplain.utils.request_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry, get_session
+from aixplain.utils.url_safety import UnsafeURLError, safe_get, validate_upload_url
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Optional, Text, Tuple, Union, Dict, List
@@ -94,7 +95,12 @@ def save_file(download_url: Text, download_file_path: Optional[Union[str, Path]]
         save_dir.mkdir(parents=True, exist_ok=True)
         file_ext = Path(download_url).suffix.split("?")[0]
         download_file_path = save_dir / (str(uuid4()) + file_ext)
-    r = _request_with_retry("get", download_url)
+    # ``safe_get`` re-validates every hop instead of letting ``requests`` follow
+    # redirects unchecked: the caller's one-shot ``validate_fetch_url`` says
+    # nothing about where a 302 from an allowed host would land (BUG-939). The
+    # thread's retrying session is reused so the download keeps its retries and
+    # keep-alive.
+    r = safe_get(download_url, session=get_session())
     with open(download_file_path, "wb") as f:
         f.write(r.content)
     return download_file_path
@@ -237,13 +243,18 @@ def upload_data(
         path = response["key"]
         # Upload data
         presigned_url = response["uploadUrl"]  # pre-signed URL
+        # The upload target is chosen by a backend response, so it is validated
+        # before any file bytes leave the machine (BUG-939).
+        validate_upload_url(presigned_url)
         download_link = response.get("downloadUrl", "")
         headers = {"Content-Type": content_type}
         if content_encoding is not None:
             headers["Content-Encoding"] = content_encoding
         payload = open(file_name, "rb").read()
-        # saving the file into the pre-signed URL
-        r = _request_with_retry("put", presigned_url, headers=headers, data=payload)
+        # saving the file into the pre-signed URL. A presigned S3 PUT never
+        # legitimately redirects; following a 307 would re-send the bytes to a
+        # host ``validate_upload_url`` never saw (BUG-939).
+        r = _request_with_retry("put", presigned_url, headers=headers, data=payload, allow_redirects=False)
 
         # if the process fail, try one more
         if r.status_code != 200:
@@ -263,6 +274,11 @@ def upload_data(
         if return_download_link is False:
             return _build_s3_link_from_presigned_url(presigned_url, path)
         return download_link
+    except UnsafeURLError:
+        # A refused upload host is a configuration/trust failure, not a transient
+        # one: retrying cannot fix it, and the generic handler below would mask
+        # the reason behind "Failure on Uploading to S3."
+        raise
     except Exception:
         if nattempts > 0:
             return upload_data(

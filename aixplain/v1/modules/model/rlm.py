@@ -890,8 +890,9 @@ def llm_query(prompt):
         """
         if not (isinstance(context, str) and (context.startswith("http://") or context.startswith("https://"))):
             return context
-        import requests
-        r = requests.get(context, timeout=60)
+        from aixplain.utils.url_safety import safe_get
+
+        r = safe_get(context, timeout=60)
         r.raise_for_status()
         ct = r.headers.get("Content-Type", "")
         url_path = context.split("?")[0].lower()
@@ -1083,6 +1084,8 @@ def llm_query(prompt):
         iterations_used = 0
         ephemeral_index = None
         try:
+            context = self._resolve_url_context(context)
+
             # Size chunks so that the top_k retrieved chunks together fit
             # comfortably in the synthesis call (assembly_fraction × window),
             # but never exceed the embedding model's input limit.
