@@ -715,7 +715,8 @@ class BaseSearchParams(BaseParams):
         paginate_items_key: str: Optional key name for items in paginated
                                 response (overrides PAGINATE_ITEMS_KEY).
         strict: bool: Whether a record that cannot be deserialized raises
-                     (default) or is skipped. Overrides PAGINATE_STRICT.
+                     instead of being skipped (default: skip, correcting
+                     ``Page.total``). Overrides PAGINATE_STRICT.
     """
 
     query: NotRequired[str]
@@ -896,8 +897,8 @@ class Page(Generic[ResourceT]):
         total: Total number of resources across all pages. Never counts a
             record that was returned by the API but skipped by this page.
         skipped: Number of records the API returned for this page that could
-            not be deserialized and were skipped. Always ``0`` in strict mode
-            (the default), where such records raise instead.
+            not be deserialized and were skipped. Always ``0`` under
+            ``strict=True``, where such records raise instead.
     """
 
     results: List[ResourceT]
@@ -956,8 +957,10 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         PAGINATE_DEFAULT_PAGE_NUMBER: int: The default page number.
         PAGINATE_DEFAULT_PAGE_SIZE: int: The default page size.
         PAGINATE_STRICT: bool: Whether a record that cannot be deserialized
-            raises instead of being skipped. A per-call ``strict=`` keyword
-            takes precedence over this class-level default.
+            raises instead of being skipped and subtracted from ``Page.total``.
+            Defaults to False: discovery listings must survive a record the
+            client cannot model yet (a new backend enum value, say). A per-call
+            ``strict=`` keyword takes precedence over this class-level default.
     """
 
     PAGINATE_PATH: str = "paginate"
@@ -968,7 +971,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
     PAGINATE_PAGE_NUMBER_KEY: str = "pageNumber"
     PAGINATE_DEFAULT_PAGE_NUMBER: int = 0
     PAGINATE_DEFAULT_PAGE_SIZE: int = 20
-    PAGINATE_STRICT: bool = True
+    PAGINATE_STRICT: bool = False
 
     @classmethod
     def _get_context_and_path(cls: type, **kwargs: Any) -> Tuple["Aixplain", str, Optional[str]]:
@@ -991,8 +994,8 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
 
         Errors are returned alongside the successfully built resources instead of
         being swallowed, so that :meth:`_build_page` can decide whether to raise
-        (strict, the default) or to correct ``Page.total`` so it never counts a
-        record the page does not contain.
+        (under ``strict``) or to correct ``Page.total`` so it never counts a
+        record the page does not contain (the default).
 
         Args:
             items: The raw records from the paginated response.
@@ -1045,10 +1048,12 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
     def _build_resources(cls: type, items: List[dict], context: "Aixplain") -> List[ResourceT]:
         """Build resource instances from response items.
 
-        Backward-compatible wrapper around :meth:`_deserialize_items`. It
-        discards deserialization errors, so internal callers should prefer
-        :meth:`_deserialize_items`; subclasses customising deserialization
-        should override that hook instead of this one.
+        .. deprecated::
+            :meth:`_build_page` no longer calls this method, so overriding it
+            no longer customises listings. It is kept only for callers that
+            build resources directly. Override :meth:`_deserialize_items`
+            instead — that is the hook listings use, and it reports the
+            deserialization errors this wrapper discards.
         """
         resources, _ = cls._deserialize_items(items, context)
         return resources
@@ -1080,12 +1085,16 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
     def search(cls: type, **kwargs: Unpack[SearchParamsT]) -> Page[ResourceT]:
         """Search resources across the first n pages with optional filtering.
 
-        If any record returned by the API cannot be deserialized, this raises
-        :class:`ResourceError`, matching the contract of ``get()``. Pass
-        ``strict=False`` to skip such records instead; in that mode
-        ``Page.total`` is reduced by the number skipped and ``Page.skipped``
-        reports the count, so ``page.total`` never counts a record the page
-        does not contain.
+        A record the API returns but this client cannot deserialize is logged
+        and skipped rather than failing the whole listing; ``Page.total`` is
+        reduced by the number skipped and ``Page.skipped`` reports the count,
+        so ``page.total`` never counts a record the page does not contain.
+        Pass ``strict=True`` (or set ``PAGINATE_STRICT``) to raise
+        :class:`ResourceError` on such a record instead.
+
+        A response that carries no readable item list at all always raises:
+        there is nothing to count, and an empty page would be
+        indistinguishable from a search that genuinely matched nothing.
 
         Args:
             kwargs: The keyword arguments.
@@ -1094,8 +1103,8 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
             Page[ResourceT]: Page of BaseResource instances
 
         Raises:
-            ResourceError: If a returned record cannot be deserialized and
-                ``strict`` is enabled (the default).
+            ResourceError: If the response envelope carries no item list, or if
+                a returned record cannot be deserialized and ``strict`` is on.
         """
         # Set default pagination values
         default_page_number = getattr(cls, "PAGINATE_DEFAULT_PAGE_NUMBER", 0)
@@ -1119,39 +1128,87 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         return cls._build_page(response, context, **kwargs)
 
     @classmethod
+    def _extract_page_items(cls: type, json_data: Any, paginate_items_key: Optional[str]) -> List[Any]:
+        """Return the record list carried by a paginated response envelope.
+
+        An envelope the client cannot read is a failure, not an empty page: a
+        renamed items key, or a 200 body that is actually an error report,
+        would otherwise be indistinguishable from "this search matched
+        nothing". A present item list — including an empty one, or an explicit
+        ``null`` — is passed through as the empty page it genuinely is.
+
+        Args:
+            json_data: The decoded response body.
+            paginate_items_key: The envelope key holding the records, or None
+                for endpoints that answer with a bare array.
+
+        Returns:
+            List[Any]: The raw records to deserialize.
+
+        Raises:
+            ResourceError: If the response carries no usable item list.
+        """
+        # A bare array is usable whatever the configured key: some list
+        # endpoints (API keys) answer that way while inheriting the default.
+        if isinstance(json_data, list):
+            return json_data
+
+        if not isinstance(json_data, dict):
+            raise ResourceError(
+                f"{cls.__name__}: paginated response is a {type(json_data).__name__}, "
+                "not a list of records or an envelope containing one."
+            )
+
+        if not paginate_items_key:
+            raise ResourceError(
+                f"{cls.__name__}: paginated response is an object, but this resource expects a bare array. "
+                f"Keys returned: {sorted(json_data)}."
+            )
+
+        if paginate_items_key not in json_data:
+            raise ResourceError(
+                f"{cls.__name__}: paginated response is missing the {paginate_items_key!r} key, "
+                f"so it carries no results to read. Keys returned: {sorted(json_data)}."
+            )
+
+        items = json_data[paginate_items_key]
+        # An explicit null is how some endpoints spell "no results".
+        if items is None:
+            return []
+        if not isinstance(items, list):
+            raise ResourceError(
+                f"{cls.__name__}: paginated response {paginate_items_key!r} is a "
+                f"{type(items).__name__}, not a list of records."
+            )
+        return items
+
+    @classmethod
     def _build_page(cls: type, response: "Any", context: "Aixplain", **kwargs: Any) -> Page[ResourceT]:
         """Build a page of resources from the response.
 
         Accepts either a requests.Response or already-decoded dict/list. A
-        missing envelope key falls back to the computed default (an empty item
-        list, or ``len(items)`` for the counts) and logs a warning rather than
-        raising.
+        missing ``total`` / ``pageTotal`` falls back to the computed default,
+        but an envelope that carries no usable item list at all is reported:
+        a renamed envelope, or a 200 error body, must not be indistinguishable
+        from "no results". A present-but-empty (or explicitly ``null``) item
+        list is a genuinely empty page and stays one.
+
+        Records inside a usable envelope are treated leniently by default: each
+        one that cannot be deserialized is logged and skipped, and ``total`` is
+        corrected so it never counts a record the page does not contain.
 
         Raises:
-            ResourceError: If a returned record cannot be deserialized and
-                ``strict`` is enabled (the default).
+            ResourceError: If the response carries no usable item list, or if a
+                returned record cannot be deserialized and ``strict`` is on.
         """
         if hasattr(response, "json"):
             json_data = response.json()
         else:
             json_data = response
 
-        items = json_data
         # Check for override in kwargs first, then fall back to class attribute
         paginate_items_key = kwargs.get("paginate_items_key") or getattr(cls, "PAGINATE_ITEMS_KEY", "items")
-        if paginate_items_key and isinstance(json_data, dict):
-            if paginate_items_key not in json_data:
-                logger.warning(
-                    "%s: paginated response is missing the %r key; treating the page as empty",
-                    cls.__name__,
-                    paginate_items_key,
-                )
-            # The honest default for a missing items key is an empty page: falling
-            # back to ``json_data`` itself would iterate the envelope's keys and
-            # build garbage resources out of strings.
-            items = json_data.get(paginate_items_key) or []
-        if not isinstance(items, list):
-            items = []
+        items = cls._extract_page_items(json_data, paginate_items_key)
 
         total = len(items)
         paginate_total_key = getattr(cls, "PAGINATE_TOTAL_KEY", "total")
@@ -1174,16 +1231,26 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         if skipped:
             strict = kwargs.get("strict")
             if strict is None:
-                strict = getattr(cls, "PAGINATE_STRICT", True)
+                strict = getattr(cls, "PAGINATE_STRICT", False)
             if strict:
                 raise ResourceError(
                     f"Failed to deserialize {skipped} of {len(items)} {cls.__name__} record(s) "
                     f"returned by the API; pass strict=False to skip them. "
                     f"Details: {'; '.join(errors[:3])}"
                 )
-            # Lenient mode: never report a total that counts records we did not
-            # return. ``total`` spans every page, so subtract this page's drops
-            # rather than collapsing it to ``len(results)``.
+            # Lenient default: one record the client cannot model — a new enum
+            # value, say — must not cost the caller the whole listing. The
+            # drops are logged per record by _deserialize_items and summarised
+            # here, and ``total`` never counts a record we did not return:
+            # ``total`` spans every page, so subtract this page's drops rather
+            # than collapsing it to ``len(results)``.
+            logger.warning(
+                "%s: skipped %d of %d record(s) returned by the API; pass strict=True to raise instead. Details: %s",
+                cls.__name__,
+                skipped,
+                len(items),
+                "; ".join(errors[:3]),
+            )
             total = max(total - skipped, len(results))
 
         return Page(

@@ -6,12 +6,18 @@ as a complete one:
 * ``search()`` / ``list()`` logged a warning and dropped any record it could
   not deserialize, while ``Page.total`` still came straight from the backend
   envelope -- so ``len(page.results) != page.total`` was a normal state and a
-  bulk ``for x in page`` silently skipped rows. Its siblings
-  ``GetResourceMixin.get`` and ``Session.search`` both *raise* on the identical
-  failure.
+  bulk ``for x in page`` silently skipped rows. Dropping the record stays the
+  default -- one unmodelled backend enum value must not break discovery on
+  ``Model.search`` / ``Inspector.search`` / ``APIKey.list`` / ``Trigger.list``
+  -- but the count is now corrected to match what was actually returned, the
+  skip is logged, and ``strict=True`` raises for callers that want the
+  ``get()``-like contract.
 * ``_build_page`` computed three sensible fallbacks and then overwrote each one
   with a raising ``json_data[key]`` lookup, so an envelope missing ``results``,
   ``total`` or ``pageTotal`` turned every search into ``KeyError: 'total'``.
+  The counts still fall back; a body carrying no readable item list at all is
+  now reported instead, because an empty page there is indistinguishable from
+  a search that genuinely matched nothing.
 * ``poll()`` did ``response.get("data") or {}``, so a classifier that
   legitimately answers ``0`` -- or a model whose correct answer is ``""`` --
   came back as ``{}``, and ``result.data.strip()`` then raised
@@ -71,8 +77,29 @@ def _bind(monkeypatch, cls, response):
 class TestStrictListing:
     """``search()`` must not return a ``total`` that counts records it dropped."""
 
-    def test_unparseable_record_raises_by_default(self, monkeypatch):
-        """Strict is the default, matching ``get()`` and ``Session.search``."""
+    def test_unparseable_record_is_skipped_by_default(self, monkeypatch, caplog):
+        """Lenient is the default: one bad row must not cost the whole listing."""
+        _bind(
+            monkeypatch,
+            Model,
+            _model_envelope({"id": "m1", "name": "Good"}, BAD_RECORD, {"id": "m2", "name": "Also good"}),
+        )
+
+        with caplog.at_level(logging.WARNING, logger="aixplain.v2.resource"):
+            page = Model.search()
+
+        assert [r.id for r in page.results] == ["m1", "m2"]
+        # The count never lies: the dropped row is not counted.
+        assert page.total == 2
+        assert page.skipped == 1
+        # The degradation has to be visible rather than silent.
+        messages = [record.getMessage() for record in caplog.records]
+        assert any("skipped 1 of 3 record(s)" in message for message in messages)
+        # And the message must tell the caller how to get the raising contract.
+        assert any("strict=True" in message for message in messages)
+
+    def test_strict_true_raises(self, monkeypatch):
+        """``strict=True`` opts into the ``get()``-like contract."""
         _bind(
             monkeypatch,
             Model,
@@ -80,11 +107,10 @@ class TestStrictListing:
         )
 
         with pytest.raises(ResourceError) as exc_info:
-            Model.search()
+            Model.search(strict=True)
 
         message = str(exc_info.value)
         assert "Failed to deserialize 1 of 3 Model record(s)" in message
-        # The message must tell the caller how to get the old behaviour back.
         assert "strict=False" in message
 
     def test_strict_false_corrects_total(self, monkeypatch):
@@ -158,24 +184,24 @@ class TestStrictListing:
         assert page.page_total == 3
         assert page.skipped == 0
 
-    def test_paginate_strict_class_attribute_opts_out(self, monkeypatch):
-        """A resource whose rows are known to be heterogeneous can opt out."""
+    def test_paginate_strict_class_attribute_opts_in(self, monkeypatch):
+        """A resource whose rows must all parse can opt into raising."""
         _bind(monkeypatch, Model, _model_envelope({"id": "m1", "name": "Good"}, BAD_RECORD))
-        monkeypatch.setattr(Model, "PAGINATE_STRICT", False, raising=False)
+        monkeypatch.setattr(Model, "PAGINATE_STRICT", True, raising=False)
 
-        page = Model.search()
+        with pytest.raises(ResourceError):
+            Model.search()
+
+    def test_per_call_strict_overrides_class_attribute(self, monkeypatch):
+        """``strict=False`` wins over ``PAGINATE_STRICT = True``."""
+        _bind(monkeypatch, Model, _model_envelope({"id": "m1", "name": "Good"}, BAD_RECORD))
+        monkeypatch.setattr(Model, "PAGINATE_STRICT", True, raising=False)
+
+        page = Model.search(strict=False)
 
         assert len(page.results) == 1
         assert page.total == 1
         assert page.skipped == 1
-
-    def test_per_call_strict_overrides_class_attribute(self, monkeypatch):
-        """``strict=True`` wins over ``PAGINATE_STRICT = False``."""
-        _bind(monkeypatch, Model, _model_envelope({"id": "m1", "name": "Good"}, BAD_RECORD))
-        monkeypatch.setattr(Model, "PAGINATE_STRICT", False, raising=False)
-
-        with pytest.raises(ResourceError):
-            Model.search(strict=True)
 
     def test_build_resources_wrapper_still_returns_a_list(self, monkeypatch):
         """The public-ish ``_build_resources`` signature is unchanged."""
@@ -190,7 +216,29 @@ class TestStrictListing:
         _bind(monkeypatch, Inspector, _model_envelope(BAD_RECORD))
 
         with pytest.raises(ResourceError, match="Inspector record"):
-            Inspector.search()
+            Inspector.search(strict=True)
+
+    def test_unmodelled_enum_value_does_not_break_discovery(self, monkeypatch):
+        """The motivating case: a new backend enum value must not kill search.
+
+        ``strict=True`` used to be the default, so a single record carrying a
+        value this client does not model yet took the whole listing with it.
+        """
+        _bind(
+            monkeypatch,
+            Model,
+            _model_envelope(
+                {"id": "m1", "name": "Good"},
+                {"id": "m2", "name": "Brand new", "status": "a_status_this_sdk_has_never_heard_of"},
+                total=2,
+            ),
+        )
+
+        page = Model.search()
+
+        assert [r.id for r in page.results] == ["m1"]
+        assert page.skipped == 1
+        assert page.total == len(page.results) == 1
 
     def test_inspector_lenient_mode_corrects_total(self, monkeypatch):
         """``Inspector`` honours ``strict=False`` through the same hook."""
@@ -239,7 +287,13 @@ class TestStrictListing:
 
 
 class TestBuildPageDefaults:
-    """``_build_page`` must fall back to its own defaults, not raise."""
+    """``_build_page`` falls back for the counts, but not for the records.
+
+    A missing ``total`` / ``pageTotal`` is a cosmetic gap with an honest
+    default. A missing (or unreadable) item list is not: it means the client
+    could not read the response at all, and returning it as an empty page hides
+    a renamed envelope or a 200 error body behind "no results".
+    """
 
     def test_missing_total_and_page_total_fall_back_to_item_count(self, monkeypatch):
         """No ``total`` / ``pageTotal`` used to raise ``KeyError: 'total'``."""
@@ -251,17 +305,34 @@ class TestBuildPageDefaults:
         assert page.total == 2
         assert page.page_total == 2
 
-    def test_missing_items_key_yields_an_empty_page(self, monkeypatch, caplog):
-        """A missing items key must not iterate the envelope's own keys."""
+    def test_missing_items_key_is_reported(self, monkeypatch):
+        """A renamed envelope must not masquerade as "no results"."""
         _bind(monkeypatch, Model, {"total": 5, "pageTotal": 1})
 
-        with caplog.at_level(logging.WARNING, logger="aixplain.v2.resource"):
-            page = Model.search()
+        with pytest.raises(ResourceError) as exc_info:
+            Model.search()
+
+        message = str(exc_info.value)
+        assert "'results'" in message
+        # The keys that *were* returned are what identifies the real envelope.
+        assert "total" in message
+
+    def test_error_body_served_with_status_200_is_reported(self, monkeypatch):
+        """The symptom: an error body is not an empty search result."""
+        _bind(monkeypatch, Model, {"error": "Forbidden resource", "statusCode": 403})
+
+        with pytest.raises(ResourceError, match="missing the 'results' key"):
+            Model.search()
+
+    def test_empty_items_list_is_a_genuinely_empty_page(self, monkeypatch):
+        """A search that matched nothing still returns an empty page."""
+        _bind(monkeypatch, Model, {"results": [], "total": 0, "pageTotal": 0})
+
+        page = Model.search()
 
         assert page.results == []
-        assert page.total == 5
-        # The degradation has to be visible rather than silent.
-        assert any("'results'" in record.getMessage() for record in caplog.records)
+        assert page.total == 0
+        assert page.skipped == 0
 
     def test_null_items_key_yields_an_empty_page(self, monkeypatch):
         """``{"results": null}`` is an empty page, not a crash."""
@@ -269,14 +340,19 @@ class TestBuildPageDefaults:
 
         assert Model.search().results == []
 
-    def test_non_list_items_are_ignored(self, monkeypatch):
+    def test_non_list_items_are_reported(self, monkeypatch):
         """A non-list ``results`` cannot be iterated into garbage resources."""
         _bind(monkeypatch, Model, {"results": {"id": "m1"}, "total": 1, "pageTotal": 1})
 
-        page = Model.search()
+        with pytest.raises(ResourceError, match="not a list of records"):
+            Model.search()
 
-        assert page.results == []
-        assert page.total == 1
+    def test_scalar_response_body_is_reported(self, monkeypatch):
+        """A body that is neither an envelope nor an array is unusable."""
+        _bind(monkeypatch, Model, "Service Unavailable")
+
+        with pytest.raises(ResourceError, match="not a list of records"):
+            Model.search()
 
     @pytest.mark.parametrize("bad_total", ["12", None, True, 3.5])
     def test_non_int_total_falls_back_to_item_count(self, monkeypatch, bad_total):
@@ -288,15 +364,12 @@ class TestBuildPageDefaults:
         assert page.total == 1
         assert type(page.total) is int
 
-    def test_empty_envelope_does_not_raise(self, monkeypatch):
-        """The degenerate ``{}`` envelope yields an empty page."""
+    def test_empty_envelope_is_reported(self, monkeypatch):
+        """The degenerate ``{}`` body carries no item list to read."""
         _bind(monkeypatch, Model, {})
 
-        page = Model.search()
-
-        assert page.results == []
-        assert page.total == 0
-        assert page.page_total == 0
+        with pytest.raises(ResourceError, match="missing the 'results' key"):
+            Model.search()
 
     def test_bare_array_response_is_unaffected(self, monkeypatch):
         """``PAGINATE_ITEMS_KEY = None`` resources keep reading the top-level list."""
@@ -308,6 +381,23 @@ class TestBuildPageDefaults:
         assert [r.id for r in page.results] == ["m1", "m2"]
         assert page.total == 2
         assert page.page_total == 2
+
+    def test_bare_array_is_read_even_when_a_key_is_configured(self, monkeypatch):
+        """``APIKey.list`` answers with an array while inheriting the key."""
+        _bind(monkeypatch, Model, [{"id": "m1", "name": "Good"}])
+
+        page = Model.search()
+
+        assert [r.id for r in page.results] == ["m1"]
+        assert page.total == 1
+
+    def test_object_body_for_a_bare_array_resource_is_reported(self, monkeypatch):
+        """``PAGINATE_ITEMS_KEY = None`` plus an object body is unreadable."""
+        monkeypatch.setattr(Model, "PAGINATE_ITEMS_KEY", None, raising=False)
+        _bind(monkeypatch, Model, {"results": [{"id": "m1", "name": "Good"}]})
+
+        with pytest.raises(ResourceError, match="expects a bare array"):
+            Model.search()
 
 
 # =============================================================================
