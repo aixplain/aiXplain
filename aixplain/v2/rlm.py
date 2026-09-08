@@ -1460,9 +1460,10 @@ del _url, _r
         """
         if not (isinstance(context, str) and (context.startswith("http://") or context.startswith("https://"))):
             return context
-        import requests
+        from aixplain.utils.url_safety import safe_get
 
-        r = requests.get(context, timeout=60)
+        # ``context`` is caller-supplied, so the fetch is SSRF-gated (BUG-939).
+        r = safe_get(context, timeout=60)
         r.raise_for_status()
         ct = r.headers.get("Content-Type", "")
         url_path = context.split("?")[0].lower()

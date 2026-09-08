@@ -28,6 +28,7 @@ import inspect
 import json
 import logging
 import re
+import random
 import time
 import traceback
 from datetime import datetime
@@ -547,7 +548,10 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
                 end = time.time()
                 if completed is False:
-                    time.sleep(wait_time)
+                    # Jittered: a deterministic interval keeps every client
+                    # launched together phase-locked for the whole run, so the
+                    # fleet polls in synchronized waves (BUG-942).
+                    time.sleep(wait_time * random.uniform(0.8, 1.2))
                     if wait_time < 60:
                         wait_time *= 1.1
             except Exception as e:
@@ -570,7 +574,12 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             print(completion_msg, flush=True)
 
         if response_body["completed"] is True:
-            logging.debug(f"Polling for Agent: Final status of polling for {name}: {response_body}")
+            # Status only, lazily -- never the body; see BUG-942 item 5.
+            logging.debug(
+                "Polling for Agent: Final status of polling for %s: %s",
+                name,
+                getattr(response_body, "status", None),
+            )
         else:
             response_body = AgentResponse(
                 status=ResponseStatus.FAILED,

@@ -15,12 +15,60 @@ limitations under the License.
 
 import os
 import logging
+from typing import Optional
+
 import sentry_sdk
+
+from aixplain.utils.url_safety import UnsafeURLError, validate_config_url
 
 logger = logging.getLogger(__name__)
 
 BACKEND_URL = os.getenv("BACKEND_URL", "https://platform-api.aixplain.com")
 MODELS_RUN_URL = os.getenv("MODELS_RUN_URL", "https://models.aixplain.com/api/v1/execute")
+
+#: Set when a configured endpoint failed the policy at import time. The failure
+#: is reported again, as a raise, by :func:`ensure_config_urls_safe`.
+_DEFERRED_CONFIG_URL_ERROR: Optional[str] = None
+
+
+def _check_config_url(url: str, name: str) -> None:
+    """Apply the config-URL policy to *url*, deferring a failure to first use.
+
+    ``BACKEND_URL`` and ``MODELS_RUN_URL`` are read straight from the
+    environment, so any ``.env`` on the machine can choose where the team API
+    key is sent -- the policy has to be applied (BUG-939). It is *not* applied
+    as an import-time raise, though: this module is imported by ``import
+    aixplain`` itself, so raising here would break ``aixplain --help`` and unit
+    test collection on a machine with no valid environment (BUG-946).
+
+    The failure is therefore logged once, at WARNING, and re-raised by
+    :func:`ensure_config_urls_safe` before the first request actually goes out,
+    so nothing is ever sent to a rejected endpoint.
+    """
+    global _DEFERRED_CONFIG_URL_ERROR
+    try:
+        validate_config_url(url, name)
+    except UnsafeURLError as exc:
+        if _DEFERRED_CONFIG_URL_ERROR is None:
+            _DEFERRED_CONFIG_URL_ERROR = str(exc)
+        logger.warning(f"{exc} No request will be sent until this is fixed.")
+
+
+def ensure_config_urls_safe() -> None:
+    """Raise if a configured endpoint failed the policy at import time.
+
+    Called from the request choke point so an unsafe endpoint is refused before
+    a socket is opened, rather than at ``import aixplain``.
+
+    Raises:
+        UnsafeURLError: If ``BACKEND_URL`` or ``MODELS_RUN_URL`` is not allowed.
+    """
+    if _DEFERRED_CONFIG_URL_ERROR is not None:
+        raise UnsafeURLError(_DEFERRED_CONFIG_URL_ERROR)
+
+
+_check_config_url(BACKEND_URL, "BACKEND_URL")
+_check_config_url(MODELS_RUN_URL, "MODELS_RUN_URL")
 # GET THE API KEY FROM CMD
 TEAM_API_KEY = os.getenv("TEAM_API_KEY", "")
 AIXPLAIN_API_KEY = os.getenv("AIXPLAIN_API_KEY", "")

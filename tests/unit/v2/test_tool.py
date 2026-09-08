@@ -5,7 +5,10 @@ from unittest.mock import Mock, patch, MagicMock
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
+import requests
+
 from aixplain.v2.actions import Action, Actions, Inputs
+from aixplain.v2.exceptions import APIError
 from aixplain.v2.integration import ActionInputSpec, ActionSpec
 from aixplain.v2.tool import Tool, ToolResult
 from aixplain.v2.integration import Integration
@@ -733,3 +736,144 @@ class TestMergeWithDynamicAttrs:
         for key, _ in tool._RUN_HEADER_KEYS:
             assert key not in payload_kwargs
         assert payload_kwargs["data"] == {"q": "hi"}
+
+
+class TestValidateParamsReportsFailures:
+    """_validate_params must never report "valid" when validation crashed.
+
+    The action-input branch used to be wrapped in a bare `except Exception: pass`,
+    so an unresolvable action name or a malformed payload produced an *empty*
+    error list -- indistinguishable from "validated clean" -- and `Model.run`
+    happily shipped the call to the backend (BUG-946).
+    """
+
+    def test_unknown_action_returns_non_empty_errors(self):
+        """A name absent from the cached actions must surface as an error."""
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]})
+        tool.validate_allowed_actions = Mock()
+
+        errors = tool._validate_params(action="NO_SUCH_ACTION", data={"query": "hi"})
+
+        assert errors, "an unresolvable action must not validate clean"
+        assert "NO_SUCH_ACTION" in errors[0]
+
+    def test_lazy_input_loader_failure_is_reported(self):
+        """The real unknown-action path: `Actions` fabricates an `ActionView`.
+
+        `Actions.__getitem__` does not raise for an unknown name when an action
+        factory is configured; the failure surfaces one line later, when
+        `action_obj.inputs` runs the lazy loader.
+        """
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]})
+        tool.validate_allowed_actions = Mock()
+
+        def _boom(action_name, description=None):
+            def _load_inputs():
+                raise ValueError(f"Action '{action_name}' not found or has no input parameters defined.")
+
+            return Action(name=action_name, _inputs_loader=_load_inputs)
+
+        actions = Actions(actions={}, _action_factory=_boom)
+        tool.__dict__["actions"] = actions
+
+        errors = tool._validate_params(action="GHOST", data={})
+
+        assert len(errors) == 1
+        assert "Could not validate inputs for 'GHOST'" in errors[0]
+        assert "not found or has no input parameters defined" in errors[0]
+
+    def test_crashing_validate_is_reported_not_swallowed(self):
+        """A malformed payload that makes `Inputs.validate` raise must be reported."""
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]})
+        tool.validate_allowed_actions = Mock()
+
+        with patch.object(Inputs, "validate", side_effect=TypeError("unhashable payload")):
+            errors = tool._validate_params(action="search", data={"query": "hi"})
+
+        assert errors == ["Could not validate inputs for 'search': unhashable payload"]
+
+    def test_valid_action_still_validates_clean(self):
+        """The happy path must be unchanged: satisfied inputs return no errors."""
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]})
+        tool.validate_allowed_actions = Mock()
+
+        assert tool._validate_params(action="search", data={"query": "hello"}) == []
+
+    def test_missing_required_input_reports_once(self):
+        """`Inputs.validate` messages pass through unchanged -- no double reporting."""
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]})
+        tool.validate_allowed_actions = Mock()
+
+        errors = tool._validate_params(action="search", data={})
+
+        assert errors == ["Required input 'query' is missing"]
+
+
+class TestValidateParamsToleratesTransportFailures:
+    """A backend blip in the lazy input loader must not block the run.
+
+    ``Action.inputs`` fetches ``LIST_INPUTS`` over the network, so treating every
+    exception as a validation error turned a transient 5xx into a client-side
+    failure for a ``tool.run()`` that previously worked. The BUG-946 contract --
+    an unknown action still reports errors -- is unchanged.
+    """
+
+    @staticmethod
+    def _tool_whose_loader_raises(exc):
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]})
+        tool.validate_allowed_actions = Mock()
+
+        def _factory(action_name, description=None):
+            def _load_inputs():
+                raise exc
+
+            return Action(name=action_name, _inputs_loader=_load_inputs)
+
+        tool.__dict__["actions"] = Actions(actions={}, _action_factory=_factory)
+        return tool
+
+    def test_a_backend_5xx_does_not_block_the_run(self, caplog):
+        tool = self._tool_whose_loader_raises(APIError("Bad Gateway", status_code=502))
+
+        with caplog.at_level("WARNING", logger="aixplain.v2.tool"):
+            errors = tool._validate_params(action="search", data={"query": "hi"})
+
+        assert errors == []
+        assert any("Skipping input validation" in record.message for record in caplog.records)
+
+    def test_a_dropped_connection_does_not_block_the_run(self):
+        tool = self._tool_whose_loader_raises(requests.ConnectionError("connection reset"))
+
+        assert tool._validate_params(action="search", data={"query": "hi"}) == []
+
+    def test_a_transport_level_apierror_does_not_block_the_run(self):
+        """``status_code=0`` is the SDK sentinel for "no HTTP response at all"."""
+        tool = self._tool_whose_loader_raises(APIError("Polling failed: ReadTimeout", status_code=0))
+
+        assert tool._validate_params(action="search", data={"query": "hi"}) == []
+
+    def test_a_backend_4xx_still_blocks_the_run(self):
+        """A 4xx is the backend rejecting *this* action or payload, not a blip."""
+        tool = self._tool_whose_loader_raises(APIError("Unknown action", status_code=400))
+
+        errors = tool._validate_params(action="search", data={"query": "hi"})
+
+        assert len(errors) == 1
+        assert "Could not validate inputs for 'search'" in errors[0]
+
+    def test_an_unknown_action_still_returns_errors(self):
+        """The BUG-946 acceptance criterion, restated against the new branch."""
+        tool = self._tool_whose_loader_raises(
+            ValueError("Action 'GHOST' not found or has no input parameters defined.")
+        )
+
+        errors = tool._validate_params(action="GHOST", data={})
+
+        assert len(errors) == 1
+        assert "Could not validate inputs for 'GHOST'" in errors[0]

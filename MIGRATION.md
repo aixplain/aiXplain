@@ -49,6 +49,25 @@ A `filterwarnings` entry in your `pytest.ini` or `pyproject.toml` works too.
 
 One ordering caveat: to make the notice visible at all, the SDK inserts a `default` filter for its own category while `aixplain` is being imported — but only when `sys.warnoptions` is empty, i.e. when you passed no `-W` and set no `PYTHONWARNINGS`. A bare `warnings.simplefilter("ignore")` issued *before* `import aixplain` is therefore overridden. Use the environment variable, use `-W`/`PYTHONWARNINGS`, or register your filter after the import — all three win.
 
+## `aixplain.aixplain_v2` is deprecated
+
+The module-level `aixplain_v2` client is deprecated and will be removed in a future release. Construct a client explicitly instead:
+
+```python
+# deprecated
+from aixplain import aixplain_v2
+agent = aixplain_v2.Agent.get("...")
+
+# use instead
+from aixplain import Aixplain
+aix = Aixplain()            # or Aixplain(api_key="...")
+agent = aix.Agent.get("...")
+```
+
+It used to be built at import time with the failure swallowed, so a missing `TEAM_API_KEY` left the symbol bound to `None` and the first use failed with `AttributeError: 'NoneType' object has no attribute 'Agent'` rather than the actual cause. It is now constructed on first access and raises the real error (`API key is required. Pass api_key=... to Aixplain() or set TEAM_API_KEY or AIXPLAIN_API_KEY.`), and the first access emits a `DeprecationWarning`.
+
+`from aixplain import aixplain_v2` still works. It is no longer part of `from aixplain import *`, so a star import no longer needs a credential.
+
 ## Factory map at a glance
 
 | v1 factory | v2 equivalent | Status |
@@ -350,6 +369,57 @@ Beyond the factories, three more legacy prefixes redirect into v1:
 | `from aixplain.modules import Agent, Model, ...` | `aix.Agent`, `aix.Model`, … — v2 resources replace the v1 domain objects |
 | `from aixplain.decorators import ...`, `aixplain.base`, `aixplain.processes` | Internal helpers with no public v2 counterpart |
 
+## Polling behaviour changes
+
+Two polling defaults changed. Both bound a loop that was previously unbounded or
+effectively unbounded; both are opt-out-able through the same parameter you
+already pass.
+
+### `Pipeline.run` / `Pipeline.poll` stop polling after 30 minutes
+
+The default `timeout` on `aixplain.modules.pipeline.Pipeline.run()` (and the
+private polling loop behind it) dropped from **20,000 seconds (5h 33m) to 1,800
+seconds (30 minutes)**.
+
+A pipeline that legitimately runs longer than 30 minutes will now stop being
+polled and be reported as a failure, even though the run itself continues on the
+platform. If you have such a pipeline, raise the budget explicitly:
+
+```python
+pipeline.run(data, timeout=20000.0)   # the previous default
+```
+
+The old default meant a pipeline that never completed pinned a thread for over
+five hours; 30 minutes is the bound for the common case, and the parameter is
+there for the rest.
+
+### `AgentProgressTracker.stream_progress` is bounded and raises on expiry
+
+`stream_progress` used to be a `while True` loop with no `timeout` parameter at
+all. It now takes `timeout` (default **300 seconds**) and raises
+`TimeoutError` when that budget expires with the run still non-terminal.
+
+This matches `sync_poll`, which has always raised `TimeoutError` in the same
+situation — the two polling surfaces previously disagreed about whether an
+expired budget was a result or an error.
+
+```python
+# previous behaviour: poll forever
+tracker.stream_progress(url, timeout=None)
+
+# a longer budget
+tracker.stream_progress(url, timeout=1800)
+
+# or handle the expiry
+try:
+    response = tracker.stream_progress(url)
+except TimeoutError:
+    ...
+```
+
+A terminal status (`SUCCESS`, `FAILED`, `ABORTED`, `CANCELLED`, `ERROR`) and the
+`max_polls` cap still *return* the response as before; only the wall-clock
+deadline raises.
 ## v2 behavior notes
 
 ### `search()` never reports more records than it returns

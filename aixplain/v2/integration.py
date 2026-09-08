@@ -1,11 +1,13 @@
 """Integration module for managing external service integrations."""
 
+import time
 import warnings
 from typing import Optional, List, Any, Dict, TYPE_CHECKING
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
 from functools import cached_property
 
+from ._backoff import next_wait, sleep_with_jitter
 from .resource import BaseSearchParams, Result
 from .model import Model
 from .enums import AuthenticationScheme
@@ -200,20 +202,24 @@ class ActionMixin:
 
     def _poll_for_data(self, response: dict, timeout: float = 30, wait_time: float = 1) -> Any:
         """Poll an async response until completion and return the ``data`` field."""
-        import time
-
         data = response.get("data")
         if response.get("completed", True) or not isinstance(data, str) or not data.startswith("http"):
             return data
 
         poll_url = data
         start = time.time()
-        while (time.time() - start) < timeout:
-            time.sleep(wait_time)
+        while True:
+            remaining = timeout - (time.time() - start)
+            if remaining <= 0:
+                return None
+            # Jittered and backed off, rather than a fixed 1s tick: a fleet of
+            # clients polling in lockstep is the load shape BUG-942 is about.
+            # Clamped to the remaining budget so jitter never overruns *timeout*.
+            sleep_with_jitter(wait_time, max_sleep=remaining)
+            wait_time = next_wait(wait_time)
             poll_resp = self.context.client.request("get", poll_url)
             if poll_resp.get("completed", False) or poll_resp.get("status") == "SUCCESS":
                 return poll_resp.get("data")
-        return None
 
     def list_actions(self) -> List[ActionSpec]:
         """List available actions for the integration.

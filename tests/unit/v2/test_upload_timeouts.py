@@ -23,7 +23,7 @@ from aixplain.v2.upload_utils import FileUploader, RequestManager
 def _ok_response():
     response = Mock()
     response.status_code = 200
-    response.json.return_value = {"key": "uploads/x.csv", "uploadUrl": "https://s3.example.com/x"}
+    response.json.return_value = {"key": "uploads/x.csv", "uploadUrl": "https://bucket.s3.amazonaws.com/x"}
     return response
 
 
@@ -123,3 +123,56 @@ class TestBlackholeFailsFast:
         elapsed = time.monotonic() - started
 
         assert elapsed < 60, f"took {elapsed:.1f}s; the retry budget is not bounded"
+
+
+class TestUploadSessionReuse:
+    """BUG-942 item 3: the upload path built a fresh Session per request.
+
+    ``create_session()`` called ``create_retry_session()`` on every request, so
+    each leg of every upload paid a TLS handshake and pooled nothing -- the same
+    defect as v1's ``_request_with_retry``, reproduced in v2.
+    """
+
+    def test_create_session_returns_the_same_object(self):
+        assert RequestManager.create_session() is RequestManager.create_session()
+
+    def test_a_hundred_requests_build_one_session(self):
+        RequestManager.create_session()  # warm the cache
+
+        with patch("requests.Session.request", return_value=_ok_response()):
+            with patch("aixplain.v2.client.create_retry_session") as factory:
+                for index in range(100):
+                    RequestManager.request_with_retry("get", f"https://api.example.com/{index}")
+
+        factory.assert_not_called()
+
+    def test_the_shared_session_is_pool_sized(self):
+        """It must be a ``create_retry_session``, not a bare Session."""
+        from aixplain.v2.client import DEFAULT_POOL_MAXSIZE, RETRY_ALLOWED_METHODS
+
+        adapter = RequestManager.create_session().get_adapter("https://api.example.com")
+
+        assert adapter._pool_maxsize == DEFAULT_POOL_MAXSIZE
+        assert adapter.max_retries.allowed_methods == RETRY_ALLOWED_METHODS
+
+    def test_concurrent_first_use_creates_exactly_one_session(self):
+        """The double-checked lock must not race into two sessions."""
+        import threading
+
+        from aixplain.v2 import upload_utils
+
+        upload_utils.RequestManager._session = None
+        barrier = threading.Barrier(16)
+        results = [None] * 16
+
+        def create(index):
+            barrier.wait()
+            results[index] = RequestManager.create_session()
+
+        threads = [threading.Thread(target=create, args=(i,)) for i in range(16)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert len({id(session) for session in results}) == 1
