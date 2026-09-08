@@ -1242,6 +1242,43 @@ class TestExecutionConfigBudget:
             )
         assert cfg.to_api_dict()["executionParams"]["budget"]["maxIterations"] == 9
 
+    def test_from_dict_lifts_nested_budget_out_of_execution_params(self):
+        """Decoding must mirror encoding: ``executionParams.budget`` -> ``budget``.
+
+        ``to_api_dict`` nests the cap inside ``executionParams``, but nothing
+        decoded it back out, so a backend-loaded session had ``budget=None`` with
+        the real cap buried in ``execution_params``. Anything that then set
+        ``budget`` (the run path seeds it from ``agent.budget``) silently
+        overwrote the persisted cap on the next send (BUG-1091).
+        """
+        sent = ExecutionConfig(execution_params={"maxTokens": 64}, budget=Budget(max_cost=5.0)).to_api_dict()
+
+        cfg = ExecutionConfig.from_dict(sent)
+
+        assert cfg.budget == Budget(max_cost=5.0)
+        assert cfg.execution_params == {"maxTokens": 64}
+        assert cfg.to_api_dict() == sent  # round-trip is stable
+
+    def test_from_dict_nested_budget_defers_to_an_explicit_top_level_one(self):
+        cfg = ExecutionConfig.from_dict(
+            {"executionParams": {"budget": {"maxCost": 5.0}}, "budget": {"maxCost": 1.0}}
+        )
+
+        assert cfg.budget == Budget(max_cost=1.0)
+        assert cfg.to_api_dict() == {"executionParams": {"budget": {"maxCost": 1.0}}}
+
+    def test_session_from_dict_lifts_nested_budget(self):
+        session = Session.from_dict(
+            {
+                "id": "s1",
+                "agentId": "a1",
+                "executionConfig": {"executionParams": {"maxTokens": 64, "budget": {"maxCost": 5.0}}},
+            }
+        )
+
+        assert session.execution_config.budget == Budget(max_cost=5.0)
+        assert session.execution_config.execution_params == {"maxTokens": 64}
+
     def test_session_from_dict_legacy_execution_config_no_warning(self):
         # Loading a Session whose nested executionConfig carries a legacy
         # maxIterations must not warn and must fold into budget.

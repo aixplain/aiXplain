@@ -24,7 +24,8 @@ attached to agents the same way tools are::
 """
 
 import os
-from typing import Any, List, Optional, Tuple
+import warnings
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
@@ -40,6 +41,7 @@ from .resource import (
     GetResourceMixin,
     DeleteResourceMixin,
     Page,
+    _filter_values,
 )
 from .enums import Privacy
 from .mixins import ToolableMixin
@@ -134,8 +136,44 @@ class Skill(
         """Load skill metadata from the local path when authoring a new skill."""
         self._local_path = None
         self._local_is_file = False
-        if self.file_path and not self.id:
-            self._load_from_path(self.file_path)
+        # What the last parse of SKILL.md produced, so a re-parse can tell its own
+        # earlier output from a value the developer set explicitly.
+        self._parsed_name: Optional[str] = None
+        self._parsed_description: Optional[str] = None
+        if self.file_path:
+            self._stage_from_path()
+
+    def _stage_from_path(self) -> None:
+        """Parse ``file_path`` and stage it for upload, tolerating a vanished path.
+
+        A skill that already exists on the backend has to stay editable through a
+        metadata-only save (``skill.save(description=...)``) after its authoring
+        folder is gone — a temp dir that has been cleaned up, or an object that
+        moved machines. There the uploaded bundle is left as it is and only the
+        asset's metadata is written. While the skill has no id there is nothing to
+        fall back on, so a missing path is still an error.
+        """
+        path = os.path.abspath(self.file_path)
+        if self.id and not os.path.exists(path):
+            warnings.warn(
+                f"Skill path not found; saving metadata only and leaving the uploaded bundle unchanged: {path}",
+                stacklevel=3,
+            )
+            self._local_path = None
+            return
+        self._load_from_path(self.file_path)
+
+    @staticmethod
+    def _reparsed(current: Optional[str], last_parsed: Optional[str], parsed: str) -> str:
+        """Choose between a developer-set value and what SKILL.md now says.
+
+        ``current`` wins only when the developer set it themselves; when it is
+        merely what the previous parse of this same file produced, the file's new
+        value wins.
+        """
+        if current and current != last_parsed:
+            return current
+        return parsed
 
     def _load_from_path(self, path: str) -> None:
         """Parse the skill markdown and stage the source for upload on save.
@@ -158,11 +196,20 @@ class Skill(
             raise ValueError(f"Skill path not found: {path}")
         with open(skill_md, "r", encoding="utf-8") as handle:
             name, description, requires, body = _parse_skill_md(handle.read())
-        # Precedence: explicit name= > SKILL.md frontmatter > folder/file name.
-        self.name = self.name or name or fallback_name
+        # Precedence: an explicit developer value > SKILL.md frontmatter > folder/file
+        # name. A value left over from an earlier parse of this same file does not
+        # count as explicit: re-parsing has to pick up edited frontmatter, since the
+        # description is the routing signal an agent sees and what as_tool() embeds.
+        parsed_name = name or fallback_name
+        parsed_description = description or ""
+        self.name = self._reparsed(self.name, getattr(self, "_parsed_name", None), parsed_name)
         if not self.name:
             raise ValueError("Could not determine a skill name (pass name= or set it in SKILL.md).")
-        self.description = self.description or description or ""
+        self.description = self._reparsed(
+            self.description, getattr(self, "_parsed_description", None), parsed_description
+        )
+        self._parsed_name = parsed_name
+        self._parsed_description = parsed_description
         self.required_tools = requires
         self.instructions = body
         self._local_path = path
@@ -193,7 +240,7 @@ class Skill(
         if params.get("tags") is not None:
             filters["tags"] = params["tags"]
         if params.get("suppliers") is not None:
-            filters["suppliers"] = params["suppliers"]
+            filters["suppliers"] = _filter_values(params["suppliers"])
         if params.get("saved") is not None:
             filters["saved"] = params["saved"]
         return filters
@@ -204,10 +251,30 @@ class Skill(
     def save(self, *args: Any, **kwargs: Any) -> "Skill":
         """Save the skill, uploading the bundle when authored from a local path.
 
+        Re-parses ``file_path`` from disk on every call, so re-saving an already
+        saved ``Skill`` after editing its ``SKILL.md`` (or reassigning
+        ``file_path`` to updated content) re-uploads the bundle — and picks up an
+        edited frontmatter ``name``/``description`` — instead of silently
+        skipping it. The uploaded tree is added to and updated in place: a file
+        deleted or renamed locally is *not* removed from the bundle.
+
         Args:
             *args: Positional arguments passed to the base save method.
             **kwargs: Attributes to set before saving (passed to base save).
+
+        Raises:
+            ResourceError: If the skill has been deleted — the same type every
+                other deleted-save guard raises (BUG-1093), which is why the
+                guard runs before this method touches the disk.
         """
+        if self.id or self.is_deleted:
+            self._ensure_saveable()
+        # A reassigned path arrives as a save() kwarg too, and the base save applies
+        # kwargs only after this method has run — stage the new path, not the old one.
+        if "file_path" in kwargs:
+            self.file_path = kwargs["file_path"]
+        if self.file_path:
+            self._stage_from_path()
         super().save(*args, **kwargs)
         if getattr(self, "_local_path", None):
             if self._local_is_file:
@@ -238,6 +305,15 @@ class Skill(
             handle.write(response.content)
         return file_path
 
+    def list_files(self) -> List[str]:
+        """List the relative paths of every file and folder in this skill's bundle.
+
+        Use this to find the ``name`` to pass to :meth:`update` when you want
+        to swap out an existing file (or add a new one) with local content —
+        e.g. ``"SKILL.md"``, ``"scripts/helper.py"``, ``"resources"``.
+        """
+        return sorted(self._tree_index().keys())
+
     def as_tool(self) -> dict:
         """Serialize this skill as a tool object for agent attachment.
 
@@ -257,49 +333,154 @@ class Skill(
     # ------------------------------------------------------------------ #
     # Internal: upload the local source as the skill's file tree
     # ------------------------------------------------------------------ #
-    def _upload_file_as_skill(self, path: str) -> None:
-        """Upload a single ``.md`` file as the skill's ``SKILL.md`` at the root."""
-        self._ensure_valid_state()
-        base = f"{self.RESOURCE_PATH}/{self.encoded_id}"
-        url = self._upload(path)
-        self.context.client.request(
-            "post",
-            f"{base}/file",
-            json={"name": "SKILL.md", "url": url, "description": "", "parentId": None},
-        )
+    def _tree_index(self) -> Dict[str, str]:
+        """Map each node already in the skill's backend file tree to its id.
 
-    def _upload_folder(self, root: str) -> None:
-        """Walk the local folder and create the backend file/folder tree.
-
-        Folder structure is preserved: each subdirectory becomes a folder node and
-        each file is uploaded and registered under its parent. Node management is
-        entirely internal — it is not part of the developer-facing surface.
+        Keyed by the node's ``path`` (forward-slash relative path from the
+        skill root, e.g. ``"SKILL.md"`` or ``"scripts/run.py"``), so a re-save
+        can tell an existing node from a genuinely new one and update it in
+        place instead of colliding on name.
         """
-        self._ensure_valid_state()
         base = f"{self.RESOURCE_PATH}/{self.encoded_id}"
-        folder_ids = {"": None}  # relative dir -> backend folder id (root -> None)
+        tree = self.context.client.request("get", f"{base}/tree") or []
+        return {node["path"]: node["id"] for node in tree if node.get("path")}
 
-        for dirpath, _dirnames, filenames in os.walk(root):
-            rel = os.path.relpath(dirpath, root)
-            rel = "" if rel == "." else rel
+    def _ensure_folder(self, rel_path: str, existing: Dict[str, str]) -> Optional[str]:
+        """Ensure every segment of ``rel_path`` exists as a folder node.
 
-            if rel:  # create a folder node for this subdirectory
-                parent_id = folder_ids.get(os.path.dirname(rel))
+        Creates any missing segment (reusing ``existing`` where a segment is
+        already present, and recording newly created ones into it) and
+        returns the leaf folder's id, or ``None`` for the skill root.
+        """
+        if not rel_path:
+            return None
+        base = f"{self.RESOURCE_PATH}/{self.encoded_id}"
+        parent_id: Optional[str] = None
+        built = ""
+        for segment in rel_path.split("/"):
+            built = f"{built}/{segment}" if built else segment
+            node_id = existing.get(built)
+            if node_id is None:
                 result = self.context.client.request(
                     "post",
                     f"{base}/folder",
-                    json={"name": os.path.basename(rel), "description": "", "parentId": parent_id},
+                    json={"name": segment, "description": "", "parentId": parent_id},
                 )
-                folder_ids[rel] = result.get("id")
+                node_id = result.get("id")
+                existing[built] = node_id
+            parent_id = node_id
+        return parent_id
 
-            parent_id = folder_ids.get(rel)
+    def _put_or_post_file(
+        self, local_path: str, rel_path: str, parent_id: Optional[str], existing: Dict[str, str]
+    ) -> str:
+        """Upload ``local_path`` and create/update the file node at ``rel_path``.
+
+        A node already at ``rel_path`` (per ``existing``) is updated in place
+        (``PUT``); otherwise a new one is created (``POST``).
+        """
+        base = f"{self.RESOURCE_PATH}/{self.encoded_id}"
+        url = self._upload(local_path)
+        payload = {"name": os.path.basename(rel_path), "url": url, "description": "", "parentId": parent_id}
+        existing_id = existing.get(rel_path)
+        if existing_id:
+            self.context.client.request("put", f"{base}/file/{existing_id}", json=payload)
+            return existing_id
+        result = self.context.client.request("post", f"{base}/file", json=payload)
+        new_id = result.get("id")
+        existing[rel_path] = new_id
+        return new_id
+
+    def _upload_file_as_skill(self, path: str) -> None:
+        """Upload a single ``.md`` file as the skill's ``SKILL.md`` at the root.
+
+        Updates the existing ``SKILL.md`` node in place when one is already
+        registered for this skill; otherwise creates it.
+        """
+        self._ensure_valid_state()
+        self._put_or_post_file(path, "SKILL.md", None, self._tree_index())
+
+    def _upload_folder(self, root: str) -> None:
+        """Walk the local folder and create/update the backend file/folder tree.
+
+        Folder structure is preserved: each subdirectory becomes a folder node and
+        each file is uploaded and registered under its parent. A node already
+        present in the backend tree (matched by relative path) is reused (folders)
+        or updated in place (files) rather than re-created; a node that no longer
+        exists locally is left alone, so the tree only ever grows. Node management
+        is entirely internal — it is not part of the developer-facing surface.
+        """
+        self._ensure_valid_state()
+        existing = self._tree_index()
+
+        for dirpath, _dirnames, filenames in os.walk(root):
+            rel = os.path.relpath(dirpath, root)
+            rel = "" if rel == "." else rel.replace(os.sep, "/")
+            parent_id = self._ensure_folder(rel, existing) if rel else None
             for filename in sorted(filenames):
-                url = self._upload(os.path.join(dirpath, filename))
-                self.context.client.request(
-                    "post",
-                    f"{base}/file",
-                    json={"name": filename, "url": url, "description": "", "parentId": parent_id},
-                )
+                rel_path = f"{rel}/{filename}" if rel else filename
+                self._put_or_post_file(os.path.join(dirpath, filename), rel_path, parent_id, existing)
+
+    def update(self, path: str, name: Optional[str] = None) -> "Skill":
+        """Update (or add) a single file or folder within this skill's bundle.
+
+        Unlike :meth:`save` (which re-uploads every file under ``file_path``),
+        ``update`` pushes just one changed file or subfolder — useful when you
+        only have the new content on hand, not the original authoring folder. A
+        node already at ``name`` is updated in place; a new one is created
+        (intermediate folders are created as needed). Pushing a ``SKILL.md``
+        also writes its frontmatter ``description`` to the asset.
+
+        Args:
+            path: Local file or folder to upload from.
+            name: Where this content lives within the skill — a bare filename
+                (``"SKILL.md"``) or a relative path (``"scripts/helper.py"``).
+                Defaults to ``os.path.basename(path)``.
+
+        Returns:
+            This ``Skill``.
+
+        Example:
+            >>> skill.update("./SKILL.md")                       # replace SKILL.md
+            >>> skill.update("./helper.py", "scripts/helper.py")  # add/update a script
+            >>> skill.update("./resources", "resources")         # sync a whole subfolder
+        """
+        self._ensure_valid_state()
+        path = os.path.abspath(path)
+        if not os.path.exists(path):
+            raise ValueError(f"Path not found: {path}")
+        name = (name or os.path.basename(path)).strip("/")
+        existing = self._tree_index()
+
+        if os.path.isdir(path):
+            for dirpath, _dirnames, filenames in os.walk(path):
+                rel = os.path.relpath(dirpath, path)
+                rel = "" if rel == "." else rel.replace(os.sep, "/")
+                mounted_dir = f"{name}/{rel}" if rel else name
+                parent_id = self._ensure_folder(mounted_dir, existing)
+                for filename in sorted(filenames):
+                    rel_path = f"{mounted_dir}/{filename}"
+                    self._put_or_post_file(os.path.join(dirpath, filename), rel_path, parent_id, existing)
+        else:
+            parent = os.path.dirname(name)
+            parent_id = self._ensure_folder(parent, existing) if parent else None
+            self._put_or_post_file(path, name, parent_id, existing)
+
+        if name == "SKILL.md" and not os.path.isdir(path):
+            with open(path, "r", encoding="utf-8") as handle:
+                _, description, requires, body = _parse_skill_md(handle.read())
+            self.description = description or self.description
+            self.required_tools = requires
+            self.instructions = body
+            # The frontmatter description is the routing signal an agent sees and
+            # what as_tool() embeds, so it has to reach the asset as well: pushing
+            # the file node alone would leave the backend advertising the old one
+            # while this object silently disagreed with it.
+            self._parsed_description = self.description
+            self._update(self.RESOURCE_PATH, self.build_save_payload())
+            self._update_saved_state()
+
+        return self
 
     def _upload(self, file_path: str) -> str:
         """Upload a local file to S3 and return its download URL."""

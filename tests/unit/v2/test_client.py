@@ -17,6 +17,11 @@ from aixplain.v2.client import (
     DEFAULT_TIMEOUT_READ,
     DEFAULT_RETRY_BACKOFF_FACTOR,
     DEFAULT_RETRY_STATUS_FORCELIST,
+    DEFAULT_RETRY_BACKOFF_JITTER,
+    DEFAULT_RETRY_BACKOFF_MAX,
+    DEFAULT_RETRY_AFTER_MAX,
+    DEFAULT_POOL_CONNECTIONS,
+    DEFAULT_POOL_MAXSIZE,
     RETRY_ALLOWED_METHODS,
 )
 from aixplain.v2.exceptions import APIError
@@ -790,3 +795,224 @@ class TestDefaultTimeout:
         client = self._client()
 
         assert client.timeout == (DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ)
+
+
+class TestRateLimitAndJitteredRetry:
+    """Retry hardening for BUG-942 item 7 / BUG-1097.
+
+    A platform 5xx used to make every installed copy of the SDK retry inside the
+    same ~3s window -- nothing jittered, nothing honoured the server's own
+    backoff signal, and 429 was not retried at all. The recovery wave then
+    re-degraded the platform it was recovering.
+    """
+
+    def test_429_is_in_the_default_forcelist(self):
+        """A throttled poll must be retried, not hammered through."""
+        assert 429 in DEFAULT_RETRY_STATUS_FORCELIST
+
+    def test_429_retry_is_still_method_scoped(self):
+        """Adding 429 must not make a throttled submission re-billable."""
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+
+        assert retry.is_retry("GET", 429) is True
+        assert retry.is_retry("POST", 429) is False
+
+    def test_post_is_absent_from_the_module_constant(self):
+        """BUG-1097 acceptance criterion, asserted on the constant itself."""
+        assert "POST" not in RETRY_ALLOWED_METHODS
+        assert RETRY_ALLOWED_METHODS == frozenset({"GET"})
+
+    def test_backoff_is_jittered(self):
+        """Without jitter every client's retry lands in the same instant."""
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+
+        assert retry.backoff_jitter == DEFAULT_RETRY_BACKOFF_JITTER
+        assert retry.backoff_jitter > 0
+
+    def test_jitter_actually_spreads_the_computed_backoff(self):
+        """Pin the urllib3 semantics, not just our configuration of them."""
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+        exhausted = retry
+        for _ in range(3):
+            exhausted = exhausted.increment(method="GET", error=Exception("boom"))
+
+        samples = {exhausted.get_backoff_time() for _ in range(200)}
+
+        assert len(samples) > 1, "backoff is still deterministic"
+        assert max(samples) - min(samples) <= DEFAULT_RETRY_BACKOFF_JITTER + 1e-9
+
+    def test_retry_after_header_is_respected_but_bounded(self):
+        """urllib3's own ``retry_after_max`` default is six hours."""
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+
+        assert retry.respect_retry_after_header is True
+        assert retry.retry_after_max == DEFAULT_RETRY_AFTER_MAX
+        assert retry.retry_after_max <= 60.0
+
+    def test_hostile_retry_after_cannot_pin_a_thread(self):
+        """A 6-hour ``Retry-After`` must be clamped to the configured bound."""
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+
+        assert retry.parse_retry_after("21600") == DEFAULT_RETRY_AFTER_MAX
+
+    def test_exponential_backoff_is_bounded(self):
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+
+        assert retry.backoff_max == DEFAULT_RETRY_BACKOFF_MAX
+
+    def test_caller_kwargs_still_win_over_the_new_defaults(self):
+        """The new defaults must not collide with an explicit caller value."""
+        session = create_retry_session(backoff_jitter=0.9, retry_after_max=5.0)
+        retry = session.get_adapter("https://example.com").max_retries
+
+        assert retry.backoff_jitter == 0.9
+        assert retry.retry_after_max == 5.0
+
+
+class TestBuildRetryFallback:
+    """``_build_retry`` must degrade on an older urllib3, not raise.
+
+    ``backoff_jitter`` landed in urllib3 2.0 and ``retry_after_max`` in 2.1,
+    while the only declared bound is ``requests``' loose ``urllib3<3`` -- so an
+    environment resolving to 1.26 has to lose the jitter, not fail at import.
+    """
+
+    def test_optional_kwargs_are_dropped_when_unsupported(self, monkeypatch):
+        import aixplain.v2.client as client_module
+        from aixplain.v2.client import _build_retry
+
+        monkeypatch.setattr(
+            client_module,
+            "_RETRY_INIT_PARAMS",
+            frozenset({"self", "total", "backoff_factor"}),
+        )
+
+        retry = _build_retry(total=3, backoff_factor=0.1, backoff_jitter=0.3, retry_after_max=60.0)
+
+        assert retry.total == 3
+        assert retry.backoff_factor == 0.1
+
+    def test_supported_kwargs_survive(self):
+        from aixplain.v2.client import _build_retry
+
+        retry = _build_retry(total=2, backoff_jitter=0.4)
+
+        assert retry.total == 2
+        assert retry.backoff_jitter == 0.4
+
+    def test_an_unknown_kwarg_is_not_silently_swallowed(self):
+        """Only the SDK's own hardening kwargs are droppable.
+
+        Treating every unknown name as "an older urllib3" would turn a caller's
+        typo into a silently-ignored setting.
+        """
+        from aixplain.v2.client import _build_retry
+
+        with pytest.raises(TypeError):
+            _build_retry(total=2, bakoff_factor=0.5)
+
+    def test_a_typo_on_the_public_factory_still_raises(self):
+        with pytest.raises(TypeError):
+            create_retry_session(bakoff_jitter=0.9)
+
+    def test_simulated_urllib3_1_26_still_builds_a_session(self, monkeypatch):
+        """With the modern kwargs unknown, session creation must still succeed."""
+        import aixplain.v2.client as client_module
+
+        monkeypatch.setattr(
+            client_module,
+            "_RETRY_INIT_PARAMS",
+            frozenset({"self", "total", "backoff_factor", "status_forcelist", "allowed_methods"}),
+        )
+
+        session = create_retry_session()
+        retry = session.get_adapter("https://example.com").max_retries
+
+        assert retry.total == DEFAULT_RETRY_TOTAL
+        assert retry.allowed_methods == RETRY_ALLOWED_METHODS
+        # urllib3 2.x still exposes its own defaults; the point is we didn't raise.
+        assert isinstance(session, requests.Session)
+
+
+class TestConnectionPoolSizing:
+    """BUG-942 item 4: urllib3's 10/10 defaults discard connections above 10.
+
+    Above ``pool_maxsize`` in-flight requests the adapter opens a connection,
+    uses it once and throws it away rather than pooling it -- a fresh TLS
+    handshake per request plus a "Connection pool is full" warning each time,
+    peaking exactly when the poll burst does.
+    """
+
+    @pytest.mark.parametrize("url", ["https://example.com", "http://example.com"])
+    def test_pool_is_sized_explicitly(self, url):
+        adapter = create_retry_session().get_adapter(url)
+
+        assert adapter._pool_connections == DEFAULT_POOL_CONNECTIONS
+        assert adapter._pool_maxsize == DEFAULT_POOL_MAXSIZE
+        assert adapter._pool_block is False
+
+    def test_pool_is_larger_than_the_urllib3_default(self):
+        """The regression guard: 10/10 is what the ticket is about."""
+        assert DEFAULT_POOL_CONNECTIONS > 10
+        assert DEFAULT_POOL_MAXSIZE > 10
+
+    def test_underlying_urllib3_pool_honours_the_maxsize(self):
+        """Assert the value reaches urllib3, not just the adapter's attribute."""
+        adapter = create_retry_session().get_adapter("https://example.com")
+        pool = adapter.poolmanager.connection_from_url("https://example.com")
+
+        assert pool.pool.maxsize == DEFAULT_POOL_MAXSIZE
+        assert pool.block is False
+
+    @staticmethod
+    def _cycle_connections(pool, count):
+        """Check out and return *count* connections concurrently.
+
+        This is what 50 SDK threads do to a pool: each takes a connection for
+        the duration of a request and hands it back. Nothing is dialled -- the
+        defect is in the bookkeeping, not on the wire.
+        """
+        import threading
+
+        barrier = threading.Barrier(count)
+        conns = [None] * count
+
+        def hold(index):
+            conns[index] = pool._get_conn()
+            barrier.wait()  # all `count` are out at once
+            pool._put_conn(conns[index])
+
+        threads = [threading.Thread(target=hold, args=(i,)) for i in range(count)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    def test_fifty_concurrent_requests_do_not_warn_about_a_full_pool(self, caplog):
+        """The acceptance criterion: no "Connection pool is full" at 50 threads.
+
+        urllib3 logs that at WARNING -- and discards the connection, forcing a
+        fresh TLS handshake next time -- whenever a returned connection has
+        nowhere to go.
+        """
+        session = create_retry_session()
+        pool = session.get_adapter("https://example.com").poolmanager.connection_from_url("https://example.com")
+
+        with caplog.at_level("WARNING", logger="urllib3.connectionpool"):
+            self._cycle_connections(pool, 50)
+
+        assert not [r for r in caplog.records if "pool is full" in r.getMessage().lower()], caplog.records
+
+    def test_control_the_old_default_does_warn_at_fifty_threads(self, caplog):
+        """Control case, so the assertion above is not vacuous.
+
+        The pre-fix adapter (urllib3's 10/10 default) discards ~40 of the 50.
+        """
+        from urllib3 import HTTPSConnectionPool
+
+        pool = HTTPSConnectionPool("example.com", maxsize=10, block=False)
+
+        with caplog.at_level("WARNING", logger="urllib3.connectionpool"):
+            self._cycle_connections(pool, 50)
+
+        assert [r for r in caplog.records if "pool is full" in r.getMessage().lower()]

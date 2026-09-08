@@ -24,30 +24,6 @@ _DEFAULT_INPUT_TARGET = "input"
 _DEFAULT_OUTPUT_TARGET = "output"
 
 
-@pytest.fixture
-def resource_tracker():
-    """Tracks resources created during a test for guaranteed cleanup."""
-    resources = []
-    yield resources
-    for resource in reversed(resources):
-        try:
-            resource.delete()
-        except Exception:
-            pass
-
-
-@pytest.fixture
-def resource_tracker():
-    """Tracks resources created during a test for guaranteed cleanup."""
-    resources = []
-    yield resources
-    for resource in reversed(resources):
-        try:
-            resource.delete()
-        except Exception:
-            pass
-
-
 @pytest.fixture(scope="module", params=read_data(RUN_FILE))
 def run_input_map(request):
     return request.param

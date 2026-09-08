@@ -49,6 +49,25 @@ A `filterwarnings` entry in your `pytest.ini` or `pyproject.toml` works too.
 
 One ordering caveat: to make the notice visible at all, the SDK inserts a `default` filter for its own category while `aixplain` is being imported — but only when `sys.warnoptions` is empty, i.e. when you passed no `-W` and set no `PYTHONWARNINGS`. A bare `warnings.simplefilter("ignore")` issued *before* `import aixplain` is therefore overridden. Use the environment variable, use `-W`/`PYTHONWARNINGS`, or register your filter after the import — all three win.
 
+## `aixplain.aixplain_v2` is deprecated
+
+The module-level `aixplain_v2` client is deprecated and will be removed in a future release. Construct a client explicitly instead:
+
+```python
+# deprecated
+from aixplain import aixplain_v2
+agent = aixplain_v2.Agent.get("...")
+
+# use instead
+from aixplain import Aixplain
+aix = Aixplain()            # or Aixplain(api_key="...")
+agent = aix.Agent.get("...")
+```
+
+It used to be built at import time with the failure swallowed, so a missing `TEAM_API_KEY` left the symbol bound to `None` and the first use failed with `AttributeError: 'NoneType' object has no attribute 'Agent'` rather than the actual cause. It is now constructed on first access and raises the real error (`API key is required. Pass api_key=... to Aixplain() or set TEAM_API_KEY or AIXPLAIN_API_KEY.`), and the first access emits a `DeprecationWarning`.
+
+`from aixplain import aixplain_v2` still works. It is no longer part of `from aixplain import *`, so a star import no longer needs a credential.
+
 ## Factory map at a glance
 
 | v1 factory | v2 equivalent | Status |
@@ -349,6 +368,137 @@ Beyond the factories, three more legacy prefixes redirect into v1:
 | `from aixplain.enums import Function, Supplier, ...` | `aix.Function`, `aix.Supplier`, … on the `Aixplain` instance, or `from aixplain.v2 import enums` |
 | `from aixplain.modules import Agent, Model, ...` | `aix.Agent`, `aix.Model`, … — v2 resources replace the v1 domain objects |
 | `from aixplain.decorators import ...`, `aixplain.base`, `aixplain.processes` | Internal helpers with no public v2 counterpart |
+
+## Polling behaviour changes
+
+Two polling defaults changed. Both bound a loop that was previously unbounded or
+effectively unbounded; both are opt-out-able through the same parameter you
+already pass.
+
+### `Pipeline.run` / `Pipeline.poll` stop polling after 30 minutes
+
+The default `timeout` on `aixplain.modules.pipeline.Pipeline.run()` (and the
+private polling loop behind it) dropped from **20,000 seconds (5h 33m) to 1,800
+seconds (30 minutes)**.
+
+A pipeline that legitimately runs longer than 30 minutes will now stop being
+polled and be reported as a failure, even though the run itself continues on the
+platform. If you have such a pipeline, raise the budget explicitly:
+
+```python
+pipeline.run(data, timeout=20000.0)   # the previous default
+```
+
+The old default meant a pipeline that never completed pinned a thread for over
+five hours; 30 minutes is the bound for the common case, and the parameter is
+there for the rest.
+
+### `AgentProgressTracker.stream_progress` is bounded and raises on expiry
+
+`stream_progress` used to be a `while True` loop with no `timeout` parameter at
+all. It now takes `timeout` (default **300 seconds**) and raises
+`TimeoutError` when that budget expires with the run still non-terminal.
+
+This matches `sync_poll`, which has always raised `TimeoutError` in the same
+situation — the two polling surfaces previously disagreed about whether an
+expired budget was a result or an error.
+
+```python
+# previous behaviour: poll forever
+tracker.stream_progress(url, timeout=None)
+
+# a longer budget
+tracker.stream_progress(url, timeout=1800)
+
+# or handle the expiry
+try:
+    response = tracker.stream_progress(url)
+except TimeoutError:
+    ...
+```
+
+A terminal status (`SUCCESS`, `FAILED`, `ABORTED`, `CANCELLED`, `ERROR`) and the
+`max_polls` cap still *return* the response as before; only the wall-clock
+deadline raises.
+## v2 behavior notes
+
+### `search()` never reports more records than it returns
+
+`search()` (and the `list()` wrappers built on it) used to log and drop any
+record the SDK could not deserialize while `Page.total` still counted it, so
+`len(page.results) < page.total` was a normal state and bulk loops skipped rows
+with no error.
+
+Records the SDK cannot model — a new backend enum value, say — are still
+skipped rather than failing the whole listing, but the count no longer lies:
+
+```python
+page = aix.Model.search()
+
+page.total    # never counts the records that were skipped
+page.skipped  # how many were skipped on this page
+```
+
+Every skip is logged at `WARNING` with the reason. If you want the
+`get()`-like contract instead, where any unparseable record raises
+`ResourceError`, opt in per call with `aix.Model.search(strict=True)`, or set
+`PAGINATE_STRICT = True` on a resource class whose records must all parse; a
+per-call `strict=` always wins. `strict` is a client-side option and is never
+sent to the backend.
+
+A response that carries no readable item list at all — a renamed envelope, or
+an error body served with HTTP 200 — always raises `ResourceError`, because
+returning it as an empty page would be indistinguishable from a search that
+genuinely matched nothing. A present-but-empty (or `null`) item list is still a
+normal empty page.
+
+### `save()` on a deleted resource always raises `ResourceError`
+
+The guard that stops a deleted resource from being re-created raised
+`ValidationError` from `Agent.save()` and `File.save()` but `ResourceError`
+from every other resource's `save()`. Both derive from `AixplainV2Error`, so
+`except ResourceError` around a save caught only some of the paths. All of them
+now raise `ResourceError`.
+
+### A streamed run only reports `SUCCESS` when it finished
+
+`ModelResponseStreamer.status` used to become `SUCCESS` as soon as the
+connection ended, so an error event mid-generation, or a stream cut before its
+`[DONE]` marker, handed you a truncated answer that claimed to be complete. It
+now stays `FAILED` unless the stream terminated cleanly (a `[DONE]` marker, a
+terminal `finish_reason`, or a terminal `status` envelope), and an error event
+yields one final chunk carrying the reason:
+
+```python
+with model.run_stream(text="Explain LLMs") as stream:
+    for chunk in stream:
+        print(chunk.data, end="", flush=True)
+
+if stream.status != aix.ResponseStatus.SUCCESS:
+    ...  # the text above is partial
+```
+
+Iteration itself does not raise, so existing `for chunk in stream` loops keep
+working — but check `stream.status` (or `chunk.error_message`) before treating
+the concatenated text as a full answer.
+
+### `run(stream=True)` works even when the model record omits the flag
+
+A backend record that does not report `supportsStreaming` leaves
+`model.supports_streaming` at `None`, and such a model still takes the
+streaming path. If it answers with a complete JSON body rather than an SSE
+stream, the streamer detects that and yields the response as a single
+`SUCCESS` chunk, instead of feeding the JSON text to the SSE parser and ending
+at `FAILED`. Only an explicit `supports_streaming is False` refuses to stream.
+
+### A polled falsy result keeps its value and type
+
+`poll()` coerced any falsy `data` to `{}`, so a classifier that legitimately
+answers `0`, or a model whose correct answer is `""`, came back as `{}` — and
+`result.data.strip()` raised `AttributeError`. Falsy-but-present payloads
+(`""`, `0`, `False`, `[]`) now pass through unchanged, matching what the same
+model returns on the synchronous path. A genuinely absent (or `null`) `data`
+still arrives as `{}`.
 
 ## Getting help
 

@@ -139,6 +139,8 @@ def test_skill_file_upload_composes_resource_path(monkeypatch, tmp_path):
     """The internal file-tree upload must target ``sdk/skill/<id>/file``."""
     context, skill = _bind_instance(monkeypatch, Skill, {"id": RESOURCE_ID, "name": "fixture"})
     monkeypatch.setattr(Skill, "_upload", lambda self, path: "https://uploaded/SKILL.md")
+    # No existing nodes, so the upload must POST-create rather than PUT-update.
+    monkeypatch.setattr(Skill, "_tree_index", lambda self: {})
     skill_md = tmp_path / "SKILL.md"
     skill_md.write_text("# fixture")
 
@@ -153,6 +155,8 @@ def test_skill_folder_upload_composes_resource_path(monkeypatch, tmp_path):
     """Folder nodes are created under ``sdk/skill/<id>/folder``."""
     context, skill = _bind_instance(monkeypatch, Skill, {"id": RESOURCE_ID, "name": "fixture"})
     monkeypatch.setattr(Skill, "_upload", lambda self, path: "https://uploaded/file")
+    # No existing nodes, so every path below must POST-create rather than PUT-update.
+    monkeypatch.setattr(Skill, "_tree_index", lambda self: {})
     context.client.request.return_value = {"id": "folder-1"}
     (tmp_path / "SKILL.md").write_text("# fixture")
     nested = tmp_path / "references"

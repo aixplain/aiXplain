@@ -12,7 +12,7 @@ plain strings for ``action`` / ``targets`` / ``severity`` and an ``aix.Metric``
 import inspect
 import logging
 import textwrap
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 
 from .enums import Function
@@ -509,21 +509,29 @@ class Inspector(
         return filters
 
     @classmethod
-    def _build_resources(cls, items: List[dict], context: Any) -> List["Inspector"]:
-        """Adapt each guard-model item into a configured Inspector."""
+    def _deserialize_items(cls, items: List[dict], context: Any) -> Tuple[List["Inspector"], List[str]]:
+        """Adapt each guard-model item into a configured Inspector.
+
+        Records that cannot be adapted are reported as errors rather than
+        silently dropped, so ``search()`` can raise (strict, the default) or
+        correct ``Page.total`` instead of over-reporting.
+        """
         resources: List["Inspector"] = []
-        for item in items:
+        errors: List[str] = []
+        for index, item in enumerate(items):
             if not isinstance(item, dict):
+                errors.append(f"item[{index}]: expected a guard object, got {type(item).__name__}")
                 continue
             try:
                 inspector = cls.from_guard_model(item)
             except Exception as e:  # pragma: no cover - defensive
                 logger.warning("Skipping guard during Inspector deserialization: %s", e)
+                errors.append(f"item[{index}]: {e}")
                 continue
             setattr(inspector, "context", context)
             inspector._update_saved_state()
             resources.append(inspector)
-        return resources
+        return resources, errors
 
 
 __all__ = [

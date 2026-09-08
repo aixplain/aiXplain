@@ -21,6 +21,7 @@ from aixplain.enums import (
 )
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
+from aixplain.utils.url_safety import safe_get
 from datetime import datetime
 from typing import Dict, Union, List, Optional, Tuple
 from urllib.parse import urljoin
@@ -119,7 +120,7 @@ def create_model_from_response(response: Dict) -> Model:
                 version_link = response["version"]["id"]
                 if version_link:
                     try:
-                        version_content = requests.get(version_link).text
+                        version_content = safe_get(version_link).text
                         code = version_content
                     except Exception:
                         code = ""

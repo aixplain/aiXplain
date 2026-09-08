@@ -12,11 +12,16 @@ Both modes use carriage return (\r) for in-place line updates.
 """
 
 import json
+import logging
 import sys
 import time
 import threading
 from enum import Enum
 from typing import Any, Dict, List, Optional, Callable
+
+from ._backoff import next_wait, sleep_with_jitter
+
+logger = logging.getLogger(__name__)
 
 
 # Internal flag to use legacy time format (MM:SS.cc always)
@@ -74,7 +79,8 @@ class AgentProgressTracker:
 
     Attributes:
         poll_func: Callable that polls for agent status
-        poll_interval: Time between polls in seconds
+        poll_interval: Starting time between polls in seconds (backed off by
+            ``stream_progress``)
         max_polls: Maximum number of polls (None for unlimited)
         format: Display format (status, logs, none)
         verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
@@ -84,17 +90,30 @@ class AgentProgressTracker:
     SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
     DISPLAY_REFRESH_RATE = 0.05  # 50ms = 20 FPS
 
+    # Starting interval for ``stream_progress``. It used to be 0.05s, i.e. 20
+    # requests/second per job with no ceiling -- 12,000 requests for a single
+    # 10-minute run (BUG-942). 0.5s matches ``sync_poll``'s default and is
+    # backed off from there. Note this is unrelated to DISPLAY_REFRESH_RATE,
+    # which drives the local spinner and issues no requests.
+    DEFAULT_POLL_INTERVAL = 0.5
+
+    # Wall-clock budget for a ``stream_progress`` call, matching ``sync_poll``.
+    DEFAULT_STREAM_TIMEOUT = 300.0
+
     def __init__(
         self,
         poll_func: Callable[[str], Any],
-        poll_interval: float = 0.05,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
         max_polls: Optional[int] = None,
     ):
         """Initialize the progress tracker.
 
         Args:
             poll_func: Function that takes a URL and returns poll response
-            poll_interval: Time in seconds between polls (default: 0.05)
+            poll_interval: Starting time in seconds between polls in
+                :meth:`stream_progress`, which backs it off from there
+                (default: 0.5). Unused by the start/update/finish flow, where
+                the caller's own poll loop owns the interval.
             max_polls: Maximum number of polls before stopping (default: None)
         """
         self.poll = poll_func
@@ -644,6 +663,14 @@ class AgentProgressTracker:
                 f"API {self._total_api_calls} · "
                 f"${self._total_credits:.6f}{token_suffix}"
             )
+        elif status == "TIMEOUT":
+            print(
+                f"{prefix}⏸ Stopped: progress stream timed out · "
+                f"{total_steps} steps · "
+                f"⏱ {self._format_elapsed(total_elapsed)} · "
+                f"API {self._total_api_calls} · "
+                f"${self._total_credits:.6f}{token_suffix}"
+            )
         else:
             print(
                 f"{prefix}⏸ Stopped: reached max polling limit ({self.max_polls}) · "
@@ -867,6 +894,7 @@ class AgentProgressTracker:
         format: ProgressFormat = ProgressFormat.STATUS,
         verbosity: int = 1,
         truncate: bool = True,
+        timeout: Optional[float] = DEFAULT_STREAM_TIMEOUT,
     ) -> Any:
         """Stream agent progress until completion (standalone polling mode).
 
@@ -874,14 +902,28 @@ class AgentProgressTracker:
         progress streaming. For integration with existing polling (via on_poll hook),
         use the start/update/finish methods instead.
 
+        The poll interval starts at ``self.poll_interval`` and is backed off by
+        10% per poll (capped at 60s) with jitter, so a fleet of clients started
+        together does not stay phase-locked (BUG-942).
+
         Args:
             url: Polling URL to check for updates
             format: Display format (status, logs, none)
             verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
             truncate: Whether to truncate long text
+            timeout: Wall-clock budget in seconds (default: 300). On expiry
+                ``TimeoutError`` is raised, matching ``sync_poll``: a run that
+                is still IN_PROGRESS is not a result, and returning one made the
+                two polling surfaces disagree about what a timeout means. Pass
+                ``None`` for the previous unbounded behaviour.
 
         Returns:
-            Final response from the agent
+            Final response from the agent, or the last polled response if
+            ``max_polls`` was reached first.
+
+        Raises:
+            TimeoutError: If *timeout* elapses before the run reaches a terminal
+                status.
         """
         terminal_success = "SUCCESS"
         terminal_failures = {"FAILED", "ABORTED", "CANCELLED", "ERROR"}
@@ -891,9 +933,17 @@ class AgentProgressTracker:
         # Override _total_start_time to None - will be set on first steps
         self._total_start_time = None
 
+        deadline = None if timeout is None else self._now() + timeout
+        interval = max(self.poll_interval, self.DISPLAY_REFRESH_RATE)
+
         try:
             while True:
                 resp = self.poll(url)
+                # Unconditional, matching ``update()``: a valid non-terminal
+                # response carrying no ``steps`` array must still count, or
+                # ``max_polls`` is unreachable and the loop never ends (BUG-942).
+                self._poll_count += 1
+
                 status = getattr(resp, "status", None)
                 status_up = (str(status) if status else "").upper()
 
@@ -904,7 +954,6 @@ class AgentProgressTracker:
 
                 # Update metrics and display using shared logic
                 if steps:
-                    self._poll_count += 1
                     self._update_metrics(steps)
 
                     # Update shared display data for background thread (terminal mode)
@@ -933,7 +982,21 @@ class AgentProgressTracker:
                         self._print_completion_message("MAX_POLLS", steps)
                     return resp
 
-                time.sleep(self.poll_interval)
+                remaining = None if deadline is None else deadline - self._now()
+                if remaining is not None and remaining <= 0:
+                    logger.warning(
+                        "stream_progress timed out after %ss with status %s",
+                        timeout,
+                        status_up or "UNKNOWN",
+                    )
+                    if self._format != ProgressFormat.NONE:
+                        self._print_completion_message("TIMEOUT", steps)
+                    raise TimeoutError(
+                        f"Operation timed out after {timeout} seconds (last status: {status_up or 'UNKNOWN'})"
+                    )
+
+                sleep_with_jitter(interval, max_sleep=remaining)
+                interval = next_wait(interval)
 
         finally:
             self._stop_display.set()
