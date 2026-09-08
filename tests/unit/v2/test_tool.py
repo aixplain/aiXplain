@@ -5,7 +5,10 @@ from unittest.mock import Mock, patch, MagicMock
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
+import requests
+
 from aixplain.v2.actions import Action, Actions, Inputs
+from aixplain.v2.exceptions import APIError
 from aixplain.v2.integration import ActionInputSpec, ActionSpec
 from aixplain.v2.tool import Tool, ToolResult
 from aixplain.v2.integration import Integration
@@ -809,3 +812,68 @@ class TestValidateParamsReportsFailures:
         errors = tool._validate_params(action="search", data={})
 
         assert errors == ["Required input 'query' is missing"]
+
+
+class TestValidateParamsToleratesTransportFailures:
+    """A backend blip in the lazy input loader must not block the run.
+
+    ``Action.inputs`` fetches ``LIST_INPUTS`` over the network, so treating every
+    exception as a validation error turned a transient 5xx into a client-side
+    failure for a ``tool.run()`` that previously worked. The BUG-946 contract --
+    an unknown action still reports errors -- is unchanged.
+    """
+
+    @staticmethod
+    def _tool_whose_loader_raises(exc):
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]})
+        tool.validate_allowed_actions = Mock()
+
+        def _factory(action_name, description=None):
+            def _load_inputs():
+                raise exc
+
+            return Action(name=action_name, _inputs_loader=_load_inputs)
+
+        tool.__dict__["actions"] = Actions(actions={}, _action_factory=_factory)
+        return tool
+
+    def test_a_backend_5xx_does_not_block_the_run(self, caplog):
+        tool = self._tool_whose_loader_raises(APIError("Bad Gateway", status_code=502))
+
+        with caplog.at_level("WARNING", logger="aixplain.v2.tool"):
+            errors = tool._validate_params(action="search", data={"query": "hi"})
+
+        assert errors == []
+        assert any("Skipping input validation" in record.message for record in caplog.records)
+
+    def test_a_dropped_connection_does_not_block_the_run(self):
+        tool = self._tool_whose_loader_raises(requests.ConnectionError("connection reset"))
+
+        assert tool._validate_params(action="search", data={"query": "hi"}) == []
+
+    def test_a_transport_level_apierror_does_not_block_the_run(self):
+        """``status_code=0`` is the SDK sentinel for "no HTTP response at all"."""
+        tool = self._tool_whose_loader_raises(APIError("Polling failed: ReadTimeout", status_code=0))
+
+        assert tool._validate_params(action="search", data={"query": "hi"}) == []
+
+    def test_a_backend_4xx_still_blocks_the_run(self):
+        """A 4xx is the backend rejecting *this* action or payload, not a blip."""
+        tool = self._tool_whose_loader_raises(APIError("Unknown action", status_code=400))
+
+        errors = tool._validate_params(action="search", data={"query": "hi"})
+
+        assert len(errors) == 1
+        assert "Could not validate inputs for 'search'" in errors[0]
+
+    def test_an_unknown_action_still_returns_errors(self):
+        """The BUG-946 acceptance criterion, restated against the new branch."""
+        tool = self._tool_whose_loader_raises(
+            ValueError("Action 'GHOST' not found or has no input parameters defined.")
+        )
+
+        errors = tool._validate_params(action="GHOST", data={})
+
+        assert len(errors) == 1
+        assert "Could not validate inputs for 'GHOST'" in errors[0]

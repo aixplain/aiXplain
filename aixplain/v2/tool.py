@@ -1,6 +1,7 @@
 """Tool resource module for managing tools and their integrations."""
 
 import ast
+import logging
 import re
 import warnings
 from typing import Union, List, Optional, Any
@@ -9,15 +10,41 @@ from dataclasses_json import dataclass_json, config as dj_config
 from dataclasses import dataclass, field
 from functools import cached_property
 
+import requests
+
 from .resource import (
     Result,
     DeleteResourceMixin,
     BaseDeleteParams,
     DeleteResult,
 )
+from .exceptions import APIError
 from .model import Model, ModelRunParams
 from .integration import Integration, ActionSpec, ActionMixin
 from .actions import Actions
+
+logger = logging.getLogger(__name__)
+
+
+def _is_transport_failure(exc: BaseException) -> bool:
+    """True when *exc* is the network or the backend failing, not the payload.
+
+    ``Action.inputs`` loads lazily over the network (``LIST_INPUTS``), so the
+    validation branch below can fail for two very different reasons. An unknown
+    action name or a malformed payload is a caller error and must still be
+    reported (BUG-946); a dropped connection or a backend 5xx says nothing about
+    the call and must not turn a previously working ``tool.run()`` into a
+    client-side validation failure.
+
+    A 4xx keeps blocking: that is the backend rejecting *this* action or payload.
+    ``status_code == 0`` is the SDK's sentinel for "no HTTP response at all".
+    """
+    if isinstance(exc, requests.RequestException):
+        return True
+    if isinstance(exc, APIError):
+        status = getattr(exc, "status_code", 0) or 0
+        return status == 0 or status == 429 or status >= 500
+    return False
 
 
 @dataclass_json
@@ -495,7 +522,15 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             # fabricates an ActionView rather than raising on __getitem__ -- and the
             # empty list this used to return was indistinguishable from
             # "validated clean", so the run proceeded to the backend unchecked.
-            errors.append(f"Could not validate inputs for '{action}': {e}")
+            #
+            # A transport failure is the exception: the loader is a network call,
+            # so a backend blip would otherwise block a run whose payload was
+            # never in question. Validation is skipped and the backend, which is
+            # authoritative anyway, has the last word.
+            if _is_transport_failure(e):
+                logger.warning(f"Skipping input validation for '{action}'; the action lookup failed: {e}")
+            else:
+                errors.append(f"Could not validate inputs for '{action}': {e}")
 
         return errors
 
