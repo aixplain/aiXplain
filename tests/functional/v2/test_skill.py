@@ -40,15 +40,17 @@ def skill_dir(tmp_path):
 
 
 @pytest.fixture
-def saved_skill(client, skill_dir):
-    """Create and persist a skill for a test, deleting it afterward."""
+def saved_skill(client, skill_dir, resource_tracker):
+    """Create and persist a skill for a test, deleting it afterward.
+
+    Cleanup goes through ``resource_tracker`` so a skill that cannot be deleted
+    fails the test instead of silently orphaning an asset in the tenant
+    (BUG-947).
+    """
     skill = client.Skill(file_path=skill_dir)
     skill.save()
-    yield skill
-    try:
-        skill.delete()
-    except Exception:
-        pass
+    resource_tracker.append(skill)
+    return skill
 
 
 class TestSkillListFiles:
@@ -91,7 +93,7 @@ class TestSkillUpdate:
 class TestAgentReflectsSkillUpdate:
     """The core reported bug: an agent must use updated skill content immediately."""
 
-    def test_agent_run_reflects_updated_skill_content(self, client, saved_skill):
+    def test_agent_run_reflects_updated_skill_content(self, client, saved_skill, resource_tracker):
         agent = client.Agent(
             name=f"Skill Update Test Agent {int(time.time())}",
             instructions=(
@@ -101,22 +103,17 @@ class TestAgentReflectsSkillUpdate:
             skills=[saved_skill],
         )
         agent.save(save_subcomponents=True)
+        resource_tracker.append(agent)
 
-        try:
-            before = agent.run(query="What is the current signal?")
-            assert "SIGNAL-ALPHA" in before.data.output
+        before = agent.run(query="What is the current signal?")
+        assert "SIGNAL-ALPHA" in before.data.output
 
-            new_md = os.path.join(tempfile.mkdtemp(prefix="skill-update-test-"), "SKILL.md")
-            _write_skill_md(new_md, saved_skill.name, "SIGNAL-BETA")
-            saved_skill.update(new_md)
+        new_md = os.path.join(tempfile.mkdtemp(prefix="skill-update-test-"), "SKILL.md")
+        _write_skill_md(new_md, saved_skill.name, "SIGNAL-BETA")
+        saved_skill.update(new_md)
 
-            # Re-fetch the agent from the backend entirely - rules out any
-            # client-side caching, matching the ticket's "even on a new session".
-            fresh_agent = client.Agent.get(agent.id)
-            after = fresh_agent.run(query="What is the current signal?")
-            assert "SIGNAL-BETA" in after.data.output
-        finally:
-            try:
-                agent.delete()
-            except Exception:
-                pass
+        # Re-fetch the agent from the backend entirely - rules out any
+        # client-side caching, matching the ticket's "even on a new session".
+        fresh_agent = client.Agent.get(agent.id)
+        after = fresh_agent.run(query="What is the current signal?")
+        assert "SIGNAL-BETA" in after.data.output

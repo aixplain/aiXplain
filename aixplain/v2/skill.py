@@ -24,6 +24,7 @@ attached to agents the same way tools are::
 """
 
 import os
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from typing_extensions import NotRequired, Unpack
@@ -135,8 +136,44 @@ class Skill(
         """Load skill metadata from the local path when authoring a new skill."""
         self._local_path = None
         self._local_is_file = False
+        # What the last parse of SKILL.md produced, so a re-parse can tell its own
+        # earlier output from a value the developer set explicitly.
+        self._parsed_name: Optional[str] = None
+        self._parsed_description: Optional[str] = None
         if self.file_path:
-            self._load_from_path(self.file_path)
+            self._stage_from_path()
+
+    def _stage_from_path(self) -> None:
+        """Parse ``file_path`` and stage it for upload, tolerating a vanished path.
+
+        A skill that already exists on the backend has to stay editable through a
+        metadata-only save (``skill.save(description=...)``) after its authoring
+        folder is gone — a temp dir that has been cleaned up, or an object that
+        moved machines. There the uploaded bundle is left as it is and only the
+        asset's metadata is written. While the skill has no id there is nothing to
+        fall back on, so a missing path is still an error.
+        """
+        path = os.path.abspath(self.file_path)
+        if self.id and not os.path.exists(path):
+            warnings.warn(
+                f"Skill path not found; saving metadata only and leaving the uploaded bundle unchanged: {path}",
+                stacklevel=3,
+            )
+            self._local_path = None
+            return
+        self._load_from_path(self.file_path)
+
+    @staticmethod
+    def _reparsed(current: Optional[str], last_parsed: Optional[str], parsed: str) -> str:
+        """Choose between a developer-set value and what SKILL.md now says.
+
+        ``current`` wins only when the developer set it themselves; when it is
+        merely what the previous parse of this same file produced, the file's new
+        value wins.
+        """
+        if current and current != last_parsed:
+            return current
+        return parsed
 
     def _load_from_path(self, path: str) -> None:
         """Parse the skill markdown and stage the source for upload on save.
@@ -159,11 +196,20 @@ class Skill(
             raise ValueError(f"Skill path not found: {path}")
         with open(skill_md, "r", encoding="utf-8") as handle:
             name, description, requires, body = _parse_skill_md(handle.read())
-        # Precedence: explicit name= > SKILL.md frontmatter > folder/file name.
-        self.name = self.name or name or fallback_name
+        # Precedence: an explicit developer value > SKILL.md frontmatter > folder/file
+        # name. A value left over from an earlier parse of this same file does not
+        # count as explicit: re-parsing has to pick up edited frontmatter, since the
+        # description is the routing signal an agent sees and what as_tool() embeds.
+        parsed_name = name or fallback_name
+        parsed_description = description or ""
+        self.name = self._reparsed(self.name, getattr(self, "_parsed_name", None), parsed_name)
         if not self.name:
             raise ValueError("Could not determine a skill name (pass name= or set it in SKILL.md).")
-        self.description = self.description or description or ""
+        self.description = self._reparsed(
+            self.description, getattr(self, "_parsed_description", None), parsed_description
+        )
+        self._parsed_name = parsed_name
+        self._parsed_description = parsed_description
         self.required_tools = requires
         self.instructions = body
         self._local_path = path
@@ -207,15 +253,28 @@ class Skill(
 
         Re-parses ``file_path`` from disk on every call, so re-saving an already
         saved ``Skill`` after editing its ``SKILL.md`` (or reassigning
-        ``file_path`` to updated content) re-uploads the bundle instead of
-        silently skipping it.
+        ``file_path`` to updated content) re-uploads the bundle — and picks up an
+        edited frontmatter ``name``/``description`` — instead of silently
+        skipping it. The uploaded tree is added to and updated in place: a file
+        deleted or renamed locally is *not* removed from the bundle.
 
         Args:
             *args: Positional arguments passed to the base save method.
             **kwargs: Attributes to set before saving (passed to base save).
+
+        Raises:
+            ResourceError: If the skill has been deleted — the same type every
+                other deleted-save guard raises (BUG-1093), which is why the
+                guard runs before this method touches the disk.
         """
+        if self.id or self.is_deleted:
+            self._ensure_saveable()
+        # A reassigned path arrives as a save() kwarg too, and the base save applies
+        # kwargs only after this method has run — stage the new path, not the old one.
+        if "file_path" in kwargs:
+            self.file_path = kwargs["file_path"]
         if self.file_path:
-            self._load_from_path(self.file_path)
+            self._stage_from_path()
         super().save(*args, **kwargs)
         if getattr(self, "_local_path", None):
             if self._local_is_file:
@@ -347,8 +406,9 @@ class Skill(
         Folder structure is preserved: each subdirectory becomes a folder node and
         each file is uploaded and registered under its parent. A node already
         present in the backend tree (matched by relative path) is reused (folders)
-        or updated in place (files) rather than re-created. Node management is
-        entirely internal — it is not part of the developer-facing surface.
+        or updated in place (files) rather than re-created; a node that no longer
+        exists locally is left alone, so the tree only ever grows. Node management
+        is entirely internal — it is not part of the developer-facing surface.
         """
         self._ensure_valid_state()
         existing = self._tree_index()
@@ -364,11 +424,12 @@ class Skill(
     def update(self, path: str, name: Optional[str] = None) -> "Skill":
         """Update (or add) a single file or folder within this skill's bundle.
 
-        Unlike :meth:`save` (which re-authors the *whole* bundle from
-        ``file_path``), ``update`` pushes just one changed file or subfolder —
-        useful when you only have the new content on hand, not the original
-        authoring folder. A node already at ``name`` is updated in place; a
-        new one is created (intermediate folders are created as needed).
+        Unlike :meth:`save` (which re-uploads every file under ``file_path``),
+        ``update`` pushes just one changed file or subfolder — useful when you
+        only have the new content on hand, not the original authoring folder. A
+        node already at ``name`` is updated in place; a new one is created
+        (intermediate folders are created as needed). Pushing a ``SKILL.md``
+        also writes its frontmatter ``description`` to the asset.
 
         Args:
             path: Local file or folder to upload from.
@@ -411,6 +472,13 @@ class Skill(
             self.description = description or self.description
             self.required_tools = requires
             self.instructions = body
+            # The frontmatter description is the routing signal an agent sees and
+            # what as_tool() embeds, so it has to reach the asset as well: pushing
+            # the file node alone would leave the backend advertising the old one
+            # while this object silently disagreed with it.
+            self._parsed_description = self.description
+            self._update(self.RESOURCE_PATH, self.build_save_payload())
+            self._update_saved_state()
 
         return self
 
