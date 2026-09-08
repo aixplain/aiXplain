@@ -369,6 +369,58 @@ Beyond the factories, three more legacy prefixes redirect into v1:
 | `from aixplain.modules import Agent, Model, ...` | `aix.Agent`, `aix.Model`, … — v2 resources replace the v1 domain objects |
 | `from aixplain.decorators import ...`, `aixplain.base`, `aixplain.processes` | Internal helpers with no public v2 counterpart |
 
+## Polling behaviour changes
+
+Two polling defaults changed. Both bound a loop that was previously unbounded or
+effectively unbounded; both are opt-out-able through the same parameter you
+already pass.
+
+### `Pipeline.run` / `Pipeline.poll` stop polling after 30 minutes
+
+The default `timeout` on `aixplain.modules.pipeline.Pipeline.run()` (and the
+private polling loop behind it) dropped from **20,000 seconds (5h 33m) to 1,800
+seconds (30 minutes)**.
+
+A pipeline that legitimately runs longer than 30 minutes will now stop being
+polled and be reported as a failure, even though the run itself continues on the
+platform. If you have such a pipeline, raise the budget explicitly:
+
+```python
+pipeline.run(data, timeout=20000.0)   # the previous default
+```
+
+The old default meant a pipeline that never completed pinned a thread for over
+five hours; 30 minutes is the bound for the common case, and the parameter is
+there for the rest.
+
+### `AgentProgressTracker.stream_progress` is bounded and raises on expiry
+
+`stream_progress` used to be a `while True` loop with no `timeout` parameter at
+all. It now takes `timeout` (default **300 seconds**) and raises
+`TimeoutError` when that budget expires with the run still non-terminal.
+
+This matches `sync_poll`, which has always raised `TimeoutError` in the same
+situation — the two polling surfaces previously disagreed about whether an
+expired budget was a result or an error.
+
+```python
+# previous behaviour: poll forever
+tracker.stream_progress(url, timeout=None)
+
+# a longer budget
+tracker.stream_progress(url, timeout=1800)
+
+# or handle the expiry
+try:
+    response = tracker.stream_progress(url)
+except TimeoutError:
+    ...
+```
+
+A terminal status (`SUCCESS`, `FAILED`, `ABORTED`, `CANCELLED`, `ERROR`) and the
+`max_polls` cap still *return* the response as before; only the wall-clock
+deadline raises.
+
 ## Getting help
 
 - Open an issue at <https://github.com/aixplain/aiXplain/issues> — especially if a gap above blocks you; that feedback shapes the removal timeline.
