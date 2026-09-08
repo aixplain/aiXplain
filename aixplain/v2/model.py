@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Mapping
+from itertools import chain
 from typing import Dict, Union, List, Optional, Any, TYPE_CHECKING, Iterator
 from urllib.parse import urlparse
 from typing_extensions import NotRequired, Unpack
@@ -251,12 +253,59 @@ def _extract_stream_error(data: Any) -> Optional[str]:
     return None
 
 
+#: Line prefixes defined by the SSE wire format (WHATWG HTML §9.2). A body whose
+#: first non-empty line starts with one of these is a stream even when the
+#: server forgot the ``text/event-stream`` content type.
+_SSE_LINE_PREFIXES = ("data:", "event:", "id:", "retry:", ":")
+
+
+def _content_from_document(data: Any) -> str:
+    """Return the text payload of a complete (non-streamed) run response.
+
+    Args:
+        data: The decoded JSON document returned by the run endpoint.
+
+    Returns:
+        str: The model's text output. A structured payload that has no text
+        field is serialized rather than dropped, so the caller still gets the
+        data it asked for.
+    """
+    if isinstance(data, str):
+        return data
+
+    if isinstance(data, dict):
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+            message = choices[0].get("message")
+            if not isinstance(message, dict):
+                message = choices[0].get("delta")
+            if isinstance(message, dict):
+                content = message.get("content")
+                if isinstance(content, str):
+                    return content
+
+        content = data.get("data")
+        if isinstance(content, str):
+            return content
+        if content is not None:
+            return json.dumps(content)
+
+    return json.dumps(data)
+
+
 class ModelResponseStreamer(Iterator[StreamChunk]):
     """A streamer for model responses that yields chunks as they arrive.
 
     This class provides an iterator interface for streaming model responses.
     It handles the conversion of Server-Sent Events (SSE) into StreamChunk objects
     and manages the response status.
+
+    A backend that answers a streaming request with a plain JSON document
+    instead of an SSE body (a model whose record omits ``supportsStreaming``
+    may simply not stream) is detected on the first ``next()`` and yielded as a
+    single complete ``StreamChunk`` with ``status=SUCCESS``, rather than being
+    fed line by line to the SSE parser — which used to surface the raw JSON
+    text as ``chunk.data`` and end at ``status=FAILED``.
 
     ``status`` only becomes ``SUCCESS`` once the stream terminates cleanly — a
     ``[DONE]`` marker, a terminal ``finish_reason`` or a terminal ``status``
@@ -295,10 +344,75 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
         self._done = False
         self._buffered_line: Optional[str] = None
         self._saw_terminal_event = False
+        self._sniffed = False
 
     def __iter__(self) -> Iterator[StreamChunk]:
         """Return the iterator for the ModelResponseStreamer."""
         return self
+
+    def _non_streaming_chunk(self) -> Optional[StreamChunk]:
+        """Return the whole body as one chunk when it is not an SSE stream.
+
+        The decision is made on the actual response rather than on the model's
+        ``supports_streaming`` flag, which the backend record may omit: a
+        ``text/event-stream`` content type, or a first line in SSE field form,
+        keeps the streaming parser; anything that parses as a single JSON
+        document is returned complete. A body that is neither is replayed
+        unchanged to the SSE parser, so nothing is consumed on its behalf.
+
+        Returns:
+            Optional[StreamChunk]: The complete response as a single chunk, or
+            None when the body should be parsed as SSE.
+        """
+        headers = getattr(self._response, "headers", None)
+        content_type = ""
+        if isinstance(headers, Mapping):
+            content_type = str(headers.get("Content-Type") or "").lower()
+        if "event-stream" in content_type:
+            return None
+
+        collected: List[str] = []
+        for line in self._iterator:
+            collected.append(line)
+            if not line or not line.strip():
+                continue
+            if "json" not in content_type and line.lstrip().startswith(_SSE_LINE_PREFIXES):
+                self._iterator = chain(iter(collected), self._iterator)
+                return None
+            break
+
+        collected.extend(self._iterator)
+        try:
+            data = json.loads("\n".join(collected))
+        except (json.JSONDecodeError, ValueError):
+            self._iterator = iter(collected)
+            return None
+
+        self._done = True
+        error_message = _extract_stream_error(data)
+        if error_message is not None:
+            self.status = ResponseStatus.FAILED
+            logger.warning("Model run reported an error on the streaming path: %s", error_message)
+            return StreamChunk(status=ResponseStatus.FAILED, data="", error_message=error_message)
+
+        logger.warning(
+            "Model responded to a streaming request with a complete %s body; yielding it as a single chunk.",
+            content_type or "non-SSE",
+        )
+        self.status = ResponseStatus.SUCCESS
+        usage = data.get("usage") if isinstance(data, dict) else None
+        finish_reason = None
+        if isinstance(data, dict):
+            choices = data.get("choices")
+            if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+                raw_finish_reason = choices[0].get("finish_reason")
+                finish_reason = raw_finish_reason if isinstance(raw_finish_reason, str) else None
+        return StreamChunk(
+            status=ResponseStatus.SUCCESS,
+            data=_content_from_document(data),
+            usage=usage if isinstance(usage, dict) else None,
+            finish_reason=finish_reason,
+        )
 
     def __next__(self) -> StreamChunk:
         """Return the next chunk of the response.
@@ -311,6 +425,12 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
         """
         if self._done:
             raise StopIteration
+
+        if not self._sniffed:
+            self._sniffed = True
+            complete_chunk = self._non_streaming_chunk()
+            if complete_chunk is not None:
+                return complete_chunk
 
         while True:
             try:
@@ -834,7 +954,10 @@ class Model(
         Returns:
             ModelResult, or a :class:`ModelResponseStreamer` when ``stream=True``
             — the flag selects the streaming path rather than being silently
-            dropped (BUG-1091).
+            dropped (BUG-1091). A model whose backend record omits
+            ``supportsStreaming`` still takes the streaming path; if it answers
+            with a complete JSON body instead of an SSE stream, the streamer
+            yields that body as a single successful chunk.
         """
         # ``stream`` selects the path, so it is consumed here rather than
         # forwarded: run_stream sets ``options.stream`` on the wire itself and
@@ -999,7 +1122,10 @@ class Model(
 
         Returns:
             ModelResponseStreamer: A streamer that yields StreamChunk objects. Can be
-                iterated directly or used as a context manager.
+                iterated directly or used as a context manager. When the model
+                answers with a complete JSON body rather than an SSE stream —
+                which a model whose record omits ``supportsStreaming`` may well
+                do — the streamer yields that response as a single chunk.
 
         Raises:
             ValidationError: If the model explicitly does not support streaming

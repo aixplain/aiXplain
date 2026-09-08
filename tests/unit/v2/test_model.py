@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from aixplain.v2.enums import Function, ResponseStatus
-from aixplain.v2.exceptions import APIError, create_operation_failed_error
+from aixplain.v2.exceptions import APIError, ValidationError, create_operation_failed_error
 from aixplain.v2.model import (
     Message,
     Model,
@@ -1780,3 +1780,139 @@ class TestModelStreamerFailureReporting:
         assert chunk.data == "Ship aiX"
         list(streamer)
         assert streamer.status == ResponseStatus.SUCCESS
+
+
+class TestStreamingWithUnknownStreamingSupport:
+    """``supports_streaming`` is ``None`` for any record that omits the flag.
+
+    ``run(stream=True)`` must still stream such a model (BUG-1091), so the
+    decision about how to parse the body cannot be taken from the flag: it is
+    taken from the response itself. A model that answers a streaming request
+    with a plain JSON document used to have that document fed to the SSE
+    parser, which surfaced the raw JSON text as ``chunk.data`` and ended the
+    iteration at ``status=FAILED``.
+    """
+
+    @staticmethod
+    def _response(lines, content_type=None):
+        """Build a mock response whose headers behave like a real mapping."""
+        response = Mock()
+        response.headers = {"Content-Type": content_type} if content_type else {}
+        response.iter_lines.return_value = iter(lines)
+        return response
+
+    @staticmethod
+    def _model_with_response(response, supports_streaming=None):
+        """A model whose streaming request returns *response*."""
+        model = _model_with_mock_client()
+        model.supports_streaming = supports_streaming
+        model.context.client.request_stream.return_value = response
+        return model
+
+    def test_unknown_flag_with_sse_body_still_streams(self):
+        """The BUG-1091 fix stands: an unflagged model that streams, streams."""
+        response = self._response(
+            [
+                'data: {"choices":[{"delta":{"content":"Ship "}}]}',
+                'data: {"choices":[{"delta":{"content":"aiX"}}]}',
+                "data: [DONE]",
+            ],
+            content_type="text/event-stream",
+        )
+        model = self._model_with_response(response)
+
+        streamer = model.run(text="hello", stream=True)
+
+        assert isinstance(streamer, ModelResponseStreamer)
+        assert [chunk.data for chunk in streamer] == ["Ship ", "aiX"]
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_unknown_flag_with_untyped_sse_body_still_streams(self):
+        """A server that omits the content type is recognised by the SSE lines."""
+        streamer = ModelResponseStreamer(
+            self._response(['data: {"data":"Ship "}', 'data: {"data":"aiX"}', "data: [DONE]"])
+        )
+
+        assert [chunk.data for chunk in streamer] == ["Ship ", "aiX"]
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_unknown_flag_with_json_body_returns_usable_data(self):
+        """The defect: a plain JSON body must not decay into a failed stream."""
+        response = self._response(
+            ['{"status": "SUCCESS", "completed": true,', ' "data": "Ship aiX"}'],
+            content_type="application/json",
+        )
+        model = self._model_with_response(response)
+
+        streamer = model.run(text="hello", stream=True)
+        chunks = list(streamer)
+
+        assert [chunk.data for chunk in chunks] == ["Ship aiX"]
+        assert chunks[0].status == ResponseStatus.SUCCESS
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_untyped_json_body_returns_usable_data(self):
+        """The fallback does not depend on the server labelling the body."""
+        streamer = ModelResponseStreamer(self._response(['{"status":"SUCCESS","data":"Ship aiX"}']))
+
+        assert [chunk.data for chunk in streamer] == ["Ship aiX"]
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_openai_shaped_json_body_yields_the_message_content(self):
+        """A complete chat-completions body carries its text under ``message``."""
+        body = (
+            '{"choices":[{"message":{"role":"assistant","content":"Ship aiX"},"finish_reason":"stop"}],'
+            '"usage":{"total_tokens":7}}'
+        )
+        streamer = ModelResponseStreamer(self._response([body], content_type="application/json"))
+
+        chunks = list(streamer)
+
+        assert [chunk.data for chunk in chunks] == ["Ship aiX"]
+        assert chunks[0].finish_reason == "stop"
+        assert chunks[0].usage == {"total_tokens": 7}
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_structured_json_payload_is_serialized_rather_than_dropped(self):
+        """A non-text ``data`` payload still reaches the caller."""
+        streamer = ModelResponseStreamer(
+            self._response(['{"status":"SUCCESS","data":{"label":"positive"}}'], content_type="application/json")
+        )
+
+        chunks = list(streamer)
+
+        assert json.loads(chunks[0].data) == {"label": "positive"}
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_failed_json_body_reports_the_error(self):
+        """A complete body that reports a failure is still a failure."""
+        streamer = ModelResponseStreamer(
+            self._response(['{"status":"FAILED","errorMessage":"boom"}'], content_type="application/json")
+        )
+
+        chunks = list(streamer)
+
+        assert chunks[0].status == ResponseStatus.FAILED
+        assert chunks[0].error_message == "boom"
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_non_json_non_sse_body_falls_through_to_the_sse_parser(self):
+        """A body the fallback cannot parse is replayed, never swallowed."""
+        streamer = ModelResponseStreamer(self._response(["not json at all"]))
+
+        assert [chunk.data for chunk in streamer] == ["not json at all"]
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_empty_body_still_reports_a_truncated_stream(self):
+        """An empty response is a truncated stream, not a successful one."""
+        streamer = ModelResponseStreamer(self._response([]))
+
+        assert list(streamer) == []
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_flag_false_still_refuses_to_stream(self):
+        """An explicit ``supports_streaming=False`` is still an error."""
+        model = self._model_with_response(self._response([]), supports_streaming=False)
+
+        with pytest.raises(ValidationError, match="does not support streaming"):
+            model.run(text="hello", stream=True)
