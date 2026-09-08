@@ -92,11 +92,25 @@ def assert_all_stopped(created, timeout: float = JOIN_TIMEOUT) -> None:
     assert not leaked, f"leaked progress display threads: {leaked}"
 
 
+def live_display_threads() -> list:
+    """Every progress display thread currently alive, anywhere in the process."""
+    name = AgentProgressTracker.DISPLAY_THREAD_NAME
+    return [t for t in threading.enumerate() if t.name == name and t.is_alive()]
+
+
 def assert_thread_count_restored(before: int, timeout: float = JOIN_TIMEOUT) -> None:
-    """Wait (bounded) for the interpreter's thread count to drop back."""
+    """Wait (bounded) for the interpreter's thread count to drop back.
+
+    Checks the named display threads first: they are the ones this module is
+    about, and naming the survivor is far more useful than reporting a count.
+    The count assertion then catches anything the module started that the name
+    check would miss.
+    """
     deadline = time.monotonic() + timeout
-    while threading.active_count() > before and time.monotonic() < deadline:
+    while (live_display_threads() or threading.active_count() > before) and time.monotonic() < deadline:
         time.sleep(0.01)
+    survivors = live_display_threads()
+    assert not survivors, f"leaked progress display threads: {[t.name for t in survivors]}"
     assert threading.active_count() == before, (
         f"thread count did not return to {before} (now {threading.active_count()}); "
         f"alive: {[t.name for t in threading.enumerate()]}"
@@ -215,6 +229,44 @@ class TestDirectPathFailuresStopTheThread:
 
         assert_all_stopped(trackers)
         assert_thread_count_restored(before)
+
+    def test_failed_run_async_stops_the_thread(self, fake_tty, trackers):
+        """``run_async`` had no teardown on the submit-failure path either."""
+        agent = _runnable_agent()
+        agent._submit_with_retries = MagicMock(side_effect=RuntimeError("POST failed"))
+        before = threading.active_count()
+
+        with pytest.raises(RuntimeError, match="POST failed"):
+            agent.run_async(query="hi", **PROGRESS_KWARGS)
+
+        assert trackers, "the run never built a progress tracker"
+        assert_all_stopped(trackers)
+        assert_thread_count_restored(before)
+
+    def test_the_run_local_tracker_still_receives_poll_updates(self, fake_tty, trackers, capsys):
+        """Moving the tracker off ``self`` must not unhook ``on_poll``.
+
+        ``on_poll`` is the only thing that feeds the display, and it now
+        resolves the tracker from the run-local slot rather than the instance.
+        Without this, every other assertion in the module would still pass
+        against a tracker that was simply never fed.
+        """
+        agent = _runnable_agent()
+        steps = [{"agent": {"name": "Responder"}, "api_calls": 1}]
+        agent.poll = MagicMock(
+            side_effect=[
+                _FakeResult(completed=False, status="IN_PROGRESS", steps=steps),
+                _FakeResult(completed=True, status="SUCCESS", steps=steps),
+            ]
+        )
+
+        agent.run(query="hi", wait_time=0.2, **PROGRESS_KWARGS)
+
+        assert len(trackers) == 1
+        tracker = trackers[0]
+        assert tracker._poll_count == 2, "on_poll never reached the run-local tracker"
+        assert tracker._total_api_calls == 1
+        assert capsys.readouterr().out != "", "a TTY run rendered nothing at all"
 
 
 # ---------------------------------------------------------------------------
@@ -484,6 +536,31 @@ class TestRefreshLoop:
 
         assert thread is not None and not thread.is_alive()
         assert capsys.readouterr().out != ""
+
+    def test_a_second_start_does_not_orphan_the_first_thread(self, fake_tty):
+        """``stream_progress`` calls ``start()``; a tracker may already have one.
+
+        The second ``start()`` used to clear the shared stop event and overwrite
+        ``_display_thread``, dropping the only reference to a thread that kept
+        printing -- two spinners interleaving on one fd.
+        """
+        tracker = AgentProgressTracker(poll_func=lambda _: None)
+        tracker.start(format=ProgressFormat.STATUS)
+        first = tracker._display_thread
+        assert first is not None
+
+        tracker.start(format=ProgressFormat.STATUS)
+        second = tracker._display_thread
+        try:
+            assert second is not None and second is not first
+            first.join(timeout=JOIN_TIMEOUT)
+            assert not first.is_alive(), "the first display thread outlived the second start()"
+            assert second.is_alive(), "the second start() must leave a live thread"
+        finally:
+            tracker.stop()
+
+        assert not second.is_alive()
+        assert live_display_threads() == []
 
     def test_stop_is_idempotent_and_safe_when_never_started(self):
         never_started = AgentProgressTracker(poll_func=lambda _: None)

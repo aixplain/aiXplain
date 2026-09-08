@@ -129,6 +129,10 @@ class AgentProgressTracker:
     # wedged render can never block the caller's run from returning.
     DISPLAY_JOIN_TIMEOUT = 1.0
 
+    # Named so a survivor is identifiable in a thread dump instead of being one
+    # more anonymous ``Thread-N``.
+    DISPLAY_THREAD_NAME = "aixplain-progress-display"
+
     def __init__(
         self,
         poll_func: Callable[[str], Any],
@@ -789,6 +793,14 @@ class AgentProgressTracker:
             force_display: Override the terminal auto-detection for this run.
                 ``None`` keeps whatever was passed to ``__init__``.
         """
+        # Tear down any thread a previous start() left running. Without this a
+        # second start() -- which ``stream_progress`` performs on every call --
+        # cleared the stop event and overwrote ``_display_thread``, dropping the
+        # only reference to the first thread while it kept printing: two
+        # spinners interleaving on one fd, and the same lost-reference shape as
+        # the original leak (BUG-943).
+        self.stop()
+
         # Reset tracking state
         self._seen_steps = {}
         self._first_seen = {}
@@ -821,7 +833,11 @@ class AgentProgressTracker:
         # terminal, where the thread would print log garbage 20 times a second
         # for the life of the run (BUG-943).
         if self._should_render() and not self._is_notebook:
-            self._display_thread = threading.Thread(target=self._display_refresh_loop, daemon=True)
+            self._display_thread = threading.Thread(
+                target=self._display_refresh_loop,
+                name=self.DISPLAY_THREAD_NAME,
+                daemon=True,
+            )
             self._display_thread.start()
 
     def _update_metrics(self, steps: List[Dict]) -> None:

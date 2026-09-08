@@ -2016,10 +2016,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             watching an already-running job raises instead of starting — and
             billing — a second execution.
 
-            ``after_run`` runs exactly once per ``run()`` call on *every* exit
-            path, including submission and polling failures, so whatever
-            ``before_run`` started is always torn down. On the failure path its
-            return value is ignored and the original exception propagates.
+            ``after_run`` runs exactly once per ``run()`` call on every exit
+            path from the run itself -- success, submission failure, polling
+            failure -- so whatever ``before_run`` started is always torn down.
+            On the failure path its return value is ignored and the original
+            exception propagates. The one path it does not cover is
+            ``before_run`` raising: nothing has been set up yet, so a hook must
+            not leave a resource live behind a raise of its own.
         """
         early = self._begin_run(**kwargs)
         if early is not None:
