@@ -95,7 +95,11 @@ def _synthetic_dataset(payload: str = "a harmless description"):
         {
             "id": "split-on-linebreak",
             "name": "Split On Linebreak",
-            "metaData": {"description": 'The "Split On Linebreak" function.', "InputType": "text", "OutputType": "text"},
+            "metaData": {
+                "description": 'The "Split On Linebreak" function.',
+                "InputType": "text",
+                "OutputType": "text",
+            },
             "params": [{"code": "text", "dataType": "text", "required": True}],
             "output": [{"code": "data", "dataType": "text", "defaultValue": []}],
         },
@@ -249,7 +253,11 @@ def test_injected_backend_values_are_inert_when_imported(tmp_path, monkeypatch):
 
     env = dict(os.environ, PYTHONPATH=str(REPO_ROOT), AIXPLAIN_SUPPRESS_V1_DEPRECATION="1")
     result = subprocess.run(
-        [sys.executable, "-c", f"import runpy; ns = runpy.run_path({str(enums_module)!r}); print(ns['Supplier'].HOSTILE_SUPPLIER)"],
+        [
+            sys.executable,
+            "-c",
+            f"import runpy; ns = runpy.run_path({str(enums_module)!r}); print(ns['Supplier'].HOSTILE_SUPPLIER)",
+        ],
         capture_output=True,
         text=True,
         env=env,
