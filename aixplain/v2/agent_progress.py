@@ -911,14 +911,19 @@ class AgentProgressTracker:
             format: Display format (status, logs, none)
             verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
             truncate: Whether to truncate long text
-            timeout: Wall-clock budget in seconds (default: 300). On expiry the
-                last (non-terminal) response is returned and a warning is
-                logged -- this method has never raised, so it still doesn't.
-                Pass ``None`` for the previous unbounded behaviour.
+            timeout: Wall-clock budget in seconds (default: 300). On expiry
+                ``TimeoutError`` is raised, matching ``sync_poll``: a run that
+                is still IN_PROGRESS is not a result, and returning one made the
+                two polling surfaces disagree about what a timeout means. Pass
+                ``None`` for the previous unbounded behaviour.
 
         Returns:
             Final response from the agent, or the last polled response if
-            *timeout* or ``max_polls`` was reached first.
+            ``max_polls`` was reached first.
+
+        Raises:
+            TimeoutError: If *timeout* elapses before the run reaches a terminal
+                status.
         """
         terminal_success = "SUCCESS"
         terminal_failures = {"FAILED", "ABORTED", "CANCELLED", "ERROR"}
@@ -986,7 +991,9 @@ class AgentProgressTracker:
                     )
                     if self._format != ProgressFormat.NONE:
                         self._print_completion_message("TIMEOUT", steps)
-                    return resp
+                    raise TimeoutError(
+                        f"Operation timed out after {timeout} seconds (last status: {status_up or 'UNKNOWN'})"
+                    )
 
                 sleep_with_jitter(interval, max_sleep=remaining)
                 interval = next_wait(interval)

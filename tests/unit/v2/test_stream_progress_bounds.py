@@ -115,20 +115,37 @@ class TestDeadline:
         tracker = _tracker(poll_interval=0.01)
 
         with patch("aixplain.v2.agent_progress.sleep_with_jitter", return_value=0.0):
-            result = tracker.stream_progress("http://poll", format=ProgressFormat.NONE, timeout=0.05)
+            with pytest.raises(TimeoutError):
+                tracker.stream_progress("http://poll", format=ProgressFormat.NONE, timeout=0.05)
 
-        assert result.status == "IN_PROGRESS"
         assert tracker._poll_count >= 1
 
-    def test_timeout_logs_a_warning_rather_than_raising(self, caplog):
-        """A documented public method that has never raised still doesn't."""
+    def test_timeout_raises_like_sync_poll(self, caplog):
+        """The two polling surfaces must agree: an expired budget is an error.
+
+        Returning the last IN_PROGRESS response made ``stream_progress`` report a
+        timeout as a result, while ``sync_poll`` raised ``TimeoutError`` for the
+        same situation.
+        """
         tracker = _tracker(poll_interval=0.01)
 
         with caplog.at_level("WARNING", logger="aixplain.v2.agent_progress"):
             with patch("aixplain.v2.agent_progress.sleep_with_jitter", return_value=0.0):
+                with pytest.raises(TimeoutError) as excinfo:
+                    tracker.stream_progress("http://poll", format=ProgressFormat.NONE, timeout=0.01)
+
+        assert "IN_PROGRESS" in str(excinfo.value)
+        assert any("timed out" in record.message for record in caplog.records)
+
+    def test_the_display_thread_is_stopped_on_timeout(self):
+        """The ``finally`` block still runs when the deadline raises."""
+        tracker = _tracker(poll_interval=0.01)
+
+        with patch("aixplain.v2.agent_progress.sleep_with_jitter", return_value=0.0):
+            with pytest.raises(TimeoutError):
                 tracker.stream_progress("http://poll", format=ProgressFormat.NONE, timeout=0.01)
 
-        assert any("timed out" in record.message for record in caplog.records)
+        assert tracker._stop_display.is_set()
 
     def test_deadline_is_measured_from_the_start_with_a_fake_clock(self):
         """Exactly two polls fit a 10s budget when each poll advances the clock 6s."""
@@ -143,9 +160,10 @@ class TestDeadline:
 
         with patch.object(type(tracker), "_now", lambda self: clock["t"]):
             with patch("aixplain.v2.agent_progress.sleep_with_jitter", return_value=0.0):
-                tracker.stream_progress("http://poll", format=ProgressFormat.NONE, timeout=10.0)
+                with pytest.raises(TimeoutError):
+                    tracker.stream_progress("http://poll", format=ProgressFormat.NONE, timeout=10.0)
 
-        # Poll 1 at t=6 (4s left), poll 2 at t=12 -> budget exhausted, return.
+        # Poll 1 at t=6 (4s left), poll 2 at t=12 -> budget exhausted, raise.
         assert tracker._poll_count == 2
 
     def test_timeout_none_preserves_unbounded_behaviour(self):
