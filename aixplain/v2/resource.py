@@ -1850,6 +1850,27 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 return custom_result
         return result
 
+    def _apply_after_run_failure(self, error: BaseException, **kwargs: Unpack[RunParamsT]) -> None:
+        """Invoke ``after_run`` with a failure, discarding its return value.
+
+        ``run()`` had no exception handling at all, so ``sync_poll``'s
+        ``TimeoutError`` and terminal ``APIError``s bypassed ``after_run`` and
+        any teardown it owns -- notably the agent progress display thread, which
+        then printed to stdout 20 times a second for the life of the process
+        (BUG-943).
+
+        The hook's return value is deliberately ignored: a hook may not turn a
+        raised run into a returned result. A hook that itself raises is logged
+        and swallowed so it can never mask the caller's original exception.
+        """
+        after_method = getattr(self, "after_run", None)
+        if after_method is None:
+            return
+        try:
+            after_method(error, **kwargs)
+        except Exception:
+            logger.warning("after_run hook raised while handling %r", error, exc_info=True)
+
     def build_run_payload(self, **kwargs: Unpack[RunParamsT]) -> dict:
         """Build the payload for the run action.
 
@@ -1994,17 +2015,28 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             polling happens outside the retry boundary, so a failure while
             watching an already-running job raises instead of starting — and
             billing — a second execution.
+
+            ``after_run`` runs exactly once per ``run()`` call on *every* exit
+            path, including submission and polling failures, so whatever
+            ``before_run`` started is always torn down. On the failure path its
+            return value is ignored and the original exception propagates.
         """
         early = self._begin_run(**kwargs)
         if early is not None:
             return self._apply_after_run(early, **kwargs)
 
-        result = self._submit_with_retries(**kwargs)
-        if result.url and not result.completed:
-            request_id = getattr(result, "request_id", None)
-            result = self.sync_poll(result.url, **kwargs)
-            if request_id is not None and hasattr(result, "request_id") and not result.request_id:
-                result.request_id = request_id
+        try:
+            result = self._submit_with_retries(**kwargs)
+            if result.url and not result.completed:
+                request_id = getattr(result, "request_id", None)
+                result = self.sync_poll(result.url, **kwargs)
+                if request_id is not None and hasattr(result, "request_id") and not result.request_id:
+                    result.request_id = request_id
+        except BaseException as exc:
+            # BaseException, not Exception: a Ctrl-C in a notebook leaves the
+            # kernel alive, and with it anything before_run started (BUG-943).
+            self._apply_after_run_failure(exc, **kwargs)
+            raise
         return self._apply_after_run(result, **kwargs)
 
     def run_async(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
@@ -2023,7 +2055,11 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         if early is not None:
             return early
 
-        return self._submit_with_retries(**kwargs)
+        try:
+            return self._submit_with_retries(**kwargs)
+        except BaseException as exc:
+            self._apply_after_run_failure(exc, **kwargs)
+            raise
 
     def poll(self, poll_url: str, timeout: Optional[float] = None) -> ResultT:
         """Poll for the result of an asynchronous operation.

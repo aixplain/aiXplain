@@ -1,5 +1,6 @@
 """Agent module for aiXplain v2 SDK."""
 
+import contextvars
 import json
 import logging
 import re
@@ -40,6 +41,17 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+# One progress tracker per *run*, never per Agent. It used to live on
+# ``self._progress_tracker``, so two concurrent ``run()`` calls on one shared
+# Agent overwrote each other: A's tracker was replaced by B's, and A's
+# ``finish()`` then stopped B's display thread while A's spun at 20 Hz until
+# process exit (BUG-943). A ContextVar is per-thread *and* per-asyncio-task, so
+# the slot is run-local by construction rather than by discipline.
+_ACTIVE_PROGRESS_TRACKER: contextvars.ContextVar[Optional[Any]] = contextvars.ContextVar(
+    "aixplain_active_progress_tracker", default=None
+)
 
 
 # Type definitions for conversation history
@@ -707,14 +719,17 @@ class Agent(
         metadata=config(field_name="contextOverflowStrategy"),
     )
 
-    # Internal state for progress tracking (excluded from serialization)
-    _progress_tracker: Optional[Any] = field(
-        default=None,
-        repr=False,
-        compare=False,
-        metadata=config(exclude=lambda x: True),
-        init=False,
-    )
+    @property
+    def _progress_tracker(self) -> Optional[Any]:
+        """Deprecated read-only alias for the active run's progress tracker.
+
+        The tracker moved off the instance and into a run-local ContextVar
+        (BUG-943); a per-instance slot is precisely what let concurrent runs
+        stop each other's display threads. Kept as a property so any
+        out-of-tree reader still sees a sensible value. Assignment is no longer
+        supported.
+        """
+        return _ACTIVE_PROGRESS_TRACKER.get()
 
     def __post_init__(self) -> None:
         """Initialize agent after dataclass creation."""
@@ -965,12 +980,17 @@ class Agent(
             return {"id": tool.get("id"), "type": tool.get("type")}
         return {"id": getattr(tool, "id", None), "type": getattr(tool, "type", None)}
 
-    def _start_progress_tracker(self, kwargs: Dict[str, Any]) -> None:
-        """Initialize ``self._progress_tracker`` from progress kwargs (no-op if disabled)."""
+    def _start_progress_tracker(self, kwargs: Dict[str, Any]) -> Optional[Any]:
+        """Create, start and bind a run-local progress tracker.
+
+        Returns the tracker so callers with real control flow (the session
+        path) can hand it straight back to :meth:`_finish_progress_tracker`;
+        the hook path resolves it from the ContextVar instead. Returns ``None``
+        when progress display was not requested.
+        """
         progress_format = kwargs.get("progress_format")
         if progress_format is None:
-            self._progress_tracker = None
-            return
+            return None
 
         from .agent_progress import AgentProgressTracker, ProgressFormat
 
@@ -981,22 +1001,68 @@ class Agent(
         # ``poll_interval`` is deliberately not set: this tracker is driven by the
         # start/update/finish hooks off ``sync_poll``, which owns the interval.
         # It would only be slept on by ``stream_progress``, which is not used here.
-        self._progress_tracker = AgentProgressTracker(
+        tracker = AgentProgressTracker(
             poll_func=lambda url: self.poll(url),
             max_polls=None,
         )
-        self._progress_tracker.start(
+        tracker.start(
             format=fmt,
             verbosity=progress_verbosity,
             truncate=progress_truncate,
         )
+        # The reset token rides on the tracker: ``after_run`` receives the run's
+        # result but no run-scoped state of its own, and ``ContextVar.reset()``
+        # must be handed the token produced by the context that set it.
+        tracker._context_token = _ACTIVE_PROGRESS_TRACKER.set(tracker)
+        return tracker
 
-    def _finish_progress_tracker(self, result: Union[AgentRunResult, Exception]) -> None:
-        """Finalize the progress tracker; safe to call even if it was never started."""
-        if self._progress_tracker is not None:
-            if not isinstance(result, Exception):
-                self._progress_tracker.finish(result)
-            self._progress_tracker = None
+    def _unbind_progress_tracker(self, tracker: Any) -> None:
+        """Clear *tracker* out of the run-local slot."""
+        token = getattr(tracker, "_context_token", None)
+        tracker._context_token = None
+        if token is not None:
+            try:
+                _ACTIVE_PROGRESS_TRACKER.reset(token)
+                return
+            except ValueError:
+                # Token minted in a different context (teardown ran on another
+                # thread than the start). Clearing our own slot is the right
+                # fallback -- the originating context is already gone.
+                pass
+        if _ACTIVE_PROGRESS_TRACKER.get() is tracker:
+            _ACTIVE_PROGRESS_TRACKER.set(None)
+
+    def _finish_progress_tracker(
+        self,
+        result: Union[AgentRunResult, BaseException],
+        tracker: Optional[Any] = None,
+    ) -> None:
+        """Finalize the run-local tracker; safe to call twice, or never started.
+
+        The display thread is stopped for *every* outcome. Only a non-exception
+        result renders a completion summary: stopping the thread and printing
+        the summary used to be the same call, so an errored run skipped both and
+        leaked a thread printing to stdout 20 times a second (BUG-943).
+        """
+        tracker = tracker if tracker is not None else _ACTIVE_PROGRESS_TRACKER.get()
+        if tracker is None:
+            return
+        try:
+            if not isinstance(result, BaseException):
+                tracker.finish(result)
+        finally:
+            tracker.stop()
+            self._unbind_progress_tracker(tracker)
+
+    def _stop_progress_tracker(self, tracker: Optional[Any] = None) -> None:
+        """Stop the run-local tracker without rendering anything."""
+        tracker = tracker if tracker is not None else _ACTIVE_PROGRESS_TRACKER.get()
+        if tracker is None:
+            return
+        try:
+            tracker.stop()
+        finally:
+            self._unbind_progress_tracker(tracker)
 
     def before_run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]:
         """Hook called before running the agent to validate and prepare state."""
@@ -1025,21 +1091,27 @@ class Agent(
         """
         # Always update progress tracker, including on final completed response
         # This ensures the last step's completion state is displayed before finish() is called
-        if self._progress_tracker is not None:
-            self._progress_tracker.update(response)
+        tracker = _ACTIVE_PROGRESS_TRACKER.get()
+        if tracker is not None:
+            tracker.update(response)
 
     def after_run(
         self,
-        result: Union[AgentRunResult, Exception],
+        result: Union[AgentRunResult, BaseException],
         *args: Any,
         **kwargs: Unpack[AgentRunParams],
     ) -> Optional[AgentRunResult]:
-        """Hook called after running the agent for result transformation."""
+        """Hook called after running the agent for result transformation.
+
+        Also reached on the failure path (``result`` is the raised exception),
+        so progress teardown always runs -- ``run()`` used to skip this hook
+        entirely when ``sync_poll`` raised (BUG-943).
+        """
         # Finish progress tracking if enabled
         self._finish_progress_tracker(result)
 
         # Set the context on the result for debug() method support
-        if not isinstance(result, Exception):
+        if not isinstance(result, BaseException):
             result._context = self.context
 
         return None  # Return original result
@@ -1191,7 +1263,14 @@ class Agent(
                 "session.add_message() + session.messages() directly."
             )
 
-        return super().run_async(**kwargs)
+        # ``before_run`` starts a progress tracker, but there is no poll loop
+        # here and therefore no ``after_run``: nothing would ever update the
+        # display and nothing would ever stop its thread (BUG-943). Stop it as
+        # soon as the submission returns; the run itself is unaffected.
+        try:
+            return super().run_async(**kwargs)
+        finally:
+            self._stop_progress_tracker()
 
     def _resolve_poll_url(self, poll_url: str) -> str:
         """Resolve a poll URL or bare execution ID to a full poll URL.
@@ -2556,17 +2635,21 @@ class Agent(
 
         # Same progress-tracker plumbing as the direct path: sync_poll calls
         # self.on_poll(...) on every iteration, which forwards to the tracker.
-        self._start_progress_tracker(kwargs)
+        tracker = self._start_progress_tracker(kwargs)
         try:
             result = self.sync_poll(
                 user_msg.request_id,
                 timeout=kwargs.get("timeout", 300),
                 wait_time=kwargs.get("wait_time", 0.5),
             )
-        except Exception as e:
-            self._finish_progress_tracker(e)
+        except BaseException as e:
+            # BaseException, not Exception: a Ctrl-C in a notebook leaves the
+            # kernel -- and any leaked display thread -- alive (BUG-943). The
+            # tracker is passed explicitly so teardown cannot depend on the
+            # ContextVar still holding it.
+            self._finish_progress_tracker(e, tracker=tracker)
             raise
-        self._finish_progress_tracker(result)
+        self._finish_progress_tracker(result, tracker=tracker)
 
         # The /sdk/agents/{id}/result response doesn't always echo back
         # identifiers at the top level — back-fill from what we know locally so
