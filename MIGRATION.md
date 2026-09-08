@@ -352,27 +352,43 @@ Beyond the factories, three more legacy prefixes redirect into v1:
 
 ## v2 behavior notes
 
-### `search()` is strict about records it cannot parse
+### `search()` never reports more records than it returns
 
-`search()` (and the `list()` wrappers built on it) raises `ResourceError` if the
-API returns a record the SDK cannot deserialize, matching the long-standing
-contract of `get()`. Previously such records were logged and dropped while
-`Page.total` still counted them, so `len(page.results) < page.total` was a
-normal state and bulk loops skipped rows with no error.
+`search()` (and the `list()` wrappers built on it) used to log and drop any
+record the SDK could not deserialize while `Page.total` still counted it, so
+`len(page.results) < page.total` was a normal state and bulk loops skipped rows
+with no error.
 
-If you prefer to skip the bad records, opt in per call:
+Records the SDK cannot model — a new backend enum value, say — are still
+skipped rather than failing the whole listing, but the count no longer lies:
 
 ```python
-page = aix.Model.search(strict=False)
+page = aix.Model.search()
 
 page.total    # never counts the records that were skipped
 page.skipped  # how many were skipped on this page
 ```
 
-`strict=False` is a client-side option and is never sent to the backend. A
-resource class whose records are known to be heterogeneous can set
-`PAGINATE_STRICT = False` to make lenient listing its default; a per-call
-`strict=` always wins.
+Every skip is logged at `WARNING` with the reason. If you want the
+`get()`-like contract instead, where any unparseable record raises
+`ResourceError`, opt in per call with `aix.Model.search(strict=True)`, or set
+`PAGINATE_STRICT = True` on a resource class whose records must all parse; a
+per-call `strict=` always wins. `strict` is a client-side option and is never
+sent to the backend.
+
+A response that carries no readable item list at all — a renamed envelope, or
+an error body served with HTTP 200 — always raises `ResourceError`, because
+returning it as an empty page would be indistinguishable from a search that
+genuinely matched nothing. A present-but-empty (or `null`) item list is still a
+normal empty page.
+
+### `save()` on a deleted resource always raises `ResourceError`
+
+The guard that stops a deleted resource from being re-created raised
+`ValidationError` from `Agent.save()` and `File.save()` but `ResourceError`
+from every other resource's `save()`. Both derive from `AixplainV2Error`, so
+`except ResourceError` around a save caught only some of the paths. All of them
+now raise `ResourceError`.
 
 ### A streamed run only reports `SUCCESS` when it finished
 
@@ -395,6 +411,15 @@ if stream.status != aix.ResponseStatus.SUCCESS:
 Iteration itself does not raise, so existing `for chunk in stream` loops keep
 working — but check `stream.status` (or `chunk.error_message`) before treating
 the concatenated text as a full answer.
+
+### `run(stream=True)` works even when the model record omits the flag
+
+A backend record that does not report `supportsStreaming` leaves
+`model.supports_streaming` at `None`, and such a model still takes the
+streaming path. If it answers with a complete JSON body rather than an SSE
+stream, the streamer detects that and yields the response as a single
+`SUCCESS` chunk, instead of feeding the JSON text to the SSE parser and ending
+at `FAILED`. Only an explicit `supports_streaming is False` refuses to stream.
 
 ### A polled falsy result keeps its value and type
 
