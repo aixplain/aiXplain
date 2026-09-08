@@ -24,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 # Every module that fetches a URL chosen by a caller or by a response body.
 GUARDED_SINK_FILES = [
     "aixplain/v2/code_utils.py",
+    "aixplain/v2/file.py",
     "aixplain/v2/rlm.py",
     "aixplain/v1/modules/model/utils.py",
     "aixplain/v1/modules/model/rlm.py",
@@ -113,6 +114,19 @@ def test_v2_file_source_url_is_guarded(tmp_path):
     file.context = SimpleNamespace(client=SimpleNamespace(timeout=(1, 1)))
     with pytest.raises(UnsafeURLError):
         file.save()
+
+
+def test_v2_file_source_goes_through_safe_get():
+    """The fetch is wired to ``safe_get``, so every redirect is re-validated.
+
+    A one-shot ``validate_fetch_url(self.source)`` followed by ``requests.get``
+    was bypassable: a public host answering 302 with
+    ``http://169.254.169.254/...`` had the fetched body uploaded to the platform.
+    """
+    from aixplain.utils.url_safety import safe_get
+    from aixplain.v2 import file as file_module
+
+    assert file_module.safe_get is safe_get
 
 
 def _fetch_sinks(path):

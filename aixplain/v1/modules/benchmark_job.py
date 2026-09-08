@@ -113,7 +113,9 @@ class BenchmarkJob:
                 return None
             csv_url = resp["reportUrl"]
             # ``reportUrl`` comes from a backend response, so it is SSRF-gated
-            # before ``save_file`` fetches it (BUG-939).
+            # before ``save_file`` fetches it, and ``save_file`` re-validates
+            # every redirect hop rather than letting ``requests`` follow a 302
+            # from an allowed host to a private address (BUG-939).
             validate_fetch_url(csv_url)
             if return_dataframe:
                 downloaded_path = save_file(csv_url, save_path)

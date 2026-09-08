@@ -381,6 +381,29 @@ def test_safe_get_keeps_headers_on_a_same_host_redirect(resolver):
     assert seen == [{"Authorization": "token SECRET"}, {"Authorization": "token SECRET"}]
 
 
+def test_safe_get_drops_headers_on_an_https_to_http_downgrade(resolver):
+    """The netloc is unchanged, but the credential would go out in clear text.
+
+    ``validate_fetch_url`` permits ``http``, so ``https://host/x -> http://host/x``
+    passes the policy while turning the caller's ``Authorization`` header into
+    plaintext on the wire. The scheme is therefore part of the header scope.
+    """
+    resolver({"example.com": ["93.184.216.34"]})
+    session, _ = _session_with(
+        {
+            "https://example.com/x": (302, {"Location": "http://example.com/x"}, b""),
+            "http://example.com/x": (200, {}, b"payload"),
+        }
+    )
+    seen = []
+    original = session.get
+    session.get = lambda url, **kwargs: (seen.append((url, kwargs.get("headers"))), original(url, **kwargs))[1]
+
+    safe_get("https://example.com/x", session=session, headers={"Authorization": "token SECRET"})
+    assert seen[0] == ("https://example.com/x", {"Authorization": "token SECRET"})
+    assert seen[1] == ("http://example.com/x", None)
+
+
 def test_safe_get_caps_redirects(resolver):
     """A redirect loop terminates instead of spinning."""
     resolver({"example.com": ["93.184.216.34"]})
@@ -396,6 +419,44 @@ def test_safe_get_enforces_max_bytes(resolver):
     session, _ = _session_with({"https://example.com/big": (200, {}, b"x" * 4096)})
     with pytest.raises(UnsafeURLError):
         safe_get("https://example.com/big", session=session, max_bytes=1024)
+
+
+def test_save_file_revalidates_redirect_targets(resolver, tmp_path, monkeypatch):
+    """``save_file`` is the v1 benchmark-report download sink (BUG-939).
+
+    ``benchmark_job`` validates ``reportUrl`` and then hands it to ``save_file``;
+    following a 302 from that host unvalidated would put the metadata endpoint's
+    body on disk (and, for the benchmark path, into a DataFrame).
+    """
+    from aixplain.utils import file_utils
+
+    resolver({"example.com": ["93.184.216.34"]})
+    session, adapter = _session_with(
+        {"https://example.com/report.csv": (302, {"Location": "http://169.254.169.254/latest/meta-data/"}, b"")}
+    )
+    monkeypatch.setattr(file_utils, "get_session", lambda: session)
+
+    with pytest.raises(UnsafeURLError):
+        file_utils.save_file("https://example.com/report.csv", tmp_path / "report.csv")
+    assert adapter.requests == ["https://example.com/report.csv"]
+
+
+def test_save_file_follows_a_safe_redirect(resolver, tmp_path, monkeypatch):
+    """An ordinary CDN redirect still downloads."""
+    from aixplain.utils import file_utils
+
+    resolver({"example.com": ["93.184.216.34"], "cdn.example.com": ["93.184.216.35"]})
+    session, _ = _session_with(
+        {
+            "https://example.com/report.csv": (302, {"Location": "https://cdn.example.com/report.csv"}, b""),
+            "https://cdn.example.com/report.csv": (200, {}, b"a,b\n1,2\n"),
+        }
+    )
+    monkeypatch.setattr(file_utils, "get_session", lambda: session)
+
+    target = tmp_path / "report.csv"
+    assert file_utils.save_file("https://example.com/report.csv", target) == target
+    assert target.read_bytes() == b"a,b\n1,2\n"
 
 
 # --------------------------------------------------------------------------

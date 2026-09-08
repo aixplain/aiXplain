@@ -217,7 +217,12 @@ class S3Uploader:
             with open(file_path, "rb") as f:
                 file_data = f.read()
 
-            response = RequestManager.request_with_retry("put", presigned_url, headers=headers, data=file_data)
+            # A presigned S3 PUT never legitimately redirects; following a 307
+            # would re-send the bytes to a host ``validate_upload_url`` never
+            # saw (BUG-939).
+            response = RequestManager.request_with_retry(
+                "put", presigned_url, headers=headers, data=file_data, allow_redirects=False
+            )
 
             if response.status_code != 200:
                 raise FileUploadError("File Uploading Error: Failure on Uploading to S3.")

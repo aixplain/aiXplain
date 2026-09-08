@@ -310,6 +310,16 @@ def _read_bounded(response: requests.Response, max_bytes: int, url: str) -> None
     response._content_consumed = True
 
 
+def _credential_scope(url: str) -> Tuple[str, str]:
+    """Return the ``(scheme, netloc)`` pair that request headers are scoped to.
+
+    Headers are dropped whenever this changes across a redirect: a different
+    host obviously, but also the same host over a weaker scheme.
+    """
+    parsed = urlparse(url)
+    return parsed.scheme.lower(), parsed.netloc.lower()
+
+
 def safe_get(
     url: str,
     *,
@@ -365,10 +375,14 @@ def safe_get(
         if location:
             response.close()
             following = urljoin(current, location)
-            if current_headers and urlparse(following).netloc != urlparse(current).netloc:
+            if current_headers and _credential_scope(following) != _credential_scope(current):
                 # ``requests`` drops ``Authorization`` across a host change; following
                 # redirects by hand means doing that here, for every header, or a
                 # 302 becomes a way to harvest whatever the caller passed in.
+                # The scheme is part of the comparison because ``validate_fetch_url``
+                # permits http: an https -> http downgrade keeps the netloc
+                # identical and would otherwise put the caller's headers on the
+                # wire in clear text.
                 current_headers = None
             current = following
             continue
