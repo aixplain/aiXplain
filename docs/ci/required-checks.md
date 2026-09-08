@@ -57,8 +57,9 @@ permanently "Expected — Waiting for status to be reported": a merge deadlock, 
 `pre-commit.yaml` and `generator-drift.yaml` trigger on `push` to `'**'`, so `pre-commit` and
 `generator-drift` are the only contexts that report on a feature-branch PR today. `pre-commit` runs
 `tests/unit`, which includes the coverage-relevant suite and all the static CI guards;
-`generator-drift` re-renders the generated modules from the committed fixtures and fails on a
-non-empty `git diff` (ENG-3435). It takes no secret: the render step is offline by construction, so
+`generator-drift` runs `python generate.py render --check`, which re-renders the generated modules
+from the committed fixtures into a scratch directory and fails if the committed ones differ
+(ENG-3435). It takes no secret: the render step is offline by construction, so
 unlike the Tier 2 legs its redness always means an SDK-side problem.
 
 ## Ordered procedure

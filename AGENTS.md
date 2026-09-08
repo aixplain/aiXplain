@@ -84,7 +84,7 @@ python generate.py render --check # exit non-zero if the committed modules drift
 python generate.py fetch          # refresh tools/generator/fixtures/ (network + API key)
 ```
 
-Rendering reads only the committed fixtures in `tools/generator/fixtures/`, so it is deterministic and needs neither a backend nor a key; the `generator-drift` CI job runs it and fails on a non-empty `git diff`. `fetch` is the only networked step and is run by hand — see `tools/generator/fixtures/README.md` for the refresh workflow and why the fixtures are captured from production.
+Rendering reads only the committed fixtures in `tools/generator/fixtures/`, so it is deterministic and needs neither a backend nor a key; the `generator-drift` CI job runs `python generate.py render --check` and fails if the committed modules differ from a fresh render. `fetch` is the only networked step and is run by hand — see `tools/generator/fixtures/README.md` for the refresh workflow and why the fixtures are captured from production.
 
 Backend values are emitted as Python literals and every value used as an identifier is validated, so a value that cannot be rendered safely fails the render loudly instead of being mangled.
 

@@ -6,7 +6,8 @@ on:
       - '**'
 
 # Least privilege (ENG-3428): this job renders the generated modules from the committed
-# fixtures and diffs the working tree. It never writes to the repository.
+# fixtures into a scratch directory and compares them with the tracked files. It never
+# writes to the repository.
 permissions:
   contents: read
 
@@ -34,8 +35,9 @@ jobs:
       # tools/generator/fixtures/*.json, which are committed. `python generate.py fetch`
       # is the only networked step and is run by hand. If this job ever needs a
       # credential, the fetch/render split has been broken.
-      - name: Render the generated modules
-        run: python generate.py render
-
+      #
+      # `--check` names the drifted files and touches nothing tracked. The same
+      # assertion runs offline in tests/unit/test_generator.py; this job is the
+      # dedicated CI signal for it, independent of the rest of the unit suite.
       - name: Fail if the generated modules drifted
-        run: git diff --exit-code
+        run: python generate.py render --check
