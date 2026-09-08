@@ -144,6 +144,7 @@ The SDK exposes two API layers maintained in parallel:
 - **Hook**: `before_save` / `after_save` lifecycle hooks on resources (V2).
 - **Builder**: `build_run_payload()` / `build_save_payload()` methods.
 - **Strategy**: Sync, async, and streaming execution paths.
+- **Run metadata**: agent run payloads carry a `metaData` object from `aixplain.utils.user_info_utils.build_run_metadata()` (one cached `ipinfo.io` lookup). If you change what it sends, update [docs/run-metadata.md](docs/run-metadata.md) — `tests/unit/test_run_metadata_docs.py` enforces it.
 
 ---
 

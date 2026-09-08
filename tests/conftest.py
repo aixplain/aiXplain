@@ -320,14 +320,18 @@ _EXECUTION_LEDGER = ExecutionLedger()
 
 
 def pytest_sessionstart(session: pytest.Session):
-    """Start each session's tally from zero.
+    """Start each session's tallies from zero.
 
-    The ledger lives as long as the *process*, which outlives a single session
+    Both ledgers live as long as the *process*, which outlives a single session
     whenever pytest is driven in-process (`pytest.main()` twice, the `pytester`
     fixture). Without this, a second session inherits the first one's count and
-    the guard passes a run that executed nothing.
+    the guard passes a run that executed nothing -- and the leak summary reports
+    a previous session's orphans as though they were this one's.
     """
+    from tests.cleanup_guards import LEAK_LEDGER
+
     _EXECUTION_LEDGER.reset()
+    LEAK_LEDGER.clear()
 
 
 def pytest_runtest_logreport(report: pytest.TestReport):
@@ -362,3 +366,35 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
         print(message)
 
     session.exitstatus = 1
+
+
+# ---------------------------------------------------------------------------
+# Leak summary: name every resource the functional suite failed to delete.
+#
+# The strict `resource_tracker` teardown already fails the individual test, but
+# in a 400-test run each failure is one traceback among many. This is the
+# end-of-run total, so orphaned production assets are legible instead of
+# invisible -- the actual complaint in BUG-947. See tests/cleanup_guards.py.
+# ---------------------------------------------------------------------------
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus: int, config: pytest.Config):
+    """List every resource the functional suite failed to delete (BUG-947).
+
+    Best-effort under pytest-xdist: the ledger is process-local, so a `-n`
+    run's failures stay in the workers and this prints nothing. The strict
+    teardown still fails each leaking test, which is the signal that matters;
+    CI runs the functional legs without `-n`.
+
+    Args:
+        terminalreporter: pytest's terminal reporter.
+        exitstatus: The exit status pytest is about to report.
+        config: The pytest config.
+    """
+    from tests.cleanup_guards import LEAK_LEDGER
+
+    if not LEAK_LEDGER:
+        return
+    terminalreporter.section("BUG-947: orphaned resources", red=True)
+    for failure in LEAK_LEDGER:
+        terminalreporter.write_line(f"{failure.nodeid}: {failure.label} -- {failure.error}")
