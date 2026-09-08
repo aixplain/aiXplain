@@ -19,6 +19,7 @@ from tests.cleanup_guards import (
     CleanupFailure,
     ResourceTracker,
     cleanup_failure_message,
+    confirm_leaked,
     describe,
     finish_cleanup,
     is_already_gone,
@@ -247,6 +248,29 @@ def test_is_already_gone_does_not_swallow_a_real_error():
     assert not is_already_gone(Exception("connection reset by peer"))
 
 
+#: The two messages review asked whether to tolerate. Both are pinned as *not*
+#: already-gone: the first says the resource still exists and the delete was
+#: refused, and the second is the string `APIKey.delete` reports for every
+#: failure alike, outage included. See the note on `_ALREADY_GONE`.
+NOT_ALREADY_GONE = [
+    (
+        "Error: Agent cannot be deleted.\nReason: This agent is currently used by one or more "
+        "team agents.\n\nteam_agent_id: t1. To proceed, remove the agent from all team agents "
+        "before deletion."
+    ),
+    "API Key Deletion Error: Make sure the API Key exists and you are the owner.",
+]
+
+
+@pytest.mark.parametrize("message", NOT_ALREADY_GONE, ids=["agent-in-use", "generic-api-key"])
+def test_an_ambiguous_delete_failure_is_reported_not_tolerated(message):
+    """Widening the patterns for these would re-hide the leaks (BUG-947)."""
+    assert not is_already_gone(Exception(message))
+
+    tracker = ResourceTracker([FakeResource("resource", [], error=Exception(message))])
+    assert len(tracker.cleanup("nodeid")) == 1
+
+
 # ---------------------------------------------------------------------------
 # Failure aggregation: cleanup never raises, and never stops early
 # ---------------------------------------------------------------------------
@@ -441,3 +465,73 @@ def test_finish_cleanup_defaults_to_the_session_ledger(monkeypatch):
         assert [failure.label for failure in LEAK_LEDGER] == ["FakeResource name='agent'"]
     finally:
         LEAK_LEDGER.clear()
+
+
+# ---------------------------------------------------------------------------
+# confirm_leaked(): a stale listing must not be reported as a leak
+# ---------------------------------------------------------------------------
+
+
+def _listings(*results):
+    """Return a callable yielding *results* in order, one per call, plus a log."""
+    calls = []
+    remaining = list(results)
+
+    def list_matches():
+        calls.append(len(calls))
+        return remaining.pop(0) if remaining else []
+
+    return list_matches, calls
+
+
+def test_confirm_leaked_returns_nothing_when_the_first_listing_is_clean():
+    list_matches, calls = _listings([])
+    slept = []
+
+    assert confirm_leaked(list_matches, sleep=slept.append) == []
+    assert len(calls) == 1
+    assert slept == [], "a clean run must not pay the settle delay"
+
+
+def test_confirm_leaked_re_lists_a_resource_the_backend_has_not_caught_up_with():
+    """The false-leak case: the key was deleted, the listing is just stale."""
+    list_matches, calls = _listings(["stale"], [])
+    slept = []
+
+    assert confirm_leaked(list_matches, delay=7.0, sleep=slept.append) == []
+    assert len(calls) == 2
+    assert slept == [7.0]
+
+
+def test_confirm_leaked_reports_a_resource_that_survives_every_attempt():
+    """The genuine leak this check exists for is still detected."""
+    list_matches, calls = _listings(["orphan"], ["orphan"], ["orphan"])
+    slept = []
+
+    assert confirm_leaked(list_matches, attempts=3, sleep=slept.append) == ["orphan"]
+    assert len(calls) == 3
+    assert len(slept) == 2, "no delay after the final listing"
+
+
+def test_confirm_leaked_believes_a_single_attempt():
+    list_matches, calls = _listings(["orphan"])
+    slept = []
+
+    assert confirm_leaked(list_matches, attempts=1, sleep=slept.append) == ["orphan"]
+    assert len(calls) == 1
+    assert slept == []
+
+
+def test_confirm_leaked_propagates_a_listing_failure():
+    """An unreachable backend is not evidence of a leak."""
+
+    def list_matches():
+        raise RuntimeError("backend down")
+
+    with pytest.raises(RuntimeError, match="backend down"):
+        confirm_leaked(list_matches, sleep=lambda _: None)
+
+
+def test_confirm_leaked_materialises_a_lazy_listing():
+    """The result is a list, so the caller can count and re-read it."""
+    assert confirm_leaked(lambda: iter(["orphan"]), attempts=1, sleep=lambda _: None) == ["orphan"]

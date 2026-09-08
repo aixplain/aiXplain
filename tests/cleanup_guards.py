@@ -18,7 +18,8 @@ neither `test_*.py` nor `*_test.py`, so pytest does not collect it.
 
 import logging
 import os
-from typing import Any, Callable, List, NamedTuple, Optional
+import time
+from typing import Any, Callable, Iterable, List, NamedTuple, Optional
 
 #: Set to a falsy value to downgrade cleanup failures to warnings. Strict by
 #: default -- the whole point of BUG-947 is that a swallowed teardown made
@@ -43,10 +44,32 @@ _TRUTHY = frozenset({"1", "true", "yes", "on"})
 #: invisibility BUG-947 is about. A test that deletes explicitly should call
 #: :meth:`ResourceTracker.mark_cleaned` instead; this list only covers the
 #: deletes that do report a status (agent, team agent, the factory GETs).
+#:
+#: Deliberately excluded, though both were raised in review: "This agent is
+#: currently used by one or more team agents" and the generic API-key string
+#: above. The first is the *opposite* of already-gone -- the agent still exists
+#: and the delete was refused -- so matching it would silently orphan every
+#: agent still attached to a team; the fix is to register the team's members
+#: before the team so newest-first teardown deletes the team first. The second
+#: names no status code at all, so it covers a backend outage and a revoked
+#: token as readily as a second delete, and API keys are the suite's most
+#: frequently deleted resource. Widening for either would restore exactly the
+#: invisibility BUG-947 is about.
 _ALREADY_GONE = ("404", "not found", "does not exist", "no such")
 
 #: Attributes worth naming in a failure message, in the order they read best.
 _DESCRIBE_ATTRIBUTES = ("id", "name")
+
+#: How many times :func:`confirm_leaked` lists before believing what it sees,
+#: and how long it waits between listings. A backend listing is not immediately
+#: consistent -- the code the apikey leak check replaced waited an explicit
+#: ``time.sleep(0.5)`` after every delete for exactly this reason -- so a key
+#: deleted in the previous test's teardown can still be returned. Deciding on
+#: the first listing therefore reports a phantom leak on a clean run, which is
+#: a red build that names an innocent test. Only paid when something *is*
+#: listed, so a clean run adds no delay at all.
+LEAK_SETTLE_ATTEMPTS = 3
+LEAK_SETTLE_SECONDS = 2.0
 
 logger = logging.getLogger("aixplain.tests.cleanup")
 
@@ -121,6 +144,45 @@ def describe(resource: Any) -> str:
         if value:
             parts.append(f"{attribute}={value!r}")
     return " ".join(parts)
+
+
+def confirm_leaked(
+    list_matches: Callable[[], Iterable[Any]],
+    attempts: int = LEAK_SETTLE_ATTEMPTS,
+    delay: float = LEAK_SETTLE_SECONDS,
+    sleep: Callable[[float], Any] = time.sleep,
+) -> List[Any]:
+    """Return the resources still listed once the backend has settled.
+
+    A leak check asks "did anything this run created outlive its test?", and the
+    only honest answer comes from a listing that has caught up with the deletes
+    that just happened. Re-listing rather than sleeping unconditionally keeps a
+    clean run fast, and keeps genuine detection intact: a resource nobody
+    deleted survives every attempt.
+
+    Args:
+        list_matches: Zero-argument callable returning the resources that look
+            leaked right now.
+        attempts: How many listings to take before believing a non-empty one.
+        delay: Seconds to wait between listings.
+        sleep: Injected so tests need not actually wait.
+
+    Returns:
+        Empty as soon as any listing comes back clean, otherwise the resources
+        returned by the final attempt.
+
+    Raises:
+        Exception: Whatever *list_matches* raises. An unreachable backend is
+            not evidence of a leak, so the caller decides what it means.
+    """
+    leaked: List[Any] = []
+    for attempt in range(max(1, attempts)):
+        leaked = list(list_matches())
+        if not leaked:
+            return []
+        if attempt < attempts - 1:
+            sleep(delay)
+    return leaked
 
 
 class _LabelledCallback:

@@ -36,6 +36,7 @@ from tests.cleanup_guards import (
     CleanupError,
     CleanupFailure,
     ResourceTracker,
+    confirm_leaked,
     describe,
     strict_cleanup,
 )
@@ -65,10 +66,19 @@ def api_key_leak_check():
     leftovers from previous runs, which is exactly what made it dangerous. With
     the tracker in place a leftover is a bug this check reports, and pre-existing
     orphans belong to the one-off tenant audit (BUG-947 suggestion 6).
+
+    The listing runs immediately after the last test's teardown deleted its key
+    and is not immediately consistent, so it is re-listed through
+    :func:`confirm_leaked` before anything is called a leak. Deciding on the
+    first listing would fail a clean run, and `APIKey.delete` reports every
+    failure -- 404 included -- as one generic string, so the second delete could
+    not tell us otherwise either.
     """
     yield
     try:
-        leaked = [api_key for api_key in APIKeyFactory.list() if api_key.name == TEST_API_KEY_NAME]
+        leaked = confirm_leaked(
+            lambda: [api_key for api_key in APIKeyFactory.list() if api_key.name == TEST_API_KEY_NAME]
+        )
     except Exception as exc:  # noqa: BLE001 - reported, not hidden
         logger.error("BUG-947 leak check could not list API keys: %s", exc)
         return
