@@ -205,16 +205,6 @@ def __exit__(exc_type, exc_val, exc_tb) -> None
 
 Context manager exit - ensures response is closed.
 
-#### find\_supplier\_by\_id
-
-```python
-def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L398)
-
-Find supplier enum by ID.
-
 #### find\_function\_by\_id
 
 ```python
