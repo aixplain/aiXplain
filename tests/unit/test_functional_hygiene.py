@@ -48,6 +48,19 @@ _MUTATING_METHODS = ("delete", "update", "save", "deploy")
 #: Calls that return resources the test does not own.
 _LISTING_METHODS = ("list", "paginate")
 
+#: The fixture every functional test registers its resources with.
+TRACKER = "resource_tracker"
+
+#: Methods that register a resource for cleanup. ``insert`` is how a test
+#: places a resource at a chosen depth rather than on top, which is a deliberate
+#: statement about teardown order, so the ordering detector below defers to it.
+_REGISTERING_METHODS = ("append", "insert")
+
+#: Calls that create or re-create a resource on the backend. Anything after the
+#: first of these can fail, and a failure before registration leaks whatever the
+#: first one created.
+_CREATING_METHODS = ("save", "deploy", "update")
+
 
 # ---------------------------------------------------------------------------
 # Swallowed cleanup
@@ -406,6 +419,154 @@ def test_no_functional_test_mutates_a_resource_it_did_not_create():
 
 
 # ---------------------------------------------------------------------------
+# Teardown order
+# ---------------------------------------------------------------------------
+
+
+def _owner_name(node: ast.AST):
+    """The base Name of `x`, `x.y`, `x.y[0]` -- the object an expression hangs off."""
+    while isinstance(node, (ast.Attribute, ast.Subscript)):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _registration_lines(function: ast.AST) -> tuple:
+    """Map name -> line it is first registered at, and the set placed explicitly.
+
+    Returns ``(appended, positioned)``. ``appended`` is registration *order*,
+    since `ResourceTracker.cleanup` deletes in reverse of it; ``positioned``
+    holds names registered with ``insert``, whose place in the tracker cannot be
+    read off the source line and which the caller therefore leaves alone.
+    """
+    appended, positioned = {}, set()
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if _owner_name(node.func) != TRACKER or node.func.attr not in _REGISTERING_METHODS:
+            continue
+        names = [argument.id for argument in node.args if isinstance(argument, ast.Name)]
+        if node.func.attr == "insert":
+            positioned.update(names)
+        else:
+            for name in names:
+                appended.setdefault(name, node.lineno)
+    return appended, positioned
+
+
+def _dependency_edges(function: ast.AST) -> list:
+    """Return ``(dependent, dependency)`` pairs visible in *function*.
+
+    Two shapes, both of which appear in the suite: a resource built from another
+    (``agent = AgentFactory.create(tools=[connection])``), and a resource a test
+    later attaches to another (``team_agent.agents.append(new_agent)``). Only
+    the second shape catches a dependency created *after* both resources exist,
+    which is precisely the case the reviewer found.
+    """
+    edges = []
+    for node in ast.walk(function):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            used = {inner.id for inner in ast.walk(node.value) if isinstance(inner, ast.Name)}
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    edges.extend((target.id, name) for name in used if name != target.id)
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "append"
+            and isinstance(node.func.value, ast.Attribute)
+            and len(node.args) == 1
+            and isinstance(node.args[0], ast.Name)
+        ):
+            owner = _owner_name(node.func.value)
+            if owner and owner != node.args[0].id:
+                edges.append((owner, node.args[0].id))
+    return edges
+
+
+def _teardown_order_offenders(functional_dir: Path = FUNCTIONAL_DIR, repo_root: Path = REPO_ROOT) -> dict:
+    """Map file -> lines registering a dependency after the resource that uses it.
+
+    `ResourceTracker.cleanup` deletes newest-first, so a dependency has to be
+    registered *before* its dependent to be deleted *after* it. Get it backwards
+    and teardown deletes, say, the agent's connection while the agent still
+    lists it -- and the backend refuses. Under the old swallowing fixture that
+    was invisible; under BUG-947's strict teardown it fails the test on every
+    run, so the ordering is now an invariant rather than a convention.
+    """
+    offenders = {}
+    for path in _python_files(functional_dir):
+        lines = []
+        for function in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            appended, positioned = _registration_lines(function)
+            for dependent, dependency in _dependency_edges(function):
+                if dependent in positioned or dependency in positioned:
+                    continue
+                if dependent not in appended or dependency not in appended:
+                    continue
+                if appended[dependency] > appended[dependent]:
+                    lines.append(appended[dependency])
+        if lines:
+            offenders[_relative(path, repo_root)] = sorted(set(lines))
+    return offenders
+
+
+def test_no_dependency_is_registered_after_the_resource_that_uses_it():
+    """Newest-first teardown means the dependency must be registered first."""
+    offenders = _teardown_order_offenders()
+    assert not offenders, (
+        f"a resource is registered with `resource_tracker` after something that depends on it, so "
+        f"teardown deletes it first and the backend refuses (BUG-947): {offenders}. Register the "
+        "dependency before its dependent, or use `resource_tracker.insert(...)` to place it."
+    )
+
+
+def _late_registration_offenders(functional_dir: Path = FUNCTIONAL_DIR, repo_root: Path = REPO_ROOT) -> dict:
+    """Map file -> lines creating on the backend before the resource is registered.
+
+    A resource can only be registered once the call that creates it returns, so
+    the *first* `save()`/`deploy()`/`update()` is allowed to precede the
+    registration. Every later one is not: `pipeline.save()` had already created
+    the pipeline, so a `pipeline.deploy()` that raised before
+    `resource_tracker.append(pipeline)` leaked it with nothing tracking it.
+    """
+    offenders = {}
+    for path in _python_files(functional_dir):
+        lines = []
+        for function in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            appended, positioned = _registration_lines(function)
+            creations = {}
+            for node in ast.walk(function):
+                if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                    continue
+                if node.func.attr not in _CREATING_METHODS:
+                    continue
+                owner = _owner_name(node.func)
+                if owner is not None:
+                    creations.setdefault(owner, []).append(node.lineno)
+            for name, registered_at in appended.items():
+                if name in positioned:
+                    continue
+                lines.extend(line for line in sorted(creations.get(name, []))[1:] if line < registered_at)
+        if lines:
+            offenders[_relative(path, repo_root)] = sorted(set(lines))
+    return offenders
+
+
+def test_a_resource_is_registered_before_the_step_that_can_leak_it():
+    """`save()` creates the pipeline; a failing `deploy()` after it must not leak."""
+    offenders = _late_registration_offenders()
+    assert not offenders, (
+        f"a tracked resource already existed on the backend and was mutated again before being "
+        f"registered with `resource_tracker`, so a failure there leaks it (BUG-947): {offenders}. "
+        "Register it on the line after the call that creates it."
+    )
+
+
+# ---------------------------------------------------------------------------
 # The detectors themselves, against synthetic trees
 # ---------------------------------------------------------------------------
 
@@ -567,3 +728,126 @@ LOOP_VARIABLE_REBOUND = (
 )
 def test_list_then_mutate_detector(tmp_path, source, expected):
     assert _list_then_mutate_offenders(_tree(tmp_path, source), tmp_path) == expected
+
+
+# The reviewed defects, reduced to their shapes.
+DEPENDENCY_REGISTERED_LAST = (
+    "def test_x(AgentFactory, resource_tracker):\n"
+    "    tool = AgentFactory.create_custom_python_code_tool(code='x')\n"
+    "    agent = AgentFactory.create(name='a', tools=[tool])\n"
+    "    resource_tracker.append(agent)\n"
+    "    resource_tracker.append(tool)\n"
+)
+DEPENDENCY_REGISTERED_FIRST = (
+    "def test_x(AgentFactory, resource_tracker):\n"
+    "    tool = AgentFactory.create_custom_python_code_tool(code='x')\n"
+    "    resource_tracker.append(tool)\n"
+    "    agent = AgentFactory.create(name='a', tools=[tool])\n"
+    "    resource_tracker.append(agent)\n"
+)
+# The dependency is created after both resources exist, by mutating the team.
+JOINED_AFTER_REGISTRATION = (
+    "def test_x(AgentFactory, TeamAgentFactory, resource_tracker):\n"
+    "    team_agent = TeamAgentFactory.create(name='t')\n"
+    "    resource_tracker.append(team_agent)\n"
+    "    new_agent = AgentFactory.create(name='a')\n"
+    "    resource_tracker.append(new_agent)\n"
+    "    team_agent.agents.append(new_agent)\n"
+)
+# The same test, with the agent placed below the team it joins.
+JOINED_BUT_POSITIONED = (
+    "def test_x(AgentFactory, TeamAgentFactory, resource_tracker):\n"
+    "    team_agent = TeamAgentFactory.create(name='t')\n"
+    "    position = len(resource_tracker)\n"
+    "    resource_tracker.append(team_agent)\n"
+    "    new_agent = AgentFactory.create(name='a')\n"
+    "    resource_tracker.insert(position, new_agent)\n"
+    "    team_agent.agents.append(new_agent)\n"
+)
+# Re-fetching a resource into its own name is not a dependency on itself.
+REFETCHED_IN_PLACE = (
+    "def test_x(TeamAgentFactory, resource_tracker):\n"
+    "    team_agent = TeamAgentFactory.create(name='t')\n"
+    "    resource_tracker.append(team_agent)\n"
+    "    team_agent = TeamAgentFactory.get(team_agent.id)\n"
+)
+UNTRACKED_DEPENDENCY = (
+    "def test_x(AgentFactory, resource_tracker):\n"
+    "    tool = AgentFactory.create_model_tool(model='m')\n"
+    "    agent = AgentFactory.create(name='a', tools=[tool])\n"
+    "    resource_tracker.append(agent)\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (DEPENDENCY_REGISTERED_LAST, {"functional/some_test.py": [5]}),
+        (DEPENDENCY_REGISTERED_FIRST, {}),
+        (JOINED_AFTER_REGISTRATION, {"functional/some_test.py": [5]}),
+        (JOINED_BUT_POSITIONED, {}),
+        (REFETCHED_IN_PLACE, {}),
+        (UNTRACKED_DEPENDENCY, {}),
+    ],
+    ids=[
+        "dependency-registered-last",
+        "dependency-registered-first",
+        "joined-after-registration",
+        "joined-but-positioned",
+        "refetched-in-place",
+        "untracked-dependency",
+    ],
+)
+def test_teardown_order_detector(tmp_path, source, expected):
+    assert _teardown_order_offenders(_tree(tmp_path, source), tmp_path) == expected
+
+
+# `save()` creates the pipeline, so a failing `deploy()` before registration
+# leaks it -- the reviewed defect.
+DEPLOY_BEFORE_REGISTRATION = (
+    "def test_x(PipelineFactory, resource_tracker):\n"
+    "    pipeline = PipelineFactory.init('p')\n"
+    "    pipeline.save()\n"
+    "    pipeline.deploy()\n"
+    "    resource_tracker.append(pipeline)\n"
+)
+REGISTERED_BETWEEN_SAVE_AND_DEPLOY = (
+    "def test_x(PipelineFactory, resource_tracker):\n"
+    "    pipeline = PipelineFactory.init('p')\n"
+    "    pipeline.save()\n"
+    "    resource_tracker.append(pipeline)\n"
+    "    pipeline.deploy()\n"
+)
+# The creating call has to run before the resource exists to be registered.
+SAVE_BEFORE_REGISTRATION_ONLY = (
+    "def test_x(PipelineFactory, resource_tracker):\n"
+    "    pipeline = PipelineFactory.init('p')\n"
+    "    pipeline.save()\n"
+    "    resource_tracker.append(pipeline)\n"
+)
+DEPLOY_AFTER_REGISTRATION = (
+    "def test_x(AgentFactory, resource_tracker):\n"
+    "    agent = AgentFactory.create(name='a')\n"
+    "    resource_tracker.append(agent)\n"
+    "    agent.update()\n"
+    "    agent.deploy()\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (DEPLOY_BEFORE_REGISTRATION, {"functional/some_test.py": [4]}),
+        (REGISTERED_BETWEEN_SAVE_AND_DEPLOY, {}),
+        (SAVE_BEFORE_REGISTRATION_ONLY, {}),
+        (DEPLOY_AFTER_REGISTRATION, {}),
+    ],
+    ids=[
+        "deploy-before-registration",
+        "registered-between-save-and-deploy",
+        "save-before-registration-only",
+        "deploy-after-registration",
+    ],
+)
+def test_late_registration_detector(tmp_path, source, expected):
+    assert _late_registration_offenders(_tree(tmp_path, source), tmp_path) == expected

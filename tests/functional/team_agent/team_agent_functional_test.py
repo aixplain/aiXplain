@@ -47,8 +47,6 @@ def test_end2end(run_input_map, resource_tracker, TeamAgentFactory):
     agents = create_agents_from_input_map(run_input_map)
     for agent in agents:
         resource_tracker.append(agent)
-    for agent in agents:
-        resource_tracker.append(agent)
     team_agent = create_team_agent(
         TeamAgentFactory,
         agents,
@@ -78,8 +76,6 @@ def test_end2end(run_input_map, resource_tracker, TeamAgentFactory):
 @pytest.mark.parametrize("TeamAgentFactory", [TeamAgentFactory])
 def test_draft_team_agent_update(run_input_map, resource_tracker, TeamAgentFactory):
     agents = create_agents_from_input_map(run_input_map, deploy=False)
-    for agent in agents:
-        resource_tracker.append(agent)
     for agent in agents:
         resource_tracker.append(agent)
     team_agent = create_team_agent(
@@ -174,8 +170,6 @@ def test_fail_non_existent_llm(run_input_map, resource_tracker, TeamAgentFactory
     agents = create_agents_from_input_map(run_input_map, deploy=False)
     for agent in agents:
         resource_tracker.append(agent)
-    for agent in agents:
-        resource_tracker.append(agent)
 
     with pytest.raises(Exception) as exc_info:
         TeamAgentFactory.create(
@@ -195,14 +189,13 @@ def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, Team
     agents = create_agents_from_input_map(run_input_map, deploy=False)
     for agent in agents:
         resource_tracker.append(agent)
-    for agent in agents:
-        resource_tracker.append(agent)
     team_agent = create_team_agent(
         TeamAgentFactory,
         agents,
         run_input_map,
         use_mentalist=True,
     )
+    team_agent_position = len(resource_tracker)
     resource_tracker.append(team_agent)
 
     assert team_agent is not None
@@ -215,7 +208,10 @@ def test_add_remove_agents_from_team_agent(run_input_map, resource_tracker, Team
         instructions="Agent added to team",
         llm_id=run_input_map["llm_id"],
     )
-    resource_tracker.append(new_agent)
+    # Below the team in the tracker, because `pop(0)` below removes one of the
+    # original agents rather than this one: the backend refuses to delete an
+    # agent a team still uses, and cleanup deletes newest-first.
+    resource_tracker.insert(team_agent_position, new_agent)
     team_agent.agents.append(new_agent)
     team_agent.update()
 
@@ -534,6 +530,8 @@ def test_team_agent_with_slack_connector(resource_tracker):
     connection_id = response.data["id"]
 
     connection = ModelFactory.get(connection_id)
+    # Before the agent that references it: cleanup deletes newest-first.
+    resource_tracker.append(connection)
     connection.action_scope = [
         action for action in connection.actions if action.code == "SLACK_SEND_MESSAGE"
     ]
@@ -567,7 +565,6 @@ def test_team_agent_with_slack_connector(resource_tracker):
         use_mentalist=False,
     )
     resource_tracker.append(team_agent)
-    resource_tracker.append(connection)
 
     response = team_agent.run(
         "Send what is the capital of Senegal on Slack to channel of #modelserving-alerts: 'C084G435LR5'. Add the name of the capital in the final answer."

@@ -147,6 +147,8 @@ def test_custom_code_tool(resource_tracker, AgentFactory):
         code='def main(aaa: str, bbb: str) -> str:\n    """Add two strings"""\n    return aaa + bbb',
         name=tool_name,
     )
+    # Before the agent that references it: cleanup deletes newest-first.
+    resource_tracker.append(tool)
     assert tool is not None
     assert tool.description == "Add two strings"
     agent_name = f"ASA {str(uuid4())[:8]}"
@@ -157,7 +159,6 @@ def test_custom_code_tool(resource_tracker, AgentFactory):
         tools=[tool],
     )
     resource_tracker.append(agent)
-    resource_tracker.append(tool)
     assert agent is not None
     response = agent.run(
         "What is the result of concatenating 'Hello' and 'World'? Do not directly answer the question, call the tool."
@@ -620,8 +621,10 @@ def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
     input_node.link(middle_node, "input", "text")
     middle_node.use_output("data")
     pipeline.save()
-    pipeline.deploy()
+    # `save()` is what creates the pipeline on the backend, so it is registered
+    # before `deploy()` can fail and leak it.
     resource_tracker.append(pipeline)
+    pipeline.deploy()
 
     agent_name = f"TRA {str(uuid4())[:8]}"
     pipeline_agent = AgentFactory.create(
@@ -794,6 +797,8 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
         raise Exception(f"Unexpected response data format: {response}")
     connection_id = data["id"]
     connection = ModelFactory.get(connection_id)
+    # Before the agent that references it: cleanup deletes newest-first.
+    resource_tracker.append(connection)
 
     connection.action_scope = [
         action for action in connection.actions if action.code == "SLACK_SEND_MESSAGE"
@@ -811,7 +816,6 @@ def test_agent_with_action_tool(slack_token, resource_tracker):
         ],
     )
     resource_tracker.append(agent)
-    resource_tracker.append(connection)
 
     response = agent.run(
         "Send what is the capital of Finland on Slack to channel of #modelserving-alerts: 'C084G435LR5'. Add the name of the capital in the final answer."
@@ -1005,6 +1009,8 @@ def test_agent_with_mcp_tool(resource_tracker):
         raise Exception(f"Unexpected response data format: {response}")
     connection_id = data["id"]
     connection = ModelFactory.get(connection_id)
+    # Before the agent that references it: cleanup deletes newest-first.
+    resource_tracker.append(connection)
     action_name = "SLACK_SEND_CHANNEL_MESSAGE".lower()
     connection.action_scope = [action for action in connection.actions if action.code == action_name]
 
@@ -1019,7 +1025,6 @@ def test_agent_with_mcp_tool(resource_tracker):
         ],
     )
     resource_tracker.append(agent)
-    resource_tracker.append(connection)
 
     response = agent.run(
         "Send what is the capital of Finland on Slack to channel of #modelserving-alerts-testing. Add the name of the capital in the final answer."
