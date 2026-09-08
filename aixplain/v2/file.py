@@ -288,7 +288,16 @@ class File(BaseResource):
         self._apply_data(root_data)
 
     def save(self, **_: Any) -> "File":
-        """Upload the source and persist it as a backend File asset."""
+        """Upload the source and persist it as a backend File asset.
+
+        Raises:
+            ResourceError: If the file has been deleted.
+        """
+        # File.save() never reaches BaseResource.save(), so it needs its own
+        # deleted-state guard (BUG-1093).
+        if self.id or self.is_deleted:
+            self._ensure_saveable()
+
         if self.context is None:
             self.context = type(self).context
         if not self.source:

@@ -350,6 +350,86 @@ Beyond the factories, three more legacy prefixes redirect into v1:
 | `from aixplain.modules import Agent, Model, ...` | `aix.Agent`, `aix.Model`, … — v2 resources replace the v1 domain objects |
 | `from aixplain.decorators import ...`, `aixplain.base`, `aixplain.processes` | Internal helpers with no public v2 counterpart |
 
+## v2 behavior notes
+
+### `search()` never reports more records than it returns
+
+`search()` (and the `list()` wrappers built on it) used to log and drop any
+record the SDK could not deserialize while `Page.total` still counted it, so
+`len(page.results) < page.total` was a normal state and bulk loops skipped rows
+with no error.
+
+Records the SDK cannot model — a new backend enum value, say — are still
+skipped rather than failing the whole listing, but the count no longer lies:
+
+```python
+page = aix.Model.search()
+
+page.total    # never counts the records that were skipped
+page.skipped  # how many were skipped on this page
+```
+
+Every skip is logged at `WARNING` with the reason. If you want the
+`get()`-like contract instead, where any unparseable record raises
+`ResourceError`, opt in per call with `aix.Model.search(strict=True)`, or set
+`PAGINATE_STRICT = True` on a resource class whose records must all parse; a
+per-call `strict=` always wins. `strict` is a client-side option and is never
+sent to the backend.
+
+A response that carries no readable item list at all — a renamed envelope, or
+an error body served with HTTP 200 — always raises `ResourceError`, because
+returning it as an empty page would be indistinguishable from a search that
+genuinely matched nothing. A present-but-empty (or `null`) item list is still a
+normal empty page.
+
+### `save()` on a deleted resource always raises `ResourceError`
+
+The guard that stops a deleted resource from being re-created raised
+`ValidationError` from `Agent.save()` and `File.save()` but `ResourceError`
+from every other resource's `save()`. Both derive from `AixplainV2Error`, so
+`except ResourceError` around a save caught only some of the paths. All of them
+now raise `ResourceError`.
+
+### A streamed run only reports `SUCCESS` when it finished
+
+`ModelResponseStreamer.status` used to become `SUCCESS` as soon as the
+connection ended, so an error event mid-generation, or a stream cut before its
+`[DONE]` marker, handed you a truncated answer that claimed to be complete. It
+now stays `FAILED` unless the stream terminated cleanly (a `[DONE]` marker, a
+terminal `finish_reason`, or a terminal `status` envelope), and an error event
+yields one final chunk carrying the reason:
+
+```python
+with model.run_stream(text="Explain LLMs") as stream:
+    for chunk in stream:
+        print(chunk.data, end="", flush=True)
+
+if stream.status != aix.ResponseStatus.SUCCESS:
+    ...  # the text above is partial
+```
+
+Iteration itself does not raise, so existing `for chunk in stream` loops keep
+working — but check `stream.status` (or `chunk.error_message`) before treating
+the concatenated text as a full answer.
+
+### `run(stream=True)` works even when the model record omits the flag
+
+A backend record that does not report `supportsStreaming` leaves
+`model.supports_streaming` at `None`, and such a model still takes the
+streaming path. If it answers with a complete JSON body rather than an SSE
+stream, the streamer detects that and yields the response as a single
+`SUCCESS` chunk, instead of feeding the JSON text to the SSE parser and ending
+at `FAILED`. Only an explicit `supports_streaming is False` refuses to stream.
+
+### A polled falsy result keeps its value and type
+
+`poll()` coerced any falsy `data` to `{}`, so a classifier that legitimately
+answers `0`, or a model whose correct answer is `""`, came back as `{}` — and
+`result.data.strip()` raised `AttributeError`. Falsy-but-present payloads
+(`""`, `0`, `False`, `[]`) now pass through unchanged, matching what the same
+model returns on the synchronous path. A genuinely absent (or `null`) `data`
+still arrives as `{}`.
+
 ## Getting help
 
 - Open an issue at <https://github.com/aixplain/aiXplain/issues> — especially if a gap above blocks you; that feedback shapes the removal timeline.

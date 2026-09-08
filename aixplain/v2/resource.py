@@ -5,7 +5,7 @@ import logging
 import time
 import reprlib
 from datetime import datetime
-from dataclasses import dataclass, field
+from dataclasses import MISSING, dataclass, field
 from dataclasses_json import dataclass_json, config
 from urllib.parse import quote
 from typing import (
@@ -43,6 +43,68 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+_DESCENDING = "DESC"
+
+
+def _filter_value(value: Any) -> str:
+    """Return the wire value for a search filter argument.
+
+    Accepts a plain string, a string-valued enum member (v2) or a dict-valued
+    enum member exposing a ``code``/``id`` key (the legacy v1 ``Supplier``
+    shape). ``str(member)`` is deliberately avoided: for a
+    ``class X(str, Enum)`` it returns the member repr
+    (``"OwnershipType.PRIVATE"``) rather than the value (``"PRIVATE"``), which
+    the backend silently fails to match.
+
+    Args:
+        value: The filter argument as supplied by the caller.
+
+    Returns:
+        str: The value to place in the request body.
+    """
+    raw = getattr(value, "value", value)
+    if isinstance(raw, dict):
+        raw = raw.get("code") or raw.get("id") or ""
+    return str(raw)
+
+
+def _filter_values(value: Any) -> List[str]:
+    """Return the wire values for a filter that the backend expects as an array.
+
+    A scalar argument is wrapped in a single-element list, so callers may pass
+    either ``Supplier.OPENAI`` or ``[Supplier.OPENAI, "cohere"]``.
+
+    Args:
+        value: A single filter argument or a sequence of them.
+
+    Returns:
+        List[str]: The values to place in the request body.
+    """
+    if isinstance(value, (list, tuple, set)):
+        return [_filter_value(item) for item in value]
+    return [_filter_value(value)]
+
+
+def _sort_direction(sort_order: Any) -> int:
+    """Return the backend's sort direction for a sort order argument.
+
+    Handles v2's string-valued ``SortOrder`` (``"ASC"``/``"DESC"``), the
+    longer ``"ASCENDING"``/``"DESCENDING"`` spellings, and already-numeric
+    inputs (v1's ``SortOrder`` is valued ``1``/``-1``), which are mapped by
+    sign so that a caller migrating from v1 keeps the direction they asked for.
+
+    Args:
+        sort_order: ``SortOrder`` member, equivalent string, or +/-1.
+
+    Returns:
+        int: ``-1`` for descending, ``1`` for ascending (the default).
+    """
+    raw = getattr(sort_order, "value", sort_order)
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        return -1 if raw < 0 else 1
+    return -1 if _filter_value(raw).upper().startswith(_DESCENDING) else 1
 
 
 # Hook decorator system
@@ -270,6 +332,25 @@ class BaseResource:
             else:
                 raise ValidationError(f"{resource_name} has been deleted or is invalid. {resource_name} ID is missing.")
 
+    def _ensure_saveable(self) -> None:
+        """Guard ``save()`` on a resource that is deleted or otherwise unusable.
+
+        ``BaseResource.save`` runs inside :func:`with_hooks`, which re-raises
+        anything that is not a ``ResourceError`` as one, while the sibling
+        guards in ``Agent.save`` and ``File.save`` run outside it. Raising
+        ``ValidationError`` from the guard therefore split one rule across two
+        exception types, and ``except ResourceError`` around ``agent.save()``
+        caught only some of the paths. Every deleted-save guard raises
+        ``ResourceError`` through this helper (BUG-1093).
+
+        Raises:
+            ResourceError: If the resource is deleted or has no usable id.
+        """
+        try:
+            self._ensure_valid_state()
+        except ValidationError as exc:
+            raise ResourceError(str(exc)) from exc
+
     def _get_serializable_state(self) -> dict:
         """Get the current state of the resource as a serializable dictionary.
 
@@ -312,6 +393,45 @@ class BaseResource:
             bool: True if the resource has been deleted, False otherwise
         """
         return getattr(self, "_deleted", False)
+
+    # -- hydration provenance -------------------------------------------------
+    #
+    # Stored as plain instance attributes (like ``_deleted``), never dataclass
+    # fields, so they stay invisible to ``to_dict``/``from_dict``, the
+    # ``__dataclass_fields__`` copy loop in ``_create`` and
+    # ``_get_serializable_state``.
+
+    @property
+    def _server_fields(self) -> Optional[frozenset]:
+        """Wire keys present in the response that last hydrated this instance.
+
+        ``None`` means "never hydrated from a server response" (a locally
+        constructed object): nothing is known to be absent, so no save-payload
+        key may be suppressed. A ``frozenset`` means the instance mirrors a
+        server record, and any key *not* in it was genuinely not reported by
+        the backend.
+        """
+        return getattr(self, "_server_field_names", None)
+
+    @_server_fields.setter
+    def _server_fields(self, value: Optional[frozenset]) -> None:
+        self._server_field_names = value
+
+    def _record_server_fields(self, data: Any) -> None:
+        """Remember which top-level wire keys the hydrating response carried."""
+        self._server_fields = frozenset(data.keys()) if isinstance(data, dict) else None
+
+    def _server_omitted(self, wire_key: str) -> bool:
+        """Return True when this instance came from the server and *wire_key* was absent."""
+        server_fields = self._server_fields
+        return server_fields is not None and wire_key not in server_fields
+
+    def _is_at_field_default(self, attr: str) -> bool:
+        """Return True when *attr* still holds its declared dataclass default."""
+        field_def = self.__dataclass_fields__.get(attr)
+        if field_def is None or field_def.default is MISSING:
+            return False
+        return getattr(self, attr, None) == field_def.default
 
     def _update_saved_state(self) -> None:
         """Update the saved state to match the current state.
@@ -366,9 +486,36 @@ class BaseResource:
         result = self.context.client.request("post", f"{resource_path}", json=payload)
         # Flatten assetInfo structure before deserialization
         result = _flatten_asset_info(dict(result)) if isinstance(result, dict) else result
+
+        # Record the server id BEFORE hydrating. The POST already succeeded, so
+        # the resource exists remotely; if from_dict() below fails (an
+        # unmodelled enum value, a new nested shape) the caller must still be
+        # able to reach it. Without this the object is left with id=None and
+        # the obvious reaction — retrying save() — creates a second resource
+        # and orphans the first (BUG-1093).
+        created_id = result.get("id") if isinstance(result, dict) else None
+        if created_id is not None:
+            self.id = created_id
+
         # Update the object from the full response
         if isinstance(self, HasFromDict):
-            updated = self.from_dict(result)
+            try:
+                updated = self.from_dict(result)
+            except Exception as e:
+                name = type(self).__name__
+                if created_id is not None:
+                    hint = (
+                        f"The resource exists on the platform — do NOT retry save(), which would create a "
+                        f"duplicate. Re-fetch it with {name}.get({created_id!r}), or delete it."
+                    )
+                else:
+                    hint = (
+                        "The resource may exist on the platform even though the response carried no id — "
+                        "check before retrying save(), which would create a duplicate."
+                    )
+                raise ResourceError(
+                    f"{name} was created (id={created_id!r}) but its response could not be deserialized: {e}. {hint}"
+                ) from e
             # Copy each field from the freshly-parsed ``updated`` onto self.
             # A field that is excluded from serialization is normally
             # authoritative locally (we never sent it, the response can't
@@ -377,8 +524,15 @@ class BaseResource:
             for field_name, field_def in self.__dataclass_fields__.items():
                 if _is_excluded_from_serialization(field_def) and not _is_auto_deserialize_only(field_def):
                     continue
-                if hasattr(updated, field_name):
-                    setattr(self, field_name, getattr(updated, field_name))
+                if not hasattr(updated, field_name):
+                    continue
+                value = getattr(updated, field_name)
+                # Never let a response the parser could not map back to "id"
+                # un-record the id we just captured.
+                if field_name == "id" and value is None and created_id is not None:
+                    continue
+                setattr(self, field_name, value)
+            self._record_server_fields(result)
         else:
             # Fallback: just set the ID
             self.id = result["id"]
@@ -407,8 +561,19 @@ class BaseResource:
             BaseResource: The saved resource instance
 
         Raises:
+            ResourceError: If the resource has been deleted — the same type
+                every other deleted-save guard raises, so one ``except`` clause
+                covers ``BaseResource.save``, ``Agent.save`` and ``File.save``.
             Backend validation errors as appropriate
         """
+        # save() is the only mutating path that may legitimately run without an
+        # id (the create branch below), so the state check is conditional. A
+        # deleted resource has id=None *and* _deleted=True, and must never fall
+        # through to _create(): that POSTs a duplicate and rebinds self.id to
+        # the new server id (BUG-1093).
+        if self.id or self.is_deleted:
+            self._ensure_saveable()
+
         resource_path = kwargs.pop("resource_path", self.RESOURCE_PATH)
 
         # Set attributes from kwargs before saving
@@ -452,6 +617,11 @@ class BaseResource:
         # Reset ID and saved state for new asset
         cloned.id = None
         cloned._saved_state = None
+        # A clone is a brand-new resource: it is not the deleted original (so
+        # save() must not refuse it), and none of its field values came from a
+        # server response for *it*, so save() must send them all (BUG-1093).
+        cloned._deleted = False
+        cloned._server_fields = None
 
         # Set attributes from kwargs
         for key, value in kwargs.items():
@@ -516,12 +686,31 @@ class BaseResource:
         return encode_resource_id(self.id)
 
 
+# Keys the SDK consumes itself when *dispatching* a request (choosing the path,
+# authenticating). They are declared on ``BaseParams`` for every operation, so
+# they can arrive on any call — and must never be forwarded to a backend body or
+# to ``requests.Session.request``, which would raise ``TypeError``.
+#
+# ``api_key`` authenticates nothing: ``Client.request_raw`` always overlays
+# ``_auth_headers()`` from the Aixplain context, so a per-call ``api_key``'s only
+# observable effect was riding into the model input body (BUG-1091).
+_SDK_REQUEST_KEYS: frozenset[str] = frozenset({"api_key", "resource_path"})
+
+
 class BaseParams(TypedDict):
     """Base class for parameters that include API key and resource path.
 
     Attributes:
-        api_key: str: The API key for authentication.
-        resource_path: str: Custom resource path for actions (optional).
+        api_key: Accepted for backward compatibility and **ignored**.
+            Authentication always comes from the ``Aixplain`` context
+            (``Client._auth_headers``), which overrides any per-call value. It is
+            stripped from every request so it can never reach a model input body
+            or a supplier's prompt logs. Configure credentials via
+            ``Aixplain(api_key=...)`` or ``TEAM_API_KEY`` / ``AIXPLAIN_API_KEY``
+            instead.
+        resource_path: Custom resource path for actions (optional). Consumed by
+            the URL builders; never forwarded to the backend body or to
+            ``requests``.
     """
 
     api_key: NotRequired[str]
@@ -543,6 +732,9 @@ class BaseSearchParams(BaseParams):
                           RESOURCE_PATH.
         paginate_items_key: str: Optional key name for items in paginated
                                 response (overrides PAGINATE_ITEMS_KEY).
+        strict: bool: Whether a record that cannot be deserialized raises
+                     instead of being skipped (default: skip, correcting
+                     ``Page.total``). Overrides PAGINATE_STRICT.
     """
 
     query: NotRequired[str]
@@ -553,6 +745,7 @@ class BaseSearchParams(BaseParams):
     page_size: NotRequired[int]
     resource_path: NotRequired[str]
     paginate_items_key: NotRequired[str]
+    strict: NotRequired[bool]
 
 
 class BaseGetParams(BaseParams):
@@ -719,15 +912,27 @@ class Page(Generic[ResourceT]):
         results: The list of resources in this page.
         page_number: Current page number (0-indexed).
         page_total: Total number of pages.
-        total: Total number of resources across all pages.
+        total: Total number of resources across all pages. Never counts a
+            record that was returned by the API but skipped by this page.
+        skipped: Number of records the API returned for this page that could
+            not be deserialized and were skipped. Always ``0`` under
+            ``strict=True``, where such records raise instead.
     """
 
     results: List[ResourceT]
     page_number: int
     page_total: int
     total: int
+    skipped: int
 
-    def __init__(self, results: List[ResourceT], page_number: int, page_total: int, total: int):
+    def __init__(
+        self,
+        results: List[ResourceT],
+        page_number: int,
+        page_total: int,
+        total: int,
+        skipped: int = 0,
+    ):
         """Initialize a Page instance.
 
         Args:
@@ -735,11 +940,13 @@ class Page(Generic[ResourceT]):
             page_number: Current page number (0-indexed)
             page_total: Total number of pages
             total: Total number of resources across all pages
+            skipped: Number of returned records that could not be deserialized
         """
         self.results = results
         self.page_number = page_number
         self.page_total = page_total
         self.total = total
+        self.skipped = skipped
 
     def __repr__(self) -> str:
         """Return JSON representation of the page."""
@@ -767,6 +974,11 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         PAGINATE_PAGE_TOTAL_KEY: str: The key for the total number of pages.
         PAGINATE_DEFAULT_PAGE_NUMBER: int: The default page number.
         PAGINATE_DEFAULT_PAGE_SIZE: int: The default page size.
+        PAGINATE_STRICT: bool: Whether a record that cannot be deserialized
+            raises instead of being skipped and subtracted from ``Page.total``.
+            Defaults to False: discovery listings must survive a record the
+            client cannot model yet (a new backend enum value, say). A per-call
+            ``strict=`` keyword takes precedence over this class-level default.
     """
 
     PAGINATE_PATH: str = "paginate"
@@ -777,6 +989,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
     PAGINATE_PAGE_NUMBER_KEY: str = "pageNumber"
     PAGINATE_DEFAULT_PAGE_NUMBER: int = 0
     PAGINATE_DEFAULT_PAGE_SIZE: int = 20
+    PAGINATE_STRICT: bool = False
 
     @classmethod
     def _get_context_and_path(cls: type, **kwargs: Any) -> Tuple["Aixplain", str, Optional[str]]:
@@ -794,10 +1007,25 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         return context, resource_path, custom_path
 
     @classmethod
-    def _build_resources(cls: type, items: List[dict], context: "Aixplain") -> List[ResourceT]:
-        """Build resource instances from response items."""
-        resources = []
-        for item in items:
+    def _deserialize_items(cls: type, items: List[dict], context: "Aixplain") -> Tuple[List[ResourceT], List[str]]:
+        """Build resource instances from response items, reporting failures.
+
+        Errors are returned alongside the successfully built resources instead of
+        being swallowed, so that :meth:`_build_page` can decide whether to raise
+        (under ``strict``) or to correct ``Page.total`` so it never counts a
+        record the page does not contain (the default).
+
+        Args:
+            items: The raw records from the paginated response.
+            context: The Aixplain context to attach to each resource.
+
+        Returns:
+            Tuple[List[ResourceT], List[str]]: The resources that were built and
+            a message per record that could not be deserialized.
+        """
+        resources: List[ResourceT] = []
+        errors: List[str] = []
+        for index, item in enumerate(items):
             # Flatten assetInfo structure before deserialization
             item = _flatten_asset_info(dict(item)) if isinstance(item, dict) else item
             # Use dataclasses_json's from_dict to handle field aliasing
@@ -808,14 +1036,44 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
                     obj = cls.from_dict(item)
                 except Exception as e:
                     logger.warning("Skipping item during %s deserialization: %s", cls.__name__, e)
+                    errors.append(f"item[{index}]: {e}")
                     continue
             else:
-                # Fallback for classes without from_dict
-                obj = cls(**item)  # type: ignore[call-arg]
+                # Fallback for classes without from_dict. It fails the same way
+                # from_dict does (a non-mapping record, an unexpected field), so
+                # report it rather than letting a raw TypeError escape a call the
+                # caller asked to be lenient.
+                try:
+                    obj = cls(**item)  # type: ignore[call-arg]
+                except Exception as e:
+                    logger.warning("Skipping item during %s deserialization: %s", cls.__name__, e)
+                    errors.append(f"item[{index}]: {e}")
+                    continue
             setattr(obj, "context", context)
+            # Remember which keys the backend actually reported, so save() can
+            # tell "server said null" from "server never mentioned it". The
+            # fallback branch above accepts any resource-shaped class, so this
+            # stays optional.
+            record_server_fields = getattr(obj, "_record_server_fields", None)
+            if callable(record_server_fields):
+                record_server_fields(item)
             # Set the saved state to match the loaded state
             obj._update_saved_state()
             resources.append(obj)
+        return resources, errors
+
+    @classmethod
+    def _build_resources(cls: type, items: List[dict], context: "Aixplain") -> List[ResourceT]:
+        """Build resource instances from response items.
+
+        .. deprecated::
+            :meth:`_build_page` no longer calls this method, so overriding it
+            no longer customises listings. It is kept only for callers that
+            build resources directly. Override :meth:`_deserialize_items`
+            instead — that is the hook listings use, and it reports the
+            deserialization errors this wrapper discards.
+        """
+        resources, _ = cls._deserialize_items(items, context)
         return resources
 
     @classmethod
@@ -827,13 +1085,17 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
             filters["q"] = params["query"]
 
         if params.get("ownership") is not None:
-            filters["ownership"] = str(params["ownership"])
+            ownership = params["ownership"]
+            if isinstance(ownership, (list, tuple, set)):
+                filters["ownership"] = _filter_values(ownership)
+            else:
+                filters["ownership"] = _filter_value(ownership)
 
         if params.get("sort_by") is not None:
-            filters["sortBy"] = str(params["sort_by"])
+            filters["sortBy"] = _filter_value(params["sort_by"])
 
         if params.get("sort_order") is not None:
-            filters["sortOrder"] = str(params["sort_order"])
+            filters["sortOrder"] = _filter_value(params["sort_order"])
 
         return filters
 
@@ -841,11 +1103,26 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
     def search(cls: type, **kwargs: Unpack[SearchParamsT]) -> Page[ResourceT]:
         """Search resources across the first n pages with optional filtering.
 
+        A record the API returns but this client cannot deserialize is logged
+        and skipped rather than failing the whole listing; ``Page.total`` is
+        reduced by the number skipped and ``Page.skipped`` reports the count,
+        so ``page.total`` never counts a record the page does not contain.
+        Pass ``strict=True`` (or set ``PAGINATE_STRICT``) to raise
+        :class:`ResourceError` on such a record instead.
+
+        A response that carries no readable item list at all always raises:
+        there is nothing to count, and an empty page would be
+        indistinguishable from a search that genuinely matched nothing.
+
         Args:
             kwargs: The keyword arguments.
 
         Returns:
             Page[ResourceT]: Page of BaseResource instances
+
+        Raises:
+            ResourceError: If the response envelope carries no item list, or if
+                a returned record cannot be deserialized and ``strict`` is on.
         """
         # Set default pagination values
         default_page_number = getattr(cls, "PAGINATE_DEFAULT_PAGE_NUMBER", 0)
@@ -869,40 +1146,137 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         return cls._build_page(response, context, **kwargs)
 
     @classmethod
+    def _extract_page_items(cls: type, json_data: Any, paginate_items_key: Optional[str]) -> List[Any]:
+        """Return the record list carried by a paginated response envelope.
+
+        An envelope the client cannot read is a failure, not an empty page: a
+        renamed items key, or a 200 body that is actually an error report,
+        would otherwise be indistinguishable from "this search matched
+        nothing". A present item list — including an empty one, or an explicit
+        ``null`` — is passed through as the empty page it genuinely is.
+
+        Args:
+            json_data: The decoded response body.
+            paginate_items_key: The envelope key holding the records, or None
+                for endpoints that answer with a bare array.
+
+        Returns:
+            List[Any]: The raw records to deserialize.
+
+        Raises:
+            ResourceError: If the response carries no usable item list.
+        """
+        # A bare array is usable whatever the configured key: some list
+        # endpoints (API keys) answer that way while inheriting the default.
+        if isinstance(json_data, list):
+            return json_data
+
+        if not isinstance(json_data, dict):
+            raise ResourceError(
+                f"{cls.__name__}: paginated response is a {type(json_data).__name__}, "
+                "not a list of records or an envelope containing one."
+            )
+
+        if not paginate_items_key:
+            raise ResourceError(
+                f"{cls.__name__}: paginated response is an object, but this resource expects a bare array. "
+                f"Keys returned: {sorted(json_data)}."
+            )
+
+        if paginate_items_key not in json_data:
+            raise ResourceError(
+                f"{cls.__name__}: paginated response is missing the {paginate_items_key!r} key, "
+                f"so it carries no results to read. Keys returned: {sorted(json_data)}."
+            )
+
+        items = json_data[paginate_items_key]
+        # An explicit null is how some endpoints spell "no results".
+        if items is None:
+            return []
+        if not isinstance(items, list):
+            raise ResourceError(
+                f"{cls.__name__}: paginated response {paginate_items_key!r} is a "
+                f"{type(items).__name__}, not a list of records."
+            )
+        return items
+
+    @classmethod
     def _build_page(cls: type, response: "Any", context: "Aixplain", **kwargs: Any) -> Page[ResourceT]:
         """Build a page of resources from the response.
 
-        Accepts either a requests.Response or already-decoded dict/list.
+        Accepts either a requests.Response or already-decoded dict/list. A
+        missing ``total`` / ``pageTotal`` falls back to the computed default,
+        but an envelope that carries no usable item list at all is reported:
+        a renamed envelope, or a 200 error body, must not be indistinguishable
+        from "no results". A present-but-empty (or explicitly ``null``) item
+        list is a genuinely empty page and stays one.
+
+        Records inside a usable envelope are treated leniently by default: each
+        one that cannot be deserialized is logged and skipped, and ``total`` is
+        corrected so it never counts a record the page does not contain.
+
+        Raises:
+            ResourceError: If the response carries no usable item list, or if a
+                returned record cannot be deserialized and ``strict`` is on.
         """
         if hasattr(response, "json"):
             json_data = response.json()
         else:
             json_data = response
 
-        items = json_data
         # Check for override in kwargs first, then fall back to class attribute
         paginate_items_key = kwargs.get("paginate_items_key") or getattr(cls, "PAGINATE_ITEMS_KEY", "items")
-        if paginate_items_key and isinstance(json_data, dict):
-            items = json_data[paginate_items_key]
+        items = cls._extract_page_items(json_data, paginate_items_key)
 
         total = len(items)
         paginate_total_key = getattr(cls, "PAGINATE_TOTAL_KEY", "total")
         if paginate_total_key and isinstance(json_data, dict):
-            total = json_data[paginate_total_key]
+            total = json_data.get(paginate_total_key, total)
+        if not isinstance(total, int) or isinstance(total, bool):
+            total = len(items)
 
         page_total = len(items)
         paginate_page_total_key = getattr(cls, "PAGINATE_PAGE_TOTAL_KEY", "pageTotal")
         if paginate_page_total_key and isinstance(json_data, dict):
-            page_total = json_data[paginate_page_total_key]
+            page_total = json_data.get(paginate_page_total_key, page_total)
+        if not isinstance(page_total, int) or isinstance(page_total, bool):
+            page_total = len(items)
 
         # Build resources using shared method
-        results = cls._build_resources(items, context)
+        results, errors = cls._deserialize_items(items, context)
+
+        skipped = len(errors)
+        if skipped:
+            strict = kwargs.get("strict")
+            if strict is None:
+                strict = getattr(cls, "PAGINATE_STRICT", False)
+            if strict:
+                raise ResourceError(
+                    f"Failed to deserialize {skipped} of {len(items)} {cls.__name__} record(s) "
+                    f"returned by the API; pass strict=False to skip them. "
+                    f"Details: {'; '.join(errors[:3])}"
+                )
+            # Lenient default: one record the client cannot model — a new enum
+            # value, say — must not cost the caller the whole listing. The
+            # drops are logged per record by _deserialize_items and summarised
+            # here, and ``total`` never counts a record we did not return:
+            # ``total`` spans every page, so subtract this page's drops rather
+            # than collapsing it to ``len(results)``.
+            logger.warning(
+                "%s: skipped %d of %d record(s) returned by the API; pass strict=True to raise instead. Details: %s",
+                cls.__name__,
+                skipped,
+                len(items),
+                "; ".join(errors[:3]),
+            )
+            total = max(total - skipped, len(results))
 
         return Page(
             results=results,
             total=total,
             page_number=kwargs["page_number"],
             page_total=page_total,
+            skipped=skipped,
         )
 
     @classmethod
@@ -976,6 +1350,11 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         if host is not None:
             kwargs["params"] = {"host": host}
 
+        # ``api_key`` is inert (the client supplies auth) and is not a ``requests``
+        # kwarg; ``resource_path`` was already popped above. Same root cause as
+        # ``delete`` (BUG-1091).
+        kwargs = {k: v for k, v in kwargs.items() if k not in _SDK_REQUEST_KEYS}
+
         obj = context.client.get(path, **kwargs)
 
         # Flatten assetInfo structure before deserialization
@@ -989,6 +1368,12 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         else:
             instance = cls(**obj)  # type: ignore[call-arg]
         setattr(instance, "context", context)
+        # Remember which keys the backend actually reported, so save() can tell
+        # "server said null" from "server never mentioned it". The ``cls(**obj)``
+        # fallback above accepts any resource-shaped class, so this stays optional.
+        record_server_fields = getattr(instance, "_record_server_fields", None)
+        if callable(record_server_fields):
+            record_server_fields(obj)
         # Set the saved state to match the loaded state
         instance._update_saved_state()
         return instance
@@ -1113,8 +1498,14 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         # Build the delete URL
         delete_url = self.build_delete_url(**kwargs)
 
+        # ``resource_path`` was consumed by build_delete_url and ``api_key`` is
+        # inert (the client supplies auth); neither is a ``requests`` kwarg.
+        # Forwarding them made ``delete(resource_path=…)`` raise TypeError deep
+        # inside requests (BUG-1091).
+        request_kwargs = {k: v for k, v in kwargs.items() if k not in _SDK_REQUEST_KEYS}
+
         # Execute the delete operation (delete endpoints don't return JSON)
-        response = self.context.client.request_raw("delete", delete_url, **kwargs)
+        response = self.context.client.request_raw("delete", delete_url, **request_kwargs)
 
         # Handle the response using the extensible response handler
         return self.handle_delete_response(response, **kwargs)
@@ -1254,16 +1645,34 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
     # top-level ``session_id`` kwarg is purely the per-run correlation channel
     # emitted as ``x-session-id``; ``agent_name`` is likewise only the calling
     # agent's name, emitted as ``x-agent``.
-    _RUN_CONTROL_KEYS: frozenset[str] = frozenset(
-        {
-            "run_retries",
-            "run_retry_wait",
-            "timeout",
-            "wait_time",
-            "show_progress",
-            "session_id",
-            "agent_name",
-        }
+    #
+    # ``api_key`` / ``resource_path`` (``_SDK_REQUEST_KEYS``) are excluded for a
+    # different reason: they are declared on ``BaseParams`` for *every* operation,
+    # so they can arrive on a run call, and neither is a backend body field.
+    # ``api_key`` in particular authenticated nothing — its only observable effect
+    # was riding into the model input body and the supplier's prompt logs
+    # (BUG-1091).
+    #
+    # The ``progress_*`` trio configures the client-side progress display (the
+    # ``show_progress`` toggle already lived here). ``before_run`` / ``after_run``
+    # still receive the *unfiltered* kwargs, so the tracker keeps seeing them —
+    # only the payload/URL builders are filtered.
+    _RUN_CONTROL_KEYS: frozenset[str] = (
+        frozenset(
+            {
+                "run_retries",
+                "run_retry_wait",
+                "timeout",
+                "wait_time",
+                "show_progress",
+                "progress_format",
+                "progress_verbosity",
+                "progress_truncate",
+                "session_id",
+                "agent_name",
+            }
+        )
+        | _SDK_REQUEST_KEYS
     )
 
     @staticmethod
@@ -1597,7 +2006,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         # Handle polling response - use camelCase keys (what backend sends)
         # dataclass_json with config(field_name=...) handles mapping to snake_case
         run_time, used_credits = _extract_run_time_and_used_credits(response)
-        data = response.get("data") or {}
+        data = response.get("data")
+        if data is None:
+            # Absent data keeps the historical {} shape, but a falsy-but-present
+            # value ("", 0, False, []) is passed through unchanged so that a poll
+            # returns the same value and type as the synchronous path in
+            # handle_run_response.
+            data = {}
         data_error = data.get("error") if isinstance(data, dict) else None
         error_message = response.get("errorMessage") or data_error
         filtered_response = {
@@ -1631,11 +2046,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                     "Poll response deserialization failed for a completed response. "
                     "Building fallback result from raw data."
                 )
+                # ``data`` was already defaulted to {} above when the response
+                # omitted it, so it is never None here.
                 result = response_class.from_dict(
                     {
                         "status": filtered_response["status"],
                         "completed": True,
-                        "data": filtered_response.get("data") or {},
+                        "data": filtered_response["data"],
                     }
                 )
             else:
