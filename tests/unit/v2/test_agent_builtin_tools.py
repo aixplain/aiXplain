@@ -158,7 +158,9 @@ def test_save_leaves_the_caller_s_builtin_tool_object_in_place(aix):
 
     agent.save()
 
-    assert agent.tools == [tool]
+    # Identity, not equality: the point is that the caller's object survived the
+    # response round-trip, not that an equal one was rebuilt from the dicts.
+    assert agent.tools[0] is tool
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +207,21 @@ def test_a_builtin_only_agent_passes_dependency_validation(aix):
     assert agent.tools == [tool]
 
 
+def test_a_builtin_only_agent_passes_run_dependency_validation(aix):
+    """`_validate_run_dependencies` is a separate walk from the save-time one.
+
+    It formats an unsaved tool as ``tool '{tool.name}'`` without a getattr guard,
+    so a toolkit that ever grew an ``id`` would raise ``AttributeError`` here
+    rather than the clean message the save-time path produces.
+    """
+    tool = BuiltinTool(toolkit="bash", timeout_s=60)
+    agent = aix.Agent(name="workspace-agent", tools=[tool])
+
+    agent._validate_run_dependencies()
+
+    assert agent.tools == [tool]
+
+
 def test_save_subcomponents_does_not_try_to_save_a_toolkit(aix):
     """`_save_subcomponents` calls `save()` on tools that expose one; a toolkit does not."""
     aix.client.request = Mock(return_value={"id": "agent-id", "name": "workspace-agent", "tools": [FILE_ROW]})
@@ -213,3 +230,30 @@ def test_save_subcomponents_does_not_try_to_save_a_toolkit(aix):
     agent.save(save_subcomponents=True)
 
     assert aix.client.request.call_args.kwargs["json"]["tools"] == [{"type": "builtin", "toolkit": "file"}]
+
+
+def test_the_client_exposes_builtin_tool(aix):
+    """`aix.BuiltinTool` is the documented entry point alongside `aix.Agent`/`aix.Tool`."""
+    assert aix.BuiltinTool is BuiltinTool
+
+
+def test_a_builtin_toolkit_is_skipped_by_run_time_parameter_overrides(aix):
+    """`_build_tool_overrides` walks every `ToolableMixin`; a toolkit has no id to key on.
+
+    Without the id guard it would emit `{"id": None, ...}` and the backend would
+    fail to match it against any tool.
+    """
+    agent = aix.Agent(name="workspace-agent", tools=[BuiltinTool(toolkit="python", timeout_s=30)])
+
+    assert agent._build_tool_overrides() == []
+
+
+def test_an_unknown_server_key_survives_a_fetch_and_re_save(aix):
+    """A backend newer than the SDK must not lose settings by being fetched and saved."""
+    row = {"type": "builtin", "toolkit": "python", "timeout_s": 10, "sandbox_profile": "strict"}
+    aix.client.get = Mock(return_value={"id": "agent-id", "name": "workspace-agent", "tools": [row]})
+
+    agent = aix.Agent.get("agent-id")
+
+    assert isinstance(agent.tools[0], BuiltinTool)
+    assert agent.build_save_payload()["tools"] == [row]

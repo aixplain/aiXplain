@@ -122,10 +122,16 @@ class BuiltinTool(ToolableMixin):
 
     def __post_init__(self) -> None:
         """Validate the toolkit, the requested tool names and the settings."""
-        if self.toolkit not in TOOLKIT_TOOLS:
+        # ``isinstance`` first: an unhashable toolkit (a list from a mangled
+        # response, say) would make the membership test raise TypeError instead
+        # of the ValueError this class documents.
+        if not isinstance(self.toolkit, str) or self.toolkit not in TOOLKIT_TOOLS:
             raise ValueError(f"Unknown toolkit {self.toolkit!r}. Allowed toolkits: {sorted(TOOLKIT_TOOLS)}.")
 
         if self.include is not None:
+            # Snapshot before validating: the caller's list must not be able to
+            # gain an unvalidated name later by being mutated behind our back.
+            self.include = list(self.include)
             if not self.include:
                 raise ValueError("include must name at least one tool, or be None to expose every tool in the toolkit.")
             unknown = [name for name in self.include if name not in TOOLKIT_TOOLS[self.toolkit]]
@@ -150,6 +156,10 @@ class BuiltinTool(ToolableMixin):
                 f"Allowed settings: {sorted(allowed)}."
             )
 
+        # Same snapshot rule as ``include``, for the one other list-valued setting.
+        if self.deny_patterns is not None:
+            self.deny_patterns = list(self.deny_patterns)
+
     def as_tool(self) -> dict:
         """Serialize as the ``{"type": "builtin", ...}`` row the agent payload carries.
 
@@ -161,7 +171,13 @@ class BuiltinTool(ToolableMixin):
             dict: The wire row for this toolkit.
         """
         row: Dict[str, Any] = {"type": "builtin", "toolkit": self.toolkit}
-        row.update({key: value for key, value in self._extra.items() if key not in _SERVER_ONLY_KEYS})
+        row.update(
+            {
+                key: list(value) if isinstance(value, list) else value
+                for key, value in self._extra.items()
+                if key not in _SERVER_ONLY_KEYS
+            }
+        )
         if self.include is not None:
             row["include"] = list(self.include)
         for name in TOOLKIT_SETTINGS[self.toolkit]:
@@ -191,7 +207,9 @@ class BuiltinTool(ToolableMixin):
         if toolkit is None:
             raise ValueError(f"A builtin tool row must carry a 'toolkit'. Got: {row!r}.")
 
-        known = set(TOOLKIT_SETTINGS.get(toolkit, ())) | {"include"}
+        # A non-string toolkit may be unhashable, so it cannot be used as a dict
+        # key here; leave it to ``__post_init__`` to reject it as a ValueError.
+        known = set(TOOLKIT_SETTINGS.get(toolkit, ()) if isinstance(toolkit, str) else ()) | {"include"}
         kwargs = {key: value for key, value in row.items() if key in known}
         extra = {
             key: value

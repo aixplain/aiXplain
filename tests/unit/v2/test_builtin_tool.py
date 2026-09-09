@@ -304,3 +304,50 @@ def test_every_declared_setting_is_a_real_field():
     declared = {name for names in TOOLKIT_SETTINGS.values() for name in names}
 
     assert declared <= fields
+
+
+def test_a_non_string_toolkit_is_a_value_error_not_a_type_error():
+    """An unhashable toolkit must not escape the membership test as a TypeError."""
+    with pytest.raises(ValueError, match="Unknown toolkit"):
+        BuiltinTool(toolkit=["file"])
+
+    with pytest.raises(ValueError, match="Unknown toolkit"):
+        BuiltinTool.from_api_dict({"type": "builtin", "toolkit": ["file"]})
+
+
+def test_include_is_snapshotted_so_a_later_mutation_cannot_bypass_validation():
+    """Validation runs once; an aliased list would let an unknown name in afterwards."""
+    names = ["read_file"]
+    tool = BuiltinTool(toolkit="file", include=names)
+
+    names.append("not_a_real_tool")
+
+    assert tool.include == ["read_file"]
+
+
+def test_deny_patterns_is_snapshotted_too():
+    """The one other list-valued setting; same aliasing hazard."""
+    patterns = [r"^\s*rm\b"]
+    tool = BuiltinTool(toolkit="bash", deny_patterns=patterns)
+
+    patterns.append("everything")
+
+    assert tool.deny_patterns == [r"^\s*rm\b"]
+
+
+def test_from_api_dict_does_not_alias_the_response_row():
+    """Editing a fetched toolkit must not reach back into the response dict."""
+    row = {"type": "builtin", "toolkit": "file", "include": ["read_file"]}
+
+    BuiltinTool.from_api_dict(row).include.append("grep")
+
+    assert row["include"] == ["read_file"]
+
+
+def test_an_emitted_row_never_shares_a_list_with_the_tool():
+    """`as_tool()` is a snapshot for unknown server keys too, not just modelled ones."""
+    tool = BuiltinTool.from_api_dict({"type": "builtin", "toolkit": "python", "allow_hosts": ["a"]})
+
+    tool.as_tool()["allow_hosts"].append("b")
+
+    assert tool.as_tool()["allow_hosts"] == ["a"]
