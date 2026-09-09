@@ -54,3 +54,7 @@ repos:
           - sentry-sdk>=1.0.0
           - pydantic>=2.10.6
           - filelock>=3.0.0
+          # tests/unit/test_generator.py renders the generated modules, and the
+          # render step shells out to `python -m ruff format`. Pinned to the `rev`
+          # above and to the `test` extra in pyproject.toml (ENG-3435).
+          - ruff==0.12.12

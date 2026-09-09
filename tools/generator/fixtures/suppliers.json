@@ -1,0 +1,422 @@
+[
+  {
+    "id": 1,
+    "name": "aixplain",
+    "code": "aixplain"
+  },
+  {
+    "id": 1769,
+    "name": "Google",
+    "code": "google"
+  },
+  {
+    "id": 11688,
+    "name": "TimeChat",
+    "code": "timechat"
+  },
+  {
+    "id": 29334,
+    "name": "Canopy Labs",
+    "code": "canopy-labs"
+  },
+  {
+    "id": 29342,
+    "name": "Composio",
+    "code": "composio"
+  },
+  {
+    "id": 14770,
+    "name": "Mistral AI",
+    "code": "mistralai"
+  },
+  {
+    "id": 1781,
+    "name": "revai",
+    "code": "revai"
+  },
+  {
+    "id": 1783,
+    "name": "sautech",
+    "code": "sautech"
+  },
+  {
+    "id": 1766,
+    "name": "Microsoft",
+    "code": "azure"
+  },
+  {
+    "id": 1776,
+    "name": "NVIDIA",
+    "code": "nvidia"
+  },
+  {
+    "id": 16249,
+    "name": "OpenWeather",
+    "code": "openweather"
+  },
+  {
+    "id": 65776,
+    "name": "SerpApi",
+    "code": "serpapi"
+  },
+  {
+    "id": 32961,
+    "name": "Fanar",
+    "code": "fanar"
+  },
+  {
+    "id": 1779,
+    "name": "puretalkai",
+    "code": "puretalkai"
+  },
+  {
+    "id": 1806,
+    "name": "Sukoon",
+    "code": "sukoon"
+  },
+  {
+    "id": 1775,
+    "name": "modermt",
+    "code": "modermt"
+  },
+  {
+    "id": 1780,
+    "name": "pyannoteAI",
+    "code": "pyannote"
+  },
+  {
+    "id": 20131,
+    "name": "Firecrawl",
+    "code": "firecrawl"
+  },
+  {
+    "id": 14588,
+    "name": "Resemble AI",
+    "code": "resembleai"
+  },
+  {
+    "id": 11238,
+    "name": "MyShell AI",
+    "code": "myshell"
+  },
+  {
+    "id": 29643,
+    "name": "Beijing Academy of Artificial Intelligence",
+    "code": "BAAI"
+  },
+  {
+    "id": 10482,
+    "name": "ElevenLabs",
+    "code": "elevenlabs"
+  },
+  {
+    "id": 34640,
+    "name": "Lara Translate",
+    "code": "lara-translate"
+  },
+  {
+    "id": 32839,
+    "name": "Lambda Ai",
+    "code": "lambda-ai"
+  },
+  {
+    "id": 17852,
+    "name": "Fireworks AI",
+    "code": "fireworks-ai"
+  },
+  {
+    "id": 24097,
+    "name": "xAI",
+    "code": "xai"
+  },
+  {
+    "id": 1777,
+    "name": "OpenAI",
+    "code": "openai"
+  },
+  {
+    "id": 19379,
+    "name": "Tavily",
+    "code": "tavily"
+  },
+  {
+    "id": 1409,
+    "name": "aplicata",
+    "code": "aplicata"
+  },
+  {
+    "id": 1767,
+    "name": "British Telecom",
+    "code": "britishtelecom"
+  },
+  {
+    "id": 1768,
+    "name": "meta",
+    "code": "meta"
+  },
+  {
+    "id": 1796,
+    "name": "AppTek-SpaceToon",
+    "code": "apptek-spacetoon"
+  },
+  {
+    "id": 1797,
+    "name": "AppTek2",
+    "code": "apptek"
+  },
+  {
+    "id": 1770,
+    "name": "houndify",
+    "code": "houndify"
+  },
+  {
+    "id": 1804,
+    "name": "Ramsa",
+    "code": "ramsa"
+  },
+  {
+    "id": 1805,
+    "name": "RDI",
+    "code": "rdi"
+  },
+  {
+    "id": 1772,
+    "name": "kateb",
+    "code": "kateb"
+  },
+  {
+    "id": 1773,
+    "name": "klangoo",
+    "code": "klangoo"
+  },
+  {
+    "id": 2927,
+    "name": "Vectara",
+    "code": "vectara"
+  },
+  {
+    "id": 1778,
+    "name": "picovoice",
+    "code": "picovoice"
+  },
+  {
+    "id": 1782,
+    "name": "sacrebleu",
+    "code": "sacrebleu"
+  },
+  {
+    "id": 1786,
+    "name": "universityofhelsinki",
+    "code": "universityofhelsinki"
+  },
+  {
+    "id": 1787,
+    "name": "vumichien",
+    "code": "vumichien"
+  },
+  {
+    "id": 1789,
+    "name": "yourtts",
+    "code": "yourtts"
+  },
+  {
+    "id": 12371,
+    "name": "Core42",
+    "code": "core42"
+  },
+  {
+    "id": 10473,
+    "name": "Scale SERP",
+    "code": "scaleserp"
+  },
+  {
+    "id": 10930,
+    "name": "Speechmatics",
+    "code": "speechmatics"
+  },
+  {
+    "id": 10931,
+    "name": "IBM",
+    "code": "ibm"
+  },
+  {
+    "id": 14573,
+    "name": "PlayHT",
+    "code": "playht"
+  },
+  {
+    "id": 25056,
+    "name": "Voyage AI",
+    "code": "voyage-ai"
+  },
+  {
+    "id": 11150,
+    "name": "Wikipedia",
+    "code": "wikipedia"
+  },
+  {
+    "id": 26964,
+    "name": "Jina Ai",
+    "code": "jina-ai"
+  },
+  {
+    "id": 17861,
+    "name": "SambaNova",
+    "code": "sambanova"
+  },
+  {
+    "id": 17905,
+    "name": "Hume AI",
+    "code": "hume-ai"
+  },
+  {
+    "id": 1803,
+    "name": "QCRI",
+    "code": "qcri"
+  },
+  {
+    "id": 1784,
+    "name": "Stability AI",
+    "code": "stabilityai"
+  },
+  {
+    "id": 22755,
+    "name": "Tarjama",
+    "code": "tarjama"
+  },
+  {
+    "id": 24593,
+    "name": "Luma AI",
+    "code": "luma-ai"
+  },
+  {
+    "id": 25059,
+    "name": "Cohere",
+    "code": "cohere"
+  },
+  {
+    "id": 25579,
+    "name": "Groq KSA",
+    "code": "groq-ksa"
+  },
+  {
+    "id": 29093,
+    "name": "Paradigm Networks",
+    "code": "paradigm-networks"
+  },
+  {
+    "id": 29337,
+    "name": "Sesame AI Labs",
+    "code": "sesame-ai-labs"
+  },
+  {
+    "id": 37644,
+    "name": "Moonshot AI",
+    "code": "moonshot-ai"
+  },
+  {
+    "id": 16094,
+    "name": "CrewAI",
+    "code": "crewai"
+  },
+  {
+    "id": 210,
+    "name": "sdaia",
+    "code": "sdaia"
+  },
+  {
+    "id": 1808,
+    "name": "Unbabel",
+    "code": "unbabel"
+  },
+  {
+    "id": 1799,
+    "name": "Deepgram",
+    "code": "deepgram"
+  },
+  {
+    "id": 1800,
+    "name": "eBay",
+    "code": "ebay"
+  },
+  {
+    "id": 1801,
+    "name": "IdenTV",
+    "code": "identv"
+  },
+  {
+    "id": 1802,
+    "name": "Pangeanic",
+    "code": "pangeanic"
+  },
+  {
+    "id": 1807,
+    "name": "Treatment",
+    "code": "treatment"
+  },
+  {
+    "id": 1771,
+    "name": "huggingface",
+    "code": "huggingface"
+  },
+  {
+    "id": 1785,
+    "name": "streamn",
+    "code": "streamn"
+  },
+  {
+    "id": 1788,
+    "name": "ydshieh",
+    "code": "ydshieh"
+  },
+  {
+    "id": 1763,
+    "name": "AWS",
+    "code": "aws"
+  },
+  {
+    "id": 20164,
+    "name": "Deep Infra",
+    "code": "deepinfra"
+  },
+  {
+    "id": 17296,
+    "name": "Maritaca AI",
+    "code": "maritaca-ai"
+  },
+  {
+    "id": 6839,
+    "name": "Groq",
+    "code": "groq"
+  },
+  {
+    "id": 19790,
+    "name": "Cerebras",
+    "code": "cerebras"
+  },
+  {
+    "id": 17845,
+    "name": "Together AI",
+    "code": "together-ai"
+  },
+  {
+    "id": 67623,
+    "name": "Alibaba Cloud",
+    "code": "alibaba-cloud"
+  },
+  {
+    "id": 66303,
+    "name": "Anthropic",
+    "code": "anthropic"
+  },
+  {
+    "id": 65945,
+    "name": "ByteDance",
+    "code": "bytedance"
+  },
+  {
+    "id": 67145,
+    "name": "OpenRouter",
+    "code": "openrouter"
+  }
+]

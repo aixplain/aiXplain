@@ -3,7 +3,7 @@
 # This is an auto generated module. PLEASE DO NOT EDIT
 
 from typing import Union, Type
-from aixplain.enums import DataType
+from aixplain.v1.enums import DataType
 
 from .designer import (
     InputParam,
@@ -18,7 +18,7 @@ from .designer import (
     BaseMetric,
 )
 from .default import DefaultPipeline
-from aixplain.modules import asset
+from aixplain.v1.modules import asset
 
 
 class TextNormalizationInputs(Inputs):

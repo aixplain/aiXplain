@@ -99,6 +99,10 @@ test = [
     # Exercised by the agent_evaluator / eval_experiment plotting tests, which
     # used to `pytest.importorskip("plotly")` and therefore never ran (ENG-3431).
     "plotly>=5.18.0",
+    # `generate.py render` shells out to `ruff format`; the drift job and
+    # tests/unit/test_generator.py compare its output byte-for-byte, so the version is
+    # pinned to the `rev` in .pre-commit-config.yaml (ENG-3435).
+    "ruff==0.12.12",
 ]
 
 [tool.coverage.run]
