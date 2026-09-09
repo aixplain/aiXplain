@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 
 import pytest
 
+from pathlib import Path
+
 from aixplain.enums import AssetStatus, Function
 from aixplain.modules.model import Model
 from aixplain.modules.model.model_parameters import ModelParameters
@@ -27,6 +29,7 @@ from aixplain.utils.asset_cache import (
     Store,
     atomic_write_private,
     default_cache_folder,
+    purge_legacy_cwd_cache,
     serialize,
     serialize_asset,
 )
@@ -37,13 +40,19 @@ POSIX_ONLY = pytest.mark.skipif(os.name == "nt", reason="POSIX file modes are no
 
 @pytest.fixture
 def cache_folder(tmp_path, monkeypatch):
-    """Point the cache at an isolated directory and drop shared instances."""
-    folder = tmp_path / "cache"
-    monkeypatch.setenv("AIXPLAIN_CACHE_FOLDER", str(folder))
+    """Point the cache at an isolated directory and drop shared instances.
+
+    Yields the directory the cache actually uses -- the override gets its own
+    ``aixplain`` subdirectory, so that the only directories the SDK tightens
+    permissions on are ones it created itself.
+    """
+    monkeypatch.setenv("AIXPLAIN_CACHE_FOLDER", str(tmp_path / "cacheroot"))
     monkeypatch.delenv("CACHE_EXPIRY_TIME", raising=False)
     monkeypatch.delenv("CACHE_MAX_ENTRIES", raising=False)
+    # Keep every test out of any real ``./.cache`` in the working directory.
+    monkeypatch.chdir(tmp_path)
     AssetCache.reset_shared()
-    yield folder
+    yield Path(default_cache_folder())
     AssetCache.reset_shared()
 
 
@@ -635,7 +644,9 @@ def test_a_shared_instance_stops_serving_entries_once_expired(cache_folder, monk
     cache.add(make_model())
     assert cache.get("m-1") is not None
 
-    # Expire in place, exactly as the passage of time would.
+    # Expire both the store and the file, which is what elapsed time does.
+    cache.store.expiry = time.time() - 1
+    cache.save(merge=False)
     cache.store.expiry = time.time() - 1
 
     assert cache.get("m-1") is None
@@ -852,3 +863,137 @@ def test_credential_attributes_are_excluded_without_an_allowlist():
 
     assert "api_key" not in payload and "backend_url" not in payload
     assert payload["params"] == {"url": "https://example.com"}, "nested data must be untouched"
+
+
+def test_an_expired_store_picks_up_another_processes_refresh(cache_folder):
+    """An expired store reloads the file instead of discarding it.
+
+    Only clearing memory sent the next lookup down the cold path, which
+    repopulates from one page of the account's models and then overwrote
+    everything other processes had just written.
+    """
+    writer = AssetCache(Model)
+    writer.add_list([make_model(f"m-{i}") for i in range(300)])
+
+    reader = AssetCache(Model)
+    assert len(reader.get_all()) == 300
+    reader.store.expiry = time.time() - 1  # the reader's copy goes stale
+
+    # The file is still fresh, so the reader must recover all of it.
+    assert reader.get("m-7") is not None
+    assert len(reader.get_all()) == 300
+
+
+def test_add_list_restarts_the_expiry(cache_folder):
+    """Replacing the cache wholesale restarts its TTL.
+
+    add_list inherited whatever expiry the store happened to hold, so
+    repopulating an already-expired store wrote a file that was dead on
+    arrival and could never be read back.
+    """
+    cache = AssetCache(Model)
+    cache.store.expiry = time.time() - 10
+
+    cache.add_list([make_model()])
+
+    assert cache.has_valid_cache()
+    assert json.load(open(cache.cache_file, encoding="utf-8"))["expiry"] > time.time()
+    AssetCache.reset_shared()
+    assert AssetCache(Model).get("m-1") is not None
+
+
+def test_cache_keys_are_the_unescaped_id(cache_folder):
+    """Store, lookup and membership must agree on one key form.
+
+    Lookups percent-escaped the id while every write keyed on the raw id, so a
+    slug id never hit the cache -- and prefetch's membership test used the raw
+    form, so it also skipped warming ids the getter could never read.
+    """
+    slug = "aixplain/openai/gpt-4o-mini/openai"
+    cache = AssetCache(Model)
+    cache.add(make_model(slug))
+
+    assert slug in cache
+    assert cache.get(slug) is not None
+    assert list(cache.store.data) == [slug], "the key must not be escaped"
+
+
+def test_add_can_key_on_the_requested_id(cache_folder):
+    """A slug request answered with a canonical id is still cached under the slug."""
+    cache = AssetCache(Model)
+    cache.add(make_model("canonical-123"), key="openai/gpt-4o")
+
+    assert cache.get("openai/gpt-4o") is not None
+    assert cache.get("openai/gpt-4o").id == "canonical-123"
+
+
+def test_override_gets_its_own_subdirectory(monkeypatch, tmp_path):
+    """The override is never used verbatim.
+
+    ensure_cache_folder tightens the cache directory on every save, so pointing
+    the override at $HOME or a shared volume would strip that directory's group
+    and other bits -- and re-strip them after any manual fix.
+    """
+    shared = tmp_path / "shared_volume"
+    shared.mkdir()
+    monkeypatch.setenv("AIXPLAIN_CACHE_FOLDER", str(shared))
+
+    folder = default_cache_folder()
+
+    assert folder == str(shared / "aixplain")
+    assert folder != str(shared)
+
+
+@POSIX_ONLY
+def test_a_user_directory_named_by_the_override_keeps_its_permissions(monkeypatch, tmp_path):
+    """Only the SDK's own subdirectory is tightened, not the directory given."""
+    shared = tmp_path / "shared_volume"
+    shared.mkdir()
+    os.chmod(shared, 0o755)
+    monkeypatch.setenv("AIXPLAIN_CACHE_FOLDER", str(shared))
+    AssetCache.reset_shared()
+
+    AssetCache(Model).add(make_model())
+
+    assert stat.S_IMODE(shared.stat().st_mode) == 0o755, "the user's directory must be left alone"
+    assert stat.S_IMODE((shared / "aixplain").stat().st_mode) == 0o700
+
+
+def test_legacy_cwd_cache_is_removed(cache_folder, tmp_path):
+    """The credential an earlier release leaked into $CWD is cleaned up.
+
+    Relocating the cache stops new leaks but leaves the old cleartext file in
+    the checkout, where it stays readable indefinitely.
+    """
+    legacy_dir = tmp_path / ".cache"
+    legacy_dir.mkdir()
+    legacy = legacy_dir / "model.json"
+    legacy.write_text(json.dumps({"expiry": time.time() + 999, "data": {"m-1": {"id": "m-1", "api_key": SENTINEL_KEY}}}))
+
+    AssetCache.reset_shared()
+    AssetCache(Model)
+
+    assert not legacy.exists(), "the legacy cache file must be removed"
+    assert legacy_dir.exists(), "the .cache directory itself belongs to other tools too"
+
+
+@pytest.mark.parametrize(
+    "content",
+    ['{"unrelated": "tool"}', "not json at all", '{"expiry": 1}'],
+)
+def test_an_unrelated_cwd_cache_file_is_left_alone(cache_folder, tmp_path, content):
+    """Cleanup touches only files that are recognisably this cache's own."""
+    legacy_dir = tmp_path / ".cache"
+    legacy_dir.mkdir()
+    legacy = legacy_dir / "model.json"
+    legacy.write_text(content)
+
+    AssetCache.reset_shared()
+    AssetCache(Model)
+
+    assert legacy.read_text() == content, "a file we cannot identify as ours must be untouched"
+
+
+def test_legacy_cleanup_reports_nothing_to_do(cache_folder, tmp_path):
+    """With no legacy file the cleanup is a no-op."""
+    assert purge_legacy_cwd_cache("model") is False

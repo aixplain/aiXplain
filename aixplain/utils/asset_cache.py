@@ -78,8 +78,7 @@ def default_cache_folder() -> str:
     """Return the directory holding aiXplain cache files.
 
     Resolution order:
-        1. ``AIXPLAIN_CACHE_FOLDER``, when set (used by tests and by callers that
-           want an explicit location).
+        1. ``$AIXPLAIN_CACHE_FOLDER/aixplain``, when the variable is set.
         2. ``%LOCALAPPDATA%\\aixplain\\cache`` on Windows.
         3. ``$XDG_CACHE_HOME/aixplain``, when ``XDG_CACHE_HOME`` is set.
         4. ``~/.cache/aixplain``.
@@ -91,10 +90,17 @@ def default_cache_folder() -> str:
         The current working directory is deliberately never used: a cache in
         ``$CWD`` is readable by anything sharing the checkout (CI runners,
         Docker build contexts, co-tenant processes).
+
+        Every branch ends in a directory belonging to the SDK, including the
+        override, which gets its own ``aixplain`` subdirectory. That matters
+        because :func:`ensure_cache_folder` restricts this directory to its
+        owner on every save: pointed straight at ``$HOME``, ``.`` or a shared
+        volume, it would strip the group and other bits off a directory the
+        user never meant to hand over (BUG-940).
     """
     override = os.getenv("AIXPLAIN_CACHE_FOLDER")
     if override:
-        return os.path.abspath(os.path.expanduser(override))
+        return os.path.join(os.path.abspath(os.path.expanduser(override)), "aixplain")
 
     if sys.platform == "win32":
         root = os.getenv("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
@@ -105,6 +111,64 @@ def default_cache_folder() -> str:
         return os.path.join(xdg, "aixplain")
 
     return os.path.join(os.path.expanduser("~"), ".cache", "aixplain")
+
+
+#: Where releases before this fix wrote the cache: relative to the working
+#: directory, world-readable, credential included.
+LEGACY_CACHE_FOLDER = ".cache"
+
+
+def purge_legacy_cwd_cache(cache_filename: str) -> bool:
+    """Delete a pre-fix cache file left in the working directory.
+
+    Moving the cache out of ``$CWD`` stops new leaks but does nothing about the
+    cleartext credential an earlier release already wrote there, which would
+    otherwise sit in the checkout indefinitely. Removing it is part of the fix.
+
+    Args:
+        cache_filename (str): Base name of the cache file, e.g. ``"model"``.
+
+    Returns:
+        bool: True if a legacy cache file was removed.
+
+    Note:
+        Deliberately narrow. It removes only ``.cache/<cache_filename>.json``,
+        only after confirming the contents are this cache's own structure, and
+        it leaves the ``.cache`` directory itself in place -- other tools use
+        that name, and none of their files are ours to delete.
+    """
+    legacy = os.path.join(LEGACY_CACHE_FOLDER, f"{cache_filename}.json")
+    if not os.path.isfile(legacy):
+        return False
+
+    try:
+        with open(legacy, "r", encoding="utf-8") as f:
+            content = json.load(f)
+        if not (isinstance(content, dict) and "expiry" in content and "data" in content):
+            logger.debug(f"Leaving {legacy} alone: not an aiXplain asset cache")
+            return False
+    except Exception as e:
+        logger.debug(f"Leaving {legacy} alone: could not be read as an asset cache ({e})")
+        return False
+
+    try:
+        os.remove(legacy)
+        logger.warning(
+            f"Removed legacy cache {legacy}, which earlier versions wrote to the working "
+            "directory with the account API key in cleartext. If it was committed or copied "
+            "into an image, rotate the key."
+        )
+    except OSError as e:
+        logger.warning(f"Could not remove legacy cache {legacy}: {e}")
+        return False
+
+    legacy_lock = os.path.join(LEGACY_CACHE_FOLDER, f"{cache_filename}.lock")
+    if os.path.isfile(legacy_lock):
+        try:
+            os.remove(legacy_lock)
+        except OSError:
+            pass
+    return True
 
 
 def ensure_cache_folder(folder: str) -> None:
@@ -300,6 +364,14 @@ class AssetCache(Generic[T]):
         # object graph it has already converted.
         self._serialized: Dict[str, Any] = {}
         self.store = Store(data=OrderedDict(), expiry=self.compute_expiry())
+
+        # Clean up after releases that cached into the working directory with
+        # the credential in cleartext. Best effort, and never fatal.
+        try:
+            purge_legacy_cwd_cache(cache_filename)
+        except Exception as e:  # pragma: no cover - defensive
+            logger.debug(f"Legacy cache cleanup skipped: {e}")
+
         self.load()
 
     # ------------------------------------------------------------------
@@ -602,24 +674,30 @@ class AssetCache(Generic[T]):
         return _isolate(result, asset_id)
 
     def _expire_if_needed(self) -> bool:
-        """Drop the in-memory entries when the store has passed its expiry.
+        """Refresh the store from disk once it has passed its expiry.
 
         The instance is memoized process-wide, so :meth:`load` -- which is where
         expiry used to be enforced -- no longer runs on every lookup. Without
         this check a long-lived process would keep serving entries forever.
 
-        The cache file is left alone: another process may have refreshed it, and
-        the next miss repopulates from it anyway.
+        Expiry then *reloads* rather than only clearing memory. Another process
+        has very likely refreshed the file in the meantime, and simply emptying
+        the store sent the next lookup down the cold path, which repopulates
+        from one page of the account's models and overwrote everything those
+        other processes had just written (BUG-940).
 
         Must be called with ``self._lock`` held.
 
         Returns:
-            bool: True when entries were expired and cleared.
+            bool: True when the store had expired and was refreshed.
         """
         if self.store.data and self.store.expiry < time.time():
-            logger.info(f"Cache expired for {self.cls.__name__}; clearing {len(self.store.data)} in-memory entries")
+            logger.info(f"Cache expired for {self.cls.__name__}; reloading {self.cache_file}")
             self.store = Store(data=OrderedDict(), expiry=self.compute_expiry())
             self._serialized = {}
+            # Safe to re-enter: ``_lock`` is an RLock and ``load`` takes the
+            # cross-process lock afresh, never nested inside another.
+            self.load()
             return True
         return False
 
@@ -648,22 +726,27 @@ class AssetCache(Generic[T]):
             self._expire_if_needed()
             return asset_id in self.store.data
 
-    def add(self, asset: T, save: bool = True) -> None:
+    def add(self, asset: T, save: bool = True, key: Optional[str] = None) -> None:
         """Add a single asset to the cache.
 
         Args:
             asset (T): The asset instance to cache. Must have an ``id`` attribute.
             save (bool, optional): Whether to persist the cache afterwards.
                 Defaults to True.
+            key (Optional[str], optional): Cache key to store under. Defaults to
+                ``asset.id``. Pass the identifier the caller looked the asset up
+                by when that can differ from the asset's own id -- a request by
+                slug may be answered with a canonical id, and the next lookup
+                will use the slug again.
 
         Note:
-            The asset object is stored as-is, so in-process readers get back the
-            concrete type they put in. The persisted form is the allowlisted,
+            An isolated copy is stored, so the caller keeps sole ownership of
+            the object it passed in. The persisted form is the allowlisted,
             credential-free projection produced by :func:`serialize_asset`.
         """
-        logger.info(f"Adding {self.cls.__name__} asset to cache: {asset.id}")
+        logger.info(f"Adding {self.cls.__name__} asset to cache: {key or asset.id}")
         with self._lock:
-            self._put(asset)
+            self._put(asset, key=key)
         if save:
             self.save()
 
@@ -699,22 +782,28 @@ class AssetCache(Generic[T]):
         with self._lock:
             self.store.data = OrderedDict()
             self._serialized = {}
+            # A full replacement restarts the TTL. Without this the new file
+            # inherits whatever expiry the store happened to hold, which for an
+            # already-expired store means writing a file that is dead on
+            # arrival (BUG-940).
+            self.store.expiry = self.compute_expiry()
             for asset in assets:
                 self._put(asset)
         if save:
             # Replacing, not merging: this call defines the whole cache.
             self.save(merge=False)
 
-    def _put(self, asset: T) -> None:
+    def _put(self, asset: T, key: Optional[str] = None) -> None:
         """Insert one asset and evict least-recently-used entries past the cap.
 
         Must be called with ``self._lock`` held.
 
         Args:
             asset (T): The asset instance to cache.
+            key (Optional[str], optional): Cache key. Defaults to ``asset.id``.
         """
         self._ensure_ordered()
-        asset_id = asset.id
+        asset_id = key or asset.id
         try:
             self._serialized[asset_id] = serialize_asset(asset)
         except Exception as e:

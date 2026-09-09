@@ -11,7 +11,7 @@ from aixplain.modules.model import Model
 from aixplain.utils import config
 from aixplain.utils.request_utils import _request_with_retry
 from aixplain.utils.asset_cache import AssetCache
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 from typing import Optional, Text
 
 
@@ -60,8 +60,11 @@ class ModelGetterMixin:
         if name:
             return cls._fetch_model_by_name(name, api_key)
 
-        # Continue with existing ID-based logic
-        model_id = model_id.replace("/", "%2F")
+        # Continue with existing ID-based logic. The id is used verbatim as the
+        # cache key -- percent-escaping is a URL concern and is applied where
+        # the request is built. Escaping here keyed lookups on
+        # "a%2Fb%2Fc" while every write keyed on the raw id, so slug ids
+        # ("openai/gpt-4o-mini/openai") never hit the cache (BUG-940).
         if api_key is None:
             api_key = config.TEAM_API_KEY
 
@@ -81,17 +84,32 @@ class ModelGetterMixin:
                 if not cache.has_valid_cache():
                     model_list_resp = cls.list(model_ids=None, api_key=api_key)
                     models = model_list_resp["results"]
-                    cache.add_list(models)
+                    # Additive: this is one page of the account's models, not
+                    # the authoritative cache contents, so it must not discard
+                    # entries this process never saw.
+                    cache.add_many(models)
                     for model in models:
                         if model.id == model_id:
                             return model
 
                 logging.info("Model not found in valid cache, fetching individually...")
                 model = cls._fetch_model_by_id(model_id, api_key)
-                cache.add(model)
+                # Key on the requested id: the backend may answer a slug with a
+                # canonical id, and the next lookup will use the slug again.
+                cache.add(model, key=model_id)
                 return model
             except Exception as e:
                 logging.warning(f"Cache lookup failed, falling back to direct fetch: {e}")
+
+            # The cache was unusable, but the result is still worth keeping:
+            # otherwise a failing bulk listing is re-attempted, with retries,
+            # on every single call.
+            model = cls._fetch_model_by_id(model_id, api_key)
+            try:
+                cache.add(model, key=model_id)
+            except Exception as e:
+                logging.warning(f"Could not cache directly fetched model: {e}")
+            return model
 
         logging.info("Fetching model directly without cache...")
         return cls._fetch_model_by_id(model_id, api_key)
@@ -168,7 +186,10 @@ class ModelGetterMixin:
         """
         resp = None
         try:
-            url = urljoin(cls.backend_url, f"sdk/models/{model_id}")
+            # Escape here rather than at the caller: a slug id must not be read
+            # as extra path segments, but the unescaped id is what identifies
+            # the model everywhere else, the cache included.
+            url = urljoin(cls.backend_url, f"sdk/models/{quote(model_id, safe='')}")
             headers = {
                 "Authorization": f"Token {api_key or config.TEAM_API_KEY}",
                 "Content-Type": "application/json",

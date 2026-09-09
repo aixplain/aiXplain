@@ -22,7 +22,12 @@ from aixplain.utils import config
 
 #: Location the cache must never use. Kept as a literal so the assertions below
 #: still fail if the default moves back into the working directory (BUG-940).
+#: The assertions target the cache *file*, not this directory: ".cache" is a
+#: common name, and a checkout where an older SDK once ran still has one, so
+#: asserting on the directory would fail on pre-existing state instead of on
+#: what the code under test did.
 CACHE_FOLDER = ".cache"
+LEGACY_CACHE_FILE = os.path.join(CACHE_FOLDER, "model.json")
 
 
 def pytest_generate_tests(metafunc):
@@ -308,7 +313,7 @@ def test_aixplain_model_cache_is_private_and_outside_the_cwd(model_cache):
     _ = ModelFactory.get(MODEL_ID_FOR_CACHE, use_cache=True)
 
     cache_file = Path(model_cache.cache_file)
-    assert not Path(CACHE_FOLDER).exists(), f"Cache must not be created in $CWD ({CACHE_FOLDER})."
+    assert not Path(LEGACY_CACHE_FILE).exists(), f"Cache must not be created in $CWD ({LEGACY_CACHE_FILE})."
     assert Path.cwd() not in cache_file.parents, f"Cache must live outside $CWD, got {cache_file}."
 
     if os.name != "nt":  # POSIX modes are not meaningful on Windows
@@ -325,7 +330,7 @@ def test_model_get_without_cache_writes_nothing(model_cache):
     _ = ModelFactory.get(MODEL_ID_FOR_CACHE)  # use_cache defaults to False
 
     assert not os.path.exists(model_cache.cache_file), "use_cache=False must not write the cache file."
-    assert not Path(CACHE_FOLDER).exists(), f"use_cache=False must not create {CACHE_FOLDER}."
+    assert not Path(LEGACY_CACHE_FILE).exists(), f"use_cache=False must not create {LEGACY_CACHE_FILE}."
 
 
 @pytest.mark.skip(reason="Flaky on test env: sample image asset returns 404 during document parsing")
