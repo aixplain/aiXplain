@@ -83,6 +83,47 @@ print(result.data.output)
 
 > Runs return typed objects — read outputs with `result.data.output`, not dict indexing.
 
+### Attach built-in toolkits
+
+Agents can use the worker's built-in toolkits — a sandboxed filesystem, a Python
+interpreter and a shell — without onboarding any asset. Attach them with
+`BuiltinTool`, which validates the toolkit, the tool names and the settings before
+anything reaches the backend.
+
+```python
+from aixplain import Aixplain
+from aixplain.v2 import BuiltinTool
+
+aix = Aixplain()  # reads AIXPLAIN_API_KEY from the environment
+
+agent = aix.Agent(
+    name="Workspace agent",
+    instructions="Read the uploaded files and compute the summary statistics.",
+    tools=[
+        # Omit `include` to expose every tool in the toolkit.
+        BuiltinTool(toolkit="file", include=["read_file", "glob", "grep"]),
+        BuiltinTool(toolkit="python", timeout_s=30),
+    ],
+)
+agent.save()
+
+# Toolkits read back as objects, so a setting is one attribute away.
+fetched = aix.Agent.get(agent.id)
+fetched.tools[1].timeout_s = 60
+fetched.save()
+```
+
+Available tools per toolkit: `file` — `read_file`, `list_directory`, `glob`,
+`grep`, `write_file`, `edit_file`; `python` — `run_python`; `bash` —
+`run_command`. Settings are per toolkit too (`file`: `max_read_bytes`,
+`max_results`; `python`: `timeout_s`, `expose_files`; `bash`: `timeout_s`,
+`max_output_bytes`, `deny_patterns`), and using one on the wrong toolkit raises a
+`ValueError` naming the settings that toolkit accepts. Anything you leave unset
+keeps the worker's default.
+
+> The `bash` toolkit must be enabled per deployment. Where it is not, the backend
+> rejects an agent that attaches it.
+
 ### Build a multi-agent team
 
 ```python

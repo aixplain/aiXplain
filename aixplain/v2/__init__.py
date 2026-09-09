@@ -5,6 +5,7 @@ from .rlm import RLM, RLMResult
 from .utility import Utility
 from .agent import Agent, Artifact, Budget, ContextOverflowStrategy
 from .tool import Tool
+from .builtin_tool import BuiltinTool
 from .skill import Skill
 from .actions import Input, Inputs, Action, Actions
 from .integration import TriggerTypeSpec, TriggerEventOption, TriggerTypes
@@ -102,6 +103,7 @@ __all__ = [
     "Budget",
     "ContextOverflowStrategy",
     "Tool",
+    "BuiltinTool",
     "Skill",
     "Resource",
     "File",

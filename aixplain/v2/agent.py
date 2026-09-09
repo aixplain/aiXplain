@@ -18,6 +18,7 @@ from .model import Model
 from .file import File
 from .skill import Skill
 from .mixins import ToolableMixin
+from .builtin_tool import BuiltinTool
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
@@ -954,6 +955,13 @@ class Agent(
     @staticmethod
     def _tool_identity(tool: Any) -> dict:
         """Return a stable id/type signature for a tool entry (no param values)."""
+        if isinstance(tool, BuiltinTool):
+            # A builtin row carries no id, so an id/type signature would collapse
+            # every toolkit onto the same value. Its settings are persisted
+            # configuration rather than ephemeral run-time overrides, so the full
+            # row is the identity: editing ``timeout_s`` must mark the agent
+            # modified.
+            return tool.as_tool()
         if isinstance(tool, str):
             return {"id": tool}
         if isinstance(tool, dict):
@@ -1758,13 +1766,36 @@ class Agent(
         reads and ``inputs[...] = value`` mutations do not require a network
         call. When the snapshot carries no parameters, the object is left to
         load its input specs lazily on first ``.actions`` access (matching a
-        normal ``Tool.get``). Requires a client context; without one (e.g. an
-        unbound ``Agent`` in unit tests) the raw entries are kept as-is.
+        normal ``Tool.get``). Asset hydration requires a client context; without
+        one (e.g. an unbound ``Agent`` in unit tests) the raw entries are kept
+        as-is. Built-in toolkit rows reference no asset, so they are converted
+        first and unconditionally — see :meth:`_hydrate_builtin_entry`.
         """
+        if not self.tools:
+            return
+        self.tools = [self._hydrate_builtin_entry(entry) for entry in self.tools]
         context = getattr(self, "context", None)
-        if context is None or not self.tools:
+        if context is None:
             return
         self.tools = [self._hydrate_tool_entry(entry, context) for entry in self.tools]
+
+    @staticmethod
+    def _hydrate_builtin_entry(entry: Any) -> Any:
+        """Convert a persisted ``{"type": "builtin", ...}`` row into a ``BuiltinTool``.
+
+        Keeps ``agent.tools`` symmetric with what the caller passed: a toolkit
+        attached as a :class:`~aixplain.v2.builtin_tool.BuiltinTool` reads back as
+        one after ``get()``. Needs no network and no client context. Best-effort,
+        like the asset hydration below: a row that cannot be mapped stays a dict
+        and still serializes through ``_normalize_tool_for_api``.
+        """
+        if not isinstance(entry, dict) or entry.get("type") != "builtin":
+            return entry
+        try:
+            return BuiltinTool.from_api_dict(entry)
+        except Exception:
+            # Never let hydration break construction — fall back to the raw dict.
+            return entry
 
     def _hydrate_tool_entry(self, entry: Any, context: Any) -> Any:
         """Hydrate one ``tools`` entry into a Tool/Model object (best-effort)."""
