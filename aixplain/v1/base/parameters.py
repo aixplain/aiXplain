@@ -165,7 +165,17 @@ class BaseParameters:
 
         Raises:
             AttributeError: If attempting to access a parameter that hasn't been defined.
+
+        Note:
+            The lookup goes through ``__dict__`` rather than ``self.parameters``.
+            ``__getattr__`` runs whenever normal attribute lookup fails, and that
+            includes the attribute-less instance ``copy`` and ``pickle`` create
+            before restoring state: there ``self.parameters`` also misses,
+            re-enters ``__getattr__``, and recurses until ``RecursionError``.
+            That made ``copy.deepcopy`` of any Model carrying parameters fail
+            (BUG-940).
         """
-        if name in self.parameters:
-            return self.parameters[name].value
+        parameters = self.__dict__.get("parameters")
+        if parameters is not None and name in parameters:
+            return parameters[name].value
         raise AttributeError(f"Parameter '{name}' is not defined")

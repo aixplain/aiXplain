@@ -5,8 +5,11 @@ The cache mechanism itself was already covered; what was not covered was
 per call. Each test here pins one of those.
 """
 
+import contextlib
+import copy
 import json
 import os
+import pickle
 import stat
 import subprocess
 import sys
@@ -18,6 +21,7 @@ import pytest
 
 from aixplain.enums import AssetStatus, Function
 from aixplain.modules.model import Model
+from aixplain.modules.model.model_parameters import ModelParameters
 from aixplain.utils.asset_cache import (
     AssetCache,
     Store,
@@ -77,14 +81,20 @@ def test_serialize_asset_drops_the_api_key():
     "field",
     ["api_key", "token", "password", "secret", "access_token", "refresh_token", "client_secret", "authorization"],
 )
-def test_serialize_redacts_credential_shaped_keys_at_any_depth(field):
-    """Credential-shaped keys are dropped however deeply they are nested."""
-    payload = serialize({"outer": {"inner": [{field: SENTINEL_KEY, "keep": 1}]}})
+def test_serialize_is_faithful_and_does_not_drop_nested_keys(field):
+    """``serialize`` converts; it does not decide what may be persisted.
 
-    assert payload == {"outer": {"inner": [{"keep": 1}]}}
+    It used to drop credential-shaped keys at every depth, which silently
+    deleted user-defined parameters that happened to share those names. What
+    may be persisted is decided from the asset's own attribute names, in
+    :func:`serialize_asset`.
+    """
+    payload = serialize({"outer": {"inner": [{field: "a-parameter-value", "keep": 1}]}})
+
+    assert payload == {"outer": {"inner": [{field: "a-parameter-value", "keep": 1}]}}
 
 
-def test_serialize_redacts_credentials_on_arbitrary_objects():
+def test_serialize_asset_drops_credentials_on_arbitrary_objects():
     """A cached object that is not a Model still has its credential scrubbed."""
 
     class Holder:
@@ -92,7 +102,7 @@ def test_serialize_redacts_credentials_on_arbitrary_objects():
             self.api_key = SENTINEL_KEY
             self.name = "holder"
 
-    assert serialize(Holder()) == {"name": "holder"}
+    assert serialize_asset(Holder()) == {"name": "holder"}
 
 
 def test_environment_fields_are_not_persisted(cache_folder):
@@ -631,3 +641,214 @@ def test_a_shared_instance_stops_serving_entries_once_expired(cache_folder, monk
     assert cache.get("m-1") is None
     assert "m-1" not in cache
     assert not cache.has_valid_cache()
+
+
+# ======================================================================
+# Regression tests for the review of 515a133a. Each fails on that commit.
+# ======================================================================
+
+
+class _FchmodAbsent:
+    """Context manager removing ``os.fchmod``, as on Windows."""
+
+    def __enter__(self):
+        self._saved = os.fchmod
+        del os.fchmod
+
+    def __exit__(self, *exc):
+        os.fchmod = self._saved
+
+
+def _raise(exc):
+    def _boom(*args, **kwargs):
+        raise exc
+
+    return _boom
+
+
+@pytest.mark.parametrize(
+    "label, context",
+    [
+        ("absent", _FchmodAbsent()),
+        ("raises AttributeError", None),  # filled in below; patch needs the module
+        ("raises OSError", None),
+    ],
+)
+def test_write_succeeds_when_fchmod_is_unavailable(tmp_path, label, context, monkeypatch):
+    """Tightening permissions must never be what prevents the write (BUG-940).
+
+    ``os.fchmod`` is Unix-only, and a missing attribute raises ``AttributeError``
+    -- not ``OSError``. That escaped the handler, aborted the write and left
+    ``save()`` logging a failure, so every cache write failed on Windows while
+    the base branch's plain ``open()`` worked there. CI is Linux-only, so
+    nothing caught it.
+    """
+    if label == "raises AttributeError":
+        monkeypatch.setattr(os, "fchmod", _raise(AttributeError("no fchmod")))
+        context = contextlib.nullcontext()
+    elif label == "raises OSError":
+        monkeypatch.setattr(os, "fchmod", _raise(OSError("unsupported")))
+        context = contextlib.nullcontext()
+
+    target = tmp_path / "out.json"
+    with context:
+        atomic_write_private(str(target), '{"a": 1}')
+
+    assert json.loads(target.read_text()) == {"a": 1}
+    assert [p.name for p in tmp_path.iterdir()] == ["out.json"], "no temporary file may be left behind"
+
+
+@POSIX_ONLY
+def test_permissions_still_applied_through_the_chmod_fallback(tmp_path):
+    """With no ``os.fchmod``, the path-based fallback still yields 0600."""
+    target = tmp_path / "out.json"
+    with _FchmodAbsent():
+        atomic_write_private(str(target), "{}")
+
+    assert stat.S_IMODE(target.stat().st_mode) == 0o600
+
+
+def test_a_model_carrying_parameters_can_be_deep_copied():
+    """``deepcopy`` of a Model with ``model_params`` must not raise.
+
+    ``BaseParameters.__getattr__`` read ``self.parameters``, which misses on the
+    attribute-less instance ``copy`` builds before restoring state, re-entering
+    ``__getattr__`` until ``RecursionError``. ``get()`` then silently fell back
+    to a shallow copy.
+    """
+    original = make_model(model_params={"temperature": {"required": False}})
+
+    duplicate = copy.deepcopy(original)
+
+    assert duplicate.model_params is not original.model_params
+    assert duplicate.id == original.id
+
+
+def test_base_parameters_survives_pickling():
+    """The same defect broke pickling, e.g. across a process pool."""
+    params = ModelParameters({"temperature": {"required": False}})
+
+    assert "temperature" in pickle.loads(pickle.dumps(params)).parameters
+
+
+def test_undefined_parameter_still_raises_attribute_error():
+    """The __getattr__ fix must not weaken the error it reports."""
+    params = ModelParameters({"temperature": {"required": False}})
+
+    with pytest.raises(AttributeError, match="Parameter 'nope' is not defined"):
+        params.nope
+
+
+def test_isolation_holds_for_a_model_carrying_parameters(cache_folder):
+    """Isolation must hold for the models that actually reach the cache.
+
+    The earlier isolation test used a Model without ``model_params``, the one
+    shape whose ``deepcopy`` succeeded, so it proved nothing about the case
+    that matters.
+    """
+    cache = AssetCache(Model)
+    cache.add(make_model(displayName="original", model_params={"temperature": {"required": False}}))
+
+    borrowed = cache.get("m-1")
+    borrowed.additional_info["displayName"] = "mutated"
+    borrowed.model_params.temperature = 0.99
+
+    fresh = cache.get("m-1")
+    assert fresh.additional_info["displayName"] == "original"
+    assert fresh.model_params.parameters["temperature"].value is None
+
+
+def test_add_does_not_keep_the_callers_object(cache_folder):
+    """``add()`` stores a copy, so the caller never holds the cached entry.
+
+    ``ModelFactory.get`` returns the object it just added. On a shared instance
+    that handed every later reader an object the first caller was still free to
+    mutate -- ``build_llm`` assigns a temperature to it -- so a second agent
+    with the same llmId silently inherited the first agent's settings.
+    """
+    mine = make_model(model_params={"temperature": {"required": False}})
+    cache = AssetCache(Model)
+    cache.add(mine)
+
+    assert cache.store.data["m-1"] is not mine
+
+    mine.temperature = 0.9  # what build_llm does to the object it was handed
+    mine.additional_info["leaked"] = True
+
+    assert getattr(cache.get("m-1"), "temperature", None) != 0.9
+    assert "leaked" not in cache.get("m-1").additional_info
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"expiry": null, "data": {}}',
+        '{"expiry": 99999999999, "data": []}',
+        '{"expiry": "soon", "data": {}}',
+        '{"data": {}}',
+        "[]",
+        "{not json",
+    ],
+)
+def test_a_malformed_cache_file_never_escapes_construction(cache_folder, payload):
+    """A bad cache file must self-heal, not break every caller.
+
+    ``load()`` runs from ``__init__``, and ``agent_factory`` calls
+    ``AssetCache.shared(Model)`` outside its own try, so an exception here made
+    every ``AgentFactory.get`` with tools fail until the file was deleted by
+    hand.
+    """
+    os.makedirs(cache_folder, exist_ok=True)
+    (cache_folder / "model.json").write_text(payload)
+
+    cache = AssetCache.shared(Model)  # must not raise
+
+    assert cache.get_all() == []
+    assert not cache.has_valid_cache()
+
+
+@pytest.mark.parametrize("name", ["url", "token", "password", "secret", "authorization", "backend_url", "api_key"])
+def test_a_parameter_named_like_a_credential_is_still_persisted(cache_folder, name):
+    """Parameter *names* are data and must survive the credential filter.
+
+    Redacting by key name at every depth also stripped user-defined parameters,
+    because ``input_params``/``output_params``/``model_params`` are keyed by
+    parameter name. A fetch tool taking a ``url`` was cached without it; next
+    process ``ModelTool.validate_parameters`` raised, ``build_tool_safe``
+    swallowed it, and the tool disappeared for the whole TTL.
+    """
+    payload = serialize_asset(
+        make_model(
+            input_params={"text": {"required": True}, name: {"required": True}},
+            model_params={name: {"required": True}},
+        )
+    )
+
+    assert name in payload["input_params"], f"input parameter {name!r} was dropped"
+    assert name in payload["model_params"], f"model parameter {name!r} was dropped"
+
+
+def test_the_credential_attribute_is_still_excluded(cache_folder):
+    """Narrowing redaction must not reintroduce the leak it replaced."""
+    payload = serialize_asset(make_model(input_params={"url": {"required": True}}))
+    raw = json.dumps(payload)
+
+    assert "api_key" not in payload
+    assert SENTINEL_KEY not in raw
+    assert payload["input_params"]["url"] == {"required": True}
+
+
+def test_credential_attributes_are_excluded_without_an_allowlist():
+    """Assets with no ``__cache_fields__`` still lose their top-level secrets."""
+
+    class Untyped:
+        def __init__(self):
+            self.id = "u-1"
+            self.api_key = SENTINEL_KEY
+            self.backend_url = "https://internal"
+            self.params = {"url": "https://example.com"}
+
+    payload = serialize_asset(Untyped())
+
+    assert "api_key" not in payload and "backend_url" not in payload
+    assert payload["params"] == {"url": "https://example.com"}, "nested data must be untouched"

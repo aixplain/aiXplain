@@ -144,9 +144,21 @@ def atomic_write_private(path: str, blob: str) -> None:
     try:
         # mkstemp already creates the file 0600; make it explicit so the
         # guarantee does not rest on the platform's mkstemp semantics.
+        #
+        # os.fchmod is Unix-only, and an absent attribute raises AttributeError
+        # rather than OSError -- which would escape this handler and abort the
+        # whole write, so every cache save failed on Windows.
         try:
-            os.fchmod(fd, _FILE_MODE)
-        except OSError as e:
+            if hasattr(os, "fchmod"):
+                os.fchmod(fd, _FILE_MODE)
+            else:
+                os.chmod(tmp_path, _FILE_MODE)
+        except (OSError, AttributeError, NotImplementedError) as e:
+            # Windows honours only the read-only bit, and some network and
+            # overlay filesystems ignore modes entirely. Not fatal: the
+            # enclosing directory is already owner-only. AttributeError is
+            # caught as well as guarded for, so tightening permissions can
+            # never be what stops the cache from being written.
             logger.debug(f"Could not set permissions on {tmp_path}: {e}")
 
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -167,6 +179,36 @@ def atomic_write_private(path: str, blob: str) -> None:
                 os.remove(tmp_path)
             except OSError:
                 pass
+
+
+def _isolate(asset: Any, asset_id: str = "") -> Any:
+    """Return a copy of ``asset`` sharing no mutable state with the original.
+
+    The cache is a process-wide singleton, so an entry and the object a caller
+    holds must never be the same object, and must not share mutable attributes
+    (``model_params``, ``additional_info``, ...). Otherwise one consumer's
+    in-place edit silently rewrites what every later consumer reads.
+
+    Args:
+        asset (Any): The asset to copy.
+        asset_id (str, optional): Identifier, for log context only.
+
+    Returns:
+        Any: A deep copy, or a shallow copy if the asset cannot be deep-copied.
+
+    Note:
+        The shallow fallback is logged at warning, not debug: it does *not*
+        deliver isolation, and a silent fallback here is exactly what hid the
+        aliasing this function exists to prevent (BUG-940).
+    """
+    try:
+        return copy.deepcopy(asset)
+    except Exception as e:
+        logger.warning(
+            f"Could not deep-copy cached asset {asset_id or type(asset).__name__} ({e}); "
+            "falling back to a shallow copy, which leaves mutable attributes shared"
+        )
+        return copy.copy(asset)
 
 
 def _max_entries() -> int:
@@ -376,8 +418,12 @@ class AssetCache(Generic[T]):
            unreadable entries rather than discarding the whole cache.
 
         Note:
-            A malformed file (bad JSON, missing keys) clears the in-memory store
-            and leaves the file to be overwritten by the next save.
+            Any malformed file -- bad JSON, missing keys, a null expiry, a
+            ``data`` that is not a mapping -- clears the in-memory store and
+            leaves the file to be overwritten by the next save. Nothing here
+            propagates: this runs from ``__init__``, so an exception would make
+            every ``AssetCache(...)``/:meth:`shared` call fail until the user
+            deleted the file by hand (BUG-940).
         """
         logger.info(f"Loading cache for {self.cls.__name__} from {self.cache_file}")
 
@@ -393,47 +439,45 @@ class AssetCache(Generic[T]):
                 logger.info(f"Acquired file lock for loading: {self.lock_file}")
                 with open(self.cache_file, "r", encoding="utf-8") as f:
                     cache_data = json.load(f)
-        except Exception as e:
-            logger.error(f"Failed to read cache data for {self.cls.__name__}: {e}")
-            self.invalidate(delete_file=False)
-            return
 
-        try:
             expiry = cache_data["expiry"]
             raw_data = cache_data["data"]
-        except (TypeError, KeyError) as e:
-            logger.error(f"Malformed cache file for {self.cls.__name__}: {e}")
+
+            # Expiry is checked before any deserialization work.
+            if not isinstance(expiry, (int, float)) or expiry < time.time():
+                logger.warning(f"Cache expired or unusable for {self.cls.__name__} (expiry: {expiry!r})")
+                self.invalidate(delete_file=False)
+                return
+
+            if not isinstance(raw_data, dict):
+                raise TypeError(f"'data' must be a mapping, got {type(raw_data).__name__}")
+
+            logger.info(f"Found {len(raw_data)} cached items for {self.cls.__name__}")
+
+            parsed_data: "OrderedDict[str, T]" = OrderedDict()
+            serialized: Dict[str, Any] = {}
+            skipped = 0
+            # Keep the most recently written entries when the file exceeds the cap.
+            for key, value in list(raw_data.items())[-_max_entries() :]:
+                try:
+                    parsed_data[key] = self.cls.from_dict(value)
+                    serialized[key] = value
+                except Exception as e:
+                    skipped += 1
+                    logger.warning(f"Skipping unreadable cache entry {key} for {self.cls.__name__}: {e}")
+
+            with self._lock:
+                self.store = Store(data=parsed_data, expiry=expiry)
+                self._serialized = serialized
+
+            if skipped:
+                logger.warning(f"Loaded {len(parsed_data)} cached items for {self.cls.__name__}, skipped {skipped}")
+            else:
+                logger.info(f"Successfully loaded {len(parsed_data)} cached items for {self.cls.__name__}")
+
+        except Exception as e:
+            logger.error(f"Failed to load cache data for {self.cls.__name__}: {e}")
             self.invalidate(delete_file=False)
-            return
-
-        # Expiry is checked before any deserialization work.
-        if expiry < time.time():
-            logger.warning(f"Cache expired for {self.cls.__name__} (expiry: {expiry}, current: {time.time()})")
-            self.invalidate(delete_file=False)
-            return
-
-        logger.info(f"Found {len(raw_data)} cached items for {self.cls.__name__}")
-
-        parsed_data: "OrderedDict[str, T]" = OrderedDict()
-        serialized: Dict[str, Any] = {}
-        skipped = 0
-        # Keep the most recently written entries when the file exceeds the cap.
-        for key, value in list(raw_data.items())[-_max_entries() :]:
-            try:
-                parsed_data[key] = self.cls.from_dict(value)
-                serialized[key] = value
-            except Exception as e:
-                skipped += 1
-                logger.warning(f"Skipping unreadable cache entry {key} for {self.cls.__name__}: {e}")
-
-        with self._lock:
-            self.store = Store(data=parsed_data, expiry=expiry)
-            self._serialized = serialized
-
-        if skipped:
-            logger.warning(f"Loaded {len(parsed_data)} cached items for {self.cls.__name__}, skipped {skipped}")
-        else:
-            logger.info(f"Successfully loaded {len(parsed_data)} cached items for {self.cls.__name__}")
 
     def save(self, merge: bool = True) -> None:
         """Persist the current cache state to the cache file.
@@ -555,13 +599,7 @@ class AssetCache(Generic[T]):
             self.store.data.move_to_end(asset_id)
 
         logger.info(f"Cache hit for {self.cls.__name__} asset: {asset_id}")
-        try:
-            return copy.deepcopy(result)
-        except Exception as e:
-            # Some assets hold non-copyable handles; a shallow copy still keeps
-            # the caller from rebinding attributes on the shared instance.
-            logger.debug(f"Deep copy failed for {asset_id}, falling back to a shallow copy: {e}")
-            return copy.copy(result)
+        return _isolate(result, asset_id)
 
     def _expire_if_needed(self) -> bool:
         """Drop the in-memory entries when the store has passed its expiry.
@@ -684,7 +722,11 @@ class AssetCache(Generic[T]):
             logger.error(f"Error serializing {asset_id}: {e}")
             self._serialized.pop(asset_id, None)
 
-        self.store.data[asset_id] = asset
+        # Store an isolated copy. The instance is shared process-wide, so
+        # keeping the caller's object would let whatever the caller does to it
+        # next -- ``build_llm`` assigning a temperature, say -- rewrite the
+        # entry every later reader sees (BUG-940).
+        self.store.data[asset_id] = _isolate(asset, asset_id)
         self.store.data.move_to_end(asset_id)
 
         limit = _max_entries()
@@ -727,7 +769,7 @@ def serialize_asset(asset: Any) -> Any:
 
     Fields are chosen from the asset class's ``__cache_fields__`` allowlist when
     present, falling back to ``to_dict()`` and finally to the instance
-    ``__dict__``. The result is then scrubbed of credential-shaped keys.
+    ``__dict__``.
 
     Args:
         asset (Any): The asset to project.
@@ -738,14 +780,24 @@ def serialize_asset(asset: Any) -> Any:
     Note:
         The allowlist is what keeps the account API key -- held as a plain
         instance attribute -- out of the cache file (BUG-940).
+
+        Redaction is applied to this mapping's own keys and nowhere deeper,
+        because these are *attribute* names while everything below is data. In
+        particular ``input_params``, ``output_params``, ``model_params`` and
+        ``additional_info["parameters"]`` are keyed by user-defined parameter
+        name, so a tool that legitimately takes a ``url`` or ``token``
+        parameter would otherwise have it silently dropped -- and then fail
+        validation on the next process, which is worse than the leak this was
+        meant to guard against. The credential is a single attribute; excluding
+        it by name here is the whole job.
     """
     fields = getattr(type(asset), "__cache_fields__", None)
     if fields:
-        raw = {name: getattr(asset, name, None) for name in fields}
+        raw = {name: getattr(asset, name, None) for name in fields if not _is_redacted(name)}
     elif hasattr(asset, "to_dict"):
-        raw = asset.to_dict()
+        raw = {key: value for key, value in asset.to_dict().items() if not _is_redacted(key)}
     else:
-        raw = vars(asset)
+        raw = {key: value for key, value in vars(asset).items() if not _is_redacted(key)}
 
     return serialize(raw)
 
@@ -763,14 +815,18 @@ def serialize(obj: Any) -> Any:
     - Objects with __dict__ attribute
     - Other objects (converted to string)
 
-    Keys named after credentials (see :data:`SENSITIVE_FIELDS`) and environment
-    fields are dropped at every nesting depth.
-
     Args:
         obj (Any): The Python object to serialize.
 
     Returns:
         Any: A JSON-serializable version of the input object.
+
+    Note:
+        This is a faithful conversion and drops nothing. Choosing what may be
+        persisted belongs to :func:`serialize_asset`, which decides it from the
+        asset's own attribute names. Filtering by key name during the recursion
+        instead cannot tell an attribute from a parameter that merely shares its
+        name (BUG-940).
     """
     # Enums first: a member is often also a str, and recursing into its
     # ``__dict__`` would drag in ``__objclass__`` -- i.e. every other member of
@@ -784,11 +840,11 @@ def serialize(obj: Any) -> Any:
     elif isinstance(obj, (list, tuple, set)):
         return [serialize(o) for o in obj]
     elif isinstance(obj, dict):
-        return {str(k): serialize(v) for k, v in obj.items() if not _is_redacted(k)}
+        return {str(k): serialize(v) for k, v in obj.items()}
     elif hasattr(obj, "to_dict"):
         return serialize(obj.to_dict())
     elif hasattr(obj, "__dict__"):
-        return serialize({k: v for k, v in vars(obj).items() if not _is_redacted(k)})
+        return serialize(vars(obj))
     else:
         return str(obj)
 
