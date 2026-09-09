@@ -12,7 +12,10 @@ import pytest
 from aixplain.v2 import BuiltinTool
 from aixplain.v2.builtin_tool import TOOLKIT_SETTINGS, TOOLKIT_TOOLS
 
-#: The rows the worker accepts, verbatim from the ENG-3699 contract.
+#: The rows the worker accepts, verbatim from the ENG-3699 contract. Kept
+#: byte-identical with the copy in the sibling built-in toolkit test module:
+#: pytest runs with --import-mode=importlib and tests/unit/v2 is not a package,
+#: so a shared module is not importable from here without restructuring.
 FILE_ROW = {
     "type": "builtin",
     "toolkit": "file",
@@ -35,8 +38,8 @@ BASH_ROW = {
     "max_output_bytes": 65536,
     "deny_patterns": [r"^\s*rm\s+-rf\s+/"],
 }
-
 CONTRACT_ROWS = [FILE_ROW, PYTHON_ROW, BASH_ROW]
+CONTRACT_IDS = ["file", "python", "bash"]
 
 
 # ---------------------------------------------------------------------------
@@ -115,10 +118,10 @@ def test_expose_files_unset_is_not_sent():
     assert "expose_files" not in BuiltinTool(toolkit="python", timeout_s=5).as_tool()
 
 
-@pytest.mark.parametrize("row", CONTRACT_ROWS, ids=["file", "python", "bash"])
+@pytest.mark.parametrize("row", CONTRACT_ROWS, ids=CONTRACT_IDS)
 def test_no_asset_identity_keys_ever_appear(row):
     """A builtin toolkit is not an onboarded asset and must not pretend to be one."""
-    serialized = BuiltinTool.from_api_dict(row).as_tool()
+    serialized = BuiltinTool.from_dict(row).as_tool()
 
     assert not {"id", "assetId", "asset_id", "workspace_root"} & set(serialized)
 
@@ -163,10 +166,46 @@ def test_unknown_include_name_names_the_allowed_tools(toolkit, bad_name):
     assert str(sorted(TOOLKIT_TOOLS[toolkit])) in message
 
 
-def test_empty_include_is_rejected_as_ambiguous():
-    """`[]` could read as "no tools" or "all tools"; `None` is the documented "all"."""
-    with pytest.raises(ValueError, match="include must name at least one tool"):
-        BuiltinTool(toolkit="file", include=[])
+def test_empty_include_means_no_tools_and_is_not_an_error():
+    """The worker treats `[]` as "zero tools from this toolkit"; `None` is "all"."""
+    assert BuiltinTool(toolkit="file", include=[]).as_tool()["include"] == []
+    assert "include" not in BuiltinTool(toolkit="file").as_tool()
+
+
+@pytest.mark.parametrize("field", ["include", "deny_patterns"])
+def test_a_string_where_a_list_belongs_is_rejected_not_exploded(field):
+    """`list("rm -rf")` would silently become six one-character entries."""
+    toolkit = "file" if field == "include" else "bash"
+    value = "read_file" if field == "include" else "rm -rf"
+    with pytest.raises(ValueError, match=f"{field} must be a list"):
+        BuiltinTool(**{"toolkit": toolkit, field: value})
+
+
+def test_extra_is_not_a_constructor_argument():
+    """Otherwise a caller could smuggle `type`/`toolkit` past validation."""
+    with pytest.raises(TypeError):
+        BuiltinTool(toolkit="file", _extra={"type": "model"})
+
+
+def test_a_replayed_server_key_cannot_shadow_a_validated_one():
+    """`_extra` must not be able to overwrite `type`/`toolkit` on the way out."""
+    tool = BuiltinTool.from_dict({"type": "builtin", "toolkit": "python", "sandbox_profile": "strict"})
+    row = tool.as_tool()
+
+    assert row["type"] == "builtin" and row["toolkit"] == "python"
+    assert row["sandbox_profile"] == "strict"
+    # Equality must agree with what is serialized, or change detection and
+    # `in agent.tools` disagree about whether two toolkits are the same.
+    assert tool != BuiltinTool(toolkit="python")
+
+
+def test_a_nested_server_value_is_deep_copied():
+    """A one-level copy still aliases a nested list from a newer backend."""
+    tool = BuiltinTool.from_dict({"type": "builtin", "toolkit": "python", "cfg": {"hosts": ["a"]}})
+    emitted = tool.as_tool()
+    emitted["cfg"]["hosts"].append("b")
+
+    assert tool.as_tool()["cfg"]["hosts"] == ["a"]
 
 
 @pytest.mark.parametrize(
@@ -233,16 +272,16 @@ def test_builtin_tools_compare_by_configuration():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("row", CONTRACT_ROWS, ids=["file", "python", "bash"])
+@pytest.mark.parametrize("row", CONTRACT_ROWS, ids=CONTRACT_IDS)
 def test_a_persisted_row_round_trips_unchanged(row):
     """`get()` then `save()` must not rewrite a row the user never touched."""
-    assert BuiltinTool.from_api_dict(row).as_tool() == row
+    assert BuiltinTool.from_dict(row).as_tool() == row
 
 
-@pytest.mark.parametrize("row", CONTRACT_ROWS, ids=["file", "python", "bash"])
-def test_from_api_dict_populates_the_typed_fields(row):
+@pytest.mark.parametrize("row", CONTRACT_ROWS, ids=CONTRACT_IDS)
+def test_from_dict_populates_the_typed_fields(row):
     """The point of hydrating is attribute access, not just a faithful re-emit."""
-    tool = BuiltinTool.from_api_dict(row)
+    tool = BuiltinTool.from_dict(row)
 
     assert tool.toolkit == row["toolkit"]
     assert tool.include == row["include"]
@@ -254,14 +293,14 @@ def test_an_unknown_server_key_survives_the_round_trip():
     """A backend newer than the SDK must not lose settings by being fetched."""
     row = {"type": "builtin", "toolkit": "python", "timeout_s": 10, "sandbox_profile": "strict"}
 
-    assert BuiltinTool.from_api_dict(row).as_tool() == row
+    assert BuiltinTool.from_dict(row).as_tool() == row
 
 
 def test_a_server_only_key_is_dropped_in_both_directions():
     """`workspace_root` is the worker's to choose; echoing it back would pin it."""
     row = {"type": "builtin", "toolkit": "file", "workspace_root": "/mnt/agent-42"}
 
-    tool = BuiltinTool.from_api_dict(row)
+    tool = BuiltinTool.from_dict(row)
 
     assert tool.as_tool() == {"type": "builtin", "toolkit": "file"}
 
@@ -270,22 +309,22 @@ def test_a_setting_belonging_to_another_toolkit_is_carried_not_rejected():
     """Inbound rows are lenient: hydration must never fail on a live agent."""
     row = {"type": "builtin", "toolkit": "file", "timeout_s": 10}
 
-    tool = BuiltinTool.from_api_dict(row)
+    tool = BuiltinTool.from_dict(row)
 
     assert tool.timeout_s is None
     assert tool.as_tool() == row
 
 
 def test_a_row_without_a_toolkit_is_rejected():
-    """`from_api_dict` stays strict; ``Agent`` is the layer that degrades to a dict."""
+    """`from_dict` stays strict; ``Agent`` is the layer that degrades to a dict."""
     with pytest.raises(ValueError, match="must carry a 'toolkit'"):
-        BuiltinTool.from_api_dict({"type": "builtin"})
+        BuiltinTool.from_dict({"type": "builtin"})
 
 
 def test_a_row_with_an_unknown_toolkit_is_rejected():
     """Same contract: unmappable in, exception out, caller decides what to do."""
     with pytest.raises(ValueError, match="Unknown toolkit"):
-        BuiltinTool.from_api_dict({"type": "builtin", "toolkit": "rust"})
+        BuiltinTool.from_dict({"type": "builtin", "toolkit": "rust"})
 
 
 # ---------------------------------------------------------------------------
@@ -312,7 +351,7 @@ def test_a_non_string_toolkit_is_a_value_error_not_a_type_error():
         BuiltinTool(toolkit=["file"])
 
     with pytest.raises(ValueError, match="Unknown toolkit"):
-        BuiltinTool.from_api_dict({"type": "builtin", "toolkit": ["file"]})
+        BuiltinTool.from_dict({"type": "builtin", "toolkit": ["file"]})
 
 
 def test_include_is_snapshotted_so_a_later_mutation_cannot_bypass_validation():
@@ -335,18 +374,18 @@ def test_deny_patterns_is_snapshotted_too():
     assert tool.deny_patterns == [r"^\s*rm\b"]
 
 
-def test_from_api_dict_does_not_alias_the_response_row():
+def test_from_dict_does_not_alias_the_response_row():
     """Editing a fetched toolkit must not reach back into the response dict."""
     row = {"type": "builtin", "toolkit": "file", "include": ["read_file"]}
 
-    BuiltinTool.from_api_dict(row).include.append("grep")
+    BuiltinTool.from_dict(row).include.append("grep")
 
     assert row["include"] == ["read_file"]
 
 
 def test_an_emitted_row_never_shares_a_list_with_the_tool():
     """`as_tool()` is a snapshot for unknown server keys too, not just modelled ones."""
-    tool = BuiltinTool.from_api_dict({"type": "builtin", "toolkit": "python", "allow_hosts": ["a"]})
+    tool = BuiltinTool.from_dict({"type": "builtin", "toolkit": "python", "allow_hosts": ["a"]})
 
     tool.as_tool()["allow_hosts"].append("b")
 

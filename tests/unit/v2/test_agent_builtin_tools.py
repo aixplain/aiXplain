@@ -12,14 +12,24 @@ import pytest
 from aixplain import Aixplain
 from aixplain.v2 import BuiltinTool
 
+#: The rows the worker accepts, verbatim from the ENG-3699 contract. Kept
+#: byte-identical with the copy in the sibling built-in toolkit test module:
+#: pytest runs with --import-mode=importlib and tests/unit/v2 is not a package,
+#: so a shared module is not importable from here without restructuring.
 FILE_ROW = {
     "type": "builtin",
     "toolkit": "file",
-    "include": ["read_file", "glob", "grep"],
+    "include": ["read_file", "list_directory", "glob", "grep", "write_file", "edit_file"],
     "max_read_bytes": 262144,
     "max_results": 500,
 }
-PYTHON_ROW = {"type": "builtin", "toolkit": "python", "include": ["run_python"], "timeout_s": 10, "expose_files": False}
+PYTHON_ROW = {
+    "type": "builtin",
+    "toolkit": "python",
+    "include": ["run_python"],
+    "timeout_s": 10,
+    "expose_files": False,
+}
 BASH_ROW = {
     "type": "builtin",
     "toolkit": "bash",
@@ -28,6 +38,8 @@ BASH_ROW = {
     "max_output_bytes": 65536,
     "deny_patterns": [r"^\s*rm\s+-rf\s+/"],
 }
+CONTRACT_ROWS = [FILE_ROW, PYTHON_ROW, BASH_ROW]
+CONTRACT_IDS = ["file", "python", "bash"]
 
 
 @pytest.fixture
@@ -41,7 +53,7 @@ def aix() -> Aixplain:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("row", [FILE_ROW, PYTHON_ROW, BASH_ROW], ids=["file", "python", "bash"])
+@pytest.mark.parametrize("row", CONTRACT_ROWS, ids=CONTRACT_IDS)
 def test_a_builtin_tool_reaches_the_payload_untouched(aix, row):
     """`_normalize_tool_dict_for_api` must not rewrite the worker's snake_case keys.
 
@@ -257,3 +269,67 @@ def test_an_unknown_server_key_survives_a_fetch_and_re_save(aix):
 
     assert isinstance(agent.tools[0], BuiltinTool)
     assert agent.build_save_payload()["tools"] == [row]
+
+
+# ---------------------------------------------------------------------------
+# Review regressions (ENG-3699)
+# ---------------------------------------------------------------------------
+
+
+def test_to_dict_keeps_the_type_discriminator_and_round_trips(aix):
+    """`BuiltinTool` is a dataclass, so a naive to_dict() emits its raw fields.
+
+    That row has no ``type``, which ``from_dict`` cannot rebuild and the worker
+    drops — a silent loss for anyone snapshotting an agent via ``to_dict()``.
+    """
+    agent = aix.Agent(name="snapshot", tools=[BuiltinTool(toolkit="python", timeout_s=5)])
+
+    snapshot = agent.to_dict()
+
+    assert snapshot["tools"] == [{"type": "builtin", "toolkit": "python", "timeout_s": 5}]
+    restored = type(agent).from_dict(snapshot)
+    assert isinstance(restored.tools[0], BuiltinTool)
+    assert restored.build_save_payload()["tools"][0]["type"] == "builtin"
+
+
+def test_a_builtin_row_carrying_an_id_is_not_rebuilt_as_an_asset_tool(aix):
+    """The asset branch would turn it into {"type": "tool", "assetId": ...}."""
+    agent = aix.Agent(name="with id", tools=[{"type": "builtin", "toolkit": "file", "id": "68f0000000000000000000aa"}])
+
+    assert isinstance(agent.tools[0], BuiltinTool)
+    row = agent.build_save_payload()["tools"][0]
+    assert row["type"] == "builtin" and row["toolkit"] == "file"
+    assert "id" not in row and "assetId" not in row
+
+
+def test_a_malformed_row_for_a_known_toolkit_is_rejected(aix):
+    """Silence here ships the broken row to the backend."""
+    with pytest.raises(ValueError, match="Unknown tool"):
+        aix.Agent(name="bad", tools=[{"type": "builtin", "toolkit": "file", "include": ["run_python"]}])
+
+
+def test_a_row_for_an_unknown_toolkit_is_kept_verbatim(aix):
+    """A newer backend may know a toolkit this SDK does not; the row must survive."""
+    agent = aix.Agent(name="future", tools=[{"type": "builtin", "toolkit": "rust", "timeout_s": 5}])
+
+    assert agent.tools[0] == {"type": "builtin", "toolkit": "rust", "timeout_s": 5}
+    assert agent.build_save_payload()["tools"][0]["toolkit"] == "rust"
+
+
+def test_an_unhydrated_builtin_row_still_tracks_edits(aix):
+    """An id-less row is its own identity; collapsing it hides in-place edits."""
+    agent = aix.Agent(name="future", tools=[{"type": "builtin", "toolkit": "rust"}])
+    agent._update_saved_state()
+
+    agent.tools[0]["toolkit"] = "zig"
+
+    assert agent.is_modified
+
+
+def test_an_unbound_agent_without_builtins_keeps_the_callers_list(aix):
+    """Hydration must not replace a list object it has nothing to convert in."""
+    tools = [{"id": "68f0000000000000000000aa", "type": "model"}]
+
+    from aixplain.v2.agent import Agent
+
+    assert Agent(name="plain", tools=tools).tools is tools

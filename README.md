@@ -121,6 +121,10 @@ Available tools per toolkit: `file` — `read_file`, `list_directory`, `glob`,
 `ValueError` naming the settings that toolkit accepts. Anything you leave unset
 keeps the worker's default.
 
+`include` distinguishes three states: omit it for every tool in the toolkit,
+pass a subset to narrow it, or pass `[]` to attach the toolkit with no tools at
+all.
+
 > The `bash` toolkit must be enabled per deployment. Where it is not, the backend
 > rejects an agent that attaches it.
 

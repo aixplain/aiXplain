@@ -1,5 +1,6 @@
 """Agent module for aiXplain v2 SDK."""
 
+import copy
 import json
 import logging
 import re
@@ -18,7 +19,7 @@ from .model import Model
 from .file import File
 from .skill import Skill
 from .mixins import ToolableMixin
-from .builtin_tool import BuiltinTool
+from .builtin_tool import BUILTIN_TYPE, TOOLKIT_TOOLS, BuiltinTool
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
@@ -965,6 +966,12 @@ class Agent(
         if isinstance(tool, str):
             return {"id": tool}
         if isinstance(tool, dict):
+            if not tool.get("id"):
+                # An id-less row *is* its own identity: a builtin row that
+                # stayed a dict, or any future inline-config tool. Collapsing
+                # these onto {"id": None, ...} would make two different rows
+                # look identical and hide in-place edits from ``is_modified``.
+                return copy.deepcopy(tool)
             return {"id": tool.get("id"), "type": tool.get("type")}
         return {"id": getattr(tool, "id", None), "type": getattr(tool, "type", None)}
 
@@ -1769,38 +1776,42 @@ class Agent(
         normal ``Tool.get``). Asset hydration requires a client context; without
         one (e.g. an unbound ``Agent`` in unit tests) the raw entries are kept
         as-is. Built-in toolkit rows reference no asset, so they are converted
-        first and unconditionally — see :meth:`_hydrate_builtin_entry`.
+        whether or not a context is present.
         """
         if not self.tools:
             return
-        self.tools = [self._hydrate_builtin_entry(entry) for entry in self.tools]
         context = getattr(self, "context", None)
-        if context is None:
+        if context is None and not any(self._is_builtin_row(entry) for entry in self.tools):
+            # Nothing to convert: leave the caller's own list object in place.
             return
         self.tools = [self._hydrate_tool_entry(entry, context) for entry in self.tools]
 
     @staticmethod
-    def _hydrate_builtin_entry(entry: Any) -> Any:
-        """Convert a persisted ``{"type": "builtin", ...}`` row into a ``BuiltinTool``.
-
-        Keeps ``agent.tools`` symmetric with what the caller passed: a toolkit
-        attached as a :class:`~aixplain.v2.builtin_tool.BuiltinTool` reads back as
-        one after ``get()``. Needs no network and no client context. Best-effort,
-        like the asset hydration below: a row that cannot be mapped stays a dict
-        and still serializes through ``_normalize_tool_for_api``.
-        """
-        if not isinstance(entry, dict) or entry.get("type") != "builtin":
-            return entry
-        try:
-            return BuiltinTool.from_api_dict(entry)
-        except Exception:
-            # Never let hydration break construction — fall back to the raw dict.
-            return entry
+    def _is_builtin_row(entry: Any) -> bool:
+        """True for a raw ``{"type": "builtin", ...}`` row that still needs converting."""
+        return isinstance(entry, dict) and entry.get("type") == BUILTIN_TYPE
 
     def _hydrate_tool_entry(self, entry: Any, context: Any) -> Any:
-        """Hydrate one ``tools`` entry into a Tool/Model object (best-effort)."""
+        """Hydrate one ``tools`` entry into a BuiltinTool/Tool/Model (best-effort)."""
         if not isinstance(entry, dict):
             return entry  # already a Tool/Model/Integration object or a string id
+        if self._is_builtin_row(entry):
+            # Must return before the asset branch below: a builtin row that also
+            # carried an id would otherwise be rebuilt as a catalog Tool and
+            # saved back as ``{"type": "tool", "assetId": ...}``, losing the
+            # toolkit config and pointing at an asset that does not exist.
+            try:
+                return BuiltinTool.from_dict(entry)
+            except (ValueError, TypeError):
+                # An unknown toolkit may come from a backend newer than this
+                # SDK, so the row is kept and replayed verbatim. A row whose
+                # toolkit this version *does* know is malformed, and staying
+                # silent would ship it to the backend.
+                if isinstance(entry.get("toolkit"), str) and entry["toolkit"] in TOOLKIT_TOOLS:
+                    raise
+                return entry
+        if context is None:
+            return entry
         tool_id = entry.get("id")
         if not tool_id:
             return entry
@@ -2691,3 +2702,22 @@ def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
 
 
 Agent.from_dict = classmethod(_agent_from_dict)
+
+# ``@dataclass_json`` also injects ``to_dict``, and it would recurse into a
+# ``BuiltinTool`` (a dataclass) and emit its raw fields — a row with no ``type``
+# discriminator, which ``from_dict`` cannot rebuild and the worker drops. Wrap
+# the injected encoder so those entries serialize as their wire rows instead.
+_dataclass_json_agent_to_dict = Agent.to_dict
+
+
+def _agent_to_dict(self, *args: Any, **kwargs: Any) -> dict:
+    original_tools = self.tools
+    if original_tools:
+        self.tools = [tool.as_tool() if isinstance(tool, BuiltinTool) else tool for tool in original_tools]
+    try:
+        return _dataclass_json_agent_to_dict(self, *args, **kwargs)
+    finally:
+        self.tools = original_tools
+
+
+Agent.to_dict = _agent_to_dict
