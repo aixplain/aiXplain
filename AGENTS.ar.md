@@ -48,6 +48,20 @@ ruff check --fix .      # Lint with auto-fix
 ruff format .           # Format
 ```
 
+### توليد الشيفرة
+
+تُولَّد ثلاث وحدات بواسطة `generate.py` ولا يجوز تعديلها يدويًا: `aixplain/v1/enums/generated_enums.py` (تعدادات `Function` و`Supplier` و`Language` و`License` الخاصة بـ `v1`) و`aixplain/v1/modules/pipeline/pipeline.py` (فئات عقد خطوط الأنابيب في `v1`) و`aixplain/v2/enums_include.py` (وحدة إعادة تصدير لتعدادات `v1` لا يستوردها أي شيء في `v2`). المولّد خاص بـ `v1` فقط: تعدادات `v2` تُصان يدويًا في `aixplain/v2/enums.py`، ويستورد `aixplain/v2/__init__.py` منها، ولا يحمّل `import aixplain` أي وحدة من `v1` على الإطلاق (يؤكد ذلك `tests/unit/test_v1_deprecation_warning.py`). لذا فإن تحديث ملفات البيانات يغيّر ما يعرضه `v1`، لا ما يقبله `Aixplain().Model.search(suppliers=...)`. فجوة معروفة: يضم `Supplier` في `v2` سبعة أعضاء ويتخلف عن كتالوج الخادم الخلفي، بما في ذلك المورّدون الأربعة الذين أضافهم تحديث 2026-09-08 إلى `v1` (`ALIBABA_CLOUD` و`ANTHROPIC` و`BYTEDANCE` و`OPENROUTER`).
+
+```bash
+python generate.py                # render (default): offline, no credential
+python generate.py render --check # exit non-zero if the committed modules drifted
+python generate.py fetch          # refresh tools/generator/fixtures/ (network + API key)
+```
+
+تقرأ خطوة العرض (render) ملفات البيانات المثبَّتة في `tools/generator/fixtures/` فقط، لذا فهي حتمية ولا تحتاج إلى خادم خلفي ولا إلى مفتاح؛ وتشغّل مهمة `generator-drift` في CI الأمر `python generate.py render --check` وتفشل إذا اختلفت الوحدات المثبَّتة عن عرض جديد. خطوة `fetch` هي الوحيدة التي تتصل بالشبكة وتُشغَّل يدويًا؛ ترفض أي `BACKEND_URL` غير الإنتاج ما لم يُمرَّر `--allow-nonprod`، وتسجّل المضيف الذي التقطت منه في `tools/generator/fixtures/provenance.json`، ويؤكد اختبار أنه مضيف الإنتاج — راجع `tools/generator/fixtures/README.md` لسير عمل التحديث ولماذا تُلتقط ملفات البيانات من الإنتاج.
+
+تُصدَر قيم الخادم الخلفي كقيم Python حرفية، ويُتحقق من كل قيمة تُستخدم كمعرّف، لذا فإن أي قيمة لا يمكن عرضها بأمان تُفشل خطوة العرض بوضوح بدلًا من تشويهها.
+
 ### Pre-commit
 
 ```bash

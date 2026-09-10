@@ -277,6 +277,9 @@ class AgentRunParams(BaseRunParams):
                         If None (default), progress tracking is disabled.
         progress_verbosity: Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
         progress_truncate: Whether to truncate long text in progress display
+        _progress_tracker: Internal. The tracker owned by the ``run()`` /
+            ``sync_poll()`` call in progress, handed down to ``on_poll``.
+            Never sent to the backend.
     """
 
     session: NotRequired[Optional[Union["Session", Text]]]
@@ -296,6 +299,7 @@ class AgentRunParams(BaseRunParams):
     progress_format: NotRequired[Optional[Text]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
+    _progress_tracker: NotRequired[Optional[Any]]
 
 
 @dataclass_json
@@ -707,15 +711,6 @@ class Agent(
         metadata=config(field_name="contextOverflowStrategy"),
     )
 
-    # Internal state for progress tracking (excluded from serialization)
-    _progress_tracker: Optional[Any] = field(
-        default=None,
-        repr=False,
-        compare=False,
-        metadata=config(exclude=lambda x: True),
-        init=False,
-    )
-
     def __post_init__(self) -> None:
         """Initialize agent after dataclass creation."""
         self.tasks = [Task.from_dict(task) for task in self.tasks]
@@ -965,38 +960,54 @@ class Agent(
             return {"id": tool.get("id"), "type": tool.get("type")}
         return {"id": getattr(tool, "id", None), "type": getattr(tool, "type", None)}
 
-    def _start_progress_tracker(self, kwargs: Dict[str, Any]) -> None:
-        """Initialize ``self._progress_tracker`` from progress kwargs (no-op if disabled)."""
+    # Run kwarg that carries the run's progress tracker from ``run()`` /
+    # ``sync_poll()`` down to ``on_poll``. Listed in ``_RUN_CONTROL_KEYS`` so
+    # it is stripped before the payload is built and never reaches the wire.
+    _PROGRESS_TRACKER_KWARG: ClassVar[str] = "_progress_tracker"
+
+    def _start_progress_tracker(self, kwargs: Dict[str, Any]) -> Optional[Any]:
+        """Build and start a tracker from the progress kwargs; ``None`` if not requested."""
         progress_format = kwargs.get("progress_format")
         if progress_format is None:
-            self._progress_tracker = None
-            return
+            return None
 
         from .agent_progress import AgentProgressTracker, ProgressFormat
 
+        fmt = ProgressFormat(progress_format)
         progress_verbosity = kwargs.get("progress_verbosity", 1)
         progress_truncate = kwargs.get("progress_truncate", True)
-        fmt = ProgressFormat(progress_format)
 
         # ``poll_interval`` is deliberately not set: this tracker is driven by the
         # start/update/finish hooks off ``sync_poll``, which owns the interval.
         # It would only be slept on by ``stream_progress``, which is not used here.
-        self._progress_tracker = AgentProgressTracker(
+        tracker = AgentProgressTracker(
             poll_func=lambda url: self.poll(url),
             max_polls=None,
         )
-        self._progress_tracker.start(
+        tracker.start(
             format=fmt,
             verbosity=progress_verbosity,
             truncate=progress_truncate,
         )
+        return tracker
 
-    def _finish_progress_tracker(self, result: Union[AgentRunResult, Exception]) -> None:
-        """Finalize the progress tracker; safe to call even if it was never started."""
-        if self._progress_tracker is not None:
-            if not isinstance(result, Exception):
-                self._progress_tracker.finish(result)
-            self._progress_tracker = None
+    @staticmethod
+    def _finish_progress_tracker(tracker: Optional[Any], result: AgentRunResult) -> None:
+        """Render the completion summary; a render failure never discards *result*.
+
+        The run is complete and billed by now, so a ``UnicodeEncodeError`` on an
+        ascii console or a ``BrokenPipeError`` from the summary line is logged,
+        not raised. ``finish()`` stops the thread before printing and ``stop()``
+        is idempotent, so the ``finally`` only matters when the render raises.
+        """
+        if tracker is None:
+            return
+        try:
+            tracker.finish(result)
+        except Exception:
+            logger.warning("Progress display failed to render the completion summary", exc_info=True)
+        finally:
+            tracker.stop()
 
     def before_run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]:
         """Hook called before running the agent to validate and prepare state."""
@@ -1013,7 +1024,6 @@ class Agent(
             if self.is_modified:
                 raise ValueError("Agent is onboarded and cannot be modified unless you explicitly save it.")
 
-        self._start_progress_tracker(kwargs)
         return None
 
     def on_poll(self, response: AgentRunResult, **kwargs: Unpack[AgentRunParams]) -> None:
@@ -1025,21 +1035,25 @@ class Agent(
         """
         # Always update progress tracker, including on final completed response
         # This ensures the last step's completion state is displayed before finish() is called
-        if self._progress_tracker is not None:
-            self._progress_tracker.update(response)
+        tracker = kwargs.get(self._PROGRESS_TRACKER_KWARG)
+        if tracker is not None:
+            tracker.update(response)
 
     def after_run(
         self,
-        result: Union[AgentRunResult, Exception],
+        result: Union[AgentRunResult, BaseException],
         *args: Any,
         **kwargs: Unpack[AgentRunParams],
     ) -> Optional[AgentRunResult]:
-        """Hook called after running the agent for result transformation."""
-        # Finish progress tracking if enabled
-        self._finish_progress_tracker(result)
+        """Hook called after running the agent for result transformation.
 
+        Also reached on the failure path, where ``result`` is the raised
+        exception (any ``BaseException``, ``KeyboardInterrupt`` included). The
+        progress display is not torn down here: ``run()`` owns it, so an
+        override that skips ``super()`` cannot leak the display thread.
+        """
         # Set the context on the result for debug() method support
-        if not isinstance(result, Exception):
+        if not isinstance(result, BaseException):
             result._context = self.context
 
         return None  # Return original result
@@ -1164,7 +1178,21 @@ class Agent(
         if session is not None:
             return self._run_with_session(session, **kwargs)
 
-        return super().run(*args, **kwargs)
+        # This frame owns the progress display for the whole run: the tracker
+        # rides down to ``on_poll`` as a run kwarg, is stopped on every exit
+        # path and rendered only on success. Splitting that across the
+        # ``before_run`` / ``after_run`` hooks leaked the display thread
+        # whenever a hook was skipped or overridden (BUG-943). ``BaseException``
+        # so a Ctrl-C in a notebook cannot leak it either.
+        tracker = self._start_progress_tracker(kwargs)
+        try:
+            result = super().run(*args, **kwargs, _progress_tracker=tracker)
+        except BaseException:
+            if tracker is not None:
+                tracker.stop()
+            raise
+        self._finish_progress_tracker(tracker, result)
+        return result
 
     def run_async(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Run the agent asynchronously.
@@ -1180,6 +1208,15 @@ class Agent(
                 ``client.get(result.url)``. Do not construct
                 ``/sdk/runs/{execution_id}`` — that endpoint is not supported
                 for agent runs.
+
+        Note:
+            ``progress_format`` is ignored here and logged as a warning: this
+            call returns as soon as the run is submitted, so there is nothing
+            to display. To watch a run started this way, pass the progress
+            kwargs to the poll instead::
+
+                r = agent.run_async("hi")
+                agent.sync_poll(r.url, progress_format="status")
         """
         if len(args) > 0:
             kwargs["query"] = args[0]
@@ -1189,6 +1226,12 @@ class Agent(
             raise NotImplementedError(
                 "session=… runs are sync-only for now; use agent.run(...) or "
                 "session.add_message() + session.messages() directly."
+            )
+
+        if kwargs.get("progress_format") is not None:
+            logger.warning(
+                "run_async() ignores progress_format: it returns once the run is submitted, so there is "
+                "nothing to display. Pass it to the poll instead: sync_poll(result.url, progress_format=...)."
             )
 
         return super().run_async(**kwargs)
@@ -1242,11 +1285,30 @@ class Agent(
         Args:
             poll_url: Full poll URL or execution ID.
             **kwargs: Run parameters including ``timeout`` and ``wait_time``.
+                ``progress_format`` / ``progress_verbosity`` /
+                ``progress_truncate`` render a live progress display for the
+                duration of the poll, exactly as on :meth:`run`; this is how a
+                run started with :meth:`run_async` is watched.
 
         Returns:
             AgentRunResult with final execution status.
         """
-        return super().sync_poll(self._resolve_poll_url(poll_url), **kwargs)
+        poll_url = self._resolve_poll_url(poll_url)
+        if self._PROGRESS_TRACKER_KWARG in kwargs:
+            # An enclosing run() owns the display (or chose not to have one);
+            # it feeds, finishes and stops the tracker.
+            return super().sync_poll(poll_url, **kwargs)
+
+        # Standalone poll: own a display of our own, same shape as run().
+        tracker = self._start_progress_tracker(kwargs)
+        try:
+            result = super().sync_poll(poll_url, **kwargs, _progress_tracker=tracker)
+        except BaseException:
+            if tracker is not None:
+                tracker.stop()
+            raise
+        self._finish_progress_tracker(tracker, result)
+        return result
 
     def _validate_expected_output(self) -> None:
         if self.output_format == OutputFormat.JSON.value:
@@ -2554,19 +2616,21 @@ class Agent(
                 f"session '{session.id}'; cannot poll the agent run result."
             )
 
-        # Same progress-tracker plumbing as the direct path: sync_poll calls
+        # Same progress-display ownership as the direct path: sync_poll calls
         # self.on_poll(...) on every iteration, which forwards to the tracker.
-        self._start_progress_tracker(kwargs)
+        tracker = self._start_progress_tracker(kwargs)
         try:
             result = self.sync_poll(
                 user_msg.request_id,
                 timeout=kwargs.get("timeout", 300),
                 wait_time=kwargs.get("wait_time", 0.5),
+                _progress_tracker=tracker,
             )
-        except Exception as e:
-            self._finish_progress_tracker(e)
+        except BaseException:
+            if tracker is not None:
+                tracker.stop()
             raise
-        self._finish_progress_tracker(result)
+        self._finish_progress_tracker(tracker, result)
 
         # The /sdk/agents/{id}/result response doesn't always echo back
         # identifiers at the top level — back-fill from what we know locally so

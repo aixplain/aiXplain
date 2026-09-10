@@ -385,7 +385,7 @@ Hook called after each poll to update progress display.
 #### after\_run
 
 ```python
-def after_run(result: Union[AgentRunResult, Exception], *args: Any,
+def after_run(result: Union[AgentRunResult, BaseException], *args: Any,
               **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]
 ```
 
