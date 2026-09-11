@@ -48,7 +48,7 @@ class ToolDict(TypedDict):
         "classification",
         "data-extraction",
     ]
-    type: Literal["model", "pipeline", "utility", "sql", "script", "tool", "integration"]
+    type: Literal["model", "pipeline", "utility", "sql", "script", "tool", "integration", "builtin"]
     version: str
     asset_id: str
 
