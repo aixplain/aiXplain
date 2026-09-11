@@ -145,6 +145,12 @@ class TestAPIKeyLimits:
 
         limits.validate()  # Should not raise
 
+        # Validation must be a pure check: valid limits survive it untouched.
+        assert limits.token_per_minute == 100
+        assert limits.token_per_day == 1000
+        assert limits.request_per_minute == 10
+        assert limits.request_per_day == 100
+
     def test_limits_validate_negative_token_per_minute(self):
         """validate() should fail for negative token_per_minute."""
         limits = APIKeyLimits(token_per_minute=-1)
@@ -408,6 +414,11 @@ class TestAPIKey:
         )
 
         api_key._validate_limits()  # Should not raise
+
+        # Validation must be a pure check: valid limits survive it untouched.
+        assert api_key.budget == 1000.0
+        assert api_key.global_limits.token_per_minute == 100
+        assert api_key.asset_limits[0].token_per_minute == 50
 
     def test_api_key_validate_negative_budget(self):
         """_validate_limits() should fail for negative budget."""

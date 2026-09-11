@@ -862,7 +862,7 @@ Hook called after each poll to update progress display.
 #### after_run
 
 ```python
-def after_run(result: Union[AgentRunResult, Exception], *args: Any,
+def after_run(result: Union[AgentRunResult, BaseException], *args: Any,
               **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]
 ```
 
@@ -3400,16 +3400,6 @@ def __exit__(exc_type, exc_val, exc_tb) -> None
 
 Context manager exit - ensures response is closed.
 
-#### find_supplier_by_id
-
-```python
-def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/model.py#L315)
-
-Find supplier enum by ID.
-
 #### find_function_by_id
 
 ```python
@@ -4703,7 +4693,7 @@ Override this method to add custom logic before running.
 #### after_run
 
 ```python
-def after_run(result: Union[ResultT, Exception], *args: Any,
+def after_run(result: Union[ResultT, BaseException], *args: Any,
               **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]
 ```
 
@@ -4715,8 +4705,11 @@ Override this method to add custom logic after running.
 
 **Arguments**:
 
-- `result` - The result from the run operation (ResultT on success,
-  Exception on failure)
+- `result` - The result from the run operation: `ResultT` on success,
+  or the raised `BaseException` on failure. This includes
+  `KeyboardInterrupt` and `SystemExit`, so a hook must test
+  `isinstance(result, BaseException)` rather than `Exception`
+  before treating *result* as a result.
 - `*args` - Positional arguments that were passed to the run operation
 - `**kwargs` - Keyword arguments that were passed to the run operation
   
@@ -4725,7 +4718,8 @@ Override this method to add custom logic after running.
 
 - `Optional[ResultT]` - If not None, this result will be returned instead
   of the original result. If None, the original result
-  will be returned.
+  will be returned. On the failure path the return
+  value is ignored and the exception propagates.
 
 #### run
 

@@ -4,7 +4,7 @@ This is an auto generated module. PLEASE DO NOT EDIT.
 """
 
 # Import all enums from legacy system for compatibility
-from aixplain.enums import (
+from aixplain.v1.enums import (
     AssetStatus,
     ErrorHandler,
     FileType,

@@ -12,16 +12,47 @@ Both modes use carriage return (\r) for in-place line updates.
 """
 
 import json
+import logging
+import os
 import sys
 import time
 import threading
 from enum import Enum
 from typing import Any, Dict, List, Optional, Callable
 
+from ._backoff import next_wait, sleep_with_jitter
+
+logger = logging.getLogger(__name__)
+
 
 # Internal flag to use legacy time format (MM:SS.cc always)
 # Set to True to revert to the old behavior where centiseconds are always shown
 _USE_LEGACY_TIME_FORMAT = False
+
+# Opt-in: run the animated repaint thread even when stdout is not a terminal
+# (a terminal wrapper with no PTY, say). Any other value, ``false`` and ``0``
+# included, expresses no opinion and leaves the auto-detection in charge. The
+# instance-scoped ``force_display`` argument is preferred; this exists because
+# run kwargs are the only lever a caller of ``agent.run(progress_format=...)``
+# has.
+_FORCE_DISPLAY_ENV = "AIXPLAIN_PROGRESS_FORCE_DISPLAY"
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _stdout_is_tty() -> bool:
+    """Return True when stdout is an interactive terminal.
+
+    The spinner animation is a human affordance: repainting it 20 times a
+    second into a pipe produces nothing but carriage-return-terminated log
+    garbage (BUG-943). Never raises -- a closed, detached or replaced
+    ``sys.stdout`` (pytest capture, a ``StringIO``, a daemonized process)
+    answers False.
+    """
+    stream = sys.stdout
+    try:
+        return bool(stream is not None and stream.isatty())
+    except (AttributeError, ValueError):
+        return False
 
 
 def _is_notebook_environment() -> bool:
@@ -74,7 +105,8 @@ class AgentProgressTracker:
 
     Attributes:
         poll_func: Callable that polls for agent status
-        poll_interval: Time between polls in seconds
+        poll_interval: Starting time between polls in seconds (backed off by
+            ``stream_progress``)
         max_polls: Maximum number of polls (None for unlimited)
         format: Display format (status, logs, none)
         verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
@@ -84,18 +116,48 @@ class AgentProgressTracker:
     SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
     DISPLAY_REFRESH_RATE = 0.05  # 50ms = 20 FPS
 
+    # Starting interval for ``stream_progress``. It used to be 0.05s, i.e. 20
+    # requests/second per job with no ceiling -- 12,000 requests for a single
+    # 10-minute run (BUG-942). 0.5s matches ``sync_poll``'s default and is
+    # backed off from there. Note this is unrelated to DISPLAY_REFRESH_RATE,
+    # which drives the local spinner and issues no requests.
+    DEFAULT_POLL_INTERVAL = 0.5
+
+    # Wall-clock budget for a ``stream_progress`` call, matching ``sync_poll``.
+    DEFAULT_STREAM_TIMEOUT = 300.0
+
+    # Upper bound on how long teardown waits for the display thread. With
+    # ``Event.wait`` the loop exits in microseconds; the bound only exists so a
+    # wedged render can never block the caller's run from returning.
+    DISPLAY_JOIN_TIMEOUT = 1.0
+
+    # Named so a survivor is identifiable in a thread dump instead of being one
+    # more anonymous ``Thread-N``.
+    DISPLAY_THREAD_NAME = "aixplain-progress-display"
+
     def __init__(
         self,
         poll_func: Callable[[str], Any],
-        poll_interval: float = 0.05,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
         max_polls: Optional[int] = None,
+        force_display: Optional[bool] = None,
     ):
         """Initialize the progress tracker.
 
         Args:
             poll_func: Function that takes a URL and returns poll response
-            poll_interval: Time in seconds between polls (default: 0.05)
+            poll_interval: Starting time in seconds between polls in
+                :meth:`stream_progress`, which backs it off from there
+                (default: 0.5). Unused by the start/update/finish flow, where
+                the caller's own poll loop owns the interval.
             max_polls: Maximum number of polls before stopping (default: None)
+            force_display: Override the terminal auto-detection for the
+                animated repaint thread. ``None`` (default) animates only when
+                stdout is a TTY or we are in a notebook; ``True`` always
+                animates, ``False`` never does. The caller-thread output --
+                the ``logs`` step timeline and the completion summary -- is
+                written regardless, so a piped or captured run still gets a
+                full, newline-terminated record.
         """
         self.poll = poll_func
         self.poll_interval = poll_interval
@@ -103,6 +165,12 @@ class AgentProgressTracker:
 
         # Detect notebook environment once at init time
         self._is_notebook = _is_notebook_environment()
+
+        # Gate for the background repaint thread only. Re-resolved in
+        # ``start()`` because ``sys.stdout`` can be swapped between construction
+        # and the run (``redirect_stdout``, notebooks, tests).
+        self._force_display = force_display
+        self._animate = self._resolve_animate()
 
         # Tracking state
         self._seen_steps: Dict[str, Dict] = {}
@@ -128,6 +196,46 @@ class AgentProgressTracker:
         self._format = ProgressFormat.STATUS
         self._verbosity = 1
         self._truncate = True
+
+    def _resolve_animate(self) -> bool:
+        """Decide whether the 20 Hz repaint thread may run.
+
+        Only the animation is gated: the ``logs`` timeline and the completion
+        summary are newline-terminated caller-thread output and are always
+        written. Precedence: explicit ``force_display`` argument, then a truthy
+        ``AIXPLAIN_PROGRESS_FORCE_DISPLAY`` (an opt-in only -- ``false`` is no
+        opinion), then auto-detection. Notebooks are checked before ``isatty()``
+        because ipykernel's ``OutStream`` is not a terminal but is a real
+        display.
+        """
+        if self._force_display is not None:
+            return self._force_display
+        if os.environ.get(_FORCE_DISPLAY_ENV, "").strip().lower() in _TRUTHY:
+            return True
+        if self._is_notebook:
+            return True
+        return _stdout_is_tty()
+
+    def stop(self) -> None:
+        """Stop the display thread and wait for it to exit.
+
+        Idempotent, safe from any thread, and safe on a tracker that never
+        started a thread. Deliberately renders nothing: stopping the thread and
+        printing a completion summary used to be the same call (``finish()``),
+        so skipping the summary on an errored run skipped the stop too and
+        leaked a thread that printed 20 times a second forever (BUG-943).
+        """
+        self._stop_display.set()
+        thread, self._display_thread = self._display_thread, None
+        if thread is None or thread is threading.current_thread():
+            return
+        if thread.is_alive():
+            thread.join(timeout=self.DISPLAY_JOIN_TIMEOUT)
+            if thread.is_alive():
+                logger.warning(
+                    "Progress display thread did not exit within %ss",
+                    self.DISPLAY_JOIN_TIMEOUT,
+                )
 
     def _now(self) -> float:
         """Get current timestamp."""
@@ -444,26 +552,33 @@ class AgentProgressTracker:
         step_line += f" · {agent_action_part}"
         return step_line
 
-    def _display_refresh_loop(self) -> None:
-        """Background thread that refreshes display for smooth spinner animation."""
-        while not self._stop_display.is_set():
+    def _display_refresh_loop(self, stop_event: threading.Event) -> None:
+        """Background thread that refreshes display for smooth spinner animation.
+
+        The lock is taken only to copy the shared snapshot, never across the
+        render or the wait: ``update()`` takes the same lock, so a tracker that
+        sat in the no-data branch held it for the whole refresh interval and
+        throttled the live run polling alongside it (BUG-943).
+
+        Waiting on the stop event rather than sleeping means :meth:`stop`
+        is observed immediately instead of up to ``DISPLAY_REFRESH_RATE`` later.
+        *stop_event* is this thread's own: a thread that outlived its join
+        (blocked in ``print()`` on a full pipe) must never be re-armed when the
+        next ``start()`` arms a new one.
+        """
+        while not stop_event.is_set():
             with self._display_lock:
-                if self._current_display_data is None:
-                    time.sleep(self.DISPLAY_REFRESH_RATE)
-                    continue
-                data = self._current_display_data.copy()
+                data = self._current_display_data.copy() if self._current_display_data else None
 
-            steps = data.get("steps", [])
-            if not steps:
-                time.sleep(self.DISPLAY_REFRESH_RATE)
-                continue
+            steps = data.get("steps") if data else None
+            if steps:
+                if self._format == ProgressFormat.STATUS:
+                    self._refresh_status_display(steps)
+                elif self._format == ProgressFormat.LOGS:
+                    self._refresh_logs_display(steps)
 
-            if self._format == ProgressFormat.STATUS:
-                self._refresh_status_display(steps)
-            elif self._format == ProgressFormat.LOGS:
-                self._refresh_logs_display(steps)
-
-            time.sleep(self.DISPLAY_REFRESH_RATE)
+            if stop_event.wait(self.DISPLAY_REFRESH_RATE):
+                break
 
     def _refresh_status_display(self, steps: List[Dict]) -> None:
         """Refresh status mode display (single updating line)."""
@@ -644,6 +759,14 @@ class AgentProgressTracker:
                 f"API {self._total_api_calls} · "
                 f"${self._total_credits:.6f}{token_suffix}"
             )
+        elif status == "TIMEOUT":
+            print(
+                f"{prefix}⏸ Stopped: progress stream timed out · "
+                f"{total_steps} steps · "
+                f"⏱ {self._format_elapsed(total_elapsed)} · "
+                f"API {self._total_api_calls} · "
+                f"${self._total_credits:.6f}{token_suffix}"
+            )
         else:
             print(
                 f"{prefix}⏸ Stopped: reached max polling limit ({self.max_polls}) · "
@@ -662,6 +785,7 @@ class AgentProgressTracker:
         format: ProgressFormat = ProgressFormat.STATUS,
         verbosity: int = 1,
         truncate: bool = True,
+        force_display: Optional[bool] = None,
     ) -> None:
         """Start progress tracking (call from before_run hook).
 
@@ -669,7 +793,18 @@ class AgentProgressTracker:
             format: Display format (status, logs, none)
             verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
             truncate: Whether to truncate long text
+            force_display: Override the terminal auto-detection for the
+                animated repaint thread on this run. ``None`` keeps whatever
+                was passed to ``__init__``.
         """
+        # Tear down any thread a previous start() left running. Without this a
+        # second start() -- which ``stream_progress`` performs on every call --
+        # cleared the stop event and overwrote ``_display_thread``, dropping the
+        # only reference to the first thread while it kept printing: two
+        # spinners interleaving on one fd, and the same lost-reference shape as
+        # the original leak (BUG-943).
+        self.stop()
+
         # Reset tracking state
         self._seen_steps = {}
         self._first_seen = {}
@@ -687,14 +822,30 @@ class AgentProgressTracker:
         self._verbosity = verbosity
         self._truncate = truncate
 
-        # Reset threading state
-        self._stop_display.clear()
+        # Re-resolve the animation gate: stdout may have been swapped since
+        # __init__ (redirect_stdout, a notebook kernel, a test harness).
+        if force_display is not None:
+            self._force_display = force_display
+        self._animate = self._resolve_animate()
+
+        # A fresh stop event per start(). Clearing a shared one would re-arm a
+        # previous thread that outlived its join -- stuck in print() on a full
+        # pipe -- and put two painters on one fd with no way to join either.
+        stop_event = threading.Event()
+        self._stop_display = stop_event
         self._current_display_data = None
 
-        # Start display refresh thread for smooth spinner animation
-        # Skip threading in notebook environments - it causes display issues
-        if self._format != ProgressFormat.NONE and not self._is_notebook:
-            self._display_thread = threading.Thread(target=self._display_refresh_loop, daemon=True)
+        # Start display refresh thread for smooth spinner animation.
+        # Skipped in notebook environments (it causes display issues) and off a
+        # terminal, where the thread would print log garbage 20 times a second
+        # for the life of the run (BUG-943).
+        if self._format != ProgressFormat.NONE and self._animate and not self._is_notebook:
+            self._display_thread = threading.Thread(
+                target=self._display_refresh_loop,
+                args=(stop_event,),
+                name=self.DISPLAY_THREAD_NAME,
+                daemon=True,
+            )
             self._display_thread.start()
 
     def _update_metrics(self, steps: List[Dict]) -> None:
@@ -845,10 +996,7 @@ class AgentProgressTracker:
         Args:
             response: Final response from agent execution
         """
-        # Stop display thread
-        self._stop_display.set()
-        if self._display_thread and self._display_thread.is_alive():
-            self._display_thread.join(timeout=1.0)
+        self.stop()
 
         if self._format == ProgressFormat.NONE:
             return
@@ -867,6 +1015,7 @@ class AgentProgressTracker:
         format: ProgressFormat = ProgressFormat.STATUS,
         verbosity: int = 1,
         truncate: bool = True,
+        timeout: Optional[float] = DEFAULT_STREAM_TIMEOUT,
     ) -> Any:
         """Stream agent progress until completion (standalone polling mode).
 
@@ -874,14 +1023,28 @@ class AgentProgressTracker:
         progress streaming. For integration with existing polling (via on_poll hook),
         use the start/update/finish methods instead.
 
+        The poll interval starts at ``self.poll_interval`` and is backed off by
+        10% per poll (capped at 60s) with jitter, so a fleet of clients started
+        together does not stay phase-locked (BUG-942).
+
         Args:
             url: Polling URL to check for updates
             format: Display format (status, logs, none)
             verbosity: Detail level (1=minimal, 2=thoughts, 3=full I/O)
             truncate: Whether to truncate long text
+            timeout: Wall-clock budget in seconds (default: 300). On expiry
+                ``TimeoutError`` is raised, matching ``sync_poll``: a run that
+                is still IN_PROGRESS is not a result, and returning one made the
+                two polling surfaces disagree about what a timeout means. Pass
+                ``None`` for the previous unbounded behaviour.
 
         Returns:
-            Final response from the agent
+            Final response from the agent, or the last polled response if
+            ``max_polls`` was reached first.
+
+        Raises:
+            TimeoutError: If *timeout* elapses before the run reaches a terminal
+                status.
         """
         terminal_success = "SUCCESS"
         terminal_failures = {"FAILED", "ABORTED", "CANCELLED", "ERROR"}
@@ -891,9 +1054,17 @@ class AgentProgressTracker:
         # Override _total_start_time to None - will be set on first steps
         self._total_start_time = None
 
+        deadline = None if timeout is None else self._now() + timeout
+        interval = max(self.poll_interval, self.DISPLAY_REFRESH_RATE)
+
         try:
             while True:
                 resp = self.poll(url)
+                # Unconditional, matching ``update()``: a valid non-terminal
+                # response carrying no ``steps`` array must still count, or
+                # ``max_polls`` is unreachable and the loop never ends (BUG-942).
+                self._poll_count += 1
+
                 status = getattr(resp, "status", None)
                 status_up = (str(status) if status else "").upper()
 
@@ -904,7 +1075,6 @@ class AgentProgressTracker:
 
                 # Update metrics and display using shared logic
                 if steps:
-                    self._poll_count += 1
                     self._update_metrics(steps)
 
                     # Update shared display data for background thread (terminal mode)
@@ -933,9 +1103,21 @@ class AgentProgressTracker:
                         self._print_completion_message("MAX_POLLS", steps)
                     return resp
 
-                time.sleep(self.poll_interval)
+                remaining = None if deadline is None else deadline - self._now()
+                if remaining is not None and remaining <= 0:
+                    logger.warning(
+                        "stream_progress timed out after %ss with status %s",
+                        timeout,
+                        status_up or "UNKNOWN",
+                    )
+                    if self._format != ProgressFormat.NONE:
+                        self._print_completion_message("TIMEOUT", steps)
+                    raise TimeoutError(
+                        f"Operation timed out after {timeout} seconds (last status: {status_up or 'UNKNOWN'})"
+                    )
+
+                sleep_with_jitter(interval, max_sleep=remaining)
+                interval = next_wait(interval)
 
         finally:
-            self._stop_display.set()
-            if self._display_thread and self._display_thread.is_alive():
-                self._display_thread.join(timeout=1.0)
+            self.stop()

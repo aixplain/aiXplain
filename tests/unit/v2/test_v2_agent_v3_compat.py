@@ -68,9 +68,14 @@ class TestR6JsonRequiresExpectedOutput:
         # Must not raise: text/markdown agents don't require expected_output.
         agent._validate_expected_output()
 
+        # Validation is a pure check -- it must not fabricate an expected_output.
+        assert agent.expected_output is None
+
     def test_json_with_dict_expected_output_is_valid(self):
         agent = Agent(name="t", instructions="x", output_format="json", expected_output={"a": "b"})
         agent._validate_expected_output()
+
+        assert agent.expected_output == {"a": "b"}
 
 
 class TestR3InspectorDeserialization:

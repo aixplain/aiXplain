@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import logging
 import re
-import time
+from collections.abc import Mapping
+from itertools import chain
 from typing import Dict, Union, List, Optional, Any, TYPE_CHECKING, Iterator
+from urllib.parse import urlparse
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
 from dataclasses import dataclass, field
@@ -21,10 +23,13 @@ from .resource import (
     RunnableResourceMixin,
     BaseRunParams,
     Result,
+    _filter_value,
+    _filter_values,
+    _sort_direction,
 )
 from .enums import Function, Supplier, Language, AssetStatus, ResponseStatus
 from .mixins import ToolableMixin, ToolDict
-from .exceptions import APIError, ValidationError
+from .exceptions import ValidationError
 from .actions import Actions, Action, Inputs
 
 if TYPE_CHECKING:
@@ -32,12 +37,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_MODEL_POLL_URL_RE = re.compile(
-    r"^(?:https?://[^/?#]+)?/?(?:"
-    r"api/v1/data/[A-Za-z0-9_-]+|"
-    r"sdk/(?:models|runs)/[A-Za-z0-9_-]+(?:/result)?"
-    r")(?:[?#].*)?$"
-)
+# Path shape only. This decides *routing* -- "does this URL look like a poll
+# endpoint rather than a media output URL?" -- and is NOT an authorization
+# decision: a path-shape match says nothing about who owns the host. Host trust
+# is enforced by ``AixplainClient.ensure_trusted_url`` on the poll path itself.
+_MODEL_POLL_PATH_RE = re.compile(r"^/?(?:api/v1/data/[A-Za-z0-9_-]+|sdk/(?:models|runs)/[A-Za-z0-9_-]+(?:/result)?)/?$")
 
 
 def _normalize_reasoning(
@@ -194,12 +198,14 @@ class StreamChunk:
     """A chunk of streamed response data.
 
     Attributes:
-        status: The current status of the streaming operation (IN_PROGRESS or SUCCESS)
+        status: The current status of the streaming operation (IN_PROGRESS,
+            SUCCESS, or FAILED when the stream reported an error)
         data: The content/token of this chunk
         reasoning_content: Reasoning-model chain-of-thought text delta, when provided
         tool_calls: Tool call deltas when stream uses OpenAI-style chunk format
         usage: Usage payload when provided in a stream chunk
         finish_reason: Completion reason for the current choice, when provided
+        error_message: The error reported by the stream, when status is FAILED
     """
 
     status: ResponseStatus
@@ -208,11 +214,83 @@ class StreamChunk:
     tool_calls: Optional[List[dict[str, Any]]] = None
     usage: Optional[dict[str, Any]] = None
     finish_reason: Optional[str] = None
+    error_message: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Ensure data remains a text chunk."""
         if not isinstance(self.data, str):
             self.data = ""
+
+
+def _extract_stream_error(data: Any) -> Optional[str]:
+    """Return an error message if an SSE payload represents a failure.
+
+    Args:
+        data: The decoded JSON payload of a single SSE event.
+
+    Returns:
+        Optional[str]: The reported error message, or None if the payload does
+        not represent a failure.
+    """
+    if not isinstance(data, dict):
+        return None
+
+    error = data.get("error")
+    if error:
+        if isinstance(error, dict):
+            return str(error.get("message") or error)
+        return str(error)
+
+    status = data.get("status")
+    if isinstance(status, str) and status.upper() in {"FAILED", "ERROR"}:
+        return str(data.get("errorMessage") or data.get("message") or f"stream reported status={status}")
+
+    choices = data.get("choices")
+    choice = choices[0] if isinstance(choices, list) and choices else None
+    if isinstance(choice, dict) and choice.get("finish_reason") == "error":
+        return str(choice.get("error") or "stream finished with finish_reason='error'")
+
+    return None
+
+
+#: Line prefixes defined by the SSE wire format (WHATWG HTML §9.2). A body whose
+#: first non-empty line starts with one of these is a stream even when the
+#: server forgot the ``text/event-stream`` content type.
+_SSE_LINE_PREFIXES = ("data:", "event:", "id:", "retry:", ":")
+
+
+def _content_from_document(data: Any) -> str:
+    """Return the text payload of a complete (non-streamed) run response.
+
+    Args:
+        data: The decoded JSON document returned by the run endpoint.
+
+    Returns:
+        str: The model's text output. A structured payload that has no text
+        field is serialized rather than dropped, so the caller still gets the
+        data it asked for.
+    """
+    if isinstance(data, str):
+        return data
+
+    if isinstance(data, dict):
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+            message = choices[0].get("message")
+            if not isinstance(message, dict):
+                message = choices[0].get("delta")
+            if isinstance(message, dict):
+                content = message.get("content")
+                if isinstance(content, str):
+                    return content
+
+        content = data.get("data")
+        if isinstance(content, str):
+            return content
+        if content is not None:
+            return json.dumps(content)
+
+    return json.dumps(data)
 
 
 class ModelResponseStreamer(Iterator[StreamChunk]):
@@ -221,6 +299,21 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
     This class provides an iterator interface for streaming model responses.
     It handles the conversion of Server-Sent Events (SSE) into StreamChunk objects
     and manages the response status.
+
+    A backend that answers a streaming request with a plain JSON document
+    instead of an SSE body (a model whose record omits ``supportsStreaming``
+    may simply not stream) is detected on the first ``next()`` and yielded as a
+    single complete ``StreamChunk`` with ``status=SUCCESS``, rather than being
+    fed line by line to the SSE parser — which used to surface the raw JSON
+    text as ``chunk.data`` and end at ``status=FAILED``.
+
+    ``status`` only becomes ``SUCCESS`` once the stream terminates cleanly — a
+    ``[DONE]`` marker, a terminal ``finish_reason`` or a terminal ``status``
+    envelope. An error event, or a stream cut before any of those, leaves
+    ``status`` at ``FAILED``, so a truncated generation is never reported as a
+    complete one. Error events also yield a final ``StreamChunk`` with
+    ``status=FAILED`` and ``error_message`` set, rather than raising, so
+    existing ``for chunk in stream`` loops keep working.
 
     The streamer can be used directly in a for loop or as a context manager
     for proper resource cleanup.
@@ -250,10 +343,76 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
         self.status = ResponseStatus.IN_PROGRESS
         self._done = False
         self._buffered_line: Optional[str] = None
+        self._saw_terminal_event = False
+        self._sniffed = False
 
     def __iter__(self) -> Iterator[StreamChunk]:
         """Return the iterator for the ModelResponseStreamer."""
         return self
+
+    def _non_streaming_chunk(self) -> Optional[StreamChunk]:
+        """Return the whole body as one chunk when it is not an SSE stream.
+
+        The decision is made on the actual response rather than on the model's
+        ``supports_streaming`` flag, which the backend record may omit: a
+        ``text/event-stream`` content type, or a first line in SSE field form,
+        keeps the streaming parser; anything that parses as a single JSON
+        document is returned complete. A body that is neither is replayed
+        unchanged to the SSE parser, so nothing is consumed on its behalf.
+
+        Returns:
+            Optional[StreamChunk]: The complete response as a single chunk, or
+            None when the body should be parsed as SSE.
+        """
+        headers = getattr(self._response, "headers", None)
+        content_type = ""
+        if isinstance(headers, Mapping):
+            content_type = str(headers.get("Content-Type") or "").lower()
+        if "event-stream" in content_type:
+            return None
+
+        collected: List[str] = []
+        for line in self._iterator:
+            collected.append(line)
+            if not line or not line.strip():
+                continue
+            if "json" not in content_type and line.lstrip().startswith(_SSE_LINE_PREFIXES):
+                self._iterator = chain(iter(collected), self._iterator)
+                return None
+            break
+
+        collected.extend(self._iterator)
+        try:
+            data = json.loads("\n".join(collected))
+        except (json.JSONDecodeError, ValueError):
+            self._iterator = iter(collected)
+            return None
+
+        self._done = True
+        error_message = _extract_stream_error(data)
+        if error_message is not None:
+            self.status = ResponseStatus.FAILED
+            logger.warning("Model run reported an error on the streaming path: %s", error_message)
+            return StreamChunk(status=ResponseStatus.FAILED, data="", error_message=error_message)
+
+        logger.warning(
+            "Model responded to a streaming request with a complete %s body; yielding it as a single chunk.",
+            content_type or "non-SSE",
+        )
+        self.status = ResponseStatus.SUCCESS
+        usage = data.get("usage") if isinstance(data, dict) else None
+        finish_reason = None
+        if isinstance(data, dict):
+            choices = data.get("choices")
+            if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+                raw_finish_reason = choices[0].get("finish_reason")
+                finish_reason = raw_finish_reason if isinstance(raw_finish_reason, str) else None
+        return StreamChunk(
+            status=ResponseStatus.SUCCESS,
+            data=_content_from_document(data),
+            usage=usage if isinstance(usage, dict) else None,
+            finish_reason=finish_reason,
+        )
 
     def __next__(self) -> StreamChunk:
         """Return the next chunk of the response.
@@ -267,6 +426,12 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
         if self._done:
             raise StopIteration
 
+        if not self._sniffed:
+            self._sniffed = True
+            complete_chunk = self._non_streaming_chunk()
+            if complete_chunk is not None:
+                return complete_chunk
+
         while True:
             try:
                 if self._buffered_line is not None:
@@ -276,7 +441,14 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                     line = next(self._iterator)
             except StopIteration:
                 self._done = True
-                self.status = ResponseStatus.SUCCESS
+                if self._saw_terminal_event:
+                    # The server closed cleanly after a terminal event (a
+                    # finish_reason or a SUCCESS envelope) but without a [DONE]
+                    # marker; that is a complete stream, not a truncated one.
+                    self.status = ResponseStatus.SUCCESS
+                else:
+                    self.status = ResponseStatus.FAILED
+                    logger.warning("Model stream ended without a [DONE] marker; treating it as truncated.")
                 raise
 
             # Skip empty lines (SSE uses blank lines as separators)
@@ -326,6 +498,24 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                     return StreamChunk(status=self.status, data=buffered_payload)
                 continue
 
+            # A failure event carries no choices, so it would otherwise fall
+            # through as an empty content chunk and the stream would still be
+            # reported as a success.
+            error_message = _extract_stream_error(data)
+            if error_message is not None:
+                self._done = True
+                self.status = ResponseStatus.FAILED
+                logger.warning("Model stream reported an error: %s", error_message)
+                return StreamChunk(status=ResponseStatus.FAILED, data="", error_message=error_message)
+
+            # The aiXplain envelope announces a clean end with a terminal status
+            # rather than a finish_reason; that closes the stream as cleanly as
+            # a [DONE] marker would.
+            if isinstance(data, dict):
+                status_value = data.get("status")
+                if isinstance(status_value, str) and status_value.upper() in {"SUCCESS", "COMPLETED"}:
+                    self._saw_terminal_event = True
+
             # OpenAI-style stream chunk format:
             # {"choices":[{"delta":{"content":"...", "tool_calls":[...]},"finish_reason":...}],"usage":...}
             if isinstance(data, dict) and "choices" in data:
@@ -354,6 +544,13 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
 
                 finish_reason = choice.get("finish_reason")
                 finish_reason = finish_reason if isinstance(finish_reason, str) else None
+                if finish_reason:
+                    # Any non-null finish_reason terminates the choice. Suppliers
+                    # emit values well beyond OpenAI's own set ("end_turn",
+                    # "max_tokens", "guardrail_intervened", ...), so accept them
+                    # all instead of allowlisting and calling a complete stream
+                    # truncated; "error" never reaches here (handled above).
+                    self._saw_terminal_event = True
 
                 usage = data.get("usage")
                 usage = usage if isinstance(usage, dict) else None
@@ -393,15 +590,6 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
 
 
 InputsProxy = Inputs
-
-
-def find_supplier_by_id(supplier_id: Union[str, int]) -> Optional[Supplier]:
-    """Find supplier enum by ID."""
-    supplier_id_str = str(supplier_id)
-    return next(
-        (supplier for supplier in Supplier if supplier.value.get("id") == supplier_id_str),
-        None,
-    )
 
 
 def find_function_by_id(function_id: str) -> Optional[Function]:
@@ -499,10 +687,18 @@ class ModelRunParams(BaseRunParams):
             model/action input payload and the run URL, exactly like
             ``identifier`` (→ ``x-user-id``). Omit it (or pass ``None``) to send
             no header.
+        agent_name: Name of the agent making this call, emitted as the ``x-agent``
+            header so downstream services can attribute it to the calling agent.
+            In a team run this is whichever agent actually issued the call: the
+            sub-agent for a delegated call, but the orchestrator's own name for a
+            tool it calls directly — so consumers should not assume the value is
+            always a sub-agent, nor always the team root. Header-only, on the same
+            terms as ``session_id``, and must be ASCII (see ``_headers_for_run``).
     """
 
     stream: NotRequired[bool]
     session_id: NotRequired[Optional[str]]
+    agent_name: NotRequired[Optional[str]]
 
 
 @dataclass_json
@@ -670,38 +866,37 @@ class Model(
         else:
             super().__setattr__(name, value)
 
-    _SDK_ONLY_PARAMS = frozenset(
-        {
-            "timeout",
-            "wait_time",
-            "show_progress",
-            "stream",
-            "run_retries",
-            "run_retry_wait",
-            "identifier",
-            "session_id",
-        }
-    )
-
     # ``identifier`` is a per-run caller identity emitted as the ``x-user-id``
     # header (RunnableResourceMixin._headers_for_run), never a model/action
-    # input. Exclude it from the v2 payload builder here (and from the v1/URL
-    # builders via _SDK_ONLY_PARAMS above) so it cannot leak into model inputs
-    # or supplier-facing logs. Agent keeps it in the body by NOT overriding this.
+    # input. Exclude it from the payload builders here so it cannot leak into
+    # model inputs or supplier-facing logs. Agent keeps it in the body by NOT
+    # overriding this.
     #
-    # ``session_id`` is the same kind of per-run metadata (emitted as
-    # ``x-session-id``) and is header-only for every runnable, so the base
-    # _RUN_CONTROL_KEYS already excludes it; it is repeated in
-    # _SDK_ONLY_PARAMS above to also cover the v1/URL builder paths.
-    _RUN_CONTROL_KEYS = RunnableResourceMixin._RUN_CONTROL_KEYS | {"identifier"}
+    # ``session_id`` (→ ``x-session-id``) and ``agent_name`` (→ ``x-agent``) are
+    # the same kind of per-run metadata but header-only for every runnable, so the
+    # base _RUN_CONTROL_KEYS already excludes them.
+    #
+    # ``stream`` selects the streaming *path* (see ``run``) and is expressed on
+    # the wire as ``options.stream`` by ``run_stream`` — never as a top-level
+    # body field.
+    _RUN_CONTROL_KEYS = RunnableResourceMixin._RUN_CONTROL_KEYS | {"identifier", "stream"}
+
+    # The v1/URL builder path (``_run_async_v1``) and ``build_run_payload`` filter
+    # with the *same* set rather than a second hand-maintained literal: a merge
+    # once dropped a duplicated entry and silently put ``session_id`` back on the
+    # wire (BUG-1091). Kept as a distinct name because it is referenced by
+    # existing tests and by ``build_run_payload``'s docstring.
+    _SDK_ONLY_PARAMS = _RUN_CONTROL_KEYS
 
     def build_run_payload(self, **kwargs: Unpack[ModelRunParams]) -> dict:
         """Build the JSON payload for a model execution request.
 
         Strips SDK-only orchestration params (``timeout``, ``wait_time``,
-        ``show_progress``, ``stream``, ``run_retries``, ``run_retry_wait``) and
-        the header-only run metadata (``identifier``, ``session_id``) so they are
-        never forwarded to the backend API.
+        ``show_progress``, ``progress_*``, ``stream``, ``run_retries``,
+        ``run_retry_wait``), the request-dispatch params (``api_key``,
+        ``resource_path``) and the header-only run metadata (``identifier``,
+        ``session_id``, ``agent_name``) so they are never forwarded to the
+        backend API.
         """
         filtered = {k: v for k, v in kwargs.items() if k not in self._SDK_ONLY_PARAMS}
         return super().build_run_payload(**filtered)
@@ -749,13 +944,27 @@ class Model(
         # Use v2 endpoint - it uses "results" as the items key (default)
         return super().search(**kwargs)
 
-    def run(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
+    def run(self, **kwargs: Unpack[ModelRunParams]) -> Union[ModelResult, "ModelResponseStreamer"]:
         """Run the model with dynamic parameter validation and default handling.
 
         This method routes the execution based on the model's connection type:
         - Sync models: Uses V2 endpoint directly (returns result immediately)
         - Async models: Uses V2 endpoint and polls until completion
+
+        Returns:
+            ModelResult, or a :class:`ModelResponseStreamer` when ``stream=True``
+            — the flag selects the streaming path rather than being silently
+            dropped (BUG-1091). A model whose backend record omits
+            ``supportsStreaming`` still takes the streaming path; if it answers
+            with a complete JSON body instead of an SSE stream, the streamer
+            yields that body as a single successful chunk.
         """
+        # ``stream`` selects the path, so it is consumed here rather than
+        # forwarded: run_stream sets ``options.stream`` on the wire itself and
+        # runs its own merge/validation, so passing it on would be redundant.
+        if kwargs.pop("stream", None):
+            return self.run_stream(**kwargs)
+
         # Merge dynamic attributes with provided kwargs
         effective_params = self._merge_with_dynamic_attrs(**kwargs)
 
@@ -776,28 +985,27 @@ class Model(
 
     @staticmethod
     def _is_poll_url(url: str) -> bool:
-        """Return True when a model URL matches a known polling endpoint."""
-        return bool(_MODEL_POLL_URL_RE.match(url))
+        """Return True when *url*'s path matches a known polling endpoint.
+
+        Routing only, never authorization: a poll-shaped URL on a foreign host
+        still matches here and is then refused by the trusted-host guard inside
+        :meth:`poll`, which is the desired outcome -- silently treating it as
+        data would hide an active attack.
+        """
+        return bool(_MODEL_POLL_PATH_RE.match(urlparse(url).path))
 
     def _run_sync_v2(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model synchronously using V2 endpoint directly.
 
         This bypasses run_async() to avoid V1 fallback for sync-only models.
-        Honors ``run_retries`` / ``run_retry_wait`` like :meth:`RunnableResourceMixin.run`.
+        Honors ``run_retries`` / ``run_retry_wait`` like :meth:`RunnableResourceMixin.run`:
+        retries cover the submission only, and a business ``FAILED`` response is
+        never re-submitted.
 
         Returns:
             ModelResult: Direct result from V2 endpoint
         """
-        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
-        for attempt in range(run_retries + 1):
-            try:
-                return self._post_and_handle_run(**kwargs)
-            except APIError as e:
-                if not self._is_retryable_run_error(e) or attempt >= run_retries:
-                    raise
-                time.sleep(run_retry_wait)
-
-        raise RuntimeError("_run_sync_v2 retry loop exhausted without return")
+        return self._submit_with_retries(**kwargs)
 
     def run_async(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model asynchronously.
@@ -851,9 +1059,16 @@ class Model(
         v1_base_url = self.context.model_url.replace("/api/v2/", "/api/v1/")
         url = f"{v1_base_url}/{self.id}"
 
+        # Same identity headers as the sync path: this fallback is still a run,
+        # so its caller must stay attributable downstream (BUG-1091).
+        request_kwargs: dict = {"data": json_payload}
+        headers = self._headers_for_run(kwargs)
+        if headers:
+            request_kwargs["headers"] = headers
+
         # Use the v2 client's raw request method (raises APIError on non-2xx)
         try:
-            r = self.context.client.request_raw("post", url, data=json_payload)
+            r = self.context.client.request_raw("post", url, **request_kwargs)
             resp = r.json()
         except Exception as e:
             logger.error(f"Error in V1 async request: {e}")
@@ -907,7 +1122,10 @@ class Model(
 
         Returns:
             ModelResponseStreamer: A streamer that yields StreamChunk objects. Can be
-                iterated directly or used as a context manager.
+                iterated directly or used as a context manager. When the model
+                answers with a complete JSON body rather than an SSE stream —
+                which a model whose record omits ``supportsStreaming`` may well
+                do — the streamer yields that response as a single chunk.
 
         Raises:
             ValidationError: If the model explicitly does not support streaming
@@ -939,7 +1157,12 @@ class Model(
 
         self._ensure_valid_state()
 
-        payload = self.build_run_payload(**effective_params)
+        # Same body filter and identity headers as the sync path: a stream is
+        # still a run, so ``api_key`` must not reach the model input and the
+        # caller must stay attributable downstream (BUG-1091).
+        payload_input = self._payload_kwargs_for_run(effective_params)
+
+        payload = self.build_run_payload(**payload_input)
 
         if "options" not in payload:
             payload["options"] = {}
@@ -947,11 +1170,15 @@ class Model(
         if payload.get("tools") is not None:
             payload["options"]["raw"] = True
 
-        run_url = self.build_run_url(**effective_params)
+        run_url = self.build_run_url(**payload_input)
 
         logger.debug(f"Model Run Stream: Start service for {run_url}")
 
-        response = self.context.client.request_stream("POST", run_url, json=payload)
+        request_kwargs: dict = {"json": payload}
+        headers = self._headers_for_run(effective_params)
+        if headers:
+            request_kwargs["headers"] = headers
+        response = self.context.client.request_stream("POST", run_url, **request_kwargs)
 
         return ModelResponseStreamer(response)
 
@@ -1148,97 +1375,41 @@ class Model(
 
         # functions - backend validates "each value in functions must be a string"
         if params.get("functions") is not None:
-            functions_param = params["functions"]
-            if isinstance(functions_param, list):
-                filters["functions"] = [(f.value if hasattr(f, "value") else str(f)) for f in functions_param]
-            else:
-                filters["functions"] = [
-                    functions_param.value if hasattr(functions_param, "value") else str(functions_param)
-                ]
+            filters["functions"] = _filter_values(params["functions"])
 
         # suppliers - should be array of strings
         if params.get("vendors") is not None:
-            suppliers = params["vendors"]
-            if isinstance(suppliers, list):
-                filters["suppliers"] = [
-                    (s.value["code"] if hasattr(s, "value") and isinstance(s.value, dict) else str(s))
-                    for s in suppliers
-                ]
-            else:
-                supplier_value = (
-                    suppliers.value["code"]
-                    if (hasattr(suppliers, "value") and isinstance(suppliers.value, dict))
-                    else str(suppliers)
-                )
-                filters["suppliers"] = [supplier_value]
+            filters["suppliers"] = _filter_values(params["vendors"])
 
         # status - should be array of strings
         if params.get("status") is not None:
-            status = params["status"]
-            if isinstance(status, list):
-                filters["status"] = [
-                    (s.value if (hasattr(s, "value") and isinstance(s.value, str)) else str(s)) for s in status
-                ]
-            else:
-                if hasattr(status, "value") and isinstance(status.value, str):
-                    status_value = status.value
-                else:
-                    status_value = str(status)
-                filters["status"] = [status_value]
+            filters["status"] = _filter_values(params["status"])
 
         # source_languages - should be array of language codes
         if params.get("source_languages") is not None:
-            source_langs = params["source_languages"]
-            if isinstance(source_langs, list):
-                filters["sourceLanguages"] = [
-                    (lang.value if hasattr(lang, "value") and isinstance(lang.value, str) else str(lang))
-                    for lang in source_langs
-                ]
-            else:
-                lang_value = (
-                    source_langs.value
-                    if hasattr(source_langs, "value") and isinstance(source_langs.value, str)
-                    else str(source_langs)
-                )
-                filters["sourceLanguages"] = [lang_value]
+            filters["sourceLanguages"] = _filter_values(params["source_languages"])
 
         # target_languages - should be array of language codes
         if params.get("target_languages") is not None:
-            target_langs = params["target_languages"]
-            if isinstance(target_langs, list):
-                filters["targetLanguages"] = [
-                    (lang.value if hasattr(lang, "value") and isinstance(lang.value, str) else str(lang))
-                    for lang in target_langs
-                ]
-            else:
-                lang_value = (
-                    target_langs.value
-                    if hasattr(target_langs, "value") and isinstance(target_langs.value, str)
-                    else str(target_langs)
-                )
-                filters["targetLanguages"] = [lang_value]
+            filters["targetLanguages"] = _filter_values(params["target_languages"])
 
         # is_finetunable - boolean filter
         # Note: v1 API uses "isFineTunable" (capital T), v2 API uses "isFinetunable" (lowercase t)
         if params.get("is_finetunable") is not None:
             filters["isFineTunable"] = params["is_finetunable"]
 
-        # sort - should be array of objects with field and dir
-        if params.get("sort_by") is not None or params.get("sort_order") is not None:
-            sort_field = params.get("sort_by", "name")
-            sort_order = params.get("sort_order", "asc")
-
-            # Convert enum to string if needed
-            if hasattr(sort_field, "value"):
-                sort_field = sort_field.value
-
-            # Convert sort order to integer
-            if hasattr(sort_order, "value"):
-                sort_dir = sort_order.value
-            else:
-                sort_dir = 1 if str(sort_order).lower() == "asc" else -1
-
-            filters["sort"] = [{"field": str(sort_field), "dir": sort_dir}]
+        # sort - array of {field, dir}; ``dir`` is +/-1 per the backend contract
+        sort_by = params.get("sort_by")
+        sort_order = params.get("sort_order")
+        if sort_by is not None or sort_order is not None:
+            # Either half may be omitted (or explicitly ``None``); fall back to
+            # the documented defaults rather than serializing ``None``.
+            filters["sort"] = [
+                {
+                    "field": _filter_value("name" if sort_by is None else sort_by),
+                    "dir": _sort_direction("ASC" if sort_order is None else sort_order),
+                }
+            ]
         else:
             # Always include empty sort array as backend requires it
             filters["sort"] = [{}]

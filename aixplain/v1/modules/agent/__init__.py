@@ -28,6 +28,7 @@ import inspect
 import json
 import logging
 import re
+import random
 import time
 import traceback
 from datetime import datetime
@@ -40,7 +41,7 @@ from aixplain.modules.agent.agent_task import WorkflowTask, AgentTask
 from aixplain.modules.agent.output_format import OutputFormat
 from aixplain.modules.agent.tool import Tool, DeployableTool
 from aixplain.modules.agent.agent_response import AgentResponse
-from aixplain.modules.agent.agent_response_data import AgentResponseData
+from aixplain.modules.agent.agent_response_data import AgentResponseData, Artifact  # noqa: F401
 from aixplain.modules.agent.utils import process_variables, validate_history
 from pydantic import BaseModel
 from typing import Dict, List, Text, Optional, Union, Any
@@ -547,7 +548,10 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
 
                 end = time.time()
                 if completed is False:
-                    time.sleep(wait_time)
+                    # Jittered: a deterministic interval keeps every client
+                    # launched together phase-locked for the whole run, so the
+                    # fleet polls in synchronized waves (BUG-942).
+                    time.sleep(wait_time * random.uniform(0.8, 1.2))
                     if wait_time < 60:
                         wait_time *= 1.1
             except Exception as e:
@@ -570,7 +574,12 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
             print(completion_msg, flush=True)
 
         if response_body["completed"] is True:
-            logging.debug(f"Polling for Agent: Final status of polling for {name}: {response_body}")
+            # Status only, lazily -- never the body; see BUG-942 item 5.
+            logging.debug(
+                "Polling for Agent: Final status of polling for %s: %s",
+                name,
+                getattr(response_body, "status", None),
+            )
         else:
             response_body = AgentResponse(
                 status=ResponseStatus.FAILED,
@@ -707,6 +716,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                         intermediate_steps=result_data.get("intermediate_steps"),
                         steps=result_data.get("steps"),
                         execution_stats=result_data.get("executionStats"),
+                        artifacts=result_data.get("artifacts"),
                     ),
                     used_credits=result_data.get("usedCredits", 0.0),
                     run_time=result_data.get("runTime", end - start),
@@ -723,6 +733,7 @@ class Agent(Model, DeployableMixin[Union[Tool, DeployableTool]]):
                     intermediate_steps=result_data.get("intermediate_steps"),
                     steps=result_data.get("steps"),
                     execution_stats=result_data.get("executionStats"),
+                    artifacts=result_data.get("artifacts"),
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
                 run_time=result_data.get("runTime", end - start),

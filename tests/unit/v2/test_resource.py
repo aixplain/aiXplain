@@ -27,7 +27,13 @@ from aixplain.v2.resource import (
     _flatten_asset_info,
     _extract_run_time_and_used_credits,
 )
-from aixplain.v2.exceptions import APIError, ResourceError, ValidationError, TimeoutError
+from aixplain.v2.exceptions import (
+    APIError,
+    ResourceError,
+    ValidationError,
+    TimeoutError,
+    create_operation_failed_error,
+)
 
 
 # =============================================================================
@@ -940,24 +946,123 @@ class TestRunnableResourceMixin:
 
         assert resource.context.client.request.call_count == 3
 
-    def test_run_retries_after_sync_poll_failure(self):
-        """run() should retry full POST + poll when poll raises retryable APIError."""
+    def test_run_does_not_resubmit_after_sync_poll_failure(self):
+        """A poll-phase APIError must never trigger a second POST (BUG-1090).
+
+        The job being polled is already running and already billing; re-POSTing
+        starts a second execution the caller never asked for.
+        """
         resource = self._create_runnable_resource()
         in_progress = {"status": "IN_PROGRESS", "data": "https://poll.url/job"}
         final = {"status": "SUCCESS", "completed": True, "data": "done"}
         resource.context.client.request = Mock(side_effect=[in_progress, final])
         resource.context.client.get = Mock(
-            side_effect=[
-                APIError("poll failed", status_code=503, response_data={}),
-            ]
+            side_effect=APIError("poll failed", status_code=503, response_data={}),
         )
 
         with patch("aixplain.v2.resource.time.sleep"):
+            with pytest.raises(APIError):
+                resource.run(run_retries=2, run_retry_wait=0.01)
+
+        resource.context.client.request.assert_called_once()
+        resource.context.client.get.assert_called_once()
+
+    def test_run_does_not_resubmit_after_poll_transport_error(self):
+        """A transport failure while polling wraps to APIError(status_code=0).
+
+        That is the same sentinel a failed submission uses, so before BUG-1090
+        a dropped connection mid-poll re-submitted the run.
+        """
+        resource = self._create_runnable_resource()
+        in_progress = {"status": "IN_PROGRESS", "data": "https://poll.url/job"}
+        resource.context.client.request = Mock(return_value=in_progress)
+        resource.context.client.ensure_trusted_url = Mock(return_value=None)
+        resource.context.client.get = Mock(side_effect=ConnectionError("connection reset"))
+
+        with patch("aixplain.v2.resource.time.sleep"):
+            with pytest.raises(APIError) as exc_info:
+                resource.run(run_retries=3, run_retry_wait=0.01)
+
+        assert "Polling failed" in str(exc_info.value)
+        assert exc_info.value.status_code == 0
+        resource.context.client.request.assert_called_once()
+
+    def test_run_does_not_resubmit_after_poll_timeout(self):
+        """A sync_poll timeout propagates without a second submission."""
+        resource = self._create_runnable_resource()
+        resource.context.client.request = Mock(return_value={"status": "IN_PROGRESS", "data": "https://poll.url/job"})
+        resource.sync_poll = Mock(side_effect=TimeoutError("Operation timed out after 300 seconds"))
+
+        with patch("aixplain.v2.resource.time.sleep"):
+            with pytest.raises(TimeoutError):
+                resource.run(run_retries=2, run_retry_wait=0.01)
+
+        resource.context.client.request.assert_called_once()
+
+    def test_run_does_not_retry_failed_response(self):
+        """A business FAILED response is deterministic — one POST, no retries."""
+        resource = self._create_runnable_resource()
+        resource.context.client.request = Mock(
+            side_effect=create_operation_failed_error({"status": "FAILED", "error": "invalid input"}),
+        )
+
+        with patch("aixplain.v2.resource.time.sleep") as mock_sleep:
+            with pytest.raises(APIError) as exc_info:
+                resource.run(run_retries=3, run_retry_wait=0.01)
+
+        assert exc_info.value.retryable is False
+        resource.context.client.request.assert_called_once()
+        mock_sleep.assert_not_called()
+
+    def test_run_still_retries_retryable_submission_failure(self):
+        """Intended submission retries survive: POST-phase failures still retry."""
+        resource = self._create_runnable_resource()
+        ok = {"status": "SUCCESS", "completed": True, "data": "done"}
+        resource.context.client.request = Mock(
+            side_effect=[
+                APIError("transient", status_code=0, response_data={}),
+                APIError("throttled", status_code=429, response_data={}),
+                ok,
+            ]
+        )
+
+        with patch("aixplain.v2.resource.time.sleep") as mock_sleep:
             result = resource.run(run_retries=2, run_retry_wait=0.01)
 
         assert result.status == "SUCCESS"
-        assert resource.context.client.request.call_count == 2
-        resource.context.client.get.assert_called_once()
+        assert resource.context.client.request.call_count == 3
+        assert mock_sleep.call_count == 2
+
+    def test_run_does_not_resubmit_when_after_run_raises(self):
+        """An ``after_run`` failure must not re-POST the run (BUG-1090).
+
+        ``after_run`` observes an *already completed* execution, so a retryable
+        APIError raised from a user hook is the same trap as a poll-phase one:
+        the work is done and billed, and re-POSTing bills it twice. The hook now
+        runs outside the submission retry boundary.
+        """
+        resource = self._create_runnable_resource()
+        resource.context.client.request = Mock(return_value={"status": "SUCCESS", "completed": True, "data": "done"})
+        resource.after_run = Mock(side_effect=APIError("hook exploded", status_code=503, response_data={}))
+
+        with patch("aixplain.v2.resource.time.sleep") as mock_sleep:
+            with pytest.raises(APIError, match="hook exploded"):
+                resource.run(run_retries=3, run_retry_wait=0.01)
+
+        resource.context.client.request.assert_called_once()
+        resource.after_run.assert_called_once()
+        mock_sleep.assert_not_called()
+
+    def test_is_retryable_run_error_honours_explicit_flag(self):
+        """The explicit flag wins over the status-code heuristic, both ways."""
+        resource = self._create_runnable_resource()
+
+        failed = create_operation_failed_error({"status": "FAILED", "statusCode": 503})
+        assert resource._is_retryable_run_error(failed) is False
+        assert resource._is_retryable_run_error(APIError("boom", status_code=503)) is True
+        assert resource._is_retryable_run_error(APIError("boom", status_code=400)) is False
+        assert resource._is_retryable_run_error(APIError("nope", status_code=0, retryable=False)) is False
+        assert resource._is_retryable_run_error(APIError("yes", status_code=400, retryable=True)) is True
 
     def test_run_no_retry_on_non_retryable_api_error(self):
         """run_async should not retry on client errors (e.g. HTTP 400)."""
@@ -1011,13 +1116,47 @@ class TestRunnableResourceMixin:
         headers = resource._headers_for_run({"identifier": "alice", "session_id": "sess-1"})
         assert headers == {"x-user-id": "alice", "x-session-id": "sess-1"}
 
+    def test_agent_name_emitted_as_header(self):
+        """agent_name is emitted as the x-agent header for any runnable resource."""
+        resource = self._create_runnable_resource()
+
+        headers = resource._headers_for_run({"text": "hi", "agent_name": "Researcher"})
+        assert headers == {"x-agent": "Researcher"}
+
+    def test_base_excludes_agent_name_from_payload(self):
+        """Like session_id, agent_name is header-only for every runnable — no run
+        params type declares it as a body field, so the base mixin strips it."""
+        resource = self._create_runnable_resource()
+
+        payload_kwargs = resource._payload_kwargs_for_run({"text": "hi", "agent_name": "Researcher"})
+        assert "agent_name" not in payload_kwargs
+        assert payload_kwargs["text"] == "hi"
+
+    def test_all_run_metadata_headers_emitted_together(self):
+        resource = self._create_runnable_resource()
+
+        headers = resource._headers_for_run({"identifier": "alice", "session_id": "sess-1", "agent_name": "Researcher"})
+        assert headers == {"x-user-id": "alice", "x-session-id": "sess-1", "x-agent": "Researcher"}
+
     def test_no_headers_when_no_run_metadata(self):
-        """Neither key present → no headers dict at all, so _post_and_handle_run
+        """No header key present → no headers dict at all, so _post_and_handle_run
         attaches nothing (documented default, never a crash)."""
         resource = self._create_runnable_resource()
 
         assert resource._headers_for_run({"text": "hi"}) is None
-        assert resource._headers_for_run({"identifier": None, "session_id": None}) is None
+        assert resource._headers_for_run({key: None for key, _ in resource._RUN_HEADER_KEYS}) is None
+
+    def test_non_ascii_header_value_raises_for_any_runnable(self):
+        """Header values must be ASCII. Raised here rather than left to fail at
+        ``send()`` with a bare UnicodeEncodeError naming neither kwarg nor header.
+        """
+        resource = self._create_runnable_resource()
+
+        with pytest.raises(ValueError) as excinfo:
+            resource._headers_for_run({"agent_name": "Ürün Asistanı"})
+
+        message = str(excinfo.value)
+        assert "agent_name" in message and "x-agent" in message and "ASCII" in message
 
 
 # =============================================================================

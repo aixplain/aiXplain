@@ -6,11 +6,14 @@ This module tests Model-specific functionality including:
 - V1 payload conversion for sync-only models
 """
 
+import json
+
 import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from aixplain.v2.enums import Function, ResponseStatus
+from aixplain.v2.exceptions import APIError, ValidationError, create_operation_failed_error
 from aixplain.v2.model import (
     Message,
     Model,
@@ -51,6 +54,15 @@ class TestFindFunctionById:
         for member in Function:
             kebab = member.value.lower().replace("_", "-")
             assert find_function_by_id(kebab) == member, f"{kebab} did not resolve to {member}"
+
+    def test_media_function_ids_decode(self):
+        """Backend media-generation function IDs should resolve to real enum members."""
+        assert find_function_by_id("text-to-image-generation") is Function.TEXT_TO_IMAGE_GENERATION
+        assert find_function_by_id("speech-synthesis") is Function.SPEECH_SYNTHESIS
+        assert find_function_by_id("video-generation") is Function.VIDEO_GENERATION
+        # existing behavior preserved
+        assert find_function_by_id("text-generation") is Function.TEXT_GENERATION
+        assert find_function_by_id("no-such-function") is None
 
 
 # =============================================================================
@@ -331,8 +343,15 @@ class TestModelRunRouting:
         mock_super_run_async.assert_called_once()
         assert result.status == "IN_PROGRESS"
 
-    def test_build_run_payload_strips_sdk_params(self):
-        """build_run_payload should exclude timeout, wait_time, show_progress, stream."""
+    def test_build_run_payload_keeps_sdk_control_keys_out_of_the_body(self):
+        """SDK-control kwargs must not ride in the model *input body*.
+
+        ``stream`` in particular is a path selector expressed on the wire as
+        ``options.stream`` by ``run_stream`` — see
+        ``TestModelStreamDispatch`` for the dispatch half. Stripping it here is
+        correct but is *not* on its own evidence that ``run(stream=True)``
+        streams (BUG-1091).
+        """
         model = self._create_model_with_mocks(connection_type=["asynchronous"])
         payload = model.build_run_payload(
             text="hello",
@@ -423,6 +442,323 @@ class TestModelSessionHeader:
         payload_kwargs = model._payload_kwargs_for_run(kwargs)
         assert "identifier" not in payload_kwargs
         assert "session_id" not in payload_kwargs
+
+
+class TestModelAgentHeader:
+    """agent_name must ride as the x-agent header, never as a model input."""
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    def test_agent_name_excluded_from_payload(self):
+        """The calling agent's name is per-run metadata, not a model input — it
+        must not reach the model (or supplier-facing logs) as an input field."""
+        model = self._create_model()
+        payload_kwargs = model._payload_kwargs_for_run({"text": "hi", "agent_name": "Researcher"})
+        assert "agent_name" not in payload_kwargs
+        assert payload_kwargs["text"] == "hi"
+
+    def test_agent_name_emitted_as_header(self):
+        model = self._create_model()
+        assert model._headers_for_run({"text": "hi", "agent_name": "Researcher"}) == {"x-agent": "Researcher"}
+
+    def test_agent_name_excluded_from_build_run_payload(self):
+        """Also excluded from the v1/URL payload builder path (_SDK_ONLY_PARAMS)."""
+        model = self._create_model()
+        payload = model.build_run_payload(text="hi", agent_name="Researcher")
+        assert "agent_name" not in payload
+
+    def test_all_run_metadata_headers_ride_together(self):
+        """All three headers on one run, and none of them in the payload."""
+        model = self._create_model()
+        kwargs = {"text": "hi", "identifier": "alice", "session_id": "sess-1", "agent_name": "Researcher"}
+        assert model._headers_for_run(kwargs) == {
+            "x-user-id": "alice",
+            "x-session-id": "sess-1",
+            "x-agent": "Researcher",
+        }
+        payload_kwargs = model._payload_kwargs_for_run(kwargs)
+        assert payload_kwargs == {"text": "hi"}
+
+
+class TestRunHeaderKeysAreSingleSourceOfTruth:
+    """Every ``_RUN_HEADER_KEYS`` kwarg must be filtered out of *both* payload
+    paths. Guards the failure mode that hit ``session_id`` once: a header was
+    added to the wire while a duplicated payload-filter literal lost its entry
+    in a merge, so the value silently rode in the body too.
+    """
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    def test_every_header_kwarg_stripped_from_both_payload_paths(self):
+        model = self._create_model()
+        for key, header in Model._RUN_HEADER_KEYS:
+            kwargs = {"text": "hi", key: "v"}
+            assert model._headers_for_run(kwargs) == {header: "v"}, f"{key} not emitted as {header}"
+            assert key not in model._payload_kwargs_for_run(kwargs), f"{key} leaked into the v2 payload"
+            assert key not in model.build_run_payload(**kwargs), f"{key} leaked into the v1/URL payload"
+
+    def test_header_kwargs_covered_by_sdk_only_params(self):
+        assert {key for key, _ in Model._RUN_HEADER_KEYS} <= Model._SDK_ONLY_PARAMS
+
+    def test_sdk_only_params_is_derived_not_duplicated(self):
+        """``_SDK_ONLY_PARAMS`` must *be* ``_RUN_CONTROL_KEYS``, not a copy of it.
+
+        Two hand-maintained literals is how ``session_id`` was once filtered on
+        one path and shipped on the other. Identity here makes that drift
+        impossible rather than merely absent (BUG-1091).
+        """
+        assert Model._SDK_ONLY_PARAMS == Model._RUN_CONTROL_KEYS
+
+    @pytest.mark.parametrize("path", ["run", "run_stream", "_run_async_v1"])
+    def test_every_header_kwarg_rides_as_header_on_every_request_path(self, path):
+        """Each ``_RUN_HEADER_KEYS`` entry must become a header — and stay out of
+        the body — on *all three* request-issuing model paths.
+
+        ``run_stream`` and ``_run_async_v1`` build their own requests, which is
+        exactly where the shared filters silently stopped applying (BUG-1091).
+        """
+        for key, header in Model._RUN_HEADER_KEYS:
+            model = _model_with_mock_client(sync_only=(path != "run"))
+            client = model.context.client
+            kwargs = {"text": "hi", key: "v"}
+
+            if path == "run":
+                model.run(**kwargs)
+                call = client.request.call_args
+                body = call.kwargs["json"]
+            elif path == "run_stream":
+                model.run_stream(**kwargs)
+                call = client.request_stream.call_args
+                body = call.kwargs["json"]
+            else:
+                model._run_async_v1(**kwargs)
+                call = client.request_raw.call_args
+                body = json.loads(call.kwargs["data"])
+
+            assert call.kwargs["headers"][header] == "v", f"{path} dropped {header}"
+            assert key not in body, f"{path} leaked {key} into the body"
+
+
+def _model_with_mock_client(sync_only: bool = True) -> Model:
+    """A Model wired to a mock client that answers every request-issuing path."""
+    model = Model.__new__(Model)
+    model.id = "test-model-id"
+    model.name = "Test Model"
+    model.connection_type = ["synchronous"] if sync_only else ["asynchronous"]
+    model.params = None
+    model.supports_streaming = True
+    model.__post_init__()
+    model.context = Mock()
+    model.context.model_url = "https://models.aixplain.com/api/v2/execute"
+    model.context.client.request.return_value = {"status": "SUCCESS", "completed": True, "data": "ok"}
+    model.context.client.request_raw.return_value.json.return_value = {
+        "status": "IN_PROGRESS",
+        "data": "https://models.aixplain.com/api/v1/data/poll-id",
+    }
+    return model
+
+
+class TestModelStreamDispatch:
+    """``run(stream=True)`` must actually stream (BUG-1091).
+
+    The flag was declared, documented in four shipped places (including the
+    ``Model`` docstring and the bundled skill), stripped from the payload — and
+    never read by ``run``, so callers silently got a blocking ``ModelResult``.
+    """
+
+    def test_stream_true_dispatches_to_run_stream(self):
+        model = _model_with_mock_client()
+        result = model.run(text="hello", stream=True)
+
+        assert isinstance(result, ModelResponseStreamer)
+        assert model.context.client.request_stream.call_count == 1
+        assert model.context.client.request.call_count == 0
+
+    def test_stream_true_sets_options_stream_on_the_wire(self):
+        """The flag is expressed as ``options.stream``, never as a body field."""
+        model = _model_with_mock_client()
+        model.run(text="hello", stream=True)
+
+        body = model.context.client.request_stream.call_args.kwargs["json"]
+        assert body["options"]["stream"] is True
+        assert "stream" not in body
+
+    def test_stream_false_runs_normally(self):
+        model = _model_with_mock_client()
+        result = model.run(text="hello", stream=False)
+
+        assert isinstance(result, ModelResult)
+        assert model.context.client.request_stream.call_count == 0
+        assert model.context.client.request.call_count == 1
+        assert "stream" not in model.context.client.request.call_args.kwargs["json"]
+
+    def test_run_without_stream_kwarg_unchanged(self):
+        model = _model_with_mock_client()
+        result = model.run(text="hello")
+
+        assert isinstance(result, ModelResult)
+        assert model.context.client.request_stream.call_count == 0
+        assert model.context.client.request.call_args.kwargs["json"] == {"text": "hello"}
+
+    def test_stream_dispatch_forwards_remaining_kwargs(self):
+        """Model params and identity metadata survive the hand-off to run_stream."""
+        model = _model_with_mock_client()
+        model.run(text="hello", temperature=0.7, stream=True, identifier="alice")
+
+        call = model.context.client.request_stream.call_args
+        assert call.kwargs["json"]["temperature"] == 0.7
+        assert call.kwargs["headers"] == {"x-user-id": "alice"}
+
+
+class TestModelStreamPathFilters:
+    """``run_stream`` is still a run: same body filter, same identity headers."""
+
+    def test_run_stream_sends_identity_headers(self):
+        model = _model_with_mock_client()
+        model.run_stream(text="hi", identifier="alice", session_id="sess-1", agent_name="Researcher")
+
+        headers = model.context.client.request_stream.call_args.kwargs["headers"]
+        assert headers == {"x-user-id": "alice", "x-session-id": "sess-1", "x-agent": "Researcher"}
+
+    def test_run_stream_omits_headers_when_no_metadata(self):
+        model = _model_with_mock_client()
+        model.run_stream(text="hi")
+
+        assert "headers" not in model.context.client.request_stream.call_args.kwargs
+
+    def test_run_stream_strips_api_key_from_body(self):
+        model = _model_with_mock_client()
+        model.run_stream(text="hi", api_key="SECRET", resource_path="v2/models")
+
+        body = model.context.client.request_stream.call_args.kwargs["json"]
+        assert "api_key" not in body
+        assert "resource_path" not in body
+        assert body["text"] == "hi"
+
+
+class TestRunAsyncV1Headers:
+    """The sync-only async fallback builds its own request — it must still send
+    the identity headers the sync path sends (BUG-1091)."""
+
+    def test_run_async_v1_sends_identity_headers(self):
+        model = _model_with_mock_client()
+        model._run_async_v1(text="hi", identifier="alice", session_id="sess-1", agent_name="Researcher")
+
+        headers = model.context.client.request_raw.call_args.kwargs["headers"]
+        assert headers == {"x-user-id": "alice", "x-session-id": "sess-1", "x-agent": "Researcher"}
+
+    def test_run_async_v1_omits_headers_when_no_metadata(self):
+        model = _model_with_mock_client()
+        model._run_async_v1(text="hi")
+
+        assert "headers" not in model.context.client.request_raw.call_args.kwargs
+
+    def test_run_async_v1_strips_sdk_keys_from_body(self):
+        model = _model_with_mock_client()
+        model._run_async_v1(text="hi", api_key="SECRET", resource_path="v2/models", temperature=0.7)
+
+        body = json.loads(model.context.client.request_raw.call_args.kwargs["data"])
+        assert body == {"data": "hi", "temperature": 0.7}
+
+
+class TestOpenEndedModelParamsStillPassThrough:
+    """Model parameters are declared per-model by the backend and ship without an
+    SDK release, so ``run()`` deliberately does **not** reject unknown kwargs —
+    only the known SDK-control keys are stripped.
+
+    Pinned so a later tidy-up cannot quietly close the open channel and break
+    ``temperature`` / ``max_tokens`` / every future backend parameter. See the
+    BUG-1091 PR body for the deviation rationale.
+    """
+
+    def test_known_and_unknown_model_params_are_both_forwarded(self):
+        model = _model_with_mock_client()
+        model.run(text="hi", temperature=0.7, maxTokns=100)
+
+        body = model.context.client.request.call_args.kwargs["json"]
+        assert body == {"text": "hi", "temperature": 0.7, "maxTokns": 100}
+
+
+class TestRunHeaderValuesMustBeAscii:
+    """A non-ASCII header value must fail with a descriptive error, not a codec
+    traceback from deep inside ``send()``.
+
+    ``agent_name`` is the first user-authored free text on this channel
+    (``identifier``/``session_id`` are platform-generated ids), so a Turkish,
+    Arabic or CJK agent name is a realistic input. requests/urllib3 prepares such
+    a header fine and only fails at send time with a bare ``UnicodeEncodeError``
+    naming neither the run kwarg nor the header.
+    """
+
+    def _create_model(self):
+        model = Model.__new__(Model)
+        model.id = "test-model-id"
+        model.name = "Test Model"
+        model.connection_type = ["synchronous"]
+        model.params = None
+        model.__post_init__()
+        model.context = Mock()
+        return model
+
+    @pytest.mark.parametrize("agent_name", ["Ürün Asistanı", "网站设计师", "مساعد"])
+    def test_non_ascii_agent_name_raises_descriptive_error(self, agent_name):
+        model = self._create_model()
+
+        with pytest.raises(ValueError) as excinfo:
+            model._headers_for_run({"text": "hi", "agent_name": agent_name})
+
+        message = str(excinfo.value)
+        assert "agent_name" in message
+        assert agent_name in message
+        assert "x-agent" in message
+        assert "ASCII" in message
+
+    def test_run_raises_before_issuing_the_request(self):
+        """Fail fast: no POST is attempted with an unsendable header."""
+        model = self._create_model()
+
+        with pytest.raises(ValueError, match="x-agent"):
+            model.run(text="hi", agent_name="Ürün Asistanı")
+
+        model.context.client.request.assert_not_called()
+
+    def test_ascii_agent_name_unaffected(self):
+        model = self._create_model()
+
+        assert model._headers_for_run({"agent_name": "Researcher"}) == {"x-agent": "Researcher"}
+
+    def test_value_is_never_sanitized(self):
+        """The name must not be transliterated or stripped — that would silently
+        mis-attribute the call downstream. It is all-or-nothing."""
+        model = self._create_model()
+
+        with pytest.raises(ValueError):
+            model._headers_for_run({"agent_name": "Ürün"})
+
+    @pytest.mark.parametrize("key", ["identifier", "session_id"])
+    def test_validation_applies_to_every_header_kwarg(self, key):
+        """Not agent_name-specific: any header value that can't be encoded gets the
+        same descriptive failure."""
+        model = self._create_model()
+
+        with pytest.raises(ValueError, match="ASCII"):
+            model._headers_for_run({key: "değer"})
 
 
 class TestModelV1Fallback:
@@ -1125,6 +1461,41 @@ class TestModelIntegrationGaps:
         assert result.run_time == 1.766
         assert result.asset == {"assetId": "test-model-id", "id": "openai/gpt-5-mini/openai"}
 
+    def test_run_sync_v2_retries_only_the_submission(self):
+        """A sync-only model retries a retryable POST up to run_retries times."""
+        model = self._create_sync_model()
+        ok = {"status": "SUCCESS", "completed": True, "data": "done"}
+        model.context.client.request = Mock(
+            side_effect=[APIError("upstream unavailable", status_code=503, response_data={}), ok]
+        )
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value={"text": "hi"}):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    with patch("aixplain.v2.resource.time.sleep") as mock_sleep:
+                        result = model._run_sync_v2(text="hi", run_retries=1, run_retry_wait=0.01)
+
+        assert result.status == "SUCCESS"
+        assert model.context.client.request.call_count == 2
+        mock_sleep.assert_called_once()
+
+    def test_run_sync_v2_does_not_retry_failed_response(self):
+        """A FAILED response from a sync model is submitted exactly once (BUG-1090)."""
+        model = self._create_sync_model()
+        model.context.client.request = Mock(
+            side_effect=create_operation_failed_error({"status": "FAILED", "error": "invalid input"})
+        )
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value={"text": "hi"}):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    with patch("aixplain.v2.resource.time.sleep") as mock_sleep:
+                        with pytest.raises(APIError):
+                            model._run_sync_v2(text="hi", run_retries=3, run_retry_wait=0.01)
+
+        model.context.client.request.assert_called_once()
+        mock_sleep.assert_not_called()
+
     def test_stream_chunk_coerces_non_string_data(self):
         """StreamChunk should enforce text chunks even when data is non-string."""
         chunk = StreamChunk(status=ResponseStatus.IN_PROGRESS, data={"usage": {"total_tokens": 3}})
@@ -1265,3 +1636,283 @@ class TestModelStreamerSseEncoding:
         ModelResponseStreamer(response)
 
         assert response.encoding == "utf-16"
+
+
+# =============================================================================
+# BUG-1094: an errored or truncated stream must not report SUCCESS
+# =============================================================================
+
+
+class TestModelStreamerFailureReporting:
+    """A stream that errored or was cut short must report a non-SUCCESS status.
+
+    Before BUG-1094 the streamer never looked at ``error`` / ``status`` /
+    ``finish_reason == "error"`` events -- a JSON error event carries no
+    ``choices``, so it decayed into an empty content chunk -- and the
+    ``StopIteration`` handler set ``SUCCESS`` unconditionally, so a connection
+    cut mid-generation surfaced a truncated answer that claimed to be complete.
+    """
+
+    @staticmethod
+    def _create_streamer(lines):
+        """Create a response streamer from raw SSE lines."""
+        response = Mock()
+        response.iter_lines.return_value = iter(lines)
+        return ModelResponseStreamer(response)
+
+    def test_error_event_reports_failed(self):
+        """A ``{"error": {...}}`` event ends the stream at FAILED."""
+        streamer = self._create_streamer(
+            [
+                'data: {"choices":[{"delta":{"content":"Ship "}}]}',
+                'data: {"error":{"message":"context length exceeded"}}',
+                "data: [DONE]",
+            ]
+        )
+
+        first = next(streamer)
+        assert first.status == ResponseStatus.IN_PROGRESS
+        assert first.data == "Ship "
+
+        failure = next(streamer)
+        assert failure.status == ResponseStatus.FAILED
+        assert failure.error_message == "context length exceeded"
+        assert failure.data == ""
+
+        # The stream is over: a trailing [DONE] must not flip it back to SUCCESS.
+        with pytest.raises(StopIteration):
+            next(streamer)
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_string_error_event_reports_failed(self):
+        """An ``error`` given as a bare string is still a failure."""
+        streamer = self._create_streamer(['data: {"error":"upstream refused"}'])
+
+        failure = next(streamer)
+
+        assert failure.status == ResponseStatus.FAILED
+        assert failure.error_message == "upstream refused"
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_finish_reason_error_reports_failed(self):
+        """``finish_reason == "error"`` is a failure, not a terminal success."""
+        streamer = self._create_streamer(['data: {"choices":[{"delta":{},"finish_reason":"error"}]}', "data: [DONE]"])
+
+        failure = next(streamer)
+
+        assert failure.status == ResponseStatus.FAILED
+        assert failure.error_message == "stream finished with finish_reason='error'"
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_failed_status_event_reports_failed(self):
+        """A top-level ``status: FAILED`` event is a failure."""
+        streamer = self._create_streamer(['data: {"status":"FAILED","errorMessage":"boom"}'])
+
+        failure = next(streamer)
+
+        assert failure.status == ResponseStatus.FAILED
+        assert failure.error_message == "boom"
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_truncated_stream_reports_failed(self):
+        """A stream cut before ``[DONE]`` must not report SUCCESS."""
+        streamer = self._create_streamer(
+            [
+                'data: {"choices":[{"delta":{"content":"Ship "}}]}',
+                'data: {"choices":[{"delta":{"content":"aiX"}}]}',
+            ]
+        )
+
+        assert [chunk.data for chunk in streamer] == ["Ship ", "aiX"]
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_truncated_aixplain_style_stream_reports_failed(self):
+        """The aiXplain ``{"data": ...}`` chunk shape is guarded too."""
+        streamer = self._create_streamer(['data: {"data":"Ship aiX"}'])
+
+        assert [chunk.data for chunk in streamer] == ["Ship aiX"]
+        assert streamer.status == ResponseStatus.FAILED
+
+    @pytest.mark.parametrize(
+        "finish_reason",
+        # The last two are supplier-specific reasons outside OpenAI's own set:
+        # they still end the choice, so they must not be read as a truncation.
+        ["stop", "length", "tool_calls", "content_filter", "end_turn", "guardrail_intervened"],
+    )
+    def test_terminal_finish_reason_without_done_reports_success(self, finish_reason):
+        """A server that closes after a terminal finish_reason is not truncated."""
+        streamer = self._create_streamer(
+            [
+                'data: {"choices":[{"delta":{"content":"Ship aiX"}}]}',
+                'data: {"choices":[{"delta":{},"finish_reason":"%s"}]}' % finish_reason,
+            ]
+        )
+
+        list(streamer)
+
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    @pytest.mark.parametrize("status", ["SUCCESS", "COMPLETED", "success"])
+    def test_terminal_status_envelope_without_done_reports_success(self, status):
+        """The aiXplain envelope ends with a status rather than a finish_reason."""
+        streamer = self._create_streamer(['data: {"status":"%s","data":"Ship aiX"}' % status])
+
+        assert [chunk.data for chunk in streamer] == ["Ship aiX"]
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_done_marker_still_reports_success(self):
+        """Regression guard: the happy path is untouched."""
+        streamer = self._create_streamer(['data: {"data":"Ship aiX"}', "data: [DONE]"])
+
+        list(streamer)
+
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_empty_error_field_is_not_a_failure(self):
+        """A falsy ``error`` key (``null``/``""``) is not an error event."""
+        streamer = self._create_streamer(
+            ['data: {"error":null,"choices":[{"delta":{"content":"Ship aiX"}}]}', "data: [DONE]"]
+        )
+
+        chunk = next(streamer)
+
+        assert chunk.status == ResponseStatus.IN_PROGRESS
+        assert chunk.data == "Ship aiX"
+        list(streamer)
+        assert streamer.status == ResponseStatus.SUCCESS
+
+
+class TestStreamingWithUnknownStreamingSupport:
+    """``supports_streaming`` is ``None`` for any record that omits the flag.
+
+    ``run(stream=True)`` must still stream such a model (BUG-1091), so the
+    decision about how to parse the body cannot be taken from the flag: it is
+    taken from the response itself. A model that answers a streaming request
+    with a plain JSON document used to have that document fed to the SSE
+    parser, which surfaced the raw JSON text as ``chunk.data`` and ended the
+    iteration at ``status=FAILED``.
+    """
+
+    @staticmethod
+    def _response(lines, content_type=None):
+        """Build a mock response whose headers behave like a real mapping."""
+        response = Mock()
+        response.headers = {"Content-Type": content_type} if content_type else {}
+        response.iter_lines.return_value = iter(lines)
+        return response
+
+    @staticmethod
+    def _model_with_response(response, supports_streaming=None):
+        """A model whose streaming request returns *response*."""
+        model = _model_with_mock_client()
+        model.supports_streaming = supports_streaming
+        model.context.client.request_stream.return_value = response
+        return model
+
+    def test_unknown_flag_with_sse_body_still_streams(self):
+        """The BUG-1091 fix stands: an unflagged model that streams, streams."""
+        response = self._response(
+            [
+                'data: {"choices":[{"delta":{"content":"Ship "}}]}',
+                'data: {"choices":[{"delta":{"content":"aiX"}}]}',
+                "data: [DONE]",
+            ],
+            content_type="text/event-stream",
+        )
+        model = self._model_with_response(response)
+
+        streamer = model.run(text="hello", stream=True)
+
+        assert isinstance(streamer, ModelResponseStreamer)
+        assert [chunk.data for chunk in streamer] == ["Ship ", "aiX"]
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_unknown_flag_with_untyped_sse_body_still_streams(self):
+        """A server that omits the content type is recognised by the SSE lines."""
+        streamer = ModelResponseStreamer(
+            self._response(['data: {"data":"Ship "}', 'data: {"data":"aiX"}', "data: [DONE]"])
+        )
+
+        assert [chunk.data for chunk in streamer] == ["Ship ", "aiX"]
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_unknown_flag_with_json_body_returns_usable_data(self):
+        """The defect: a plain JSON body must not decay into a failed stream."""
+        response = self._response(
+            ['{"status": "SUCCESS", "completed": true,', ' "data": "Ship aiX"}'],
+            content_type="application/json",
+        )
+        model = self._model_with_response(response)
+
+        streamer = model.run(text="hello", stream=True)
+        chunks = list(streamer)
+
+        assert [chunk.data for chunk in chunks] == ["Ship aiX"]
+        assert chunks[0].status == ResponseStatus.SUCCESS
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_untyped_json_body_returns_usable_data(self):
+        """The fallback does not depend on the server labelling the body."""
+        streamer = ModelResponseStreamer(self._response(['{"status":"SUCCESS","data":"Ship aiX"}']))
+
+        assert [chunk.data for chunk in streamer] == ["Ship aiX"]
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_openai_shaped_json_body_yields_the_message_content(self):
+        """A complete chat-completions body carries its text under ``message``."""
+        body = (
+            '{"choices":[{"message":{"role":"assistant","content":"Ship aiX"},"finish_reason":"stop"}],'
+            '"usage":{"total_tokens":7}}'
+        )
+        streamer = ModelResponseStreamer(self._response([body], content_type="application/json"))
+
+        chunks = list(streamer)
+
+        assert [chunk.data for chunk in chunks] == ["Ship aiX"]
+        assert chunks[0].finish_reason == "stop"
+        assert chunks[0].usage == {"total_tokens": 7}
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_structured_json_payload_is_serialized_rather_than_dropped(self):
+        """A non-text ``data`` payload still reaches the caller."""
+        streamer = ModelResponseStreamer(
+            self._response(['{"status":"SUCCESS","data":{"label":"positive"}}'], content_type="application/json")
+        )
+
+        chunks = list(streamer)
+
+        assert json.loads(chunks[0].data) == {"label": "positive"}
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_failed_json_body_reports_the_error(self):
+        """A complete body that reports a failure is still a failure."""
+        streamer = ModelResponseStreamer(
+            self._response(['{"status":"FAILED","errorMessage":"boom"}'], content_type="application/json")
+        )
+
+        chunks = list(streamer)
+
+        assert chunks[0].status == ResponseStatus.FAILED
+        assert chunks[0].error_message == "boom"
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_non_json_non_sse_body_falls_through_to_the_sse_parser(self):
+        """A body the fallback cannot parse is replayed, never swallowed."""
+        streamer = ModelResponseStreamer(self._response(["not json at all"]))
+
+        assert [chunk.data for chunk in streamer] == ["not json at all"]
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_empty_body_still_reports_a_truncated_stream(self):
+        """An empty response is a truncated stream, not a successful one."""
+        streamer = ModelResponseStreamer(self._response([]))
+
+        assert list(streamer) == []
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_flag_false_still_refuses_to_stream(self):
+        """An explicit ``supports_streaming=False`` is still an error."""
+        model = self._model_with_response(self._response([]), supports_streaming=False)
+
+        with pytest.raises(ValidationError, match="does not support streaming"):
+            model.run(text="hello", stream=True)

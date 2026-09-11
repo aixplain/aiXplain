@@ -1,0 +1,184 @@
+name: Release
+
+# Tag push only (ENG-3428). Not `release: published` and not a branch push: the
+# published artifact must be built from an immutable ref, and the tag is the
+# version's only identity. 0.2.47 was pushed to PyPI by hand from a developer
+# laptop, so nothing ties that file to a commit.
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Deny-all default. Every scope this workflow needs is granted per job below, so
+# a job added later starts with nothing rather than inheriting the repository
+# default token. See docs/ci/required-checks.md.
+permissions: {}
+
+jobs:
+  # Runs repository code (pip, build, pytest) and therefore holds NO id-token:
+  # a compromised build dependency must never share a process with the OIDC
+  # credential that can upload to PyPI.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the tagged commit
+        uses: actions/checkout@v4
+        with:
+          # Matches docs.yaml: leave no git credential in the workspace for the
+          # build steps below to pick up.
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          # The floor of `requires-python`; build where the oldest supported
+          # interpreter can.
+          python-version: "3.9"
+          cache: 'pip'
+
+      # PyPI filenames are immutable: a wheel uploaded as 0.2.47 when the tag
+      # said v0.2.48 cannot be replaced, only yanked. The version is hardcoded in
+      # pyproject.toml (no setuptools-scm -- see ENG-3543), so nothing else ties
+      # the tag to the artifact's metadata.
+      - name: Assert the tag matches [project].version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip packaging tomli
+          python - <<'PY'
+          import os
+          import sys
+
+          import tomli
+          from packaging.version import InvalidVersion, Version
+
+          tag = os.environ["TAG"]
+          with open("pyproject.toml", "rb") as handle:
+              declared = tomli.load(handle)["project"]["version"]
+
+          if not tag.startswith("v"):
+              sys.exit(f"tag {tag!r} does not start with 'v'")
+          try:
+              tag_version = Version(tag[1:])
+          except InvalidVersion as exc:
+              sys.exit(f"tag {tag!r} is not a PEP 440 version: {exc}")
+
+          # Version equality, not string equality: `v0.2.48.rc1` and `0.2.48rc1`
+          # are the same release and PyPI would normalise them to one filename.
+          if tag_version != Version(declared):
+              sys.exit(
+                  f"tag {tag!r} -> {tag_version} but pyproject.toml declares {declared}. "
+                  "Bump [project].version and re-tag; do not publish a mislabelled artifact."
+              )
+          print(f"tag {tag} matches declared version {declared}")
+          PY
+
+      # The whole unit suite, not just the packaging and CI guards. main.yaml is
+      # push-only and `required_status_checks.contexts` is still empty (this PR
+      # documents the flip but cannot make it), so nothing guarantees the tagged
+      # commit ever passed `unit-coverage`: `git tag v0.2.48 <any-commit> && git
+      # push --tags` would otherwise publish with the suite unrun. The suite is
+      # credential-free (ENG-3431), so it needs no secrets in this job.
+      #
+      # This covers the static half of the ENG-3543 packaging gate. The slow half
+      # (a .git-less export and a full module census) is main.yaml's
+      # `package-integrity` job -- see docs/ci/required-checks.md.
+      - name: Run the unit suite, packaging and CI guards included
+        env:
+          # The same opt-in guard main.yaml sets (ENG-3544). A pytest run that
+          # collects tests and executes none of them -- an import error turned
+          # into a collection-time skip, a stray `-k` -- exits 0, and the release
+          # would proceed on a tree nothing had checked.
+          AIXPLAIN_REQUIRE_EXECUTED_TESTS: "1"
+        run: |
+          set -euo pipefail
+          pip install ".[test]"
+          python -m pytest tests/unit -q
+
+      - name: Build sdist and wheel
+        run: |
+          set -euo pipefail
+          pip install --upgrade build
+          # The step above installs in-tree and can leave an aiXplain.egg-info/
+          # behind. A stale SOURCES.txt riding along inside the sdist was one of
+          # the two accidents that hid ENG-3543's broken package discovery, so
+          # the artifact we publish is built without it.
+          rm -rf ./*.egg-info
+          # No --wheel/--sdist: the default flow is sdist -> wheel *from that
+          # sdist*, which also proves the sdist is self-sufficient.
+          python -m build --outdir dist
+
+      # Cheap and decisive: the ENG-3543 wheel shipped 3 of 169 modules,
+      # installed cleanly, and only failed at first import -- so "pip install
+      # succeeded" proves nothing on its own.
+      - name: Install the wheel into a clean venv and import it
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --upgrade pip
+          "$RUNNER_TEMP/venv/bin/pip" install dist/*.whl
+          # cd out of the repo FIRST: a cwd-local `aixplain/` shadows
+          # site-packages and would make this pass on a 3-module wheel.
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/venv/bin/python" - <<'PY'
+          import aixplain
+          import aixplain.base.parameters  # noqa: F401  -> v1/base/, no __init__.py
+          import aixplain.v1.modules.model  # noqa: F401
+          import aixplain.v2.core  # noqa: F401
+
+          assert "site-packages" in aixplain.__file__, (
+              f"imported the source tree, not the wheel: {aixplain.__file__}"
+          )
+          print("imported", aixplain.__file__)
+          PY
+          "$RUNNER_TEMP/venv/bin/aixplain" --help > /dev/null
+
+      - name: Upload the distribution for the publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+
+  # Holds the OIDC token, so it deliberately does the absolute minimum: no
+  # checkout, no pip install, no repository code at all. Download and publish.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Named environment: PyPI's trusted publisher is registered against the
+    # (repository, workflow filename, environment) triple, and the environment
+    # can carry required reviewers or a wait timer as a human gate. It must be
+    # created in repo settings -- see docs/ci/required-checks.md.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/aiXplain
+    permissions:
+      # The OIDC token exchanged for a short-lived PyPI upload token. Nothing
+      # else: this workflow's deny-all default means no other scope is granted.
+      id-token: write
+    steps:
+      - name: Download the distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Publish to PyPI with attestations
+        # Pinned to a commit SHA, not `@release/v1`: this is the one step that
+        # holds a credential able to publish as aiXplain, and a branch ref is
+        # mutable -- whoever can move it chooses the code that runs here.
+        # tests/unit/test_ci_permissions.py fails if this ever becomes a branch
+        # or tag ref again. `attestations` defaults to true on recent versions --
+        # set explicitly so a default change cannot silently drop provenance.
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+        with:
+          attestations: true
+          print-hash: true
+          # No `password:` and no `user:`. Trusted Publishing (OIDC) is the only
+          # supported path here; tests/unit/test_ci_permissions.py fails if a
+          # token input reappears.

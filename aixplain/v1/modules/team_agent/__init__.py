@@ -27,6 +27,7 @@ __author__ = "aiXplain"
 
 import json
 import logging
+import random
 import time
 import traceback
 import re
@@ -567,7 +568,10 @@ class TeamAgent(Model, DeployableMixin[Agent]):
 
                 end = time.time()
                 if completed is False:
-                    time.sleep(wait_time)
+                    # Jittered: a deterministic interval keeps every client
+                    # launched together phase-locked for the whole run, so the
+                    # fleet polls in synchronized waves (BUG-942).
+                    time.sleep(wait_time * random.uniform(0.8, 1.2))
                     if wait_time < 60:
                         wait_time *= 1.1
             except Exception as e:
@@ -589,7 +593,12 @@ class TeamAgent(Model, DeployableMixin[Agent]):
             print(completion_msg, flush=True)
 
         if response_body["completed"] is True:
-            logging.debug(f"Polling for Team Agent: Final status of polling for {name}: {response_body}")
+            # Status only, lazily -- never the body; see BUG-942 item 5.
+            logging.debug(
+                "Polling for Team Agent: Final status of polling for %s: %s",
+                name,
+                getattr(response_body, "status", None),
+            )
         else:
             response_body = AgentResponse(
                 status=ResponseStatus.FAILED,
@@ -694,7 +703,13 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                 return response
             poll_url = response["url"]
             end = time.time()
-            result = self.sync_poll(poll_url, name=name, timeout=timeout, wait_time=wait_time)
+            result = self.sync_poll(
+                poll_url,
+                name=name,
+                timeout=timeout,
+                wait_time=wait_time,
+                progress_verbosity=progress_verbosity,
+            )
             result_data = result.data or {}
             diagnostic_error_codes = result.diagnostic_error_codes
             if result.status == ResponseStatus.FAILED:
@@ -709,6 +724,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                         steps=result_data.get("steps"),
                         execution_stats=result_data.get("executionStats"),
                         critiques=result_data.get("critiques", ""),
+                        artifacts=result_data.get("artifacts"),
                     ),
                     used_credits=result_data.get("usedCredits", 0.0),
                     run_time=result_data.get("runTime", end - start),
@@ -726,6 +742,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     steps=result_data.get("steps"),
                     execution_stats=result_data.get("executionStats"),
                     critiques=result_data.get("critiques", ""),
+                    artifacts=result_data.get("artifacts"),
                 ),
                 used_credits=result_data.get("usedCredits", 0.0),
                 run_time=result_data.get("runTime", end - start),
@@ -917,7 +934,8 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     error_message = resp.get("error_message")
             else:
                 status = ResponseStatus.IN_PROGRESS
-            logging.debug(f"Single Poll for Team Agent: Status of polling for {name}: {resp}")
+            # Status only, lazily -- never the body; see BUG-942 item 5.
+            logging.debug("Single Poll for Team Agent: Status of polling for %s: %s", name, resp.get("status"))
 
             resp_data = resp.get("data") or {}
             diagnostic_error_codes = self._extract_diagnostic_error_codes(resp, resp_data)
@@ -942,6 +960,7 @@ class TeamAgent(Model, DeployableMixin[Agent]):
                     intermediate_steps=resp_data.get("intermediate_steps"),
                     steps=resp_data.get("steps"),
                     execution_stats=resp_data.get("executionStats"),
+                    artifacts=resp_data.get("artifacts"),
                 )
         except Exception as e:
             import traceback

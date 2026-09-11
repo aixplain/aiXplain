@@ -1,0 +1,1606 @@
+[
+  {
+    "id": "61b20de1c2f5901dc22c1947",
+    "value": "af",
+    "label": "Afrikaans",
+    "dialects": [
+      {
+        "value": "South Africa",
+        "label": "South Africa"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1948",
+    "value": "sq",
+    "label": "Albanian",
+    "dialects": [
+      {
+        "value": "Albania",
+        "label": "Albania"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c194b",
+    "value": "hy",
+    "label": "Armenian",
+    "dialects": [
+      {
+        "value": "Armenia",
+        "label": "Armenia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c194c",
+    "value": "asm",
+    "label": "Assamese",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c194e",
+    "value": "bn",
+    "label": "Bangla",
+    "dialects": [
+      {
+        "value": "Bangladesh",
+        "label": "Bangladesh"
+      },
+      {
+        "value": "India",
+        "label": "India"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1950",
+    "value": "eu",
+    "label": "Basque",
+    "dialects": [
+      {
+        "value": "Spain",
+        "label": "Spain"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1953",
+    "value": "bg",
+    "label": "Bulgarian",
+    "dialects": [
+      {
+        "value": "Bulgary",
+        "label": "Bulgary"
+      },
+      {
+        "value": "Bulgaria",
+        "label": "Bulgaria"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1956",
+    "value": "ca",
+    "label": "Catalan",
+    "dialects": [
+      {
+        "value": "Spain",
+        "label": "Spain"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1957",
+    "value": "ceb",
+    "label": "Cebuano",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c195a",
+    "value": "co",
+    "label": "Corsican",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c195c",
+    "value": "cs",
+    "label": "Czech",
+    "dialects": [
+      {
+        "value": "Czech Republic",
+        "label": "Czech Republic"
+      },
+      {
+        "value": "Czech",
+        "label": "Czech"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c195f",
+    "value": "dv",
+    "label": "Divehi",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1962",
+    "value": "eo",
+    "label": "Esperanto",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1963",
+    "value": "et",
+    "label": "Estonian",
+    "dialects": [
+      {
+        "value": "Estonia",
+        "label": "Estonia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1965",
+    "value": "fj",
+    "label": "Fijian",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1967",
+    "value": "fi",
+    "label": "Finnish",
+    "dialects": [
+      {
+        "value": "Finland",
+        "label": "Finland"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c196c",
+    "value": "de",
+    "label": "German",
+    "dialects": [
+      {
+        "value": "Germany",
+        "label": "Germany"
+      },
+      {
+        "value": "Austria",
+        "label": "Austria"
+      },
+      {
+        "value": "Switzerland",
+        "label": "Switzerland"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c196d",
+    "value": "el",
+    "label": "Greek",
+    "dialects": [
+      {
+        "value": "Greece",
+        "label": "Greece"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c196f",
+    "value": "ht",
+    "label": "Haitian",
+    "dialects": [],
+    "scripts": [
+      {
+        "value": "Creole",
+        "label": "Creole"
+      }
+    ]
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1970",
+    "value": "ha",
+    "label": "Hausa",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1971",
+    "value": "haw",
+    "label": "Hawaiian",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1976",
+    "value": "isl",
+    "label": "Icelandic",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1977",
+    "value": "ig",
+    "label": "Igbo",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1978",
+    "value": "id",
+    "label": "Indonesian",
+    "dialects": [
+      {
+        "value": "Indonesia",
+        "label": "Indonesia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1979",
+    "value": "iu",
+    "label": "Inuktitut",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c197a",
+    "value": "ga",
+    "label": "Irish",
+    "dialects": [
+      {
+        "value": "Ireland",
+        "label": "Ireland"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c197c",
+    "value": "ja",
+    "label": "Japanese",
+    "dialects": [
+      {
+        "value": "Japan",
+        "label": "Japan"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c197f",
+    "value": "kk",
+    "label": "Kazakh",
+    "dialects": [
+      {
+        "value": "Kazakhstan",
+        "label": "Kazakhstan"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1981",
+    "value": "rw",
+    "label": "Kinyarwanda",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1982",
+    "value": "tlh",
+    "label": "Klingon",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1983",
+    "value": "ko",
+    "label": "Korean",
+    "dialects": [
+      {
+        "value": "Korea",
+        "label": "Korea"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1984",
+    "value": "ku",
+    "label": "Kurdish",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1985",
+    "value": "ky",
+    "label": "Kyrgyz",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1989",
+    "value": "lb",
+    "label": "Luxembourgish",
+    "dialects": [
+      {
+        "value": "South Africa",
+        "label": "South Africa"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c198a",
+    "value": "mk",
+    "label": "Macedonian",
+    "dialects": [
+      {
+        "value": "North Macedonia",
+        "label": "North Macedonia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c198e",
+    "value": "mt",
+    "label": "Maltese",
+    "dialects": [
+      {
+        "value": "Malta",
+        "label": "Malta"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c198f",
+    "value": "mi",
+    "label": "Maori",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1991",
+    "value": "mn",
+    "label": "Mongolian",
+    "dialects": [
+      {
+        "value": "Mongolia",
+        "label": "Mongolia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1949",
+    "value": "am",
+    "label": "Amharic",
+    "dialects": [
+      {
+        "value": "Ethiopia",
+        "label": "Ethiopia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1995",
+    "value": "or",
+    "label": "Odia",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c199c",
+    "value": "ro",
+    "label": "Romanian",
+    "dialects": [
+      {
+        "value": "Romania",
+        "label": "Romania"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c194a",
+    "value": "ar",
+    "label": "Arabic",
+    "dialects": [
+      {
+        "value": "Classical Arabic",
+        "label": "Classical Arabic"
+      },
+      {
+        "value": "United Arab Emirates",
+        "label": "United Arab Emirates"
+      },
+      {
+        "value": "Egypt",
+        "label": "Egypt"
+      },
+      {
+        "value": "Morocco",
+        "label": "Morocco"
+      },
+      {
+        "value": "Saudi Arabia",
+        "label": "Saudi Arabia"
+      },
+      {
+        "value": "Modern Standard Arabic",
+        "label": "Modern Standard Arabic"
+      },
+      {
+        "value": "Qatar",
+        "label": "Qatar"
+      },
+      {
+        "value": "Iraq",
+        "label": "Iraq"
+      },
+      {
+        "value": "Oman",
+        "label": "Oman"
+      },
+      {
+        "value": "Tunisia",
+        "label": "Tunisia"
+      },
+      {
+        "value": "Yemen",
+        "label": "Yemen"
+      },
+      {
+        "value": "Kuwait",
+        "label": "Kuwait"
+      },
+      {
+        "value": "Palestine",
+        "label": "Palestine"
+      },
+      {
+        "value": "Algeria",
+        "label": "Algeria"
+      },
+      {
+        "value": "Gulf",
+        "label": "Gulf"
+      },
+      {
+        "value": "Bahrain",
+        "label": "Bahrain"
+      },
+      {
+        "value": "Jordan",
+        "label": "Jordan"
+      },
+      {
+        "value": "Libya",
+        "label": "Libya"
+      },
+      {
+        "value": "Israel",
+        "label": "Israel"
+      },
+      {
+        "value": "Auto-Detect",
+        "label": "Auto-Detect"
+      },
+      {
+        "value": "Lebanon",
+        "label": "Lebanon"
+      },
+      {
+        "value": "Syria",
+        "label": "Syria"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c194d",
+    "value": "az",
+    "label": "Azerbaijani",
+    "dialects": [
+      {
+        "value": "Azerbaijan",
+        "label": "Azerbaijan"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c194f",
+    "value": "ba",
+    "label": "Bashkir",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1952",
+    "value": "bs",
+    "label": "Bosnian",
+    "dialects": [
+      {
+        "value": "Bosnia",
+        "label": "Bosnia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1951",
+    "value": "be",
+    "label": "Belarusian",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1954",
+    "value": "my",
+    "label": "Burmese",
+    "dialects": [
+      {
+        "value": "Myanmar",
+        "label": "Myanmar"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c195d",
+    "value": "da",
+    "label": "Danish",
+    "dialects": [
+      {
+        "value": "Denmark",
+        "label": "Denmark"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1994",
+    "value": "ny",
+    "label": "Nyanja",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1996",
+    "value": "ps",
+    "label": "Pashto",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1998",
+    "value": "pl",
+    "label": "Polish",
+    "dialects": [
+      {
+        "value": "Poland",
+        "label": "Poland"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c199a",
+    "value": "pa",
+    "label": "Punjabi",
+    "dialects": [
+      {
+        "value": "India",
+        "label": "India"
+      },
+      {
+        "value": "Gurmukhi India",
+        "label": "Gurmukhi India"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c199b",
+    "value": "oto",
+    "label": "Queretaro",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c199d",
+    "value": "ru",
+    "label": "Russian",
+    "dialects": [
+      {
+        "value": "Russia",
+        "label": "Russia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19a0",
+    "value": "sr",
+    "label": "Serbian",
+    "dialects": [
+      {
+        "value": "Serbia",
+        "label": "Serbia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19a2",
+    "value": "sn",
+    "label": "Shona",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19a3",
+    "value": "sd",
+    "label": "Sindhi",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19a5",
+    "value": "sk",
+    "label": "Slovak",
+    "dialects": [
+      {
+        "value": "Slovakia",
+        "label": "Slovakia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19a7",
+    "value": "so",
+    "label": "Somali",
+    "dialects": [
+      {
+        "value": "Somalia",
+        "label": "Somalia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19aa",
+    "value": "sw",
+    "label": "Swahili",
+    "dialects": [
+      {
+        "value": "Kenya",
+        "label": "Kenya"
+      },
+      {
+        "value": "Tanzania",
+        "label": "Tanzania"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19ac",
+    "value": "tl",
+    "label": "Tagalog",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19ad",
+    "value": "ty",
+    "label": "Tahitian",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19ae",
+    "value": "tg",
+    "label": "Tajik",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19b0",
+    "value": "tt",
+    "label": "Tatar",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19b1",
+    "value": "te",
+    "label": "Telugu",
+    "dialects": [
+      {
+        "value": "India",
+        "label": "India"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19b3",
+    "value": "bo",
+    "label": "Tibetan",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19b5",
+    "value": "to",
+    "label": "Tongan",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19b6",
+    "value": "tr",
+    "label": "Turkish",
+    "dialects": [
+      {
+        "value": "Turkey",
+        "label": "Turkey"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19bb",
+    "value": "uz",
+    "label": "Uzbek",
+    "dialects": [
+      {
+        "value": "Uzbekistan",
+        "label": "Uzbekistan"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19bc",
+    "value": "vi",
+    "label": "Vietnamese",
+    "dialects": [
+      {
+        "value": "Vietnam",
+        "label": "Vietnam"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19bd",
+    "value": "cy",
+    "label": "Welsh",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19be",
+    "value": "xh",
+    "label": "Xhosa",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19c1",
+    "value": "yua",
+    "label": "Yucatec",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19c2",
+    "value": "zu",
+    "label": "Zulu",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1997",
+    "value": "fa",
+    "label": "Persian",
+    "dialects": [
+      {
+        "value": "Iran",
+        "label": "Iran"
+      },
+      {
+        "value": "Persian",
+        "label": "Persian"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1999",
+    "value": "pt",
+    "label": "Portuguese",
+    "dialects": [
+      {
+        "value": "Portugal",
+        "label": "Portugal"
+      },
+      {
+        "value": "Brazil",
+        "label": "Brazil"
+      },
+      {
+        "value": "European",
+        "label": "European"
+      },
+      {
+        "value": "Brazilian",
+        "label": "Brazilian"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1958",
+    "value": "zh",
+    "label": "Chinese",
+    "dialects": [
+      {
+        "value": "Mandarin",
+        "label": "Mandarin"
+      },
+      {
+        "value": "Hong Kong",
+        "label": "Hong Kong"
+      },
+      {
+        "value": "Taiwanese, Mandarin",
+        "label": "Taiwanese, Mandarin"
+      },
+      {
+        "value": "Traditional",
+        "label": "Traditional"
+      }
+    ],
+    "scripts": [
+      {
+        "value": "Simplified",
+        "label": "Simplified"
+      },
+      {
+        "value": "Cantonese, Traditional",
+        "label": "Cantonese, Traditional"
+      },
+      {
+        "value": "Traditional",
+        "label": "Traditional"
+      },
+      {
+        "value": "Mandarin, Simplified",
+        "label": "Mandarin, Simplified"
+      },
+      {
+        "value": "simplified",
+        "label": "simplified"
+      }
+    ]
+  },
+  {
+    "id": "61b20de1c2f5901dc22c195b",
+    "value": "hr",
+    "label": "Croatian",
+    "dialects": [
+      {
+        "value": "Croatia",
+        "label": "Croatia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1966",
+    "value": "fil",
+    "label": "Filipino",
+    "dialects": [
+      {
+        "value": "Philippines",
+        "label": "Philippines"
+      },
+      {
+        "value": "Tagalog",
+        "label": "Tagalog"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c196e",
+    "value": "gu",
+    "label": "Gujarati",
+    "dialects": [
+      {
+        "value": "Indian",
+        "label": "Indian"
+      },
+      {
+        "value": "India",
+        "label": "India"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1974",
+    "value": "hmn",
+    "label": "Hmong",
+    "dialects": [],
+    "scripts": [
+      {
+        "value": "Daw",
+        "label": "Daw"
+      }
+    ]
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1987",
+    "value": "lv",
+    "label": "Latvian",
+    "dialects": [
+      {
+        "value": "Latvia",
+        "label": "Latvia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1988",
+    "value": "lt",
+    "label": "Lithuanian",
+    "dialects": [
+      {
+        "value": "Lithuania",
+        "label": "Lithuania"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19ba",
+    "value": "ug",
+    "label": "Uyghur",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c195e",
+    "value": "prs",
+    "label": "Dari",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1960",
+    "value": "nl",
+    "label": "Dutch",
+    "dialects": [
+      {
+        "value": "Belgium",
+        "label": "Belgium"
+      },
+      {
+        "value": "Netherlands",
+        "label": "Netherlands"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1961",
+    "value": "en",
+    "label": "English",
+    "dialects": [
+      {
+        "value": "United States",
+        "label": "United States"
+      },
+      {
+        "value": "United Kingdom",
+        "label": "United Kingdom"
+      },
+      {
+        "value": "India",
+        "label": "India"
+      },
+      {
+        "value": "Welsh",
+        "label": "Welsh"
+      },
+      {
+        "value": "Australia",
+        "label": "Australia"
+      },
+      {
+        "value": "Nigeria",
+        "label": "Nigeria"
+      },
+      {
+        "value": "New Zealand",
+        "label": "New Zealand"
+      },
+      {
+        "value": "Kenya",
+        "label": "Kenya"
+      },
+      {
+        "value": "Philippines",
+        "label": "Philippines"
+      },
+      {
+        "value": "Indian",
+        "label": "Indian"
+      },
+      {
+        "value": "Australian",
+        "label": "Australian"
+      },
+      {
+        "value": "Hong Kong",
+        "label": "Hong Kong"
+      },
+      {
+        "value": "South Africa",
+        "label": "South Africa"
+      },
+      {
+        "value": "Ghana",
+        "label": "Ghana"
+      },
+      {
+        "value": "Singapore",
+        "label": "Singapore"
+      },
+      {
+        "value": "Ireland",
+        "label": "Ireland"
+      },
+      {
+        "value": "Canada",
+        "label": "Canada"
+      },
+      {
+        "value": "Tanzania",
+        "label": "Tanzania"
+      },
+      {
+        "value": "Scottish",
+        "label": "Scottish"
+      },
+      {
+        "value": "Pakistan",
+        "label": "Pakistan"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1968",
+    "value": "fr",
+    "label": "French",
+    "dialects": [
+      {
+        "value": "Canada",
+        "label": "Canada"
+      },
+      {
+        "value": "France",
+        "label": "France"
+      },
+      {
+        "value": "Switzerland",
+        "label": "Switzerland"
+      },
+      {
+        "value": "Belgium",
+        "label": "Belgium"
+      },
+      {
+        "value": "Canadian",
+        "label": "Canadian"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c196b",
+    "value": "ka",
+    "label": "Georgian",
+    "dialects": [
+      {
+        "value": "Georgia",
+        "label": "Georgia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c196a",
+    "value": "gl",
+    "label": "Galician",
+    "dialects": [
+      {
+        "value": "Spain",
+        "label": "Spain"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1969",
+    "value": "fy",
+    "label": "Frisian",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1972",
+    "value": "he",
+    "label": "Hebrew",
+    "dialects": [
+      {
+        "value": "Israel",
+        "label": "Israel"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1975",
+    "value": "hu",
+    "label": "Hungarian",
+    "dialects": [
+      {
+        "value": "Hungary",
+        "label": "Hungary"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1973",
+    "value": "hi",
+    "label": "Hindi",
+    "dialects": [
+      {
+        "value": "India",
+        "label": "India"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c197b",
+    "value": "it",
+    "label": "Italian",
+    "dialects": [
+      {
+        "value": "Italy",
+        "label": "Italy"
+      },
+      {
+        "value": "Switzerland",
+        "label": "Switzerland"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c197e",
+    "value": "kn",
+    "label": "Kannada",
+    "dialects": [
+      {
+        "value": "India",
+        "label": "India"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c197d",
+    "value": "jv",
+    "label": "Javanese",
+    "dialects": [
+      {
+        "value": "Indonesia",
+        "label": "Indonesia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1980",
+    "value": "km",
+    "label": "Khmer",
+    "dialects": [
+      {
+        "value": "Cambodia",
+        "label": "Cambodia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1986",
+    "value": "lo",
+    "label": "Lao",
+    "dialects": [
+      {
+        "value": "Laos",
+        "label": "Laos"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c198b",
+    "value": "mg",
+    "label": "Malagasy",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c198c",
+    "value": "ms",
+    "label": "Malay",
+    "dialects": [
+      {
+        "value": "Malaysia",
+        "label": "Malaysia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c198d",
+    "value": "ml",
+    "label": "Malayalam",
+    "dialects": [
+      {
+        "value": "India",
+        "label": "India"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1990",
+    "value": "mr",
+    "label": "Marathi",
+    "dialects": [
+      {
+        "value": "India",
+        "label": "India"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1992",
+    "value": "ne",
+    "label": "Nepali",
+    "dialects": [
+      {
+        "value": "Nepal",
+        "label": "Nepal"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c1993",
+    "value": "no",
+    "label": "Norwegian",
+    "dialects": [
+      {
+        "value": "Norway",
+        "label": "Norway"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c199e",
+    "value": "sm",
+    "label": "Samoan",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19a1",
+    "value": "st",
+    "label": "Sesotho",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c199f",
+    "value": "gd",
+    "label": "Scots Gaelic",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19a4",
+    "value": "si",
+    "label": "Sinhala",
+    "dialects": [
+      {
+        "value": "Sri Lanka",
+        "label": "Sri Lanka"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19a6",
+    "value": "sl",
+    "label": "Slovenian",
+    "dialects": [
+      {
+        "value": "Slovenia",
+        "label": "Slovenia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19ab",
+    "value": "sv",
+    "label": "Swedish",
+    "dialects": [
+      {
+        "value": "Sweden",
+        "label": "Sweden"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19c0",
+    "value": "yo",
+    "label": "Yoruba",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19a8",
+    "value": "es",
+    "label": "Spanish",
+    "dialects": [
+      {
+        "value": "Dominican Republic",
+        "label": "Dominican Republic"
+      },
+      {
+        "value": "Mexico",
+        "label": "Mexico"
+      },
+      {
+        "value": "Puerto Rico",
+        "label": "Puerto Rico"
+      },
+      {
+        "value": "Equatorial Guinea",
+        "label": "Equatorial Guinea"
+      },
+      {
+        "value": "Mexican",
+        "label": "Mexican"
+      },
+      {
+        "value": "Venezuela",
+        "label": "Venezuela"
+      },
+      {
+        "value": "Guatemala",
+        "label": "Guatemala"
+      },
+      {
+        "value": "Nicaragua",
+        "label": "Nicaragua"
+      },
+      {
+        "value": "Paraguay",
+        "label": "Paraguay"
+      },
+      {
+        "value": "Uruguay",
+        "label": "Uruguay"
+      },
+      {
+        "value": "Colombia",
+        "label": "Colombia"
+      },
+      {
+        "value": "Panama",
+        "label": "Panama"
+      },
+      {
+        "value": "United States",
+        "label": "United States"
+      },
+      {
+        "value": "Ecuador",
+        "label": "Ecuador"
+      },
+      {
+        "value": "Argentina",
+        "label": "Argentina"
+      },
+      {
+        "value": "Spain",
+        "label": "Spain"
+      },
+      {
+        "value": "Honduras",
+        "label": "Honduras"
+      },
+      {
+        "value": "Chile",
+        "label": "Chile"
+      },
+      {
+        "value": "Cuba",
+        "label": "Cuba"
+      },
+      {
+        "value": "Costa Rica",
+        "label": "Costa Rica"
+      },
+      {
+        "value": "Peru",
+        "label": "Peru"
+      },
+      {
+        "value": "El Salvador",
+        "label": "El Salvador"
+      },
+      {
+        "value": "Bolivia",
+        "label": "Bolivia"
+      },
+      {
+        "value": "European",
+        "label": "European"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19a9",
+    "value": "su",
+    "label": "Sundanese",
+    "dialects": [
+      {
+        "value": "Indonesia",
+        "label": "Indonesia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19b7",
+    "value": "tk",
+    "label": "Turkmen",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19af",
+    "value": "ta",
+    "label": "Tamil",
+    "dialects": [
+      {
+        "value": "Sri Lanka",
+        "label": "Sri Lanka"
+      },
+      {
+        "value": "India",
+        "label": "India"
+      },
+      {
+        "value": "Singapore",
+        "label": "Singapore"
+      },
+      {
+        "value": "Malaysia",
+        "label": "Malaysia"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19b2",
+    "value": "th",
+    "label": "Thai",
+    "dialects": [
+      {
+        "value": "Thailand",
+        "label": "Thailand"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19b4",
+    "value": "tir",
+    "label": "Tigrinya",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19b8",
+    "value": "ukr",
+    "label": "Ukrainian",
+    "dialects": [
+      {
+        "value": "Ukraine",
+        "label": "Ukraine"
+      }
+    ],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19bf",
+    "value": "yi",
+    "label": "Yiddish",
+    "dialects": [],
+    "scripts": []
+  },
+  {
+    "id": "61b20de1c2f5901dc22c19b9",
+    "value": "ur",
+    "label": "Urdu",
+    "dialects": [
+      {
+        "value": "Pakistan",
+        "label": "Pakistan"
+      },
+      {
+        "value": "India",
+        "label": "India"
+      }
+    ],
+    "scripts": []
+  }
+]

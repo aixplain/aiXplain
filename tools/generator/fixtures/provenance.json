@@ -1,0 +1,10 @@
+{
+  "backend_url": "https://platform-api.aixplain.com",
+  "captured_at": "2026-09-08T14:23:54+00:00",
+  "fixtures": {
+    "functions": "c17849c4ccfe7cc627a2a1e7d94a395691188cfa613a8fd25e15bad8e6922506",
+    "suppliers": "bfaa6f0736e999f3ada4fce1bfe31e5f628f204a0ad47ab05cc6e13f4a7ac30d",
+    "languages": "401c06a8a8ca176140cabf8105dc0284a4f4788ddbf4b8167257b544f8689ec6",
+    "licenses": "69b9425809e286e52454e24f7523587a48aeb787bd1a97791a6b82bb52a08ba5"
+  }
+}

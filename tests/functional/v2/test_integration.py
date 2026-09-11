@@ -4,7 +4,7 @@ import pytest
 @pytest.fixture(scope="module")
 def slack_integration_id():
     """Return a Slack integration model ID for testing."""
-    return "686432941223092cb4294d3f"  # Use Script integration from test_aa.py (Slack integration)
+    return "686432941223092cb4294d3f"  # Slack integration
 
 
 def validate_integration_structure(integration):

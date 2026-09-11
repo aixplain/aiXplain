@@ -6,10 +6,13 @@ logic from the legacy FileFactory while maintaining a clean, modular architectur
 
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any
 from urllib.parse import urljoin
 import requests
+
+from aixplain.utils.url_safety import validate_upload_url
 
 from .exceptions import FileUploadError
 
@@ -108,17 +111,41 @@ class MimeTypeDetector:
 class RequestManager:
     """Handles HTTP requests with retry logic."""
 
+    # One shared session for the process instead of one per request. A
+    # per-request session pays a fresh TLS handshake every time and pools
+    # nothing, which is the cost BUG-942 item 3 is about. Safe to share: the
+    # session carries no credentials (auth headers are passed per request), so
+    # nothing leaks across ``Aixplain()`` instances.
+    _session: Optional[requests.Session] = None
+    _session_lock = threading.Lock()
+
     @classmethod
     def create_session(cls) -> requests.Session:
-        """Create a requests session with retry configuration."""
-        from .client import create_retry_session
+        """Return the shared retry session, creating it on first use."""
+        if cls._session is None:
+            with cls._session_lock:
+                if cls._session is None:
+                    from .client import create_retry_session
 
-        return create_retry_session()
+                    cls._session = create_retry_session()
+        return cls._session
 
     @classmethod
     def request_with_retry(cls, method: str, url: str, **kwargs) -> requests.Response:
-        """Make HTTP request with retry logic."""
+        """Make HTTP request with retry logic.
+
+        A default ``(connect, read)`` timeout is applied when the caller doesn't
+        pass one: without it ``requests`` waits forever, so a peer that accepts
+        the connection and then goes silent pins the calling thread with no upper
+        bound. The read timeout bounds the gap between bytes, not the total
+        transfer, so large uploads are unaffected. Override per call with
+        ``timeout=`` or globally via ``AIXPLAIN_HTTP_CONNECT_TIMEOUT`` /
+        ``AIXPLAIN_HTTP_READ_TIMEOUT``.
+        """
+        from .client import default_timeout
+
         session = cls.create_session()
+        kwargs.setdefault("timeout", default_timeout())
         return session.request(method=method.upper(), url=url, **kwargs)
 
 
@@ -171,14 +198,31 @@ class S3Uploader:
 
     @classmethod
     def upload_file(cls, file_path: str, presigned_url: str, content_type: str) -> None:
-        """Upload file to S3 using pre-signed URL."""
+        """Upload file to S3 using pre-signed URL.
+
+        Raises:
+            UnsafeURLError: If ``presigned_url`` does not point at an allowed
+                upload host. The check sits *outside* the ``try`` below so the
+                generic ``FileUploadError`` wrapper cannot mask why the upload
+                was refused (BUG-939).
+        """
+        # The URL comes straight from a backend response; a compromised or
+        # redirected backend would otherwise receive the file while the SDK
+        # reported success.
+        validate_upload_url(presigned_url)
+
         headers = {"Content-Type": content_type}
 
         try:
             with open(file_path, "rb") as f:
                 file_data = f.read()
 
-            response = RequestManager.request_with_retry("put", presigned_url, headers=headers, data=file_data)
+            # A presigned S3 PUT never legitimately redirects; following a 307
+            # would re-send the bytes to a host ``validate_upload_url`` never
+            # saw (BUG-939).
+            response = RequestManager.request_with_retry(
+                "put", presigned_url, headers=headers, data=file_data, allow_redirects=False
+            )
 
             if response.status_code != 200:
                 raise FileUploadError("File Uploading Error: Failure on Uploading to S3.")

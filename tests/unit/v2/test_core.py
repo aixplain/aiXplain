@@ -209,6 +209,7 @@ class TestAixplainInitClient:
             mock_client.assert_called_once_with(
                 base_url=aixplain.backend_url,
                 team_api_key="test_key",
+                trusted_urls=[aixplain.pipeline_url, aixplain.model_url],
             )
 
     def test_init_client_stores_client(self):

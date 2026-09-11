@@ -200,6 +200,22 @@ class TestAPIError:
         assert error.response_data["resourceId"] == "123"
         assert error.error == "NOT_FOUND"
 
+    def test_retryable_defaults_to_none(self):
+        """retryable is tri-state; None means 'no opinion', so existing
+        construction sites keep the status-code heuristic."""
+        error = APIError("Error", status_code=500)
+
+        assert error.retryable is None
+        assert error.details["retryable"] is None
+
+    @pytest.mark.parametrize("flag", [True, False])
+    def test_retryable_explicit_value_stored(self, flag):
+        """An explicit retryable flag is stored and exposed in details."""
+        error = APIError("Error", status_code=0, retryable=flag)
+
+        assert error.retryable is flag
+        assert error.details["retryable"] is flag
+
 
 class TestValidationError:
     """Tests for validation errors."""
@@ -286,6 +302,24 @@ class TestFileUploadError:
 
 class TestCreateOperationFailedError:
     """Tests for the error factory function."""
+
+    def test_business_failure_is_not_retryable(self):
+        """A FAILED body is a deterministic outcome — re-POSTing bills again."""
+        error = create_operation_failed_error({"status": "FAILED", "error": "invalid input"})
+
+        assert error.retryable is False
+        assert error.status_code == 0
+
+    def test_status_code_in_failed_body_does_not_resurrect_retryability(self):
+        """A statusCode inside a FAILED body is not a transport code.
+
+        The status-code heuristic would call 503 retryable; the explicit flag
+        must win, because the run already failed for a business reason.
+        """
+        error = create_operation_failed_error({"status": "FAILED", "statusCode": 503, "error": "boom"})
+
+        assert error.status_code == 503
+        assert error.retryable is False
 
     def test_extracts_supplier_error(self):
         """Should extract 'supplierError' field (camelCase)."""

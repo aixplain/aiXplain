@@ -32,6 +32,9 @@ The agent reads `SKILL.md` first and pulls in the reference files only when it n
 
 > More skills coming soon. See [Contributing](#contributing) to add one.
 
+Looking for a one-command install that also wires up live MCP servers? See
+[`plugins/`](../plugins/README.md) — a plugin bundles a skill together with the servers it needs.
+
 ---
 
 ## Prerequisites

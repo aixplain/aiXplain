@@ -1,45 +1,84 @@
-"""Generate static enum modules from backend API data."""
+"""Generate the static enum, pipeline and v2 enum-include modules from backend catalog data.
 
-import re
+The generator is split into two steps that never run together:
+
+``python generate.py fetch``
+    The only networked step. Snapshots the four backend catalog endpoints into the
+    committed JSON fixtures under ``tools/generator/fixtures/``. It needs a credential
+    and is run by hand when someone wants to refresh the data.
+
+``python generate.py render`` (the default)
+    Deterministic, offline and credential-free. Renders the generated modules from those
+    fixtures, which is what lets CI gate on drift without a backend or a secret.
+
+Every backend-derived value is emitted through :func:`py_literal` (never interpolated
+raw), and every value used as a Python identifier is validated by :func:`py_identifier`.
+A value that cannot be emitted safely fails the render instead of being mangled into a
+module that every SDK user imports.
+"""
+
+import argparse
+import hashlib
+import json
+import keyword
+import math
 import os
+import re
+import subprocess
+import sys
+import tempfile
+import textwrap
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from urllib.parse import urljoin, urlparse
+
 import requests
-from urllib.parse import urljoin
-from jinja2 import Environment, BaseLoader
-from dotenv import load_dotenv
+from jinja2 import BaseLoader, Environment
 
-load_dotenv()
+# The render path imports nothing from aixplain.*: the generated modules are what
+# `import aixplain` loads, so the generator cannot depend on them. The fetch path
+# imports the SDK's URL policy lazily, before it resolves the host a key goes to.
 
-# Note: We don't import anything from aixplain.* here to avoid circular
-# dependency. All configuration is handled via environment variables.
+#: Repo root, so paths resolve the same no matter which directory the generator is
+#: invoked from. Resolving against the CWD used to scatter an ``aixplain/`` tree
+#: wherever the script happened to run (ENG-3435).
+REPO_ROOT = Path(__file__).resolve().parent
 
+ENUMS_MODULE_PATH = REPO_ROOT / "aixplain" / "v1" / "enums" / "generated_enums.py"
+PIPELINE_MODULE_PATH = REPO_ROOT / "aixplain" / "v1" / "modules" / "pipeline" / "pipeline.py"
+ENUMS_INCLUDE_PATH = REPO_ROOT / "aixplain" / "v2" / "enums_include.py"
 
-def enumify(s):
-    """Slugify a string and convert to uppercase."""
-    s = re.sub(r"\s+", "_", s)
-    s = re.sub(r"[-.]+", "_", s)
-    s = re.sub(r"[^a-zA-Z0-9-_.]+", "", s)
-    s = s.upper()
+#: Committed snapshots of the backend catalog. The render step reads only these.
+FIXTURE_DIR = REPO_ROOT / "tools" / "generator" / "fixtures"
+RUFF_CONFIG_PATH = REPO_ROOT / "ruff.toml"
 
-    # Handle numeric-only strings by prefixing with underscore
-    if s.isdigit():
-        s = f"_{s}"
+#: The one ``.env`` the fetch step reads. An explicit path: a bare ``load_dotenv()``
+#: walks up parent directories, which is what let a stray ``.env`` redirect the SDK's
+#: key in BUG-939.
+DOTENV_PATH = REPO_ROOT / ".env"
 
-    return s
+#: ``sdk/<name>`` endpoints backing each fixture, and the key each one is ordered by.
+ENDPOINTS = {
+    "functions": "id",
+    "suppliers": "code",
+    "languages": "label",
+    "licenses": "name",
+}
 
+#: Production. Supplier ids are environment-specific and the committed ``Supplier``
+#: members carry production ids, so this is the only host a committed fixture may come
+#: from; ``fetch`` refuses any other unless told otherwise.
+DEFAULT_BACKEND_URL = "https://platform-api.aixplain.com"
 
-def none_to_none(value):
-    """Convert None to string 'None' for Python code generation."""
-    if value is None:
-        return "None"
-    return value
-
-
-def escape_quotes(value):
-    """Escape double quotes in strings for Python code generation."""
-    if value is None:
-        return ""
-    return value.replace('"', '\\"')
-
+#: Values of ``aixplain.v1.enums.DataType``, frozen here because the render path cannot
+#: import the package it generates. The pipeline template emits ``DataType.<VALUE>`` for
+#: every type, so a value outside this set would render, format and pass the drift gate,
+#: then raise ``AttributeError`` when ``aixplain.v1.modules`` is imported.
+#: ``tests/unit/test_generator.py`` asserts this set and the enum agree.
+DATA_TYPES = frozenset(
+    {"audio", "float", "image", "integer", "label", "tensor", "text", "video", "embedding", "number", "boolean"}
+)
 
 SEGMENTOR_FUNCTIONS = [
     "split-on-linebreak",
@@ -49,9 +88,209 @@ SEGMENTOR_FUNCTIONS = [
 
 RECONSTRUCTOR_FUNCTIONS = ["text-reconstruction", "audio-reconstruction"]
 
-# Centralized enum generation - only generate in main enums directory
-ENUMS_MODULE_PATH = "aixplain/enums/generated_enums.py"
-PIPELINE_MODULE_PATH = "aixplain/modules/pipeline/pipeline.py"
+#: Function ids whose catalog entry lists one input parameter code twice: attribute
+#: name to the ``name`` of each copy, in catalog order. The two benchmark scorers serve
+#: two different inputs, the hypothesis (``name: "output"``) and the reference
+#: (``name: "reference"``), under the single code ``text``. A node class can only
+#: expose one ``text`` attribute and the platform can only address one ``text`` code,
+#: so the first copy is kept and the rest dropped from both generated modules -- which
+#: is what has always shipped. The names are pinned so the entry describes exactly the
+#: pair it was written for: a different pair, a pair that no longer exists, or copies
+#: that differ in any emitted field fail the render. Any other duplicate fails too, and
+#: outputs have no allow-list at all: quietly keeping one of two parameters would ship
+#: a node class and a ``FunctionInputOutput`` entry that disagree.
+KNOWN_DUPLICATE_PARAMETERS: Dict[str, Dict[str, Tuple[str, ...]]] = {
+    "benchmark-scoring-asr": {"text": ("output", "reference")},
+    "benchmark-scoring-mt": {"text": ("output", "reference")},
+}
+
+#: Fields the templates read from every parameter, so a duplicate is only droppable
+#: when the copies agree on all of them. ``name`` is not emitted; it is what the
+#: allow-list pins instead.
+PARAMETER_FIELDS = ("code", "dataType", "required", "multipleValues", "defaultValues", "isFixed")
+OUTPUT_FIELDS = ("code", "dataType", "defaultValue")
+
+#: Names ``aixplain/v2/enums_include.py`` re-exports. All of them are exported by
+#: ``aixplain.v1.enums``; the list is declared once so the import block and ``__all__``
+#: cannot drift apart.
+ENUMS_INCLUDE_NAMES = [
+    "AssetStatus",
+    "ErrorHandler",
+    "FileType",
+    "Function",
+    "Language",
+    "License",
+    "OnboardStatus",
+    "OwnershipType",
+    "Privacy",
+    "ResponseStatus",
+    "SortBy",
+    "SortOrder",
+    "StorageType",
+    "Supplier",
+    "FunctionType",
+    "EvolveType",
+    "CodeInterpreterModel",
+]
+
+IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+#: Width Jinja's ``wordwrap`` filter used, kept so regenerated docstrings do not
+#: reflow against the committed output.
+DOCSTRING_WIDTH = 79
+
+
+class GeneratorValueError(ValueError):
+    """A backend value cannot be emitted safely into generated Python source."""
+
+
+def enumify(value: str, source: str = "backend value") -> str:
+    """Slugify a string, uppercase it and validate it as an enum member name.
+
+    Args:
+        value (str): The backend value to convert.
+        source (str): Human-readable origin, used in the error message.
+
+    Returns:
+        str: A valid Python identifier usable as an enum member name.
+
+    Raises:
+        GeneratorValueError: If the value cannot become a valid identifier.
+    """
+    # Strip before the whitespace substitution: ``"google "`` must become ``GOOGLE``,
+    # the same member as ``"google"``, so check_unique_members can see the collision.
+    slug = re.sub(r"\s+", "_", (value or "").strip())
+    slug = re.sub(r"[-.]+", "_", slug)
+    slug = re.sub(r"[^a-zA-Z0-9-_.]+", "", slug)
+    slug = slug.upper()
+
+    # Handle numeric-only strings by prefixing with underscore
+    if slug.isdigit():
+        slug = f"_{slug}"
+
+    return py_identifier(slug, source=f"{source} {value!r}")
+
+
+def py_identifier(value: Any, *, source: str) -> str:
+    """Validate a value as a Python identifier, or fail the render.
+
+    Surrounding whitespace is stripped first: the backend does serve values such as
+    ``"text "`` (the OutputType of ``text-detection``), and whitespace is never part of
+    an identifier, so removing it loses nothing. Anything else is rejected rather than
+    rewritten.
+
+    Args:
+        value (Any): The candidate identifier.
+        source (str): Human-readable origin, used in the error message.
+
+    Returns:
+        str: The stripped value, once it is known to be safe.
+
+    Raises:
+        GeneratorValueError: If the value is not a usable Python identifier.
+    """
+    text = value.strip() if isinstance(value, str) else ""
+    if not IDENTIFIER_RE.match(text) or keyword.iskeyword(text):
+        raise GeneratorValueError(
+            f"{source}: {value!r} is not a usable Python identifier. "
+            "Fix the value at the backend or add an explicit mapping; the generator "
+            "will not mangle it into something that imports."
+        )
+    return text
+
+
+def py_literal(value: Any) -> str:
+    """Render a backend value as a Python literal.
+
+    This is the only way any backend-derived value reaches the generated source.
+    ``repr`` is used rather than ``json.dumps`` because ``json.dumps`` defaults to
+    ``ensure_ascii=True`` and would rewrite the non-ASCII characters already present in
+    the committed output (curly quotes) into unicode escapes.
+
+    Args:
+        value (Any): A string, number, boolean, ``None``, list or dict.
+
+    Returns:
+        str: The value as Python source.
+
+    Raises:
+        GeneratorValueError: If the value is of a type with no safe literal form.
+    """
+    if isinstance(value, str) or value is None or isinstance(value, bool):
+        return repr(value)
+    if isinstance(value, float) and not math.isfinite(value):
+        # ``repr`` gives a bare ``nan``/``inf``: valid to ruff, a NameError at import.
+        raise GeneratorValueError(f"Non-finite number {value!r} has no Python literal form that imports.")
+    if isinstance(value, (int, float)):
+        return repr(value)
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(py_literal(item) for item in value) + "]"
+    if isinstance(value, dict):
+        return "{" + ", ".join(f"{py_literal(k)}: {py_literal(v)}" for k, v in value.items()) + "}"
+    raise GeneratorValueError(f"{type(value).__name__} value {value!r} has no safe Python literal form.")
+
+
+def require_printable(value: str, source: str) -> str:
+    """Fail the render when a string destined for a docstring holds a control character.
+
+    A docstring is the one place a backend value is embedded as text rather than through
+    ``repr``, so escaping cannot save it: a NUL renders, formats and passes the drift
+    gate, then makes ``import aixplain`` fail with "source code string cannot contain
+    null bytes". Newlines are the only non-printable characters a docstring can carry.
+
+    Args:
+        value (str): The backend text.
+        source (str): Human-readable origin, used in the error message.
+
+    Returns:
+        str: The value, once it is known to be safe.
+
+    Raises:
+        GeneratorValueError: If the value contains a non-printable character other
+            than a newline.
+    """
+    bad = sorted({char for char in value if char != "\n" and not char.isprintable()})
+    if bad:
+        raise GeneratorValueError(
+            f"{source} contains the non-printable character(s) {', '.join(repr(c) for c in bad)}, "
+            "which cannot be embedded in a docstring. Fix the value at the backend."
+        )
+    return value
+
+
+def py_docstring(value: Optional[str], indent: int = 4) -> str:
+    """Escape and wrap a backend string for embedding inside a triple-quoted docstring.
+
+    Callers pass text that :func:`require_printable` has accepted. Both template sites
+    put a newline between this text and the closing delimiter, so a trailing quote
+    needs no special handling.
+
+    Args:
+        value (Optional[str]): The backend text.
+        indent (int): Column the continuation lines are indented to.
+
+    Returns:
+        str: Wrapped, escaped text safe to interpolate between triple-quote delimiters.
+    """
+    lines: List[str] = []
+    for line in (value or "").splitlines():
+        lines.extend(
+            textwrap.wrap(
+                line,
+                width=DOCSTRING_WIDTH,
+                expand_tabs=False,
+                replace_whitespace=False,
+                break_long_words=True,
+                break_on_hyphens=True,
+            )
+            or [""]
+        )
+    # Escaping happens after wrapping: a long token broken at the wrap column can
+    # then never be split between the two characters of an escaped backslash, which
+    # would leave a line continuation followed by a fresh escape sequence.
+    lines = [line.replace("\\", "\\\\").replace('"""', '\\"\\"\\"') for line in lines]
+    return ("\n" + " " * indent).join(lines)
+
 
 ENUMS_MODULE_TEMPLATE = """\"\"\"Auto-generated enum module containing static values from the backend API.\"\"\"
 
@@ -61,14 +300,14 @@ ENUMS_MODULE_TEMPLATE = """\"\"\"Auto-generated enum module containing static va
 from enum import Enum
 from typing import Dict, Any, Tuple
 from dataclasses import dataclass
-from aixplain.base.parameters import BaseParameters, Parameter
+from aixplain.v1.base.parameters import BaseParameters, Parameter
 
 
 class Function(str, Enum):
     \"\"\"Enum representing available functions in the aiXplain platform.\"\"\"
 
     {% for function in functions %}
-    {{ function.id|enumify }} = "{{ function.id }}"
+    {{ function.id|enumify("Function member for function id") }} = {{ function.id|pyrepr }}
     {% endfor %}
 
     def get_input_output_params(self) -> Tuple[Dict, Dict]:
@@ -102,37 +341,39 @@ class Function(str, Enum):
 # Static FunctionInputOutput dictionary
 FunctionInputOutput = {
     {% for function in functions %}
-    "{{ function.id }}": {
+    {{ function.id|pyrepr }}: {
         "input": {
             {% for param in function.params %}
-            {% if param.required %}"{{ param.dataType }}"{% if not loop.last %}, {% endif %}{% endif %}
+            {% if param.required %}{{ param.dataType|pyrepr }}{% if not loop.last %}, {% endif %}{% endif %}
             {% endfor %}
         },
         "output": {
-            {% for output in function.output %}"{{ output.dataType }}"{% if not loop.last %}, {% endif %}{% endfor %}
+            {% for output in function.output %}
+            {{ output.dataType|pyrepr }}{% if not loop.last %}, {% endif %}
+            {% endfor %}
         },
         "spec": {
-            "id": "{{ function.id }}",
-            "name": "{{ function.name }}",
-            "description": "{{ function.metaData.description|escape_quotes }}",
+            "id": {{ function.id|pyrepr }},
+            "name": {{ function.name|pyrepr }},
+            "description": {{ function.metaData.description|pyrepr }},
             "params": [
                 {% for param in function.params %}
                 {
-                    "code": "{{ param.code }}",
-                    "dataType": "{{ param.dataType }}",
-                    "required": {{ param.required }},
-                    "multipleValues": {{ param.multipleValues|default(false) }},
-                    "defaultValues": {{ param.defaultValues|none_to_none|default("None") }},
-                    "isFixed": {{ param.isFixed|default(false) }}
+                    "code": {{ param.code|pyrepr }},
+                    "dataType": {{ param.dataType|pyrepr }},
+                    "required": {{ param.required|pyrepr }},
+                    "multipleValues": {{ param.multipleValues|default(false)|pyrepr }},
+                    "defaultValues": {{ param.defaultValues|default(none)|pyrepr }},
+                    "isFixed": {{ param.isFixed|default(false)|pyrepr }}
                 }{% if not loop.last %},{% endif %}
                 {% endfor %}
             ],
             "output": [
                 {% for output in function.output %}
                 {
-                    "code": "{{ output.code }}",
-                    "dataType": "{{ output.dataType }}",
-                    "defaultValue": {{ output.defaultValue|none_to_none|default("None") }}
+                    "code": {{ output.code|pyrepr }},
+                    "dataType": {{ output.dataType|pyrepr }},
+                    "defaultValue": {{ output.defaultValue|default(none)|pyrepr }}
                 }{% if not loop.last %},{% endif %}
                 {% endfor %}
             ]
@@ -163,10 +404,10 @@ class Supplier(Enum):
     \"\"\"Enum representing available suppliers in the aiXplain platform.\"\"\"
 
     {% for supplier in suppliers %}
-    {{ supplier.code|enumify }} = {
-        "id": {{ supplier.id }},
-        "name": "{{ supplier.name }}",
-        "code": "{{ supplier.code }}"
+    {{ supplier.code|enumify("Supplier member for supplier code") }} = {
+        "id": {{ supplier.id|pyrepr }},
+        "name": {{ supplier.name|pyrepr }},
+        "code": {{ supplier.code|pyrepr }}
     }
     {% endfor %}
 
@@ -179,14 +420,15 @@ class Language(Enum):
     \"\"\"Enum representing available languages in the aiXplain platform.\"\"\"
 
     {% for language in languages %}
-    {{ language.label|enumify }} = {
-        "language": "{{ language.value }}",
+    {% set language_member = language.label|enumify("Language member for language label") %}
+    {{ language_member }} = {
+        "language": {{ language.value|pyrepr }},
         "dialect": ""
     }
     {% for dialect in language.dialects %}
-    {{ language.label|enumify }}_{{ dialect.label|enumify }} = {
-        "language": "{{ language.value }}",
-        "dialect": "{{ dialect.value }}"
+    {{ language_member }}_{{ dialect.label|enumify("Language member for dialect label") }} = {
+        "language": {{ language.value|pyrepr }},
+        "dialect": {{ dialect.value|pyrepr }}
     }
     {% endfor %}
     {% endfor %}
@@ -196,18 +438,19 @@ class License(str, Enum):
     \"\"\"Enum representing available licenses in the aiXplain platform.\"\"\"
 
     {% for license in licenses %}
-    {{ license.name|enumify }} = "{{ license.id }}"
+    {{ license.name|enumify("License member for license name") }} = {{ license.id|pyrepr }}
     {% endfor %}
 
 """
 
-PIPELINE_MODULE_TEMPLATE = """\"\"\"Auto-generated pipeline module containing node classes and Pipeline factory methods.\"\"\"
+PIPELINE_MODULE_TEMPLATE = """\\
+\"\"\"Auto-generated pipeline module containing node classes and Pipeline factory methods.\"\"\"
 
 # This is an auto generated module. PLEASE DO NOT EDIT
 
 
 from typing import Union, Type
-from aixplain.enums import DataType
+from aixplain.v1.enums import DataType
 
 from .designer import (
     InputParam,
@@ -222,7 +465,7 @@ from .designer import (
     BaseMetric
 )
 from .default import DefaultPipeline
-from aixplain.modules import asset
+from aixplain.v1.modules import asset
 
 {% for spec in specs %}
 
@@ -238,9 +481,9 @@ class {{ spec.class_name }}Inputs(Inputs):
         super().__init__(node=node)
 {% for input in spec.inputs %}
         self.{{ input.name }} = self.create_param(
-            code="{{ input.name }}",
+            code={{ input.code|pyrepr }},
             data_type=DataType.{{ input.data_type | upper }},
-            is_required={{ input.is_required }}
+            is_required={{ input.is_required|pyrepr }}
         )
 {% endfor %}
 
@@ -260,7 +503,7 @@ class {{ spec.class_name }}Outputs(Outputs):
         super().__init__(node=node)
 {% for output in spec.outputs %}
         self.{{ output.name }} = self.create_param(
-            code="{{ output.name }}",
+            code={{ output.code|pyrepr }},
             data_type=DataType.{{ output.data_type | upper }}
         )
 {% endfor %}
@@ -272,12 +515,14 @@ class {{ spec.class_name }}Outputs(Outputs):
 class {{ spec.class_name }}({{spec.base_class}}[{{ spec.class_name }}Inputs, {{ spec.class_name }}Outputs]):
     \"\"\"{{ spec.class_name }} node.
 
-    {{ spec.description | wordwrap }}
+{% if spec.description|docstring(4) %}
+    {{ spec.description | docstring(4) }}
 
+{% endif %}
     InputType: {{ spec.input_type }}
     OutputType: {{ spec.output_type }}
     \"\"\"
-    function: str = "{{ spec.id }}"
+    function: str = {{ spec.id|pyrepr }}
     input_type: str = DataType.{{ spec.input_type | upper }}
     output_type: str = DataType.{{ spec.output_type | upper }}
 
@@ -293,81 +538,517 @@ class Pipeline(DefaultPipeline):
 {% for spec in specs %}
     def {{ spec.function_name }}(self, asset_id: Union[str, asset.Asset], *args, **kwargs) -> {{ spec.class_name }}:
         \"\"\"Create a {{ spec.class_name }} node.
+{% if spec.description|docstring(8) %}
 
-        {{ spec.description | wordwrap }}
+        {{ spec.description | docstring(8) }}
+{% endif %}
         \"\"\"
         return {{ spec.class_name }}(*args, asset_id=asset_id, pipeline=self, **kwargs)
 
 {% endfor %}
 """
 
+ENUMS_INCLUDE_TEMPLATE = """\"\"\"Compatibility imports for legacy enums in v2.
 
-def get_config():
-    """Get configuration from environment variables."""
+This is an auto generated module. PLEASE DO NOT EDIT.
+\"\"\"
+
+# Import all enums from legacy system for compatibility
+from aixplain.v1.enums import (
+{% for name in names %}
+    {{ name }},
+{% endfor %}
+)
+
+# Re-export for compatibility
+__all__ = [
+{% for name in names %}
+    {{ name|pyrepr }},
+{% endfor %}
+]
+"""
+
+
+def get_config() -> Dict[str, Optional[str]]:
+    """Get the fetch-step configuration from environment variables.
+
+    ``TEAM_API_KEY`` takes precedence over ``AIXPLAIN_API_KEY``, the same order as
+    ``aixplain.v2.core.Aixplain``, so a fetch runs under the account every other SDK
+    call in the same shell uses. When both are set to different keys the SDK refuses
+    to guess (``aixplain.utils.config``), and so does the generator.
+
+    Returns:
+        Dict[str, Optional[str]]: The API key and backend URL to fetch with.
+
+    Raises:
+        ValueError: If both key variables are set and disagree.
+    """
+    team_key = os.getenv("TEAM_API_KEY")
+    aixplain_key = os.getenv("AIXPLAIN_API_KEY")
+    if team_key and aixplain_key and team_key != aixplain_key:
+        raise ValueError(
+            "Conflicting API keys: TEAM_API_KEY and AIXPLAIN_API_KEY are both set and differ. "
+            "Unset one so the fixtures are captured under the same account as every other SDK call."
+        )
     return {
-        "TEAM_API_KEY": os.getenv("TEAM_API_KEY"),
-        "BACKEND_URL": os.getenv("BACKEND_URL", "https://api.aixplain.com/"),
+        "api_key": team_key or aixplain_key,
+        "backend_url": os.getenv("BACKEND_URL", DEFAULT_BACKEND_URL),
     }
 
 
-def api_request(path: str):
-    """Fetch functions from the backend."""
+def resolve_fetch_config() -> Tuple[str, str]:
+    """Resolve the credential and host the fetch step will use, exactly once.
+
+    Order matters here. ``aixplain/__init__.py`` runs ``load_dotenv(<cwd>/.env)`` on
+    first import, so any SDK import changes the environment; resolving the config
+    before that import and again after it is how the banner came to name one host while
+    the requests went to another. The repo-root ``.env`` is loaded first, so it keeps
+    precedence over a working-directory one, then the SDK is imported, and only then is
+    the environment read.
+
+    Returns:
+        Tuple[str, str]: ``(api_key, backend_url)``, the URL already through the SDK's
+            config-URL policy.
+
+    Raises:
+        ValueError: If no API key is configured, or ``BACKEND_URL`` fails the SDK's
+            URL policy (``aixplain.utils.url_safety``).
+    """
+    from dotenv import load_dotenv
+
+    load_dotenv(DOTENV_PATH, override=False)
+
+    # Lazy: the SDK's config-URL policy is the one gate every other request carrying
+    # the key goes through, and importing it here keeps the render path SDK-free.
+    from aixplain.utils.url_safety import validate_config_url
+
     config = get_config()
-    api_key = config["TEAM_API_KEY"]
-    backend_url = config["BACKEND_URL"]
-
+    api_key = config["api_key"]
     if not api_key:
-        raise ValueError("TEAM_API_KEY environment variable is required")
+        raise ValueError("AIXPLAIN_API_KEY (or TEAM_API_KEY) environment variable is required to fetch")
+    backend_url = validate_config_url(config["backend_url"], "BACKEND_URL")
+    return api_key, backend_url
 
-    url = urljoin(backend_url, f"sdk/{path}")
+
+def api_request(path: str, api_key: str, backend_url: str) -> Any:
+    """Fetch one catalog endpoint from the backend.
+
+    Args:
+        path (str): Endpoint name under ``sdk/``.
+        api_key (str): The credential, as resolved by :func:`resolve_fetch_config`.
+        backend_url (str): The host, as resolved by :func:`resolve_fetch_config`.
+
+    Returns:
+        Any: The decoded JSON response.
+    """
+    url = urljoin(backend_url if backend_url.endswith("/") else f"{backend_url}/", f"sdk/{path}")
     headers = {
         "Content-Type": "application/json",
+        "x-api-key": api_key,
     }
 
-    headers["x-api-key"] = api_key
-
-    r = requests.get(url, headers=headers)
+    r = requests.get(url, headers=headers, timeout=(10, 30))
     try:
         r.raise_for_status()
-    except requests.exceptions.HTTPError as e:
+    except requests.exceptions.HTTPError:
         print(f"{path} could not be loaded, see error below")
-        raise e
+        raise
     return r.json()
 
 
-def fetch_functions():
-    """Fetch functions from the backend."""
-    return api_request("functions")["items"]
+def display_path(path: Path) -> str:
+    """Show a path relative to the repo root when it lives there, else as-is.
+
+    Args:
+        path (Path): The path.
+
+    Returns:
+        str: The shortest unambiguous form for a message.
+    """
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
 
 
-def fetch_suppliers():
-    """Fetch suppliers from the backend."""
-    return api_request("suppliers")
+def fixture_path(name: str) -> Path:
+    """Return the committed fixture path for an endpoint.
+
+    Args:
+        name (str): Endpoint name.
+
+    Returns:
+        Path: Path to the fixture file.
+    """
+    return FIXTURE_DIR / f"{name}.json"
 
 
-def fetch_languages():
-    """Fetch languages from the backend."""
-    return api_request("languages")
+def provenance_path() -> Path:
+    """Return the path of the file recording where and when the fixtures were captured.
+
+    Returns:
+        Path: Path to ``provenance.json``, next to the fixtures it describes.
+    """
+    return FIXTURE_DIR / "provenance.json"
 
 
-def fetch_licenses():
-    """Fetch licenses from the backend."""
-    return api_request("licenses")
+def write_text(path: Path, text: str) -> None:
+    """Write text with LF line endings on every platform.
+
+    ``Path.write_text`` translates LF to ``os.linesep``, so on Windows the staged
+    render and the fixtures would come out CRLF and the byte compare behind
+    ``render --check`` would report every module drifted on a clean tree.
+    ``Path.write_text(newline=...)`` only exists from 3.10; ``requires-python`` is 3.9.
+
+    Args:
+        path (Path): File to write.
+        text (str): Content.
+    """
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
 
 
-def populate_data_types(functions: list):
-    """Populate the data types."""
-    data_types = set()
-    for function in functions:
+def load_fixture(name: str) -> List[Dict[str, Any]]:
+    """Load one committed fixture.
+
+    Args:
+        name (str): Endpoint name.
+
+    Returns:
+        List[Dict[str, Any]]: The snapshotted catalog items.
+
+    Raises:
+        GeneratorValueError: If the fixture is missing or contains a non-finite number.
+    """
+    path = fixture_path(name)
+    if not path.exists():
+        raise GeneratorValueError(f"Missing fixture {path}. Run `python generate.py fetch` to create it.")
+
+    def refuse_non_finite(token: str) -> Any:
+        # ``json`` accepts NaN/Infinity by default; no Python literal for them imports.
+        raise GeneratorValueError(f"{display_path(path)} contains the non-finite number {token}.")
+
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f, parse_constant=refuse_non_finite)
+
+
+def stable_order(items: Sequence[Dict[str, Any]], previous: Sequence[Dict[str, Any]], key: str) -> List[Dict[str, Any]]:
+    """Order freshly fetched items like the previous fixture, appending new ones at the end.
+
+    The backend does not return the catalog in a stable order, so a naive refresh
+    reshuffles thousands of generated lines and buries the actual change. Keeping the
+    previous order makes a fixture refresh reviewable as a diff.
+
+    Args:
+        items (Sequence[Dict[str, Any]]): Freshly fetched items.
+        previous (Sequence[Dict[str, Any]]): Items from the committed fixture.
+        key (str): Field identifying an item across refreshes.
+
+    Returns:
+        List[Dict[str, Any]]: The fetched items in the previous fixture's order.
+    """
+    order = {item.get(key): index for index, item in enumerate(previous)}
+    return sorted(items, key=lambda item: order.get(item.get(key), len(order)))
+
+
+def fetch(allow_nonprod: bool = False) -> None:
+    """Snapshot the backend catalog endpoints into the committed fixtures.
+
+    Every endpoint is fetched before anything is written, so a 403 or a timeout on a
+    later endpoint cannot leave the set half-refreshed with two catalog states that a
+    subsequent ``render`` would silently mix. The host and capture time go into
+    ``provenance.json`` next to the fixtures, with a digest of each, so the claim that
+    the committed fixtures come from production is checked by a test rather than
+    maintained by hand.
+
+    Args:
+        allow_nonprod (bool): Capture from a non-production host anyway. The snapshot
+            still records that host, so a test fails if it is committed.
+
+    Raises:
+        ValueError: If the host is not production and ``allow_nonprod`` is not set.
+    """
+    api_key, backend_url = resolve_fetch_config()
+    print(f"Fetching from {backend_url}")
+    if urlparse(backend_url).hostname != urlparse(DEFAULT_BACKEND_URL).hostname:
+        message = (
+            f"{backend_url} is not the production backend. Supplier ids are environment-specific, "
+            "so committing this snapshot would rewrite every Supplier id in the shipped SDK."
+        )
+        if not allow_nonprod:
+            raise ValueError(f"{message} Pass --allow-nonprod to capture it anyway.")
+        print(f"WARNING: {message}")
+
+    captured_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    rendered: Dict[str, str] = {}
+    for name, key in ENDPOINTS.items():
+        print(f"Fetching {name}")
+        payload = api_request(name, api_key, backend_url)
+        items = payload["items"] if isinstance(payload, dict) else payload
+
+        path = fixture_path(name)
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                items = stable_order(items, json.load(f), key)
+        rendered[name] = json.dumps(items, indent=2, ensure_ascii=False) + "\n"
+
+    provenance = {
+        "backend_url": backend_url,
+        "captured_at": captured_at,
+        "fixtures": {name: hashlib.sha256(text.encode("utf-8")).hexdigest() for name, text in rendered.items()},
+    }
+
+    FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
+    for name, text in rendered.items():
+        write_text(fixture_path(name), text)
+        print(f"Wrote {name} to {display_path(fixture_path(name))}")
+    write_text(provenance_path(), json.dumps(provenance, indent=2) + "\n")
+    print(f"Wrote {display_path(provenance_path())}")
+
+
+def check_unique_members(names: Iterable[Tuple[str, str]], family: str) -> None:
+    """Fail the render when two backend values collapse to the same enum member name.
+
+    Left unchecked this surfaces as ``TypeError: Attempted to reuse key`` at import
+    time, in every user's process, rather than here where a human is present.
+
+    Args:
+        names (Iterable[Tuple[str, str]]): ``(member_name, backend_value)`` pairs.
+        family (str): Enum name, used in the error message.
+
+    Raises:
+        GeneratorValueError: If two values produce the same member name.
+    """
+    seen: Dict[str, str] = {}
+    for member, value in names:
+        if member in seen:
+            raise GeneratorValueError(
+                f"{family}.{member} would be defined twice, from {seen[member]!r} and {value!r}. "
+                "Fix the colliding values at the backend or add an explicit mapping."
+            )
+        seen[member] = value
+
+
+def describe(record: Dict[str, Any], family: str, index: int, key: str) -> str:
+    """Name a catalog record for an error message.
+
+    Args:
+        record (Dict[str, Any]): The record.
+        family (str): Fixture name, e.g. ``suppliers``.
+        index (int): Position of the record in the fixture.
+        key (str): Field that identifies the record to a human.
+
+    Returns:
+        str: e.g. ``suppliers.json[3] ('google')``.
+    """
+    return f"{family}.json[{index}] ({record.get(key)!r})"
+
+
+def require_fields(record: Dict[str, Any], fields: Sequence[str], source: str) -> None:
+    """Fail the render when a record lacks a field a template emits.
+
+    Left unchecked, Jinja renders the hole as ``Undefined`` and the error names neither
+    the field nor the record.
+
+    Args:
+        record (Dict[str, Any]): The record.
+        fields (Sequence[str]): Fields that must be present and not null.
+        source (str): Human-readable origin, used in the error message.
+
+    Raises:
+        GeneratorValueError: If any field is missing or null.
+    """
+    missing = [field for field in fields if record.get(field) is None]
+    if missing:
+        raise GeneratorValueError(f"{source} is missing {', '.join(repr(field) for field in missing)}.")
+
+
+def validate_enum_data(
+    functions: List[Dict[str, Any]],
+    suppliers: List[Dict[str, Any]],
+    languages: List[Dict[str, Any]],
+    licenses: List[Dict[str, Any]],
+) -> None:
+    """Validate every backend value the enum module turns into an identifier or a literal.
+
+    Args:
+        functions (List[Dict[str, Any]]): Function catalog.
+        suppliers (List[Dict[str, Any]]): Supplier catalog.
+        languages (List[Dict[str, Any]]): Language catalog.
+        licenses (List[Dict[str, Any]]): License catalog.
+    """
+    for index, supplier in enumerate(suppliers):
+        require_fields(supplier, ("id", "name", "code"), describe(supplier, "suppliers", index, "code"))
+    for index, license_ in enumerate(licenses):
+        require_fields(license_, ("id", "name"), describe(license_, "licenses", index, "name"))
+    for index, language in enumerate(languages):
+        source = describe(language, "languages", index, "label")
+        require_fields(language, ("label", "value"), source)
+        for dialect in language.get("dialects", []):
+            require_fields(dialect, ("label", "value"), f"dialect {dialect.get('label')!r} of {source}")
+
+    check_unique_members(
+        ((enumify(f["id"], "Function member for function id"), f["id"]) for f in functions), "Function"
+    )
+    check_unique_members(
+        ((enumify(s["code"], "Supplier member for supplier code"), s["code"]) for s in suppliers), "Supplier"
+    )
+    check_unique_members(
+        ((enumify(x["name"], "License member for license name"), x["name"]) for x in licenses), "License"
+    )
+
+    language_members: List[Tuple[str, str]] = []
+    for language in languages:
+        label = enumify(language["label"], "Language member for language label")
+        language_members.append((label, language["label"]))
+        for dialect in language.get("dialects", []):
+            dialect_label = enumify(dialect["label"], "Language member for dialect label")
+            language_members.append((f"{label}_{dialect_label}", f"{language['label']}/{dialect['label']}"))
+    check_unique_members(language_members, "Language")
+
+
+def resolve_duplicates(
+    entries: List[Dict[str, Any]], fields: Sequence[str], allowed: Dict[str, Tuple[str, ...]], source: str
+) -> List[Dict[str, Any]]:
+    """Collapse entries that share an attribute name, or fail the render.
+
+    Two entries collide when their codes strip to the same identifier, since that is
+    the attribute the node class exposes. A collision is only dropped when it is listed
+    in :data:`KNOWN_DUPLICATE_PARAMETERS` with exactly the ``name`` of each copy and the
+    copies agree on every emitted field; then the first is kept, for both generated
+    modules. An entry the catalog no longer exercises fails too, so the special case
+    cannot outlive the data it was written for.
+
+    Args:
+        entries (List[Dict[str, Any]]): Parameter or output specs of one function.
+        fields (Sequence[str]): Fields the templates emit for each entry.
+        allowed (Dict[str, Tuple[str, ...]]): Attribute name to the ``name`` of each
+            copy the catalog is known to serve under it, in order.
+        source (str): Human-readable origin, used in the error message.
+
+    Returns:
+        List[Dict[str, Any]]: The entries with accepted duplicates removed.
+
+    Raises:
+        GeneratorValueError: On a duplicate that is not accepted, on an accepted one
+            whose copies are not the listed pair or differ in an emitted field, and on
+            an accepted attribute that is not duplicated.
+    """
+    copies: Dict[str, List[Dict[str, Any]]] = {}
+    for entry in entries:
+        copies.setdefault(py_identifier(entry["code"], source=source), []).append(entry)
+
+    for attribute, group in copies.items():
+        if len(group) == 1:
+            continue
+        first, second = group[0], group[1]
+        pair = f"{source}: {first['code']!r} ({first.get('name')!r}) and {second['code']!r} ({second.get('name')!r})"
+        if attribute not in allowed:
+            raise GeneratorValueError(
+                f"{pair} both map to the attribute {attribute!r}. Fix the duplicate at the backend, or if the "
+                "copies are one parameter served twice, list it in KNOWN_DUPLICATE_PARAMETERS."
+            )
+        names = tuple(entry.get("name") for entry in group)
+        if names != allowed[attribute]:
+            raise GeneratorValueError(
+                f"{pair}: KNOWN_DUPLICATE_PARAMETERS lists {attribute!r} for the names {allowed[attribute]!r} "
+                f"but the catalog serves {names!r}. Update the entry once the new pair has been reviewed."
+            )
+        differing = [field for field in fields if any(entry.get(field) != first.get(field) for entry in group)]
+        if differing:
+            raise GeneratorValueError(
+                f"{pair} are listed as a known duplicate but differ in {', '.join(repr(f) for f in differing)}; "
+                "dropping one would lose a real parameter."
+            )
+
+    stale = [attribute for attribute in allowed if len(copies.get(attribute, [])) < 2]
+    if stale:
+        raise GeneratorValueError(
+            f"{source}: KNOWN_DUPLICATE_PARAMETERS lists {', '.join(repr(a) for a in stale)} but the catalog "
+            "no longer serves it twice. Remove the entry."
+        )
+    return [group[0] for group in copies.values()]
+
+
+def prepare_functions(functions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Validate the function catalog and normalise it for both templates.
+
+    Everything both generated modules must agree on is decided here, once: required
+    fields, a null description rendered as ``""`` (what ``ModelTool`` and the agent
+    payload always carried), and the duplicate-parameter policy.
+
+    Args:
+        functions (List[Dict[str, Any]]): Function catalog as fetched.
+
+    Returns:
+        List[Dict[str, Any]]: Shallow copies with the normalised ``metaData``, ``params``
+            and ``output``.
+    """
+    prepared = []
+    for index, function in enumerate(functions):
+        source = describe(function, "functions", index, "id")
+        require_fields(function, ("id", "name", "metaData", "params", "output"), source)
+        require_fields(function["metaData"], ("InputType", "OutputType"), f"metaData of {source}")
         for param in function["params"]:
-            data_types.add(param["dataType"])
+            require_fields(param, ("code", "dataType", "required"), f"parameter {param.get('code')!r} of {source}")
         for output in function["output"]:
-            data_types.add(output["dataType"])
-    return data_types
+            require_fields(output, ("code", "dataType"), f"output {output.get('code')!r} of {source}")
+
+        description = require_printable(function["metaData"].get("description") or "", f"description of {source}")
+        allowed = KNOWN_DUPLICATE_PARAMETERS.get(function["id"], {})
+        prepared.append(
+            {
+                **function,
+                "metaData": {**function["metaData"], "description": description},
+                "params": resolve_duplicates(
+                    function["params"], PARAMETER_FIELDS, allowed, f"input parameters of {source}"
+                ),
+                "output": resolve_duplicates(function["output"], OUTPUT_FIELDS, {}, f"outputs of {source}"),
+            }
+        )
+
+    unlisted = sorted(set(KNOWN_DUPLICATE_PARAMETERS) - {function["id"] for function in functions})
+    if unlisted:
+        raise GeneratorValueError(
+            f"KNOWN_DUPLICATE_PARAMETERS lists {', '.join(repr(f) for f in unlisted)} but functions.json has no "
+            "such function. Remove the entry."
+        )
+    return prepared
 
 
-def populate_specs(functions: list):
-    """Populate the function class specs."""
+def data_type(value: Any, *, source: str) -> str:
+    """Validate a backend type as a ``DataType`` value, or fail the render.
+
+    Args:
+        value (Any): The candidate type.
+        source (str): Human-readable origin, used in the error message.
+
+    Returns:
+        str: The stripped value, once it is known to name a ``DataType`` member.
+
+    Raises:
+        GeneratorValueError: If the value is not a ``DataType`` value.
+    """
+    text = py_identifier(value, source=source)
+    if text not in DATA_TYPES:
+        raise GeneratorValueError(
+            f"{source}: {value!r} is not a value of aixplain.v1.enums.DataType ({', '.join(sorted(DATA_TYPES))}). "
+            "The generated pipeline module would fail to import. Add the member to DataType and to DATA_TYPES "
+            "in generate.py, or fix the value at the backend."
+        )
+    return text
+
+
+def populate_specs(functions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Populate the function class specs, validating every generated identifier.
+
+    Args:
+        functions (List[Dict[str, Any]]): Function catalog, as returned by
+            :func:`prepare_functions`.
+
+    Returns:
+        List[Dict[str, Any]]: One render spec per pipeline node class.
+    """
     function_class_specs = []
     for function in functions:
         # Utility functions has dynamic input parameters so they are not
@@ -377,7 +1058,10 @@ def populate_specs(functions: list):
 
         # slugify function name by trimming some special chars and
         # transforming it to snake case
-        function_name = function["id"].replace("-", "_").replace("(", "_").replace(")", "_")
+        function_name = py_identifier(
+            function["id"].replace("-", "_").replace("(", "_").replace(")", "_"),
+            source=f"Pipeline factory method for function id {function['id']!r}",
+        )
         base_class = "AssetNode"
         is_segmentor = function["id"] in SEGMENTOR_FUNCTIONS
         is_reconstructor = function["id"] in RECONSTRUCTOR_FUNCTIONS
@@ -388,20 +1072,33 @@ def populate_specs(functions: list):
         elif "metric" in function_name.split("_"):  # TODO: Advise a better distinguisher please
             base_class = "BaseMetric"
 
+        class_name = py_identifier(
+            "".join([w.title() for w in function_name.split("_")]),
+            source=f"Pipeline node class for function id {function['id']!r}",
+        )
+
+        # ``name`` is the Python attribute; ``code`` stays the raw backend value because
+        # it is the wire-level key ``FunctionInputOutput`` and the platform use, and the
+        # two must agree or ``AssetNode._auto_populate_params`` creates a second input.
         spec = {
             "id": function["id"],
             "is_segmentor": function["id"] in SEGMENTOR_FUNCTIONS,
             "is_reconstructor": function["id"] in RECONSTRUCTOR_FUNCTIONS,
             "function_name": function_name,
             "base_class": base_class,
-            "class_name": "".join([w.title() for w in function_name.split("_")]),
+            "class_name": class_name,
             "description": function["metaData"]["description"],
-            "input_type": function["metaData"]["InputType"],
-            "output_type": function["metaData"]["OutputType"],
+            "input_type": data_type(
+                function["metaData"]["InputType"], source=f"InputType of function {function['id']!r}"
+            ),
+            "output_type": data_type(
+                function["metaData"]["OutputType"], source=f"OutputType of function {function['id']!r}"
+            ),
             "inputs": [
                 {
-                    "name": param["code"],
-                    "data_type": param["dataType"],
+                    "name": py_identifier(param["code"], source=f"Input parameter of function {function['id']!r}"),
+                    "code": param["code"],
+                    "data_type": data_type(param["dataType"], source=f"Input data type of function {function['id']!r}"),
                     "is_required": param["required"],
                     "is_list": param.get("multipleValues", False),
                     "default": param.get("defaultValues"),
@@ -411,54 +1108,200 @@ def populate_specs(functions: list):
             ],
             "outputs": [
                 {
-                    "name": output["code"],
-                    "data_type": output["dataType"],
+                    "name": py_identifier(output["code"], source=f"Output of function {function['id']!r}"),
+                    "code": output["code"],
+                    "data_type": data_type(
+                        output["dataType"], source=f"Output data type of function {function['id']!r}"
+                    ),
                     "default": output.get("defaultValue"),
                 }
                 for output in function["output"]
             ],
         }
-
         function_class_specs.append(spec)
 
     return function_class_specs
 
 
-if __name__ == "__main__":
-    print("Fetching function specs")
+def build_environment() -> Environment:
+    """Build the Jinja environment with the safe-emission filters registered.
 
-    functions = fetch_functions()
-    suppliers = fetch_suppliers()
-    languages = fetch_languages()
-    licenses = fetch_licenses()
-    data_types = populate_data_types(functions)
-    specs = populate_specs(functions)
-
-    print(f"Populating module with {len(data_types)} data types and {len(specs)} specs")
+    Returns:
+        Environment: The configured environment.
+    """
     env = Environment(
         loader=BaseLoader(),
         trim_blocks=True,
         lstrip_blocks=True,
     )
     env.filters["enumify"] = enumify
-    env.filters["none_to_none"] = none_to_none
-    env.filters["escape_quotes"] = escape_quotes
+    env.filters["pyrepr"] = py_literal
+    env.filters["docstring"] = py_docstring
+    return env
 
-    # Generate pipeline module
-    pipeline_template = env.from_string(PIPELINE_MODULE_TEMPLATE)
-    pipeline_output = pipeline_template.render(data_types=data_types, specs=specs)
 
-    print(f"Writing module to file: {PIPELINE_MODULE_PATH}")
-    with open(PIPELINE_MODULE_PATH, "w") as f:
-        f.write(pipeline_output)
+def render_modules() -> Dict[Path, str]:
+    """Render every generated module from the committed fixtures.
 
-    # Generate centralized enums file
-    enums_template = env.from_string(ENUMS_MODULE_TEMPLATE)
-    enums_output = enums_template.render(
-        functions=functions, suppliers=suppliers, languages=languages, licenses=licenses
+    Returns:
+        Dict[Path, str]: Repo path to unformatted module source.
+    """
+    functions = load_fixture("functions")
+    suppliers = load_fixture("suppliers")
+    languages = load_fixture("languages")
+    licenses = load_fixture("licenses")
+
+    functions = prepare_functions(functions)
+    validate_enum_data(functions, suppliers, languages, licenses)
+    specs = populate_specs(functions)
+    print(f"Populating module with {len(specs)} specs")
+
+    env = build_environment()
+    return {
+        PIPELINE_MODULE_PATH: env.from_string(PIPELINE_MODULE_TEMPLATE).render(specs=specs),
+        ENUMS_MODULE_PATH: env.from_string(ENUMS_MODULE_TEMPLATE).render(
+            functions=functions, suppliers=suppliers, languages=languages, licenses=licenses
+        ),
+        ENUMS_INCLUDE_PATH: env.from_string(ENUMS_INCLUDE_TEMPLATE).render(
+            names=[py_identifier(name, source="Re-exported enum name") for name in ENUMS_INCLUDE_NAMES]
+        ),
+    }
+
+
+def ruff_format(paths: Sequence[Path]) -> None:
+    """Format the rendered modules with the repo's pinned ruff configuration.
+
+    The committed output is ``ruff format``-stable, so this pass is what makes the
+    render reproducible byte-for-byte -- and idempotent, since a formatted file is a
+    fixed point.
+
+    ruff is invoked as ``python -m ruff`` so it is the version pinned in the ``test``
+    extra rather than whatever happens to be on ``PATH``: an unpinned formatter would
+    turn a ruff release into a red drift job on an unrelated PR.
+
+    Args:
+        paths (Sequence[Path]): Files to format in place.
+
+    Raises:
+        GeneratorValueError: If ruff is not installed in the running interpreter.
+    """
+    result = subprocess.run(
+        [sys.executable, "-m", "ruff", "format", "--quiet", "--config", str(RUFF_CONFIG_PATH)]
+        + [str(path) for path in paths],
+        capture_output=True,
+        text=True,
     )
-    print(f"Writing centralized enums module to file: {ENUMS_MODULE_PATH}")
-    with open(ENUMS_MODULE_PATH, "w") as f:
-        f.write(enums_output)
+    if result.returncode != 0:
+        raise GeneratorValueError(
+            f"`{sys.executable} -m ruff format` failed with exit code {result.returncode}. "
+            "The render step formats its output, so ruff must be installed in this "
+            "interpreter: `pip install '.[test]'`.\n"
+            f"{result.stderr.strip()}"
+        )
 
-    print("Modules generated successfully")
+
+def render_formatted() -> Dict[Path, bytes]:
+    """Render and format every generated module in a scratch directory.
+
+    Nothing tracked is touched until every module has rendered and formatted, so a
+    ruff failure (not installed, or invalid Python from a bad value) cannot leave raw
+    or broken output in the tree.
+
+    Returns:
+        Dict[Path, bytes]: Repo path to the formatted module content.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        staged: Dict[Path, Path] = {}
+        for repo_path, source in render_modules().items():
+            staged_path = Path(tmp) / repo_path.relative_to(REPO_ROOT)
+            staged_path.parent.mkdir(parents=True, exist_ok=True)
+            write_text(staged_path, source)
+            staged[repo_path] = staged_path
+        ruff_format(list(staged.values()))
+        return {repo_path: staged_path.read_bytes() for repo_path, staged_path in staged.items()}
+
+
+def write_modules(target_root: Path) -> Dict[Path, Path]:
+    """Render and format every generated module, then write them under a target root.
+
+    Args:
+        target_root (Path): Root to write under; ``REPO_ROOT`` writes in place.
+
+    Returns:
+        Dict[Path, Path]: Repo path to the file actually written.
+    """
+    formatted = render_formatted()
+    written: Dict[Path, Path] = {}
+    for repo_path, content in formatted.items():
+        destination = target_root / repo_path.relative_to(REPO_ROOT)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(content)
+        written[repo_path] = destination
+    return written
+
+
+def render(check: bool = False) -> int:
+    """Render the generated modules, or check the committed ones against a fresh render.
+
+    Args:
+        check (bool): Compare instead of writing.
+
+    Returns:
+        int: Process exit code.
+    """
+    if not check:
+        for repo_path in write_modules(REPO_ROOT):
+            print(f"Writing module to file: {repo_path.relative_to(REPO_ROOT)}")
+        print("Modules generated successfully")
+        return 0
+
+    drifted = [
+        repo_path
+        for repo_path, content in render_formatted().items()
+        if not repo_path.exists() or repo_path.read_bytes() != content
+    ]
+    if drifted:
+        for repo_path in drifted:
+            print(f"Drift: {repo_path.relative_to(REPO_ROOT)} differs from a fresh render")
+        print("Run `python generate.py render` and commit the result.")
+        return 1
+
+    print("Generated modules are up to date")
+    return 0
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    """Run the generator CLI.
+
+    Args:
+        argv (Optional[Sequence[str]]): Argument list, defaulting to ``sys.argv``.
+
+    Returns:
+        int: Process exit code.
+    """
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    subparsers = parser.add_subparsers(dest="command")
+    fetch_parser = subparsers.add_parser(
+        "fetch", help="Snapshot the backend catalog into the committed fixtures (needs a credential)"
+    )
+    fetch_parser.add_argument(
+        "--allow-nonprod",
+        action="store_true",
+        help="Capture from a non-production BACKEND_URL; the committed fixtures must come from production",
+    )
+    render_parser = subparsers.add_parser("render", help="Render the generated modules from the fixtures (default)")
+    render_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit non-zero if the committed modules differ from a fresh render, without writing",
+    )
+    args = parser.parse_args(argv)
+
+    if args.command == "fetch":
+        fetch(allow_nonprod=args.allow_nonprod)
+        return 0
+    return render(check=getattr(args, "check", False))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -18,7 +18,15 @@ class AuthenticationScheme(str, Enum):
 
 
 class FileType(str, Enum):
-    """File types supported by the platform."""
+    """Structural types for File assets."""
+
+    FILE = "file"
+    FOLDER = "folder"
+    DIRECTORY = "folder"
+
+
+class FileContentType(str, Enum):
+    """Legacy content classifications formerly exposed as ``FileType``."""
 
     CSV = "CSV"
     JSON = "JSON"
@@ -44,6 +52,17 @@ class Function(str, Enum):
     OBJECT_DETECTION = "OBJECT_DETECTION"
     UTILITIES = "utilities"  # Add the missing utilities function
     GUARDRAILS = "guardrails"  # Guardrail / inspector guard models
+
+    # Media-generation functions (backend kebab-case ids, like UTILITIES/GUARDRAILS above)
+    TEXT_TO_IMAGE_GENERATION = "text-to-image-generation"
+    IMAGE_GENERATION = "image-generation"
+    VIDEO_GENERATION = "video-generation"
+    TEXT_TO_VIDEO_GENERATION = "text-to-video-generation"
+    IMAGE_TO_VIDEO_GENERATION = "image-to-video-generation"
+    SPEECH_SYNTHESIS = "speech-synthesis"
+    TEXT_TO_SPEECH = "text-to-speech"
+    TEXT_TO_AUDIO = "text-to-audio"
+    VOICE_CLONING = "voice-cloning"
 
 
 class Language(str, Enum):
@@ -293,6 +312,7 @@ class AttachmentType(str, Enum):
 
 __all__ = [
     "AuthenticationScheme",
+    "FileContentType",
     "FileType",
     "Function",
     "Language",

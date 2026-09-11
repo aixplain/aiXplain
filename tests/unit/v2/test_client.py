@@ -17,6 +17,12 @@ from aixplain.v2.client import (
     DEFAULT_TIMEOUT_READ,
     DEFAULT_RETRY_BACKOFF_FACTOR,
     DEFAULT_RETRY_STATUS_FORCELIST,
+    DEFAULT_RETRY_BACKOFF_JITTER,
+    DEFAULT_RETRY_BACKOFF_MAX,
+    DEFAULT_RETRY_AFTER_MAX,
+    DEFAULT_POOL_CONNECTIONS,
+    DEFAULT_POOL_MAXSIZE,
+    RETRY_ALLOWED_METHODS,
 )
 from aixplain.v2.exceptions import APIError
 
@@ -94,13 +100,107 @@ class TestCreateRetrySession:
         adapter = session.get_adapter("https://example.com")
         assert set(adapter.max_retries.status_forcelist) == set(custom_list)
 
-    def test_allowed_methods_include_get_and_post(self):
-        """Retry should be allowed for GET and POST methods."""
+    @pytest.mark.parametrize("url", ["https://example.com", "http://example.com"])
+    def test_post_is_never_retried(self, url):
+        """POST must not be retried at the transport layer (BUG-1090).
+
+        urllib3 retries on read/connect errors too, so a POST here means a slow
+        ``/execute`` gets re-submitted — and re-billed — below the SDK.
+        """
         session = create_retry_session()
 
-        adapter = session.get_adapter("https://example.com")
+        adapter = session.get_adapter(url)
         assert "GET" in adapter.max_retries.allowed_methods
-        assert "POST" in adapter.max_retries.allowed_methods
+        assert "POST" not in adapter.max_retries.allowed_methods
+        assert adapter.max_retries.allowed_methods == RETRY_ALLOWED_METHODS
+
+    def test_server_error_retry_is_method_scoped(self):
+        """``status_forcelist`` alone does not decide a retry -- the method does.
+
+        Asserting ``allowed_methods`` only pins configuration; this pins the
+        urllib3 semantics we depend on, so a future urllib3 that stopped
+        consulting ``allowed_methods`` for status retries would fail here.
+        """
+        session = create_retry_session()
+        retry = session.get_adapter("https://example.com").max_retries
+
+        assert retry.is_retry("GET", 503) is True
+        assert retry.is_retry("POST", 503) is False
+
+
+class TestTransportRetryBehaviour:
+    """End-to-end urllib3 behaviour for the BUG-1090 acceptance criteria.
+
+    These drive the real ``Retry`` machinery with the wire faulted out, because
+    the defect was urllib3 silently re-sending a POST *below* the SDK -- a
+    behaviour no assertion about ``allowed_methods`` can prove on its own.
+    """
+
+    @staticmethod
+    def _timeout_session(**kwargs):
+        """Session whose every wire attempt raises ReadTimeoutError, plus a counter."""
+        from urllib3.exceptions import ReadTimeoutError
+
+        session = create_retry_session(**kwargs)
+        attempts = []
+
+        def fail(self, conn, method, url, **_):
+            attempts.append((method, url))
+            raise ReadTimeoutError(self, url, "read timed out")
+
+        return session, attempts, patch("urllib3.connectionpool.HTTPSConnectionPool._make_request", fail)
+
+    def test_read_timeout_on_post_sends_exactly_one_request(self):
+        """A read timeout on ``/execute`` must produce exactly one submission.
+
+        A slow model exceeding DEFAULT_TIMEOUT_READ used to be retried by
+        urllib3, turning one billable run into up to ``total + 1`` (BUG-1090).
+        """
+        session, attempts, patcher = self._timeout_session()
+
+        with patcher:
+            with pytest.raises(requests.exceptions.RequestException):
+                session.post("https://example.com/execute", json={"q": "hi"})
+
+        assert len(attempts) == 1, attempts
+
+    def test_read_timeout_on_get_is_still_retried(self):
+        """Control case: GET keeps its retries, so the count above is meaningful.
+
+        Without this, a harness that never reached the retry machinery at all
+        would make the POST assertion vacuously pass.
+        """
+        session, attempts, patcher = self._timeout_session(total=2, backoff_factor=0)
+
+        with patcher:
+            with pytest.raises(requests.exceptions.RequestException):
+                session.get("https://example.com/results/123")
+
+        assert len(attempts) == 3, attempts
+
+    def test_connect_error_on_post_is_still_retried(self):
+        """Documents the limit of the ``allowed_methods`` guarantee.
+
+        urllib3 deliberately skips the method check for connect errors, and that
+        is safe: no connection means no request bytes and therefore no
+        submission to bill. Pinned so nobody reads
+        ``RETRY_ALLOWED_METHODS = {"GET"}`` as "urllib3 never re-sends a POST"
+        and builds a stronger assumption on top of it.
+        """
+        from urllib3.exceptions import NewConnectionError
+
+        session = create_retry_session(total=2, backoff_factor=0)
+        attempts = []
+
+        def fail(self, conn, method, url, **_):
+            attempts.append(method)
+            raise NewConnectionError(self.pool or self, "connection refused")
+
+        with patch("urllib3.connectionpool.HTTPSConnectionPool._make_request", fail):
+            with pytest.raises(requests.exceptions.RequestException):
+                session.post("https://example.com/execute", json={"q": "hi"})
+
+        assert len(attempts) == 3, attempts
 
 
 class TestAixplainClientInitialization:
@@ -196,21 +296,39 @@ class TestAixplainClientInitialization:
 class TestAixplainClientHeaders:
     """Tests for client header configuration."""
 
-    def test_team_api_key_sets_x_api_key_header(self):
-        """team_api_key should set x-api-key header."""
+    def test_team_api_key_sent_per_request(self):
+        """team_api_key should be injected per request, not pinned to the session.
+
+        Session headers ride along with every absolute URL handed to the client,
+        which is how the key used to reach body-supplied hosts (BUG-937).
+        """
         client = AixplainClient(
             base_url="https://test.com",
             team_api_key="my_team_key",
         )
-        assert client.session.headers.get("x-api-key") == "my_team_key"
+        assert client.session.headers.get("x-api-key") is None
 
-    def test_aixplain_api_key_sets_x_aixplain_key_header(self):
-        """aixplain_api_key should set x-aixplain-key header."""
+        mock_response = Mock()
+        mock_response.ok = True
+        with patch.object(client.session, "request", return_value=mock_response) as mock_request:
+            client.request_raw("GET", "resource")
+
+        assert mock_request.call_args[1]["headers"]["x-api-key"] == "my_team_key"
+
+    def test_aixplain_api_key_sent_per_request(self):
+        """aixplain_api_key should be injected per request, not pinned to the session."""
         client = AixplainClient(
             base_url="https://test.com",
             aixplain_api_key="my_aixplain_key",
         )
-        assert client.session.headers.get("x-aixplain-key") == "my_aixplain_key"
+        assert client.session.headers.get("x-aixplain-key") is None
+
+        mock_response = Mock()
+        mock_response.ok = True
+        with patch.object(client.session, "request", return_value=mock_response) as mock_request:
+            client.request_raw("GET", "resource")
+
+        assert mock_request.call_args[1]["headers"]["x-aixplain-key"] == "my_aixplain_key"
 
     def test_content_type_header_set(self):
         """Client should set Content-Type: application/json."""
@@ -221,20 +339,36 @@ class TestAixplainClientHeaders:
         assert client.session.headers.get("Content-Type") == "application/json"
 
     def test_team_key_does_not_set_aixplain_header(self):
-        """team_api_key should not set x-aixplain-key header."""
+        """team_api_key should not produce an x-aixplain-key header."""
         client = AixplainClient(
             base_url="https://test.com",
             team_api_key="my_team_key",
         )
-        assert client.session.headers.get("x-aixplain-key") is None
+        assert "x-aixplain-key" not in client._auth_headers()
 
     def test_aixplain_key_does_not_set_team_header(self):
-        """aixplain_api_key should not set x-api-key header."""
+        """aixplain_api_key should not produce an x-api-key header."""
         client = AixplainClient(
             base_url="https://test.com",
             aixplain_api_key="my_aixplain_key",
         )
-        assert client.session.headers.get("x-api-key") is None
+        assert "x-api-key" not in client._auth_headers()
+
+    def test_caller_headers_are_preserved_alongside_credentials(self):
+        """Per-request headers should merge with, not replace, the credential."""
+        client = AixplainClient(
+            base_url="https://test.com",
+            team_api_key="my_team_key",
+        )
+
+        mock_response = Mock()
+        mock_response.ok = True
+        with patch.object(client.session, "request", return_value=mock_response) as mock_request:
+            client.request_raw("POST", "resource", headers={"x-agent": "agent-1"})
+
+        headers = mock_request.call_args[1]["headers"]
+        assert headers["x-agent"] == "agent-1"
+        assert headers["x-api-key"] == "my_team_key"
 
 
 class TestAixplainClientRequestRaw:
@@ -258,11 +392,12 @@ class TestAixplainClientRequestRaw:
             call_args = mock_request.call_args
             assert call_args[1]["url"] == "https://api.example.com/v2/models"
 
-    def test_request_with_absolute_url(self):
-        """Absolute URL should be used directly, not joined with base_url."""
+    def test_request_with_trusted_absolute_url(self):
+        """A trusted absolute URL should be used directly, not joined with base_url."""
         client = AixplainClient(
             base_url="https://api.example.com",
             team_api_key="key",
+            trusted_urls=["https://other.example.com"],
         )
 
         mock_response = Mock()
@@ -274,10 +409,10 @@ class TestAixplainClientRequestRaw:
             call_args = mock_request.call_args
             assert call_args[1]["url"] == "https://other.example.com/resource"
 
-    def test_request_with_http_absolute_url(self):
-        """HTTP absolute URLs should also be used directly."""
+    def test_request_with_trusted_http_absolute_url(self):
+        """An explicitly configured http endpoint should be used directly."""
         client = AixplainClient(
-            base_url="https://api.example.com",
+            base_url="http://local.example.com",
             team_api_key="key",
         )
 
@@ -401,6 +536,30 @@ class TestAixplainClientErrorHandling:
             assert exc_info.value.message == "Resource not found"
             assert exc_info.value.status_code == 404
             assert exc_info.value.error == "NOT_FOUND"
+
+    def test_error_prefers_supplier_error_detail(self):
+        """supplierError carries the actionable detail (e.g. 'Name already exists')
+        and must win over the generic 'error' code (e.g. 'err.supplier_error')."""
+        client = AixplainClient(
+            base_url="https://api.example.com",
+            team_api_key="key",
+        )
+
+        mock_response = Mock()
+        mock_response.ok = False
+        mock_response.status_code = 422
+        mock_response.json.return_value = {
+            "completed": True,
+            "error": "err.supplier_error",
+            "supplierError": "Name already exists",
+        }
+
+        with patch.object(client.session, "request", return_value=mock_response):
+            with pytest.raises(APIError) as exc_info:
+                client.request_raw("GET", "resource")
+
+            assert exc_info.value.message == "Name already exists"
+            assert exc_info.value.error == "err.supplier_error"
 
     def test_error_falls_back_to_error_field(self):
         """When 'message' is absent, should use 'error' field."""
@@ -636,3 +795,224 @@ class TestDefaultTimeout:
         client = self._client()
 
         assert client.timeout == (DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ)
+
+
+class TestRateLimitAndJitteredRetry:
+    """Retry hardening for BUG-942 item 7 / BUG-1097.
+
+    A platform 5xx used to make every installed copy of the SDK retry inside the
+    same ~3s window -- nothing jittered, nothing honoured the server's own
+    backoff signal, and 429 was not retried at all. The recovery wave then
+    re-degraded the platform it was recovering.
+    """
+
+    def test_429_is_in_the_default_forcelist(self):
+        """A throttled poll must be retried, not hammered through."""
+        assert 429 in DEFAULT_RETRY_STATUS_FORCELIST
+
+    def test_429_retry_is_still_method_scoped(self):
+        """Adding 429 must not make a throttled submission re-billable."""
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+
+        assert retry.is_retry("GET", 429) is True
+        assert retry.is_retry("POST", 429) is False
+
+    def test_post_is_absent_from_the_module_constant(self):
+        """BUG-1097 acceptance criterion, asserted on the constant itself."""
+        assert "POST" not in RETRY_ALLOWED_METHODS
+        assert RETRY_ALLOWED_METHODS == frozenset({"GET"})
+
+    def test_backoff_is_jittered(self):
+        """Without jitter every client's retry lands in the same instant."""
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+
+        assert retry.backoff_jitter == DEFAULT_RETRY_BACKOFF_JITTER
+        assert retry.backoff_jitter > 0
+
+    def test_jitter_actually_spreads_the_computed_backoff(self):
+        """Pin the urllib3 semantics, not just our configuration of them."""
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+        exhausted = retry
+        for _ in range(3):
+            exhausted = exhausted.increment(method="GET", error=Exception("boom"))
+
+        samples = {exhausted.get_backoff_time() for _ in range(200)}
+
+        assert len(samples) > 1, "backoff is still deterministic"
+        assert max(samples) - min(samples) <= DEFAULT_RETRY_BACKOFF_JITTER + 1e-9
+
+    def test_retry_after_header_is_respected_but_bounded(self):
+        """urllib3's own ``retry_after_max`` default is six hours."""
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+
+        assert retry.respect_retry_after_header is True
+        assert retry.retry_after_max == DEFAULT_RETRY_AFTER_MAX
+        assert retry.retry_after_max <= 60.0
+
+    def test_hostile_retry_after_cannot_pin_a_thread(self):
+        """A 6-hour ``Retry-After`` must be clamped to the configured bound."""
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+
+        assert retry.parse_retry_after("21600") == DEFAULT_RETRY_AFTER_MAX
+
+    def test_exponential_backoff_is_bounded(self):
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+
+        assert retry.backoff_max == DEFAULT_RETRY_BACKOFF_MAX
+
+    def test_caller_kwargs_still_win_over_the_new_defaults(self):
+        """The new defaults must not collide with an explicit caller value."""
+        session = create_retry_session(backoff_jitter=0.9, retry_after_max=5.0)
+        retry = session.get_adapter("https://example.com").max_retries
+
+        assert retry.backoff_jitter == 0.9
+        assert retry.retry_after_max == 5.0
+
+
+class TestBuildRetryFallback:
+    """``_build_retry`` must degrade on an older urllib3, not raise.
+
+    ``backoff_jitter`` landed in urllib3 2.0 and ``retry_after_max`` in 2.1,
+    while the only declared bound is ``requests``' loose ``urllib3<3`` -- so an
+    environment resolving to 1.26 has to lose the jitter, not fail at import.
+    """
+
+    def test_optional_kwargs_are_dropped_when_unsupported(self, monkeypatch):
+        import aixplain.v2.client as client_module
+        from aixplain.v2.client import _build_retry
+
+        monkeypatch.setattr(
+            client_module,
+            "_RETRY_INIT_PARAMS",
+            frozenset({"self", "total", "backoff_factor"}),
+        )
+
+        retry = _build_retry(total=3, backoff_factor=0.1, backoff_jitter=0.3, retry_after_max=60.0)
+
+        assert retry.total == 3
+        assert retry.backoff_factor == 0.1
+
+    def test_supported_kwargs_survive(self):
+        from aixplain.v2.client import _build_retry
+
+        retry = _build_retry(total=2, backoff_jitter=0.4)
+
+        assert retry.total == 2
+        assert retry.backoff_jitter == 0.4
+
+    def test_an_unknown_kwarg_is_not_silently_swallowed(self):
+        """Only the SDK's own hardening kwargs are droppable.
+
+        Treating every unknown name as "an older urllib3" would turn a caller's
+        typo into a silently-ignored setting.
+        """
+        from aixplain.v2.client import _build_retry
+
+        with pytest.raises(TypeError):
+            _build_retry(total=2, bakoff_factor=0.5)
+
+    def test_a_typo_on_the_public_factory_still_raises(self):
+        with pytest.raises(TypeError):
+            create_retry_session(bakoff_jitter=0.9)
+
+    def test_simulated_urllib3_1_26_still_builds_a_session(self, monkeypatch):
+        """With the modern kwargs unknown, session creation must still succeed."""
+        import aixplain.v2.client as client_module
+
+        monkeypatch.setattr(
+            client_module,
+            "_RETRY_INIT_PARAMS",
+            frozenset({"self", "total", "backoff_factor", "status_forcelist", "allowed_methods"}),
+        )
+
+        session = create_retry_session()
+        retry = session.get_adapter("https://example.com").max_retries
+
+        assert retry.total == DEFAULT_RETRY_TOTAL
+        assert retry.allowed_methods == RETRY_ALLOWED_METHODS
+        # urllib3 2.x still exposes its own defaults; the point is we didn't raise.
+        assert isinstance(session, requests.Session)
+
+
+class TestConnectionPoolSizing:
+    """BUG-942 item 4: urllib3's 10/10 defaults discard connections above 10.
+
+    Above ``pool_maxsize`` in-flight requests the adapter opens a connection,
+    uses it once and throws it away rather than pooling it -- a fresh TLS
+    handshake per request plus a "Connection pool is full" warning each time,
+    peaking exactly when the poll burst does.
+    """
+
+    @pytest.mark.parametrize("url", ["https://example.com", "http://example.com"])
+    def test_pool_is_sized_explicitly(self, url):
+        adapter = create_retry_session().get_adapter(url)
+
+        assert adapter._pool_connections == DEFAULT_POOL_CONNECTIONS
+        assert adapter._pool_maxsize == DEFAULT_POOL_MAXSIZE
+        assert adapter._pool_block is False
+
+    def test_pool_is_larger_than_the_urllib3_default(self):
+        """The regression guard: 10/10 is what the ticket is about."""
+        assert DEFAULT_POOL_CONNECTIONS > 10
+        assert DEFAULT_POOL_MAXSIZE > 10
+
+    def test_underlying_urllib3_pool_honours_the_maxsize(self):
+        """Assert the value reaches urllib3, not just the adapter's attribute."""
+        adapter = create_retry_session().get_adapter("https://example.com")
+        pool = adapter.poolmanager.connection_from_url("https://example.com")
+
+        assert pool.pool.maxsize == DEFAULT_POOL_MAXSIZE
+        assert pool.block is False
+
+    @staticmethod
+    def _cycle_connections(pool, count):
+        """Check out and return *count* connections concurrently.
+
+        This is what 50 SDK threads do to a pool: each takes a connection for
+        the duration of a request and hands it back. Nothing is dialled -- the
+        defect is in the bookkeeping, not on the wire.
+        """
+        import threading
+
+        barrier = threading.Barrier(count)
+        conns = [None] * count
+
+        def hold(index):
+            conns[index] = pool._get_conn()
+            barrier.wait()  # all `count` are out at once
+            pool._put_conn(conns[index])
+
+        threads = [threading.Thread(target=hold, args=(i,)) for i in range(count)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    def test_fifty_concurrent_requests_do_not_warn_about_a_full_pool(self, caplog):
+        """The acceptance criterion: no "Connection pool is full" at 50 threads.
+
+        urllib3 logs that at WARNING -- and discards the connection, forcing a
+        fresh TLS handshake next time -- whenever a returned connection has
+        nowhere to go.
+        """
+        session = create_retry_session()
+        pool = session.get_adapter("https://example.com").poolmanager.connection_from_url("https://example.com")
+
+        with caplog.at_level("WARNING", logger="urllib3.connectionpool"):
+            self._cycle_connections(pool, 50)
+
+        assert not [r for r in caplog.records if "pool is full" in r.getMessage().lower()], caplog.records
+
+    def test_control_the_old_default_does_warn_at_fifty_threads(self, caplog):
+        """Control case, so the assertion above is not vacuous.
+
+        The pre-fix adapter (urllib3's 10/10 default) discards ~40 of the 50.
+        """
+        from urllib3 import HTTPSConnectionPool
+
+        pool = HTTPSConnectionPool("example.com", maxsize=10, block=False)
+
+        with caplog.at_level("WARNING", logger="urllib3.connectionpool"):
+            self._cycle_connections(pool, 50)
+
+        assert [r for r in caplog.records if "pool is full" in r.getMessage().lower()]

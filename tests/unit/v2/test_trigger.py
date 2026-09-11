@@ -167,6 +167,23 @@ class TestBuildSavePayload:
         with pytest.raises(ValueError):
             t.build_save_payload()
 
+    def test_update_payload_excludes_nested_next_run_at(self):
+        t = Trigger.from_dict(
+            {
+                "id": "trig1",
+                "name": "Hourly",
+                "triggerType": "time",
+                "configuration": {
+                    "type": "recurring",
+                    "nextRunAt": "2026-01-01T02:00:00Z",
+                    "repeat": {"every": 2, "unit": "hour"},
+                },
+            }
+        )
+
+        assert t.next_run_at == "2026-01-01T02:00:00Z"
+        assert "nextRunAt" not in t.build_save_payload()["configuration"]
+
 
 # =============================================================================
 # Rehydration (get/search deserialization)
@@ -190,10 +207,50 @@ class TestRehydration:
         t = Trigger.from_dict(self._dto())
         assert t.id == "trig1" and t.asset_id == AGENT_ID and t.trigger_type == "time"
         assert t.schedule_type == "daily" and t.configuration.time == "09:00"
+        assert t.timezone == "Europe/London" and t.at == "09:00"
+        assert t.every == "day" and t.interval == 1
         assert t.next_run_at == "2026-07-14T09:00:00Z"
 
-    def test_post_init_not_run_on_rehydration(self):
-        # id present -> friendly translation skipped, enabled preserved from DTO (not forced True)
+    @pytest.mark.parametrize(
+        ("configuration", "expected"),
+        [
+            (
+                {"type": "once", "runAt": "2026-01-01T00:00:00Z", "timezone": "UTC"},
+                {"run_at": "2026-01-01T00:00:00Z", "timezone": "UTC"},
+            ),
+            (
+                {"type": "weekly", "time": "17:00", "daysOfWeek": ["mon", "thu"]},
+                {"every": "week", "at": "17:00", "on": ["mon", "thu"]},
+            ),
+            (
+                {"type": "monthly", "time": "09:00", "daysOfMonth": [1, 15]},
+                {"every": "month", "at": "09:00", "on": [1, 15]},
+            ),
+            (
+                {
+                    "type": "recurring",
+                    "startAt": "2026-01-01T00:00:00Z",
+                    "nextRunAt": "2026-01-01T02:00:00Z",
+                    "repeat": {"every": 2, "unit": "hour"},
+                },
+                {
+                    "every": "hour",
+                    "interval": 2,
+                    "start_at": "2026-01-01T00:00:00Z",
+                    "next_run_at": "2026-01-01T02:00:00Z",
+                },
+            ),
+        ],
+    )
+    def test_from_dict_hydrates_flat_schedule_fields(self, configuration, expected):
+        t = Trigger.from_dict(self._dto(configuration=configuration, nextRunAt=None))
+
+        assert t.schedule_type == configuration["type"]
+        for attribute, value in expected.items():
+            assert getattr(t, attribute) == value
+
+    def test_rehydration_preserves_backend_enabled_value(self):
+        # Rehydration must not apply the defaults used for locally constructed triggers.
         t = Trigger.from_dict(self._dto(enabled=False))
         assert t.enabled is False
 

@@ -95,11 +95,11 @@ class TestToolDictFieldsRoundTrip:
 class TestInputActionFieldsRoundTrip:
     """Input / Action fields are read from the backend; verify snake_case ↔ camelCase mapping."""
 
-    SCRIPT_INTEGRATION_ID = "686432941223092cb4294d3f"
+    SLACK_INTEGRATION_ID = "686432941223092cb4294d3f"
 
     def test_input_fields_survive_serialization_round_trip(self, client):
         """Fetch real Input from API, read snake_case attrs, to_dict → from_dict, values match."""
-        integration = client.Integration.get(self.SCRIPT_INTEGRATION_ID)
+        integration = client.Integration.get(self.SLACK_INTEGRATION_ID)
         if not integration.actions_available:
             pytest.skip("Integration has no actions available")
 
@@ -133,7 +133,7 @@ class TestInputActionFieldsRoundTrip:
 
     def test_action_display_name_survives_round_trip(self, client):
         """Fetch real Action from API, read display_name, to_dict → from_dict, value matches."""
-        integration = client.Integration.get(self.SCRIPT_INTEGRATION_ID)
+        integration = client.Integration.get(self.SLACK_INTEGRATION_ID)
         if not integration.actions_available:
             pytest.skip("Integration has no actions available")
 

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "aixplain",
+  "description": "Claude Code plugins for the aixplain platform \u2014 search the marketplace and work with aixplain assets directly from your editor.",
+  "owner": {
+    "name": "aixplain",
+    "url": "https://aixplain.com"
+  },
+  "plugins": [
+    {
+      "name": "aixplain",
+      "displayName": "aixplain",
+      "description": "Search the aixplain marketplace and build, verify, debug, update, and export production aixplain agents from one plugin.",
+      "source": "./plugins/aixplain",
+      "category": "development",
+      "author": {
+        "name": "aixplain",
+        "url": "https://aixplain.com"
+      },
+      "homepage": "https://docs.aixplain.com",
+      "repository": "https://github.com/aixplain/aiXplain"
+    }
+  ]
+}

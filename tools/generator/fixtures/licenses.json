@@ -1,0 +1,91 @@
+[
+  {
+    "id": "620ba3983e2fa95c500b4297",
+    "name": "CC BY",
+    "description": "This license allows reusers to distribute, remix, adapt, and build upon the material in any medium or format, so long as attribution is given to the creator. The license allows for commercial use.",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba39b3e2fa95c500b4298",
+    "name": "CC BY-SA",
+    "description": "This license allows reusers to distribute, remix, adapt, and build upon the material in any medium or format, so long as attribution is given to the creator. The license allows for commercial use. If you remix, adapt, or build upon the material, you must license the modified material under identical terms.",
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba39e3e2fa95c500b4299",
+    "name": "CC BY-NC",
+    "description": "This license allows reusers to distribute, remix, adapt, and build upon the material in any medium or format for noncommercial purposes only, and only so long as attribution is given to the creator.",
+    "url": "https://creativecommons.org/licenses/by-nc/4.0/",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba3a03e2fa95c500b429a",
+    "name": "CC BY-NC-SA",
+    "description": "This license allows reusers to distribute, remix, adapt, and build upon the material in any medium or format for noncommercial purposes only, and only so long as attribution is given to the creator. If you remix, adapt, or build upon the material, you must license the modified material under identical terms.",
+    "url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba3a83e2fa95c500b429d",
+    "name": "MIT",
+    "description": "This license is primarily used for licensing software products.",
+    "url": "https://opensource.org/licenses/MIT",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba3a33e2fa95c500b429b",
+    "name": "CC BY-ND",
+    "description": "This license allows reusers to copy and distribute the material in any medium or format in unadapted form only, and only so long as attribution is given to the creator. The license allows for commercial use.",
+    "url": "https://creativecommons.org/licenses/by-nd/4.0/",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba3a63e2fa95c500b429c",
+    "name": "CC BY-NC-ND",
+    "description": "This license allows reusers to copy and distribute the material in any medium or format in unadapted form only, for noncommercial purposes only, and only so long as attribution is given to the creator.",
+    "url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba3ab3e2fa95c500b429e",
+    "name": "GPL",
+    "description": "This license is a free, copyleft license for software and other kinds of works.",
+    "url": "https://opensource.org/licenses/gpl-license",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba3ae3e2fa95c500b429f",
+    "name": "Apache License, Version 2.0",
+    "description": "This license is primarily used for licensing software products.",
+    "url": "https://opensource.org/licenses/Apache-2.0",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba3b13e2fa95c500b42a0",
+    "name": "BSD-3-Clause",
+    "description": "This license is primarily used for licensing software products.",
+    "url": "https://opensource.org/licenses/BSD-3-Clause",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba3b73e2fa95c500b42a2",
+    "name": "Unknown",
+    "description": "refers to a dataset for which a license is unknown or hasn’t been annotated yet. Check the associated paper and dataset website for more information.",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba3943e2fa95c500b4296",
+    "name": "Public domain (CC0)",
+    "description": "is a public dedication tool, which allows creators to give up their copyright and put their works into the worldwide public domain. CC0 allows reusers to distribute, remix, adapt, and build upon the material in any medium or format, with no conditions.",
+    "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "allowCustomUrl": false
+  },
+  {
+    "id": "620ba3b43e2fa95c500b42a1",
+    "name": "Custom",
+    "description": "a non-standard license. Check the link to the license to learn more about the exact terms of usage. In some cases we include a brief summary in parenthesis, e.g. Custom (non-commercial) is a custom license stipulating non-commercial usage.",
+    "allowCustomUrl": true
+  }
+]

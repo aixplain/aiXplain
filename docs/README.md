@@ -45,7 +45,7 @@ The portable runtime behind aixplain agents: orchestration, governed asset servi
 
 ## Quick start
 
-> **This README documents SDK v2, the default API.** SDK v1 (the legacy factory API) keeps working until **August 1, 2026**, after which v2 is the only supported surface.
+> **This README documents SDK v2, the default API.** SDK v1 (the legacy factory API) is deprecated and will be removed on **February 1, 2027** (`2027-02-01`), after which v2 is the only supported surface. Importing v1 now emits a `DeprecationWarning` — see the [migration guide](../MIGRATION.md) for the factory-by-factory map.
 
 ```bash
 pip install aixplain
@@ -144,7 +144,7 @@ Team agent
 └── Orchestrator: composes and returns the final answer
 ```
 
-> **SDK v1 (legacy):** available until August 1, 2026 — see the [SDK v1 docs](https://docs.aixplain.com/1.0/).
+> **SDK v1 (legacy):** deprecated, supported until February 1, 2027 (`2027-02-01`) — see the [migration guide](../MIGRATION.md) and the [SDK v1 docs](https://docs.aixplain.com/1.0/).
 
 ---
 
@@ -173,8 +173,25 @@ For MCP-compatible clients and IDEs, assets (for example Opus 4.6, Kimi, Qwen, A
 - **Your data stays yours** — never used to train foundation models; agent memory is opt-in. SOC 2 Type II; TLS 1.2+ in transit, encrypted at rest.
 - **Governed at runtime** — Inspector and Bodyguard enforce allow-lists, per-asset permissions, rate and usage limits, and access control on every execution.
 - **Deploy anywhere** — cloud, on-prem, edge, or local; air-gapped and VPC available on-prem or local.
+- **Run metadata is sent with agent runs** — `userAgent`, plus `region`, `language`, `ipAddress`, `latitude`, `longitude` and `timezone` from a one-time `ipinfo.io` lookup. See [run-metadata.md](./run-metadata.md).
 
 Learn more at aixplain [Security](https://aixplain.com/security/) and aixplain [pricing](https://aixplain.com/pricing/).
+
+---
+
+## Run metadata
+
+Agent runs send a `metaData` object alongside your query. It carries `userAgent`
+and — derived from a one-time `https://ipinfo.io/json` lookup made from the machine
+running the SDK — `region`, `language`, `ipAddress`, `latitude`, `longitude`, and
+`timezone`. The platform uses `region`/`language`/`timezone` for locale-aware agent
+execution.
+
+- The lookup runs **once per process**, on your first agent run, with a 2-second timeout.
+- If it fails or is blocked, the run proceeds normally with those fields `null`.
+- It applies to direct agent runs on both SDK v2 and SDK v1. Runs routed through a v2 session (`agent.run(query, session=...)`), model runs and pipeline runs do not send it.
+
+Full field-by-field disclosure: [run-metadata.md](./run-metadata.md).
 
 ---
 

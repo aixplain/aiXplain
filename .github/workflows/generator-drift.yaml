@@ -1,0 +1,43 @@
+name: Generator Drift
+
+on:
+  push:
+    branches:
+      - '**'
+
+# Least privilege (ENG-3428): this job renders the generated modules from the committed
+# fixtures into a scratch directory and compares them with the tracked files. It never
+# writes to the repository.
+permissions:
+  contents: read
+
+jobs:
+  generator-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[test]"
+
+      # No TEAM_API_KEY and no BACKEND_URL on purpose (ENG-3435): the render step reads
+      # tools/generator/fixtures/*.json, which are committed. `python generate.py fetch`
+      # is the only networked step and is run by hand. If this job ever needs a
+      # credential, the fetch/render split has been broken.
+      #
+      # `--check` names the drifted files and touches nothing tracked. The same
+      # assertion runs offline in tests/unit/test_generator.py; this job is the
+      # dedicated CI signal for it, independent of the rest of the unit suite.
+      - name: Fail if the generated modules drifted
+        run: python generate.py render --check

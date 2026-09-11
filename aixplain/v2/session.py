@@ -423,6 +423,36 @@ class ExecutionConfig:
         return out
 
     @classmethod
+    def _lift_wire_budget(cls, kvs: Any) -> Any:
+        """Lift a wire ``executionParams.budget`` back into the ``budget`` slot.
+
+        ``to_api_dict`` serializes ``budget`` *into* ``executionParams.budget``,
+        but nothing decoded it back out — so a session loaded from the backend
+        came back with ``budget=None`` and the real cap buried inside
+        ``execution_params``. Anything that then set ``budget`` (e.g. the run
+        path seeding it from ``agent.budget``) would silently overwrite that
+        persisted cap on the next ``to_api_dict``. Decoding is now symmetric with
+        encoding, so there is exactly one representation of the cap in memory.
+
+        An explicit top-level ``budget`` wins; the standalone nested key is
+        always dropped so it cannot be emitted twice. Returns a copy; the
+        caller's dict is untouched.
+        """
+        if not isinstance(kvs, dict):
+            return kvs
+        key = "executionParams" if "executionParams" in kvs else "execution_params"
+        ep = kvs.get(key)
+        if not isinstance(ep, dict) or ep.get("budget") is None:
+            return kvs
+        kvs = dict(kvs)  # shallow copy; never mutate the caller's dict
+        ep = dict(ep)
+        nested = ep.pop("budget")
+        if kvs.get("budget") is None:
+            kvs["budget"] = nested
+        kvs[key] = ep
+        return kvs
+
+    @classmethod
     def _fold_legacy_max_iterations(cls, kvs: Any) -> Any:
         """Fold a legacy ``executionParams.maxIterations`` into ``budget`` silently.
 
@@ -476,7 +506,7 @@ _dataclass_json_execution_config_from_dict = ExecutionConfig.from_dict.__func__
 
 
 def _execution_config_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "ExecutionConfig":
-    kvs = cls._fold_legacy_max_iterations(kvs)
+    kvs = cls._fold_legacy_max_iterations(cls._lift_wire_budget(kvs))
     return _dataclass_json_execution_config_from_dict(cls, kvs, infer_missing=infer_missing)
 
 
@@ -548,7 +578,7 @@ class Session(
         if isinstance(kvs, dict):
             ec = kvs.get("executionConfig") or kvs.get("execution_config")
             if isinstance(ec, dict):
-                folded = ExecutionConfig._fold_legacy_max_iterations(ec)
+                folded = ExecutionConfig._fold_legacy_max_iterations(ExecutionConfig._lift_wire_budget(ec))
                 if folded is not ec:  # only copy when a fold actually happened
                     kvs = dict(kvs)
                     if "executionConfig" in kvs:

@@ -17,7 +17,7 @@ def stream_tool_call_model_id():
 @pytest.fixture(scope="module")
 def slack_integration_id():
     """Return a Slack integration model ID for testing."""
-    return "686432941223092cb4294d3f"  # Use Script integration (Slack integration)
+    return "686432941223092cb4294d3f"  # Slack integration
 
 
 def validate_model_structure(model):

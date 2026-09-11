@@ -14,19 +14,59 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import logging
 import os
 import re
 import requests
 
 import aixplain.utils.config as config
 from aixplain.enums.license import License
-from aixplain.utils.request_utils import _request_with_retry
+from aixplain.utils.request_utils import _request_with_retry, get_session
+from aixplain.utils.url_safety import UnsafeURLError, safe_get, validate_upload_url
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Optional, Text, Union, Dict, List
+from typing import Any, Optional, Text, Tuple, Union, Dict, List
 from uuid import uuid4
 from urllib.parse import urljoin, urlparse
 from pandas import DataFrame
+
+logger = logging.getLogger(__name__)
+
+# Default (connect, read) timeout for the streaming download below. Without one,
+# ``requests`` blocks forever on a socket read: a blackholed download pins the
+# calling thread mid-``iter_content`` with an open file handle. The read timeout
+# bounds the gap between chunks, not the total download, so large files are fine.
+DEFAULT_DOWNLOAD_CONNECT_TIMEOUT = 10.0
+DEFAULT_DOWNLOAD_READ_TIMEOUT = 300.0
+
+
+def _download_timeout() -> Tuple[float, float]:
+    """Resolve the (connect, read) download timeout, honouring env overrides.
+
+    Uses the same ``AIXPLAIN_HTTP_CONNECT_TIMEOUT`` / ``AIXPLAIN_HTTP_READ_TIMEOUT``
+    names as the v2 client so one pair of variables tunes the whole SDK. A
+    malformed or non-positive value must not silently remove the bound it exists
+    to configure, so it is logged and the default is kept.
+    """
+
+    def _resolve(name: str, default: float) -> float:
+        raw = os.getenv(name, "").strip()
+        if not raw:
+            return default
+        try:
+            value = float(raw)
+        except ValueError:
+            logger.warning(f"Ignoring non-numeric {name}={raw!r}; using {default}s")
+            return default
+        if value <= 0:
+            logger.warning(f"Ignoring non-positive {name}={raw!r}; using {default}s")
+            return default
+        return value
+
+    return (
+        _resolve("AIXPLAIN_HTTP_CONNECT_TIMEOUT", DEFAULT_DOWNLOAD_CONNECT_TIMEOUT),
+        _resolve("AIXPLAIN_HTTP_READ_TIMEOUT", DEFAULT_DOWNLOAD_READ_TIMEOUT),
+    )
 
 
 def save_file(download_url: Text, download_file_path: Optional[Union[str, Path]] = None) -> Union[str, Path]:
@@ -55,13 +95,22 @@ def save_file(download_url: Text, download_file_path: Optional[Union[str, Path]]
         save_dir.mkdir(parents=True, exist_ok=True)
         file_ext = Path(download_url).suffix.split("?")[0]
         download_file_path = save_dir / (str(uuid4()) + file_ext)
-    r = _request_with_retry("get", download_url)
+    # ``safe_get`` re-validates every hop instead of letting ``requests`` follow
+    # redirects unchecked: the caller's one-shot ``validate_fetch_url`` says
+    # nothing about where a 302 from an allowed host would land (BUG-939). The
+    # thread's retrying session is reused so the download keeps its retries and
+    # keep-alive.
+    r = safe_get(download_url, session=get_session())
     with open(download_file_path, "wb") as f:
         f.write(r.content)
     return download_file_path
 
 
-def download_data(url_link: str, local_filename: Optional[str] = None) -> str:
+def download_data(
+    url_link: str,
+    local_filename: Optional[str] = None,
+    timeout: Optional[Union[float, Tuple[float, float]]] = None,
+) -> str:
     """Download a file from a URL with streaming support.
 
     This function downloads a file from the specified URL using streaming to
@@ -73,17 +122,27 @@ def download_data(url_link: str, local_filename: Optional[str] = None) -> str:
         local_filename (Optional[str], optional): Local path where the file
             should be saved. If None, uses the last part of the URL as the
             filename. Defaults to None.
+        timeout (Optional[Union[float, Tuple[float, float]]], optional): Timeout
+            in seconds, either a single value or a ``(connect, read)`` pair.
+            Defaults to None, which uses
+            (AIXPLAIN_HTTP_CONNECT_TIMEOUT or 10, AIXPLAIN_HTTP_READ_TIMEOUT or 300).
+            The read timeout bounds the gap between chunks, not the total
+            download, so it does not cap large transfers.
 
     Returns:
         str: Path to the downloaded file.
 
     Raises:
+        requests.exceptions.Timeout: If the connection or a chunk read exceeds
+            the timeout.
         requests.exceptions.RequestException: If the download fails or the
             server returns an error status.
     """
     if local_filename is None:
         local_filename = url_link.split("/")[-1]
-    with requests.get(url_link, stream=True) as r:
+    if timeout is None:
+        timeout = _download_timeout()
+    with requests.get(url_link, stream=True, timeout=timeout) as r:
         r.raise_for_status()
         with open(local_filename, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
@@ -184,13 +243,18 @@ def upload_data(
         path = response["key"]
         # Upload data
         presigned_url = response["uploadUrl"]  # pre-signed URL
+        # The upload target is chosen by a backend response, so it is validated
+        # before any file bytes leave the machine (BUG-939).
+        validate_upload_url(presigned_url)
         download_link = response.get("downloadUrl", "")
         headers = {"Content-Type": content_type}
         if content_encoding is not None:
             headers["Content-Encoding"] = content_encoding
         payload = open(file_name, "rb").read()
-        # saving the file into the pre-signed URL
-        r = _request_with_retry("put", presigned_url, headers=headers, data=payload)
+        # saving the file into the pre-signed URL. A presigned S3 PUT never
+        # legitimately redirects; following a 307 would re-send the bytes to a
+        # host ``validate_upload_url`` never saw (BUG-939).
+        r = _request_with_retry("put", presigned_url, headers=headers, data=payload, allow_redirects=False)
 
         # if the process fail, try one more
         if r.status_code != 200:
@@ -210,6 +274,11 @@ def upload_data(
         if return_download_link is False:
             return _build_s3_link_from_presigned_url(presigned_url, path)
         return download_link
+    except UnsafeURLError:
+        # A refused upload host is a configuration/trust failure, not a transient
+        # one: retrying cannot fix it, and the generic handler below would mask
+        # the reason behind "Failure on Uploading to S3."
+        raise
     except Exception:
         if nattempts > 0:
             return upload_data(

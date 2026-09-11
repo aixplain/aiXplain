@@ -48,6 +48,20 @@ ruff check --fix .      # Lint with auto-fix
 ruff format .           # Format
 ```
 
+### توليد الشيفرة
+
+تُولَّد ثلاث وحدات بواسطة `generate.py` ولا يجوز تعديلها يدويًا: `aixplain/v1/enums/generated_enums.py` (تعدادات `Function` و`Supplier` و`Language` و`License` الخاصة بـ `v1`) و`aixplain/v1/modules/pipeline/pipeline.py` (فئات عقد خطوط الأنابيب في `v1`) و`aixplain/v2/enums_include.py` (وحدة إعادة تصدير لتعدادات `v1` لا يستوردها أي شيء في `v2`). المولّد خاص بـ `v1` فقط: تعدادات `v2` تُصان يدويًا في `aixplain/v2/enums.py`، ويستورد `aixplain/v2/__init__.py` منها، ولا يحمّل `import aixplain` أي وحدة من `v1` على الإطلاق (يؤكد ذلك `tests/unit/test_v1_deprecation_warning.py`). لذا فإن تحديث ملفات البيانات يغيّر ما يعرضه `v1`، لا ما يقبله `Aixplain().Model.search(suppliers=...)`. فجوة معروفة: يضم `Supplier` في `v2` سبعة أعضاء ويتخلف عن كتالوج الخادم الخلفي، بما في ذلك المورّدون الأربعة الذين أضافهم تحديث 2026-09-08 إلى `v1` (`ALIBABA_CLOUD` و`ANTHROPIC` و`BYTEDANCE` و`OPENROUTER`).
+
+```bash
+python generate.py                # render (default): offline, no credential
+python generate.py render --check # exit non-zero if the committed modules drifted
+python generate.py fetch          # refresh tools/generator/fixtures/ (network + API key)
+```
+
+تقرأ خطوة العرض (render) ملفات البيانات المثبَّتة في `tools/generator/fixtures/` فقط، لذا فهي حتمية ولا تحتاج إلى خادم خلفي ولا إلى مفتاح؛ وتشغّل مهمة `generator-drift` في CI الأمر `python generate.py render --check` وتفشل إذا اختلفت الوحدات المثبَّتة عن عرض جديد. خطوة `fetch` هي الوحيدة التي تتصل بالشبكة وتُشغَّل يدويًا؛ ترفض أي `BACKEND_URL` غير الإنتاج ما لم يُمرَّر `--allow-nonprod`، وتسجّل المضيف الذي التقطت منه في `tools/generator/fixtures/provenance.json`، ويؤكد اختبار أنه مضيف الإنتاج — راجع `tools/generator/fixtures/README.md` لسير عمل التحديث ولماذا تُلتقط ملفات البيانات من الإنتاج.
+
+تُصدَر قيم الخادم الخلفي كقيم Python حرفية، ويُتحقق من كل قيمة تُستخدم كمعرّف، لذا فإن أي قيمة لا يمكن عرضها بأمان تُفشل خطوة العرض بوضوح بدلًا من تشويهها.
+
 ### Pre-commit
 
 ```bash
@@ -85,6 +99,16 @@ pre-commit install
 | نقطة الدخول | `aixplain.factories.*Factory` | `aixplain.v2.*` |
 | التسلسل | معالجة يدوية للقواميس | `dataclasses-json` (camelCase من API إلى snake_case في Python) |
 
+> **V1 مهملة وستُزال في 1 فبراير 2027** (`2027-02-01`). يُصدر استيراد أي شيفرة من v1 — سواء
+> `aixplain.v1` مباشرةً أو أحد المسارات القديمة مثل `aixplain.modules` — تحذير
+> `aixplain._compat.AixplainV1DeprecationWarning` مرة واحدة لكل عملية تشغيل. التاريخ معرَّف في موضع
+> واحد فقط هو `aixplain._compat.V1_REMOVAL_DATE`، ويفشل الاختبار
+> `tests/unit/test_v1_deprecation_docs.py` إذا خالفه أي ملف توثيق مكتوب يدويًا؛ لذا عدّل الثابت أولًا
+> ثم التوثيق، وليس العكس. راجع [`MIGRATION.md`](MIGRATION.md) للاطلاع على مقابل كل مصنع في v2،
+> بما يشمل المصانع الثمانية التي **لا يوجد لها مقابل في v2 بعد** وتُعدّ شرطًا لإتمام الإزالة.
+>
+> لا يعني ذلك السماح بحذف شيفرة v1 — راجع قواعد V1 والتوافق العكسي.
+
 ### تخطيط الحزمة
 
 | المجلد | الغرض |
@@ -106,6 +130,7 @@ pre-commit install
 - **الخطاف**: خطافات دورة الحياة `before_save` / `after_save` على الموارد (V2).
 - **الباني**: طرق `build_run_payload()` / `build_save_payload()`.
 - **الاستراتيجية**: مسارات تنفيذ متزامنة، وغير متزامنة، وتدفقية.
+- **بيانات التشغيل**: تحمل حمولات تشغيل الوكلاء كائن `metaData` من `aixplain.utils.user_info_utils.build_run_metadata()` (استعلام `ipinfo.io` واحد مخزَّن مؤقتًا). إذا غيّرت ما يُرسل، فحدّث [docs/run-metadata.ar.md](docs/run-metadata.ar.md) — يفرض ذلك `tests/unit/test_run_metadata_docs.py`.
 
 ---
 
