@@ -6,7 +6,7 @@ metadata: {"requires": {"env": ["AIXPLAIN_API_KEY"], "bins": ["python3", "pip"]}
 
 # aiXplain Builder
 
-Design, run, and deploy everything the aiXplain SDK supports: agents and team agents, direct model inference, knowledge bases / RAG, tools and integrations, runtime governance, memory, and the access APIs. This skill is the single source of truth — every snippet here is verified against **aiXplain SDK v0.2.44** (the unified v2 `Aixplain` client) and live SDK introspection.
+Design, run, and deploy everything the aiXplain SDK supports: agents and team agents, direct model inference, knowledge bases / RAG, tools and integrations, runtime governance, memory, and the access APIs. This skill is the single source of truth — every snippet here is verified against **aiXplain SDK v0.2.48** (the unified v2 `Aixplain` client) and live SDK introspection.
 
 ## Audience & self-containment
 
@@ -31,7 +31,7 @@ from aixplain import Aixplain
 aix = Aixplain(api_key=os.environ["AIXPLAIN_API_KEY"])   # or Aixplain() if AIXPLAIN_API_KEY / TEAM_API_KEY is exported
 ```
 
-If `AIXPLAIN_API_KEY` isn't set, ask the user for it (or to add it to a `.env`) — get one at https://console.aixplain.com/settings/keys. Most operations spend credits (1 credit = $1); say so before running anything billable for a non-developer.
+If `AIXPLAIN_API_KEY` isn't set, ask the user for it (or to add it to a `.env`) — get one at https://app.aixplain.com/team/settings?tab=api-keys. Most operations spend credits (1 credit = $1); say so before running anything billable for a non-developer.
 
 ## Pick the right tool for the job
 
@@ -46,9 +46,20 @@ If `AIXPLAIN_API_KEY` isn't set, ask the user for it (or to add it to a `.env`) 
 | Remember across turns / sessions / agents | **Session or shared memory** | `references/knowledge-memory.md` |
 | Call a deployed asset over HTTP/JS/OpenAI client | **REST / access API** | `references/deployment-access.md` |
 | Update, or export-as-code, an existing/deployed agent | **agent lifecycle** | `references/agents.md` |
+| Multi-turn conversation state | **Session** | `references/agents.md` |
+| Package reusable instructions, or fire an agent on a schedule/event | **Skill / Trigger** | `references/agents.md` |
+| Measure or score agent quality offline | **Eval + Metric** | `references/evaluation.md` |
 | A ready-made recipe to adapt | — | `references/patterns.md` |
 
 Read the relevant reference file before writing code for that domain — they hold the exact signatures, IDs, and gotchas.
+
+> ### ⚠️ Moved or removed in SDK 0.2.48 — do not write these
+> Pre-0.2.48 code (and some still-published docs) use forms that now fail — two of them **silently**:
+> - `from aixplain.v2.inspector import InspectorAction, EvaluatorConfig, …` → **removed from v2**. Build guardrails as `aix.Inspector(action="abort", metric={...})` with plain strings/dicts. See `references/governance.md`.
+> - `from aixplain.v2.file import FileUploader` → moved to **`aixplain.v2.upload_utils`**.
+> - `model.inputs.get_required_parameters() / get_all_parameters() / reset_parameter() / reset_all_parameters()` → renamed to `.required`, `dict(.items())`, `.reset(k)`, `.reset()`.
+> - 🔇 `agent.max_iterations = N` after construction is a **no-op** — set `agent.budget.max_iterations = N`.
+> - 🔇 `generate_session_id()` / `create_session()` are **gone**, and `session_id=` passed to `run()` is **silently stripped** (you get a stateless run, no error). Use `aix.Session` — see `references/agents.md`.
 
 > **Not in the v2 SDK:** pipelines, fine-tuning, benchmarking, and datasets/corpora. These are legacy-v1 only or Studio-only. See `references/deployment-access.md § What the v2 SDK does NOT cover`. For multi-step workflows in v2, use a **team agent**.
 
@@ -61,8 +72,9 @@ Read the relevant reference file before writing code for that domain — they ho
 5. **Save = deploy.** `agent.save()` (or `team.save(save_subcomponents=True)`) promotes `DRAFT → ONBOARDED` and gives a persistent endpoint. There is no separate `deploy()`.
 6. **Run and verify.** `agent.run(query=...)`, read `.data.output`. Inspect `.data.steps` if it misbehaves.
 7. **Share Studio links** so the user can edit/monitor visually:
-   - Builder/traces: `https://studio.aixplain.com/build/<AGENT_ID>/schema`
-   - Analytics: `https://studio.aixplain.com/dashboard/analytics/?agent=<AGENT_ID>`
+   - Visual builder: `https://app.aixplain.com/studio`
+   - Analytics: `https://app.aixplain.com/dashboard`
+   (aiXplain consolidated onto `app.aixplain.com` — `studio.`/`console.` hosts and per-agent deep links like `/build/<ID>/schema` are gone. Give the user the agent **ID** alongside the link.)
 
 ## Conventions that apply everywhere
 
@@ -76,7 +88,7 @@ Read the relevant reference file before writing code for that domain — they ho
 Models/agents/tools take **URLs**, not local paths. Upload first and pass the returned URL:
 
 ```python
-from aixplain.v2.file import FileUploader
+from aixplain.v2.upload_utils import FileUploader
 url = FileUploader(api_key=os.environ["AIXPLAIN_API_KEY"]).upload(
     "/path/to/file.mp3", is_temp=True, return_download_link=True)   # download link, not raw s3://
 ```
@@ -89,4 +101,4 @@ When you hit a quirk that is clearly **aiXplain-caused** (not the user's code/co
 
 ## External links
 
-- Docs: https://docs.aixplain.com · Studio: https://studio.aixplain.com · Console (keys/billing): https://console.aixplain.com · Pricing: https://aixplain.com/pricing
+- Docs: https://docs.aixplain.com · Studio: https://app.aixplain.com/studio · Dashboard: https://app.aixplain.com/dashboard · Keys/billing: https://app.aixplain.com/team/settings · Pricing: https://aixplain.com/pricing
