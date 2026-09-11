@@ -2,127 +2,152 @@
 
 ## Inspectors — runtime guardrails
 
-Inspectors evaluate an agent's input, intermediate steps, or output at runtime and then continue, halt, rewrite, or re-run. They attach to a (team) agent without changing agent code. They are **policy-agnostic** — you express a policy either as an LLM prompt (`ASSET` evaluator) or as a Python function (`FUNCTION` evaluator). There are no built-in named policies like "PII" or "hallucination" — you author the check.
+Inspectors evaluate an agent's input, intermediate steps, or output at runtime and then continue, halt, rewrite, or re-run. Attach them with `inspectors=[...]` — this works on a **single agent as well as a team**.
 
-```python
-from aixplain.v2.inspector import (
-    Inspector, InspectorAction, InspectorActionConfig, InspectorOnExhaust,
-    InspectorSeverity, EvaluatorType, EvaluatorConfig, EditorConfig,
-)
-```
+> **Changed in SDK 0.2.48.** Inspectors are now built straight off the client (`aix.Inspector(...)`) using **plain strings and dicts** — there is nothing to import. The old `from aixplain.v2.inspector import InspectorAction, InspectorActionConfig, EvaluatorConfig, EvaluatorType, EditorConfig, InspectorSeverity` classes were **removed from v2** (they survive only under `aixplain.v1.*`). If you see that import, it is pre-0.2.48 code — rewrite it as below.
 
 ### Building blocks
 
-`Inspector(name, action, evaluator, description=None, severity=None, targets=[], editor=None)`
-
-- **`targets`** — list of strings: `"input"` (raw user query), `"output"` (final response), `"steps"` (intermediate sub-agent outputs).
-- **`severity`** — `InspectorSeverity.LOW | MEDIUM | HIGH | CRITICAL`.
-- **`action`** — an `InspectorActionConfig(type=..., max_retries=..., on_exhaust=...)`:
-
-| `InspectorAction` | Behaviour |
-|---|---|
-| `ABORT` | Hard stop — halts the run, returns an error. `response.data.output` is `None`; check `response.status` first. |
-| `RERUN` | Re-runs the target agent with the evaluator's critique injected. `max_retries` (keep 2–3) then falls back to `on_exhaust` (`InspectorOnExhaust.ABORT` or `CONTINUE`). |
-| `EDIT` | Rewrites content inline before passing downstream. Requires an `editor=EditorConfig(...)`. |
-| `CONTINUE` | Shadow / log-only — records the critique, changes nothing. |
-
-- **`evaluator`** — an `EvaluatorConfig`:
-  - `ASSET`: delegate the judgment to a marketplace LLM via a plain-English prompt. `EvaluatorConfig(type=EvaluatorType.ASSET, asset_id=<llm_id>, prompt="...")`.
-  - `FUNCTION`: your own `(str) -> bool` for deterministic checks. `EvaluatorConfig(type=EvaluatorType.FUNCTION, function=fn)`. Imports go inside the function; it runs synchronously, so no slow I/O.
-
-### Example — block unsafe output (ASSET + ABORT)
-
 ```python
-llm_id = aix.Model.get("openai/gpt-4o").id
-guard = Inspector(
+inspector = aix.Inspector(
     name="hate-speech-guard",
     description="Blocks output containing hate speech.",
-    severity=InspectorSeverity.CRITICAL,
-    targets=["output"],
-    action=InspectorActionConfig(type=InspectorAction.ABORT),
-    evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id=llm_id,
-        prompt="If the content contains hate speech, output a failure critique. Otherwise pass."),
+    severity="critical",                 # "low" | "medium" | "high" | "critical"  (plain string)
+    targets=["output"],                  # "input" | "output" | "steps"
+    action="abort",                      # "abort" | "rerun" | "edit" | "continue"
+    metric={"assetId": LLM_ASSET_ID,     # the evaluator — an LLM judge…
+            "prompt": "If the content contains hate speech, output a failure critique. Otherwise pass."},
 )
-
-team = aix.Agent(name="Guarded Agent", description="...", agents=[subagent], inspectors=[guard])
-team.save(save_subcomponents=True)
-r = team.run(query="...")
-if r.status == "SUCCESS":
-    print(r.data.output)        # None if the inspector aborted
 ```
 
-### Example — self-correct (ASSET + RERUN)
+| Field | What it takes |
+|---|---|
+| `action` | `"abort"` \| `"rerun"` \| `"edit"` \| `"continue"`, or a dict for options (see RERUN). |
+| `metric` | The evaluator. LLM judge → `{"assetId": <model id>, "prompt": "..."}`; Python check → `{"function": fn}` where `fn(str) -> bool`. |
+| `editor` | Required for `"edit"` → `{"function": fn}` where `fn(str) -> str`. |
+| `severity` | Plain string. |
+| `targets` | List of streams to watch. |
+| `preset_id` | Set automatically for marketplace guardrails (see Pre-built). |
+
+| Action | Behaviour |
+|---|---|
+| `abort` | Hard stop — halts the run. `response.data.output` is `None`; check `response.status` first. |
+| `rerun` | Re-runs the target with the evaluator's critique injected, then falls back to `on_exhaust`. |
+| `edit` | Rewrites content inline before passing it downstream. Requires `editor`. |
+| `continue` | Shadow / log-only — records the critique, changes nothing. |
+
+Get an LLM judge's id with `LLM_ASSET_ID = aix.Model.get("openai/gpt-4o").id`, or use the built-in default: `from aixplain.v2.inspector import AUTO_DEFAULT_MODEL_ID` (this constant *does* still exist).
+
+### ABORT — hard stop
 
 ```python
-action=InspectorActionConfig(type=InspectorAction.RERUN, max_retries=2,
-                             on_exhaust=InspectorOnExhaust.ABORT)
+guard = aix.Inspector(name="hate-speech-guard", severity="critical", targets=["output"],
+    action="abort",
+    metric={"assetId": LLM_ASSET_ID,
+            "prompt": "If the content contains hate speech, output a failure critique. Otherwise pass."})
+
+agent = aix.Agent(name="Guarded Agent", instructions="You are a helpful assistant.", inspectors=[guard])
+agent.save()
+
+r = agent.run(query="...")
+print(r.data.output if r.status == "SUCCESS" else f"Run halted: {r.status}")
 ```
 
-### Example — sanitize input (FUNCTION + EDIT)
+### RERUN — self-correct with retries
+
+`max_retries` / `on_exhaust` go **inside the action dict**. Passing them as top-level keyword arguments raises `TypeError` on 0.2.48 (the published docs show that form — it is wrong).
+
+```python
+guard = aix.Inspector(name="customer-name-enforcer", severity="medium", targets=["output"],
+    action={"type": "rerun", "max_retries": 2, "on_exhaust": "abort"},   # or "continue"
+    metric={"assetId": LLM_ASSET_ID,
+            "prompt": "If the output does NOT include the customer name 'John', instruct to add it."})
+```
+
+Keep `max_retries` at 2–3 and always set `on_exhaust`: `"abort"` when convergence is mandatory, `"continue"` when best-effort output is acceptable.
+
+### EDIT — sanitize with your own functions
 
 ```python
 def looks_risky(text: str) -> bool:
-    import re
+    import re                                   # imports go INSIDE — the function runs in isolation
     return any(re.search(p, text.lower()) for p in [r"\bbypass\b", r"\bexploit\b", r"\bhack\b"])
 
 def sanitize(text: str) -> str:
     return "Provide high-level, ethical guidance only."
 
-guard = Inspector(
-    name="intent-guard", severity=InspectorSeverity.HIGH, targets=["input"],
-    action=InspectorActionConfig(type=InspectorAction.EDIT),
-    evaluator=EvaluatorConfig(type=EvaluatorType.FUNCTION, function=looks_risky),
-    editor=EditorConfig(type=EvaluatorType.FUNCTION, function=sanitize),
-)
+guard = aix.Inspector(name="intent-guard", severity="high", targets=["input"],
+    action="edit",
+    metric={"function": looks_risky},           # True  -> rewrite
+    editor={"function": sanitize})              # performs the rewrite
 ```
 
-Inspectors run in declaration order. To add one to an existing team: `team.inspectors.append(guard); team.save()` — re-saving is required, otherwise the inspector step won't appear in `response.data.steps`.
+Function evaluators run synchronously and block the pipeline — no slow I/O.
 
-> **Verifying an inspector fires:** the platform's own Response Generator is safety-aligned and often refuses obviously-bad requests before your inspector would trip, so on a headline adversarial query you may see the inspector log `CONTINUE` (pass) rather than `ABORT`. That doesn't mean it's broken. To confirm the gate works, test with input that *deterministically* violates the policy (e.g. a subagent instructed to emit the forbidden value) — then you'll see the `ABORT`/`EDIT` action fire and replace the output. Check `response.data.steps` for the inspector's system-agent step.
+## Pre-built inspectors (marketplace guardrails)
 
-Recommended severity → action mapping: `LOW`→`CONTINUE`; `MEDIUM`→`RERUN`(on_exhaust=`CONTINUE`) or `EDIT`; `HIGH`→`RERUN`(on_exhaust=`ABORT`) or `EDIT`; `CRITICAL`→`ABORT`.
+Rather than authoring an evaluator, fetch a managed guardrail and attach it. Each ships with sensible defaults for `targets` and action — override only what you need.
 
-> **Default LLM judge:** for an `ASSET` evaluator you can skip choosing a model and use the built-in default judge — `from aixplain.v2.inspector import AUTO_DEFAULT_MODEL_ID` and pass `asset_id=AUTO_DEFAULT_MODEL_ID`.
+```python
+aix.Inspector.search("guard")        # discover what's available
+
+guard    = aix.Inspector.get("aws/detect-prompt-attacks-guardrail/aws")   # prompt-injection / jailbreak
+redactor = aix.Inspector.get("aws/sensitive-information-guardrail/aws")   # PII
+redactor.targets = ["output"]                                            # default is ["input"]
+
+team = aix.Agent(name="Research Team", description="...", agents=[research_agent],
+                 inspectors=[guard, redactor])
+team.save(save_subcomponents=True)     # needed so a sub-agent fetched via Agent.get is saved too
+```
+
+Known paths: `aws/detect-prompt-attacks-guardrail/aws`, `aws/sensitive-information-guardrail/aws`, `aws/content-moderation-guardrail/aws`. Search rather than hardcoding — the catalog grows.
+
+The PII guardrail rewrites flagged values in place (`"...your phone number is {PHONE}"`) instead of blocking.
+
+## Reading governance results
+
+`response.data.governance` reports what governance ran on a request — including runs with no inspector attached. Use it to confirm a guard actually fired, alongside the inspector's system-agent step in `response.data.steps`.
+
+Inspectors run in declaration order. To add one to an existing agent: `agent.inspectors.append(guard); agent.save()` — re-saving is required, or the inspector step won't appear in the trace.
+
+> **Verifying an inspector fires:** the platform's own Response Generator is safety-aligned and often refuses obviously-bad requests before your inspector trips, so on a headline adversarial query the inspector may log `continue` (pass) rather than `abort`. That doesn't mean it's broken. To prove the gate works, use input that *deterministically* violates the policy (e.g. a subagent instructed to emit the forbidden value).
+
+Recommended severity → action mapping: `low`→`continue`; `medium`→`rerun`(`on_exhaust="continue"`) or `edit`; `high`→`rerun`(`on_exhaust="abort"`) or `edit`; `critical`→`abort`.
 
 ### Validate after every inspector change
 
-Whenever you add or change an inspector, run exactly three probes and record the outcome of each — this catches both over-blocking and under-blocking:
-
 | Probe | Expected behaviour |
 |---|---|
-| **Allowed** prompt | CONTINUE path; normal compliant answer |
-| **Denied** prompt | Blocked/refused; no restricted data or action leaks |
-| **Ambiguous** prompt | Conservative handling — deny or ask for clarification |
+| **Allowed** prompt | continue path; normal compliant answer |
+| **Denied** prompt | blocked/refused; no restricted data or action leaks |
+| **Ambiguous** prompt | conservative handling — deny or ask for clarification |
 
-For each, capture: the prompt, the expected action, the observed run `status`, a one-line output summary, and pass/fail. (As noted above, the platform's own safety layer may handle the obvious "denied" case before your inspector — to prove *your* gate fires, also test a deterministic trigger.)
+For each, capture: the prompt, expected action, observed run `status`, a one-line output summary, and pass/fail.
 
 ### Status semantics
 
-Keep aiXplain's run status as-is: `IN_PROGRESS | SUCCESS | FAILED`. **Do not treat a policy block as `FAILED`** — an inspector that refuses unsafe content can still return run `status == "SUCCESS"` with a safe refusal in `data.output`. That's a governance block, not a runtime failure. Reserve `FAILED` for actual execution errors.
+Keep aiXplain's run status as-is: `IN_PROGRESS | SUCCESS | FAILED`. **Do not treat a policy block as `FAILED`** — an inspector that refuses unsafe content can still return `status == "SUCCESS"` with a safe refusal in `data.output`. That's a governance block, not a runtime failure.
 
 ## Debugger — analyze a run
 
-A meta-agent that explains what happened in a completed run. Reachable as `aix.Debugger()`.
-
 ```python
 debugger = aix.Debugger()
-r = agent.run(query="...")
-result = debugger.debug_response(r)     # auto-extracts the execution id from the run
-print(result.analysis)                   # plain-English explanation
+result = debugger.debug_response(agent.run(query="..."))   # auto-extracts the execution id
+print(result.analysis)                                      # plain-English explanation
 # also: result.used_credits, result.run_time, result.session_id, result.request_id
-
-# or analyze arbitrary content:
-debugger.run(content="The agent returned an empty response...").analysis
+debugger.run(content="The agent returned an empty response...").analysis   # arbitrary content
 ```
 
-> The Debugger interface ships in the SDK, but its backing service may not be available in all environments. If a call returns "Not Found", fall back to inspecting `response.data.steps` directly (see `references/agents.md`).
+> The Debugger ships in the SDK but its backing service isn't available in every environment. If a call returns "Not Found", fall back to `response.data.steps` (see `references/agents.md`).
 
 ## Evolver — continuous improvement
 
-The Evolver is aiXplain's meta-agent for automatically improving an agent from production signals (instruction refinement, tool selection, team composition, parameter tuning), with an auto-apply or human-review mode.
+aiXplain's meta-agent for improving an agent from production signals (instruction refinement, tool selection, team composition, parameter tuning).
 
-> As of the documented SDK it is **conceptual / not yet exposed as a stable Python API** — there is no documented `aix.Evolver()` class. (`agent.run(...)` does accept an `evolve` parameter, but its behaviour is not documented.) Do not fabricate an Evolver API. If a user asks for it, explain it is platform-side/forthcoming and point them to Studio, and offer the practical alternative: iterate with the Debugger + reasoning traces, and A/B different instructions/tools yourself.
+> For **offline** measurement and scoring of agent quality (as opposed to runtime guardrails), the SDK now ships `aix.Eval` and `aix.Metric` — see `references/evaluation.md`.
+
+> Still **not exposed as a stable Python API** — there is no `aix.Evolver()` class. (`agent.run(...)` accepts an `evolve` parameter whose behaviour is undocumented.) Don't fabricate an Evolver API. Point users to Studio, and offer the practical alternative: iterate with the Debugger + reasoning traces and A/B different instructions/tools.
 
 ## Bodyguard / access control
 
-Bodyguard (asset-boundary access control, RBAC) is enforced at the platform/runtime level and via API-key scoping — see `references/deployment-access.md § API keys`. It is not a Python class you instantiate.
+Enforced at the platform/runtime level and via API-key scoping — see `references/deployment-access.md § API keys`. Not a Python class you instantiate.

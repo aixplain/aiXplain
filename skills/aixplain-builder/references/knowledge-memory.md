@@ -16,7 +16,7 @@ index = aix.Tool(
     # config={"model": "67efd4f92a0a850afa045af7"},
 )
 index.save()
-index.list_actions()    # search, count, upsert, get, delete, metadata (also: split)
+index.list_actions()    # exactly six: search, count, upsert, get, delete, metadata
 ```
 
 ### 2. Ingest documents (`upsert`)
@@ -30,13 +30,32 @@ documents = [
 ]
 index.run(action="upsert", data={"records": documents})
 
-# Chunk long texts on the way in:
+# Override the default chunking (defaults are sentence / 10 / 3 — see the table):
 index.run(action="upsert", data={
     "records": documents,
-    "chunking": {"split_by": "sentence",   # "word" | "sentence" | "character"
-                 "split_length": 3, "split_overlap": 1},
+    "chunking": {"split_by": "sentence", "split_length": 3, "split_overlap": 1},
+})
+
+# Store each document as one record — no chunking at all:
+index.run(action="upsert", data={"records": documents, "chunking": {"enabled": False}})
+
+# Delimiter / regex splitting:
+index.run(action="upsert", data={
+    "records": documents,
+    "chunking": {"split_by": "regex", "split_delimiter": r"\n#{1,3}\s",
+                 "split_length": 1, "split_overlap": 0},
 })
 ```
+
+Omitting `chunking` entirely applies the defaults below — **not** the `3`/`1` shown above.
+
+| `chunking.*` | Type | Default | Notes |
+|---|---|---|---|
+| `enabled` | `bool` | `true` | `false` = one record per document, no splitting |
+| `split_by` | `str` | `"sentence"` | `word` \| `sentence` \| `passage` \| `page` \| `line` \| `string` \| `regex` — there is **no** `"character"` |
+| `split_length` | `int` | `10` | units per chunk, `>= 1` |
+| `split_overlap` | `int` | `3` | `>= 0` **and** `< split_length` |
+| `split_delimiter` | `str` | — | required when `split_by` is `"string"` or `"regex"` |
 
 Loading from CSV (metadata columns come back as strings — re-parse):
 
@@ -63,7 +82,19 @@ r = index.run(action="search", data={
 })
 ```
 
-Filter operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, `in`, `not in`. Other actions: `get` (`data={"id": "doc1"}`), `delete`, `count`, `metadata` (inspect index config).
+> **Result-count key — `top_k` vs `num_results`.** The current docs' filter example passes `num_results`, but the SDK's own first-party caller (`aixplain/v2/rlm.py`) builds index queries with `top_k`. Both are pass-through `data` keys to the aiR service. Keep using `top_k`; if a query ignores it, try `num_results` before assuming the limit is unsupported.
+
+Filter operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, `in`, `not in`.
+
+Other actions — `get`, `delete`, `count`, `metadata` (inspect index config). `get` accepts a bare id string, and `count`/`metadata` need no `data` at all:
+
+```python
+index.run(action="get", data={"id": "doc1"})
+index.run(action="get", data="doc1")     # bare string, equivalent to the above
+index.run(action="count")                 # no `data`
+index.run(action="metadata")              # no `data` -> distinct values per metadata field, e.g.
+                                          # {'type': ['simple','aggregate'], 'color': ['green','yellow','red']}
+```
 
 ### 4. Attach to an agent (agentic RAG)
 
@@ -87,21 +118,19 @@ print(agent.run("Find affordable electronics under $200.").data.output)
 
 | Type | Mechanism | Scope |
 |---|---|---|
-| Short-term / session | `agent.run(session_id=...)` + `generate_session_id()` | one conversation |
+| Short-term / session | `aix.Session` — see **`references/agents.md`** | one conversation |
 | Long-term, cross-session | Shared Memory tool | durable across runs/sessions |
 | Shared across agents | Shared Memory tool attached to multiple agents | any agent holding the tool |
 
-### Session memory (short-term)
+### Session memory (short-term) — moved
 
-```python
-session_id = agent.generate_session_id()          # or generate_session_id(history=[{"role","content"}, ...])
-agent.run(query="My name is Sam.", session_id=session_id)
-agent.run(query="What's my name?", session_id=session_id)   # remembers within the session
-```
+Multi-turn conversation state is no longer a memory-side concern. `Agent.generate_session_id()` has been **removed**, and `session_id=` is no longer an `agent.run()` parameter — it is silently dropped if passed, so a run that looks session-scoped is actually stateless. The replacement is `aix.Session`, passed as `agent.run(session=...)`.
+
+**See `references/agents.md`** for the Session API. (Over REST the wire field is still `sessionId` — see `references/deployment-access.md`.)
 
 ### Shared memory (long-term / cross-agent)
 
-aiXplain-managed, persists across runs and sessions, no third-party key. Integration path `aixplain/shared-memory/aixplain`.
+aiXplain-managed, persists across runs and sessions, no third-party key (connecting it just creates a private aiXplain-managed tool asset in your workspace). Integration path `aixplain/shared-memory/aixplain`; marketplace asset `69a59de88e25a303cbf1b8c6` (`https://app.aixplain.com/marketplace/integrations/69a59de88e25a303cbf1b8c6`).
 
 ```python
 shared = aix.Tool(
@@ -111,7 +140,8 @@ shared = aix.Tool(
     config={
         "max_memory_size": 256,                         # words; default 1028, max 4096
         "memory_manager_model": "6895d6d1d50c89537c1cf237",  # GPT-5 Mini (default)
-        "size_management_policy": "summarize",          # "summarize" | "forget" (default)
+        # default is "forget" (drops oldest lines); "summarize" compresses via the manager model
+        "size_management_policy": "summarize",
     },
     allowed_actions=["insert", "get", "optimize"],
 )
@@ -122,7 +152,17 @@ shared.run(action="get", data={})           # -> stored text in .data
 shared.run(action="optimize", data={})       # compress/summarize stored memory
 ```
 
-Per-user isolation: pass an `identifier` to `insert`/`get` (e.g. `data={"identifier": "customer-123", "content": "..."}`). Attach the tool to one or more agents (often `allowed_actions=["insert"]`) and the stored context is injected into the agent's prompt:
+Inspect what each action takes with `Tool.list_inputs(*actions)`:
+
+```python
+for action in shared.list_inputs("insert", "get", "optimize"):
+    print(action.name, [(p.code or p.name, p.required) for p in action.inputs or []])
+# get      -> identifier (optional)
+# insert   -> content (required), identifier (optional)
+# optimize -> identifier (optional)
+```
+
+Per-user isolation: pass an `identifier` to `insert`, `get` **and** `optimize` (e.g. `data={"identifier": "customer-123", "content": "..."}`). It is a runtime-only field — it is not a `config` key and does not appear in the Studio connect dialog. Attach the tool to one or more agents (often `allowed_actions=["insert"]`) and the stored context is injected into the agent's prompt:
 
 ```python
 agent = aix.Agent(name="Support Agent", description="...", instructions="...", tools=[shared])
