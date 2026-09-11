@@ -242,18 +242,18 @@ jobs:
         # rather than silent dead code, while parking stays available as an
         # explicit, reviewed choice.
         #
-        # Deliberately NOT legs: benchmark, pipelines/designer_test.py,
-        # pipelines/create_test.py. 04dea96e dropped them because they were
-        # failing, and their green-ness against the test backend has not been
-        # re-established. They stay parked (ENG-3544) until someone runs them
-        # with a test-backend credential and proves them green; re-add the leg
-        # name and its include entry here in the same change that drops the
-        # PARKED_TARGETS entry.
+        # Deliberately NOT a leg: benchmark. 04dea96e dropped it because it was
+        # failing, and its green-ness against the test backend has not been
+        # re-established. It stays parked (ENG-3544) until someone runs it with a
+        # test-backend credential and proves it green; re-add the leg name and its
+        # include entry here in the same change that drops the PARKED_TARGETS
+        # entry.
+        #
+        # The pipeline and corpus/dataset functional suites were deleted outright
+        # along with their legs, so nothing is parked on their behalf.
         test-suite: [
           'file_asset',
-          'data_asset',
           'model',
-          'pipeline_2.0_v1',
           'general_assets',
           'apikey',
           'agent',
@@ -264,14 +264,8 @@ jobs:
           - test-suite: 'file_asset'
             path: 'tests/functional/file_asset'
             timeout: 45
-          - test-suite: 'data_asset'
-            path: 'tests/functional/data_asset'
-            timeout: 45
           - test-suite: 'model'
             path: 'tests/functional/model'
-            timeout: 45
-          - test-suite: 'pipeline_2.0_v1'
-            path: 'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v1 --sdk_version_param PipelineFactory'
             timeout: 45
           - test-suite: 'general_assets'
             path: 'tests/functional/general_assets'

@@ -34,11 +34,6 @@ def create_agents_from_input_map(run_input_map, deploy=True):
                         tool_["supplier"] = supplier
                         break
                 tools.append(AgentFactory.create_model_tool(**tool_))
-        if "pipeline_tools" in agent_config:
-            for tool in agent_config["pipeline_tools"]:
-                tools.append(
-                    AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"])
-                )
 
         agent_name = f"TA {str(uuid4())[:8]}"
         agent = AgentFactory.create(
