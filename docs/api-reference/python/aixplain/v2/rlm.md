@@ -7,8 +7,13 @@ RLM (Recursive Language Model) for aiXplain SDK v2.
 
 Orchestrates long-context analysis via an iterative REPL sandbox. The
 orchestrator model plans and writes Python code to chunk and explore a large
-context; a worker model handles per-chunk analysis via ``llm_query()`` calls
-injected into the sandbox session.
+context; a worker model handles per-chunk analysis via ``llm_query()``.
+
+``llm_query`` is credential-free inside the sandbox: the injected helper submits
+prompts on stdout and the SDK answers them in-process, so no API key is ever
+materialised in sandbox-executed source (BUG-936). SDK-generated setup code and
+model-emitted code run in separate sandbox sessions, and both are torn down when
+the run ends.
 
 ### RLMResult Objects
 
@@ -19,7 +24,7 @@ injected into the sandbox session.
 class RLMResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L372)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L590)
 
 Result returned by :meth:`RLM.run`.
 
@@ -40,7 +45,7 @@ RLM-specific fields.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L395)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L613)
 
 Render the base ``Result`` repr plus RLM-specific fields.
 
@@ -53,7 +58,7 @@ Render the base ``Result`` repr plus RLM-specific fields.
 class RLM(BaseResource, ToolableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L409)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L627)
 
 Recursive Language Model — long-context analysis with two execution modes.
 
@@ -90,13 +95,23 @@ multi-hop reasoning (e.g., contains words like &quot;compare across&quot;,
 ``parallel`` when the index is reused across many calls.
 
 The recursive mode&#x27;s sandbox is an aiXplain managed Python execution
-environment. Each recursive ``run()`` call gets its own isolated session
-(UUID), so variables persist across REPL iterations within a single run
-but are cleaned up afterwards.
+environment. Each recursive ``run()`` call gets its own pair of isolated
+sessions (fresh UUIDs): a **setup** session that only ever receives
+SDK-generated code, and a **repl** session holding the context and every
+block the orchestrator emits. Variables persist across REPL iterations
+within a single run; both sessions are torn down in a ``finally`` when the
+run ends, on the success and the failure path alike. Use RLM as a context
+manager (``with aix.RLM(...) as rlm:``) or call :meth:``2 to force
+teardown early.
+
+No credential is ever placed inside the sandbox. ``llm_query`` submits its
+prompts on stdout and the SDK answers them in-process, so code the
+orchestrator writes — which is steered by the analysed context and must be
+treated as untrusted — has nothing to steal.
 
 RLM is a **local orchestrator** — it does not correspond to a platform
 endpoint and is not saved via ``save()``. It is registered on the
-:class:``0 client exactly like other resources so
+:class:``7 client exactly like other resources so
 that credentials and URLs flow through ``self.context`` automatically.
 
 Example::
@@ -118,10 +133,12 @@ print(f&quot;Completed in \{result.iterations_used} iteration(s).&quot;)
 
 **Attributes**:
 
-- ``3 - Platform model ID of the orchestrator LLM.
-- ``4 - Platform model ID of the worker LLM.
-- ``5 - Maximum orchestrator loop iterations (default 10).
-- ``6 - Maximum wall-clock seconds per ``run()`` call (default 600).
+- ``0 - Platform model ID of the orchestrator LLM.
+- ``1 - Platform model ID of the worker LLM.
+- ``2 - Maximum orchestrator loop iterations (default 10). A
+  batch of ``llm_query`` calls costs two iterations in recursive mode
+  — one to submit the prompts and one to consume the answers.
+- ``5 - Maximum wall-clock seconds per ``run()`` call (default 600).
 
 #### \_\_post\_init\_\_
 
@@ -129,13 +146,46 @@ print(f&quot;Completed in \{result.iterations_used} iteration(s).&quot;)
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L544)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L786)
 
 Auto-assign a UUID when no id is provided.
 
 Also initializes the thread-safe credit lock used by parallel mode&#x27;s
 concurrent worker calls. Stored as a plain instance attribute (not a
 dataclass field) so it&#x27;s not serialized.
+
+#### close
+
+```python
+def close() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1227)
+
+Tear down any live sandbox sessions. Idempotent; never raises.
+
+Called automatically in a ``finally`` at the end of every recursive run
+and on ``__exit__``. Safe to call directly, and safe to call twice.
+
+#### \_\_enter\_\_
+
+```python
+def __enter__() -> "RLM"
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1239)
+
+Enter a context manager whose exit tears down sandbox sessions.
+
+#### \_\_exit\_\_
+
+```python
+def __exit__(exc_type: Any, exc: Any, tb: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1243)
+
+Tear down sandbox sessions on scope exit.
 
 #### run
 
@@ -147,7 +197,7 @@ def run(data: Union[str, dict, pathlib.Path],
         **kwargs: Any) -> RLMResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1245)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1757)
 
 Run the RLM over a (potentially large) context, dispatching by mode.
 
@@ -222,7 +272,7 @@ multi-hop reasoning (keywords such as &quot;compare across&quot;,
 def as_tool() -> ToolDict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1464)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1995)
 
 Serialize this RLM as a tool for agent creation.
 
@@ -240,7 +290,7 @@ argument.
 def run_async(*args: Any, **kwargs: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1488)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L2019)
 
 Not supported — raises :exc:`NotImplementedError`.
 
@@ -250,7 +300,7 @@ Not supported — raises :exc:`NotImplementedError`.
 def run_stream(*args: Any, **kwargs: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1492)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L2023)
 
 Not supported — raises :exc:`NotImplementedError`.
 
@@ -260,7 +310,7 @@ Not supported — raises :exc:`NotImplementedError`.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L1498)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/rlm.py#L2029)
 
 Return string representation of this RLM instance.
 

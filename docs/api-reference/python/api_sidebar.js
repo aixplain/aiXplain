@@ -21,6 +21,7 @@
             "api-reference/python/aixplain/utils/file_utils",
             "api-reference/python/aixplain/utils/llm_utils",
             "api-reference/python/aixplain/utils/request_utils",
+            "api-reference/python/aixplain/utils/url_safety",
             "api-reference/python/aixplain/utils/user_info_utils",
             "api-reference/python/aixplain/utils/validation_utils"
           ],
@@ -292,6 +293,7 @@
         {
           "items": [
             "api-reference/python/aixplain/v2/init",
+            "api-reference/python/aixplain/v2/_backoff",
             "api-reference/python/aixplain/v2/actions",
             "api-reference/python/aixplain/v2/agent",
             "api-reference/python/aixplain/v2/agent_evaluator",

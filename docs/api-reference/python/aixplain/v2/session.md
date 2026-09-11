@@ -130,7 +130,7 @@ the agent run path so sessions and direct runs behave identically.
 def coerce(cls, value: Any) -> Optional["ExecutionConfig"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L458)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L488)
 
 Accept an ExecutionConfig, dict, or None and return a config or None.
 
@@ -145,7 +145,7 @@ class Session(BaseResource, GetResourceMixin[BaseGetParams, "Session"],
               SearchResourceMixin[BaseSearchParams, "Session"])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L488)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L518)
 
 Session resource for managing agent conversation sessions.
 
@@ -160,7 +160,7 @@ agent (``agent_id``).
 def __post_init__(agent: Optional[Any] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L527)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L557)
 
 Resolve the ``agent`` convenience arg and coerce ``execution_config``.
 
@@ -170,7 +170,7 @@ Resolve the ``agent`` convenience arg and coerce ``execution_config``.
 def build_save_payload(**kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L560)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L590)
 
 Build payload with only mutable fields.
 
@@ -190,7 +190,7 @@ def search(cls,
            **kwargs: Any) -> Page["Session"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L574)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L604)
 
 Search sessions with optional filters, returning a paginated ``Page``.
 
@@ -235,7 +235,7 @@ with query-param filters) and wraps the result in a ``Page``.
 def messages() -> List[SessionMessage]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L666)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L696)
 
 Get all messages in this session.
 
@@ -262,7 +262,7 @@ def add_message(
         tools: Optional[List[Dict[str, Any]]] = None) -> SessionMessage
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L690)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L720)
 
 Add a message to this session.
 
@@ -304,7 +304,7 @@ Add a message to this session.
 def get_message(message_id: str) -> SessionMessage
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L762)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L792)
 
 Get a specific message by ID.
 
@@ -329,7 +329,7 @@ Get a specific message by ID.
 def delete_message(message_id: str) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L785)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L815)
 
 Delete a message from this session.
 
@@ -349,7 +349,7 @@ Delete a message from this session.
 def react(message_id: str, reaction: Optional[str]) -> SessionMessage
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L804)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L834)
 
 React to a message or clear a reaction.
 

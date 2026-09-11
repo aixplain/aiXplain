@@ -14,7 +14,7 @@ Tool resource module for managing tools and their integrations.
 class ToolResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L24)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L52)
 
 Result for a tool.
 
@@ -28,7 +28,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult],
            ActionMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L32)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L60)
 
 Resource for tools.
 
@@ -38,7 +38,7 @@ Inherits from Model to reuse shared attributes and functionality.
 
 #### DEFAULT\_INTEGRATION\_ID
 
-Script integration
+Python Sandbox (script) integration
 
 #### integration\_path
 
@@ -47,7 +47,7 @@ Script integration
 def integration_path() -> Optional[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L55)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L83)
 
 The path of the integration (e.g. ``&quot;aixplain/python-sandbox&quot;``).
 
@@ -61,7 +61,7 @@ Returns ``None`` when the integration has not been resolved yet.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L66)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L94)
 
 Initialize tool after dataclass creation.
 
@@ -72,7 +72,7 @@ Initialize tool after dataclass creation.
 def actions() -> Actions
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L88)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L139)
 
 Collection of actions available on this tool.
 
@@ -83,7 +83,7 @@ Collection of actions available on this tool.
 def inputs()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L93)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L144)
 
 Tools have multiple actions — use tool.actions[&#x27;action_name&#x27;].inputs instead.
 
@@ -94,7 +94,7 @@ Tools have multiple actions — use tool.actions[&#x27;action_name&#x27;].inputs
 def inputs(value)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L98)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L149)
 
 Prevent setting inputs directly on tools.
 
@@ -104,7 +104,7 @@ Prevent setting inputs directly on tools.
 def list_actions() -> List[ActionSpec]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L131)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L182)
 
 List available actions for the tool (with integration fallback).
 
@@ -114,7 +114,7 @@ List available actions for the tool (with integration fallback).
 def list_inputs(*actions: str) -> List[ActionSpec]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L159)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L214)
 
 List available inputs for specified actions.
 
@@ -128,7 +128,7 @@ List available inputs for specified actions.
 def validate_allowed_actions() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L330)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L385)
 
 Validate that all allowed actions are available for this tool.
 
@@ -138,7 +138,7 @@ Validate that all allowed actions are available for this tool.
 def get_parameters() -> List[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L370)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L425)
 
 Get parameters for the tool in the format expected by agent saving.
 
@@ -148,7 +148,7 @@ Get parameters for the tool in the format expected by agent saving.
 def as_tool() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L421)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L476)
 
 Serialize this tool for agent creation.
 
@@ -158,7 +158,7 @@ Serialize this tool for agent creation.
 def run(*args: Any, **kwargs: Unpack[ModelRunParams]) -> ToolResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L473)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L541)
 
 Run the tool.
 

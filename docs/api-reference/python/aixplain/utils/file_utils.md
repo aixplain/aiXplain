@@ -26,7 +26,7 @@ def save_file(
                                            Path]] = None) -> Union[str, Path]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L32)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L72)
 
 Download and save a file from a given URL.
 
@@ -55,10 +55,13 @@ to a specified path or to a generated path in the &#x27;aiXplain&#x27; directory
 #### download\_data
 
 ```python
-def download_data(url_link: str, local_filename: Optional[str] = None) -> str
+def download_data(
+        url_link: str,
+        local_filename: Optional[str] = None,
+        timeout: Optional[Union[float, Tuple[float, float]]] = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L64)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L109)
 
 Download a file from a URL with streaming support.
 
@@ -72,6 +75,12 @@ minimize memory usage.
 - `local_filename` _Optional[str], optional_ - Local path where the file
   should be saved. If None, uses the last part of the URL as the
   filename. Defaults to None.
+- `timeout` _Optional[Union[float, Tuple[float, float]]], optional_ - Timeout
+  in seconds, either a single value or a ``(connect, read)`` pair.
+  Defaults to None, which uses
+  (AIXPLAIN_HTTP_CONNECT_TIMEOUT or 10, AIXPLAIN_HTTP_READ_TIMEOUT or 300).
+  The read timeout bounds the gap between chunks, not the total
+  download, so it does not cap large transfers.
   
 
 **Returns**:
@@ -81,6 +90,8 @@ minimize memory usage.
 
 **Raises**:
 
+- `requests.exceptions.Timeout` - If the connection or a chunk read exceeds
+  the timeout.
 - `requests.exceptions.RequestException` - If the download fails or the
   server returns an error status.
 
@@ -98,7 +109,7 @@ def upload_data(file_name: Union[Text, Path],
                 api_key: Optional[Text] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L113)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L172)
 
 Upload a file to S3 using pre-signed URLs with retry support.
 
@@ -157,7 +168,7 @@ def s3_to_csv(
 ) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L229)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/file_utils.py#L298)
 
 Convert S3 directory contents to a CSV file with file listings.
 

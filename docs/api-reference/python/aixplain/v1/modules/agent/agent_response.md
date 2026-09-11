@@ -31,6 +31,8 @@ access to response data and serialization capabilities.
 - `diagnostic_error_codes` _List[str]_ - Aggregated, deduplicated diagnostic error codes
   observed during execution (e.g. MAX_TOKENS_REACHED, TOOL_FAILED).
   Does not affect run status.
+- `data`0 _List[Artifact]_ - Deliverables produced during the run, a
+  passthrough of `data`1data.artifacts`data`1. Always a list.
 
 #### \_\_init\_\_
 
@@ -49,7 +51,7 @@ def __init__(status: ResponseStatus = ResponseStatus.FAILED,
              **kwargs)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/agent_response.py#L32)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/agent_response.py#L34)
 
 Initialize a new AgentResponse instance.
 
@@ -77,13 +79,27 @@ Initialize a new AgentResponse instance.
   codes observed during execution. Defaults to [].
 - `data`0 - Additional keyword arguments passed to ModelResponse.
 
+#### artifacts
+
+```python
+@property
+def artifacts() -> List[Artifact]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/agent_response.py#L89)
+
+Deliverables produced during the run (see :class:`Artifact`).
+
+Always a list — empty when the run produced nothing, when artifact
+capture is disabled, or when the backend predates artifact support.
+
 #### \_\_getitem\_\_
 
 ```python
 def __getitem__(key: Text) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/agent_response.py#L86)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/agent_response.py#L104)
 
 Get a response attribute using dictionary-style access.
 
@@ -106,7 +122,7 @@ serialization when accessing the &#x27;data&#x27; key.
 def __setitem__(key: Text, value: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/agent_response.py#L103)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/agent_response.py#L127)
 
 Set a response attribute using dictionary-style access.
 
@@ -125,7 +141,7 @@ deserialization when setting the &#x27;data&#x27; key.
 def to_dict() -> Dict[Text, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/agent_response.py#L121)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/agent_response.py#L145)
 
 Convert the response to a dictionary representation.
 
@@ -143,7 +159,7 @@ serialization in the output dictionary.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/agent_response.py#L136)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/agent_response.py#L160)
 
 Return a string representation of the response.
 

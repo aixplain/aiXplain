@@ -100,11 +100,10 @@ Get a utility by ID.
 #### run
 
 ```python
-@classmethod
-def run(cls: type["Utility"], **kwargs: Unpack[UtilityRunParams]) -> Result
+def run(**kwargs: Unpack[UtilityRunParams]) -> Result
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L111)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L110)
 
 Run the utility with provided parameters.
 
@@ -126,7 +125,7 @@ def search(cls: type["Utility"],
            **kwargs: Unpack[UtilitySearchParams]) -> "Page[Utility]"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L123)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/utility.py#L122)
 
 Search utilities with optional query and filtering.
 

@@ -5,3 +5,17 @@ title: aixplain.v1
 
 aiXplain SDK v1 - Legacy SDK modules, factories, and enums.
 
+.. deprecated::
+    SDK v1 is deprecated and will be removed on February 1, 2027. Use the v2 API
+    (``from aixplain import Aixplain``) instead. For a factory-by-factory migration
+    map see https://github.com/aixplain/aiXplain/blob/main/MIGRATION.md — the guide
+    is not shipped inside the wheel, so an installed copy has no local ``MIGRATION.md``
+    to read.
+
+    Importing this package (or any legacy path that redirects into it, such as
+    ``aixplain.modules`` or ``aixplain.factories``) emits an
+    :class:`aixplain._compat.AixplainV1DeprecationWarning`. It is emitted at most once
+    per process, for the whole v1 surface — not once per module and not once per legacy
+    prefix — and names whichever import path tripped it first.
+    Set ``AIXPLAIN_SUPPRESS_V1_DEPRECATION=1`` to silence it.
+

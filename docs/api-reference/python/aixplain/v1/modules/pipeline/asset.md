@@ -30,7 +30,7 @@ Description:
 class Pipeline(Asset, DeployableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L39)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L40)
 
 Representing a custom pipeline that was created on the aiXplain Platform
 
@@ -58,7 +58,7 @@ def __init__(id: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L56)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L57)
 
 Create a Pipeline with the necessary information
 
@@ -81,7 +81,7 @@ def poll(poll_url: Text,
          response_version: Text = "v2") -> Union[Dict, PipelineResponse]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L143)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L152)
 
 Poll the platform to check whether an asynchronous call is done.
 
@@ -101,14 +101,14 @@ Poll the platform to check whether an asynchronous call is done.
 def run(data: Union[Text, Dict],
         data_asset: Optional[Union[Text, Dict]] = None,
         name: Text = "pipeline_process",
-        timeout: float = 20000.0,
+        timeout: float = 1800.0,
         wait_time: float = 1.0,
         version: Optional[Text] = None,
         response_version: Text = "v2",
         **kwargs) -> Union[Dict, PipelineResponse]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L187)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L215)
 
 Run the pipeline synchronously and wait for results.
 
@@ -127,7 +127,7 @@ support for polling and timeout.
 - `name` _Text, optional_ - Identifier for this pipeline run. Used for
   logging. Defaults to &quot;pipeline_process&quot;.
 - `timeout` _float, optional_ - Maximum time in seconds to wait for
-  completion. Defaults to 20000.0.
+  completion. Defaults to 1800.0 (30 minutes).
 - `wait_time` _float, optional_ - Initial time in seconds between polling
   attempts. May increase over time. Defaults to 1.0.
 - `version` _Optional[Text], optional_ - Specific pipeline version to run.
@@ -168,7 +168,7 @@ def run_async(data: Union[Text, Dict],
               **kwargs) -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L427)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L455)
 
 Runs asynchronously a pipeline call.
 
@@ -196,7 +196,7 @@ def update(pipeline: Union[Text, Dict],
            name: Optional[Text] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L512)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L540)
 
 Update Pipeline
 
@@ -217,7 +217,7 @@ Update Pipeline
 def delete() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L576)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L604)
 
 Delete this pipeline from the platform.
 
@@ -247,7 +247,7 @@ def save(pipeline: Optional[Union[Text, Dict]] = None,
          api_key: Optional[Text] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L609)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L637)
 
 Update and Save Pipeline
 
@@ -268,7 +268,7 @@ Update and Save Pipeline
 def deploy(api_key: Optional[Text] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L665)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L693)
 
 Deploy the Pipeline.
 
@@ -285,7 +285,7 @@ Pipeline-specific deployment functionality.
 def __repr__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L684)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/pipeline/asset.py#L712)
 
 Return a string representation of the Pipeline instance.
 

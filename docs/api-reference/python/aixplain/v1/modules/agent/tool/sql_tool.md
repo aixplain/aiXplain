@@ -33,7 +33,7 @@ Description:
 class SQLToolError(Exception)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L39)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L40)
 
 Base exception for SQL Tool errors.
 
@@ -43,7 +43,7 @@ Base exception for SQL Tool errors.
 class CSVError(SQLToolError)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L45)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L46)
 
 Exception for CSV-related errors.
 
@@ -53,7 +53,7 @@ Exception for CSV-related errors.
 class DatabaseError(SQLToolError)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L51)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L52)
 
 Exception for database-related errors.
 
@@ -63,7 +63,7 @@ Exception for database-related errors.
 def clean_column_name(col: Text) -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L57)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L58)
 
 Clean column names by replacing spaces and special characters with underscores.
 
@@ -88,7 +88,7 @@ This function makes column names SQLite-compatible by:
 def check_duplicate_columns(df: pd.DataFrame) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L88)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L89)
 
 Check for duplicate column names in DataFrame after cleaning.
 
@@ -110,7 +110,7 @@ cleaned for SQLite compatibility.
 def infer_sqlite_type(dtype) -> Text
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L118)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L119)
 
 Infer SQLite type from pandas dtype.
 
@@ -141,7 +141,7 @@ This function maps pandas data types to appropriate SQLite types:
 def get_table_schema(database_path: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L150)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L151)
 
 Get the schema of all tables in the SQLite database.
 
@@ -174,7 +174,7 @@ def create_database_from_csv(csv_path: str,
                              table_name: str = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L190)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L191)
 
 Create SQLite database from CSV file and return the schema.
 
@@ -212,7 +212,7 @@ It handles column name cleaning, data type inference, and data conversion.
 def get_table_names_from_schema(schema: str) -> List[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L318)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L319)
 
 Extract table names from a database schema string.
 
@@ -234,7 +234,7 @@ This function parses CREATE TABLE statements to extract table names.
 class SQLTool(DeployableTool)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L343)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L344)
 
 A tool for executing SQL commands in an SQLite database.
 
@@ -265,7 +265,7 @@ def __init__(name: Text,
              **additional_info) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L361)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L362)
 
 Initialize a new SQLTool instance.
 
@@ -296,7 +296,7 @@ Initialize a new SQLTool instance.
 def to_dict() -> Dict[str, Text]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L400)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L401)
 
 Convert the tool instance to a dictionary representation.
 
@@ -318,7 +318,7 @@ Convert the tool instance to a dictionary representation.
 def validate()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L426)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L427)
 
 Validate the SQL tool&#x27;s configuration.
 
@@ -340,7 +340,7 @@ This method performs several checks:
 def deploy() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L478)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/agent/tool/sql_tool.py#L479)
 
 Deploy the SQL tool by downloading and preparing the database.
 
