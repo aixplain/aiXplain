@@ -15,7 +15,7 @@ that triggers env var validation.
 class UtilityModelInput()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L26)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L31)
 
 Input parameter for a utility model.
 
@@ -31,7 +31,7 @@ Input parameter for a utility model.
 def validate()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L39)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L44)
 
 Validate that the input type is one of TEXT, BOOLEAN, or NUMBER.
 
@@ -41,7 +41,7 @@ Validate that the input type is one of TEXT, BOOLEAN, or NUMBER.
 def to_dict()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L44)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L49)
 
 Convert to dictionary representation.
 
@@ -54,7 +54,7 @@ def parse_code(
         backend_url: Optional[Text] = None) -> Tuple[Text, List, Text, Text]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L141)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L146)
 
 Parse and process code for utility model creation.
 
@@ -78,7 +78,7 @@ def parse_code_decorated(
         backend_url: Optional[Text] = None) -> Tuple[Text, List, Text, Text]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L207)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L212)
 
 Parse and process code that may be decorated with @utility_tool.
 

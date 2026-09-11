@@ -160,7 +160,7 @@ def run(data: Union[Text, Dict],
         mode: Text = "auto") -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1177)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1180)
 
 Run the RLM over a (potentially large) context, dispatching by mode.
 
@@ -241,7 +241,7 @@ def run_async(data: Union[Text, Dict],
               parameters: Optional[Dict] = None) -> ModelResponse
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1404)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1407)
 
 Not supported for RLM.
 
@@ -255,7 +255,7 @@ Not supported for RLM.
 def run_stream(data: Union[Text, Dict], parameters: Optional[Dict] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1417)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1420)
 
 Not supported for RLM.
 
@@ -270,7 +270,7 @@ Not supported for RLM.
 def from_dict(cls, data: Dict) -> "RLM"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1426)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1429)
 
 Create an RLM instance from a dictionary representation.
 
@@ -309,7 +309,7 @@ required.
 def to_dict() -> Dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1476)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1479)
 
 Convert the RLM instance to a dictionary representation.
 
@@ -332,7 +332,7 @@ reconstruct the instance via ``ModelFactory.create_rlm()``.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1497)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/modules/model/rlm.py#L1500)
 
 Return a string representation of this RLM instance.
 

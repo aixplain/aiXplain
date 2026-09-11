@@ -17,20 +17,40 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+#### ensure\_config\_urls\_safe
+
+```python
+def ensure_config_urls_safe() -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/config.py#L57)
+
+Raise if a configured endpoint failed the policy at import time.
+
+Called from the request choke point so an unsafe endpoint is refused before
+a socket is opened, rather than at ``import aixplain``.
+
+**Raises**:
+
+- `UnsafeURLError` - If ``BACKEND_URL`` or ``MODELS_RUN_URL`` is not allowed.
+
 #### validate\_api\_keys
 
 ```python
 def validate_api_keys()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/config.py#L31)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/config.py#L115)
 
-Centralized API key validation function - single source of truth.
+Centralized eager API key validation - normalize, then require a key.
 
 This function handles all API key validation logic:
-1. Ensures at least one API key is provided
+1. Auto-normalizes AIXPLAIN_API_KEY to TEAM_API_KEY if needed
 2. Prevents conflicting API keys
-3. Auto-normalizes AIXPLAIN_API_KEY to TEAM_API_KEY if needed
+3. Ensures at least one API key is provided
+
+It is no longer called at import time (see :func:`_normalize_api_keys`), but
+is kept for callers that want the eager, all-or-nothing check.
 
 **Raises**:
 
@@ -42,7 +62,7 @@ This function handles all API key validation logic:
 def check_api_keys_available()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/config.py#L58)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/config.py#L133)
 
 Runtime check to ensure API keys are available.
 

@@ -3,7 +3,18 @@ sidebar_label: user_info_utils
 title: aixplain.utils.user_info_utils
 ---
 
-Helpers for attaching client-side user metadata to execution payloads.
+Client-side run metadata attached to agent execution payloads.
+
+Agent runs carry a ``metaData`` object built by :func:`build_run_metadata`. It
+reports the caller&#x27;s environment to the aiXplain backend so runs can be
+locale-aware: ``region``, ``language`` and ``timezone``, plus the public
+``ipAddress`` and city-level ``latitude`` / ``longitude`` they are derived from.
+
+Those values come from a single ``https://ipinfo.io/json`` request made from the
+machine running the SDK, cached once per process and skipped silently on failure.
+See ``docs/run-metadata.md`` for the user-facing disclosure: every field, why it
+is collected, which call sites send it, and what happens when the lookup is
+blocked.
 
 Copyright 2024 The aiXplain SDK authors
 
@@ -25,11 +36,31 @@ limitations under the License.
 def build_run_metadata() -> Dict[str, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/user_info_utils.py#L80)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/utils/user_info_utils.py#L105)
 
-Build metaData for agent run payloads.
+Build the ``metaData`` object sent with agent run payloads.
+
+The returned dict is forwarded verbatim to the backend by the direct v2 agent
+run path (:meth:`aixplain.v2.agent.Agent.build_run_payload`) and by the legacy
+v1 agent / team-agent run and session-bootstrap paths. v2 runs routed through
+a session post to ``/v1/sessions/\{id}/messages`` instead and carry no
+``metaData``. It is derived from one cached ``https://ipinfo.io/json`` lookup
+(see :func:`_fetch_ipinfo`).
+
+Keys, all present on every call:
+
+* ``userAgent`` — always ``&quot;sdk&quot;``, marking the traffic as SDK-originated.
+* ``region`` / ``language`` — locale derived from the lookup&#x27;s country code,
+used for locale-aware agent execution.
+* ``ipAddress`` — the SDK host&#x27;s public IP address.
+* ``latitude`` / ``longitude`` — city-level coordinates for that IP.
+* ``timezone`` — IANA timezone name for that IP.
+
+Every key except ``userAgent`` is ``None`` when the lookup failed, was blocked
+or omitted the underlying field; a run is never blocked by it.
+``docs/run-metadata.md`` carries the user-facing disclosure.
 
 **Returns**:
 
-  Dict[str, Any]: Metadata suitable for the metaData JSON field.
+  Dict[str, Any]: The run payload&#x27;s ``metaData`` value.
 

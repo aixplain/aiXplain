@@ -49,7 +49,7 @@ Get a FunctionParameters object for this function.
 class FunctionParameters(BaseParameters)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4504)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4488)
 
 Class to store and manage function parameters.
 
@@ -59,7 +59,7 @@ Class to store and manage function parameters.
 def __init__(input_params: Dict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4507)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4491)
 
 Initialize FunctionParameters with input parameters.
 
@@ -73,7 +73,7 @@ Initialize FunctionParameters with input parameters.
 class Supplier(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4522)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4506)
 
 Enum representing available suppliers in the aiXplain platform.
 
@@ -83,7 +83,7 @@ Enum representing available suppliers in the aiXplain platform.
 def __str__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4606)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4594)
 
 Return the supplier name.
 
@@ -93,7 +93,7 @@ Return the supplier name.
 class Language(Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4611)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4599)
 
 Enum representing available languages in the aiXplain platform.
 
@@ -103,7 +103,7 @@ Enum representing available languages in the aiXplain platform.
 class License(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4900)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/enums/generated_enums.py#L4888)
 
 Enum representing available licenses in the aiXplain platform.
 

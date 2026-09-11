@@ -9,7 +9,7 @@ title: aixplain.v1.factories.model_factory.utils
 def create_model_from_response(response: Dict) -> Model
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/utils.py#L30)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/utils.py#L31)
 
 Convert API response JSON into appropriate Model object.
 
@@ -58,7 +58,7 @@ def get_assets_from_page(query,
                          api_key: Optional[str] = None) -> List[Model]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/utils.py#L161)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/utils.py#L162)
 
 Retrieve a paginated list of models with specified filters.
 
@@ -107,7 +107,7 @@ def get_model_from_ids(model_ids: List[str],
                        api_key: Optional[str] = None) -> List[Model]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/utils.py#L274)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v1/factories/model_factory/utils.py#L275)
 
 Retrieve multiple models by their IDs.
 
