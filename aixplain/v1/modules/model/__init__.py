@@ -72,6 +72,30 @@ class Model(Asset):
         additional_info (dict): Additional model metadata.
     """
 
+    #: Fields persisted by :class:`~aixplain.utils.asset_cache.AssetCache`.
+    #:
+    #: This is an allowlist, and deliberately so: ``api_key`` is held as a plain
+    #: instance attribute, so serializing ``__dict__`` wrote the account
+    #: credential into the cache file in cleartext (BUG-940). Anything not named
+    #: here never reaches disk. The set mirrors what :meth:`from_dict` reads, so
+    #: cached entries round-trip.
+    __cache_fields__ = (
+        "id",
+        "name",
+        "description",
+        "supplier",
+        "version",
+        "function",
+        "is_subscribed",
+        "cost",
+        "created_at",
+        "input_params",
+        "output_params",
+        "model_params",
+        "status",
+        "additional_info",
+    )
+
     def __init__(
         self,
         id: Text,
@@ -612,10 +636,18 @@ class Model(Asset):
                 - input_params: Input parameter configuration
                 - output_params: Output parameter configuration
                 - model_params: Model behavior parameters
+                - status: Current model status
                 - additional_info: Extra metadata
 
         Returns:
             Model: A new Model instance populated with the dictionary data.
+
+        Note:
+            ``api_key`` is optional and falls back to the configured
+            ``TEAM_API_KEY``. Cached payloads never carry it (see
+            ``__cache_fields__``), so a model rebuilt from cache authenticates
+            with the credential of the current session rather than a stale one
+            recovered from disk.
         """
         return cls(
             id=data.get("id", ""),
@@ -631,5 +663,6 @@ class Model(Asset):
             input_params=data.get("input_params"),
             output_params=data.get("output_params"),
             model_params=data.get("model_params"),
+            status=data.get("status", AssetStatus.ONBOARDED),
             **data.get("additional_info", {}),
         )

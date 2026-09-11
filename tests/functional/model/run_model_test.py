@@ -16,8 +16,18 @@ from aixplain.factories.index_factory.utils import (
 import time
 import os
 import json
+import stat
 
+from aixplain.utils import config
+
+#: Location the cache must never use. Kept as a literal so the assertions below
+#: still fail if the default moves back into the working directory (BUG-940).
+#: The assertions target the cache *file*, not this directory: ".cache" is a
+#: common name, and a checkout where an older SDK once ran still has one, so
+#: asserting on the directory would fail on pre-existing state instead of on
+#: what the code under test did.
 CACHE_FOLDER = ".cache"
+LEGACY_CACHE_FILE = os.path.join(CACHE_FOLDER, "model.json")
 
 
 def pytest_generate_tests(metafunc):
@@ -246,20 +256,30 @@ def test_llm_run_with_file():
     assert "🤖" in response["data"], "Robot emoji should be present in the response"
 
 
-def test_aixplain_model_cache_creation():
-    """Ensure AssetCache is triggered and cache is created."""
+MODEL_ID_FOR_CACHE = "6239efa4822d7a13b8e20454"  # Translate from Punjabi to Portuguese (Brazil)
 
-    cache_file = os.path.join(CACHE_FOLDER, "model.json")
 
-    # Clean up cache before the test
-    if os.path.exists(cache_file):
-        os.remove(cache_file)
+@pytest.fixture
+def model_cache():
+    """Yield a clean model AssetCache, and leave nothing behind."""
+    from aixplain.modules.model import Model
+    from aixplain.utils.asset_cache import AssetCache
 
-    # Instantiate the Model (replace this with a real model ID from your env)
-    model_id = "6239efa4822d7a13b8e20454"  # Translate from Punjabi to Portuguese (Brazil)
-    _ = ModelFactory.get(model_id)
+    AssetCache.reset_shared()
+    cache = AssetCache(Model)
+    cache.invalidate()
+    try:
+        yield cache
+    finally:
+        cache.invalidate()
+        AssetCache.reset_shared()
 
-    # Assert the cache file was created
+
+def test_aixplain_model_cache_creation(model_cache):
+    """Ensure AssetCache is triggered and cache is created when caching is requested."""
+    _ = ModelFactory.get(MODEL_ID_FOR_CACHE, use_cache=True)
+
+    cache_file = model_cache.cache_file
     assert os.path.exists(cache_file), "Expected cache file was not created."
 
     with open(cache_file, "r", encoding="utf-8") as f:
@@ -268,7 +288,49 @@ def test_aixplain_model_cache_creation():
     assert "data" in cache_data, "Cache file structure invalid - missing 'data' key."
     # Cache structure is: {"expiry": ..., "data": {"model_id": {...}}}
     # So we check if the model_id exists as a key in cache_data["data"]
-    assert model_id in cache_data["data"], "Instantiated model not found in cache."
+    assert MODEL_ID_FOR_CACHE in cache_data["data"], "Instantiated model not found in cache."
+
+
+def test_aixplain_model_cache_never_persists_the_api_key(model_cache):
+    """The account credential must not reach the cache file (BUG-940).
+
+    ``Model`` holds ``api_key`` as a plain instance attribute, so serializing
+    ``__dict__`` wrote the team key to disk in cleartext.
+    """
+    _ = ModelFactory.get(MODEL_ID_FOR_CACHE, use_cache=True)
+
+    raw = Path(model_cache.cache_file).read_text(encoding="utf-8")
+    assert "api_key" not in raw, "Cache file must not contain an api_key field."
+    assert config.TEAM_API_KEY not in raw, "Cache file must not contain the account credential."
+
+
+def test_aixplain_model_cache_is_private_and_outside_the_cwd(model_cache):
+    """The cache must be owner-only, and must not be written into $CWD (BUG-940).
+
+    A cache in the working directory is readable by anything sharing it: another
+    job on a CI runner, a Docker build layer, any local process.
+    """
+    _ = ModelFactory.get(MODEL_ID_FOR_CACHE, use_cache=True)
+
+    cache_file = Path(model_cache.cache_file)
+    assert not Path(LEGACY_CACHE_FILE).exists(), f"Cache must not be created in $CWD ({LEGACY_CACHE_FILE})."
+    assert Path.cwd() not in cache_file.parents, f"Cache must live outside $CWD, got {cache_file}."
+
+    if os.name != "nt":  # POSIX modes are not meaningful on Windows
+        assert stat.S_IMODE(cache_file.stat().st_mode) == 0o600, "Cache file must be mode 0600."
+        assert stat.S_IMODE(cache_file.parent.stat().st_mode) == 0o700, "Cache directory must be mode 0700."
+
+
+def test_model_get_without_cache_writes_nothing(model_cache):
+    """``use_cache=False`` must not write the cache (BUG-940).
+
+    Opting out of caching has to also opt out of persisting the model -- and so
+    the credential it used to carry.
+    """
+    _ = ModelFactory.get(MODEL_ID_FOR_CACHE)  # use_cache defaults to False
+
+    assert not os.path.exists(model_cache.cache_file), "use_cache=False must not write the cache file."
+    assert not Path(LEGACY_CACHE_FILE).exists(), f"use_cache=False must not create {LEGACY_CACHE_FILE}."
 
 
 @pytest.mark.skip(reason="Flaky on test env: sample image asset returns 404 during document parsing")

@@ -332,7 +332,10 @@ def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> L
             total_items = resp.get("total", 0)
             process_items(page_items)
 
-            while True:
+            # Only ask for further pages when the first one did not cover the
+            # batch. The exit condition used to be checked after the request, so
+            # every batch paid for one extra round trip even when complete.
+            while total_fetched < total_items:
                 # Make request for current page
                 paginated_url = urljoin(
                     config.BACKEND_URL, f"sdk/models?ids={','.join(model_ids)}&pageNumber={page_number}"
@@ -353,10 +356,6 @@ def get_model_from_ids(model_ids: List[str], api_key: Optional[str] = None) -> L
 
                 process_items(page_items)
                 total_fetched += len(page_items)
-
-                if total_fetched >= total_items:
-                    break
-
                 page_number += 1
         else:
             # Handle non-paginated response (original logic)
