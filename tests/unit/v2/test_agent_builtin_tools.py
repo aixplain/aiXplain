@@ -93,12 +93,21 @@ def test_unknown_toolkit_names_pass_through_untouched(aix):
 
 
 def test_a_toolkit_appended_after_construction_is_not_validated_either(aix):
-    """There is no setter hook, so this is a statement about there being no hook."""
+    """The setter normalizes shape only; in-place mutation is not intercepted at all."""
     agent = aix.Agent(name="workspace-agent", builtin_tools=["file"])
 
     agent.builtin_tools.append("not-a-toolkit")
 
     assert agent.to_dict()["builtinTools"] == ["file", "not-a-toolkit"]
+
+
+def test_an_unknown_toolkit_assigned_after_construction_is_not_validated_either(aix):
+    """Normalizing the shape on assignment must not start validating the values."""
+    agent = aix.Agent(name="workspace-agent")
+
+    agent.builtin_tools = ["banana"]
+
+    assert agent.to_dict()["builtinTools"] == ["banana"]
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +154,27 @@ def test_from_dict_hydrates_the_field():
     agent = Agent.from_dict({"id": "agent-id", "name": "workspace-agent", "builtinTools": ["file", "python"]})
 
     assert agent.builtin_tools == ["file", "python"]
+
+
+def test_from_dict_wraps_a_scalar_instead_of_exploding_it_into_characters():
+    """dataclasses-json decodes `List[str]` before `__init__`, so the setter is too late.
+
+    Left alone, a `"file"` would decode to `["f", "i", "l", "e"]` — four unknown
+    toolkits the worker silently drops — and no later coercion could tell that
+    apart from a genuine four-element list.
+    """
+    agent = Agent.from_dict({"id": "agent-id", "name": "workspace-agent", "builtinTools": "file"})
+
+    assert agent.builtin_tools == ["file"]
+
+
+def test_from_dict_does_not_mutate_the_callers_dict():
+    """`get()` passes the parsed response straight in; it must come back unchanged."""
+    response = {"id": "agent-id", "name": "workspace-agent", "builtinTools": "file"}
+
+    Agent.from_dict(response)
+
+    assert response["builtinTools"] == "file"
 
 
 @pytest.mark.parametrize("response", [{}, {"builtinTools": None}], ids=["absent", "null"])
@@ -254,6 +284,47 @@ def test_a_bare_string_is_wrapped_rather_than_exploded_into_characters(aix):
     agent = aix.Agent(name="workspace-agent", builtin_tools="file")
 
     assert agent.to_dict()["builtinTools"] == ["file"]
+
+
+def test_a_bare_string_assigned_after_construction_is_wrapped_too(aix):
+    """The same slip on the setter, which is what `save(builtin_tools=...)` uses.
+
+    Without the coercion in `__setattr__` this reaches the wire as
+    `"builtinTools": "file"` — a string where the contract says list.
+    """
+    agent = aix.Agent(name="workspace-agent")
+
+    agent.builtin_tools = "file"
+
+    assert agent.to_dict()["builtinTools"] == ["file"]
+
+
+def test_a_bare_string_passed_to_save_is_wrapped_too(aix):
+    """`save(**kwargs)` sets attributes, so it must get the constructor's coercion."""
+    aix.client.request = Mock(return_value={"id": "agent-id", "name": "workspace-agent"})
+    agent = aix.Agent(name="workspace-agent")
+
+    agent.save(builtin_tools="file")
+
+    assert aix.client.request.call_args.kwargs["json"]["builtinTools"] == ["file"]
+
+
+def test_an_enum_member_assigned_after_construction_serializes_as_a_plain_string(aix):
+    """`to_dict()` is public output; it must not leak `BuiltinToolkit` members."""
+    agent = aix.Agent(name="workspace-agent")
+
+    agent.builtin_tools = [BuiltinToolkit.FILE]
+
+    assert [type(toolkit) for toolkit in agent.to_dict()["builtinTools"]] == [str]
+
+
+def test_assigning_none_after_construction_omits_the_key_again(aix):
+    """Clearing back to "nothing to say" must not serialize as `[None]`."""
+    agent = aix.Agent(name="workspace-agent", builtin_tools=["file"])
+
+    agent.builtin_tools = None
+
+    assert "builtinTools" not in agent.to_dict()
 
 
 def test_a_lone_enum_member_is_wrapped_too(aix):

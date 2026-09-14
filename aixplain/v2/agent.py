@@ -808,8 +808,6 @@ class Agent(
         if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
             self.context_overflow_strategy = self.context_overflow_strategy.value
 
-        self.builtin_tools = _normalize_builtin_tools(self.builtin_tools)
-
         # Inspector targets are plain strings (e.g. "input" | "steps" | "output"
         # or a sub-agent name); normalize the known stage values to lowercase.
         if self.inspector_targets:
@@ -897,7 +895,7 @@ class Agent(
             self.skills = [self._skill_reference_id(skill) or skill for skill in self._original_skills]
 
     def __setattr__(self, name: str, value: Any) -> None:
-        """Keep ``self.budget`` a (never-None) ``Budget`` instance, and note role assignments.
+        """Keep ``self.budget`` a (never-None) ``Budget`` instance, normalize ``builtin_tools``, and note role assignments.
 
         Assigning ``agent.budget`` a dict / ``Budget`` / ``None`` is coerced into
         a ``Budget`` so attribute access (``agent.budget.max_cost = ...``) always
@@ -912,10 +910,17 @@ class Agent(
         recorded — ``_explicit_roles`` does not exist yet at that point — but
         such an object also has no recorded server fields, so suppression is off
         for it anyway. Hydration resets the set (see ``_record_server_fields``).
+
+        ``builtin_tools`` is normalized here rather than in ``__post_init__`` so
+        that ``agent.builtin_tools = "file"`` and ``agent.save(builtin_tools="file")``
+        get the same list coercion the constructor gives — otherwise a bare string
+        reaches the wire as ``"builtinTools": "file"`` instead of ``["file"]``.
         """
         if name == "budget":
             coerced = self._coerce_budget(value)
             value = coerced if coerced is not None else Budget()
+        if name == "builtin_tools":
+            value = _normalize_builtin_tools(value)
         if name in _ROLE_ATTRS:
             explicit = getattr(self, "_explicit_roles", None)
             if explicit is not None:
@@ -2681,8 +2686,23 @@ class Agent(
 _dataclass_json_agent_from_dict = Agent.from_dict.__func__
 
 
+def _wrap_scalar_builtin_tools(kvs: Any) -> Any:
+    """Wrap a scalar ``builtinTools`` before dataclasses-json decodes it.
+
+    The ``List[str]`` decoder runs ahead of ``__init__``, so it would turn a
+    ``"file"`` into ``["f", "i", "l", "e"]`` and ``__setattr__``'s coercion would
+    never see the string. Mirrors the constructor's scalar guard for the decode
+    path. Returns a copy; the caller's dict is untouched.
+    """
+    if isinstance(kvs, dict) and isinstance(kvs.get("builtinTools"), (str, bytes)):
+        kvs = dict(kvs)
+        kvs["builtinTools"] = [kvs["builtinTools"]]
+    return kvs
+
+
 def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
     kvs = cls._fold_legacy_max_iterations(kvs)
+    kvs = _wrap_scalar_builtin_tools(kvs)
     return _dataclass_json_agent_from_dict(cls, kvs, infer_missing=infer_missing)
 
 
