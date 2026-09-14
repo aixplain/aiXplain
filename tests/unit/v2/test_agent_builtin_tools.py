@@ -242,3 +242,73 @@ def test_toolkits_and_asset_tools_coexist(aix):
 
     assert payload["builtinTools"] == ["python"]
     assert payload["tools"][0]["assetId"] == "tool-id"
+
+
+def test_a_bare_string_is_wrapped_rather_than_exploded_into_characters(aix):
+    """`builtin_tools="file"` is the obvious slip on a list-valued field.
+
+    Iterating the string would enable `f`, `i`, `l` and `e` as four separate
+    toolkits — all unknown, so the worker would drop them with warnings and the
+    agent would silently end up with no toolkit at all.
+    """
+    agent = aix.Agent(name="workspace-agent", builtin_tools="file")
+
+    assert agent.to_dict()["builtinTools"] == ["file"]
+
+
+def test_a_lone_enum_member_is_wrapped_too(aix):
+    """`BuiltinToolkit` subclasses `str`, so it takes the same scalar path."""
+    agent = aix.Agent(name="workspace-agent", builtin_tools=BuiltinToolkit.PYTHON)
+
+    assert agent.to_dict()["builtinTools"] == ["python"]
+
+
+def test_a_non_list_sequence_is_normalized_to_a_list(aix):
+    """A tuple is a reasonable thing to pass; `to_dict()` must still emit JSON."""
+    agent = aix.Agent(name="workspace-agent", builtin_tools=("file", "python"))
+
+    assert agent.to_dict()["builtinTools"] == ["file", "python"]
+
+
+def test_the_callers_list_is_not_aliased(aix):
+    """Rebuilding the list in post-init must also decouple it from the caller's."""
+    requested = ["file"]
+    agent = aix.Agent(name="workspace-agent", builtin_tools=requested)
+
+    requested.append("bash")
+
+    assert agent.builtin_tools == ["file"]
+
+
+def test_a_backend_that_does_not_echo_the_key_does_not_clear_the_field(aix):
+    """Until ENG-3698 lands, the create response carries no `builtinTools`.
+
+    The in-memory agent must keep what it sent, or a save-then-save sequence
+    would drop the toolkits on the second call.
+    """
+    aix.client.request = Mock(return_value={"id": "agent-id", "name": "workspace-agent"})
+    agent = aix.Agent(name="workspace-agent", builtin_tools=["file"])
+
+    agent.save()
+
+    assert agent.builtin_tools == ["file"]
+    assert aix.client.request.call_args.kwargs["json"]["builtinTools"] == ["file"]
+
+
+def test_the_field_is_not_marked_auto_deserialize_only():
+    """A `decoder` here would silently null the field out on every save.
+
+    `resource.py`'s `_create` merge loop skips fields that are excluded from
+    serialization *unless* they also define a `decoder` — that pairing is the
+    codebase's "manually serialized, auto-deserialized" marker (`_role_field`).
+    `builtin_tools` relies on the skip: today's backend does not echo
+    `builtinTools`, so copying the response's value back would replace the
+    caller's list with `None`. Adding a decoder to tidy up response parsing
+    would reintroduce exactly that, and only the save path would show it.
+    """
+    from aixplain.v2.resource import _is_auto_deserialize_only, _is_excluded_from_serialization
+
+    field_def = Agent.__dataclass_fields__["builtin_tools"]
+
+    assert _is_excluded_from_serialization(field_def)
+    assert not _is_auto_deserialize_only(field_def)

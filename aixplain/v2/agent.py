@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import warnings
+from collections.abc import Iterable
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field, replace
@@ -607,6 +608,38 @@ class Task:
             ]
 
 
+def _normalize_builtin_tools(value: Any) -> Optional[List[str]]:
+    """Coerce whatever was supplied for ``builtin_tools`` into a plain list.
+
+    Shape only — no *value* is inspected. An unrecognized toolkit is the worker's
+    call to make, not the SDK's, so anything that survives being put in a list is
+    forwarded as-is.
+
+    Deliberately not wired up as a dataclasses-json ``decoder``: pairing
+    ``decoder`` with this field's ``exclude`` would mark it "manually serialized,
+    auto-deserialized" (see ``resource.py``'s ``_is_auto_deserialize_only``), and
+    ``_create``'s merge loop would then copy the response's value over the local
+    one. Today's backend does not echo ``builtinTools`` at all, so that would
+    null out the list on every save. A malformed *response* is a backend contract
+    break and is left to surface as an error; a malformed *argument* is a caller
+    slip and is normalized here.
+
+    ``BuiltinToolkit`` members are unwrapped to their values. They are ``str``
+    subclasses and would serialize correctly either way, so this is cosmetic: it
+    keeps ``to_dict()`` output and repr free of enum noise.
+    """
+    if value is None:
+        return None
+    # A bare ``"file"`` is the obvious slip on a list-valued field; wrap it rather
+    # than iterating it into one bogus single-character toolkit per letter, the
+    # way ``Skill`` requires and ``RLM`` prompts take a scalar. Non-iterables are
+    # wrapped for the same reason: forwarding one to the worker, which drops what
+    # it does not recognize, beats raising out of the constructor.
+    if isinstance(value, (str, bytes)) or not isinstance(value, Iterable):
+        value = [value]
+    return [toolkit.value if isinstance(toolkit, Enum) else toolkit for toolkit in value]
+
+
 @dataclass_json
 @dataclass(repr=False)
 class Agent(
@@ -797,15 +830,10 @@ class Agent(
         if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
             self.context_overflow_strategy = self.context_overflow_strategy.value
 
-        # ``BuiltinToolkit`` members are ``str`` subclasses and already serialize
-        # as their value, so this is cosmetic: it keeps ``to_dict()`` output and
-        # test comparisons free of enum reprs. Plain strings pass straight
-        # through and nothing is validated — an unrecognized toolkit is the
-        # worker's call to make, not the SDK's.
-        if self.builtin_tools is not None:
-            self.builtin_tools = [
-                toolkit.value if isinstance(toolkit, Enum) else toolkit for toolkit in self.builtin_tools
-            ]
+        # Shape-normalize what the caller passed. Rebuilding the list also means
+        # the caller's own list is never aliased. See ``_normalize_builtin_tools``
+        # for why this is not a validation hook.
+        self.builtin_tools = _normalize_builtin_tools(self.builtin_tools)
 
         # Inspector targets are plain strings (e.g. "input" | "steps" | "output"
         # or a sub-agent name); normalize the known stage values to lowercase.
