@@ -609,32 +609,16 @@ class Task:
 
 
 def _normalize_builtin_tools(value: Any) -> Optional[List[str]]:
-    """Coerce whatever was supplied for ``builtin_tools`` into a plain list.
+    """Coerce ``builtin_tools`` into a plain list of strings. Shape only, values unchecked.
 
-    Shape only — no *value* is inspected. An unrecognized toolkit is the worker's
-    call to make, not the SDK's, so anything that survives being put in a list is
-    forwarded as-is.
-
-    Deliberately not wired up as a dataclasses-json ``decoder``: pairing
-    ``decoder`` with this field's ``exclude`` would mark it "manually serialized,
-    auto-deserialized" (see ``resource.py``'s ``_is_auto_deserialize_only``), and
-    ``_create``'s merge loop would then copy the response's value over the local
-    one. Today's backend does not echo ``builtinTools`` at all, so that would
-    null out the list on every save. A malformed *response* is a backend contract
-    break and is left to surface as an error; a malformed *argument* is a caller
-    slip and is normalized here.
-
-    ``BuiltinToolkit`` members are unwrapped to their values. They are ``str``
-    subclasses and would serialize correctly either way, so this is cosmetic: it
-    keeps ``to_dict()`` output and repr free of enum noise.
+    Deliberately not a dataclasses-json ``decoder``: paired with this field's ``exclude``
+    that marks it auto-deserialize-only (``resource.py``, ``_is_auto_deserialize_only``),
+    and ``_create``'s merge loop would then overwrite the local list with the response —
+    which omits ``builtinTools`` entirely today, nulling it on every save.
     """
     if value is None:
         return None
-    # A bare ``"file"`` is the obvious slip on a list-valued field; wrap it rather
-    # than iterating it into one bogus single-character toolkit per letter, the
-    # way ``Skill`` requires and ``RLM`` prompts take a scalar. Non-iterables are
-    # wrapped for the same reason: forwarding one to the worker, which drops what
-    # it does not recognize, beats raising out of the constructor.
+    # A bare ``"file"`` would otherwise iterate into one toolkit per letter.
     if isinstance(value, (str, bytes)) or not isinstance(value, Iterable):
         value = [value]
     return [toolkit.value if isinstance(toolkit, Enum) else toolkit for toolkit in value]
@@ -677,14 +661,8 @@ class Agent(
     tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
 
     # Built-in worker toolkits enabled for this agent (``file`` / ``python`` /
-    # ``bash``). A capability toggle, not an asset row: it lives beside ``tools``
-    # rather than inside it, there is no ``include`` and there are no per-toolkit
-    # settings. The worker owns behavior — an unknown or deployment-gated toolkit
-    # is dropped there with a warning on the run result, never an error — so the
-    # SDK forwards the list verbatim and never validates, dedupes or case-folds
-    # it. ``None`` is omitted from the payload; the backend treats absent,
-    # ``null`` and ``[]`` alike as "none enabled", so an explicit ``[]`` is how a
-    # caller clears the toolkits of an agent that currently has some.
+    # ``bash``). Forwarded verbatim: the worker validates and gates, not the SDK.
+    # ``None`` is omitted from the payload, so ``[]`` is how a caller clears them.
     builtin_tools: Optional[List[str]] = field(
         default=None,
         metadata=config(field_name="builtinTools", exclude=lambda v: v is None),
@@ -830,9 +808,6 @@ class Agent(
         if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
             self.context_overflow_strategy = self.context_overflow_strategy.value
 
-        # Shape-normalize what the caller passed. Rebuilding the list also means
-        # the caller's own list is never aliased. See ``_normalize_builtin_tools``
-        # for why this is not a validation hook.
         self.builtin_tools = _normalize_builtin_tools(self.builtin_tools)
 
         # Inspector targets are plain strings (e.g. "input" | "steps" | "output"
