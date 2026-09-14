@@ -5,7 +5,6 @@ from .rlm import RLM, RLMResult
 from .utility import Utility
 from .agent import Agent, Artifact, Budget, ContextOverflowStrategy
 from .tool import Tool
-from .builtin_tool import BuiltinTool
 from .skill import Skill
 from .actions import Input, Inputs, Action, Actions
 from .integration import TriggerTypeSpec, TriggerEventOption, TriggerTypes
@@ -91,6 +90,7 @@ from .enums import (
     MessageRole,
     Reaction,
     AttachmentType,
+    BuiltinToolkit,
 )
 
 __all__ = [
@@ -103,7 +103,6 @@ __all__ = [
     "Budget",
     "ContextOverflowStrategy",
     "Tool",
-    "BuiltinTool",
     "Skill",
     "Resource",
     "File",
@@ -195,6 +194,7 @@ __all__ = [
     "MessageRole",
     "Reaction",
     "AttachmentType",
+    "BuiltinToolkit",
     # Actions / Inputs hierarchy
     "Input",
     "Inputs",

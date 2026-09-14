@@ -83,50 +83,42 @@ print(result.data.output)
 
 > Runs return typed objects — read outputs with `result.data.output`, not dict indexing.
 
-### Attach built-in toolkits
+### Enable built-in toolkits
 
-Agents can use the worker's built-in toolkits — a sandboxed filesystem, a Python
-interpreter and a shell — without onboarding any asset. Attach them with
-`BuiltinTool`, which validates the toolkit, the tool names and the settings before
-anything reaches the backend.
+Agents can use the worker's built-in toolkits — a sandboxed filesystem (`file`),
+a Python interpreter (`python`) and a shell (`bash`) — without onboarding any
+asset. They are a capability toggle on the agent, not entries in `tools`:
 
 ```python
 from aixplain import Aixplain
-from aixplain.v2 import BuiltinTool
 
 aix = Aixplain()  # reads AIXPLAIN_API_KEY from the environment
 
 agent = aix.Agent(
     name="Workspace agent",
     instructions="Read the uploaded files and compute the summary statistics.",
-    tools=[
-        # Omit `include` to expose every tool in the toolkit.
-        BuiltinTool(toolkit="file", include=["read_file", "glob", "grep"]),
-        BuiltinTool(toolkit="python", timeout_s=30),
-    ],
+    builtin_tools=["file", "python"],
 )
 agent.save()
 
-# Toolkits read back as objects, so a setting is one attribute away.
 fetched = aix.Agent.get(agent.id)
-fetched.tools[1].timeout_s = 60
+fetched.builtin_tools.append("bash")
 fetched.save()
 ```
 
-Available tools per toolkit: `file` — `read_file`, `list_directory`, `glob`,
-`grep`, `write_file`, `edit_file`; `python` — `run_python`; `bash` —
-`run_command`. Settings are per toolkit too (`file`: `max_read_bytes`,
-`max_results`; `python`: `timeout_s`, `expose_files`; `bash`: `timeout_s`,
-`max_output_bytes`, `deny_patterns`), and using one on the wrong toolkit raises a
-`ValueError` naming the settings that toolkit accepts. Anything you leave unset
-keeps the worker's default.
+`aixplain.v2.BuiltinToolkit` (`FILE` / `PYTHON` / `BASH`) is available for
+autocompletion, but the field takes plain strings and the SDK never validates
+them — a toolkit the worker does not know, or one turned off for the deployment,
+is dropped at run time with a warning on the run result rather than rejected
+here. `bash` is accepted by the API but is currently disabled in every
+environment.
 
-`include` distinguishes three states: omit it for every tool in the toolkit,
-pass a subset to narrow it, or pass `[]` to attach the toolkit with no tools at
-all.
+There is no `include` and there are no per-toolkit settings. Python sees the
+workspace exactly when both `file` and `python` are enabled; the worker infers
+that rather than exposing a knob.
 
-> The `bash` toolkit must be enabled per deployment. Where it is not, the backend
-> rejects an agent that attaches it.
+> Requires the built-in toolkit rollout on the backend. Until it ships, the
+> field is accepted by the SDK but has no effect on a run.
 
 ### Build a multi-agent team
 

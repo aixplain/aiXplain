@@ -310,6 +310,20 @@ class AttachmentType(str, Enum):
     UNKNOWN = "unknown"
 
 
+class BuiltinToolkit(str, Enum):
+    """Built-in worker toolkits that can be enabled on an agent.
+
+    Optional sugar for ``Agent.builtin_tools``, which accepts plain strings too —
+    the SDK never validates the values. A toolkit the worker does not know, or one
+    gated off for the deployment, is dropped at run time with a warning on the run
+    result rather than rejected here.
+    """
+
+    FILE = "file"
+    PYTHON = "python"
+    BASH = "bash"
+
+
 __all__ = [
     "AuthenticationScheme",
     "FileContentType",
@@ -337,4 +351,5 @@ __all__ = [
     "MessageRole",
     "Reaction",
     "AttachmentType",
+    "BuiltinToolkit",
 ]

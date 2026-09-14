@@ -11,7 +11,6 @@ from .model import Model
 from .agent import Agent
 from .utility import Utility
 from .tool import Tool
-from .builtin_tool import BuiltinTool as BuiltinToolClass
 from .skill import Skill
 from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
 from .integration import Integration
@@ -61,9 +60,6 @@ class Aixplain:
     Agent: AgentType = None
     Utility: UtilityType = None
     Tool: ToolType = None
-    # A context-free value object (no id, no save, no network), so it is bound
-    # as a plain class attribute rather than re-typed with a ``context``.
-    BuiltinTool = BuiltinToolClass
     Skill: SkillType = None
     Metric: MetricType = None
     Eval: type = None
@@ -99,6 +95,7 @@ class Aixplain:
     MessageRole = enums.MessageRole
     Reaction = enums.Reaction
     AttachmentType = enums.AttachmentType
+    BuiltinToolkit = enums.BuiltinToolkit
 
     BACKEND_URL = "https://platform-api.aixplain.com"
     BENCHMARKS_BACKEND_URL = "https://platform-api.aixplain.com"

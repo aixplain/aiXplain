@@ -1,6 +1,5 @@
 """Agent module for aiXplain v2 SDK."""
 
-import copy
 import json
 import logging
 import re
@@ -19,7 +18,6 @@ from .model import Model
 from .file import File
 from .skill import Skill
 from .mixins import ToolableMixin
-from .builtin_tool import BUILTIN_TYPE, TOOLKIT_TOOLS, BuiltinTool
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
@@ -645,6 +643,20 @@ class Agent(
     # Asset and tool fields
     tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
 
+    # Built-in worker toolkits enabled for this agent (``file`` / ``python`` /
+    # ``bash``). A capability toggle, not an asset row: it lives beside ``tools``
+    # rather than inside it, there is no ``include`` and there are no per-toolkit
+    # settings. The worker owns behavior — an unknown or deployment-gated toolkit
+    # is dropped there with a warning on the run result, never an error — so the
+    # SDK forwards the list verbatim and never validates, dedupes or case-folds
+    # it. ``None`` is omitted from the payload; the backend treats absent,
+    # ``null`` and ``[]`` alike as "none enabled", so an explicit ``[]`` is how a
+    # caller clears the toolkits of an agent that currently has some.
+    builtin_tools: Optional[List[str]] = field(
+        default=None,
+        metadata=config(field_name="builtinTools", exclude=lambda v: v is None),
+    )
+
     # Inspector and team mentalist/planner/supervisor/response-generator.
     inspector_id: Optional[str] = field(default=None, metadata=config(field_name="inspectorId"))
     planner: Optional[RoleModelRef] = _role_field(save_key="planner")
@@ -784,6 +796,16 @@ class Agent(
 
         if isinstance(self.context_overflow_strategy, ContextOverflowStrategy):
             self.context_overflow_strategy = self.context_overflow_strategy.value
+
+        # ``BuiltinToolkit`` members are ``str`` subclasses and already serialize
+        # as their value, so this is cosmetic: it keeps ``to_dict()`` output and
+        # test comparisons free of enum reprs. Plain strings pass straight
+        # through and nothing is validated — an unrecognized toolkit is the
+        # worker's call to make, not the SDK's.
+        if self.builtin_tools is not None:
+            self.builtin_tools = [
+                toolkit.value if isinstance(toolkit, Enum) else toolkit for toolkit in self.builtin_tools
+            ]
 
         # Inspector targets are plain strings (e.g. "input" | "steps" | "output"
         # or a sub-agent name); normalize the known stage values to lowercase.
@@ -956,22 +978,9 @@ class Agent(
     @staticmethod
     def _tool_identity(tool: Any) -> dict:
         """Return a stable id/type signature for a tool entry (no param values)."""
-        if isinstance(tool, BuiltinTool):
-            # A builtin row carries no id, so an id/type signature would collapse
-            # every toolkit onto the same value. Its settings are persisted
-            # configuration rather than ephemeral run-time overrides, so the full
-            # row is the identity: editing ``timeout_s`` must mark the agent
-            # modified.
-            return tool.as_tool()
         if isinstance(tool, str):
             return {"id": tool}
         if isinstance(tool, dict):
-            if not tool.get("id"):
-                # An id-less row *is* its own identity: a builtin row that
-                # stayed a dict, or any future inline-config tool. Collapsing
-                # these onto {"id": None, ...} would make two different rows
-                # look identical and hide in-place edits from ``is_modified``.
-                return copy.deepcopy(tool)
             return {"id": tool.get("id"), "type": tool.get("type")}
         return {"id": getattr(tool, "id", None), "type": getattr(tool, "type", None)}
 
@@ -1773,45 +1782,18 @@ class Agent(
         reads and ``inputs[...] = value`` mutations do not require a network
         call. When the snapshot carries no parameters, the object is left to
         load its input specs lazily on first ``.actions`` access (matching a
-        normal ``Tool.get``). Asset hydration requires a client context; without
-        one (e.g. an unbound ``Agent`` in unit tests) the raw entries are kept
-        as-is. Built-in toolkit rows reference no asset, so they are converted
-        whether or not a context is present.
+        normal ``Tool.get``). Requires a client context; without one (e.g. an
+        unbound ``Agent`` in unit tests) the raw entries are kept as-is.
         """
-        if not self.tools:
-            return
         context = getattr(self, "context", None)
-        if context is None and not any(self._is_builtin_row(entry) for entry in self.tools):
-            # Nothing to convert: leave the caller's own list object in place.
+        if context is None or not self.tools:
             return
         self.tools = [self._hydrate_tool_entry(entry, context) for entry in self.tools]
 
-    @staticmethod
-    def _is_builtin_row(entry: Any) -> bool:
-        """True for a raw ``{"type": "builtin", ...}`` row that still needs converting."""
-        return isinstance(entry, dict) and entry.get("type") == BUILTIN_TYPE
-
     def _hydrate_tool_entry(self, entry: Any, context: Any) -> Any:
-        """Hydrate one ``tools`` entry into a BuiltinTool/Tool/Model (best-effort)."""
+        """Hydrate one ``tools`` entry into a Tool/Model object (best-effort)."""
         if not isinstance(entry, dict):
             return entry  # already a Tool/Model/Integration object or a string id
-        if self._is_builtin_row(entry):
-            # Must return before the asset branch below: a builtin row that also
-            # carried an id would otherwise be rebuilt as a catalog Tool and
-            # saved back as ``{"type": "tool", "assetId": ...}``, losing the
-            # toolkit config and pointing at an asset that does not exist.
-            try:
-                return BuiltinTool.from_dict(entry)
-            except (ValueError, TypeError):
-                # An unknown toolkit may come from a backend newer than this
-                # SDK, so the row is kept and replayed verbatim. A row whose
-                # toolkit this version *does* know is malformed, and staying
-                # silent would ship it to the backend.
-                if isinstance(entry.get("toolkit"), str) and entry["toolkit"] in TOOLKIT_TOOLS:
-                    raise
-                return entry
-        if context is None:
-            return entry
         tool_id = entry.get("id")
         if not tool_id:
             return entry
@@ -2702,22 +2684,3 @@ def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
 
 
 Agent.from_dict = classmethod(_agent_from_dict)
-
-# ``@dataclass_json`` also injects ``to_dict``, and it would recurse into a
-# ``BuiltinTool`` (a dataclass) and emit its raw fields — a row with no ``type``
-# discriminator, which ``from_dict`` cannot rebuild and the worker drops. Wrap
-# the injected encoder so those entries serialize as their wire rows instead.
-_dataclass_json_agent_to_dict = Agent.to_dict
-
-
-def _agent_to_dict(self, *args: Any, **kwargs: Any) -> dict:
-    original_tools = self.tools
-    if original_tools:
-        self.tools = [tool.as_tool() if isinstance(tool, BuiltinTool) else tool for tool in original_tools]
-    try:
-        return _dataclass_json_agent_to_dict(self, *args, **kwargs)
-    finally:
-        self.tools = original_tools
-
-
-Agent.to_dict = _agent_to_dict
