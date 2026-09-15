@@ -109,9 +109,9 @@ fetched.save()
 `aixplain.v2.BuiltinToolkit` (`FILE` / `PYTHON` / `BASH`) is available for
 autocompletion, but the field takes plain strings and the SDK never validates
 them — a toolkit the worker does not know, or one turned off for the deployment,
-is dropped at run time with a warning on the run result rather than rejected
-here. `bash` is accepted by the API but is currently disabled in every
-environment.
+is dropped at run time with a warning on the run result (`result.warnings`)
+rather than rejected here. `bash` is accepted by the API but is currently
+disabled in every environment.
 
 There is no `include` and there are no per-toolkit settings. Python sees the
 workspace exactly when both `file` and `python` are enabled; the worker infers

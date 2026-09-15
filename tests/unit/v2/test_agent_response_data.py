@@ -87,3 +87,31 @@ def test_malformed_steps_yield_an_empty_set():
     assert _step_unit_names(None) == set()
     assert _step_unit_names("steps") == set()
     assert _step_unit_names([None, "x", 3]) == set()
+
+
+# ---------------------------------------------------------------------------
+# AgentRunResult.warnings
+# ---------------------------------------------------------------------------
+
+
+def test_run_result_warnings_read_the_nested_data_field():
+    result = AgentRunResult.from_dict({"status": "SUCCESS", "completed": True, "data": {"warnings": [GATED_BASH]}})
+
+    assert result.warnings == [GATED_BASH]
+
+
+def test_run_result_warnings_fall_back_to_a_top_level_key_the_poll_allow_list_drops():
+    raw = {"status": "SUCCESS", "completed": True, "data": {"output": "ok"}, "warnings": [GATED_BASH]}
+    result = AgentRunResult.from_dict({"status": "SUCCESS", "completed": True, "data": raw["data"]})
+    result._raw_data = raw
+
+    assert result.warnings == [GATED_BASH]
+
+
+def test_run_result_warnings_accept_a_hand_built_dict_data():
+    assert AgentRunResult(status="SUCCESS", completed=True, data={"warnings": [GATED_BASH, 3]}).warnings == [GATED_BASH]
+
+
+def test_run_result_without_warnings_is_an_empty_list():
+    assert AgentRunResult.from_dict({"status": "SUCCESS", "completed": True, "data": {"output": "ok"}}).warnings == []
+    assert AgentRunResult(status="SUCCESS", completed=True).warnings == []

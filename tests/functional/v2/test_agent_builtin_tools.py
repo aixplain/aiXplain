@@ -27,8 +27,16 @@ def _get_when_builtin_tools_match(client, agent_id, expected):
     # Dev's read path can trail a save by ~1 s; a field the backend lost outright (ENG-3711) never converges.
     deadline = time.monotonic() + READ_AFTER_WRITE_TIMEOUT_S
     while True:
-        fetched = client.Agent.get(agent_id)
-        if sorted(fetched.builtin_tools or []) == sorted(expected) or time.monotonic() >= deadline:
+        expired = time.monotonic() >= deadline
+        try:
+            fetched = client.Agent.get(agent_id)
+        except Exception:
+            # A create can 404 for the same lag; only let it surface once the budget is spent.
+            if expired:
+                raise
+            time.sleep(0.5)
+            continue
+        if sorted(fetched.builtin_tools or []) == sorted(expected) or expired:
             return fetched
         time.sleep(0.5)
 
@@ -111,4 +119,5 @@ def test_a_gated_toolkit_is_dropped_with_a_warning_on_the_run_result(client, res
     response = agent.run("Reply with the single word: ok")
 
     assert response.status == "SUCCESS", f"Agent execution failed: {response.status}"
-    assert any(BASH_GATED_WARNING in warning for warning in response.data.warnings), response.data.warnings
+    # ``response.warnings`` covers both placements; ``data.warnings`` alone misses a top-level key.
+    assert any(BASH_GATED_WARNING in warning for warning in response.warnings), response.warnings

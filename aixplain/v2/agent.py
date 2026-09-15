@@ -549,6 +549,17 @@ class AgentRunResult(Result):
         return []
 
     @property
+    def warnings(self) -> List[str]:
+        """Non-fatal run warnings, e.g. a built-in toolkit the worker skipped. Always a list."""
+        data = self.data
+        if isinstance(data, AgentResponseData) and data.warnings:
+            return data.warnings
+        if isinstance(data, dict) and data.get("warnings"):
+            return _coerce_warnings(data.get("warnings"))
+        # The poll path rebuilds the result from an allow-list of top-level keys, so read the raw body too.
+        return _coerce_warnings((self._raw_data or {}).get("warnings"))
+
+    @property
     def execution_id(self) -> Optional[str]:
         """Extract the execution ID from the poll URL or request_id.
 
