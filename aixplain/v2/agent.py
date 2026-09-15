@@ -557,7 +557,8 @@ class AgentRunResult(Result):
         if isinstance(data, dict) and data.get("warnings"):
             return _coerce_warnings(data.get("warnings"))
         # The poll path rebuilds the result from an allow-list of top-level keys, so read the raw body too.
-        return _coerce_warnings((self._raw_data or {}).get("warnings"))
+        raw = self._raw_data
+        return _coerce_warnings(raw.get("warnings")) if isinstance(raw, dict) else []
 
     @property
     def execution_id(self) -> Optional[str]:

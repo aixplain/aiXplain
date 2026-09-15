@@ -115,3 +115,12 @@ def test_run_result_warnings_accept_a_hand_built_dict_data():
 def test_run_result_without_warnings_is_an_empty_list():
     assert AgentRunResult.from_dict({"status": "SUCCESS", "completed": True, "data": {"output": "ok"}}).warnings == []
     assert AgentRunResult(status="SUCCESS", completed=True).warnings == []
+
+
+def test_run_result_warnings_never_raise_on_a_non_dict_raw_body():
+    # An AttributeError inside the property would be rerouted through Result.__getattr__ and misreported.
+    for raw in ("plain text body", ["a"]):
+        result = AgentRunResult(status="SUCCESS", completed=True)
+        result._raw_data = raw
+
+        assert result.warnings == []
