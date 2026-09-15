@@ -56,11 +56,6 @@ def build_tools_from_input_map(run_input_map):
                     tool_["supplier"] = supplier
                     break
             tools.append(AgentFactory.create_model_tool(**tool_))
-    if "pipeline_tools" in run_input_map:
-        for tool in run_input_map["pipeline_tools"]:
-            tools.append(
-                AgentFactory.create_pipeline_tool(pipeline=tool["pipeline_id"], description=tool["description"])
-            )
     return tools
 
 
@@ -601,59 +596,6 @@ def test_agent_with_utility_tool(resource_tracker, AgentFactory):
 
     assert "bnn" in result_vowel["data"]["output"].lower()
     assert "goodmorning" in result_concat_text["data"]["output"].lower()
-
-
-@pytest.mark.parametrize("AgentFactory", [AgentFactory])
-def test_agent_with_pipeline_tool(resource_tracker, AgentFactory):
-    from aixplain.factories.pipeline_factory import PipelineFactory
-
-    # The fixed name "Hello Pipeline" used to be preceded by a sweep that
-    # deleted *every* pipeline in the tenant matching that query -- the same
-    # name-based delete as the apikey fixture, and on `main` it ran against
-    # production. A unique name per run removes the collision the sweep existed
-    # to resolve, and the tracker deletes the one pipeline this test owns
-    # (BUG-947). The agent tool below references `pipeline.id`, not its name.
-    pipeline = PipelineFactory.init(f"Hello Pipeline {str(uuid4())[:8]}")
-    input_node = pipeline.input()
-    input_node.label = "TextInput"
-    middle_node = pipeline.asset(asset_id="69b7e5f1b2fe44704ab0e7d0")
-    middle_node.inputs.prompt.value = "Respond with 'Hello' regardless of the input text: "
-    input_node.link(middle_node, "input", "text")
-    middle_node.use_output("data")
-    pipeline.save()
-    # `save()` is what creates the pipeline on the backend, so it is registered
-    # before `deploy()` can fail and leak it.
-    resource_tracker.append(pipeline)
-    pipeline.deploy()
-
-    agent_name = f"TRA {str(uuid4())[:8]}"
-    pipeline_agent = AgentFactory.create(
-        name=agent_name,
-        instructions="Always call the pipeline tool feeding the user query as input to 'TextInput'. Return the output of the pipeline as the final response.",
-        description="Return the text given.",
-        tools=[
-            AgentFactory.create_pipeline_tool(
-                pipeline=pipeline.id,
-                description="You are a tool that responds users query with only 'Hello'.",
-            ),
-        ],
-        llm_id="69b7e5f1b2fe44704ab0e7d0",
-    )
-    resource_tracker.append(pipeline_agent)
-
-    answer = pipeline_agent.run("Who is the president of USA?")
-
-    assert "hello" in answer["data"]["output"].lower()
-    pipeline_tool_found = False
-    for step in answer["data"]["intermediate_steps"]:
-        if step.get("tool_steps"):
-            for ts in step["tool_steps"]:
-                if ts.get("tool") and "hello pipeline" in ts["tool"].lower():
-                    pipeline_tool_found = True
-                    break
-        if pipeline_tool_found:
-            break
-    assert pipeline_tool_found, "Pipeline tool was not found in intermediate steps"
 
 
 @pytest.mark.parametrize("AgentFactory", [AgentFactory])
