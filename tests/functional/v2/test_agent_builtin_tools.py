@@ -1,50 +1,41 @@
 """Functional coverage for built-in agent toolkits (ENG-3699).
 
-Skipped until ENG-3698 ships `builtinTools` on the backend: until then the key is
-ignored on create and absent from the read, so the round-trip below would fail
-for a reason that has nothing to do with the SDK. Un-skipping is the one-line
-change immediately below.
+`builtinTools` is deployed on dev only, while CI's functional legs run against the
+test and prod backends, so the module stays skipped there. Un-skip it locally
+against dev to exercise it.
 """
 
 import time
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Requires builtinTools support on the backend (ENG-3698)")
+from aixplain.v2.agent import _step_unit_names
 
-#: Tool names the worker reports in a run step when a toolkit is used.
+pytestmark = pytest.mark.skip(
+    reason="builtinTools is live on dev only; CI functional legs target test/prod (ENG-3698 rollout)"
+)
+
+#: Tool names the worker reports as a step's unit when a toolkit is used.
 BUILTIN_STEP_TOOLS = {"read_file", "list_directory", "glob", "grep", "write_file", "edit_file", "run_python"}
 
+BASH_GATED_WARNING = "Built-in toolkit 'bash' is not enabled on this worker"
 
-def _step_tool_names(response) -> set:
-    """Collect every tool name the run's intermediate steps mention.
+READ_AFTER_WRITE_TIMEOUT_S = 8.0
 
-    The engine has more than one spelling for the field naming the tool a step
-    invoked, so all of them are read and the union returned; the assertion below
-    only asks whether a built-in tool appears at all.
-    """
-    data = getattr(response, "data", None)
-    names = set()
-    for step in getattr(data, "steps", None) or []:
-        if not isinstance(step, dict):
-            continue
-        for key in ("tool", "toolName", "name", "action"):
-            value = step.get(key)
-            if isinstance(value, str):
-                names.add(value)
-    return names
+
+def _get_when_builtin_tools_match(client, agent_id, expected):
+    # Dev's read path can trail a save by ~1 s; a field the backend lost outright (ENG-3711) never converges.
+    deadline = time.monotonic() + READ_AFTER_WRITE_TIMEOUT_S
+    while True:
+        fetched = client.Agent.get(agent_id)
+        if sorted(fetched.builtin_tools or []) == sorted(expected) or time.monotonic() >= deadline:
+            return fetched
+        time.sleep(0.5)
 
 
 @pytest.mark.flaky(reruns=2, reason="LLM may not always choose to use a built-in toolkit")
 def test_agent_runs_with_file_and_python_builtin_toolkits(client, resource_tracker):
-    """Enable the file and python toolkits, run, and confirm one of them was used.
-
-    Verifies end to end that:
-
-    1. an agent carrying `builtin_tools` is accepted by the backend;
-    2. the list survives a `get()` round-trip;
-    3. the worker actually exposes the toolkits to the agent at run time.
-    """
+    """Enable the file and python toolkits, run, and confirm one of them was used."""
     agent = client.Agent(
         name=f"builtin-toolkit-test-{int(time.time())}",
         description="Temporary agent for built-in toolkit functional testing",
@@ -57,16 +48,17 @@ def test_agent_runs_with_file_and_python_builtin_toolkits(client, resource_track
     agent.save()
     resource_tracker.append(agent)
 
-    assert client.Agent.get(agent.id).builtin_tools == ["file", "python"]
+    fetched = _get_when_builtin_tools_match(client, agent.id, ["file", "python"])
+    assert sorted(fetched.builtin_tools or []) == ["file", "python"]
 
     response = agent.run(
-        "List the files in your workspace, then use Python to compute 17 * 23. "
+        "Write the text 'hello' to a file named hello.txt, then use Python to compute 17 * 23. "
         "Do not answer the arithmetic from memory — run it."
     )
 
     assert response.status == "SUCCESS", f"Agent execution failed: {response.status}"
 
-    used = _step_tool_names(response)
+    used = _step_unit_names(response.data.steps)
     assert used & BUILTIN_STEP_TOOLS, (
         f"Expected a built-in toolkit step (one of {sorted(BUILTIN_STEP_TOOLS)}) in the run's "
         f"intermediate steps; saw {sorted(used)}."
@@ -84,14 +76,39 @@ def test_builtin_toolkits_can_be_changed_on_a_saved_agent(client, resource_track
     agent.save()
     resource_tracker.append(agent)
 
-    fetched = client.Agent.get(agent.id)
+    fetched = _get_when_builtin_tools_match(client, agent.id, ["python"])
+    assert fetched.builtin_tools == ["python"]
+
     fetched.builtin_tools.append("file")
     fetched.save()
 
-    assert sorted(client.Agent.get(agent.id).builtin_tools) == ["file", "python"]
+    assert sorted(_get_when_builtin_tools_match(client, agent.id, ["file", "python"]).builtin_tools or []) == [
+        "file",
+        "python",
+    ]
 
-    # An explicit empty list is how a caller turns every toolkit back off.
     fetched.builtin_tools = []
     fetched.save()
 
-    assert client.Agent.get(agent.id).builtin_tools in (None, [])
+    assert _get_when_builtin_tools_match(client, agent.id, []).builtin_tools in (None, [])
+
+
+def test_a_gated_toolkit_is_dropped_with_a_warning_on_the_run_result(client, resource_tracker):
+    """`bash` is disabled on every worker: the run succeeds and says why bash is missing."""
+    agent = client.Agent(
+        name=f"builtin-toolkit-gated-{int(time.time())}",
+        description="Temporary agent for built-in toolkit gating",
+        instructions="Answer briefly.",
+        builtin_tools=["python", "bash"],
+    )
+    agent.save()
+    resource_tracker.append(agent)
+
+    # Running a lagged definition could omit bash entirely and fail for the wrong reason.
+    fetched = _get_when_builtin_tools_match(client, agent.id, ["python", "bash"])
+    assert sorted(fetched.builtin_tools or []) == ["bash", "python"]
+
+    response = agent.run("Reply with the single word: ok")
+
+    assert response.status == "SUCCESS", f"Agent execution failed: {response.status}"
+    assert any(BASH_GATED_WARNING in warning for warning in response.data.warnings), response.data.warnings
