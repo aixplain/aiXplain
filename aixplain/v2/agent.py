@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
+from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Set, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
 from dataclasses_json import dataclass_json, config
 
@@ -405,6 +405,30 @@ class Artifact:
         return artifacts
 
 
+def _coerce_warnings(value: Any) -> List[str]:
+    """Decode a run ``warnings`` payload without ever raising; non-string entries are dropped."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+_FLAT_STEP_NAME_KEYS = ("tool", "toolName", "name", "action")
+
+
+def _step_unit_names(steps: Any) -> Set[str]:
+    """Collect the name of the unit each run step executed (``step["unit"]["name"]``)."""
+    names: Set[str] = set()
+    for step in steps if isinstance(steps, list) else []:
+        if not isinstance(step, dict):
+            continue
+        unit = step.get("unit")
+        if isinstance(unit, dict) and isinstance(unit.get("name"), str):
+            names.add(unit["name"])
+            continue
+        names.update(step[key] for key in _FLAT_STEP_NAME_KEYS if isinstance(step.get(key), str))
+    return names
+
+
 @dataclass_json
 @dataclass
 class AgentResponseData:
@@ -425,6 +449,11 @@ class AgentResponseData:
         default_factory=list,
         metadata=config(decoder=Artifact._coerce_list),
     )
+    # Optional for the same reason as ``artifacts``; never None after ``__post_init__``.
+    warnings: Optional[List[str]] = field(
+        default_factory=list,
+        metadata=config(decoder=_coerce_warnings),
+    )
     governance: Optional[Dict[str, Any]] = None
     _governance_status: Optional[str] = field(
         default=None, repr=False, metadata=config(field_name="governanceStatus", exclude=lambda x: True)
@@ -437,13 +466,14 @@ class AgentResponseData:
     )
 
     def __post_init__(self) -> None:
-        """Normalize ``artifacts`` and assemble ``governance`` from flat wire fields."""
+        """Normalize ``artifacts`` / ``warnings`` and assemble ``governance`` from flat wire fields."""
         # Also runs for direct construction, which never touches the field
         # decoder: ``AgentResponseData(artifacts=[{...}])`` must type its raw
         # dicts the way v1 does, and an explicit ``artifacts=None`` must land on
         # ``[]`` rather than ``None``. Re-coercing an already-decoded list is a
         # cheap no-op, since ``Artifact`` instances pass straight through.
         self.artifacts = Artifact._coerce_list(self.artifacts)
+        self.warnings = _coerce_warnings(self.warnings)
         if self.governance is None:
             self.governance = {
                 "status": self._governance_status,
