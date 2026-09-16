@@ -146,4 +146,3 @@ What you can do:
 
 - Source: [`aixplain/utils/user_info_utils.py`](../aixplain/utils/user_info_utils.py)
 - [Data handling and deployment](README.md#data-handling-and-deployment)
-- Arabic version: [`run-metadata.ar.md`](run-metadata.ar.md)
