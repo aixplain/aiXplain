@@ -1,128 +1,153 @@
-# الحوكمة ودورة الحياة: المفتشون، المُنقّح، المُطوّر
+# الحوكمة ودورة الحياة: المُفتِّشون، والمُصحِّح، والمُطوِّر
 
-## المفتشون (Inspectors) — حواجز حماية وقت التشغيل
+## المُفتِّشون — ضوابط الأمان أثناء التشغيل
 
-يقوم المفتشون بتقييم مُدخل الوكيل، أو خطواته الوسيطة، أو مُخرجه في وقت التشغيل، ثم يتابعون أو يوقفون أو يعيدون الكتابة أو يعيدون التشغيل. يرتبطون بوكيل (فريقي) دون تغيير شيفرة الوكيل. وهم **محايدون تجاه السياسة** — تعبّر عن السياسة إما كموجّه لنموذج لغوي (مُقيّم `ASSET`) أو كدالة Python (مُقيّم `FUNCTION`). لا توجد سياسات مُسمّاة جاهزة مثل "PII" أو "hallucination" — أنت من يؤلّف الفحص.
+يُقيِّم المُفتِّشون مُدخَل الوكيل أو خطواته الوسيطة أو مُخرجاته أثناء التشغيل، ثم يُتابعون أو يوقفون أو يُعيدون الصياغة أو يُعيدون التشغيل. أرفِقهم عبر `inspectors=[...]` — وهذا يعمل على **الوكيل المفرد كما على الفريق**.
 
-```python
-from aixplain.v2.inspector import (
-    Inspector, InspectorAction, InspectorActionConfig, InspectorOnExhaust,
-    InspectorSeverity, EvaluatorType, EvaluatorConfig, EditorConfig,
-)
-```
+> **تغيّر في SDK 0.2.48.** صار المُفتِّشون يُبنَون مباشرةً من العميل (`aix.Inspector(...)`) باستخدام **نصوص وقواميس بسيطة** — فلا شيء يُستورَد. أمّا الأصناف القديمة `from aixplain.v2.inspector import InspectorAction, InspectorActionConfig, EvaluatorConfig, EvaluatorType, EditorConfig, InspectorSeverity` فقد **أُزيلت من v2** (ولم تبقَ إلا تحت `aixplain.v1.*`). فإن رأيت ذلك الاستيراد فهو شيفرة سابقة للإصدار 0.2.48 — أعِد كتابتها كما هو موضّح أدناه.
 
 ### اللبنات الأساسية
 
-`Inspector(name, action, evaluator, description=None, severity=None, targets=[], editor=None)`
-
-- **`targets`** — قائمة من السلاسل النصية: `"input"` (استعلام المستخدم الخام)، `"output"` (الاستجابة النهائية)، `"steps"` (مخرجات الوكلاء الفرعيين الوسيطة).
-- **`severity`** — `InspectorSeverity.LOW | MEDIUM | HIGH | CRITICAL`.
-- **`action`** — كائن `InspectorActionConfig(type=..., max_retries=..., on_exhaust=...)`:
-
-| `InspectorAction` | السلوك |
-|---|---|
-| `ABORT` | إيقاف صارم — يوقف التشغيل ويُرجع خطأً. تكون قيمة `response.data.output` هي `None`؛ تحقّق من `response.status` أولاً. |
-| `RERUN` | يعيد تشغيل الوكيل الهدف مع حقن نقد المُقيّم. تُحدِّد `max_retries` (أبقِها بين 2 و3) ثم يرجع إلى `on_exhaust` (`InspectorOnExhaust.ABORT` أو `CONTINUE`). |
-| `EDIT` | يعيد كتابة المحتوى ضمنيًا قبل تمريره إلى الأسفل. يتطلب `editor=EditorConfig(...)`. |
-| `CONTINUE` | وضع الظل / التسجيل فقط — يسجّل النقد ولا يغيّر شيئًا. |
-
-- **`evaluator`** — كائن `EvaluatorConfig`:
-  - `ASSET`: تفويض الحكم إلى نموذج لغوي من السوق عبر موجّه بلغة إنجليزية بسيطة. `EvaluatorConfig(type=EvaluatorType.ASSET, asset_id=<llm_id>, prompt="...")`.
-  - `FUNCTION`: دالتك الخاصة `(str) -> bool` للفحوصات الحتمية. `EvaluatorConfig(type=EvaluatorType.FUNCTION, function=fn)`. تُوضع عمليات الاستيراد داخل الدالة؛ وهي تعمل بشكل متزامن، لذا تجنّب عمليات الإدخال/الإخراج البطيئة.
-
-### مثال — حظر المخرجات غير الآمنة (ASSET + ABORT)
-
 ```python
-llm_id = aix.Model.get("openai/gpt-4o").id
-guard = Inspector(
+inspector = aix.Inspector(
     name="hate-speech-guard",
     description="Blocks output containing hate speech.",
-    severity=InspectorSeverity.CRITICAL,
-    targets=["output"],
-    action=InspectorActionConfig(type=InspectorAction.ABORT),
-    evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id=llm_id,
-        prompt="If the content contains hate speech, output a failure critique. Otherwise pass."),
+    severity="critical",                 # "low" | "medium" | "high" | "critical"  (plain string)
+    targets=["output"],                  # "input" | "output" | "steps"
+    action="abort",                      # "abort" | "rerun" | "edit" | "continue"
+    metric={"assetId": LLM_ASSET_ID,     # the evaluator — an LLM judge…
+            "prompt": "If the content contains hate speech, output a failure critique. Otherwise pass."},
 )
-
-team = aix.Agent(name="Guarded Agent", description="...", agents=[subagent], inspectors=[guard])
-team.save(save_subcomponents=True)
-r = team.run(query="...")
-if r.status == "SUCCESS":
-    print(r.data.output)        # None if the inspector aborted
 ```
 
-### مثال — التصحيح الذاتي (ASSET + RERUN)
+| الحقل | ما يقبله |
+|---|---|
+| `action` | `"abort"` \| `"rerun"` \| `"edit"` \| `"continue"`، أو قاموس للخيارات (انظر RERUN). |
+| `metric` | المُقيِّم. حَكَم من نموذج لغوي ← `{"assetId": <model id>, "prompt": "..."}`؛ فحص Python ← `{"function": fn}` حيث `fn(str) -> bool`. |
+| `editor` | إلزامي مع `"edit"` ← `{"function": fn}` حيث `fn(str) -> str`. |
+| `severity` | نص بسيط. |
+| `targets` | قائمة المسارات المطلوب مراقبتها. |
+| `preset_id` | يُضبط تلقائيًّا لضوابط الأمان المأخوذة من المتجر (انظر الجاهزة مسبقًا). |
+
+| الإجراء | السلوك |
+|---|---|
+| `abort` | إيقاف تام — يُنهي التشغيل. تكون `response.data.output` بقيمة `None`؛ افحص `response.status` أولًا. |
+| `rerun` | يُعيد تشغيل الهدف مع حقن نقد المُقيِّم، ثم يرتدّ إلى `on_exhaust`. |
+| `edit` | يُعيد كتابة المحتوى في مكانه قبل تمريره إلى المرحلة التالية. يتطلّب `editor`. |
+| `continue` | وضع الظل / التسجيل فقط — يُسجِّل النقد ولا يُغيّر شيئًا. |
+
+احصل على معرِّف الحَكَم اللغوي عبر `LLM_ASSET_ID = aix.Model.get("openai/gpt-4o").id`، أو استخدم الافتراضي المدمج: `from aixplain.v2.inspector import AUTO_DEFAULT_MODEL_ID` (هذا الثابت *لا يزال* موجودًا فعلًا).
+
+### ABORT — الإيقاف التام
 
 ```python
-action=InspectorActionConfig(type=InspectorAction.RERUN, max_retries=2,
-                             on_exhaust=InspectorOnExhaust.ABORT)
+guard = aix.Inspector(name="hate-speech-guard", severity="critical", targets=["output"],
+    action="abort",
+    metric={"assetId": LLM_ASSET_ID,
+            "prompt": "If the content contains hate speech, output a failure critique. Otherwise pass."})
+
+agent = aix.Agent(name="Guarded Agent", instructions="You are a helpful assistant.", inspectors=[guard])
+agent.save()
+
+r = agent.run(query="...")
+print(r.data.output if r.status == "SUCCESS" else f"Run halted: {r.status}")
 ```
 
-### مثال — تنقية المُدخل (FUNCTION + EDIT)
+### RERUN — التصحيح الذاتي مع إعادات المحاولة
+
+تُوضَع `max_retries` / `on_exhaust` **داخل قاموس الإجراء**. أمّا تمريرها كوسائط مفتاحية على المستوى الأعلى فيُطلق `TypeError` في الإصدار 0.2.48 (والوثائق المنشورة تعرض تلك الصيغة — وهي خاطئة).
+
+```python
+guard = aix.Inspector(name="customer-name-enforcer", severity="medium", targets=["output"],
+    action={"type": "rerun", "max_retries": 2, "on_exhaust": "abort"},   # or "continue"
+    metric={"assetId": LLM_ASSET_ID,
+            "prompt": "If the output does NOT include the customer name 'John', instruct to add it."})
+```
+
+أبقِ `max_retries` بين ٢ و٣ واضبط `on_exhaust` دائمًا: `"abort"` حين يكون التقارب إلزاميًّا، و`"continue"` حين يكون الإخراج بأفضل جهد ممكن مقبولًا.
+
+### EDIT — التنقية بدوالّك الخاصة
 
 ```python
 def looks_risky(text: str) -> bool:
-    import re
+    import re                                   # imports go INSIDE — the function runs in isolation
     return any(re.search(p, text.lower()) for p in [r"\bbypass\b", r"\bexploit\b", r"\bhack\b"])
 
 def sanitize(text: str) -> str:
     return "Provide high-level, ethical guidance only."
 
-guard = Inspector(
-    name="intent-guard", severity=InspectorSeverity.HIGH, targets=["input"],
-    action=InspectorActionConfig(type=InspectorAction.EDIT),
-    evaluator=EvaluatorConfig(type=EvaluatorType.FUNCTION, function=looks_risky),
-    editor=EditorConfig(type=EvaluatorType.FUNCTION, function=sanitize),
-)
+guard = aix.Inspector(name="intent-guard", severity="high", targets=["input"],
+    action="edit",
+    metric={"function": looks_risky},           # True  -> rewrite
+    editor={"function": sanitize})              # performs the rewrite
 ```
 
-يعمل المفتشون بترتيب التصريح بهم. لإضافة مفتش إلى فريق قائم: `team.inspectors.append(guard); team.save()` — إعادة الحفظ مطلوبة، وإلا فلن تظهر خطوة المفتش في `response.data.steps`.
+تعمل مُقيِّمات الدوالّ بشكل متزامن وتحجب خطّ المعالجة — فتجنَّب عمليات الإدخال/الإخراج البطيئة.
 
-> **التحقق من أن المفتش يعمل:** إن مولّد الاستجابة الخاص بالمنصة مُحاذًى لمعايير الأمان وكثيرًا ما يرفض الطلبات السيئة بوضوح قبل أن يتدخّل مفتشك، لذلك قد ترى المفتش عند استعلام عدائي صريح يسجّل `CONTINUE` (نجاح) بدلًا من `ABORT`. هذا لا يعني أنه معطّل. لتأكيد عمل البوابة، اختبر بمُدخل ينتهك السياسة *بشكل حتمي* (مثل وكيل فرعي مأمور بإصدار القيمة المحظورة) — عندها سترى إجراء `ABORT`/`EDIT` يتدخّل ويستبدل المخرج. تحقّق من `response.data.steps` بحثًا عن خطوة وكيل النظام الخاصة بالمفتش.
+## المُفتِّشون الجاهزون مسبقًا (ضوابط أمان من المتجر)
 
-تخطيط مُوصى به للشدة → الإجراء: `LOW`→`CONTINUE`؛ `MEDIUM`→`RERUN` (on_exhaust=`CONTINUE`) أو `EDIT`؛ `HIGH`→`RERUN` (on_exhaust=`ABORT`) أو `EDIT`؛ `CRITICAL`→`ABORT`.
+بدلًا من تأليف مُقيِّم بنفسك، اجلب ضابط أمان مُدارًا وأرفِقه. ويأتي كلٌّ منها بقيم افتراضية معقولة لـ `targets` وللإجراء — فلا تتجاوز إلا ما تحتاج إليه.
 
-> **حَكَم النموذج اللغوي الافتراضي:** بالنسبة لمُقيّم `ASSET` يمكنك تخطّي اختيار نموذج واستخدام الحَكَم الافتراضي المدمج — `from aixplain.v2.inspector import AUTO_DEFAULT_MODEL_ID` ومرّر `asset_id=AUTO_DEFAULT_MODEL_ID`.
+```python
+aix.Inspector.search("guard")        # discover what's available
 
-### تحقّق بعد كل تغيير لمفتش
+guard    = aix.Inspector.get("aws/detect-prompt-attacks-guardrail/aws")   # prompt-injection / jailbreak
+redactor = aix.Inspector.get("aws/sensitive-information-guardrail/aws")   # PII
+redactor.targets = ["output"]                                            # default is ["input"]
 
-كلما أضفت مفتشًا أو غيّرته، شغّل ثلاثة اختبارات بالضبط وسجّل نتيجة كل منها — يلتقط هذا كلًّا من الإفراط في الحظر والتقصير فيه:
+team = aix.Agent(name="Research Team", description="...", agents=[research_agent],
+                 inspectors=[guard, redactor])
+team.save(save_subcomponents=True)     # needed so a sub-agent fetched via Agent.get is saved too
+```
+
+مسارات معروفة: `aws/detect-prompt-attacks-guardrail/aws`، و`aws/sensitive-information-guardrail/aws`، و`aws/content-moderation-guardrail/aws`. ابحث بدل ترميز المسارات بشكل ثابت — فالكتالوج ينمو.
+
+يُعيد ضابط أمان البيانات الشخصية (PII) كتابة القيم المُعلَّمة في مكانها (`"...your phone number is {PHONE}"`) بدلًا من الحجب.
+
+## قراءة نتائج الحوكمة
+
+تُبلِّغ `response.data.governance` عمّا نفّذته الحوكمة على الطلب — بما في ذلك التشغيلات التي لم يُرفَق بها أي مُفتِّش. استخدمها لتأكيد أن ضابط الأمان قد عمل فعلًا، إلى جانب خطوة وكيل النظام الخاصة بالمُفتِّش في `response.data.steps`.
+
+يعمل المُفتِّشون بترتيب التصريح. ولإضافة مُفتِّش إلى وكيل قائم: `agent.inspectors.append(guard); agent.save()` — فإعادة الحفظ إلزامية، وإلا لم تظهر خطوة المُفتِّش في الأثر.
+
+> **التحقّق من أن المُفتِّش يعمل:** مُولِّد الاستجابة الخاص بالمنصّة مُواءَم للسلامة، وكثيرًا ما يرفض الطلبات السيئة الواضحة قبل أن يتعثّر مُفتِّشك، لذا قد يُسجِّل المُفتِّش `continue` (نجاح) بدل `abort` أمام استعلام خصومي صريح. وهذا لا يعني أنه معطّل. ولإثبات أن البوابة تعمل، استخدم مُدخَلًا ينتهك السياسة *بشكل حتمي* (مثل وكيل فرعي مأمور بإصدار القيمة المحظورة).
+
+خريطة موصى بها من الخطورة إلى الإجراء: `low`←`continue`؛ `medium`←`rerun`(`on_exhaust="continue"`) أو `edit`؛ `high`←`rerun`(`on_exhaust="abort"`) أو `edit`؛ `critical`←`abort`.
+
+### تحقَّق بعد كل تغيير في المُفتِّشين
 
 | الاختبار | السلوك المتوقَّع |
 |---|---|
-| موجّه **مسموح به** | مسار CONTINUE؛ إجابة ممتثلة طبيعية |
-| موجّه **مرفوض** | محظور/مرفوض؛ لا تسرّب لبيانات أو إجراءات مقيَّدة |
-| موجّه **غامض** | معالجة محافظة — الرفض أو طلب التوضيح |
+| موجّه **مسموح** | مسار المتابعة؛ إجابة عادية ملتزمة |
+| موجّه **مرفوض** | محجوب/مرفوض؛ لا تسرُّب لأي بيانات أو إجراءات مقيّدة |
+| موجّه **ملتبس** | معالجة متحفّظة — الرفض أو طلب التوضيح |
 
-لكلٍّ منها، سجّل: الموجّه، والإجراء المتوقَّع، وحالة `status` المُلاحَظة للتشغيل، وملخصًا للمخرَج في سطر واحد، ونجاح/فشل. (كما ذُكر أعلاه، قد تعالج طبقة الأمان الخاصة بالمنصة الحالة "المرفوضة" الواضحة قبل مفتشك — ولإثبات أن بوابتك *أنت* تعمل، اختبر أيضًا مُحفِّزًا حتميًا.)
+ولكل حالة، سجِّل: الموجّه، والإجراء المتوقَّع، وحالة التشغيل `status` المرصودة، وملخّصًا للإخراج في سطر واحد، والنتيجة نجاح/فشل.
 
-### دلالات الحالة
+### دلالات الحالات
 
-أبقِ حالة تشغيل aiXplain كما هي: `IN_PROGRESS | SUCCESS | FAILED`. **لا تعامل الحظر السياسي على أنه `FAILED`** — فالمفتش الذي يرفض محتوًى غير آمن يمكن أن يعيد حالة تشغيل `status == "SUCCESS"` مع رفض آمن في `data.output`. هذا حظر حوكمة، وليس فشلًا في وقت التشغيل. احتفظ بـ `FAILED` لأخطاء التنفيذ الفعلية.
+أبقِ حالة التشغيل في aiXplain كما هي: `IN_PROGRESS | SUCCESS | FAILED`. **لا تعامِل الحجب بموجب السياسة على أنه `FAILED`** — فالمُفتِّش الذي يرفض محتوى غير آمن قد يُعيد مع ذلك `status == "SUCCESS"` مع رفض آمن في `data.output`. هذا حجب حوكمة، لا فشل تشغيل.
 
-## المُنقّح (Debugger) — تحليل عملية تشغيل
-
-وكيل وصفي يشرح ما حدث في عملية تشغيل مكتملة. يمكن الوصول إليه عبر `aix.Debugger()`.
+## المُصحِّح (Debugger) — تحليل تشغيل
 
 ```python
 debugger = aix.Debugger()
-r = agent.run(query="...")
-result = debugger.debug_response(r)     # auto-extracts the execution id from the run
-print(result.analysis)                   # plain-English explanation
+result = debugger.debug_response(agent.run(query="..."))   # auto-extracts the execution id
+print(result.analysis)                                      # plain-English explanation
 # also: result.used_credits, result.run_time, result.session_id, result.request_id
-
-# or analyze arbitrary content:
-debugger.run(content="The agent returned an empty response...").analysis
+debugger.run(content="The agent returned an empty response...").analysis   # arbitrary content
 ```
 
-> تأتي واجهة المُنقّح ضمن الـ SDK، لكن الخدمة التي تدعمها قد لا تكون متاحة في جميع البيئات. إذا أرجع الاستدعاء "Not Found"، فارجع إلى فحص `response.data.steps` مباشرة (انظر `references/agents.md`).
+> يأتي المُصحِّح ضمن الـ SDK، لكن الخدمة التي يستند إليها غير متاحة في كل بيئة. فإذا أعاد الاستدعاء "Not Found"، فارتدّ إلى `response.data.steps` (انظر `references/agents.md`).
 
-## المُطوّر (Evolver) — التحسين المستمر
+## المُطوِّر (Evolver) — التحسين المستمر
 
-المُطوّر هو الوكيل الوصفي من aiXplain لتحسين وكيل تلقائيًا انطلاقًا من إشارات الإنتاج (تنقيح التعليمات، اختيار الأدوات، تركيب الفريق، ضبط المعاملات)، مع وضع التطبيق التلقائي أو وضع المراجعة البشرية.
+الوكيل الفوقي من aiXplain لتحسين وكيلٍ ما انطلاقًا من إشارات الإنتاج (تنقيح التعليمات، واختيار الأدوات، وتركيب الفريق، وضبط المُعاملات).
 
-> اعتبارًا من الـ SDK الموثّق، فهو **مفهومي / لم يُكشف عنه بعد كواجهة Python API مستقرة** — لا توجد فئة `aix.Evolver()` موثّقة. (تقبل `agent.run(...)` معاملًا باسم `evolve`، لكن سلوكه غير موثّق.) لا تختلق واجهة Evolver API. إذا طلبها مستخدم، فاشرح أنها على جانب المنصة / قيد الإصدار ووجّهه إلى Studio، واعرض البديل العملي: التكرار باستخدام المُنقّح + آثار الاستدلال، واختبار تعليمات/أدوات مختلفة بأسلوب A/B بنفسك.
+> للقياس والتسجيل **غير المتصلين** لجودة الوكيل (خلافًا لضوابط الأمان أثناء التشغيل)، صار الـ SDK يوفّر `aix.Eval` و`aix.Metric` — انظر `references/evaluation.md`.
 
-## الحارس (Bodyguard) / التحكم في الوصول
+> لا يزال **غير مكشوف كواجهة برمجية مستقرة في Python** — فلا يوجد صنف `aix.Evolver()`. (تقبل `agent.run(...)` مُعاملًا اسمه `evolve` سلوكه غير موثَّق.) لا تختلق واجهة برمجية للمُطوِّر. وجِّه المستخدمين إلى Studio، واعرض البديل العملي: التكرار باستخدام المُصحِّح وآثار الاستدلال، واختبار تعليمات/أدوات مختلفة بأسلوب A/B.
 
-الحارس (التحكم في الوصول على حدود الأصول، RBAC) مُطبَّق على مستوى المنصة/وقت التشغيل وعبر تحديد نطاق مفتاح الـ API — انظر `references/deployment-access.md § API keys`. وهو ليس فئة Python تُنشئ منها كائنًا.
+## Bodyguard / التحكّم في الوصول
+
+يُنفَّذ على مستوى المنصّة/وقت التشغيل وعبر تحديد نطاق مفاتيح الـ API — انظر `references/deployment-access.md § API keys`. وليس صنفًا في Python تُنشئ منه كائنًا.
