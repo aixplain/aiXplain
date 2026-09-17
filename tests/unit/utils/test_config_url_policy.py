@@ -5,19 +5,16 @@ from the environment and decide where the team API key is sent, so both entry
 points that resolve them -- importing ``aixplain.utils.config`` and constructing
 ``Aixplain()`` -- have to apply the policy.
 
-Importing the config module only *warns*: it is on the ``import aixplain`` path,
-so raising there would break ``aixplain --help`` and unit test collection on a
-machine with no valid environment (BUG-946). The refusal happens instead at the
-v1 request choke point, before any socket is opened.
+Importing the config module only *warns*: raising there would break unit test
+collection on a machine with no valid environment (BUG-946). ``Aixplain()``
+refuses outright, before a client is built.
 """
 
 import importlib
-import socket
 
 import pytest
-import requests
 
-from aixplain.utils import config, request_utils, url_safety
+from aixplain.utils import config, url_safety
 from aixplain.utils.url_safety import INSECURE_OPT_IN_ENV_VAR, UnsafeURLError
 from aixplain.v2.core import Aixplain
 
@@ -56,32 +53,22 @@ def test_import_warns_but_does_not_raise_on_http_backend_url(reload_config, capl
     assert any("BACKEND_URL must use https" in record.message for record in caplog.records)
 
 
-def test_a_rejected_backend_url_still_blocks_the_first_request(reload_config, monkeypatch):
-    """The deferred failure becomes a refusal before any socket is opened."""
+def test_a_rejected_backend_url_is_reported_again_on_first_use(reload_config):
+    """The import-time warning is re-raised by ``ensure_config_urls_safe``.
 
-    def explode(*args, **kwargs):
-        raise AssertionError("an outbound request was attempted")
-
-    monkeypatch.setattr(requests.Session, "request", explode)
-    monkeypatch.setattr(socket, "create_connection", explode)
-
-    reload_config("http://platform-api.aixplain.com")
+    The v1 request choke point that called it went with v1 (PROD-2918); the
+    deferral itself stays, so a caller reading ``aixplain.utils.config`` still
+    has one call that turns the deferred failure into an exception.
+    """
+    reloaded = reload_config("http://platform-api.aixplain.com")
     with pytest.raises(UnsafeURLError):
-        request_utils._request_with_retry("get", "https://platform-api.aixplain.com/sdk/models")
+        reloaded.ensure_config_urls_safe()
 
 
-def test_a_valid_backend_url_leaves_requests_alone(reload_config, monkeypatch):
-    """The gate is inert once the configured endpoints satisfy the policy."""
-    sent = []
-
-    def record(self, method, url, **kwargs):
-        sent.append((method, url))
-        return "response"
-
-    monkeypatch.setattr(requests.Session, "request", record)
-    reload_config("https://platform-api.aixplain.com")
-    assert request_utils._request_with_retry("get", "https://platform-api.aixplain.com/x") == "response"
-    assert sent == [("GET", "https://platform-api.aixplain.com/x")]
+def test_a_valid_backend_url_leaves_the_gate_inert(reload_config):
+    """Nothing is raised once the configured endpoints satisfy the policy."""
+    reloaded = reload_config("https://platform-api.aixplain.com")
+    assert reloaded.ensure_config_urls_safe() is None
 
 
 def test_import_accepts_the_dev_backend(reload_config):

@@ -45,7 +45,7 @@ The portable runtime behind aixplain agents: orchestration, governed asset servi
 
 ## Quick start
 
-> **This README documents SDK v2, the default API.** SDK v1 (the legacy factory API) is deprecated and will be removed on **February 1, 2027** (`2027-02-01`), after which v2 is the only supported surface. Importing v1 now emits a `DeprecationWarning` — see the [migration guide](../MIGRATION.md) for the factory-by-factory map.
+> **SDK v1 was removed in 0.3.0.** The legacy factory API (`aixplain.factories`, `aixplain.modules`, `aixplain.enums`, ...) no longer ships; v2 is the only supported surface. Those imports now fail with an error naming the v2 replacement. The last release that contained v1 is **0.2.48** and stays installable — see the [migration guide](../MIGRATION.md).
 
 ```bash
 pip install aixplain
@@ -144,7 +144,7 @@ Team agent
 └── Orchestrator: composes and returns the final answer
 ```
 
-> **SDK v1 (legacy):** deprecated, supported until February 1, 2027 (`2027-02-01`) — see the [migration guide](../MIGRATION.md) and the [SDK v1 docs](https://docs.aixplain.com/1.0/).
+> **SDK v1 (legacy):** removed in 0.3.0; last shipped in 0.2.48 — see the [migration guide](../MIGRATION.md) and the [SDK v1 docs](https://docs.aixplain.com/1.0/).
 
 ---
 
@@ -189,7 +189,7 @@ execution.
 
 - The lookup runs **once per process**, on your first agent run, with a 2-second timeout.
 - If it fails or is blocked, the run proceeds normally with those fields `null`.
-- It applies to direct agent runs on both SDK v2 and SDK v1. Runs routed through a v2 session (`agent.run(query, session=...)`), model runs and pipeline runs do not send it.
+- It applies to direct agent runs. Runs routed through a session (`agent.run(query, session=...)`) and model runs do not send it.
 
 Full field-by-field disclosure: [run-metadata.md](./run-metadata.md).
 

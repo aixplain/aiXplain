@@ -51,8 +51,6 @@ CANONICAL_PAGES = ["docs/run-metadata.md"]
 #: Modules that call ``build_run_metadata()``. Every one of these is listed in the
 #: call-site table of the canonical page.
 KNOWN_CALL_SITES = {
-    "aixplain/v1/modules/agent/__init__.py",
-    "aixplain/v1/modules/team_agent/__init__.py",
     "aixplain/v2/agent.py",
 }
 

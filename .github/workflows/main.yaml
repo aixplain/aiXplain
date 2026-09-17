@@ -127,13 +127,15 @@ jobs:
               p.relative_to(export).as_posix()
               for p in (export / "aixplain").rglob("*.py")
           }
-          assert len(expected) > 100, f"source scan found only {len(expected)} modules"
+          assert len(expected) > 30, f"source scan found only {len(expected)} modules"
 
-          # aixplain/v1/base/ and aixplain/v1/factories/cli/ have no __init__.py;
-          # they only ship while `namespaces = true` holds. Sharpest canaries.
+          # One module per shipped subpackage. A discovery bug drops whole
+          # directories, so these are the sharpest canaries left after v1.
           for canary in (
-              "aixplain/v1/base/parameters.py",
-              "aixplain/v1/factories/cli/model_factory_cli.py",
+              "aixplain/_compat.py",
+              "aixplain/v2/core.py",
+              "aixplain/utils/url_safety.py",
+              "aixplain/exceptions/types.py",
           ):
               assert canary in expected, f"canary vanished from the tree: {canary}"
 
@@ -183,23 +185,18 @@ jobs:
               f"imported the source tree, not the wheel: {aixplain.__file__}"
           )
 
-          # One entry per top-level subpackage, plus both legacy-redirect paths
-          # through the __init__-less namespace dirs. Deliberately not a
+          # One entry per top-level subpackage. Deliberately not a
           # walk_packages() sweep: modules behind optional extras (plotly,
           # docker, model-interfaces) would fail for reasons unrelated to
           # packaging and make the gate flaky.
           CANARIES = [
               "aixplain.v2.core",
               "aixplain.v2.agent",
-              "aixplain.v1.modules.model",
-              "aixplain.v1.factories.model_factory",
-              "aixplain.v1.processes.data_onboarding",
-              "aixplain.base.parameters",                   # -> v1/base/, no __init__.py
-              "aixplain.factories.cli.model_factory_cli",   # -> v1/factories/cli/, no __init__.py
-              "aixplain.enums",
+              "aixplain.v2.api_key",
               "aixplain.utils.config",
+              "aixplain.utils.url_safety",
               "aixplain.exceptions.types",
-              "aixplain.cli_groups",
+              "aixplain._compat",
           ]
           failed = []
           for m in CANARIES:
@@ -210,13 +207,20 @@ jobs:
           if failed:
               sys.exit("\n".join(["modules failed to import from the wheel:"] + failed))
           print(f"{len(CANARIES)} canary modules imported cleanly")
-          PY
 
-      - name: Check the console script is wired up
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP"
-          "$RUNNER_TEMP/venv/bin/aixplain" --help
+          # v1 is gone: the legacy paths must fail, and with a message that
+          # names the v2 replacement rather than a bare "No module named".
+          for removed in ("aixplain.factories", "aixplain.modules", "aixplain.enums", "aixplain.v1"):
+              try:
+                  importlib.import_module(removed)
+              except ModuleNotFoundError as exc:
+                  assert "aix." in str(exc) or "aixplain.v2" in str(exc), (
+                      f"{removed} failed without naming a v2 equivalent: {exc}"
+                  )
+              else:
+                  sys.exit(f"{removed} still imports; v1 leaked back into the wheel")
+          print("removed v1 paths fail with actionable errors")
+          PY
 
       - name: Upload the built artifacts
         uses: actions/upload-artifact@v4
@@ -242,43 +246,14 @@ jobs:
         # rather than silent dead code, while parking stays available as an
         # explicit, reviewed choice.
         #
-        # Deliberately NOT a leg: benchmark. 04dea96e dropped it because it was
-        # failing, and its green-ness against the test backend has not been
-        # re-established. It stays parked (ENG-3544) until someone runs it with a
-        # test-backend credential and proves it green; re-add the leg name and its
-        # include entry here in the same change that drops the PARKED_TARGETS
-        # entry.
-        #
-        # The pipeline and corpus/dataset functional suites were deleted outright
-        # along with their legs, so nothing is parked on their behalf.
+        # The file_asset, model, general_assets, apikey, agent and team_agent
+        # legs exercised v1 exclusively and were deleted with it (PROD-2918),
+        # along with the already-parked benchmark suite. tests/functional/v2
+        # covers the same resources against the v2 surface. Nothing is parked.
         test-suite: [
-          'file_asset',
-          'model',
-          'general_assets',
-          'apikey',
-          'agent',
-          'team_agent',
           'v2',
         ]
         include:
-          - test-suite: 'file_asset'
-            path: 'tests/functional/file_asset'
-            timeout: 45
-          - test-suite: 'model'
-            path: 'tests/functional/model'
-            timeout: 45
-          - test-suite: 'general_assets'
-            path: 'tests/functional/general_assets'
-            timeout: 45
-          - test-suite: 'apikey'
-            path: 'tests/functional/apikey'
-            timeout: 45
-          - test-suite: 'agent'
-            path: 'tests/functional/agent'
-            timeout: 45
-          - test-suite: 'team_agent'
-            path: 'tests/functional/team_agent'
-            timeout: 45
           - test-suite: 'v2'
             path: 'tests/functional/v2'
             timeout: 45

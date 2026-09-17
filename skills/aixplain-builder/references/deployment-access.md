@@ -126,19 +126,14 @@ Monitor usage: `aix.APIKey.get_usage_limits()` or `get_usage_limits(model=MODEL_
 
 1 credit = $1 USD. Models/tools/integrations bill at vendor rates (0% margin). Deployed **agents** add a 20% markup over the sum of model + tool calls (covers orchestration, the planner/orchestrator/inspector micro-agents, memory, validation). Track spend via `response.used_credits`, Console → Transactions, or the Studio Validation tab.
 
-## What the v2 SDK does NOT cover (legacy v1 only)
+## What the SDK does NOT cover
 
-The unified `aix.*` client (`from aixplain import Aixplain`) is agent/model/tool-centric. **Pipelines, fine-tuning, benchmarking, and datasets/corpora have no v2 API.** They exist only in the legacy v1 factories:
+The unified `aix.*` client (`from aixplain import Aixplain`) is agent/model/tool-centric. **Pipelines, fine-tuning, benchmarking, and datasets/corpora have no Python API.** They existed only in the v1 factories, which were removed in SDK 0.3.0 and have no v2 replacement.
 
-```python
-# Legacy v1 — only if the user explicitly needs these capabilities
-from aixplain.factories import PipelineFactory, FinetuneFactory, BenchmarkFactory, DatasetFactory, CorpusFactory
-pipeline = PipelineFactory.get("<pipeline_id>")
-result = pipeline.run("input")
-```
+Reach them through aiXplain Studio or the REST endpoints at `https://platform-api.aixplain.com`. A project that cannot move off them can pin `aiXplain==0.2.48`, the last release that contained v1 — but that release gets no further updates, so treat it as a hold.
 
-For **pipelines**, prefer building visually in aiXplain Studio and then running by ID (Studio, REST `https://platform-api.aixplain.com` pipeline endpoints, or the v1 `PipelineFactory`). The current Python v2 SDK has no pipeline builder. If a user asks to "build a pipeline" in Python, tell them this and offer either Studio or the equivalent as a **team agent** (which is the v2-native way to compose multi-step workflows).
+For **pipelines**, build visually in aiXplain Studio and run by ID (Studio or the REST pipeline endpoints). The Python SDK has no pipeline builder. If a user asks to "build a pipeline" in Python, tell them this and offer either Studio or the equivalent as a **team agent** (which is the SDK-native way to compose multi-step workflows).
 
 ## v1 → v2 migration
 
-Use `from aixplain import Aixplain; aix = Aixplain(api_key=...)` then `aix.Agent` / `aix.Model` / `aix.Tool`. Avoid the deprecated v1 `aixplain.factories.*` (`AgentFactory`, `ModelFactory`, …) for anything the v2 client covers. If you see old factory code, port it to the `aix.*` equivalents.
+Use `from aixplain import Aixplain; aix = Aixplain(api_key=...)` then `aix.Agent` / `aix.Model` / `aix.Tool`. The v1 `aixplain.factories.*` imports (`AgentFactory`, `ModelFactory`, …) no longer resolve; importing one raises an error naming its `aix.*` replacement. If you see old factory code, port it.

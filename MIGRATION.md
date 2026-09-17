@@ -1,53 +1,44 @@
 # Migrating from aiXplain SDK v1 to v2
 
-SDK v1 — the legacy factory API — is **deprecated and will be removed on February 1, 2027**. This guide maps every public v1 factory to its v2 equivalent, and says plainly where no equivalent exists yet.
+SDK v1 — the legacy factory API — **was removed in 0.3.0**. This guide maps every public v1 factory to its v2 equivalent, and says plainly where no equivalent exists.
 
-- **Nothing is broken today.** Every legacy import path (`aixplain.modules`, `aixplain.factories`, `aixplain.enums`, `aixplain.decorators`, `aixplain.base`, `aixplain.processes`) still resolves to the same objects it always did. The only change is a one-time `DeprecationWarning`.
-- **v2 is the default surface.** New work should target `from aixplain import Aixplain`. See the [README](README.md) and the [v2 API reference](https://docs.aixplain.com/api-reference/python/aixplain/v2/agent).
+- **v1 imports no longer resolve.** `aixplain.modules`, `aixplain.factories`, `aixplain.enums`, `aixplain.decorators`, `aixplain.base`, `aixplain.processes` and `aixplain.v1` were deleted. Importing one raises a `ModuleNotFoundError` naming the v2 replacement rather than a bare "No module named".
+- **The last release that contained v1 is `0.2.48`.** It stays on PyPI and stays installable. Code pinned to it keeps running unchanged; upgrading past it requires v2.
+- **v2 is the only supported surface.** Target `from aixplain import Aixplain`. See the [README](README.md) and the [v2 API reference](https://docs.aixplain.com/api-reference/python/aixplain/v2/agent).
 - **v1 documentation** remains at <https://docs.aixplain.com/1.0/>.
 
-## The deprecation warning
-
-Importing any v1 code emits one `aixplain._compat.AixplainV1DeprecationWarning` (a `DeprecationWarning` subclass) per process:
+## What you see now
 
 ```text
-'aixplain.factories' is part of the deprecated aiXplain SDK v1 and will be removed on
-February 1, 2027 (2027-02-01). Migrate to the v2 API ('from aixplain import Aixplain').
-Migration guide: https://github.com/aixplain/aiXplain/blob/main/MIGRATION.md.
-Set AIXPLAIN_SUPPRESS_V1_DEPRECATION=1 to silence this notice.
+ModuleNotFoundError: 'aixplain.factories' was part of aiXplain SDK v1, which was removed in 0.3.0.
+Construct a client and use its resources:
+    from aixplain import Aixplain
+    aix = Aixplain()
+  AgentFactory       -> aix.Agent
+  ModelFactory       -> aix.Model
+  ...
+The last release that shipped v1 is 0.2.48; pin it with "pip install 'aiXplain==0.2.48'" if you need more time.
+Migration guide: https://github.com/aixplain/aiXplain/blob/main/MIGRATION.md
 ```
-
-It fires once for the whole v1 surface, not once per module — a single `import aixplain.modules` pulls in roughly 160 submodules, and v1 imports itself through the legacy paths.
 
 ### Finding your exposure
 
+Before upgrading, find every legacy import:
+
 ```bash
-# Every legacy import in your codebase
 grep -rnE '(from|import) +aixplain\.(modules|factories|enums|decorators|base|processes|v1)\b' .
-
-# Or let Python tell you, with the notice promoted to an error
-python -W error::DeprecationWarning -c 'import your_app'
 ```
 
-### Silencing it
+Each hit maps to a row in the table below. If a hit lands in [the gaps](#no-v2-equivalent), stay on `0.2.48` until it is closed.
 
-Three options, in order of preference:
+### If you are not ready
 
 ```bash
-export AIXPLAIN_SUPPRESS_V1_DEPRECATION=1          # the documented off switch
-python -W ignore::DeprecationWarning your_app.py   # any -W/PYTHONWARNINGS setting also wins
+pip install 'aiXplain==0.2.48'
 ```
 
-```python
-# or, scoped to your own process
-import warnings
-from aixplain._compat import AixplainV1DeprecationWarning
-warnings.filterwarnings("ignore", category=AixplainV1DeprecationWarning)
-```
+That release is unchanged and unaffected by the removal. It is a hold, not a fix: it receives no further releases, so treat it as a window to migrate in rather than a destination.
 
-A `filterwarnings` entry in your `pytest.ini` or `pyproject.toml` works too.
-
-One ordering caveat: to make the notice visible at all, the SDK inserts a `default` filter for its own category while `aixplain` is being imported — but only when `sys.warnoptions` is empty, i.e. when you passed no `-W` and set no `PYTHONWARNINGS`. A bare `warnings.simplefilter("ignore")` issued *before* `import aixplain` is therefore overridden. Use the environment variable, use `-W`/`PYTHONWARNINGS`, or register your filter after the import — all three win.
 
 ## `aixplain.aixplain_v2` is deprecated
 
@@ -82,14 +73,14 @@ It used to be built at import time with the failure swallowed, so a missing `TEA
 | [`FileFactory`](#filefactory--aixplainv2upload_file) | `aixplain.v2.upload_file` / `FileUploader` | Direct |
 | [`ScriptFactory`](#scriptfactory--aixutility) | `aix.Utility` | Shape change — custom code becomes a utility |
 | [`AssetFactory`](#assetfactory) | — | Internal abstract base, never user-facing |
-| [`IndexFactory`](#no-v2-equivalent-yet) | **none yet** | Gap |
-| [`PipelineFactory`](#no-v2-equivalent-yet) | **none yet** | Gap |
-| [`BenchmarkFactory`](#no-v2-equivalent-yet) | **none yet** | Gap |
-| [`CorpusFactory`](#no-v2-equivalent-yet) | **none yet** | Gap |
-| [`DataFactory`](#no-v2-equivalent-yet) | **none yet** | Gap |
-| [`DatasetFactory`](#no-v2-equivalent-yet) | **none yet** | Gap |
-| [`FinetuneFactory`](#no-v2-equivalent-yet) | **none yet** | Gap |
-| [`WalletFactory`](#no-v2-equivalent-yet) | **none yet** | Gap |
+| [`IndexFactory`](#no-v2-equivalent) | **none** | Gap — see below |
+| [`PipelineFactory`](#no-v2-equivalent) | **none** | Gap — see below |
+| [`BenchmarkFactory`](#no-v2-equivalent) | **none** | Gap — see below |
+| [`CorpusFactory`](#no-v2-equivalent) | **none** | Gap — see below |
+| [`DataFactory`](#no-v2-equivalent) | **none** | Gap — see below |
+| [`DatasetFactory`](#no-v2-equivalent) | **none** | Gap — see below |
+| [`FinetuneFactory`](#no-v2-equivalent) | **none** | Gap — see below |
+| [`WalletFactory`](#no-v2-equivalent) | **none** | Gap — see below |
 
 Across the board, v2 replaces module-level factory classmethods with resources hanging off an `Aixplain` instance. Construct one and reuse it:
 
@@ -110,7 +101,7 @@ Unlike v1's global `TEAM_API_KEY`, an `Aixplain` instance carries its own creden
 Creation is construction plus `save()`; there is no separate `create` call.
 
 ```python
-# v1 (deprecated)
+# v1 (removed in 0.3.0)
 from aixplain.factories import AgentFactory
 
 agent = AgentFactory.create(
@@ -148,7 +139,7 @@ The v1 tool-builder classmethods are replaced by resources:
 | `AgentFactory.create_model_tool(model=...)` | `aix.Model.get(...)`, passed directly in `tools=[...]` |
 | `AgentFactory.create_custom_python_code_tool(code=...)` | `aix.Utility(code=...)` — see [`ScriptFactory`](#scriptfactory--aixutility) |
 | `AgentFactory.create_python_interpreter_tool()` | `aix.Tool.get(...)` for the Python sandbox integration |
-| `AgentFactory.create_pipeline_tool(pipeline=...)` | No v2 equivalent — see [the gaps](#no-v2-equivalent-yet) |
+| `AgentFactory.create_pipeline_tool(pipeline=...)` | No v2 equivalent — see [the gaps](#no-v2-equivalent) |
 
 Runs return typed objects in v2: read `result.data.output`, not `result["data"]`.
 
@@ -157,7 +148,7 @@ Runs return typed objects in v2: read `result.data.output`, not `result["data"]`
 v2 has one agent type. A "team" is an agent that delegates to subagents, so `TeamAgentFactory` collapses into `aix.Agent`.
 
 ```python
-# v1 (deprecated)
+# v1 (removed in 0.3.0)
 from aixplain.factories import TeamAgentFactory
 
 team = TeamAgentFactory.create(
@@ -186,7 +177,7 @@ Note `agents=` becomes `subagents=`, and `save(save_subcomponents=True)` persist
 ### `ModelFactory` → `aix.Model`
 
 ```python
-# v1 (deprecated)
+# v1 (removed in 0.3.0)
 from aixplain.factories import ModelFactory
 
 model = ModelFactory.get("6414bd3cd09663e9225130e8")
@@ -203,12 +194,12 @@ model = aix.Model.get("6414bd3cd09663e9225130e8")
 models = aix.Model.search(function=aix.Function.TEXT_GENERATION)
 ```
 
-`ModelFactory.create_utility_model(...)` becomes `aix.Utility(...)`. The model-onboarding helpers (`create_asset_repo`, `asset_repo_login`, `onboard_model`, `list_host_machines`, `list_gpus`, `deploy_huggingface_model`) have no v2 equivalent yet; use the console or keep the v1 call until they land.
+`ModelFactory.create_utility_model(...)` becomes `aix.Utility(...)`. The model-onboarding helpers (`create_asset_repo`, `asset_repo_login`, `onboard_model`, `list_host_machines`, `list_gpus`, `deploy_huggingface_model`) have no v2 equivalent; they went with v1, along with the `aixplain` console script that exposed them. Use the web console, or stay on `0.2.48`.
 
 ### `ToolFactory` → `aix.Tool`
 
 ```python
-# v1 (deprecated)
+# v1 (removed in 0.3.0)
 from aixplain.factories import ToolFactory
 
 tool = ToolFactory.create(integration=..., name="My Slack tool")
@@ -229,7 +220,7 @@ Per-action inputs are set through the actions object — `tool.actions.<action>.
 ### `IntegrationFactory` → `aix.Integration`
 
 ```python
-# v1 (deprecated)
+# v1 (removed in 0.3.0)
 from aixplain.factories import IntegrationFactory
 
 integration = IntegrationFactory.get("<integration-id>")
@@ -250,7 +241,7 @@ actions = integration.list_actions()
 ### `MetricFactory` → `aix.Metric`
 
 ```python
-# v1 (deprecated)
+# v1 (removed in 0.3.0)
 from aixplain.factories import MetricFactory
 
 metric = MetricFactory.get("<metric-id>")
@@ -270,7 +261,7 @@ metrics = aix.Metric.search()
 ### `APIKeyFactory` → `aix.APIKey`
 
 ```python
-# v1 (deprecated)
+# v1 (removed in 0.3.0)
 from aixplain.factories import APIKeyFactory
 
 key = APIKeyFactory.get("<access-key>")
@@ -292,7 +283,7 @@ limits = aix.APIKey.get_usage_limits()
 ### `FileFactory` → `aixplain.v2.upload_file`
 
 ```python
-# v1 (deprecated)
+# v1 (removed in 0.3.0)
 from aixplain.factories import FileFactory
 
 link = FileFactory.upload("/path/to/local.csv")
@@ -314,7 +305,7 @@ Use `FileUploader` directly when you need to target a specific backend or key.
 `ScriptFactory.upload_script` uploaded a code file and returned an ID to wire in by hand. In v2, custom code is a first-class `Utility` resource.
 
 ```python
-# v1 (deprecated)
+# v1 (removed in 0.3.0)
 from aixplain.factories.script_factory import ScriptFactory
 
 file_id, metadata = ScriptFactory.upload_script("/path/to/script.py")
@@ -342,15 +333,15 @@ An internal abstract base class that other v1 factories inherit `get` from. It h
 
 ---
 
-## No v2 equivalent yet
+## No v2 equivalent
 
-These eight factories have **no v2 replacement today**. They remain fully supported in v1, and the removal date above is contingent on closing these gaps first — we will not remove a capability that has nowhere to go.
+These eight factories have **no v2 replacement**, and the removal took them with it. There is no v2 spelling to port them to.
 
-If you depend on any of them, keep using the v1 import and suppress the notice with `AIXPLAIN_SUPPRESS_V1_DEPRECATION=1` for now.
+If you depend on any of them, stay on `0.2.48` (`pip install 'aiXplain==0.2.48'`) and [open an issue](https://github.com/aixplain/aiXplain/issues) saying which one — that is what prioritises the replacement.
 
-| v1 factory | What it covers | Notes |
+| v1 factory | What it covered | Notes |
 | --- | --- | --- |
-| `IndexFactory` | Vector indexes / RAG collections | No v2 surface. Keep `from aixplain.factories import IndexFactory`. |
+| `IndexFactory` | Vector indexes / RAG collections | No v2 surface. |
 | `PipelineFactory` | Legacy static pipelines | The v2 replacement is being designed as static-graph agents; see [`docs/rfcs/rfc-static-graph-agents.md`](docs/rfcs/rfc-static-graph-agents.md). |
 | `BenchmarkFactory` | Benchmarks and benchmark jobs | v2 has `aix.Eval` for agent evaluation, which is not a replacement for model benchmarking. |
 | `CorpusFactory` | Corpus assets | Data-asset onboarding has no v2 surface. |
@@ -361,37 +352,16 @@ If you depend on any of them, keep using the v1 import and suppress the notice w
 
 ## Enums, modules, and other legacy paths
 
-Beyond the factories, three more legacy prefixes redirect into v1:
+Beyond the factories, four more legacy prefixes were removed:
 
 | Legacy import | v2 |
 | --- | --- |
-| `from aixplain.enums import Function, Supplier, ...` | `aix.Function`, `aix.Supplier`, … on the `Aixplain` instance, or `from aixplain.v2 import enums` |
+| `from aixplain.enums import Function, Supplier, ...` | `from aixplain import Function, Supplier, ...`, or `aix.Function` / `aix.Supplier` on the client |
 | `from aixplain.modules import Agent, Model, ...` | `aix.Agent`, `aix.Model`, … — v2 resources replace the v1 domain objects |
-| `from aixplain.decorators import ...`, `aixplain.base`, `aixplain.processes` | Internal helpers with no public v2 counterpart |
+| `from aixplain.decorators import ...`, `aixplain.base` | Internal helpers with no public v2 counterpart |
+| `from aixplain.processes import ...` | v1 data onboarding; no v2 counterpart |
 
 ## Polling behaviour changes
-
-Two polling defaults changed. Both bound a loop that was previously unbounded or
-effectively unbounded; both are opt-out-able through the same parameter you
-already pass.
-
-### `Pipeline.run` / `Pipeline.poll` stop polling after 30 minutes
-
-The default `timeout` on `aixplain.modules.pipeline.Pipeline.run()` (and the
-private polling loop behind it) dropped from **20,000 seconds (5h 33m) to 1,800
-seconds (30 minutes)**.
-
-A pipeline that legitimately runs longer than 30 minutes will now stop being
-polled and be reported as a failure, even though the run itself continues on the
-platform. If you have such a pipeline, raise the budget explicitly:
-
-```python
-pipeline.run(data, timeout=20000.0)   # the previous default
-```
-
-The old default meant a pipeline that never completed pinned a thread for over
-five hours; 30 minutes is the bound for the common case, and the parameter is
-there for the rest.
 
 ### `AgentProgressTracker.stream_progress` is bounded and raises on expiry
 

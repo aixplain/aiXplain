@@ -81,8 +81,6 @@ _CREATING_METHODS = ("save", "deploy", "update")
 #: fix. Dropping an entry as it is fixed is the intended direction of travel; the
 #: guard exists so the count cannot grow.
 SWALLOWED_CLEANUP_BACKLOG = {
-    "tests/functional/agent/agent_mcp_deploy_test.py": "3 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/team_agent/evolver_test.py": "2 sites; adopt resource_tracker (BUG-947 follow-up)",
     "tests/functional/v2/test_agent.py": "2 sites; adopt resource_tracker (BUG-947 follow-up)",
     "tests/functional/v2/test_agent_duplicate.py": "9 sites; adopt resource_tracker (BUG-947 follow-up)",
     "tests/functional/v2/test_agent_llm_persistence.py": "1 site; adopt resource_tracker (BUG-947 follow-up)",
@@ -152,31 +150,6 @@ def test_swallowed_cleanup_backlog_is_not_stale(file):
 
 #: BUG-947 asks for `resource_tracker` in `tests/functional/benchmark/`, and
 #: `benchmark_functional_test.py` does create real benchmarks with no cleanup.
-#: It cannot register them: neither `Benchmark` nor `BenchmarkFactory` exposes a
-#: delete, so there is no call for a tracker entry to make, and adding one to the
-#: SDK is out of scope for a test-hygiene fix on an unmaintained `v1` surface.
-#: `benchmark` is also not a CI leg (see the matrix comment in
-#: .github/workflows/main.yaml), so it leaks only when run by hand. The guard
-#: below is what stops that reasoning from going stale: the day a delete lands,
-#: this test fails and names the file to fix.
-BENCHMARK_CREATING_TEST = "tests/functional/benchmark/benchmark_functional_test.py"
-
-
-def test_benchmark_cleanup_is_still_unimplementable():
-    """When Benchmark gains a delete, register the benchmark tests with the tracker."""
-    from aixplain.factories import BenchmarkFactory
-    from aixplain.modules.benchmark import Benchmark
-
-    deletable = [
-        f"{owner.__module__}.{owner.__name__}" for owner in (Benchmark, BenchmarkFactory) if hasattr(owner, "delete")
-    ]
-    assert not deletable, (
-        f"{deletable} now exposes a delete, so {BENCHMARK_CREATING_TEST} can finally clean up the "
-        "benchmarks it creates. Register them with the shared `resource_tracker` fixture and drop "
-        "this guard (BUG-947)."
-    )
-
-
 # ---------------------------------------------------------------------------
 # One tracker definition
 # ---------------------------------------------------------------------------

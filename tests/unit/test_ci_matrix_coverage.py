@@ -47,22 +47,18 @@ TEST_FILE_PATTERNS = ("test_*.py", "*_test.py")
 #: Directories with no test module, and why. An entry is a written statement
 #: that the absence is intentional; without it, a directory whose tests were all
 #: deleted is indistinguishable from a covered one.
-DIRS_WITHOUT_TESTS = {
-    "finetune": "tests removed in 1539df13; only __init__.py and fixture data remain (ENG-3544 open question: delete or restore)",
-}
+#: Empty since PROD-2918: the `finetune` directory went with the v1 suites it
+#: served. Add an entry here (with a ticket) if a directory is ever emptied again.
+DIRS_WITHOUT_TESTS = {}
 
 #: Repo-relative file or directory -> why it has no CI leg. Parking is a real
 #: option, but only a declared one: each entry needs a ticket reference so the
 #: dead coverage is tracked rather than forgotten. Dropping an entry and adding
 #: the leg (both the `test-suite` name and its `include` block) belong in the
 #: same change, and the tests below hold the two halves together.
-PARKED_TARGETS = {
-    "tests/functional/benchmark": (
-        "parked by 04dea96e for failing against the test backend; MetricFactory/BenchmarkFactory "
-        "have no functional coverage until someone reruns this with a test-backend credential "
-        "and proves it green (ENG-3544)"
-    ),
-}
+#: Empty since PROD-2918: `tests/functional/benchmark` exercised the v1
+#: BenchmarkFactory and was deleted with v1 rather than un-parked.
+PARKED_TARGETS = {}
 
 #: A parking reason has to point at something trackable, not just say "flaky".
 _TICKET_PATTERN = re.compile(r"[A-Z]{2,}-\d+")
@@ -401,26 +397,28 @@ def test_blanket_skip_detector_distinguishes_guarded_from_unconditional(tmp_path
     assert _blanket_skip_offenders(agent_dir.parent, tmp_path) == expected
 
 
-@pytest.mark.parametrize("directory", ["agent", "team_agent", "benchmark"])
+@pytest.mark.parametrize("directory", ["v2"])
 def test_the_real_conftests_are_the_guarded_shape(directory):
-    """The conftests this ticket wrote still skip only on a missing credential.
+    """Every functional conftest still skips only on a missing credential.
 
-    `agent`/`team_agent` had the unconditional skip and were rewritten;
-    `benchmark` had no guard at all and would have hit the backend
-    unauthenticated. Matched against the parsed tree, not the file text, so the
-    comments that explain the defect are not mistaken for the defect.
+    The `agent`/`team_agent` conftests this ticket rewrote, and the unguarded
+    `benchmark` one, went with the v1 suites in PROD-2918; `v2` is what is left.
+    Matched against the parsed tree, not the file text, so the comments that
+    explain the defect are not mistaken for the defect.
     """
     conftest = FUNCTIONAL_DIR / directory / "conftest.py"
     functions = [node for node in ast.walk(ast.parse(conftest.read_text())) if isinstance(node, ast.FunctionDef)]
 
     assert not [f for f in functions if f.name == "pytest_collection_modifyitems"], (
         f"tests/functional/{directory}/conftest.py reintroduced the collection hook that caused "
-        "ENG-3544; use the credential-guarded autouse fixture instead."
+        "ENG-3544; use a credential-guarded fixture instead."
     )
 
-    guards = [f for f in functions if _is_autouse_fixture(f) and "getenv" in ast.dump(f)]
+    # Not necessarily autouse: the v2 suite reaches the credential through the
+    # `client` fixture every test already requests, which skips on the same read.
+    guards = [f for f in functions if "getenv" in ast.dump(f) and "skip" in ast.dump(f)]
     assert guards, (
-        f"tests/functional/{directory}/conftest.py has no autouse fixture guarding its skip on an "
+        f"tests/functional/{directory}/conftest.py has no fixture guarding its skip on an "
         "API key; without one the suite either runs with no credential or skips unconditionally."
     )
 
