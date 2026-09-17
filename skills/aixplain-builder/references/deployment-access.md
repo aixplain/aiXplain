@@ -108,17 +108,28 @@ Every marketplace model/tool is reachable over MCP at `https://models-mcp.aixpla
 Keys come from Console → Settings → API Keys (`https://console.aixplain.com/settings/keys`); the full key is shown once. Max 10 per workspace; keys are workspace-specific. Scope a key to specific assets and rate limits:
 
 ```python
-from aixplain.v2 import APIKey, APIKeyLimits, TokenType
+from aixplain import Aixplain
 
-key = APIKey.get("your-api-key-id")
-key.asset_limits = [APIKeyLimits(
-    model="6646261c6eb563165658bbb1",          # asset ID (not path)
-    token_per_minute=300_000, token_per_day=144_000_000,
-    request_per_minute=60, request_per_day=28_800,
-    token_type=TokenType.OUTPUT,
-)]
+aix = Aixplain()
+
+# get() takes a key ID, the key value itself, or the key's name.
+key = aix.APIKey.get("your-api-key-id")
+key.asset_limits = [{
+    "model": "6646261c6eb563165658bbb1",       # asset ID (not path)
+    "token_per_minute": 300_000,
+    "token_per_day": 144_000_000,
+    "request_per_minute": 60,
+    "request_per_day": 28_800,
+    "token_type": "output",                    # or TokenType.OUTPUT
+}]
 key.save()
 ```
+
+Limits are plain dicts on the field names above; an unknown key raises and names the accepted
+fields. Only the dimensions you set are sent, so limiting tokens per minute leaves requests per
+minute unrestricted — pass `0` explicitly if you mean zero. Reading them back gives `APIKeyLimits`
+objects (`key.asset_limits[0].token_per_minute`), and `APIKeyLimits(...)`/`TokenType.OUTPUT` still
+work if you prefer them: `from aixplain import APIKeyLimits, TokenType`.
 
 Monitor usage: `aix.APIKey.get_usage_limits()` or `get_usage_limits(model=MODEL_ID)` (use IDs, not paths). Rate-limit errors surface as HTTP **497** (aiXplain per-minute) or **429**. Other REST errors: 401 bad key, 492 unfetchable input URL, 400 malformed/empty `query`.
 

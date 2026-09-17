@@ -275,10 +275,25 @@ from aixplain import Aixplain
 
 aix = Aixplain()
 
-key = aix.APIKey.get_by_access_key("<access-key>")
+key = aix.APIKey.get("<access-key>")   # also takes a key ID or a key name
 keys = aix.APIKey.list()
 limits = aix.APIKey.get_usage_limits()
 ```
+
+`APIKeyFactory.get` took a key value; `aix.APIKey.get` takes a key ID, a key value **or** a key
+name, so the rename needs no other change. `get_by_access_key` still exists for the key-value form
+alone. Both match the full key value, not just its first and last four characters.
+
+Rate limits take plain dicts on the user-facing field names, and only the dimensions you set are
+sent:
+
+```python
+key.asset_limits = [{"model": "openai/gpt-5", "token_per_minute": 10_000, "token_type": "output"}]
+key.save()
+```
+
+`APIKeyLimits` and `TokenType` are unchanged and now import from the package root
+(`from aixplain import APIKeyLimits, TokenType`).
 
 ### `FileFactory` → `aixplain.v2.upload_file`
 

@@ -91,13 +91,17 @@ class TestAPIKeyLimits:
     """Tests for APIKeyLimits class."""
 
     def test_create_limits_with_defaults(self):
-        """Limits should have default values of 0."""
+        """Every dimension defaults to unset, not to zero.
+
+        Zero was indistinguishable from "I did not set this", so a limit that
+        set only ``token_per_minute`` sent zeros for the other three.
+        """
         limits = APIKeyLimits()
 
-        assert limits.token_per_minute == 0
-        assert limits.token_per_day == 0
-        assert limits.request_per_minute == 0
-        assert limits.request_per_day == 0
+        assert limits.token_per_minute is None
+        assert limits.token_per_day is None
+        assert limits.request_per_minute is None
+        assert limits.request_per_day is None
         assert limits.model is None
         assert limits.token_type is None
 
@@ -693,8 +697,8 @@ class TestAPIKey:
 
         assert result["tokenType"] == "total"
 
-    def test_api_key_limits_to_api_dict_none_token_type(self):
-        """_limits_to_api_dict() should serialize None token_type as None."""
+    def test_api_key_limits_to_api_dict_omits_none_token_type(self):
+        """An unset token_type is left out of the payload rather than sent as null."""
         limits = APIKeyLimits(
             token_per_minute=100,
             token_per_day=1000,
@@ -705,7 +709,8 @@ class TestAPIKey:
 
         result = APIKey._limits_to_api_dict(limits)
 
-        assert result["tokenType"] is None
+        assert "tokenType" not in result
+        assert result == {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100}
 
     def test_api_key_parse_limits_static_method(self):
         """_parse_limits() static method should parse dicts and pass through objects."""

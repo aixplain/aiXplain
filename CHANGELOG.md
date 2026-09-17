@@ -44,3 +44,42 @@ Also removed, because they existed only to serve v1:
   imported, and the `generate.py` code generator that rendered it.
 
 See [MIGRATION.md](MIGRATION.md) for the factory-by-factory map.
+
+### Added: API key limits as plain data
+
+`asset_limits` and `global_limits` take dicts on the user-facing field names, so
+configuring a key no longer depends on the SDK's module layout:
+
+```python
+key = aix.APIKey.get("Production")     # a key ID, a key value, or a name
+key.asset_limits = [{"model": "openai/gpt-5", "token_per_minute": 10_000, "token_type": "output"}]
+key.save()
+```
+
+The dict is typed as `APIKeyLimitsDict`, so a misspelled field is a type error;
+at runtime an unknown key raises and names the accepted fields, rather than
+being dropped (which used to mean "no limit"). `token_type` takes `"input"`,
+`"output"` or `"total"` as well as `TokenType`. Reading limits back still gives
+`APIKeyLimits` objects.
+
+`APIKeyLimits` and `TokenType` remain the internal representation, behave exactly
+as before, and now import from the package root:
+`from aixplain import APIKeyLimits, TokenType`.
+
+Two correctness fixes ride along:
+
+- **An unset limit is no longer a zero.** Every dimension defaults to `None` and
+  is left out of the save payload, so setting `token_per_minute` alone leaves the
+  other three unrestricted. Previously all four were sent, with `0` for the ones
+  the caller never mentioned — which silently blocked them if the backend reads
+  `0` as blocked. A deliberate `0` is still sent as `0`.
+- **Key values are matched in full.** `get_by_access_key()` compared only the
+  first and last four characters, so two keys sharing both resolved to whichever
+  the backend listed first, and limits were written to a key the caller never
+  named. Both it and `get()` now compare the whole value; if the backend returns
+  masked keys and more than one is consistent with the value, they raise instead
+  of guessing.
+
+`APIKey.get()` resolves a key ID, a key value or a name — v1's `APIKeyFactory.get`
+took a key value and v2's inherited `get` took an ID, so a renamed call used to
+fail with "not found". An argument matching none of the three now says so.

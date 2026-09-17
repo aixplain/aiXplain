@@ -52,6 +52,17 @@ _install_compat()
 from .v2.core import Aixplain  # noqa: E402
 from .v2.file import File  # noqa: E402
 
+# Re-exported so configuration structures are reachable without a version
+# segment in the import path. ``aixplain.v2`` already collected them; that is one
+# level too deep for a caller who only ever writes ``from aixplain import ...``.
+from .v2.api_key import (  # noqa: E402
+    APIKeyLimits,
+    APIKeyLimitsDict,
+    APIKeyUsageLimit,
+    TokenType,
+    TokenTypeValue,
+)
+
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=LOG_LEVEL)
 
@@ -103,4 +114,16 @@ def __dir__():
 # ``aixplain_v2`` is deliberately absent: it stays importable by name through
 # ``__getattr__`` above, but keeping it here would make ``from aixplain import *``
 # construct a client -- and therefore raise -- in a keyless environment.
-__all__ = ["Aixplain", "File"]
+__all__ = [
+    "Aixplain",
+    "File",
+    # API key configuration. ``APIKeyLimits``/``TokenType`` stay the internal
+    # representation and behave exactly as before; ``APIKeyLimitsDict`` and
+    # ``TokenTypeValue`` are the plain-data forms of the same two things, for
+    # type checking a dict or a string literal.
+    "APIKeyLimits",
+    "APIKeyLimitsDict",
+    "APIKeyUsageLimit",
+    "TokenType",
+    "TokenTypeValue",
+]

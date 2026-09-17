@@ -52,7 +52,14 @@ from .eval_results_display import (
     pivot_agents_wide,
     summarize_by_agent,
 )
-from .api_key import APIKey, APIKeyLimits, APIKeyUsageLimit, TokenType
+from .api_key import (
+    APIKey,
+    APIKeyLimits,
+    APIKeyLimitsDict,
+    APIKeyUsageLimit,
+    TokenType,
+    TokenTypeValue,
+)
 from .issue import IssueReporter, IssueSeverity
 from .exceptions import (
     AixplainV2Error,
@@ -151,8 +158,10 @@ __all__ = [
     # API Key management
     "APIKey",
     "APIKeyLimits",
+    "APIKeyLimitsDict",
     "APIKeyUsageLimit",
     "TokenType",
+    "TokenTypeValue",
     "IssueReporter",
     "IssueSeverity",
     # Progress tracking
