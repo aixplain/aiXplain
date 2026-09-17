@@ -13,7 +13,7 @@ Silently dropping an unknown key is the failure mode being removed: a misspelled
 ``max_iteration`` used to mean "no cap" rather than "you meant max_iterations".
 """
 
-from dataclasses import fields as dataclass_fields
+from dataclasses import MISSING, fields as dataclass_fields
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Type, TypeVar
 
 from .exceptions import ValidationError
@@ -60,7 +60,8 @@ def coerce_struct(
 
     Raises:
         ValidationError: If *value* is neither ``None``, an instance, nor a dict,
-            or if a dict carries a key that is neither a field nor an alias.
+            if a dict carries a key that is neither a field nor an alias, or if
+            it omits a field the struct requires.
     """
     if value is None or isinstance(value, cls):
         return value
@@ -83,6 +84,18 @@ def coerce_struct(
     if unknown:
         raise ValidationError(
             f"Unknown {label} field(s): {', '.join(sorted(unknown))}. Accepted fields: {', '.join(accepted)}."
+        )
+    missing = tuple(
+        f.name
+        for f in dataclass_fields(cls)
+        if f.name not in kwargs and f.default is MISSING and f.default_factory is MISSING
+    )
+    if missing:
+        # ``cls(**kwargs)`` would raise a bare ``TypeError`` naming the dunder
+        # ``__init__`` instead of the struct, which is the opposite of what this
+        # module exists for: a dict entry point has to say what it wanted.
+        raise ValidationError(
+            f"Missing required {label} field(s): {', '.join(missing)}. Accepted fields: {', '.join(accepted)}."
         )
     return cls(**kwargs)
 

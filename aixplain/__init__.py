@@ -45,9 +45,20 @@ def _load_cwd_dotenv() -> bool:
 
 _load_cwd_dotenv()
 
-from aixplain._compat import install as _install_compat  # noqa: E402
+from aixplain._compat import (  # noqa: E402
+    V1_IMPORT_PREFIXES as _V1_IMPORT_PREFIXES,
+    install as _install_compat,
+    removal_message as _v1_removal_message,
+)
 
 _install_compat()
+
+#: Leaf names of the removed v1 subpackages (``factories``, ``modules``, ...).
+#: The meta-path finder covers ``import aixplain.factories``, but ``from
+#: aixplain import factories`` never reaches it: CPython's ``_handle_fromlist``
+#: swallows the finder's ``ModuleNotFoundError`` and reports a bare "cannot
+#: import name". ``__getattr__`` below re-raises the guidance for that spelling.
+_REMOVED_V1_ATTRS = frozenset(prefix.split(".", 1)[1] for prefix in _V1_IMPORT_PREFIXES)
 
 # The whole v2 surface is re-exported here, so nothing a caller needs carries a
 # version segment in its import path: ``from aixplain import Budget, Privacy,
@@ -95,8 +106,13 @@ def __getattr__(name: str):
         Aixplain: The lazily constructed client, cached in module globals.
 
     Raises:
-        AttributeError: If ``name`` is anything other than ``aixplain_v2``.
+        ModuleNotFoundError: If ``name`` is one of the removed v1 subpackages,
+            carrying the same migration guidance the import hook raises.
+        AttributeError: If ``name`` is anything else.
     """
+    if name in _REMOVED_V1_ATTRS:
+        full = f"{__name__}.{name}"
+        raise ModuleNotFoundError(_v1_removal_message(full), name=full)
     if name != "aixplain_v2":
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

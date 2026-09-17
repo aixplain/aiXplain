@@ -22,7 +22,7 @@ from aixplain.v2.api_key import (
     coerce_limits,
     coerce_limits_list,
 )
-from aixplain.v2.exceptions import ResourceError, ValidationError
+from aixplain.v2.exceptions import APIError, ResourceError, ValidationError
 
 
 def _bound(listing, get_response=None, get_error=None):
@@ -32,6 +32,12 @@ def _bound(listing, get_response=None, get_error=None):
         listing: What ``GET sdk/api-keys`` answers, i.e. what ``list()`` sees.
         get_response: What ``GET sdk/api-keys/<id>`` answers, if anything.
         get_error: Raised by the by-ID fetch instead, for the fallback paths.
+
+    The default by-ID failure is an ``APIError`` carrying HTTP 404, which is what
+    ``AixplainClient`` raises for an unknown id. It used to be a bare
+    ``ResourceError``, which the client never raises here -- and ``get()`` now
+    reads the status to decide whether falling back is meaningful, so a stub
+    raising something the real client cannot would have tested nothing.
     """
 
     def get(path, **kwargs):
@@ -40,7 +46,7 @@ def _bound(listing, get_response=None, get_error=None):
         if get_error is not None:
             raise get_error
         if get_response is None:
-            raise ResourceError(f"404 for {path}")
+            raise APIError(f"Not found: {path}", status_code=404)
         return get_response
 
     client = Mock()
@@ -281,14 +287,84 @@ class TestGetResolution:
 
     def test_a_failed_listing_surfaces_the_original_by_id_error(self):
         client = Mock()
-        client.get = Mock(side_effect=ResourceError("the by-id failure"))
+        client.get = Mock(side_effect=APIError("the by-id failure", status_code=404))
         client.request = Mock(side_effect=RuntimeError("listing is down"))
 
         class BoundAPIKey(APIKey):
             context = Mock(client=client)
 
-        with pytest.raises(ResourceError, match="the by-id failure"):
+        with pytest.raises(APIError, match="the by-id failure"):
             BoundAPIKey.get("key1")
+
+
+class TestGetDoesNotMisreportAnUnrelatedFailure:
+    """A by-ID fetch that failed for its own reasons is not "no key matches".
+
+    An expired credential or a 5xx says nothing about whether the argument was an
+    ID, so reporting "No API key matches ..." sends the caller hunting for a key
+    that is still there. The lookup still *runs* -- which status a backend picks
+    for a non-ObjectId path segment is its business, and gating on that would
+    break ``get()`` by name the day it changed -- but the real error wins once
+    nothing has matched.
+    """
+
+    @pytest.mark.parametrize("status", [401, 403, 500, 502, 503])
+    def test_an_unrelated_failure_wins_over_no_key_matches(self, status):
+        bound = _bound(LISTING, get_error=APIError("backend said no", status_code=status))
+
+        with pytest.raises(APIError) as excinfo:
+            bound.get("nothing-like-this")
+
+        assert excinfo.value.status_code == status
+        assert "No API key matches" not in str(excinfo.value)
+
+    @pytest.mark.parametrize("status", [401, 403, 500, 503])
+    def test_the_other_two_forms_still_resolve_through_an_unrelated_failure(self, status):
+        """The fallback is never gated on the status -- only the final error is.
+
+        A backend that answers 500 for a malformed id would otherwise silently
+        lose ``get()`` by name and by key value.
+        """
+        bound = _bound(LISTING, get_error=APIError("backend said no", status_code=status))
+
+        assert bound.get("Staging").id == "key2"
+        assert bound.get("abcd1111zzzz9999").id == "key1"
+
+    @pytest.mark.parametrize("status", [400, 404, 422])
+    def test_a_not_an_id_failure_yields_the_three_forms_message(self, status):
+        """These mean "that was not an ID", so the friendly message is the answer."""
+        bound = _bound(LISTING, get_error=APIError("nope", status_code=status))
+
+        with pytest.raises(ResourceError) as excinfo:
+            bound.get("nothing-like-this")
+
+        assert "key ID" in str(excinfo.value) and "key name" in str(excinfo.value)
+
+    def test_an_error_with_no_status_yields_the_three_forms_message(self):
+        """``APIError`` defaults ``status_code`` to ``0`` for "no HTTP response".
+
+        Falsy has to read as unknown rather than as a status outside the set, or
+        a transport-level failure would be reported in place of the guidance.
+        """
+        for error in (APIError("connection reset"), RuntimeError("connection reset")):
+            bound = _bound(LISTING, get_error=error)
+
+            with pytest.raises(ResourceError, match="accepts a key ID"):
+                bound.get("nothing-like-this")
+
+    def test_a_surfaced_backend_error_cannot_echo_the_argument(self):
+        """Why re-raising is safe: the client builds its message from the body.
+
+        ``AixplainClient`` raises ``APIError(response.json() or response.text)``
+        -- the request URL, which is what carries the caller's argument, is never
+        in it. If that ever changes, this fails rather than leaking a key value.
+        """
+        bound = _bound(LISTING, get_error=APIError("upstream timeout", status_code=504))
+
+        with pytest.raises(APIError) as excinfo:
+            bound.get("SUPER-SECRET-KEY-VALUE")
+
+        assert "SUPER-SECRET-KEY-VALUE" not in str(excinfo.value)
 
 
 class TestKeyValueMatchingIsExact:

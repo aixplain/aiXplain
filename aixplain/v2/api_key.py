@@ -53,6 +53,18 @@ class TokenType(Enum):
     TOTAL = "total"
 
 
+#: HTTP statuses on the by-ID fetch that mean "this argument is not a key ID".
+#: Anything else -- 401, 403, a 5xx, a dropped connection -- is a failure of the
+#: request and says nothing about the argument.
+#:
+#: Used only to choose which error to report once nothing has matched, never to
+#: decide whether to look. The fallback runs unconditionally: which status a
+#: backend returns for a non-ObjectId path segment is its business (a 500 would
+#: be unsurprising), and gating the lookup on this set would silently break
+#: ``get()`` by name the day that changed.
+_NOT_AN_ID_STATUSES = frozenset({400, 404, 422})
+
+
 def _mask(value: str) -> str:
     """Render a key value as ``abcd...wxyz`` so errors never echo a live key."""
     if len(value) <= 8:
@@ -529,12 +541,18 @@ class APIKey(
         Raises:
             ResourceError: If nothing matches, or if a name or masked key value
                 matches more than one key.
+            Exception: Whatever the by-ID fetch raised, if that failure was not a
+                verdict on the argument (an expired credential, a 5xx) and no
+                key matched the other two forms.
         """
         try:
             return super().get(id, **kwargs)
         except Exception as by_id_error:
             if not isinstance(id, str):
                 raise
+            # ``except ... as`` unbinds the name when the block ends, so keep a
+            # reference for the decision made after the fallback.
+            id_lookup_error = by_id_error
             try:
                 candidates = cls.list()
             except Exception:
@@ -555,6 +573,17 @@ class APIKey(
                 "Pass the key ID instead."
             )
 
+        # Nothing matched. If the by-ID fetch failed for its own reasons rather
+        # than because the argument was not an ID, that failure is the answer:
+        # reporting "no API key matches" would send the caller hunting for a key
+        # that is still there. The backend error is built from the response body,
+        # never the request URL, so surfacing it cannot echo the argument.
+        status = getattr(id_lookup_error, "status_code", None) or None
+        if status is not None and status not in _NOT_AN_ID_STATUSES:
+            raise id_lookup_error
+
+        # ``_mask`` rather than the argument itself: it may be a live key value,
+        # and error text gets pasted into bug reports.
         raise ResourceError(
             f"No API key matches {_mask(id)!r}. APIKey.get() accepts a key ID, a full key value, "
             "or a key name; this matched none of them. Use APIKey.list() to see the keys on this account."

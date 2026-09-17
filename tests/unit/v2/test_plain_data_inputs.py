@@ -278,6 +278,28 @@ class TestTriggerDicts:
         assert isinstance(trigger.configuration, TriggerConfiguration)
         assert trigger.configuration.run_at == "2026-01-26T12:00:00Z"
 
+    def test_repeat_assignment_after_construction(self):
+        """``config.repeat = {...}`` has to coerce too, not only the constructor.
+
+        ``_hydrate_schedule_fields`` reads ``config.repeat.unit``, so a dict left
+        in place surfaces much later as an AttributeError on a fetched trigger.
+        """
+        config = TriggerConfiguration(type="recurring")
+        config.repeat = {"every": 2, "unit": "hour"}
+
+        assert isinstance(config.repeat, TriggerRepeatRule)
+        assert config.repeat.unit == "hour"
+
+    def test_an_assigned_repeat_dict_survives_serialization(self):
+        config = TriggerConfiguration(type="recurring")
+        config.repeat = {"every": 2, "unit": "hour"}
+
+        assert config.to_dict()["repeat"] == {"every": 2, "unit": "hour"}
+
+    def test_unknown_repeat_key_raises(self):
+        with pytest.raises(ValidationError, match="Unknown repeat field"):
+            TriggerConfiguration(type="recurring", repeat={"evry": 2})
+
     def test_unknown_configuration_key_raises(self):
         with pytest.raises(ValidationError) as excinfo:
             Trigger(name="Bad", configuration={"typ": "once"})
@@ -302,6 +324,38 @@ class TestUtilityModelInputPlainData:
     def test_unknown_type_names_the_accepted_values(self):
         with pytest.raises(ValueError, match="Accepted values"):
             UtilityModelInput(name="n", description="d", type="nombre")
+
+
+class TestMissingRequiredFields:
+    """A dict short of a required field is a ``ValidationError``, not a ``TypeError``.
+
+    ``cls(**kwargs)`` would raise ``Task.__init__() missing 1 required positional
+    argument: 'expected_output'``, which names a dunder rather than the thing the
+    caller was writing -- the opposite of what a plain-data entry point is for.
+    """
+
+    def test_missing_field_raises_validation_error_naming_it(self):
+        from aixplain.v2.plain_data import coerce_struct
+
+        with pytest.raises(ValidationError) as excinfo:
+            coerce_struct({"name": "t1"}, Task, label="tasks")
+
+        message = str(excinfo.value)
+        assert "instructions" in message and "expected_output" in message
+        assert "__init__" not in message
+
+    def test_missing_field_raises_through_the_agent_constructor(self):
+        with pytest.raises(ValidationError, match="Missing required tasks field"):
+            Agent(name="a", tasks=[{"name": "t1"}])
+
+    def test_fields_with_a_default_are_not_reported_missing(self):
+        """Only genuinely required fields count -- including ``default_factory``."""
+        task = Task(name="t1", instructions="i", expected_output="e")
+
+        assert task.dependencies == []
+
+    def test_a_fully_optional_struct_accepts_an_empty_dict(self):
+        assert Budget() == Agent._coerce_budget({})
 
 
 # -- Input enums accept their string values -----------------------------------------

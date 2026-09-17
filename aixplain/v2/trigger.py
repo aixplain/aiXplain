@@ -145,9 +145,18 @@ class TriggerConfiguration:
     next_run_at: Optional[str] = field(default=None, metadata=dj_config(field_name="nextRunAt", exclude=lambda x: True))
     repeat: Optional[Union[TriggerRepeatRule, TriggerRepeatRuleDict]] = None
 
-    def __post_init__(self) -> None:
-        """Coerce a dict ``repeat`` into a :class:`TriggerRepeatRule`."""
-        self.repeat = coerce_struct(self.repeat, TriggerRepeatRule, label="repeat")
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Coerce a dict ``repeat`` into a :class:`TriggerRepeatRule`.
+
+        On every assignment rather than in ``__post_init__`` alone: reading
+        ``configuration.repeat`` has to give an object with attributes whichever
+        way it was set, or ``_hydrate_schedule_fields`` (``config.repeat.unit``)
+        fails with ``AttributeError`` on a dict assigned after construction.
+        Mirrors how :class:`Trigger` coerces ``configuration``.
+        """
+        if name == "repeat":
+            value = coerce_struct(value, TriggerRepeatRule, label="repeat")
+        super().__setattr__(name, value)
 
 
 #: Wire spellings accepted alongside the field names, so the same entry point

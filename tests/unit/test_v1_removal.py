@@ -162,6 +162,56 @@ def test_every_removed_prefix_has_its_own_guidance(prefix):
     assert len(message.splitlines()) >= 4, f"{prefix} produced a bare message:\n{message}"
 
 
+@pytest.mark.parametrize("name", [prefix.split(".", 1)[1] for prefix in V1_IMPORT_PREFIXES])
+def test_from_aixplain_import_of_a_removed_subpackage_keeps_the_guidance(name):
+    """``from aixplain import factories`` must say the same thing as ``import aixplain.factories``.
+
+    The meta-path finder alone does not cover this spelling: CPython's
+    ``_handle_fromlist`` catches a finder's ``ModuleNotFoundError`` and reports a
+    bare "cannot import name", discarding everything the message carried. The
+    package ``__getattr__`` re-raises it so both spellings land in the same place.
+    """
+    result = _run(
+        f"""
+        import aixplain
+        try:
+            from aixplain import {name}
+        except ModuleNotFoundError as exc:
+            print(exc)
+        else:
+            raise SystemExit("from-import of a removed subpackage unexpectedly succeeded")
+        """
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"aixplain.{name}" in result.stdout
+    assert LAST_V1_RELEASE in result.stdout
+    assert MIGRATION_GUIDE_URL in result.stdout
+
+
+def test_the_removed_name_guard_does_not_swallow_ordinary_attribute_errors():
+    """Only the seven removed names are special; everything else still 404s normally."""
+    import aixplain
+
+    with pytest.raises(AttributeError):
+        aixplain.definitely_not_a_real_symbol
+
+
+def test_hasattr_on_a_removed_name_raises_rather_than_answering_false():
+    """Deliberate, and load-bearing -- do not "fix" this into an AttributeError.
+
+    ``hasattr`` only swallows ``AttributeError``, and that is exactly why the
+    guidance survives: ``_handle_fromlist`` probes with ``hasattr`` before it
+    imports, so an ``AttributeError`` here would have it fall through to the bare
+    "cannot import name". The cost is that ``getattr(aixplain, "enums", None)``
+    raises instead of returning the default, which is the louder of the two
+    failures and the one this removal wants.
+    """
+    import aixplain
+
+    with pytest.raises(ModuleNotFoundError):
+        hasattr(aixplain, "enums")
+
+
 def test_the_guard_defers_to_everything_else():
     """A finder that raised too eagerly would break unrelated imports."""
     result = _run("import aixplain, aixplain.v2.agent, aixplain.utils.url_safety; print('ok')")
