@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing_extensions import Literal
 
 from .exceptions import APIError, AixplainIssueError
 
@@ -18,6 +19,10 @@ class IssueSeverity(str, Enum):
     SEV2 = "SEV2"
     SEV3 = "SEV3"
     SEV4 = "SEV4"
+
+
+#: The string form of :class:`IssueSeverity`, accepted anywhere the enum is.
+IssueSeverityValue = Literal["SEV1", "SEV2", "SEV3", "SEV4"]
 
 
 class IssueReporter:

@@ -18,6 +18,8 @@ from .model import Model
 from .file import File
 from .skill import Skill
 from .mixins import ToolableMixin
+from .plain_data import coerce_struct_list, struct_fields
+from .exceptions import ValidationError
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
@@ -149,6 +151,40 @@ class ContextOverflowStrategy(str, Enum):
 
     TRUNCATE = "truncate"
     SUMMARIZE = "summarize"
+
+
+#: The string form of :class:`OutputFormat`, accepted anywhere the enum is.
+OutputFormatValue = Literal["markdown", "text", "json"]
+
+#: The string form of :class:`ContextOverflowStrategy`, accepted anywhere the
+#: enum is -- ``agent.context_overflow_strategy = "summarize"``.
+ContextOverflowStrategyValue = Literal["truncate", "summarize"]
+
+
+class BudgetDict(TypedDict, total=False):
+    """The dict form of :class:`Budget`, on the user-facing field names.
+
+    Every key is optional; an omitted cap is not sent, leaving that dimension
+    uncapped. Declared as a ``TypedDict`` so a plain dict still gets
+    autocomplete and a type error on a misspelled key, with nothing to import.
+    """
+
+    max_cost: float
+    max_duration_seconds: float
+    max_iterations: int
+
+
+class TaskDict(TypedDict, total=False):
+    """The dict form of :class:`Task`, on the user-facing field names."""
+
+    name: str
+    instructions: str
+    expected_output: str
+    dependencies: List[Union[str, "Task"]]
+
+
+#: Accepted alongside the field names when decoding a ``Task`` from the wire.
+_TASK_WIRE_ALIASES = {"description": "instructions", "expectedOutput": "expected_output"}
 
 
 RoleModelRef = Union[str, Dict[str, Any], Model]
@@ -334,6 +370,11 @@ class Budget:
         default=None,
         metadata=config(field_name="maxIterations", exclude=lambda v: v is None),
     )
+
+
+#: Named in the error raised for an unknown key in a ``budget`` dict. Read off
+#: the dataclass so a field added to Budget needs no second edit here.
+_BUDGET_FIELDS = struct_fields(Budget)
 
 
 @dataclass_json
@@ -649,8 +690,9 @@ class Agent(
     supervisor: Optional[RoleModelRef] = _role_field(save_key="supervisor")
     response_generator: Optional[RoleModelRef] = _role_field(save_key="responder")
 
-    # Task fields
-    tasks: Optional[List[Task]] = field(default_factory=list)
+    # Task fields. A dict on the ``TaskDict`` field names works as well as a
+    # ``Task``; ``__post_init__`` coerces either.
+    tasks: Optional[List[Union[Task, "TaskDict"]]] = field(default_factory=list)
     agents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
 
     # Deprecated alias for `agents` — will be removed in a future release
@@ -713,7 +755,10 @@ class Agent(
 
     def __post_init__(self) -> None:
         """Initialize agent after dataclass creation."""
-        self.tasks = [Task.from_dict(task) for task in self.tasks]
+        # Dicts and ``Task`` objects both, on the user-facing field names. The
+        # previous ``Task.from_dict(task)`` assumed a dict and raised
+        # ``AttributeError`` on a ``Task`` the caller had constructed.
+        self.tasks = coerce_struct_list(self.tasks, Task, label="tasks", aliases=_TASK_WIRE_ALIASES)
 
         # Deserialize inspectors to Inspector objects so mutate-and-save round-trips.
         # Prebuilt guards and custom inspectors are the same Inspector type, so a
@@ -1119,6 +1164,17 @@ class Agent(
         if budget is None or isinstance(budget, Budget):
             return budget
         if isinstance(budget, dict):
+            # Accepted on either spelling, but an unknown key raises: a
+            # misspelled ``max_iteration`` used to pass through
+            # ``_normalize_budget`` untouched and then be dropped by the
+            # constructor below, i.e. silently mean "no cap".
+            unknown = sorted(
+                key for key in budget if key not in _BUDGET_FIELDS and key not in cls._BUDGET_PARAMS_MAP.values()
+            )
+            if unknown:
+                raise ValidationError(
+                    f"Unknown budget field(s): {', '.join(unknown)}. Accepted fields: {', '.join(_BUDGET_FIELDS)}."
+                )
             normalized = cls._normalize_budget(budget)
             return Budget(
                 max_cost=normalized.get("maxCost"),

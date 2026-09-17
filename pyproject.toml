@@ -19,15 +19,14 @@ where = ["."]
 # backend) into every user's site-packages, where it collides with their own.
 include = ["aixplain*"]
 exclude = ["*.__pycache__", "*.__pycache__.*"]
-# Load-bearing, do not flip to false: aixplain/v1/base/ and
-# aixplain/v1/factories/cli/ hold modules but no __init__.py, and are imported
-# via the aixplain._compat redirector (aixplain.base.parameters,
-# aixplain.factories.cli.model_factory_cli).
-namespaces = true
+# Every remaining package directory carries an __init__.py. This was `true`
+# only for aixplain/v1/base/ and aixplain/v1/factories/cli/, which had none and
+# were reached through the legacy import redirector; both went with v1.
+namespaces = false
 
 [project]
 name = "aiXplain"
-version = "0.2.47"
+version = "0.3.0"
 description = "aiXplain SDK adds AI functions to software."
 readme = "README.md"
 requires-python = ">=3.9, <4"
@@ -64,7 +63,6 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "validators>=0.20.0",
     "filetype>=1.2.0",
-    "click>=7.1.2",
     "PyYAML>=6.0.1",
     "dataclasses-json>=0.5.2",
     "Jinja2==3.1.6",
@@ -78,9 +76,6 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/aixplain/aiXplain"
 Documentation = "https://github.com/aixplain/pipelines/tree/main/docs"
-
-[project.scripts]
-aixplain = "aixplain.cli_groups:run_cli"
 
 [project.optional-dependencies]
 model-builder = [
@@ -99,10 +94,6 @@ test = [
     # Exercised by the agent_evaluator / eval_experiment plotting tests, which
     # used to `pytest.importorskip("plotly")` and therefore never ran (ENG-3431).
     "plotly>=5.18.0",
-    # `generate.py render` shells out to `ruff format`; the drift job and
-    # tests/unit/test_generator.py compare its output byte-for-byte, so the version is
-    # pinned to the `rev` in .pre-commit-config.yaml (ENG-3435).
-    "ruff==0.12.12",
 ]
 
 [tool.coverage.run]
@@ -111,7 +102,6 @@ test = [
 source = ["aixplain"]
 omit = [
     "tests/*",
-    "aixplain/v2/enums_include.py",  # auto-generated
 ]
 relative_files = true  # keeps coverage.xml paths portable for CI reporters
 branch = false  # statement coverage only for now

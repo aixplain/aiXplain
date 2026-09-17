@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aixplain.utils import file_utils
 from aixplain.utils.url_safety import UnsafeURLError
 from aixplain.v2.upload_utils import S3Uploader
 
@@ -52,28 +51,6 @@ def test_v2_uploader_accepts_a_presigned_s3_url(tmp_path):
     request.assert_called_once()
 
 
-def test_upload_data_refuses_a_foreign_host_without_retrying(tmp_path):
-    """``file_utils.upload_data`` raises immediately and issues no PUT.
-
-    The generic handler in ``upload_data`` retries ``nattempts`` times and masks
-    the cause; a refused host is not transient, so it must bypass that path.
-    """
-    target = tmp_path / "data.csv"
-    target.write_text("a,b\n1,2\n")
-
-    post_response = MagicMock()
-    post_response.json.return_value = {"key": "some/key", "uploadUrl": FOREIGN_URL}
-
-    with patch.object(file_utils, "_request_with_retry", return_value=post_response) as request:
-        with pytest.raises(UnsafeURLError):
-            file_utils.upload_data(file_name=str(target), nattempts=2)
-
-    # Exactly one call: the POST that fetched the presigned URL. No PUT, and no
-    # recursive retry of the whole upload.
-    assert request.call_count == 1
-    assert request.call_args[0][0] == "post"
-
-
 # --------------------------------------------------------------------------
 # Redirects
 #
@@ -93,25 +70,6 @@ def test_v2_uploader_does_not_follow_redirects(tmp_path):
     with patch("aixplain.v2.upload_utils.RequestManager.request_with_retry", return_value=response) as request:
         S3Uploader.upload_file(str(target), GOOD_URL, "text/csv")
     assert request.call_args.kwargs["allow_redirects"] is False
-
-
-def test_upload_data_does_not_follow_redirects(tmp_path):
-    """``file_utils.upload_data`` PUTs with redirects disabled."""
-    target = tmp_path / "data.csv"
-    target.write_text("x")
-
-    post_response = MagicMock()
-    post_response.json.return_value = {"key": "some/key", "uploadUrl": GOOD_URL, "downloadUrl": "https://d/x"}
-    put_response = MagicMock(status_code=200)
-
-    def dispatch(method, *args, **kwargs):
-        return post_response if method == "post" else put_response
-
-    with patch.object(file_utils, "_request_with_retry", side_effect=dispatch) as request:
-        file_utils.upload_data(file_name=str(target))
-
-    put_call = [call for call in request.call_args_list if call[0][0] == "put"][0]
-    assert put_call.kwargs["allow_redirects"] is False
 
 
 def test_v2_file_upload_does_not_follow_redirects(tmp_path):

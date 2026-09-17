@@ -89,9 +89,21 @@ class Utility(
             self.save()
 
     def build_save_payload(self, **kwargs: Any) -> dict:
-        """Build the payload for the save action."""
+        """Build the payload for the save action.
+
+        ``inputs`` is normally derived from the decorated code by
+        ``parse_code_decorated``, so it already holds ``UtilityModelInput``
+        objects. A caller who sets it by hand may use dicts on the same field
+        names (see ``UtilityModelInputDict``), so coerce here rather than
+        assuming.
+        """
+        from .code_utils import UtilityModelInput
+        from .plain_data import coerce_struct_list
+
         payload = self.to_dict()
-        payload["inputs"] = [input.to_dict() for input in self.inputs]
+        payload["inputs"] = [
+            item.to_dict() for item in coerce_struct_list(self.inputs, UtilityModelInput, label="inputs")
+        ]
         return payload
 
     @classmethod

@@ -58,6 +58,9 @@ agent.budget.max_cost = 0.25
 agent.budget.max_duration_seconds = 120
 agent.budget.max_iterations = 12
 agent.save()
+
+# Or assign the whole thing as a dict — an unknown key raises.
+agent.budget = {"max_cost": 0.25, "max_duration_seconds": 120, "max_iterations": 12}
 ```
 
 Do not pass `budget=` to `agent.run()` on `0.2.47`; it is silently ignored. `max_iterations=` as a standalone field/argument is deprecated.

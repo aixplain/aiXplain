@@ -2,7 +2,7 @@ import re
 
 import pytest
 import time
-from aixplain.enums import AssetStatus, ResponseStatus
+from aixplain.v2 import AssetStatus, ResponseStatus
 from aixplain.v2.exceptions import APIError
 
 

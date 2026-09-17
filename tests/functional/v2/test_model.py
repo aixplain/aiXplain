@@ -1,5 +1,5 @@
 import pytest
-from aixplain.enums import SortBy, SortOrder
+from aixplain.v2 import SortBy, SortOrder
 
 
 @pytest.fixture(scope="module")
