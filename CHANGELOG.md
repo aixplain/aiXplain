@@ -125,4 +125,3 @@ Two fixes fall out of the audit:
   every task was a dict and called `Task.from_dict` on it.
 - A misspelled key in a `budget` or `execution_config` dict was silently dropped,
   so `{"max_iteration": 10}` meant "no cap" rather than an error.
-
