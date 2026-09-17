@@ -3,24 +3,43 @@
 from .core import Aixplain
 from .rlm import RLM, RLMResult
 from .utility import Utility
-from .agent import Agent, Artifact, Budget, ContextOverflowStrategy
+from .agent import (
+    Agent,
+    Artifact,
+    Budget,
+    BudgetDict,
+    ContextOverflowStrategy,
+    ContextOverflowStrategyValue,
+    ConversationMessage,
+    OutputFormat,
+    OutputFormatValue,
+    Task,
+    TaskDict,
+)
 from .tool import Tool
 from .skill import Skill
 from .actions import Input, Inputs, Action, Actions
 from .integration import TriggerTypeSpec, TriggerEventOption, TriggerTypes
-from .trigger import Trigger, TriggerConfiguration, TriggerRepeatRule
+from .trigger import (
+    Trigger,
+    TriggerConfiguration,
+    TriggerConfigurationDict,
+    TriggerRepeatRule,
+    TriggerRepeatRuleDict,
+)
 from .file import File, Resource
 from .resource import Page
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
 from .inspector import Inspector
 from .session import (
     ExecutionConfig,
+    ExecutionConfigDict,
     Session,
     SessionMessage,
     SessionMessageAttachment,
 )
 from .meta_agents import Debugger, DebugResult
-from .agent_progress import AgentProgressTracker, ProgressFormat
+from .agent_progress import AgentProgressTracker, ProgressFormat, ProgressFormatValue
 from .agent_evaluator import (
     Eval,
     AgentEvaluationResultsChatbot,
@@ -60,7 +79,8 @@ from .api_key import (
     TokenType,
     TokenTypeValue,
 )
-from .issue import IssueReporter, IssueSeverity
+from .code_utils import UtilityModelInput, UtilityModelInputDict
+from .issue import IssueReporter, IssueSeverity, IssueSeverityValue
 from .exceptions import (
     AixplainV2Error,
     ResourceError,
@@ -92,11 +112,28 @@ from .enums import (
     EvolveType,
     CodeInterpreterModel,
     SplittingOptions,
+    DataType,
     SessionStatus,
     RunStatus,
     MessageRole,
     Reaction,
     AttachmentType,
+    # Plain-data (Literal) forms of the input enums -- see docs/v2-plain-data.md
+    AssetStatusValue,
+    AttachmentTypeValue,
+    AuthenticationSchemeValue,
+    DataTypeValue,
+    FileTypeValue,
+    FunctionValue,
+    LanguageValue,
+    LicenseValue,
+    OwnershipTypeValue,
+    PrivacyValue,
+    SortByValue,
+    SortOrderValue,
+    SplittingOptionsValue,
+    StorageTypeValue,
+    SupplierValue,
 )
 
 __all__ = [
@@ -107,7 +144,14 @@ __all__ = [
     "Agent",
     "Artifact",
     "Budget",
+    "BudgetDict",
     "ContextOverflowStrategy",
+    "ContextOverflowStrategyValue",
+    "ConversationMessage",
+    "OutputFormat",
+    "OutputFormatValue",
+    "Task",
+    "TaskDict",
     "Tool",
     "Skill",
     "Resource",
@@ -121,6 +165,7 @@ __all__ = [
     "SessionMessage",
     "SessionMessageAttachment",
     "ExecutionConfig",
+    "ExecutionConfigDict",
     # Inspector
     "Inspector",
     # Meta-agents
@@ -129,6 +174,7 @@ __all__ = [
     # Progress tracking
     "AgentProgressTracker",
     "ProgressFormat",
+    "ProgressFormatValue",
     # Agent evaluation
     "Eval",
     "AgentEvaluationRow",
@@ -164,9 +210,10 @@ __all__ = [
     "TokenTypeValue",
     "IssueReporter",
     "IssueSeverity",
-    # Progress tracking
-    "AgentProgressTracker",
-    "ProgressFormat",
+    "IssueSeverityValue",
+    # Utility model inputs
+    "UtilityModelInput",
+    "UtilityModelInputDict",
     # Exceptions
     "AixplainV2Error",
     "ResourceError",
@@ -197,11 +244,28 @@ __all__ = [
     "EvolveType",
     "CodeInterpreterModel",
     "SplittingOptions",
+    "DataType",
     "SessionStatus",
     "RunStatus",
     "MessageRole",
     "Reaction",
     "AttachmentType",
+    # Plain-data (Literal) forms of the input enums
+    "AssetStatusValue",
+    "AttachmentTypeValue",
+    "AuthenticationSchemeValue",
+    "DataTypeValue",
+    "FileTypeValue",
+    "FunctionValue",
+    "LanguageValue",
+    "LicenseValue",
+    "OwnershipTypeValue",
+    "PrivacyValue",
+    "SortByValue",
+    "SortOrderValue",
+    "SplittingOptionsValue",
+    "StorageTypeValue",
+    "SupplierValue",
     # Actions / Inputs hierarchy
     "Input",
     "Inputs",
@@ -210,7 +274,9 @@ __all__ = [
     # Triggers
     "Trigger",
     "TriggerConfiguration",
+    "TriggerConfigurationDict",
     "TriggerRepeatRule",
+    "TriggerRepeatRuleDict",
     "TriggerTypeSpec",
     "TriggerEventOption",
     "TriggerTypes",

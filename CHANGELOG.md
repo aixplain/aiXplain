@@ -83,3 +83,46 @@ Two correctness fixes ride along:
 `APIKey.get()` resolves a key ID, a key value or a name — v1's `APIKeyFactory.get`
 took a key value and v2's inherited `get` took an ID, so a renamed call used to
 fail with "not found". An argument matching none of the three now says so.
+
+### Added: plain data in place of imports, across v2
+
+Every v2 enum and non-resource dataclass was audited and classified as **input**,
+**output** or **internal**; the classification is recorded in
+[docs/v2-plain-data.md](docs/v2-plain-data.md) so the next person does not repeat
+it. Input types now accept plain data; output and internal types are unchanged
+and still return objects.
+
+Config structs take a dict on their user-facing field names, typed as a
+`TypedDict`, with an unknown key raising an error naming the accepted fields:
+
+```python
+session = aix.Session(
+    agent=agent,
+    execution_config={"execution_params": {"output_format": "json"}, "criteria": "be terse"},
+)
+agent.budget = {"max_cost": 0.5, "max_iterations": 10}
+agent.tasks = [{"name": "collect", "instructions": "...", "expected_output": "..."}]
+trigger.configuration = {"type": "recurring", "time": "09:00", "repeat": {"every": 2, "unit": "hour"}}
+```
+
+covering `ExecutionConfig`, `Budget`, `Task`, `TriggerConfiguration`,
+`TriggerRepeatRule` and `UtilityModelInput` (plus `APIKeyLimits`, above).
+
+Input enums accept their string values — `agent.context_overflow_strategy =
+"summarize"` — and each has a `Literal` alias (`ContextOverflowStrategyValue`,
+`PrivacyValue`, `SupplierValue`, …) so a type checker accepts the string and
+rejects a typo. These enums already subclassed `str`, so only the annotation was
+missing.
+
+**Everything importable is importable from `aixplain`, with no version segment.**
+`aixplain/__init__.py` re-exports the whole `aixplain.v2` surface, so
+`from aixplain import Budget, Privacy, ExecutionConfig` works. Existing imports
+from `aixplain.v2` are unchanged, and so is every class and enum behind them.
+
+Two fixes fall out of the audit:
+
+- `Agent(tasks=[Task(...)])` raised `AttributeError` — the constructor assumed
+  every task was a dict and called `Task.from_dict` on it.
+- A misspelled key in a `budget` or `execution_config` dict was silently dropped,
+  so `{"max_iteration": 10}` meant "no cap" rather than an error.
+

@@ -49,19 +49,23 @@ from aixplain._compat import install as _install_compat  # noqa: E402
 
 _install_compat()
 
-from .v2.core import Aixplain  # noqa: E402
-from .v2.file import File  # noqa: E402
-
-# Re-exported so configuration structures are reachable without a version
-# segment in the import path. ``aixplain.v2`` already collected them; that is one
-# level too deep for a caller who only ever writes ``from aixplain import ...``.
-from .v2.api_key import (  # noqa: E402
-    APIKeyLimits,
-    APIKeyLimitsDict,
-    APIKeyUsageLimit,
-    TokenType,
-    TokenTypeValue,
-)
+# The whole v2 surface is re-exported here, so nothing a caller needs carries a
+# version segment in its import path: ``from aixplain import Budget, Privacy,
+# APIKeyLimits`` rather than ``from aixplain.v2 import ...``. ``aixplain.v2``
+# already collected these names -- one level too deep for a caller who only ever
+# writes ``from aixplain import ...``.
+#
+# A star import rather than a copied list of ~130 names: it cannot drift from
+# ``aixplain.v2.__all__``, and IDEs and type checkers resolve it through that
+# same ``__all__``, so autocomplete still works. ``tests/unit/v2/
+# test_plain_data_inputs.py`` asserts the two stay in step.
+#
+# This costs no import time: ``from .v2.core import ...`` already executes
+# ``aixplain/v2/__init__.py`` as the parent package.
+from .v2 import *  # noqa: F403,E402
+from .v2 import __all__ as _V2_ALL  # noqa: E402
+from .v2.core import Aixplain  # noqa: E402,F401
+from .v2.file import File  # noqa: E402,F401
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=LOG_LEVEL)
@@ -114,16 +118,4 @@ def __dir__():
 # ``aixplain_v2`` is deliberately absent: it stays importable by name through
 # ``__getattr__`` above, but keeping it here would make ``from aixplain import *``
 # construct a client -- and therefore raise -- in a keyless environment.
-__all__ = [
-    "Aixplain",
-    "File",
-    # API key configuration. ``APIKeyLimits``/``TokenType`` stay the internal
-    # representation and behave exactly as before; ``APIKeyLimitsDict`` and
-    # ``TokenTypeValue`` are the plain-data forms of the same two things, for
-    # type checking a dict or a string literal.
-    "APIKeyLimits",
-    "APIKeyLimitsDict",
-    "APIKeyUsageLimit",
-    "TokenType",
-    "TokenTypeValue",
-]
+__all__ = list(_V2_ALL)

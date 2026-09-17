@@ -95,6 +95,16 @@ class Aixplain:
     Reaction = enums.Reaction
     AttachmentType = enums.AttachmentType
 
+    # The rest of the enum surface, so every enum is reachable off a client and
+    # not only from the package root (PROD-2921).
+    AuthenticationScheme = enums.AuthenticationScheme
+    CodeInterpreterModel = enums.CodeInterpreterModel
+    DataType = enums.DataType
+    EvolveType = enums.EvolveType
+    FileContentType = enums.FileContentType
+    FunctionType = enums.FunctionType
+    SplittingOptions = enums.SplittingOptions
+
     BACKEND_URL = "https://platform-api.aixplain.com"
     BENCHMARKS_BACKEND_URL = "https://platform-api.aixplain.com"
     MODELS_RUN_URL = "https://models.aixplain.com/api/v2/execute"

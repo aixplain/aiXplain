@@ -6,13 +6,18 @@ import mimetypes
 import warnings
 from dataclasses import dataclass, field, InitVar
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing_extensions import TypedDict
 from pathlib import Path
 
 from dataclasses_json import dataclass_json, config
 
 from .enums import AttachmentType
-from .exceptions import APIError, ResourceError
+from .exceptions import APIError, ResourceError, ValidationError
+from .plain_data import struct_fields
+
+if TYPE_CHECKING:
+    from .agent import Budget, BudgetDict
 from .resource import (
     BaseResource,
     GetResourceMixin,
@@ -321,6 +326,22 @@ class SessionMessage:
     created_at: str = field(default="", metadata=config(field_name="createdAt"))
 
 
+class ExecutionConfigDict(TypedDict, total=False):
+    """The dict form of :class:`ExecutionConfig`, on the same field names.
+
+    Every key is optional, so a partial update leaves the rest of the session's
+    configuration alone. Declared as a ``TypedDict`` so a plain dict still gets
+    autocomplete and a type error on a misspelled key, with nothing to import.
+    """
+
+    execution_params: Dict[str, Any]
+    criteria: str
+    evolve: str
+    identifier: str
+    run_response_generation: bool
+    budget: Union["BudgetDict", "Budget"]
+
+
 @dataclass_json
 @dataclass
 class ExecutionConfig:
@@ -486,12 +507,27 @@ class ExecutionConfig:
 
     @classmethod
     def coerce(cls, value: Any) -> Optional["ExecutionConfig"]:
-        """Accept an ExecutionConfig, dict, or None and return a config or None."""
+        """Accept an ExecutionConfig, dict, or None and return a config or None.
+
+        An unknown key raises rather than being dropped: ``from_dict`` ignores
+        what it does not recognise, so a misspelled ``critera`` used to produce a
+        session configured with no criteria at all and no indication why.
+
+        Raises:
+            ValidationError: If *value* is a dict carrying an unrecognised key.
+            TypeError: If *value* is neither ``None``, a config, nor a dict.
+        """
         if value is None:
             return None
         if isinstance(value, cls):
             return value
         if isinstance(value, dict):
+            unknown = sorted(key for key in value if key not in _EXECUTION_CONFIG_KEYS)
+            if unknown:
+                raise ValidationError(
+                    f"Unknown execution_config field(s): {', '.join(unknown)}. "
+                    f"Accepted fields: {', '.join(_EXECUTION_CONFIG_FIELDS)}."
+                )
             return cls.from_dict(value)
         raise TypeError(f"execution_config must be ExecutionConfig, dict, or None; got {type(value).__name__}")
 
@@ -511,6 +547,13 @@ def _execution_config_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -
 
 
 ExecutionConfig.from_dict = classmethod(_execution_config_from_dict)
+
+#: The user-facing field names, named in the error for an unknown key.
+_EXECUTION_CONFIG_FIELDS = struct_fields(ExecutionConfig)
+
+#: What ``coerce`` accepts: the field names plus the camelCase wire spellings, so
+#: the same entry point takes a caller's dict and a backend payload.
+_EXECUTION_CONFIG_KEYS = frozenset(_EXECUTION_CONFIG_FIELDS) | {"executionParams", "runResponseGeneration"}
 
 
 @dataclass_json

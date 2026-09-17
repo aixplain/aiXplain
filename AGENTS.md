@@ -146,6 +146,12 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
 - Prefer typed, explicit resource and client code over dynamic dict-heavy plumbing.
 - Preserve the multi-instance pattern centered on `Aixplain(api_key=...)`.
 - Do not add import-time behavior in `v2` that forces users onto a global env-var validation chain.
+- Anything a caller has to construct or pass in accepts plain data (a dict typed as a `TypedDict`, or a
+  string typed as a `Literal`) as well as the object, and an unknown key raises. Anything that only ever
+  comes back from the SDK stays an object. Every `v2` enum and non-resource dataclass is classified in
+  [docs/v2-plain-data.md](docs/v2-plain-data.md); add a row there when you add one.
+- Everything importable is importable from `aixplain` directly. `aixplain/__init__.py` re-exports
+  `aixplain.v2.__all__`, so a new public symbol needs only an entry in `aixplain/v2/__init__.py`.
 
 ---
 
