@@ -15,9 +15,9 @@ from aixplain.v2.integration import ActionInputSpec, ActionSpec
 class TestToolDictFieldsRoundTrip:
     """as_tool() produces snake_case keys; save must convert them so the backend stores the value."""
 
-    def test_asset_id_round_trips_through_backend(self, client):
+    def test_asset_id_round_trips_through_backend(self, client, assets):
         """Set asset_id (renamed from assetId) via as_tool(), save agent, fetch back, compare."""
-        model = client.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
+        model = client.Model.get(assets.DEFAULT_LLM)
         tool_dict = model.as_tool()
 
         # Value we're about to send (snake_case key)
@@ -48,9 +48,9 @@ class TestToolDictFieldsRoundTrip:
             except Exception:
                 pass
 
-    def test_allow_multi_and_supports_variables_round_trip(self, client):
+    def test_allow_multi_and_supports_variables_round_trip(self, client, assets):
         """get_parameters() returns allow_multi / supports_variables; verify values survive save."""
-        model = client.Model.get("69b7e5f1b2fe44704ab0e7d0")
+        model = client.Model.get(assets.DEFAULT_LLM)
         params = model.get_parameters()
         if not params:
             pytest.skip("Model has no parameters")
@@ -95,11 +95,9 @@ class TestToolDictFieldsRoundTrip:
 class TestInputActionFieldsRoundTrip:
     """Input / Action fields are read from the backend; verify snake_case ↔ camelCase mapping."""
 
-    SLACK_INTEGRATION_ID = "686432941223092cb4294d3f"
-
-    def test_input_fields_survive_serialization_round_trip(self, client):
+    def test_input_fields_survive_serialization_round_trip(self, client, assets):
         """Fetch real Input from API, read snake_case attrs, to_dict → from_dict, values match."""
-        integration = client.Integration.get(self.SLACK_INTEGRATION_ID)
+        integration = client.Integration.get(assets.SLACK_INTEGRATION)
         if not integration.actions_available:
             pytest.skip("Integration has no actions available")
 
@@ -131,9 +129,9 @@ class TestInputActionFieldsRoundTrip:
         assert restored.supports_variables == orig_supports_variables
         assert restored.available_options == orig_available_options
 
-    def test_action_display_name_survives_round_trip(self, client):
+    def test_action_display_name_survives_round_trip(self, client, assets):
         """Fetch real Action from API, read display_name, to_dict → from_dict, value matches."""
-        integration = client.Integration.get(self.SLACK_INTEGRATION_ID)
+        integration = client.Integration.get(assets.SLACK_INTEGRATION)
         if not integration.actions_available:
             pytest.skip("Integration has no actions available")
 

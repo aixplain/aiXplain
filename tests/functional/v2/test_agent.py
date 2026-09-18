@@ -321,10 +321,10 @@ def test_agent_field_mappings(client, test_agent):
     reason="Backend rejects the Slack send-message payload: 'Unsupported Slack send message field(s). "
     "text: Use markdown_text for normal content, or fallback_text with blocks.'"
 )
-def test_slack_tool_integration_with_agent(client, slack_token):
+def test_slack_tool_integration_with_agent(client, assets, slack_token):
     """Test Slack tool integration with agent creation and execution."""
     # Get Slack integration
-    integration = client.Integration.get("686432941223092cb4294d3f")  # Slack integration ID
+    integration = client.Integration.get(assets.SLACK_INTEGRATION)
 
     # Create Slack tool
     slack_tool = client.Tool(
@@ -336,7 +336,7 @@ def test_slack_tool_integration_with_agent(client, slack_token):
 
     # Validate tool creation
     assert slack_tool.name.startswith("test-slack-tool-")
-    assert slack_tool.integration.id == "686432941223092cb4294d3f"
+    assert slack_tool.integration.id == assets.SLACK_INTEGRATION
     assert "SLACK_SEND_MESSAGE" in slack_tool.allowed_actions
 
     # Save tool before running
@@ -434,9 +434,8 @@ def test_slack_tool_integration_with_agent(client, slack_token):
 
 # Platform tool helpers
 
-FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
-TAVILY_CONNECTION_ASSET_ID = "6931bdf462eb386b7158def3"
-GOOGLE_SEARCH_UTILITY_MODEL_ID = "65c51c556eb563350f6e1bb1"
+#: A marketplace path rather than an id, so it is not in
+#: `tests/functional/_assets.py`: the same path resolves on every backend.
 WEB_SEARCH_TOOL_PATH = "scale-serp/google-search/Google"
 
 
@@ -475,14 +474,14 @@ def _run_platform_tool_agent(client, tools: list, prompt: str, test_suffix: str)
 
 
 @pytest.mark.flaky(reruns=2, reason="LLM may not always choose to call the scrape action")
-def test_agent_firecrawl_scrape_tool(client):
+def test_agent_firecrawl_scrape_tool(client, assets):
     """
     Verifies:
     1. The agent can be created with the Firecrawl tool via the v2 SDK.
     2. Agent execution succeeds.
     3. The scraped page content is reflected in the final response.
     """
-    tool = client.Tool.get(FIRECRAWL_CONNECTION_ASSET_ID)
+    tool = client.Tool.get(assets.FIRECRAWL)
 
     response = _run_platform_tool_agent(
         client=client,
@@ -510,14 +509,14 @@ def test_agent_firecrawl_scrape_tool(client):
 
 
 @pytest.mark.flaky(reruns=2, reason="LLM may not always invoke Tavily")
-def test_agent_tavily_web_search_tool(client):
+def test_agent_tavily_web_search_tool(client, assets):
     """
     Verifies:
     1. The agent can be created with the Tavily search tool via the v2 SDK.
     2. Agent execution succeeds.
     3. The response contains information retrieved from the search.
     """
-    tool = client.Tool.get(TAVILY_CONNECTION_ASSET_ID)
+    tool = client.Tool.get(assets.TAVILY)
 
     response = _run_platform_tool_agent(
         client=client,
@@ -546,14 +545,14 @@ def test_agent_tavily_web_search_tool(client):
 
 
 @pytest.mark.flaky(reruns=2, reason="LLM may not always call the Google Search utility")
-def test_agent_google_search_serpapi_tool(client):
+def test_agent_google_search_serpapi_tool(client, assets):
     """
     Verifies:
     1. The agent can be created with the Google Search utility model via the v2 SDK.
     2. Agent execution succeeds.
     3. The response contains the expected search results.
     """
-    tool = client.Tool.get(GOOGLE_SEARCH_UTILITY_MODEL_ID)
+    tool = client.Tool.get(assets.GOOGLE_SEARCH_UTILITY)
 
     response = _run_platform_tool_agent(
         client=client,
