@@ -14,8 +14,9 @@ dozen `main.yaml` runs were failures.
 
 Every gate added by the surrounding work — the 62% coverage floor (ENG-3431), the `.git`-less
 package-integrity build (ENG-3543), the zero-executed-test guard and the matrix/filesystem drift check
-(ENG-3544) — is **advisory** until at least one context is marked required. This document names the
-contexts and the order in which they can safely be turned on.
+(ENG-3544), and the 80% execution-ratio floor (ENG-3684) — is **advisory** until at least one context
+is marked required. This document names the contexts and the order in which they can safely be turned
+on.
 
 ## Contexts, in tiers
 

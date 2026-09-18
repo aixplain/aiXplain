@@ -133,36 +133,61 @@ def _extract_steps(response) -> list:
     return steps
 
 
-_NO_MODEL_OUTPUT_SKIP_REASON = (
-    "model returned no usable content on the test backend — a model/availability "
-    "condition, not an SDK defect (the other model in the matrix exercises the same "
-    "code paths). Skipped rather than failed so backend model outages don't turn CI red."
-)
+#: How many times a run is retried before an empty output is called a failure,
+#: and how long to wait between attempts. An empty body from a momentarily
+#: degraded model is transient, so it is worth retrying; an empty body on every
+#: attempt is a result this suite must report, not absorb.
+_OUTPUT_ATTEMPTS = 3
+_OUTPUT_RETRY_DELAY_SECONDS = 10
 
 
-def _skip_if_model_returned_no_output(output: str) -> None:
-    """Skip (never fail) when the backend model produced no usable content.
+def _has_usable_output(output: str) -> bool:
+    """True if the model produced content these tests can assert against.
 
-    A model that is degraded or unavailable on the test backend returns an empty
-    body, or — when it drives an inspector's evaluator — a ``content=None`` response
-    that the inspector surfaces as an unparseable verdict. Both are backend
-    availability conditions rather than SDK defects, so they must not fail CI; a
-    healthy model in the same matrix still covers the code. The condition is
-    output-shape based, not model-pinned, so it lifts automatically once the model
-    returns content again.
+    A degraded model returns an empty body, or — when it drives an inspector's
+    evaluator — a ``content=None`` response that the inspector surfaces as an
+    unparseable verdict. Both shapes are checked here.
     """
-    if not output.strip() or ("inspector_verdict_unparseable" in output and "content=None" in output):
-        pytest.skip(_NO_MODEL_OUTPUT_SKIP_REASON)
+    if not output.strip():
+        return False
+    return not ("inspector_verdict_unparseable" in output and "content=None" in output)
 
 
 def _assert_success_response(response) -> tuple[str, list]:
     assert response is not None
     assert getattr(response, "completed", None) is True
     assert getattr(response, "status", "").upper() == "SUCCESS"
-    output = _extract_output(response)
-    _skip_if_model_returned_no_output(output)
-    assert output.strip(), "Expected a non-empty response output"
-    return output, _extract_steps(response)
+    return _extract_output(response), _extract_steps(response)
+
+
+def _run_until_output(run, description: str) -> tuple[str, list]:
+    """Call *run* until it yields usable content; fail if it never does.
+
+    This replaces a skip on empty output (ENG-3684). That skip was added so a
+    backend model outage would not turn CI red, but it made an outage and a
+    genuine regression in the Arabic runtime path indistinguishable:
+    three tests across two LLMs could all go quiet and the leg still reported
+    success. Retrying absorbs the transient case that motivated the skip; a run
+    that comes back empty every time is reported as the failure it is.
+
+    Args:
+        run: Zero-argument callable that performs the agent run and returns the
+            response. Called again, from scratch, on each retry.
+        description: What is being run, for the failure message.
+    """
+    output = ""
+    for attempt in range(1, _OUTPUT_ATTEMPTS + 1):
+        output, steps = _assert_success_response(run())
+        if _has_usable_output(output):
+            return output, steps
+        if attempt < _OUTPUT_ATTEMPTS:
+            time.sleep(_OUTPUT_RETRY_DELAY_SECONDS)
+
+    pytest.fail(
+        f"{description} returned no usable content in {_OUTPUT_ATTEMPTS} attempts "
+        f"(last output: {output!r}). If the model is genuinely unavailable on this "
+        "backend, drop it from MODELS rather than letting the leg pass without it."
+    )
 
 
 def _assert_query_expectations(query_key: str, output: str) -> None:
@@ -296,8 +321,11 @@ def test_arabic_single_agent_variants_across_llms(client, resource_tracker, mode
         agent = _make_single_agent(client, llm_id, model_name, agent_config)
         resource_tracker.append(agent)
 
-        response = agent.run(ARABIC_QUERIES[query_key])
-        output, _ = _assert_success_response(response)
+        output, _ = _run_until_output(
+            # Bound as defaults: the loop rebinds both names each iteration.
+            lambda bound_agent=agent, key=query_key: bound_agent.run(ARABIC_QUERIES[key]),
+            f"{agent_config['name']} on {model_name} for query {query_key!r}",
+        )
         _assert_query_expectations(query_key, output)
 
 
@@ -309,8 +337,10 @@ def test_arabic_team_agent_across_llms(client, resource_tracker, model_name, llm
     resource_tracker.extend(resources)
     team_agent = resources[-1]
 
-    response = team_agent.run(ARABIC_QUERIES["arabic_legal_template"])
-    output, steps = _assert_success_response(response)
+    output, steps = _run_until_output(
+        lambda: team_agent.run(ARABIC_QUERIES["arabic_legal_template"]),
+        f"Arabic team agent on {model_name}",
+    )
     _assert_query_expectations("arabic_legal_template", output)
     assert steps, "Expected team-agent execution steps for Arabic team flow"
 
@@ -324,8 +354,10 @@ def test_arabic_inspector_agent_across_llms(client, resource_tracker, model_name
     resource_tracker.extend(resources)
     team_agent = resources[-1]
 
-    response = team_agent.run(ARABIC_QUERIES["pure_arabic"])
-    output, steps = _assert_success_response(response)
+    output, steps = _run_until_output(
+        lambda: team_agent.run(ARABIC_QUERIES["pure_arabic"]),
+        f"Arabic inspector agent on {model_name}",
+    )
     inspector_steps = [step for step in steps if _is_inspector_step(step, inspector.name)]
     assert inspector_steps, "Expected inspector step(s) in the run"
 

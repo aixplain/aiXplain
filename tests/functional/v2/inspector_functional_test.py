@@ -15,6 +15,11 @@ import aixplain as aix
 from aixplain.enums.asset_status import AssetStatus
 
 from aixplain.v2 import Inspector
+from tests.functional.asset_ids import (
+    CONTEXTUAL_GROUNDING_GUARD_PATH,
+    PROMPT_ATTACK_GUARD_PATH,
+    SENSITIVE_INFO_GUARD_PATH,
+)
 from tests.functional.team_agent.test_utils import (
     RUN_FILE,
     read_data,
@@ -294,8 +299,12 @@ def test_inspector_search_returns_page_of_inspectors(client):
     assert isinstance(page.page_total, int)
     assert isinstance(page.total, int)
 
-    if not page.results:
-        pytest.skip("No onboarded guardrail models available in this environment")
+    # Asserted, not skipped: the test tenant is expected to carry the onboarded
+    # AWS guards, and an empty page used to pass this leg silently (ENG-3684).
+    assert page.results, (
+        "Inspector.search('guard') returned nothing. The guardrail models must be "
+        "onboarded in the test tenant for the inspector suite to mean anything."
+    )
 
     for guard in page.results:
         assert isinstance(guard, Inspector)
@@ -308,8 +317,10 @@ def test_inspector_search_returns_page_of_inspectors(client):
 def test_inspector_get_returns_configured_inspector(client):
     """aix.Inspector.get(path_or_id) returns a configured, agent-ready Inspector."""
     page = client.Inspector.search("guard")
-    if not page.results:
-        pytest.skip("No onboarded guardrail models available in this environment")
+    assert page.results, (
+        "Inspector.search('guard') returned nothing. The guardrail models must be "
+        "onboarded in the test tenant for the inspector suite to mean anything."
+    )
 
     # Retrieve the same guard by its id/path; a fetched guard and a hand-built
     # Inspector are the same type, so this slots directly into inspectors=[...].
@@ -323,9 +334,9 @@ def test_inspector_get_returns_configured_inspector(client):
 
 # Canonical marketplace paths for the onboarded AWS guards and their tuned config.
 _PREBUILT_GUARDS = [
-    ("aws/detect-prompt-attacks-guardrail/aws", "abort", [_DEFAULT_INPUT_TARGET]),
-    ("aws/sensitive-information-guardrail/aws", "edit", [_DEFAULT_INPUT_TARGET]),
-    ("aws/contextual-grounding-check-guardrail/aws", "rerun", [_DEFAULT_OUTPUT_TARGET]),
+    (PROMPT_ATTACK_GUARD_PATH, "abort", [_DEFAULT_INPUT_TARGET]),
+    (SENSITIVE_INFO_GUARD_PATH, "edit", [_DEFAULT_INPUT_TARGET]),
+    (CONTEXTUAL_GROUNDING_GUARD_PATH, "rerun", [_DEFAULT_OUTPUT_TARGET]),
 ]
 
 
@@ -337,10 +348,10 @@ def test_get_prebuilt_guard_by_canonical_path(client, path, expected_action, exp
     The asset-name (middle) segment of the path selects action/targets, so the
     PII guard resolves to edit (not the safe abort/input fallback).
     """
-    try:
-        guard = client.Inspector.get(path)
-    except Exception as e:
-        pytest.skip(f"Guard '{path}' not onboarded in this environment: {e}")
+    # No try/except: a guard that is not onboarded is a test environment missing a
+    # fixture it is expected to carry. Swallowing the error as a skip took the
+    # whole prebuilt-guard matrix out of CI without anyone noticing (ENG-3684).
+    guard = client.Inspector.get(path)
 
     assert isinstance(guard, Inspector)
     assert guard.path == path
@@ -362,11 +373,8 @@ def test_prebuilt_guard_attaches_and_runs_in_team_agent(client, resource_tracker
     agent via inspectors=[...], save (the guard persists as an ordinary
     inspector), and run — verifying the guard runs as an inspector step.
     """
-    path = "aws/detect-prompt-attacks-guardrail/aws"
-    try:
-        guard = client.Inspector.get(path)
-    except Exception as e:
-        pytest.skip(f"Guard '{path}' not onboarded in this environment: {e}")
+    path = PROMPT_ATTACK_GUARD_PATH
+    guard = client.Inspector.get(path)
 
     timestamp = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
     agents = _make_two_subagents(client, timestamp)

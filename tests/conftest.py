@@ -11,7 +11,10 @@ from dotenv import load_dotenv
 from tests.ci_guards import (
     ExecutionLedger,
     is_non_executing_session,
+    low_execution_ratio_message,
+    min_executed_ratio,
     no_executed_tests_message,
+    should_fail_for_low_execution_ratio,
     should_fail_for_no_executed_tests,
 )
 
@@ -309,11 +312,13 @@ def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config
 
 
 # ---------------------------------------------------------------------------
-# Execution guard: a leg that ran no test body must not report success.
+# Execution guard: a leg that ran no test body must not report success, and a
+# leg that ran only a sliver of one must not either.
 #
 # The assertion guard above catches a test that checks nothing; this catches the
 # directory-scale version of the same problem -- a suite that runs nothing
-# (ENG-3544). See tests/ci_guards.py for the reasoning and the opt-in flag.
+# (ENG-3544) or next to nothing (ENG-3684). See tests/ci_guards.py for the
+# reasoning, the opt-in flag, and the ratio floor.
 # ---------------------------------------------------------------------------
 
 _EXECUTION_LEDGER = ExecutionLedger()
@@ -334,13 +339,43 @@ def pytest_sessionstart(session: pytest.Session):
     LEAK_LEDGER.clear()
 
 
+def pytest_collection_finish(session: pytest.Session):
+    """Tally the tests this session is actually going to attempt.
+
+    `session.items` here is the final list: the conftest's version filters have
+    run, and so has `-k`/`-m` deselection, which happens in another plugin's
+    `pytest_collection_modifyitems`. Taking the count at that point makes the
+    ratio's denominator the set of tests the session *meant* to run, so
+    `pytest -k <one test>` measures 1 of 1 rather than 1 of 2,800.
+    """
+    _EXECUTION_LEDGER.record_collected(getattr(session, "items", []))
+
+
 def pytest_runtest_logreport(report: pytest.TestReport):
     """Tally test bodies that actually ran."""
     _EXECUTION_LEDGER.record(report)
 
 
+def _report_ci_integrity_failure(session: pytest.Session, message: str) -> None:
+    """Print *message* under a banner and turn the session red."""
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is not None:
+        reporter.write_sep("=", "CI integrity failure", red=True)
+        for line in message.splitlines():
+            reporter.write_line(line)
+    else:  # pragma: no cover - only when the terminal plugin is disabled
+        print(message)
+
+    session.exitstatus = 1
+
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
-    """Fail a session that reported success while running no test bodies.
+    """Fail a session that reported success while running too little.
+
+    Two floors, checked in order of specificity: nothing ran at all (ENG-3544),
+    then fewer than `AIXPLAIN_MIN_EXECUTED_RATIO` of the collected tests ran
+    (ENG-3684). The first has the more actionable message, so it wins when both
+    would fire.
 
     Skipped on pytest-xdist workers: each worker only sees its own share of the
     tests, so a worker that happened to be handed nothing but skips would fail a
@@ -354,18 +389,29 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
         return
     if is_non_executing_session(session.config):
         return
-    if not should_fail_for_no_executed_tests(_EXECUTION_LEDGER.executed, exitstatus):
+
+    if should_fail_for_no_executed_tests(_EXECUTION_LEDGER.executed, exitstatus):
+        _report_ci_integrity_failure(session, no_executed_tests_message(session.testscollected))
         return
 
-    message = no_executed_tests_message(session.testscollected)
-    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
-    if reporter is not None:
-        reporter.write_sep("=", "CI integrity failure", red=True)
-        reporter.write_line(message)
-    else:  # pragma: no cover - only when the terminal plugin is disabled
-        print(message)
+    # Under pytest-xdist the controller does not collect the way a plain session
+    # does, so the ledger's denominator can stay 0 while reports still arrive
+    # from the workers. `session.testscollected` is the controller's own total;
+    # without this the ratio guard would quietly stand down on every `-n` run.
+    collected = _EXECUTION_LEDGER.collected or session.testscollected
 
-    session.exitstatus = 1
+    try:
+        if not should_fail_for_low_execution_ratio(_EXECUTION_LEDGER.executed, collected, exitstatus):
+            return
+        ratio = min_executed_ratio()
+    except ValueError as exc:
+        # A misconfigured floor must not pass silently: the workflow would be
+        # claiming a threshold nobody enforces.
+        _report_ci_integrity_failure(session, f"CI integrity guard misconfigured (ENG-3684): {exc}")
+        return
+
+    _EXECUTION_LEDGER.collected = collected
+    _report_ci_integrity_failure(session, low_execution_ratio_message(_EXECUTION_LEDGER, ratio))
 
 
 # ---------------------------------------------------------------------------

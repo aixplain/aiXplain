@@ -35,7 +35,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.ci_guards import REQUIRE_EXECUTED_ENV, should_fail_for_no_executed_tests
+from tests.ci_guards import (
+    MIN_EXECUTED_RATIO_ENV,
+    REQUIRE_EXECUTED_ENV,
+    min_executed_ratio,
+    should_fail_for_no_executed_tests,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "main.yaml"
@@ -449,6 +454,30 @@ def test_workflow_enables_the_execution_guard():
     assert should_fail_for_no_executed_tests(0, 0, env={REQUIRE_EXECUTED_ENV: str(value)}), (
         f"{REQUIRE_EXECUTED_ENV} is set to {value!r}, which tests/ci_guards.py does not read as "
         "truthy, so the execution guard is off in CI while looking enabled."
+    )
+
+
+def test_workflow_pins_the_execution_ratio_floor():
+    """CI must state the floor it holds every leg to (ENG-3684).
+
+    Leaving `AIXPLAIN_MIN_EXECUTED_RATIO` unset would still enforce the default,
+    but the number nobody can see is the number nobody notices being wrong. The
+    literal is parsed by the real reader, so a value the guard rejects (`"80%"`,
+    `"high"`) fails here rather than turning every functional leg into an
+    INTERNALERROR on the next push.
+    """
+    workflow = yaml.safe_load(WORKFLOW.read_text())
+    value = workflow.get("env", {}).get(MIN_EXECUTED_RATIO_ENV)
+
+    assert value is not None, (
+        f"{MIN_EXECUTED_RATIO_ENV} is missing from the workflow-level `env:` block in "
+        f"{WORKFLOW.name}. The floor each leg is held to belongs in the workflow, where it "
+        "is visible and reviewable (ENG-3684)."
+    )
+    ratio = min_executed_ratio({MIN_EXECUTED_RATIO_ENV: str(value)})
+    assert ratio > 0, (
+        f"{MIN_EXECUTED_RATIO_ENV} is set to {value!r}, which disables the ratio floor while "
+        "looking like it enforces one."
     )
 
 

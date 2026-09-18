@@ -1,21 +1,27 @@
 """Functional tests for v2 Triggers (aix.Trigger).
 
 Time-trigger tests run with only TEAM_API_KEY/AIXPLAIN_API_KEY set (a temporary
-agent is created and cleaned up). Event-trigger tests are gated on extra env vars:
+agent is created and cleaned up). Event-trigger tests additionally need two ids
+that the workflow supplies in its `Set environment variables` step:
 
 - TEST_COMPOSIO_INTEGRATION_ID : an integration id (e.g. composio/gmail resolved id)
                                  used for `integration.triggers` discovery.
 - TEST_CONNECTION_ID           : a connected tool id used to activate a real event
                                  trigger end-to-end.
+
+Both used to skip when unset, which meant the event-trigger half of this file had
+never run in CI and nobody could tell (ENG-3684). They fail now: a job that lost
+a secret is a broken job, not a smaller test suite.
 """
 
-import os
 import time
 
 import pytest
 
 from aixplain.v2 import Trigger, TriggerEventOption
 from aixplain.v2.resource import Page
+
+from tests.functional.asset_ids import require_env
 
 
 # Far-future instant so a "once" trigger is valid/schedulable.
@@ -52,20 +58,14 @@ def cleanup_triggers():
 
 @pytest.fixture(scope="module")
 def composio_integration_id():
-    """Integration id for event-discovery tests (skips if not provided)."""
-    value = os.getenv("TEST_COMPOSIO_INTEGRATION_ID")
-    if not value:
-        pytest.skip("TEST_COMPOSIO_INTEGRATION_ID is required for event-discovery tests")
-    return value
+    """Integration id for event-discovery tests; fails the test when unset."""
+    return require_env("TEST_COMPOSIO_INTEGRATION_ID", "the event-discovery tests")
 
 
 @pytest.fixture(scope="module")
 def connection_id():
-    """Connected tool id for end-to-end event-trigger tests (skips if not provided)."""
-    value = os.getenv("TEST_CONNECTION_ID")
-    if not value:
-        pytest.skip("TEST_CONNECTION_ID is required for event-trigger activation tests")
-    return value
+    """Connected tool id for end-to-end event-trigger tests; fails the test when unset."""
+    return require_env("TEST_CONNECTION_ID", "the event-trigger activation tests")
 
 
 # =============================================================================
@@ -225,8 +225,12 @@ class TestEventTriggerLifecycle:
         tool = client.Tool.get(connection_id)
 
         slugs = list(tool.triggers)
-        if not slugs:
-            pytest.skip("Connected tool exposes no trigger types")
+        # TEST_CONNECTION_ID names a connected tool chosen *because* it exposes
+        # event triggers; an empty list means the wrong connection is pinned.
+        assert slugs, (
+            f"Connected tool {tool.id} (TEST_CONNECTION_ID) exposes no trigger types, so an "
+            "event trigger cannot be created. Point TEST_CONNECTION_ID at a connection that has them."
+        )
         option = tool.triggers[slugs[0]]
         assert option.connection_id == tool.id  # connected tool carries the connection
 
