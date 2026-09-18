@@ -34,10 +34,38 @@ the repo; the rest follows it.
 The runtime check is not redundant with the type checker: plenty of callers are
 agents, notebooks, or scripts nobody type-checks.
 
+**Totality mirrors the dataclass.** A `TypedDict` is `total=False` only when every
+field of the struct it describes has a default. `TaskDict` and
+`UtilityModelInputDict` are `total=True` with `NotRequired` on the fields that do
+default, because `Task` and `UtilityModelInput` genuinely require the rest. A
+`TypedDict` that disagrees with its dataclass in either direction is the defect:
+it either accepts a dict the runtime rejects, or rejects one the runtime accepts.
+
+**Strictness is for input only.** Rejecting an unknown key is right for what a
+caller writes and wrong for what the backend sends: a field added to a backend
+object must not break reads of data the SDK only ever passes through. Most
+structs get this for free, because `dataclasses_json` decodes them before any
+coercion runs. `Budget` does not — `ExecutionConfig.budget` is typed `Any`, so the
+raw wire dict survives to `__post_init__` — so `Agent._coerce_budget` takes a
+`strict` flag that is **off by default** and turned on only by the two entry
+points that know they hold caller input (`Agent.__setattr__`,
+`ExecutionConfig.coerce`).
+
 ## Enums
 
 `TokenType` is a plain `Enum`; every other enum in `v2` subclasses `str`, so the
 string form already worked at runtime and only the *annotation* was missing.
+
+An alias only earns its place by being **attached** to something: the runtime
+already accepted the string, so the annotation is the entire point. Five have no
+annotation site yet, because the SDK exports the enum but never takes it as a
+typed parameter — `AttachmentTypeValue` and `StorageTypeValue` (both inferred,
+never passed), `AuthenticationSchemeValue` (integration connect takes untyped
+`**kwargs`), `LicenseValue` (documented but not a parameter) and
+`SplittingOptionsValue` (index chunking has no v2 surface). They are listed in
+`UNATTACHED_ALIASES` in the test module, so the gap stays a decision rather than
+an oversight, and the rest are guarded by
+`test_literal_alias_is_used_in_an_annotation`.
 
 | Enum | Class | Notes |
 | --- | --- | --- |
@@ -46,7 +74,7 @@ string form already worked at runtime and only the *annotation* was missing.
 | `AuthenticationScheme` | input | Integration connect. `AuthenticationSchemeValue`. |
 | `ContextOverflowStrategy` | input | `agent.context_overflow_strategy`. `ContextOverflowStrategyValue`. |
 | `DataType` | input | `UtilityModelInput.type`. `DataTypeValue`. |
-| `FileType` | input | `File.type`. `FileTypeValue`. |
+| `FileType` | input | `File.file_type`. `FileTypeValue`. |
 | `Function` | input | Model/tool search filter. `FunctionValue`. |
 | `IssueSeverity` | input | `aix.issue.report(severity=...)`. `IssueSeverityValue`. |
 | `Language` | input | Search filter. `LanguageValue`. |
@@ -92,14 +120,18 @@ promote the enum to *input* here and add its alias.
 | `UtilityModelInput` | `UtilityModelInputDict` | `utility.inputs[*]` — normally derived from the decorated code by `parse_code_decorated`, so a caller rarely sets it |
 | `SessionMessageAttachment` | — | Already accepts a plain dict or a URL string through `Session.add_message(attachments=...)` |
 
+Every one of these coerces in `__setattr__` where a caller can assign the field
+after construction — `Agent.budget`, `Agent.tasks`, `Session.execution_config`,
+`Trigger.configuration`, `TriggerConfiguration.repeat`, `APIKey.global_limits`,
+`APIKey.asset_limits`, `APIKeyLimits.token_type`, `UtilityModelInput.type`.
+Coercing only in `__post_init__` is a bug, and a quiet one: the assignment path
+skips validation, and `dataclasses_json` serializes an unrecognised dict
+*untouched*, so the user-facing field names reach the backend instead of the wire
+names.
+
 `aixplain/v2/plain_data.py` holds the shared coercion (`coerce_struct`,
 `coerce_struct_list`). It reads the accepted field names off the dataclass, so
 adding a field needs no second edit.
-
-Coercion happens in `__setattr__`, not only `__post_init__`, wherever a caller
-can assign the field after construction — otherwise `trigger.configuration =
-{...}` would leave a raw dict where the rest of the code expects attributes.
-`Agent.__setattr__` coercing `budget` was the pattern already in the repo.
 
 ### Output — returned, never passed
 
@@ -141,6 +173,11 @@ They are constructed through the client and are out of scope for this rule.
 - every input `TypedDict` declares exactly the fields of the dataclass it
   describes, so the type checker and the runtime cannot disagree;
 - `aixplain.__all__` matches `aixplain.v2.__all__`, and every name in it
-  resolves.
+  resolves;
+- each `Literal` alias is referenced by an annotation, not merely exported;
+- `TimeoutError` is the only exported name that shadows a builtin, and it
+  subclasses the builtin it shadows, so `except TimeoutError:` after
+  `from aixplain import *` still catches socket and asyncio timeouts. A new
+  collision fails the guard rather than silently narrowing an `except` clause.
 
 If you add an enum or a non-resource dataclass to `aixplain/v2`, add a row above.

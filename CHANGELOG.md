@@ -125,3 +125,16 @@ Two fixes fall out of the audit:
   every task was a dict and called `Task.from_dict` on it.
 - A misspelled key in a `budget` or `execution_config` dict was silently dropped,
   so `{"max_iteration": 10}` meant "no cap" rather than an error.
+
+### Breaking, beyond the v1 removal
+
+- **`APIKeyLimits` defaults changed from `0` to `None`.** This is a *read*-path
+  break as well as a write one: `limits.token_per_minute > 0` now raises
+  `TypeError` on an unset dimension. Compare against `None` first, or use
+  `(limits.token_per_minute or 0)`.
+- **`aixplain.TimeoutError` now also subclasses `builtins.TimeoutError`.** It is
+  re-exported from the package root, so `from aixplain import *` rebinds the
+  name; inheriting both means the name catches strictly more than before, never
+  less. Code that distinguishes the two with `type(e) is TimeoutError` is
+  unaffected; code relying on `issubclass(aixplain.TimeoutError, OSError)` being
+  `False` is not.

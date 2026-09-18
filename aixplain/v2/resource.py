@@ -30,7 +30,7 @@ from copy import deepcopy
 
 from ._backoff import next_wait, sleep_with_jitter
 from .client import DEFAULT_RETRY_TOTAL, default_timeout
-from .enums import OwnershipType, SortBy, SortOrder
+from .enums import OwnershipType, OwnershipTypeValue, SortBy, SortByValue, SortOrder, SortOrderValue
 from .exceptions import (
     ResourceError,
     ValidationError,
@@ -787,9 +787,11 @@ class BaseSearchParams(BaseParams):
     """
 
     query: NotRequired[str]
-    ownership: NotRequired[Tuple[OwnershipType, List[OwnershipType]]]
-    sort_by: NotRequired[SortBy]
-    sort_order: NotRequired[SortOrder]
+    ownership: NotRequired[
+        Tuple[Union[OwnershipType, OwnershipTypeValue], List[Union[OwnershipType, OwnershipTypeValue]]]
+    ]
+    sort_by: NotRequired[Union[SortBy, SortByValue]]
+    sort_order: NotRequired[Union[SortOrder, SortOrderValue]]
     page_number: NotRequired[int]
     page_size: NotRequired[int]
     resource_path: NotRequired[str]

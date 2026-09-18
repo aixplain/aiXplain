@@ -385,6 +385,9 @@ class ExecutionConfig:
         """Coerce a dict/Budget ``budget`` into a ``Budget`` instance."""
         from .agent import Agent
 
+        # Permissive: ``__post_init__`` runs for ``from_dict`` as well as for a
+        # caller's ``ExecutionConfig(...)``. ``coerce`` is the input entry point
+        # and is where the strict check lives.
         self.budget = Agent._coerce_budget(self.budget)
 
     def to_api_dict(self) -> Dict[str, Any]:
@@ -469,6 +472,9 @@ class ExecutionConfig:
         ep = dict(ep)
         nested = ep.pop("budget")
         if kvs.get("budget") is None:
+            # Left as the raw wire dict on purpose. ``budget`` is typed ``Any``,
+            # so dataclasses_json walks it as a generic and chokes on a dataclass
+            # instance here; ``__post_init__`` coerces it permissively instead.
             kvs["budget"] = nested
         kvs[key] = ep
         return kvs
@@ -522,13 +528,25 @@ class ExecutionConfig:
         if isinstance(value, cls):
             return value
         if isinstance(value, dict):
+            # The strict check lives here, on the input entry point, and not in
+            # ``ExecutionConfig.__post_init__`` -- which ``from_dict`` also runs,
+            # where an unrecognised key is the backend adding a field rather than
+            # the caller mistyping one.
             unknown = sorted(key for key in value if key not in _EXECUTION_CONFIG_KEYS)
             if unknown:
                 raise ValidationError(
                     f"Unknown execution_config field(s): {', '.join(unknown)}. "
                     f"Accepted fields: {', '.join(_EXECUTION_CONFIG_FIELDS)}."
                 )
-            return cls.from_dict(value)
+            config = cls.from_dict(value)
+            # ``from_dict`` -> ``__post_init__`` coerces the budget permissively,
+            # because it also serves deserialization. This is caller input, so
+            # re-run the check strictly.
+            from .agent import Agent
+
+            if "budget" in value:
+                config.budget = Agent._coerce_budget(value["budget"], strict=True)
+            return config
         raise TypeError(f"execution_config must be ExecutionConfig, dict, or None; got {type(value).__name__}")
 
 
@@ -595,16 +613,35 @@ class Session(
     last_message_at: Optional[str] = field(default=None, metadata=config(field_name="lastMessageAt"))
     created_at: str = field(default="", metadata=config(field_name="createdAt"))
     updated_at: str = field(default="", metadata=config(field_name="updatedAt"))
-    execution_config: Optional[ExecutionConfig] = field(default=None, metadata=config(field_name="executionConfig"))
+    # A dict on the ``ExecutionConfigDict`` field names works as well as an
+    # ``ExecutionConfig``; ``__setattr__`` coerces either.
+    execution_config: Optional[Union[ExecutionConfig, ExecutionConfigDict]] = field(
+        default=None, metadata=config(field_name="executionConfig")
+    )
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Coerce a dict ``execution_config`` into an :class:`ExecutionConfig`.
+
+        On every assignment rather than in ``__post_init__`` alone: a dict
+        assigned afterwards stayed a dict, so ``build_save_payload`` died with
+        ``AttributeError: 'dict' object has no attribute 'to_api_dict'`` and an
+        unknown key went unvalidated. Mirrors how :class:`Trigger` coerces
+        ``configuration``.
+        """
+        if name == "execution_config" and value is not None and not isinstance(value, ExecutionConfig):
+            value = ExecutionConfig.coerce(value)
+        super().__setattr__(name, value)
 
     def __post_init__(self, agent: Optional[Any] = None) -> None:
-        """Resolve the ``agent`` convenience arg and coerce ``execution_config``."""
+        """Resolve the ``agent`` convenience arg.
+
+        ``execution_config`` is coerced by ``__setattr__``, which the generated
+        ``__init__`` routes through, so there is nothing left to do here.
+        """
         if agent is not None:
             resolved = _resolve_agent_id(agent)
             if resolved:
                 self.agent_id = resolved
-        if self.execution_config is not None and not isinstance(self.execution_config, ExecutionConfig):
-            self.execution_config = ExecutionConfig.coerce(self.execution_config)
 
     @classmethod
     def _fold_legacy_execution_config(cls, kvs: Any) -> Any:

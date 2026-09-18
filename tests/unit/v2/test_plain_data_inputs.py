@@ -103,14 +103,24 @@ def test_typed_dict_declares_exactly_the_struct_fields(struct, typed_dict):
 
 
 @pytest.mark.parametrize("struct,typed_dict", STRUCT_DICTS, ids=[s.__name__ for s, _ in STRUCT_DICTS])
-def test_typed_dict_keys_are_all_optional(struct, typed_dict):
-    """Partial config is the whole point: no key may be required.
+def test_typed_dict_requires_exactly_what_the_struct_requires(struct, typed_dict):
+    """Optionality has to match, in both directions.
 
-    ``total=False`` is what lets ``{"token_per_minute": 10}`` type-check without
-    naming the other five fields.
+    An earlier version of this test asserted "no key is required", which is right
+    for the structs whose every field defaults but wrong for ``Task`` and
+    ``UtilityModelInput``: it let ``{"name": "t"}`` type-check clean and then fail
+    at runtime with "Missing required tasks field(s)". A TypedDict that disagrees
+    with its dataclass in *either* direction is the defect.
     """
-    assert getattr(typed_dict, "__required_keys__", frozenset()) == frozenset(), (
-        f"{typed_dict.__name__} declares required keys; config dicts must be partial (total=False)."
+    struct_required = {
+        f.name
+        for f in dataclasses.fields(struct)
+        if f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING
+    }
+    assert set(typed_dict.__required_keys__) == struct_required, (
+        f"{typed_dict.__name__} requires {sorted(typed_dict.__required_keys__)} but "
+        f"{struct.__name__} requires {sorted(struct_required)}: a dict would type-check and then "
+        "fail at runtime, or be rejected by the checker though the runtime accepts it."
     )
 
 
@@ -191,6 +201,27 @@ class TestExecutionConfigDicts:
         assert isinstance(session.execution_config, ExecutionConfig)
         assert session.execution_config.criteria == "be terse"
 
+    def test_assignment_after_construction_coerces(self):
+        """``session.execution_config = {...}`` died on save as a raw dict."""
+        from aixplain.v2.session import Session
+
+        session = Session(agent="abc")
+        session.execution_config = {"criteria": "be terse"}
+
+        assert isinstance(session.execution_config, ExecutionConfig)
+        assert session.build_save_payload()["executionConfig"] == {"criteria": "be terse"}
+
+    def test_assignment_after_construction_validates(self):
+        from aixplain.v2.session import Session
+
+        session = Session(agent="abc")
+        with pytest.raises(ValidationError, match="Unknown execution_config field"):
+            session.execution_config = {"critera": "typo"}
+
+    def test_a_nested_budget_typo_raises_on_the_input_path(self):
+        with pytest.raises(ValidationError, match="Unknown budget field"):
+            ExecutionConfig.coerce({"budget": {"max_iteration": 3}})
+
     def test_unknown_key_raises_naming_the_accepted_fields(self):
         with pytest.raises(ValidationError) as excinfo:
             ExecutionConfig.coerce({"critera": "be terse"})
@@ -220,13 +251,39 @@ class TestBudgetDicts:
     def test_camel_case_budget_keys_still_work(self):
         assert Agent._coerce_budget({"maxCost": 0.5}).max_cost == 0.5
 
-    def test_unknown_budget_key_raises(self):
+    def test_unknown_budget_key_raises_on_the_input_path(self):
         """``max_iteration`` used to pass through and silently mean "no cap"."""
         with pytest.raises(ValidationError) as excinfo:
-            Agent._coerce_budget({"max_iteration": 10})
+            Agent(name="a").budget = {"max_iteration": 10}
 
         message = str(excinfo.value)
         assert "max_iteration" in message and "max_iterations" in message
+
+    def test_the_deserialization_path_stays_permissive(self):
+        """A backend that adds a budget field must not break reads.
+
+        ``_coerce_budget`` serves both the input path and deserialization, so the
+        strict check is opt-in. With it on by default, every ``Session.get()``
+        would have started failing the day the backend grew a budget field — on
+        data the SDK only reads.
+        """
+        budget = Agent._coerce_budget({"maxCost": 1.0, "maxTokens": 9})
+
+        assert budget.max_cost == 1.0
+
+    def test_a_session_hydrates_through_an_unknown_budget_field(self):
+        from aixplain.v2.session import Session
+
+        session = Session.from_dict(
+            {"id": "s", "executionConfig": {"executionParams": {"budget": {"maxCost": 1.0, "maxTokens": 9}}}}
+        )
+
+        assert session.execution_config.budget.max_cost == 1.0
+
+    def test_an_agent_hydrates_through_an_unknown_budget_field(self):
+        assert (
+            Agent.from_dict({"id": "a", "name": "n", "budget": {"maxCost": 2.0, "maxTokens": 9}}).budget.max_cost == 2.0
+        )
 
 
 class TestTaskDicts:
@@ -245,6 +302,27 @@ class TestTaskDicts:
     def test_unknown_task_key_raises(self):
         with pytest.raises(ValidationError, match="Unknown tasks field"):
             Agent(name="a", tasks=[{"nmae": "t1"}])
+
+    def test_assignment_after_construction_serialises_the_wire_names(self):
+        """The quiet one: no exception, just the wrong keys on the wire.
+
+        ``dataclass_json`` passes an unrecognised dict through untouched, so a
+        task assigned after construction reached the backend with
+        ``instructions`` / ``expected_output`` instead of ``description`` /
+        ``expectedOutput``, and ``dependencies`` dropped.
+        """
+        task = {"name": "t", "instructions": "i", "expected_output": "e"}
+        assigned = Agent(name="a", description="d")
+        assigned.tasks = [task]
+        constructed = Agent(name="a", description="d", tasks=[task])
+
+        assert assigned.build_save_payload()["tasks"] == constructed.build_save_payload()["tasks"]
+        assert assigned.build_save_payload()["tasks"][0]["description"] == "i"
+
+    def test_assignment_after_construction_validates(self):
+        agent = Agent(name="a", description="d")
+        with pytest.raises(ValidationError, match="Unknown tasks field"):
+            agent.tasks = [{"nam": "t"}]
 
     def test_wire_spellings_still_decode(self):
         agent = Agent(name="a", tasks=[{"name": "t1", "description": "do it", "expectedOutput": "a result"}])
@@ -406,3 +484,96 @@ def test_conversation_message_is_still_the_reference_shape():
 
     assert set(get_args(hints["role"])) == {"user", "assistant"}
     assert hints["content"] is str
+
+
+def test_timeout_error_does_not_shadow_the_builtin():
+    """``from aixplain import *`` rebinds ``TimeoutError`` in the caller's module.
+
+    Without inheriting the builtin as well, a plain ``except TimeoutError:``
+    would quietly stop catching socket and asyncio timeouts — the name would
+    catch strictly *less* than before the star export existed.
+    """
+    import builtins
+
+    assert issubclass(aixplain.TimeoutError, builtins.TimeoutError)
+    assert issubclass(aixplain.TimeoutError, v2.AixplainV2Error)
+
+
+def test_no_other_exported_name_shadows_a_builtin():
+    """``TimeoutError`` is the only collision; a new one needs a deliberate look."""
+    import builtins
+
+    collisions = {name for name in aixplain.__all__ if hasattr(builtins, name)}
+
+    assert collisions == {"TimeoutError"}, (
+        f"new builtin shadowing from the package root: {sorted(collisions - {'TimeoutError'})}. "
+        "Either make the export subclass the builtin it shadows, or keep it out of __all__."
+    )
+
+
+#: Field annotations that must accept the string form of their enum. The point of
+#: a Literal alias is to be *attached* to something; one that is exported and
+#: referenced nowhere delivers no type checking at all.
+ANNOTATED_ALIASES = [
+    ("aixplain/v2/agent.py", "OutputFormatValue"),
+    ("aixplain/v2/agent.py", "ContextOverflowStrategyValue"),
+    ("aixplain/v2/agent.py", "AssetStatusValue"),
+    ("aixplain/v2/agent.py", "ProgressFormatValue"),
+    ("aixplain/v2/api_key.py", "TokenTypeValue"),
+    ("aixplain/v2/code_utils.py", "DataTypeValue"),
+    ("aixplain/v2/file.py", "PrivacyValue"),
+    ("aixplain/v2/model.py", "SupplierValue"),
+    ("aixplain/v2/model.py", "LanguageValue"),
+    ("aixplain/v2/model.py", "FunctionValue"),
+    ("aixplain/v2/resource.py", "SortByValue"),
+    ("aixplain/v2/resource.py", "SortOrderValue"),
+    ("aixplain/v2/resource.py", "OwnershipTypeValue"),
+    ("aixplain/v2/file.py", "FileTypeValue"),
+    ("aixplain/v2/issue.py", "IssueSeverityValue"),
+]
+
+#: Aliases with no annotation site, and why. These describe enums the SDK exports
+#: but never takes as a typed parameter, so there is nothing to attach them to
+#: until one appears. Listed rather than silently absent, so the gap stays a
+#: decision rather than an oversight; docs/v2-plain-data.md carries the same list.
+UNATTACHED_ALIASES = {
+    "AttachmentTypeValue": "attachment type is inferred from the MIME type; no caller-facing field",
+    "AuthenticationSchemeValue": "integration connect takes untyped **kwargs today",
+    "LicenseValue": "license is documented on upload_utils but is not a typed parameter",
+    "SplittingOptionsValue": "index chunking has no v2 surface yet",
+    "StorageTypeValue": "storage type is inferred during upload; no caller-facing field",
+}
+
+
+@pytest.mark.parametrize("module_path,alias", ANNOTATED_ALIASES, ids=[f"{a}" for _, a in ANNOTATED_ALIASES])
+def test_literal_alias_is_used_in_an_annotation(module_path, alias):
+    """Each alias is referenced by the field or param it was written for."""
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parents[3] / module_path).read_text(encoding="utf-8")
+    uses = [
+        line
+        for line in source.splitlines()
+        if alias in line
+        and not line.lstrip().startswith(("#", "#:"))
+        and "import" not in line
+        and "= Literal" not in line
+    ]
+
+    assert uses, f"{alias} is defined and exported but annotates nothing in {module_path}"
+
+
+def test_every_alias_is_either_annotated_or_explicitly_unattached():
+    """No alias may drift out of both lists and become quietly decorative.
+
+    An alias that is defined, exported, documented and drift-tested but attached
+    to nothing delivers no type checking at all -- the runtime already accepted
+    the string, so the annotation was the entire point of adding it.
+    """
+    covered = {alias for _, alias in ANNOTATED_ALIASES} | set(UNATTACHED_ALIASES)
+    defined = {f"{enum_cls.__name__}Value" for enum_cls, _ in ENUM_ALIASES}
+
+    assert defined == covered, (
+        f"aliases in neither list: {sorted(defined - covered)}; "
+        f"listed but no longer defined: {sorted(covered - defined)}"
+    )

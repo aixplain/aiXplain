@@ -13,7 +13,7 @@ Four things had to change together, because they are the same few lines:
 """
 
 import pytest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from aixplain.v2.api_key import (
     APIKey,
@@ -232,30 +232,35 @@ class TestUnsetIsNotZero:
 
 # -- get() resolves three forms -----------------------------------------------------
 
+#: ObjectId-shaped ids on purpose -- ``get()`` routes an ID-shaped argument to the
+#: by-ID endpoint and anything else through a listing, so a fake id like "key1"
+#: would quietly exercise the wrong path.
 LISTING = [
-    {"id": "key1", "name": "Production", "accessKey": "abcd1111zzzz9999", "isAdmin": False},
-    {"id": "key2", "name": "Staging", "accessKey": "abcd2222zzzz9999", "isAdmin": False},
+    {"id": "6414bd3cd09663e9225130e8", "name": "Production", "accessKey": "abcd1111zzzz9999", "isAdmin": False},
+    {"id": "6414bd3cd09663e9225130e9", "name": "Staging", "accessKey": "abcd2222zzzz9999", "isAdmin": False},
 ]
+KEY1 = LISTING[0]["id"]
+KEY2 = LISTING[1]["id"]
 
 
 class TestGetResolution:
     """``get()`` takes a key ID, a key value, or a name."""
 
     def test_get_by_id(self):
-        bound = _bound(LISTING, get_response={"id": "key1", "name": "Production", "accessKey": "abcd1111zzzz9999"})
+        bound = _bound(LISTING, get_response=dict(LISTING[0]))
 
-        assert bound.get("key1").id == "key1"
+        assert bound.get(KEY1).id == KEY1
 
     def test_get_by_key_value(self):
         """What v1's ``APIKeyFactory.get`` took; a rename used to fail here."""
         bound = _bound(LISTING)
 
-        assert bound.get("abcd2222zzzz9999").id == "key2"
+        assert bound.get("abcd2222zzzz9999").id == KEY2
 
     def test_get_by_name(self):
         bound = _bound(LISTING)
 
-        assert bound.get("Staging").id == "key2"
+        assert bound.get("Staging").id == KEY2
 
     def test_get_errors_naming_all_three_forms(self):
         bound = _bound(LISTING)
@@ -277,8 +282,8 @@ class TestGetResolution:
 
     def test_duplicate_names_raise_rather_than_guess(self):
         listing = [
-            {"id": "key1", "name": "Shared", "accessKey": "aaaa1111bbbb2222"},
-            {"id": "key2", "name": "Shared", "accessKey": "cccc3333dddd4444"},
+            {"id": KEY1, "name": "Shared", "accessKey": "aaaa1111bbbb2222"},
+            {"id": KEY2, "name": "Shared", "accessKey": "cccc3333dddd4444"},
         ]
         bound = _bound(listing)
 
@@ -293,8 +298,10 @@ class TestGetResolution:
         class BoundAPIKey(APIKey):
             context = Mock(client=client)
 
+        # ID-shaped, so the by-ID fetch runs first and its failure is the one
+        # worth reporting when the listing fallback also fails.
         with pytest.raises(APIError, match="the by-id failure"):
-            BoundAPIKey.get("key1")
+            BoundAPIKey.get("6414bd3cd09663e9225130e8")
 
 
 class TestGetDoesNotMisreportAnUnrelatedFailure:
@@ -327,8 +334,8 @@ class TestGetDoesNotMisreportAnUnrelatedFailure:
         """
         bound = _bound(LISTING, get_error=APIError("backend said no", status_code=status))
 
-        assert bound.get("Staging").id == "key2"
-        assert bound.get("abcd1111zzzz9999").id == "key1"
+        assert bound.get("Staging").id == KEY2
+        assert bound.get("abcd1111zzzz9999").id == KEY1
 
     @pytest.mark.parametrize("status", [400, 404, 422])
     def test_a_not_an_id_failure_yields_the_three_forms_message(self, status):
@@ -376,7 +383,7 @@ class TestKeyValueMatchingIsExact:
     def test_first_of_a_colliding_pair(self):
         bound = _bound(self.COLLIDING)
 
-        assert bound.get_by_access_key("abcd1111zzzz9999").id == "key1"
+        assert bound.get_by_access_key("abcd1111zzzz9999").id == KEY1
 
     def test_second_of_a_colliding_pair(self):
         """The old prefix/suffix match returned key1 here — the wrong key.
@@ -386,24 +393,24 @@ class TestKeyValueMatchingIsExact:
         """
         bound = _bound(self.COLLIDING)
 
-        assert bound.get_by_access_key("abcd2222zzzz9999").id == "key2"
+        assert bound.get_by_access_key("abcd2222zzzz9999").id == KEY2
 
     def test_get_resolves_a_colliding_pair_too(self):
         bound = _bound(self.COLLIDING)
 
-        assert bound.get("abcd1111zzzz9999").id == "key1"
-        assert bound.get("abcd2222zzzz9999").id == "key2"
+        assert bound.get("abcd1111zzzz9999").id == KEY1
+        assert bound.get("abcd2222zzzz9999").id == KEY2
 
     def test_a_masked_listing_still_resolves_when_unambiguous(self):
         """Backends that mask the key leave only the prefix and suffix to go on."""
-        bound = _bound([{"id": "key1", "name": "Production", "accessKey": "abcd...9999"}])
+        bound = _bound([{"id": KEY1, "name": "Production", "accessKey": "abcd...9999"}])
 
-        assert bound.get_by_access_key("abcd1111zzzz9999").id == "key1"
+        assert bound.get_by_access_key("abcd1111zzzz9999").id == KEY1
 
     def test_an_ambiguous_masked_listing_raises_instead_of_guessing(self):
         listing = [
-            {"id": "key1", "name": "Production", "accessKey": "abcd...9999"},
-            {"id": "key2", "name": "Staging", "accessKey": "abcd...9999"},
+            {"id": KEY1, "name": "Production", "accessKey": "abcd...9999"},
+            {"id": KEY2, "name": "Staging", "accessKey": "abcd...9999"},
         ]
         bound = _bound(listing)
 
@@ -411,7 +418,7 @@ class TestKeyValueMatchingIsExact:
             bound.get_by_access_key("abcd1111zzzz9999")
 
         assert "cannot be resolved" in str(excinfo.value)
-        assert "key1" in str(excinfo.value) and "key2" in str(excinfo.value)
+        assert KEY1 in str(excinfo.value) and KEY2 in str(excinfo.value)
 
     def test_unknown_key_value_still_raises_not_found(self):
         bound = _bound(LISTING)
@@ -458,3 +465,115 @@ def test_the_typed_dict_declares_exactly_the_accepted_fields():
     from aixplain.v2.api_key import LIMIT_FIELDS
 
     assert set(APIKeyLimitsDict.__annotations__) == set(LIMIT_FIELDS)
+
+
+class TestGetKeepsSecretsOutOfRequestUrls:
+    """A key value must never become a URL path segment.
+
+    ``get()`` invites a key value by contract, and the by-ID endpoint puts its
+    argument in the path -- where access logs, proxies and error-tracking
+    breadcrumbs record it. So only an ID-shaped argument is sent there; anything
+    else is resolved from a listing, and reaches the by-ID endpoint only once the
+    listing has established it is not a key on this account.
+    """
+
+    @staticmethod
+    def _recording_bound(listing):
+        """An APIKey bound to a client that records every path it is asked for."""
+        paths = []
+
+        def get(path, **kwargs):
+            paths.append(path)
+            if path == APIKey.RESOURCE_PATH:
+                return listing
+            raise APIError(f"Not found: {path}", status_code=404)
+
+        def request(method, path, **kwargs):
+            paths.append(path)
+            return listing
+
+        client = Mock()
+        client.get = Mock(side_effect=get)
+        client.request = Mock(side_effect=request)
+
+        class BoundAPIKey(APIKey):
+            context = Mock(client=client)
+
+        return BoundAPIKey, paths
+
+    def test_a_key_value_never_reaches_a_url(self):
+        secret = "abcd1111zzzz9999"
+        bound, paths = self._recording_bound(LISTING)
+
+        assert bound.get(secret).id == KEY1
+        assert not any(secret in path for path in paths), f"the key value reached a URL: {paths}"
+
+    def test_a_name_never_reaches_a_url(self):
+        """Names are not secret, but they are also not ids -- same path either way."""
+        bound, paths = self._recording_bound(LISTING)
+
+        assert bound.get("Staging").id == KEY2
+        assert paths == [APIKey.RESOURCE_PATH]
+
+    def test_an_id_shaped_argument_still_goes_straight_to_the_by_id_endpoint(self):
+        """The common case must not pay for a listing, or pull every key's value.
+
+        ``APIKey.list()`` returns the access key of every key on the account, so
+        routing an ordinary by-ID fetch through it would be its own exposure.
+        """
+        bound, paths = self._recording_bound(LISTING)
+        bound._resolve_from_listing = Mock(return_value=None)
+
+        client_get = bound.context.client.get
+        client_get.side_effect = lambda path, **kwargs: dict(LISTING[0])
+
+        assert bound.get(KEY1).id == KEY1
+        assert paths == [] or paths == [f"{APIKey.RESOURCE_PATH}/{KEY1}"]
+
+    def test_a_non_id_argument_absent_from_the_listing_still_tries_by_id(self):
+        """A key the listing omits must remain reachable by its id."""
+        bound, paths = self._recording_bound([])
+
+        with pytest.raises(ResourceError, match="accepts a key ID"):
+            bound.get("not-a-key")
+
+        assert f"{APIKey.RESOURCE_PATH}/not-a-key" in paths
+
+
+class TestGetResolutionOrder:
+    """Exact matches win over the masked-key guess."""
+
+    def test_an_exact_name_beats_a_masked_key_coincidence(self):
+        """A name is an equality test; a masked key match is, by design, a guess."""
+        listing = [
+            {"id": KEY1, "name": "Production", "accessKey": "XXXXmiddleYYYY"},
+            {"id": KEY2, "name": "XXXXotherYYYY", "accessKey": "zzzz"},
+        ]
+        bound = _bound(listing)
+
+        assert bound.get("XXXXotherYYYY").id == KEY2
+
+    def test_the_masked_guess_keeps_its_eight_character_floor(self):
+        """Below 8 characters the prefix and suffix overlap and match anything.
+
+        ``get_by_access_key`` enforces the floor up front; ``get()`` reaches the
+        same helper with arbitrary strings, so the floor lives in the helper too.
+        """
+        bound = _bound([{"id": KEY1, "name": "Production", "accessKey": "keyXXXXkey"}])
+
+        with pytest.raises(ResourceError, match="accepts a key ID"):
+            bound.get("key")
+
+    def test_an_id_in_the_listing_resolves_even_when_not_object_id_shaped(self):
+        """The shape test is a routing hint, not a contract on what an id may be."""
+        bound = _bound([{"id": "legacy-style-id", "name": "Legacy", "accessKey": "aaaa1111bbbb2222"}])
+
+        assert bound.get("legacy-style-id").id == "legacy-style-id"
+
+    def test_kwargs_reach_the_listing_fallback(self):
+        """The docstring promises kwargs are forwarded; the fallback dropped them."""
+        bound = _bound(LISTING)
+        with patch.object(bound, "list", wraps=bound.list) as listed:
+            bound.get("Staging", api_key="scoped")
+
+        assert listed.call_args.kwargs.get("api_key") == "scoped"

@@ -94,7 +94,10 @@ class ProgressFormat(str, Enum):
 
 
 #: The string form of :class:`ProgressFormat`, accepted anywhere the enum is.
-ProgressFormatValue = Literal["status", "logs", "none"]
+#: Defined in ``agent.py`` (which this module cannot import from at class-body
+#: time) and re-exported here, so there is one definition rather than two that
+#: can drift.
+from .agent import ProgressFormatValue  # noqa: E402
 
 
 class AgentProgressTracker:

@@ -11,7 +11,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any, Callable, List, Text, Tuple, Union, Optional
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 from uuid import uuid4
 
 import validators
@@ -28,12 +28,17 @@ logger = logging.getLogger(__name__)
 MAX_REMOTE_CODE_BYTES = 5 * 1024 * 1024
 
 
-class UtilityModelInputDict(TypedDict, total=False):
-    """The dict form of :class:`UtilityModelInput`, on the same field names."""
+class UtilityModelInputDict(TypedDict):
+    """The dict form of :class:`UtilityModelInput`, on the same field names.
+
+    ``total=True``: ``name`` and ``description`` have no default on the struct,
+    so marking them optional would let a dict type-check and then fail at
+    runtime. Only ``type`` defaults.
+    """
 
     name: Text
     description: Text
-    type: Union[DataTypeValue, DataType]
+    type: NotRequired[Union[DataTypeValue, DataType]]
 
 
 @dataclass

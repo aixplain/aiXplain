@@ -4,6 +4,7 @@ This module provides classes for managing API keys and their rate limits
 using the V2 SDK foundation with proper mixin usage.
 """
 
+import re
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config as dj_config
 from datetime import datetime
@@ -63,6 +64,14 @@ class TokenType(Enum):
 #: be unsurprising), and gating the lookup on this set would silently break
 #: ``get()`` by name the day that changed.
 _NOT_AN_ID_STATUSES = frozenset({400, 404, 422})
+
+#: What a resource ID looks like: a 24-character hex ObjectId, as every ``id`` the
+#: backend issues is. Used to keep anything that is *not* one out of a request URL
+#: -- ``get()`` accepts a key value, and a key value in a path segment lands in
+#: access logs, proxies and error-tracking breadcrumbs. A non-matching argument is
+#: resolved from the listing first, and only reaches the by-ID endpoint once the
+#: listing has proved it is not a key on this account.
+_RESOURCE_ID = re.compile(r"[0-9a-fA-F]{24}")
 
 
 def _mask(value: str) -> str:
@@ -528,8 +537,13 @@ class APIKey(
         the wrong kind of thing". All three forms now resolve here, and an
         argument matching none of them says so.
 
-        The ID is tried first (one request); the other two forms fall back to a
-        single listing.
+        An ID-shaped argument goes straight to the by-ID endpoint, which is both
+        the cheapest path and the one that yields a fully hydrated resource. A
+        name or a key value is resolved from a single listing *first*, so it
+        never becomes a URL path segment -- a key value there would be recorded
+        by every access log and proxy on the way. Such an argument only reaches
+        the by-ID endpoint as a last resort, once the listing has established it
+        is not a key on this account.
 
         Args:
             id: A key ID, a full key value, or a key name.
@@ -545,33 +559,37 @@ class APIKey(
                 verdict on the argument (an expired credential, a 5xx) and no
                 key matched the other two forms.
         """
-        try:
-            return super().get(id, **kwargs)
-        except Exception as by_id_error:
-            if not isinstance(id, str):
-                raise
-            # ``except ... as`` unbinds the name when the block ends, so keep a
-            # reference for the decision made after the fallback.
-            id_lookup_error = by_id_error
+        if not isinstance(id, str) or _RESOURCE_ID.fullmatch(id):
             try:
-                candidates = cls.list()
-            except Exception:
-                # The listing is the fallback; if it fails too, the original
-                # per-ID failure is the more useful one to surface.
-                raise by_id_error from None
+                return super().get(id, **kwargs)
+            except Exception as by_id_error:
+                if not isinstance(id, str):
+                    raise
+                # ``except ... as`` unbinds the name when the block ends, so keep
+                # a reference for the decision made after the fallback.
+                id_lookup_error = by_id_error
+                try:
+                    candidates = cls.list(**kwargs)
+                except Exception:
+                    # The listing is the fallback; if it fails too, the original
+                    # per-ID failure is the more useful one to surface.
+                    raise by_id_error from None
+        else:
+            id_lookup_error = None
+            candidates = cls.list(**kwargs)
 
-        found = cls._resolve_by_key_value(id, candidates, required=False)
+        found = cls._resolve_from_listing(id, candidates)
         if found is not None:
             return found
 
-        by_name = [key for key in candidates if key.name == id]
-        if len(by_name) == 1:
-            return by_name[0]
-        if len(by_name) > 1:
-            raise ResourceError(
-                f"{len(by_name)} API keys are named {id!r}: {', '.join(str(key.id) for key in by_name)}. "
-                "Pass the key ID instead."
-            )
+        if id_lookup_error is None:
+            # Not ID-shaped and absent from the listing, so it is not a live key
+            # of this account -- the by-ID endpoint is now safe to try, and is
+            # the only thing that would still find a key the listing omitted.
+            try:
+                return super().get(id, **kwargs)
+            except Exception as late_error:
+                id_lookup_error = late_error
 
         # Nothing matched. If the by-ID fetch failed for its own reasons rather
         # than because the argument was not an ID, that failure is the answer:
@@ -588,6 +606,43 @@ class APIKey(
             f"No API key matches {_mask(id)!r}. APIKey.get() accepts a key ID, a full key value, "
             "or a key name; this matched none of them. Use APIKey.list() to see the keys on this account."
         )
+
+    @classmethod
+    def _resolve_from_listing(cls, value: str, candidates: List["APIKey"]) -> Optional["APIKey"]:
+        """Resolve *value* against ``candidates`` as an ID, a key value, then a name.
+
+        Exact comparisons come first and the masked-key *guess* comes last, so a
+        name can never be resolved by a four-character prefix/suffix coincidence
+        while an exact match for it sits further down the list.
+
+        Args:
+            value: The ID, key value or name to resolve.
+            candidates: The keys to resolve against, from ``list()``.
+
+        Returns:
+            Optional[APIKey]: The matching key, or ``None`` if nothing matched.
+
+        Raises:
+            ResourceError: If the value is ambiguous across names or masked keys.
+        """
+        by_id = [key for key in candidates if key.id is not None and str(key.id) == value]
+        if by_id:
+            return by_id[0]
+
+        exact_key = cls._resolve_by_key_value(value, candidates, required=False, allow_masked=False)
+        if exact_key is not None:
+            return exact_key
+
+        by_name = [key for key in candidates if key.name == value]
+        if len(by_name) == 1:
+            return by_name[0]
+        if len(by_name) > 1:
+            raise ResourceError(
+                f"{len(by_name)} API keys are named {value!r}: {', '.join(str(key.id) for key in by_name)}. "
+                "Pass the key ID instead."
+            )
+
+        return cls._resolve_by_key_value(value, candidates, required=False)
 
     @classmethod
     def get_by_access_key(cls, access_key: str, **kwargs: Any) -> "APIKey":
@@ -610,7 +665,13 @@ class APIKey(
         return cls._resolve_by_key_value(access_key, cls.list(**kwargs), required=True)
 
     @classmethod
-    def _resolve_by_key_value(cls, value: str, candidates: List["APIKey"], required: bool) -> Optional["APIKey"]:
+    def _resolve_by_key_value(
+        cls,
+        value: str,
+        candidates: List["APIKey"],
+        required: bool,
+        allow_masked: bool = True,
+    ) -> Optional["APIKey"]:
         """Resolve a key *value* against ``candidates``, exactly.
 
         The full value is compared first. The previous implementation compared
@@ -627,6 +688,9 @@ class APIKey(
             value: The key value to resolve.
             candidates: The keys to resolve against, from ``list()``.
             required: Raise when nothing matches, rather than returning ``None``.
+            allow_masked: Fall back to the prefix/suffix guess. ``get()`` turns
+                this off for its first pass so that an exact *name* match is
+                preferred over a guess against a masked key value.
 
         Returns:
             Optional[APIKey]: The matching key, or ``None`` when *required* is
@@ -644,6 +708,15 @@ class APIKey(
                 f"{len(exact)} API keys report the same key value: "
                 f"{', '.join(str(key.id) for key in exact)}. Pass the key ID instead."
             )
+
+        # The guess needs at least 8 characters, or the prefix and the suffix
+        # overlap and a 3-character name would "match" almost anything.
+        # ``get_by_access_key`` enforces this up front; ``get()`` reaches here
+        # with arbitrary strings, so the floor lives here too.
+        if not allow_masked or len(value) < 8:
+            if required:
+                raise ResourceError(f"API key with access key {_mask(value)} not found")
+            return None
 
         prefix, suffix = value[:4], value[-4:]
         masked = [

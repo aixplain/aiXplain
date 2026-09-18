@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional, Union, TYPE_CHECKING
 from typing_extensions import Literal
 
 from .exceptions import APIError, AixplainIssueError
@@ -38,8 +38,25 @@ class IssueReporter:
         """Build the full issue endpoint URL for the configured backend."""
         return f"{self.context.backend_url.rstrip('/')}{self.ISSUE_PATH}"
 
-    def report(self, description: Optional[str], **kwargs: Any) -> str:
-        """Submit an issue report and return its ID."""
+    def report(
+        self,
+        description: Optional[str],
+        *,
+        severity: Optional[Union[IssueSeverity, IssueSeverityValue]] = None,
+        **kwargs: Any,
+    ) -> str:
+        """Submit an issue report and return its ID.
+
+        Args:
+            description: What went wrong. Required.
+            severity: ``IssueSeverity`` or its string value ("SEV1".."SEV4").
+                Named explicitly rather than left in ``**kwargs`` so a type
+                checker can reject a typo against :data:`IssueSeverityValue`.
+            **kwargs: ``title``, ``tags``, ``sdk_version``, ``runtime_context``
+                and ``reporter_email``.
+        """
+        if severity is not None:
+            kwargs["severity"] = severity
         self._validate_description(description)
 
         allowed_fields = {
