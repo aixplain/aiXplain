@@ -11,13 +11,15 @@ import pytest
 
 from aixplain.v2.integration import ActionInputSpec, ActionSpec
 
+from tests.functional.asset_ids import SLACK_INTEGRATION_ID, TEXT_MODEL_ID
+
 
 class TestToolDictFieldsRoundTrip:
     """as_tool() produces snake_case keys; save must convert them so the backend stores the value."""
 
     def test_asset_id_round_trips_through_backend(self, client):
         """Set asset_id (renamed from assetId) via as_tool(), save agent, fetch back, compare."""
-        model = client.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
+        model = client.Model.get(TEXT_MODEL_ID)
         tool_dict = model.as_tool()
 
         # Value we're about to send (snake_case key)
@@ -50,10 +52,14 @@ class TestToolDictFieldsRoundTrip:
 
     def test_allow_multi_and_supports_variables_round_trip(self, client):
         """get_parameters() returns allow_multi / supports_variables; verify values survive save."""
-        model = client.Model.get("69b7e5f1b2fe44704ab0e7d0")
+        model = client.Model.get(TEXT_MODEL_ID)
         params = model.get_parameters()
-        if not params:
-            pytest.skip("Model has no parameters")
+        # The model is pinned as the parameterised fixture; no parameters means
+        # either the wrong asset or a broken get_parameters(), both worth failing.
+        assert params, (
+            f"{model.name} ({model.id}) exposes no parameters, so the allow_multi / "
+            "supports_variables round-trip cannot be exercised."
+        )
 
         sample = params[0]
         sent_allow_multi = sample["allow_multi"]
@@ -95,25 +101,27 @@ class TestToolDictFieldsRoundTrip:
 class TestInputActionFieldsRoundTrip:
     """Input / Action fields are read from the backend; verify snake_case ↔ camelCase mapping."""
 
-    SLACK_INTEGRATION_ID = "686432941223092cb4294d3f"
-
     def test_input_fields_survive_serialization_round_trip(self, client):
         """Fetch real Input from API, read snake_case attrs, to_dict → from_dict, values match."""
-        integration = client.Integration.get(self.SLACK_INTEGRATION_ID)
-        if not integration.actions_available:
-            pytest.skip("Integration has no actions available")
+        integration = client.Integration.get(SLACK_INTEGRATION_ID)
+        # Every step below used to skip on an empty result. The Slack integration
+        # is pinned precisely because it has actions with inputs, so an empty
+        # result is a missing fixture or a broken listing endpoint (ENG-3684).
+        assert integration.actions_available, (
+            f"Pinned integration {SLACK_INTEGRATION_ID} reports no actions available."
+        )
 
         actions = integration.list_actions()
-        if not actions:
-            pytest.skip("No actions returned")
+        assert actions, f"Pinned integration {SLACK_INTEGRATION_ID} returned no actions."
 
         action_name = actions[0].name or actions[0].slug
-        if not action_name:
-            pytest.skip("First action has no name")
+        assert action_name, f"First action of {SLACK_INTEGRATION_ID} has neither a name nor a slug."
 
         input_actions = integration.list_inputs(action_name)
-        if not input_actions or not input_actions[0].inputs:
-            pytest.skip("No inputs available for this action")
+        assert input_actions and input_actions[0].inputs, (
+            f"Action {action_name!r} on {SLACK_INTEGRATION_ID} declares no inputs, so the "
+            "snake_case round-trip has nothing to verify."
+        )
 
         original = input_actions[0].inputs[0]
 
@@ -133,13 +141,13 @@ class TestInputActionFieldsRoundTrip:
 
     def test_action_display_name_survives_round_trip(self, client):
         """Fetch real Action from API, read display_name, to_dict → from_dict, value matches."""
-        integration = client.Integration.get(self.SLACK_INTEGRATION_ID)
-        if not integration.actions_available:
-            pytest.skip("Integration has no actions available")
+        integration = client.Integration.get(SLACK_INTEGRATION_ID)
+        assert integration.actions_available, (
+            f"Pinned integration {SLACK_INTEGRATION_ID} reports no actions available."
+        )
 
         actions = integration.list_actions()
-        if not actions:
-            pytest.skip("No actions returned")
+        assert actions, f"Pinned integration {SLACK_INTEGRATION_ID} returned no actions."
 
         original = actions[0]
         orig_display_name = original.display_name

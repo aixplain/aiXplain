@@ -94,6 +94,10 @@ jobs:
           # into a collection-time skip, a stray `-k` -- exits 0, and the release
           # would proceed on a tree nothing had checked.
           AIXPLAIN_REQUIRE_EXECUTED_TESTS: "1"
+          # The proportional floor from ENG-3684, matching main.yaml. The unit
+          # suite is credential-free, so anything much below this means tests are
+          # skipping themselves for reasons the release should not ship past.
+          AIXPLAIN_MIN_EXECUTED_RATIO: "0.8"
         run: |
           set -euo pipefail
           pip install ".[test]"

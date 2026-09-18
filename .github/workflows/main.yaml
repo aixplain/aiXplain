@@ -28,6 +28,13 @@ env:
   # `pytest_sessionfinish` guard in tests/conftest.py fails any session in which
   # no test body ran.
   AIXPLAIN_REQUIRE_EXECUTED_TESTS: "1"
+  # ...and "at least one test ran" is a floor low enough that `v2` cleared it
+  # while executing 12 of 195 collected tests (ENG-3684): one module-scoped
+  # fixture skip took ~40 tests out and 36 inline skips took out the rest. Each
+  # leg must now execute at least this share of what it collected, leaving room
+  # for the credential-gated skips in the conftests and nothing else. Lower it
+  # here only with a comment saying which leg needs the slack and why.
+  AIXPLAIN_MIN_EXECUTED_RATIO: "0.8"
 
 jobs:
   # The unit suite is deliberately credential-free: no TEAM_API_KEY, no
@@ -313,6 +320,12 @@ jobs:
           fi
           echo "SLACK_TOKEN=${{ secrets.SLACK_TOKEN }}" >> $GITHUB_ENV
           echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> $GITHUB_ENV
+          # Event-trigger fixtures for tests/functional/v2/test_trigger.py. These
+          # used to be absent, and the tests skipped themselves -- so the
+          # event-trigger half of that file had never run in CI (ENG-3684). They
+          # fail loudly now, which means these secrets have to exist.
+          echo "TEST_COMPOSIO_INTEGRATION_ID=${{ secrets.TEST_COMPOSIO_INTEGRATION_ID }}" >> $GITHUB_ENV
+          echo "TEST_CONNECTION_ID=${{ secrets.TEST_CONNECTION_ID }}" >> $GITHUB_ENV
 
       - name: Run Tests
         timeout-minutes: ${{ matrix.timeout }}
