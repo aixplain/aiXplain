@@ -3,16 +3,18 @@
 import pytest
 
 
-# Gemini 2.5 Pro — used as both orchestrator and worker for testing
-MODEL_ID = "68d43005ce180d2fdb4deac7"
+@pytest.fixture(scope="module")
+def model_id(assets):
+    """Return the model used as both orchestrator and worker."""
+    return assets.RLM_MODEL
 
 
 @pytest.fixture(scope="module")
-def rlm(client):
+def rlm(client, model_id):
     """Create an RLM instance for testing."""
     return client.RLM(
-        orchestrator_id=MODEL_ID,
-        worker_id=MODEL_ID,
+        orchestrator_id=model_id,
+        worker_id=model_id,
         max_iterations=5,
     )
 
@@ -20,38 +22,38 @@ def rlm(client):
 class TestRLMCreation:
     """Tests for RLM instance creation and validation."""
 
-    def test_create_rlm(self, client):
+    def test_create_rlm(self, client, model_id):
         """Test that an RLM instance can be created with valid IDs."""
         rlm = client.RLM(
-            orchestrator_id=MODEL_ID,
-            worker_id=MODEL_ID,
+            orchestrator_id=model_id,
+            worker_id=model_id,
         )
-        assert rlm.orchestrator_id == MODEL_ID
-        assert rlm.worker_id == MODEL_ID
+        assert rlm.orchestrator_id == model_id
+        assert rlm.worker_id == model_id
         assert rlm.max_iterations == 10  # default
 
-    def test_create_rlm_custom_iterations(self, client):
+    def test_create_rlm_custom_iterations(self, client, model_id):
         """Test RLM creation with custom max_iterations."""
         rlm = client.RLM(
-            orchestrator_id=MODEL_ID,
-            worker_id=MODEL_ID,
+            orchestrator_id=model_id,
+            worker_id=model_id,
             max_iterations=3,
         )
         assert rlm.max_iterations == 3
 
-    def test_create_rlm_missing_orchestrator(self, client):
+    def test_create_rlm_missing_orchestrator(self, client, model_id):
         """Test that RLM raises when orchestrator_id is missing.
 
         Only recursive mode requires the orchestrator; auto mode would fall
         back to parallel/rag (worker-only) and succeed.
         """
-        rlm = client.RLM(worker_id=MODEL_ID)
+        rlm = client.RLM(worker_id=model_id)
         with pytest.raises(Exception):
             rlm.run(data={"context": "test", "query": "test"}, mode="recursive")
 
-    def test_create_rlm_missing_worker(self, client):
+    def test_create_rlm_missing_worker(self, client, model_id):
         """Test that RLM raises when worker_id is missing."""
-        rlm = client.RLM(orchestrator_id=MODEL_ID)
+        rlm = client.RLM(orchestrator_id=model_id)
         with pytest.raises(Exception):
             rlm.run(data={"context": "test", "query": "test"})
 

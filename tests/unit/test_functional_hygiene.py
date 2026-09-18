@@ -17,9 +17,12 @@ tests/unit/test_ci_matrix_coverage.py. A guard nobody tested is decorative.
 """
 
 import ast
+import re
 from pathlib import Path
 
 import pytest
+
+from tests.functional._assets import ASSET_NAMES, ASSETS_BY_ENVIRONMENT, SPECS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FUNCTIONAL_DIR = REPO_ROOT / "tests" / "functional"
@@ -851,3 +854,121 @@ DEPLOY_AFTER_REGISTRATION = (
 )
 def test_late_registration_detector(tmp_path, source, expected):
     assert _late_registration_offenders(_tree(tmp_path, source), tmp_path) == expected
+
+
+# ---------------------------------------------------------------------------
+# Hard-coded backend asset ids (ENG-3685)
+# ---------------------------------------------------------------------------
+
+#: A bare 24-character ObjectId. The lookarounds keep a longer hex run -- a
+#: commit sha, a hashed token -- from being chopped into a false positive.
+OBJECT_ID_PATTERN = re.compile(r"(?<![0-9a-fA-F])[0-9a-f]{24}(?![0-9a-fA-F])")
+
+#: The one module that may spell an asset id out.
+ASSET_MODULE = "tests/functional/_assets.py"
+
+#: Directories PROD-2918 deletes in full, together with the v1 surface they
+#: exercise. They are not exempt on their merits -- each still carries its own
+#: literals -- but rewriting a file that is being deleted buys a delete/modify
+#: conflict and nothing else. When PROD-2918 lands these directories are gone,
+#: this tuple matches nothing, and it can be deleted along with them; until
+#: then the exemption is written down rather than achieved by pointing the
+#: detector at `tests/functional/v2` and calling it "the functional suite".
+V1_LEGS = (
+    "agent",
+    "apikey",
+    "benchmark",
+    "file_asset",
+    "finetune",
+    "general_assets",
+    "model",
+    "team_agent",
+)
+
+
+def _is_v1_leg(relative: str) -> bool:
+    """True for a file inside one of the `tests/functional/<leg>/` directories PROD-2918 deletes."""
+    parts = Path(relative).parts
+    return len(parts) > 3 and parts[:2] == ("tests", "functional") and parts[2] in V1_LEGS
+
+
+def _object_id_offenders(functional_dir: Path = FUNCTIONAL_DIR, repo_root: Path = REPO_ROOT) -> dict:
+    """Map file -> line numbers containing a bare 24-hex asset id.
+
+    Raw text rather than the parsed tree, deliberately: an id in a comment goes
+    stale exactly as an id in code does, and one of the ids this ticket removed
+    had been documenting a Web Search tool that no longer existed.
+    """
+    offenders = {}
+    for path in _python_files(functional_dir):
+        relative = _relative(path, repo_root)
+        if relative == ASSET_MODULE or _is_v1_leg(relative):
+            continue
+        lines = [
+            number
+            for number, line in enumerate(path.read_text().splitlines(), start=1)
+            if OBJECT_ID_PATTERN.search(line)
+        ]
+        if lines:
+            offenders[relative] = lines
+    return offenders
+
+
+def test_no_functional_test_hard_codes_an_asset_id():
+    """An inline ObjectId names no asset and works on only one backend.
+
+    CI resolves these ids against `test-platform-api`, `main` resolves them
+    against production and a laptop resolves them against `dev-platform-api`:
+    three id spaces, so a retired asset failed one leg at a time and read as an
+    unrelated backend error each time (ENG-3685).
+    """
+    offenders = _object_id_offenders()
+    assert not offenders, (
+        f"bare 24-hex asset ids outside {ASSET_MODULE}: {offenders}. Add a named field to "
+        "`AssetIds` there and read it from the `assets` fixture, so the id has one home, one "
+        "name, and an `AIXPLAIN_TEST_<NAME>` override (ENG-3685)."
+    )
+
+
+def test_the_asset_module_actually_holds_the_ids():
+    """The guard above passes vacuously if the ids went somewhere else entirely."""
+    ids = {getattr(assets, name) for assets in ASSETS_BY_ENVIRONMENT.values() for name in ASSET_NAMES}
+
+    assert ids, "tests/functional/_assets.py defines no asset ids at all"
+    malformed = sorted(value for value in ids if not OBJECT_ID_PATTERN.fullmatch(value))
+    assert not malformed, (
+        f"{malformed} are not 24-character ObjectIds. The detector above only recognises that "
+        "shape, so an id in another format would slip past it wherever it was written."
+    )
+
+
+def test_every_asset_says_how_to_resolve_itself():
+    """A field with no `SPECS` entry is an id the session fixture never checks."""
+    assert sorted(SPECS) == sorted(ASSET_NAMES), (
+        "AssetIds fields and SPECS entries have drifted apart: "
+        f"missing from SPECS {sorted(set(ASSET_NAMES) - set(SPECS))}, "
+        f"stale in SPECS {sorted(set(SPECS) - set(ASSET_NAMES))}. The session fixture in "
+        "tests/functional/v2/conftest.py resolves what SPECS lists, so an unlisted field is "
+        "verified by nothing (ENG-3685)."
+    )
+
+
+OBJECT_ID_IN_CODE = 'def test_x(client):\n    client.Model.get("69b7e5f1b2fe44704ab0e7d0")\n'
+OBJECT_ID_IN_COMMENT = "def test_x(client):\n    # was 69b7e5f1b2fe44704ab0e7d0\n    pass\n"
+# 40 hex characters: a sha, not an asset id, and not something to flag.
+LONGER_HEX_RUN = 'SHA = "69b7e5f1b2fe44704ab0e7d069b7e5f1b2fe4470"\n'
+NAMED_ASSET = "def test_x(client, assets):\n    client.Model.get(assets.DEFAULT_LLM)\n"
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (OBJECT_ID_IN_CODE, {"functional/some_test.py": [2]}),
+        (OBJECT_ID_IN_COMMENT, {"functional/some_test.py": [2]}),
+        (LONGER_HEX_RUN, {}),
+        (NAMED_ASSET, {}),
+    ],
+    ids=["id-in-code", "id-in-comment", "longer-hex-run", "named-asset"],
+)
+def test_object_id_detector(tmp_path, source, expected):
+    assert _object_id_offenders(_tree(tmp_path, source), tmp_path) == expected

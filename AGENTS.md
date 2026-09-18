@@ -194,6 +194,7 @@ The SDK exposes two API layers maintained in parallel:
 - **Unit tests**: `tests/unit/` -- fast, mocked, no network calls.
 - **Functional tests**: `tests/functional/` -- integration tests against real or staged services.
 - **Mock data**: `tests/mock_responses/` -- JSON fixtures for API responses.
+- **Backend asset ids**: never inline a 24-hex ObjectId in a functional test. `tests/functional/_assets.py` holds one named field per asset, per environment (`dev`/`test`/`prod`, selected by `BACKEND_URL`); read it through the `assets` fixture and override a single id for one run with `AIXPLAIN_TEST_<NAME>`. A session fixture resolves every id before the v2 leg runs, and `tests/unit/test_functional_hygiene.py` fails if a bare literal reappears.
 - **CI**: GitHub Actions runs parallel test suites (unit, agent, model, pipeline, v2, finetune, etc.) on Python 3.9 with a 45-minute timeout.
 - **Docstrings in tests**: Not enforced (ruff ignores `D` rules for `tests/**/*.py`).
 - For `v2` work, prefer targeted unit tests under `tests/unit/v2/`.

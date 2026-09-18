@@ -28,9 +28,16 @@ ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uF
 ARABIC_DIACRITICS_RE = re.compile(r"[\u064B-\u065F\u0670]")
 DIGIT_RE = re.compile(r"[\u0660-\u06690-9]")
 
+#: (display name, asset name in `tests/functional/_assets.py`). Parametrising
+#: on the asset *name* keeps collection backend-independent: the id is resolved
+#: from the `assets` fixture at setup, so the same parameter ids run against
+#: dev, test and prod.
+#:
+#: The v1 suite labelled the GPT-4o id "Anthropic Claude 3.5 Sonnet v1". That
+#: comment was the stale half of the pair -- see the dating in `_assets.py`.
 MODELS = [
-    pytest.param("gpt-4o", "6646261c6eb563165658bbb1", id="gpt-4o"),
-    pytest.param("claude-opus-4.6", "698c87701239a117fd66b468", id="claude-opus-4.6"),
+    pytest.param("gpt-4o", "GPT_4O_LLM", id="gpt-4o"),
+    pytest.param("claude-opus-4.6", "CLAUDE_LLM", id="claude-opus-4.6"),
 ]
 
 ARABIC_QUERIES = {
@@ -282,9 +289,10 @@ def _make_output_inspector(llm_id: str, model_name: str):
 
 
 @pytest.mark.flaky(reruns=1, reruns_delay=5)
-@pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
-def test_arabic_single_agent_variants_across_llms(client, resource_tracker, model_name, llm_id):
+@pytest.mark.parametrize(("model_name", "llm_asset"), MODELS)
+def test_arabic_single_agent_variants_across_llms(client, assets, resource_tracker, model_name, llm_asset):
     """Keep broad LLM coverage, but run only one representative query per agent variant."""
+    llm_id = getattr(assets, llm_asset)
     representative_queries = {
         "SingleLegal": "pure_arabic",
         "MixedLang": "mixed_ar_en",
@@ -302,10 +310,10 @@ def test_arabic_single_agent_variants_across_llms(client, resource_tracker, mode
 
 
 @pytest.mark.flaky(reruns=1, reruns_delay=5)
-@pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
-def test_arabic_team_agent_across_llms(client, resource_tracker, model_name, llm_id):
+@pytest.mark.parametrize(("model_name", "llm_asset"), MODELS)
+def test_arabic_team_agent_across_llms(client, assets, resource_tracker, model_name, llm_asset):
     """Use one contract-heavy query to cover the team-agent serialization path."""
-    resources = _make_team_agent(client, llm_id, model_name)
+    resources = _make_team_agent(client, getattr(assets, llm_asset), model_name)
     resource_tracker.extend(resources)
     team_agent = resources[-1]
 
@@ -316,9 +324,10 @@ def test_arabic_team_agent_across_llms(client, resource_tracker, model_name, llm
 
 
 @pytest.mark.flaky(reruns=1, reruns_delay=5)
-@pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
-def test_arabic_inspector_agent_across_llms(client, resource_tracker, model_name, llm_id):
+@pytest.mark.parametrize(("model_name", "llm_asset"), MODELS)
+def test_arabic_inspector_agent_across_llms(client, assets, resource_tracker, model_name, llm_asset):
     """Verify the inspector actually executes on the Arabic runtime path."""
+    llm_id = getattr(assets, llm_asset)
     inspector = _make_output_inspector(llm_id, model_name)
     resources = _make_team_agent(client, llm_id, model_name, inspectors=[inspector])
     resource_tracker.extend(resources)
