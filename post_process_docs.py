@@ -4,70 +4,167 @@ import os
 import re
 import json
 
+from docs_rst_processor import convert_rst, split_fences
+
+# Docusaurus compiles .md as MDX, which means: indented code blocks are disabled
+# (code must use ``` fences), a raw "<" in prose starts a JSX tag, "{" starts a
+# JSX expression, and HTML entities are never decoded inside code spans or
+# fences. So escaping has to happen on prose only, after the code has been carved
+# out -- escaping with just the fences carved out is what put a literal
+# "\{name: value}" inside inline code spans.
+
+# Entities pydoc-markdown used to emit before we turned escape_html_in_docstring
+# off. Substituted in one pass, so "&amp;lt;" degrades to "&lt;", not to "<".
+ENTITIES = {
+    "&quot;": '"',
+    "&#x27;": "'",
+    "&#39;": "'",
+    "&apos;": "'",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&amp;": "&",
+}
+ENTITY_RE = re.compile("|".join(map(re.escape, ENTITIES)))
+
+# Every bare "<", not only "<" before a letter: MDX fires its JSX parser on the
+# character itself, so ("<") and <<COLUMN>> fail just like <name>. Both patterns
+# capture the backslash run in front, because an even run means unescaped.
+BRACE_RE = re.compile(r"(?<!\\)(\\*)\{")
+JSX_RE = re.compile(r"(?<!\\)(\\*)<")
+TICKS_RE = re.compile(r"`+")
+
+
+def split_code_spans(text):
+    """
+    Split text into (is_code, chunk) pairs using CommonMark backtick pairing:
+    a run of N backticks opens a span closed by the next run of exactly N.
+    A span cannot cross a blank line, or one stray backtick swallows the file.
+    """
+    segments = []
+    pos = 0
+    while pos < len(text):
+        opener = TICKS_RE.search(text, pos)
+        if not opener:
+            break
+
+        limit = text.find("\n\n", opener.end())
+        limit = len(text) if limit == -1 else limit
+
+        closer, cursor = None, opener.end()
+        while True:
+            candidate = TICKS_RE.search(text, cursor)
+            if not candidate or candidate.start() > limit:
+                break
+            if candidate.group(0) == opener.group(0):
+                closer = candidate
+                break
+            cursor = candidate.end()
+
+        if closer is None:
+            segments.append((False, text[pos:opener.end()]))
+            pos = opener.end()
+            continue
+
+        if opener.start() > pos:
+            segments.append((False, text[pos:opener.start()]))
+        segments.append((True, text[opener.start():closer.end()]))
+        pos = closer.end()
+
+    if pos < len(text):
+        segments.append((False, text[pos:]))
+    return segments
+
+
+def escape_prose(text):
+    """Escape "{" and "<" so MDX does not read them as JSX. Prose only."""
+    for pattern, char in ((BRACE_RE, "{"), (JSX_RE, "<")):
+        text = pattern.sub(
+            lambda m, c=char: m.group(1) + ("\\" + c if len(m.group(1)) % 2 == 0 else c),
+            text,
+        )
+    return text
+
+
+def transform_markdown(text):
+    """
+    1. Decode HTML entities that were escaped before markdown rendering
+    2. Convert RST literal blocks, roles and directives to markdown
+    3. Escape MDX characters in prose, never inside code spans or fences
+    """
+    match = re.match(r"\A---\n.*?\n---\n", text, re.DOTALL)
+    frontmatter, body = (match.group(0), text[match.end():]) if match else ("", text)
+
+    body = convert_rst(ENTITY_RE.sub(lambda m: ENTITIES[m.group(0)], body))
+
+    out = []
+    for is_fence, chunk in split_fences(body):
+        if is_fence:
+            out.append(chunk)
+            continue
+        for is_code, piece in split_code_spans(chunk):
+            # A backslash is literal inside a code span, so "\{" renders one.
+            out.append(piece.replace("\\{", "{") if is_code else escape_prose(piece))
+
+    return frontmatter + "".join(out)
+
+
+def is_private(name):
+    """A single leading underscore marks a private module. __init__ is not one."""
+    return name.startswith("_") and not name.startswith("__")
+
 
 def rename_files(docs_dir="docs/api-reference/python"):
     """
     1. Rename __init__.md files to init.md
-    2. Remove leading underscores from filenames
+    2. Delete pages for private modules
     """
     renamed_init_files = 0
-    renamed_underscore_files = 0
+    removed_private_files = 0
 
-    # Walk through the docs directory
     for root, _, files in os.walk(docs_dir):
         for file in files:
-            # Rename __init__.md to init.md
             if file == "__init__.md":
-                old_path = os.path.join(root, file)
-                new_path = os.path.join(root, "init.md")
-                os.rename(old_path, new_path)
+                os.rename(os.path.join(root, file), os.path.join(root, "init.md"))
                 renamed_init_files += 1
 
-            # Remove leading underscore from filenames
-            elif file.startswith("_") and file != "__init__.md":
-                old_path = os.path.join(root, file)
-                new_path = os.path.join(root, file[1:])
-                os.rename(old_path, new_path)
-                renamed_underscore_files += 1
+            # A private module is an implementation detail, not API. pydoc-markdown
+            # has no option to skip one -- FilterProcessor.exclude_private applies
+            # to members, and modules are exempt from filtering entirely -- so the
+            # page is dropped here instead.
+            elif file.endswith(".md") and is_private(file[:-len(".md")]):
+                os.remove(os.path.join(root, file))
+                removed_private_files += 1
 
     print(f"Renamed {renamed_init_files} __init__.md files to init.md")
-    print(f"Renamed {renamed_underscore_files} files by removing leading underscore")
+    print(f"Removed {removed_private_files} pages for private modules")
 
 
 def process_content(docs_dir="docs/api-reference/python"):
     """
     Process markdown content:
-    1. Escape braces outside code blocks
+    1. Decode HTML entities, convert RST, escape braces outside code
     """
     modified_files = 0
 
-    # Walk through the docs directory
     for root, _, files in os.walk(docs_dir):
         for file in files:
-            if file.endswith(".md"):
-                file_path = os.path.join(root, file)
+            # A generated page is named after its module, and a module name
+            # cannot contain a dot, so a dotted stem (client.ar.md) marks a
+            # hand-written file such as a translation. Those are not ours.
+            if not file.endswith(".md") or "." in file[:-len(".md")]:
+                continue
 
-                # Read the file
-                with open(file_path, "r") as f:
-                    content = f.read()
+            file_path = os.path.join(root, file)
+            with open(file_path, "r") as f:
+                content = f.read()
 
-                # Process content
-                original_content = content
+            updated = transform_markdown(content)
+            if updated != content:
+                with open(file_path, "w") as f:
+                    f.write(updated)
+                modified_files += 1
 
-                # Escape braces outside code blocks
-                parts = re.split(r"(```.*?```)", content, flags=re.DOTALL)
-                for i in range(len(parts)):
-                    if i % 2 == 0:  # Outside code blocks
-                        parts[i] = re.sub(r"(?<!\\)\{", r"\\{", parts[i])
-                content = "".join(parts)
-
-                # Write back if modified
-                if content != original_content:
-                    with open(file_path, "w") as f:
-                        f.write(content)
-                    modified_files += 1
-
-    print(f"Processed {modified_files} markdown files (escaped braces)")
+    print(f"Processed {modified_files} markdown files (RST to markdown, MDX-safe escaping)")
 
 
 def mark_empty_init_files(docs_dir="docs/api-reference/python"):
@@ -76,13 +173,11 @@ def mark_empty_init_files(docs_dir="docs/api-reference/python"):
     """
     modified_files = 0
 
-    # Walk through the docs directory
     for root, _, files in os.walk(docs_dir):
         for file in files:
             if file == "init.md":
                 file_path = os.path.join(root, file)
 
-                # Check if the file is empty
                 with open(file_path, "r") as f:
                     content = f.read()
 
@@ -90,14 +185,21 @@ def mark_empty_init_files(docs_dir="docs/api-reference/python"):
                 frontmatter_pattern = re.compile(r"^---\n.*?---\n", re.DOTALL)
                 content_without_frontmatter = frontmatter_pattern.sub("", content).strip()
 
-                # If empty, add draft: true to frontmatter
-                if len(content_without_frontmatter) == 0 or content_without_frontmatter.isspace():
-                    modified_content = re.sub(r"^(---\n)", r"\1draft: true\n", content, count=1, flags=re.MULTILINE)
+                marks = len(re.findall(r"^draft:\s*true$", content, re.M))
+                if content_without_frontmatter or marks == 1:
+                    continue
 
-                    with open(file_path, "w") as f:
-                        f.write(modified_content)
+                if marks:
+                    # Collapse marks an earlier run stacked up. A repeated YAML
+                    # key is a parse error, so the page breaks the site build.
+                    modified_content = re.sub(r"^draft:\s*true\n", "", content, count=marks - 1, flags=re.M)
+                else:
+                    modified_content = re.sub(r"^(---\n)", r"\1draft: true\n", content, count=1)
 
-                    modified_files += 1
+                with open(file_path, "w") as f:
+                    f.write(modified_content)
+
+                modified_files += 1
 
     print(f"Marked {modified_files} empty init files as drafts")
 
@@ -105,25 +207,31 @@ def mark_empty_init_files(docs_dir="docs/api-reference/python"):
 def configure_sidebar(sidebar_path="docs/api-reference/python/api_sidebar.js"):
     """
     Configure sidebar:
-    1. Fix sidebar references (__init__ -> init)
+    1. Fix sidebar references for files renamed or removed by rename_files
     2. Make top-level categories non-collapsible
     3. Add landing page link
     """
-    # Read the sidebar file
     with open(sidebar_path, "r") as f:
         content = f.read()
 
-    # 1. Fix sidebar references
     init_replacements = content.count("__init__")
-    content = re.sub(r'/__init__"', r'/init"', content)
 
-    # Write the intermediate changes
-    with open(sidebar_path, "w") as f:
-        f.write(content)
+    # Mirror what rename_files did on disk, or an entry points at a file that is
+    # no longer there, which Docusaurus treats as a build error.
+    def rewrite(node):
+        if isinstance(node, str):
+            head, _, name = node.rpartition("/")
+            if name == "__init__":
+                return f"{head}/init" if head else "init"
+            return node
+        if isinstance(node, list):
+            return [rewrite(item) for item in node
+                    if not (isinstance(item, str) and is_private(item.rpartition("/")[2]))]
+        if isinstance(node, dict):
+            return {k: rewrite(v) if k == "items" else v for k, v in node.items()}
+        return node
 
-    # Read as JSON for structural changes
-    with open(sidebar_path, "r") as f:
-        sidebar_data = json.load(f)
+    sidebar_data = rewrite(json.loads(content))
 
     # 2. Make top-level categories non-collapsible
     sidebar_data["collapsible"] = False
@@ -134,7 +242,6 @@ def configure_sidebar(sidebar_path="docs/api-reference/python/api_sidebar.js"):
     # 3. Add landing page link
     sidebar_data["link"] = {"type": "doc", "id": "api-reference/python/python"}
 
-    # Write back the modified JSON
     with open(sidebar_path, "w") as f:
         json.dump(sidebar_data, f, indent=2)
 
@@ -149,7 +256,6 @@ def main():
     """
     print("Starting documentation post-processing...")
 
-    # Create docs directory if it doesn't exist
     os.makedirs("docs/api-reference/python", exist_ok=True)
 
     # 1. Rename files

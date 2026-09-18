@@ -7,7 +7,9 @@ actually runs, and it drifted from the filesystem in both directions at once:
   directory-wide conftest hook, and reported green;
 * an earlier matrix trim (04dea96e) deleted the `benchmark`,
   `pipeline_designer`, and `pipeline_create` leg names while leaving their test
-  files, so those files ran under no leg at all.
+  files, so those files ran under no leg at all. (The pipeline files have since
+  been deleted along with the rest of the pipeline functional suite; `benchmark`
+  is still parked below.)
 
 This test asserts the mapping in both directions. It is static and
 credential-free on purpose: it runs in the `unit-coverage` job and in
@@ -16,7 +18,8 @@ is caught at the moment the matrix is edited rather than at the next release.
 
 Parking a directory stays available -- 04dea96e parked three of them precisely
 because they were failing, and a guard that forbade parking would only be
-satisfied by re-attaching unproven legs or deleting the tests. What the guard
+satisfied by re-attaching unproven legs or deleting the tests (which is what
+eventually happened to the pipeline ones). What the guard
 removes is *silent* parking: an unclaimed file must be named in
 `PARKED_TARGETS` with a ticket reference, so the backlog is in the repo instead
 of in a commit message nobody reads.
@@ -59,14 +62,6 @@ PARKED_TARGETS = {
         "have no functional coverage until someone reruns this with a test-backend credential "
         "and proves it green (ENG-3544)"
     ),
-    "tests/functional/pipelines/designer_test.py": (
-        "parked by 04dea96e together with 265 lines of deleted flaky pipeline tests; "
-        "unproven against the test backend (ENG-3544)"
-    ),
-    "tests/functional/pipelines/create_test.py": (
-        "parked by 04dea96e together with 265 lines of deleted flaky pipeline tests; "
-        "unproven against the test backend (ENG-3544)"
-    ),
 }
 
 #: A parking reason has to point at something trackable, not just say "flaky".
@@ -81,9 +76,9 @@ def _matrix() -> dict:
 def _include_targets() -> dict:
     """Map leg name -> path target, i.e. the first token of its `path` value.
 
-    `path` is a command-line tail rather than a bare path -- the pipeline leg
-    appends `--pipeline_version 2.0 --sdk_version v1 ...` -- but the target pytest
-    is pointed at is always the first token.
+    `path` is a command-line tail rather than a bare path -- a leg may append
+    pytest options such as `--sdk_version v1 ...` -- but the target pytest is
+    pointed at is always the first token.
     """
     return {entry["test-suite"]: entry["path"].split()[0] for entry in _matrix()["include"]}
 
@@ -406,12 +401,12 @@ def test_blanket_skip_detector_distinguishes_guarded_from_unconditional(tmp_path
     assert _blanket_skip_offenders(agent_dir.parent, tmp_path) == expected
 
 
-@pytest.mark.parametrize("directory", ["agent", "team_agent", "benchmark", "pipelines"])
+@pytest.mark.parametrize("directory", ["agent", "team_agent", "benchmark"])
 def test_the_real_conftests_are_the_guarded_shape(directory):
     """The conftests this ticket wrote still skip only on a missing credential.
 
     `agent`/`team_agent` had the unconditional skip and were rewritten;
-    `benchmark`/`pipelines` had no guard at all and would have hit the backend
+    `benchmark` had no guard at all and would have hit the backend
     unauthenticated. Matched against the parsed tree, not the file text, so the
     comments that explain the defect are not mistaken for the defect.
     """
