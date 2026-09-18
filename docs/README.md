@@ -83,6 +83,43 @@ print(result.data.output)
 
 > Runs return typed objects — read outputs with `result.data.output`, not dict indexing.
 
+### Enable built-in toolkits
+
+Agents can use the worker's built-in toolkits — a sandboxed filesystem (`file`),
+a Python interpreter (`python`) and a shell (`bash`) — without onboarding any
+asset. They are a capability toggle on the agent, not entries in `tools`:
+
+```python
+from aixplain import Aixplain
+
+aix = Aixplain()  # reads AIXPLAIN_API_KEY from the environment
+
+agent = aix.Agent(
+    name="Workspace agent",
+    instructions="Read the uploaded files and compute the summary statistics.",
+    builtin_tools=["file", "python"],
+)
+agent.save()
+
+fetched = aix.Agent.get(agent.id)
+fetched.builtin_tools.append("bash")
+fetched.save()
+```
+
+`aixplain.v2.BuiltinToolkit` (`FILE` / `PYTHON` / `BASH`) is available for
+autocompletion, but the field takes plain strings and the SDK never validates
+them — a toolkit the worker does not know, or one turned off for the deployment,
+is dropped at run time with a warning on the run result (`result.warnings`)
+rather than rejected here. `bash` is accepted by the API but is currently
+disabled in every environment.
+
+There is no `include` and there are no per-toolkit settings. Python sees the
+workspace exactly when both `file` and `python` are enabled; the worker infers
+that rather than exposing a knob.
+
+> Requires the built-in toolkit rollout on the backend. Until it ships, the
+> field is accepted by the SDK but has no effect on a run.
+
 ### Build a multi-agent team
 
 ```python

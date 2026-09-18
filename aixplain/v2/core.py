@@ -95,6 +95,7 @@ class Aixplain:
     MessageRole = enums.MessageRole
     Reaction = enums.Reaction
     AttachmentType = enums.AttachmentType
+    BuiltinToolkit = enums.BuiltinToolkit
 
     BACKEND_URL = "https://platform-api.aixplain.com"
     BENCHMARKS_BACKEND_URL = "https://platform-api.aixplain.com"

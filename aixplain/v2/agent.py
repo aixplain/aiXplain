@@ -4,10 +4,11 @@ import json
 import logging
 import re
 import warnings
+from collections.abc import Iterable
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
+from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Set, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
 from dataclasses_json import dataclass_json, config
 
@@ -404,6 +405,30 @@ class Artifact:
         return artifacts
 
 
+def _coerce_warnings(value: Any) -> List[str]:
+    """Decode a run ``warnings`` payload without ever raising; non-string entries are dropped."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+_FLAT_STEP_NAME_KEYS = ("tool", "toolName", "name", "action")
+
+
+def _step_unit_names(steps: Any) -> Set[str]:
+    """Collect the name of the unit each run step executed (``step["unit"]["name"]``)."""
+    names: Set[str] = set()
+    for step in steps if isinstance(steps, list) else []:
+        if not isinstance(step, dict):
+            continue
+        unit = step.get("unit")
+        if isinstance(unit, dict) and isinstance(unit.get("name"), str):
+            names.add(unit["name"])
+            continue
+        names.update(step[key] for key in _FLAT_STEP_NAME_KEYS if isinstance(step.get(key), str))
+    return names
+
+
 @dataclass_json
 @dataclass
 class AgentResponseData:
@@ -424,6 +449,11 @@ class AgentResponseData:
         default_factory=list,
         metadata=config(decoder=Artifact._coerce_list),
     )
+    # Optional for the same reason as ``artifacts``; never None after ``__post_init__``.
+    warnings: Optional[List[str]] = field(
+        default_factory=list,
+        metadata=config(decoder=_coerce_warnings),
+    )
     governance: Optional[Dict[str, Any]] = None
     _governance_status: Optional[str] = field(
         default=None, repr=False, metadata=config(field_name="governanceStatus", exclude=lambda x: True)
@@ -436,13 +466,14 @@ class AgentResponseData:
     )
 
     def __post_init__(self) -> None:
-        """Normalize ``artifacts`` and assemble ``governance`` from flat wire fields."""
+        """Normalize ``artifacts`` / ``warnings`` and assemble ``governance`` from flat wire fields."""
         # Also runs for direct construction, which never touches the field
         # decoder: ``AgentResponseData(artifacts=[{...}])`` must type its raw
         # dicts the way v1 does, and an explicit ``artifacts=None`` must land on
         # ``[]`` rather than ``None``. Re-coercing an already-decoded list is a
         # cheap no-op, since ``Artifact`` instances pass straight through.
         self.artifacts = Artifact._coerce_list(self.artifacts)
+        self.warnings = _coerce_warnings(self.warnings)
         if self.governance is None:
             self.governance = {
                 "status": self._governance_status,
@@ -516,6 +547,18 @@ class AgentRunResult(Result):
             # than decoded through ``from_dict``.
             return Artifact._coerce_list(data.get("artifacts"))
         return []
+
+    @property
+    def warnings(self) -> List[str]:
+        """Non-fatal run warnings, e.g. a built-in toolkit the worker skipped. Always a list."""
+        data = self.data
+        if isinstance(data, AgentResponseData) and data.warnings:
+            return data.warnings
+        if isinstance(data, dict) and data.get("warnings"):
+            return _coerce_warnings(data.get("warnings"))
+        # The poll path rebuilds the result from an allow-list of top-level keys, so read the raw body too.
+        raw = self._raw_data
+        return _coerce_warnings(raw.get("warnings")) if isinstance(raw, dict) else []
 
     @property
     def execution_id(self) -> Optional[str]:
@@ -607,6 +650,22 @@ class Task:
             ]
 
 
+def _normalize_builtin_tools(value: Any) -> Optional[List[str]]:
+    """Coerce ``builtin_tools`` into a plain list of strings. Shape only, values unchecked.
+
+    Deliberately not a dataclasses-json ``decoder``: paired with this field's ``exclude``
+    that marks it auto-deserialize-only (``resource.py``, ``_is_auto_deserialize_only``),
+    and ``_create``'s merge loop would then overwrite the local list with the response —
+    which omits ``builtinTools`` entirely today, nulling it on every save.
+    """
+    if value is None:
+        return None
+    # A bare ``"file"`` would otherwise iterate into one toolkit per letter.
+    if isinstance(value, (str, bytes)) or not isinstance(value, Iterable):
+        value = [value]
+    return [toolkit.value if isinstance(toolkit, Enum) else toolkit for toolkit in value]
+
+
 @dataclass_json
 @dataclass(repr=False)
 class Agent(
@@ -642,6 +701,14 @@ class Agent(
 
     # Asset and tool fields
     tools: Optional[List[Dict[str, Any]]] = field(default_factory=list, metadata=config(field_name="tools"))
+
+    # Built-in worker toolkits enabled for this agent (``file`` / ``python`` /
+    # ``bash``). Forwarded verbatim: the worker validates and gates, not the SDK.
+    # ``None`` is omitted from the payload, so ``[]`` is how a caller clears them.
+    builtin_tools: Optional[List[str]] = field(
+        default=None,
+        metadata=config(field_name="builtinTools", exclude=lambda v: v is None),
+    )
 
     # Inspector and team mentalist/planner/supervisor/response-generator.
     inspector_id: Optional[str] = field(default=None, metadata=config(field_name="inspectorId"))
@@ -870,7 +937,7 @@ class Agent(
             self.skills = [self._skill_reference_id(skill) or skill for skill in self._original_skills]
 
     def __setattr__(self, name: str, value: Any) -> None:
-        """Keep ``self.budget`` a (never-None) ``Budget`` instance, and note role assignments.
+        """Keep ``self.budget`` a (never-None) ``Budget`` instance, normalize ``builtin_tools``, and note role assignments.
 
         Assigning ``agent.budget`` a dict / ``Budget`` / ``None`` is coerced into
         a ``Budget`` so attribute access (``agent.budget.max_cost = ...``) always
@@ -885,10 +952,17 @@ class Agent(
         recorded — ``_explicit_roles`` does not exist yet at that point — but
         such an object also has no recorded server fields, so suppression is off
         for it anyway. Hydration resets the set (see ``_record_server_fields``).
+
+        ``builtin_tools`` is normalized here rather than in ``__post_init__`` so
+        that ``agent.builtin_tools = "file"`` and ``agent.save(builtin_tools="file")``
+        get the same list coercion the constructor gives — otherwise a bare string
+        reaches the wire as ``"builtinTools": "file"`` instead of ``["file"]``.
         """
         if name == "budget":
             coerced = self._coerce_budget(value)
             value = coerced if coerced is not None else Budget()
+        if name == "builtin_tools":
+            value = _normalize_builtin_tools(value)
         if name in _ROLE_ATTRS:
             explicit = getattr(self, "_explicit_roles", None)
             if explicit is not None:
@@ -2654,8 +2728,23 @@ class Agent(
 _dataclass_json_agent_from_dict = Agent.from_dict.__func__
 
 
+def _wrap_scalar_builtin_tools(kvs: Any) -> Any:
+    """Wrap a scalar ``builtinTools`` before dataclasses-json decodes it.
+
+    The ``List[str]`` decoder runs ahead of ``__init__``, so it would turn a
+    ``"file"`` into ``["f", "i", "l", "e"]`` and ``__setattr__``'s coercion would
+    never see the string. Mirrors the constructor's scalar guard for the decode
+    path. Returns a copy; the caller's dict is untouched.
+    """
+    if isinstance(kvs, dict) and isinstance(kvs.get("builtinTools"), (str, bytes)):
+        kvs = dict(kvs)
+        kvs["builtinTools"] = [kvs["builtinTools"]]
+    return kvs
+
+
 def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
     kvs = cls._fold_legacy_max_iterations(kvs)
+    kvs = _wrap_scalar_builtin_tools(kvs)
     return _dataclass_json_agent_from_dict(cls, kvs, infer_missing=infer_missing)
 
 

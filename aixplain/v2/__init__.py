@@ -90,6 +90,7 @@ from .enums import (
     MessageRole,
     Reaction,
     AttachmentType,
+    BuiltinToolkit,
 )
 
 __all__ = [
@@ -193,6 +194,7 @@ __all__ = [
     "MessageRole",
     "Reaction",
     "AttachmentType",
+    "BuiltinToolkit",
     # Actions / Inputs hierarchy
     "Input",
     "Inputs",
