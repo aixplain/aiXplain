@@ -1,0 +1,69 @@
+# Secret scanning for the aiXplain SDK (ENG-3686).
+#
+# A 64-hex platform key and a pipeline TEAM_API_KEY were committed in plaintext
+# in root-level scratch files and sat in the tree for months. This config backs
+# the `gitleaks` hook in .pre-commit-config.yaml, which runs on every push via
+# .github/workflows/pre-commit.yaml.
+#
+# The allowlists below are deliberately narrow. Do NOT allowlist a whole test
+# directory: the fixtures under tests/ are exactly where a real key gets pasted
+# "just to try something". Allowlist the specific fake value or the specific
+# file, and say why.
+
+title = "aiXplain SDK"
+
+[extend]
+# Gitleaks' curated rule set. It matches credential shapes (AWS keys, JWTs,
+# GitHub tokens, high-entropy values next to an api_key-ish assignment) rather
+# than raw entropy, so the repo's 24-hex MongoDB asset IDs are not flagged.
+# detect-secrets was evaluated first and reported ~350 of them (ENG-3686).
+useDefault = true
+
+[[allowlists]]
+description = "Build artifacts, not reviewable source. `gitleaks dir .` walks the working tree, so a local run would otherwise re-report every secret-shaped literal frozen into a .pyc. All of these are gitignored and never reach a CI checkout."
+paths = [
+  '''__pycache__/''',
+  '''\.pyc$''',
+  '''^\.venv/''',
+  '''^venv/''',
+  '''^uv\.lock$''',
+]
+
+[[allowlists]]
+description = "Documentation placeholders. Literal instructions to the reader, never live values."
+regexes = [
+  '''^YOUR_API_KEY$''',
+  '''^YOUR_TEAM_API_KEY$''',
+  '''^<API_KEY>$''',
+  '''^<YOUR_API_KEY>$''',
+]
+
+[[allowlists]]
+description = "Hand-written fake credentials in unit tests. Keep this list literal so a real key pasted next to them still trips the scanner."
+regexes = [
+  '''^abcd1234efgh$''',
+  '''^wxyz5678uvst$''',
+  '''^valid_api_key_123$''',
+]
+
+[[allowlists]]
+description = "Canned `docker login` response for the ECR registry. The password field is a recorded AWS data key that expired in 2023 (exp 1692614601); it is replayed by the model-hosting tests and is not a credential to anything live."
+paths = ['''tests/mock_responses/login_response\.json$''']
+
+[[allowlists]]
+description = "SSRF fixtures for the v2 trusted-URL policy (BUG-937). These tests assert that the workspace API key is NOT sent to cloud metadata, loopback or RFC1918 addresses, so the addresses have to appear literally. `condition = \"AND\"` keeps the exemption to these IPs in these files -- a real secret committed to the same file is still reported."
+condition = "AND"
+paths = [
+  '''tests/unit/v2/test_url_guard\.py$''',
+  '''tests/unit/v2/test_poll_url_guard\.py$''',
+  '''tests/unit/v2/test_ssrf_call_sites\.py$''',
+  '''tests/unit/utils/test_url_safety\.py$''',
+]
+regexTarget = "line"
+regexes = [
+  '''169\.254\.169\.254''',   # AWS/GCP/Azure instance metadata
+  '''127\.0\.0\.1''',         # loopback
+  '''10\.0\.0\.5''',          # RFC1918 10/8
+  '''192\.168\.1\.10''',      # RFC1918 192.168/16
+  '''172\.16\.0\.1''',        # RFC1918 172.16/12
+]

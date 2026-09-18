@@ -9,6 +9,16 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
 
+  # Secret scanning (ENG-3686). Catches a credential in the *staged diff*, which
+  # is the only moment it can still be kept out of history. `--staged` means this
+  # hook is a no-op under `pre-commit run --all-files`, so CI additionally scans
+  # the whole tree -- see the "Scan the full tree for secrets" step in
+  # .github/workflows/pre-commit.yaml. Rules and allowlists live in .gitleaks.toml.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.12
     hooks:
