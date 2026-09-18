@@ -15,10 +15,106 @@ on:
 permissions: {}
 
 jobs:
+  # A tag could publish a wheel whose functional suites had never run against a
+  # live backend: this workflow gated only on `pytest tests/unit`, and `main.yaml`
+  # did not run on pull requests at all (ENG-3683). This job refuses to proceed
+  # unless every functional leg went green on the exact commit being released.
+  #
+  # Read-only, and deliberately not a `workflow_run` trigger: `workflow_run` fires
+  # when the *other* workflow finishes, which inverts the dependency (the test run
+  # would have to start the release) and cannot express "the run that already
+  # happened on this SHA".
+  functional-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # `gh api .../actions/runs` and `.../jobs` on a private repository. Read
+      # only: this job decides, it never re-runs anything.
+      actions: read
+    steps:
+      - name: Checkout the tagged commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Require a green functional run on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          # The commit the tag points at, not the tag name: a tag can be moved,
+          # and what was tested is a SHA.
+          SHA: ${{ github.sha }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet --upgrade pip PyYAML
+
+          # The legs are read from the workflow file at the tagged commit rather
+          # than hardcoded here: a leg added in the same release would otherwise
+          # be quietly optional on the release that first ships it.
+          legs="$(python - <<'PY'
+          import yaml
+
+          with open(".github/workflows/main.yaml") as handle:
+              workflow = yaml.safe_load(handle)
+
+          for leg in workflow["jobs"]["setup-and-test"]["strategy"]["matrix"]["test-suite"]:
+              print(f"setup-and-test ({leg})")
+          PY
+          )"
+          test -n "$legs"
+
+          # Every completed run of main.yaml on this commit, not just the latest:
+          # a first run that failed and a re-run of the failed legs together mean
+          # the commit is green, and only the union says so.
+          runs="$(gh api --paginate \
+            "repos/$REPO/actions/workflows/main.yaml/runs?head_sha=$SHA&per_page=100" \
+            --jq '.workflow_runs[] | select(.status == "completed") | .id')"
+
+          if [ -z "$runs" ]; then
+            echo "::error::no completed run of main.yaml on $SHA."
+            echo "The functional matrix must have run on the exact commit being released."
+            echo "Recovery: run main.yaml against the tag (Actions -> Run Tests -> Run workflow,"
+            echo "ref = this tag), let it go green, then re-run this release."
+            exit 1
+          fi
+
+          green="$(mktemp)"
+          for run in $runs; do
+            gh api --paginate "repos/$REPO/actions/runs/$run/jobs?per_page=100" \
+              --jq '.jobs[] | select(.conclusion == "success") | .name' >> "$green"
+          done
+
+          missing=0
+          while IFS= read -r leg; do
+            if grep -Fxq "$leg" "$green"; then
+              echo "ok      $leg"
+            else
+              echo "MISSING $leg"
+              missing=1
+            fi
+          done <<< "$legs"
+
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::functional legs listed as MISSING above never succeeded on $SHA."
+            echo "Runs inspected: $(echo "$runs" | tr '\n' ' ')"
+            echo "See $SERVER_URL/$REPO/actions/workflows/main.yaml"
+            exit 1
+          fi
+          echo "every functional leg is green on $SHA"
+
   # Runs repository code (pip, build, pytest) and therefore holds NO id-token:
   # a compromised build dependency must never share a process with the OIDC
   # credential that can upload to PyPI.
   build:
+    # Nothing is built for a commit the functional matrix has not passed.
+    needs: functional-gate
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -77,12 +173,15 @@ jobs:
           print(f"tag {tag} matches declared version {declared}")
           PY
 
-      # The whole unit suite, not just the packaging and CI guards. main.yaml is
-      # push-only and `required_status_checks.contexts` is still empty (this PR
-      # documents the flip but cannot make it), so nothing guarantees the tagged
-      # commit ever passed `unit-coverage`: `git tag v0.2.48 <any-commit> && git
-      # push --tags` would otherwise publish with the suite unrun. The suite is
-      # credential-free (ENG-3431), so it needs no secrets in this job.
+      # The whole unit suite, not just the packaging and CI guards.
+      # `required_status_checks.contexts` is still empty (docs/ci/required-checks.md
+      # documents the flip but a merge cannot make it), so nothing outside this
+      # workflow guarantees the tagged commit ever passed `unit-coverage`: `git tag
+      # v0.2.48 <any-commit> && git push --tags` would otherwise publish with the
+      # suite unrun. `functional-gate` above covers the functional matrix; this
+      # covers the unit suite, and unlike the gate it re-runs the tests here rather
+      # than trusting a recorded result. The suite is credential-free (ENG-3431),
+      # so it needs no secrets in this job.
       #
       # This covers the static half of the ENG-3543 packaging gate. The slow half
       # (a .git-less export and a full module census) is main.yaml's

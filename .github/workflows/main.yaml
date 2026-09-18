@@ -6,6 +6,25 @@ on:
       - main
       # any branch other than main, will use the test key
       - test
+  # ENG-3683: without this, the functional matrix never ran before a merge --
+  # the earliest a functional regression could surface was a push to `test`, and
+  # `release.yaml` gated a PyPI upload on the unit suite alone. The credential-free
+  # jobs (`unit-coverage`, `package-integrity`) run on every PR; the functional
+  # matrix is gated by the `functional-scope` job below, so a docs-only or fork PR
+  # does not burn seven backend-hitting legs.
+  #
+  # `labeled` is in `types` on purpose: adding the `functional-tests` label has to
+  # start a run by itself, otherwise the label only takes effect on the next push
+  # and "add the label to run the suites" is false.
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  # Nightly against the test backend. The functional legs are the only coverage
+  # of live-backend behaviour, and gating them on PR paths means a backend change
+  # under an untouched SDK is invisible until someone happens to touch
+  # `aixplain/**`. `nightly-report` posts to Slack when this run is not green.
+  schedule:
+    # 03:17 UTC: off the hour, where GitHub's scheduler queues are shortest.
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 # Least privilege (ENG-3428): every job below only reads the repository --
@@ -225,7 +244,81 @@ jobs:
           name: dist
           path: ${{ runner.temp }}/dist/*
 
+  # Decides whether the seven backend-hitting legs below run for this event
+  # (ENG-3683). A separate job rather than `on.pull_request.paths` because a path
+  # filter suppresses the *check itself*: a required context that never reports
+  # leaves the PR stuck on "Expected -- waiting for status to be reported", which
+  # is a merge deadlock, not a merge gate. A job skipped by `if:` still reports,
+  # and GitHub counts a skipped job as satisfying a required check.
+  functional-scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run-functional: ${{ steps.decide.outputs.run-functional }}
+      reason: ${{ steps.decide.outputs.reason }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # The diff below is base..head, so the shallow default is not enough.
+          fetch-depth: 0
+
+      - name: Decide whether the functional matrix runs
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          # Empty on every non-PR event; quoted through `toJSON` so a label
+          # containing a quote or a space cannot break out of the shell.
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          decide () {
+            echo "run-functional=$1" >> "$GITHUB_OUTPUT"
+            echo "reason=$2" >> "$GITHUB_OUTPUT"
+            echo "functional matrix: $1 -- $2"
+            exit 0
+          }
+
+          # push / schedule / workflow_dispatch: always the full matrix. These are
+          # the events that feed `release.yaml`'s functional gate, so narrowing
+          # them would silently weaken the release check.
+          if [ "$EVENT" != "pull_request" ]; then
+            decide true "event '$EVENT' always runs the full matrix"
+          fi
+
+          # A `pull_request` run from a fork receives no secrets, so every leg
+          # would fail on a missing TEAM_API_KEY and the redness would say nothing
+          # about the contribution. `pull_request_target` is not an acceptable
+          # substitute -- it runs base-repo secrets against fork code. See
+          # docs/ci/required-checks.md.
+          if [ -n "$HEAD_REPO" ] && [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            decide false "fork PR from '$HEAD_REPO': no secrets are available to the legs"
+          fi
+
+          # The manual override, for a PR whose risk is not visible in the paths
+          # (a dependency bump, a CI change, a backend migration).
+          if printf '%s' "$LABELS" | jq -e 'index("functional-tests")' > /dev/null; then
+            decide true "PR carries the 'functional-tests' label"
+          fi
+
+          # Three dots: the merge base, so commits that landed on the base branch
+          # after the PR opened are not counted as the PR's own changes.
+          changed="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
+          if printf '%s\n' "$changed" | grep -Eq '^(aixplain/|tests/functional/)'; then
+            decide true "PR touches aixplain/** or tests/functional/**"
+          fi
+
+          decide false "no changes under aixplain/** or tests/functional/**, and no 'functional-tests' label"
+
   setup-and-test:
+    needs: functional-scope
+    # A skipped job still reports its context, so these legs stay requireable on
+    # `main` even though a docs-only PR does not run them (ENG-3683).
+    if: needs.functional-scope.outputs.run-functional == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45  # Global timeout fallback
     strategy:
@@ -260,28 +353,43 @@ jobs:
           'team_agent',
           'v2',
         ]
+        #
+        # `models-api` is the /api/<version>/ segment of MODELS_RUN_URL. Declared
+        # per leg rather than defaulted in the shell: the v2 suite used to correct
+        # the URL it was handed inside its own conftest (ENG-3683), and a fixture
+        # quietly patching the workflow is a rewrite nobody sees when it stops
+        # matching. Per-leg also means a leg's setting is deleted with the leg.
+        # Keys contributed only by `include` are not part of the job name, so the
+        # contexts stay `setup-and-test (v2)`.
         include:
           - test-suite: 'file_asset'
             path: 'tests/functional/file_asset'
             timeout: 45
+            models-api: 'v1'
           - test-suite: 'model'
             path: 'tests/functional/model'
             timeout: 45
+            models-api: 'v1'
           - test-suite: 'general_assets'
             path: 'tests/functional/general_assets'
             timeout: 45
+            models-api: 'v1'
           - test-suite: 'apikey'
             path: 'tests/functional/apikey'
             timeout: 45
+            models-api: 'v1'
           - test-suite: 'agent'
             path: 'tests/functional/agent'
             timeout: 45
+            models-api: 'v1'
           - test-suite: 'team_agent'
             path: 'tests/functional/team_agent'
             timeout: 45
+            models-api: 'v1'
           - test-suite: 'v2'
             path: 'tests/functional/v2'
             timeout: 45
+            models-api: 'v2'
 
     steps:
       - name: Checkout repository
@@ -298,22 +406,109 @@ jobs:
           python -m pip install --upgrade pip
           pip install ".[test]"
 
+      # Secrets arrive through `env:` rather than being interpolated into the
+      # script body: `${{ }}` is textual substitution, so a value containing a
+      # quote or a newline would be pasted straight into the shell.
       - name: Set environment variables
+        env:
+          TEAM_API_KEY_PROD: ${{ secrets.TEAM_API_KEY_PROD }}
+          TEAM_API_KEY_TEST: ${{ secrets.TEAM_API_KEY }}
+          # Event-trigger fixtures in tests/functional/v2/test_trigger.py. Both
+          # name backend-resident objects, so the ids differ per environment and
+          # each has a _PROD counterpart. Unset means those classes keep skipping
+          # -- see docs/ci/required-checks.md.
+          COMPOSIO_INTEGRATION_ID_PROD: ${{ secrets.TEST_COMPOSIO_INTEGRATION_ID_PROD }}
+          COMPOSIO_INTEGRATION_ID_TEST: ${{ secrets.TEST_COMPOSIO_INTEGRATION_ID }}
+          CONNECTION_ID_PROD: ${{ secrets.TEST_CONNECTION_ID_PROD }}
+          CONNECTION_ID_TEST: ${{ secrets.TEST_CONNECTION_ID }}
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODELS_API: ${{ matrix.models-api }}
+          # A tag counts as production alongside `main`: `release.yaml`'s
+          # functional gate reads the run on the tagged commit, and a release
+          # validated against the test backend would prove nothing about what the
+          # wheel is published for (ENG-3683).
+          IS_PROD: ${{ github.ref_name == 'main' || startsWith(github.ref, 'refs/tags/v') }}
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY_PROD }}" >> $GITHUB_ENV
-            echo "BACKEND_URL=https://platform-api.aixplain.com" >> $GITHUB_ENV
-            echo "MODELS_RUN_URL=https://models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
-            echo "PIPELINES_RUN_URL=https://platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+          set -euo pipefail
+
+          if [ "$IS_PROD" = "true" ]; then
+            api_key="$TEAM_API_KEY_PROD"
+            backend="https://platform-api.aixplain.com"
+            models="https://models.aixplain.com"
+            composio_integration_id="$COMPOSIO_INTEGRATION_ID_PROD"
+            connection_id="$CONNECTION_ID_PROD"
           else
-            echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
-            echo "BACKEND_URL=https://test-platform-api.aixplain.com" >> $GITHUB_ENV
-            echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
-            echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
+            # Any ref other than main or a v* tag -- `test`, a PR, the nightly
+            # schedule -- uses the test key and the test backend.
+            api_key="$TEAM_API_KEY_TEST"
+            backend="https://test-platform-api.aixplain.com"
+            models="https://test-models.aixplain.com"
+            composio_integration_id="$COMPOSIO_INTEGRATION_ID_TEST"
+            connection_id="$CONNECTION_ID_TEST"
           fi
-          echo "SLACK_TOKEN=${{ secrets.SLACK_TOKEN }}" >> $GITHUB_ENV
-          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> $GITHUB_ENV
+
+          {
+            echo "TEAM_API_KEY=$api_key"
+            # The same value, deliberately. Every functional conftest accepts
+            # AIXPLAIN_API_KEY as the fallback for TEAM_API_KEY, and
+            # aixplain/utils/config.py raises when both are set and differ -- so
+            # this has to mirror TEAM_API_KEY rather than carry a second
+            # credential (ENG-3683).
+            echo "AIXPLAIN_API_KEY=$api_key"
+            echo "BACKEND_URL=$backend"
+            echo "MODELS_RUN_URL=$models/api/$MODELS_API/execute"
+            echo "PIPELINES_RUN_URL=$backend/assets/pipeline/execution/run"
+            echo "TEST_COMPOSIO_INTEGRATION_ID=$composio_integration_id"
+            echo "TEST_CONNECTION_ID=$connection_id"
+            echo "SLACK_TOKEN=$SLACK_TOKEN"
+            echo "HF_TOKEN=$HF_TOKEN"
+          } >> "$GITHUB_ENV"
 
       - name: Run Tests
         timeout-minutes: ${{ matrix.timeout }}
         run: python -m pytest ${{ matrix.path }}
+
+  # The nightly run has no human watching it, so a failure that nobody is told
+  # about is the same as no nightly run at all (ENG-3683). Scoped to `schedule`:
+  # a push or PR failure is already in front of whoever caused it, and a Slack
+  # message per red PR is how a channel gets muted.
+  nightly-report:
+    if: always() && github.event_name == 'schedule'
+    needs: [unit-coverage, package-integrity, setup-and-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Notify Slack when the nightly run is not green
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        env:
+          # A plain incoming webhook and `curl`, rather than a third-party action:
+          # this job runs on a schedule with nobody reading the log, and an action
+          # pinned to a mutable ref is code that changes without a diff here.
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          UNIT: ${{ needs.unit-coverage.result }}
+          PACKAGING: ${{ needs.package-integrity.result }}
+          FUNCTIONAL: ${{ needs.setup-and-test.result }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            # Not a failure: the nightly itself is already red, and failing here
+            # too would only add a second red job saying the same thing. The
+            # warning is what makes an unconfigured webhook visible in the
+            # Actions summary instead of silently swallowing every alert.
+            echo "::warning::SLACK_NIGHTLY_WEBHOOK_URL is not set; no Slack alert was sent for $RUN_URL"
+            exit 0
+          fi
+
+          text="aiXplain SDK nightly is red on \`${GITHUB_REF_NAME}\`
+          unit-coverage: ${UNIT} | package-integrity: ${PACKAGING} | functional matrix: ${FUNCTIONAL}
+          ${RUN_URL}"
+
+          # --fail-with-body: a webhook that has been revoked answers 403 with an
+          # explanation, and without this curl would exit 0 on it.
+          jq -n --arg text "$text" '{text: $text}' \
+            | curl --silent --show-error --fail-with-body \
+                   --header 'Content-Type: application/json' \
+                   --data @- "$SLACK_WEBHOOK_URL"
