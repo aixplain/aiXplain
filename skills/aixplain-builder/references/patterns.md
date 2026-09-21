@@ -30,7 +30,7 @@ agent.save()
 Natural-language queries over a database.
 ```python
 import time
-resource = aix.Resource(name=f"DB {int(time.time())}", file_path="sales.db"); resource.save()
+resource = aix.Resource(source="sales.db", name=f"DB {int(time.time())}"); resource.save()
 db = aix.Tool(name="Sales DB", description="Sales database",
               integration="689e06ed3ce71f58d73cc999", config={"url": resource.url})
 db.allowed_actions = ["query", "schema"]; db.save()
@@ -68,17 +68,20 @@ print(team.run("Research and summarize quantum computing").data.output)
 ## 6. Governed agent
 Enforce a policy before delivery. Full detail in `references/governance.md`.
 ```python
-from aixplain.v2.inspector import (Inspector, InspectorAction, InspectorActionConfig,
-    InspectorOnExhaust, InspectorSeverity, EvaluatorType, EvaluatorConfig)
 llm_id = aix.Model.get("openai/gpt-4o").id
-guard = Inspector(name="safety", description="Block unsafe output",
-    severity=InspectorSeverity.CRITICAL, targets=["output"],
-    action=InspectorActionConfig(type=InspectorAction.RERUN, max_retries=2,
-        on_exhaust=InspectorOnExhaust.ABORT),
-    evaluator=EvaluatorConfig(type=EvaluatorType.ASSET, asset_id=llm_id,
-        prompt="Fail if the response is unsafe or off-policy; otherwise pass."))
+guard = aix.Inspector(name="safety", description="Block unsafe output",
+    severity="critical", targets=["output"],
+    action={"type": "rerun", "max_retries": 2, "on_exhaust": "abort"},
+    metric={"assetId": llm_id,
+            "prompt": "Fail if the response is unsafe or off-policy; otherwise pass."})
 team = aix.Agent(name="Guarded", description="...", agents=[worker], inspectors=[guard])
 team.save(save_subcomponents=True)
+```
+Or skip authoring one and attach a managed marketplace guardrail:
+```python
+guard = aix.Inspector.get("aws/detect-prompt-attacks-guardrail/aws")   # aix.Inspector.search("guard")
+agent = aix.Agent(name="Guarded", description="...", inspectors=[guard])   # works on a single agent too
+agent.save()
 ```
 
 ## 7. MCP integration agent
@@ -117,7 +120,7 @@ print(agent.run(query="Write unit tests and a docstring for this function.",
 ## 10. Speech-to-text (Whisper)
 Direct model call — no agent. Full detail in `references/models.md`.
 ```python
-from aixplain.v2.file import FileUploader
+from aixplain.v2.upload_utils import FileUploader
 url = FileUploader(api_key=API_KEY).upload(file_path="meeting.mp3", is_temp=True, return_download_link=True)
 model = aix.Model.get("66311fda6eb563279c574b71")
 r = model.run(source_audio=url, sourcelanguage="en", options={"includeRawData": True})
