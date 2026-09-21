@@ -27,6 +27,24 @@ jobs:
           python-version: "3.9"
           cache: 'pip'
 
+      # The `gitleaks` pre-commit hook only sees the staged diff, so under
+      # `pre-commit run --all-files` below it scans nothing. This step is what
+      # actually satisfies "a secret scanner runs on every push" (ENG-3686): it
+      # walks the whole working tree, using the same rules and allowlists from
+      # .gitleaks.toml. Keep GITLEAKS_VERSION in step with the `rev` pinned for
+      # the hook in .pre-commit-config.yaml.
+      - name: Scan the full tree for secrets
+        env:
+          GITLEAKS_VERSION: "8.28.0"
+        run: |
+          set -euo pipefail
+          curl -sSfL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          # `dir` (not `git`) so the scan covers the checked-out tree rather than
+          # a commit range; on a first push the range would be empty.
+          /tmp/gitleaks dir . --config .gitleaks.toml --redact --verbose --no-banner
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
