@@ -3,6 +3,8 @@
 import os
 import logging
 import mimetypes
+from contextlib import contextmanager
+from contextvars import ContextVar
 import warnings
 from dataclasses import dataclass, field, InitVar
 from datetime import datetime
@@ -326,6 +328,30 @@ class SessionMessage:
     created_at: str = field(default="", metadata=config(field_name="createdAt"))
 
 
+#: True while a backend payload is being decoded. ``ExecutionConfig.budget`` is
+#: typed ``Any``, so ``dataclasses_json`` hands it over as a raw wire dict rather
+#: than decoding it -- the one input struct that does not get a decoded value for
+#: free. Without this, the strict check in ``__setattr__`` would fire on backend
+#: data and a budget field added by the backend would break every
+#: ``Session.get()``. Caller input never sets it, so it stays strict.
+_DECODING_WIRE_PAYLOAD: ContextVar[bool] = ContextVar("_DECODING_WIRE_PAYLOAD", default=False)
+
+
+@contextmanager
+def _decoding_wire_payload():
+    """Mark the enclosing block as decoding a backend payload, not caller input.
+
+    Wraps both ``from_dict`` entry points that can produce an ``ExecutionConfig``:
+    its own, and ``Session``'s -- ``dataclasses_json`` decodes a nested dataclass
+    inline and never calls the nested type's ``from_dict``.
+    """
+    token = _DECODING_WIRE_PAYLOAD.set(True)
+    try:
+        yield
+    finally:
+        _DECODING_WIRE_PAYLOAD.reset(token)
+
+
 class ExecutionConfigDict(TypedDict, total=False):
     """The dict form of :class:`ExecutionConfig`, on the same field names.
 
@@ -381,14 +407,28 @@ class ExecutionConfig:
     # auto-generated dataclass_json serialization.
     budget: Optional[Any] = field(default=None, metadata=config(field_name="budget", exclude=lambda v: True))
 
-    def __post_init__(self) -> None:
-        """Coerce a dict/Budget ``budget`` into a ``Budget`` instance."""
-        from .agent import Agent
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Coerce a dict ``budget`` into a ``Budget``, rejecting unknown keys.
 
-        # Permissive: ``__post_init__`` runs for ``from_dict`` as well as for a
-        # caller's ``ExecutionConfig(...)``. ``coerce`` is the input entry point
-        # and is where the strict check lives.
-        self.budget = Agent._coerce_budget(self.budget)
+        Here rather than in ``__post_init__`` so that ``config.budget = {...}``
+        behaves the same as passing it to the constructor: reading it back gives
+        an object with attributes, and a misspelled key raises instead of
+        silently meaning "no cap". The generated ``__init__`` assigns through
+        this too, so ``ExecutionConfig(budget={...})`` is covered by the same
+        check. Mirrors how ``Agent.__setattr__`` coerces ``budget``.
+
+        Strict everywhere except inside :func:`_decoding_wire_payload`, which the
+        two ``from_dict`` entry points set. ``budget`` is typed ``Any``, so
+        ``dataclasses_json`` hands over the raw wire dict instead of decoding it
+        the way it does for every other input struct -- and a field the backend
+        adds to the budget object is not a caller's typo, so it must not break
+        every ``Session.get()``.
+        """
+        if name == "budget":
+            from .agent import Agent
+
+            value = Agent._coerce_budget(value, strict=not _DECODING_WIRE_PAYLOAD.get())
+        super().__setattr__(name, value)
 
     def to_api_dict(self) -> Dict[str, Any]:
         """Build the camelCase API payload, normalizing nested params.
@@ -561,7 +601,8 @@ _dataclass_json_execution_config_from_dict = ExecutionConfig.from_dict.__func__
 
 def _execution_config_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "ExecutionConfig":
     kvs = cls._fold_legacy_max_iterations(cls._lift_wire_budget(kvs))
-    return _dataclass_json_execution_config_from_dict(cls, kvs, infer_missing=infer_missing)
+    with _decoding_wire_payload():
+        return _dataclass_json_execution_config_from_dict(cls, kvs, infer_missing=infer_missing)
 
 
 ExecutionConfig.from_dict = classmethod(_execution_config_from_dict)
@@ -950,7 +991,8 @@ _dataclass_json_session_from_dict = Session.from_dict.__func__
 
 def _session_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Session":
     kvs = cls._fold_legacy_execution_config(kvs)
-    return _dataclass_json_session_from_dict(cls, kvs, infer_missing=infer_missing)
+    with _decoding_wire_payload():
+        return _dataclass_json_session_from_dict(cls, kvs, infer_missing=infer_missing)
 
 
 Session.from_dict = classmethod(_session_from_dict)

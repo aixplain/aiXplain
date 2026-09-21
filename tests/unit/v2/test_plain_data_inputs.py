@@ -237,6 +237,50 @@ class TestExecutionConfigDicts:
         assert config.execution_params == {"outputFormat": "json"}
 
 
+    def test_direct_construction_with_a_budget_typo_raises(self):
+        """``ExecutionConfig(budget={...})`` is an input path and must validate.
+
+        ``budget`` is typed ``Any``, so dataclasses_json leaves a caller's dict
+        untouched and the permissive ``__post_init__`` coercion dropped an
+        unrecognised key -- ``{"max_cst": 1}`` silently meant "no cap" and
+        ``to_api_dict()`` emitted no budget at all.
+        """
+        with pytest.raises(ValidationError, match="Unknown budget field"):
+            ExecutionConfig(budget={"max_cst": 1})
+
+    def test_budget_assignment_coerces_to_a_budget_object(self):
+        """``config.budget = {...}`` left a raw dict, so attribute access broke."""
+        from aixplain.v2.agent import Budget
+
+        config = ExecutionConfig()
+        config.budget = {"max_cost": 0.5}
+
+        assert isinstance(config.budget, Budget)
+        assert config.budget.max_cost == 0.5
+
+    def test_budget_assignment_with_a_typo_raises(self):
+        """A typo on the assignment path is caller input, so it must not pass."""
+        config = ExecutionConfig()
+        with pytest.raises(ValidationError, match="Unknown budget field"):
+            config.budget = {"max_cst": 1}
+
+    def test_a_backend_budget_with_an_unknown_key_still_hydrates(self):
+        """Deserialization stays permissive: the SDK only reads this payload.
+
+        Guards the regression the strict check caused before it was made
+        opt-in -- a budget field added by the backend must not break every
+        ``Session.get()``.
+        """
+        from aixplain.v2.session import Session
+
+        session = Session.from_dict(
+            {"id": "s", "executionConfig": {"executionParams": {"budget": {"maxCost": 1.0, "maxTokens": 9}}}}
+        )
+
+        assert session.execution_config.budget.max_cost == 1.0
+
+
+
 class TestBudgetDicts:
     """``agent.budget`` already took a dict; an unknown key no longer passes."""
 
