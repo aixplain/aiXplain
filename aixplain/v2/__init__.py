@@ -2,7 +2,6 @@
 
 from .core import Aixplain
 from .rlm import RLM, RLMResult
-from .utility import Utility
 from .agent import (
     Agent,
     Artifact,
@@ -140,7 +139,6 @@ __all__ = [
     "Aixplain",
     "RLM",
     "RLMResult",
-    "Utility",
     "Agent",
     "Artifact",
     "Budget",

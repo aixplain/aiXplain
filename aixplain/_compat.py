@@ -80,7 +80,7 @@ _MODULE_MAP = (
     ("Model", "aix.Model"),
     ("LLM", "aix.Model"),
     ("Tool", "aix.Tool"),
-    ("UtilityModel", "aix.Utility"),
+    ("UtilityModel", "aix.Tool"),
     ("APIKey", "aix.APIKey"),
     ("File", "aix.File"),
 )

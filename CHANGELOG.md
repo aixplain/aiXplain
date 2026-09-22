@@ -33,6 +33,30 @@ Eight v1 factories — `IndexFactory`, `PipelineFactory`, `BenchmarkFactory`,
 on any of them, stay on `0.2.48` and
 [open an issue](https://github.com/aixplain/aiXplain/issues) naming it.
 
+### Removed: `aix.Utility`
+
+Custom Python code is a `Tool` in v2, not a separate resource. `aix.Tool(code=...)`
+now accepts a function as well as a source string, so what `aix.Utility` was used
+for moves across unchanged:
+
+```python
+def add(a: int, b: int) -> int:
+    """Add two numbers."""
+    return a + b
+
+tool = aix.Tool(name="add", description="Add two numbers", code=add)
+```
+
+`ScriptFactory`, `AgentFactory.create_custom_python_code_tool` and
+`ModelFactory.create_utility_model` all map to `aix.Tool`. One capability does not
+come across: a v1 utility model was a standalone asset that appeared in model
+search and ran on its own, whereas a tool belongs to an agent. Onboarding a
+standalone utility-model asset has no v2 equivalent.
+
+`UtilityModelInput` and `UtilityModelInputDict` are still exported, but nothing in
+the SDK consumes them now that the resource is gone; whether they stay is tracked
+in ENG-3720.
+
 Also removed, because they existed only to serve v1:
 
 - The `aixplain` console script (`aixplain list`, `aixplain onboard`, …), which

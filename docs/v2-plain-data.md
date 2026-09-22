@@ -117,7 +117,7 @@ promote the enum to *input* here and add its alias.
 | `Task` | `TaskDict` | `agent.tasks[*]` |
 | `TriggerConfiguration` | `TriggerConfigurationDict` | `trigger.configuration` |
 | `TriggerRepeatRule` | `TriggerRepeatRuleDict` | `TriggerConfiguration.repeat` |
-| `UtilityModelInput` | `UtilityModelInputDict` | `utility.inputs[*]` — normally derived from the decorated code by `parse_code_decorated`, so a caller rarely sets it |
+| `UtilityModelInput` | `UtilityModelInputDict` | *no consumer* — `aix.Utility` was removed in 0.3.0. Both types are still exported and still pass the drift guards; whether they stay is ENG-3720 |
 | `SessionMessageAttachment` | — | Already accepts a plain dict or a URL string through `Session.add_message(attachments=...)` |
 
 Every one of these coerces in `__setattr__` where a caller can assign the field

@@ -77,8 +77,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     subscriptions: Optional[Any] = field(default=None)
     integration: Optional[Union[Integration, str]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     config: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
-    # A source string, or a function to take the source of (``ScriptFactory``
-    # migrates here, and ``aix.Utility`` already accepted a callable).
+    # A source string, or a function to take the source of -- ``ScriptFactory``
+    # and ``create_custom_python_code_tool`` migrate here.
     code: Optional[Union[str, Callable]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     allowed_actions: Optional[List[str]] = field(default_factory=list, metadata=dj_config(field_name="allowedActions"))
     redirect_url: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
@@ -119,9 +119,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         """Return the sandbox source for ``code``, which may be a callable.
 
         ``ScriptFactory`` and ``AgentFactory.create_custom_python_code_tool``
-        migrate here, and ``aix.Utility`` already accepted a function, so a
-        caller should not have to stringify their own. A string passes through
-        untouched.
+        migrate here, and both dealt in functions, so a caller should not have
+        to stringify their own. A string passes through untouched.
 
         ``inspect.getsource`` keeps the enclosing indentation for a function
         defined inside another scope, which is not parseable on its own, so the

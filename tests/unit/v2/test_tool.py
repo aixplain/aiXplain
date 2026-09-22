@@ -476,8 +476,8 @@ class TestScriptToolDefaultIntegration:
 
     def test_code_accepts_a_callable(self):
         """``ScriptFactory`` migrates to ``Tool``, so a function must work as well
-        as a source string -- ``aix.Utility`` already took a callable, and the
-        migration should not force callers to stringify their own function."""
+        as a source string -- the migration should not force callers to
+        stringify their own function."""
 
         def get_fact(city: str) -> str:
             return city

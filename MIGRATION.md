@@ -194,7 +194,7 @@ model = aix.Model.get("6414bd3cd09663e9225130e8")
 models = aix.Model.search(function=aix.Function.TEXT_GENERATION)
 ```
 
-`ModelFactory.create_utility_model(...)` becomes `aix.Utility(...)`. The model-onboarding helpers (`create_asset_repo`, `asset_repo_login`, `onboard_model`, `list_host_machines`, `list_gpus`, `deploy_huggingface_model`) have no v2 equivalent; they went with v1, along with the `aixplain` console script that exposed them. Use the web console, or stay on `0.2.48`.
+`ModelFactory.create_utility_model(...)` becomes `aix.Tool(code=...)` — custom Python code is a tool in v2, run in the Python Sandbox integration. Note the shape change: a v1 utility model was a standalone asset that showed up in model search and ran on its own, while a tool is attached to an agent. There is no v2 equivalent for onboarding a standalone utility-model asset. The model-onboarding helpers (`create_asset_repo`, `asset_repo_login`, `onboard_model`, `list_host_machines`, `list_gpus`, `deploy_huggingface_model`) have no v2 equivalent; they went with v1, along with the `aixplain` console script that exposed them. Use the web console, or stay on `0.2.48`.
 
 ### `ToolFactory` → `aix.Tool`
 
@@ -358,8 +358,6 @@ agent.save()
 ```
 
 `code` takes a function or a source string. The sandbox entrypoint is inferred from the code; when it defines more than one function, name it with `config={"function_name": "add"}`.
-
-`aix.Utility` is a different thing and is **not** the migration target here: it onboards a *utility model* asset (it uploads the code and the result is searchable and runnable on its own). `ModelFactory.create_utility_model` still maps to it. Use `aix.Tool` for code an agent calls, `aix.Utility` for a standalone utility model.
 
 `ScriptFactory` was never exported from `aixplain.factories`; it was reachable only as `aixplain.factories.script_factory.ScriptFactory`.
 
