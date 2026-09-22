@@ -1,10 +1,12 @@
 """Tool resource module for managing tools and their integrations."""
 
 import ast
+import inspect
+import textwrap
 import logging
 import re
 import warnings
-from typing import Union, List, Optional, Any
+from typing import Callable, Union, List, Optional, Any
 from typing_extensions import Unpack
 from dataclasses_json import dataclass_json, config as dj_config
 from dataclasses import dataclass, field
@@ -75,7 +77,9 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     subscriptions: Optional[Any] = field(default=None)
     integration: Optional[Union[Integration, str]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     config: Optional[dict] = field(default=None, metadata=dj_config(exclude=lambda x: True))
-    code: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+    # A source string, or a function to take the source of (``ScriptFactory``
+    # migrates here, and ``aix.Utility`` already accepted a callable).
+    code: Optional[Union[str, Callable]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     allowed_actions: Optional[List[str]] = field(default_factory=list, metadata=dj_config(field_name="allowedActions"))
     redirect_url: Optional[str] = field(default=None, metadata=dj_config(exclude=lambda x: True))
 
@@ -98,6 +102,8 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                 config = dict(self.config) if self.config else {}
                 code = self.code or config.pop("code", None)
                 assert code is not None, "Code is required to create a (script) Tool"
+                code = self._resolve_script_source(code)
+                self.code = code
                 self.integration = self.DEFAULT_INTEGRATION_ID
                 config["code"] = code
                 config["function_name"] = self._resolve_script_function_name(code, config.get("function_name"))
@@ -107,6 +113,39 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     pass
                 elif not isinstance(self.integration, Integration):
                     raise ValueError("Integration must be an Integration object or a string")
+
+    @staticmethod
+    def _resolve_script_source(code: Any) -> str:
+        """Return the sandbox source for ``code``, which may be a callable.
+
+        ``ScriptFactory`` and ``AgentFactory.create_custom_python_code_tool``
+        migrate here, and ``aix.Utility`` already accepted a function, so a
+        caller should not have to stringify their own. A string passes through
+        untouched.
+
+        ``inspect.getsource`` keeps the enclosing indentation for a function
+        defined inside another scope, which is not parseable on its own, so the
+        result is dedented.
+
+        Args:
+            code: A source string, or a function to take the source of.
+
+        Returns:
+            str: The source to run in the sandbox.
+
+        Raises:
+            ValueError: If the source of *code* cannot be read -- a function
+                defined in a REPL or exec'd string has none on disk.
+        """
+        if isinstance(code, str) or not callable(code):
+            return code
+        try:
+            source = inspect.getsource(code)
+        except (OSError, TypeError) as exc:
+            raise ValueError(
+                f"Could not read the source of {getattr(code, '__name__', code)!r}. Pass the code as a string instead."
+            ) from exc
+        return textwrap.dedent(source)
 
     @staticmethod
     def _resolve_script_function_name(code: str, function_name: Optional[str] = None) -> str:

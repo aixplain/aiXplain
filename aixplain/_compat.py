@@ -56,7 +56,7 @@ _FACTORY_MAP = (
     ("MetricFactory", "aix.Metric"),
     ("APIKeyFactory", "aix.APIKey"),
     ("FileFactory", "aix.File"),
-    ("ScriptFactory", "aix.Utility"),
+    ("ScriptFactory", "aix.Tool"),
 )
 
 #: The eight factories that never got a v2 equivalent. Named explicitly so a

@@ -71,7 +71,7 @@ It used to be built at import time with the failure swallowed, so a missing `TEA
 | [`MetricFactory`](#metricfactory--aixmetric) | `aix.Metric` | Direct |
 | [`APIKeyFactory`](#apikeyfactory--aixapikey) | `aix.APIKey` | Direct |
 | [`FileFactory`](#filefactory--aixfile) | `aix.File` | Direct |
-| [`ScriptFactory`](#scriptfactory--aixutility) | `aix.Utility` | Shape change — custom code becomes a utility |
+| [`ScriptFactory`](#scriptfactory--aixtool) | `aix.Tool` | Shape change — custom code becomes a tool |
 | [`AssetFactory`](#assetfactory) | — | Internal abstract base, never user-facing |
 | [`IndexFactory`](#no-v2-equivalent) | **none** | Gap — see below |
 | [`PipelineFactory`](#no-v2-equivalent) | **none** | Gap — see below |
@@ -137,7 +137,7 @@ The v1 tool-builder classmethods are replaced by resources:
 | v1 | v2 |
 | --- | --- |
 | `AgentFactory.create_model_tool(model=...)` | `aix.Model.get(...)`, passed directly in `tools=[...]` |
-| `AgentFactory.create_custom_python_code_tool(code=...)` | `aix.Utility(code=...)` — see [`ScriptFactory`](#scriptfactory--aixutility) |
+| `AgentFactory.create_custom_python_code_tool(code=...)` | `aix.Tool(code=...)` — see [`ScriptFactory`](#scriptfactory--aixtool) |
 | `AgentFactory.create_python_interpreter_tool()` | `aix.Tool.get(...)` for the Python sandbox integration |
 | `AgentFactory.create_pipeline_tool(pipeline=...)` | No v2 equivalent — see [the gaps](#no-v2-equivalent) |
 
@@ -330,9 +330,9 @@ link = upload_file("/path/to/local.csv")
 validate_file_for_upload("/path/to/local.csv")
 ```
 
-### `ScriptFactory` → `aix.Utility`
+### `ScriptFactory` → `aix.Tool`
 
-`ScriptFactory.upload_script` uploaded a code file and returned an ID to wire in by hand. In v2, custom code is a first-class `Utility` resource.
+`ScriptFactory.upload_script` uploaded a code file and returned an ID to wire in by hand. In v2, custom code is a `Tool`: the code runs in the Python Sandbox integration and the tool is attached to an agent like any other.
 
 ```python
 # v1 (removed in 0.3.0)
@@ -351,9 +351,15 @@ def add(a: int, b: int) -> int:
     """Add two numbers."""
     return a + b
 
-utility = aix.Utility(name="add", code=add)
-utility.save()
+tool = aix.Tool(name="add", description="Add two numbers", code=add)
+
+agent = aix.Agent(name="Calculator", description="Does arithmetic", tools=[tool])
+agent.save()
 ```
+
+`code` takes a function or a source string. The sandbox entrypoint is inferred from the code; when it defines more than one function, name it with `config={"function_name": "add"}`.
+
+`aix.Utility` is a different thing and is **not** the migration target here: it onboards a *utility model* asset (it uploads the code and the result is searchable and runnable on its own). `ModelFactory.create_utility_model` still maps to it. Use `aix.Tool` for code an agent calls, `aix.Utility` for a standalone utility model.
 
 `ScriptFactory` was never exported from `aixplain.factories`; it was reachable only as `aixplain.factories.script_factory.ScriptFactory`.
 

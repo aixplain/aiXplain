@@ -474,6 +474,40 @@ class TestScriptToolDefaultIntegration:
         with pytest.raises(ValueError, match="No function"):
             Tool(name="Script Tool", description="desc", code="x = 1\n")
 
+    def test_code_accepts_a_callable(self):
+        """``ScriptFactory`` migrates to ``Tool``, so a function must work as well
+        as a source string -- ``aix.Utility`` already took a callable, and the
+        migration should not force callers to stringify their own function."""
+
+        def get_fact(city: str) -> str:
+            return city
+
+        tool = Tool(name="Script Tool", description="desc", code=get_fact)
+
+        assert tool.integration == self.PYTHON_SANDBOX_ID
+        assert tool.config["function_name"] == "get_fact"
+        assert "def get_fact(city: str) -> str:" in tool.config["code"]
+
+    def test_a_callable_defined_at_an_indent_is_dedented(self):
+        """``inspect.getsource`` keeps the enclosing indentation, which is not
+        parseable on its own."""
+
+        def outer():
+            def inner(x: int) -> int:
+                return x
+
+            return inner
+
+        tool = Tool(name="Script Tool", description="desc", code=outer())
+
+        assert tool.config["function_name"] == "inner"
+        assert tool.config["code"].startswith("def inner")
+
+    def test_a_lambda_raises_rather_than_producing_broken_source(self):
+        """A lambda has no ``def``, so the sandbox has no entrypoint to name."""
+        with pytest.raises(ValueError, match="No function"):
+            Tool(name="Script Tool", description="desc", code=lambda x: x)
+
 
 # =============================================================================
 # save() integration (update path)
