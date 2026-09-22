@@ -70,7 +70,7 @@ It used to be built at import time with the failure swallowed, so a missing `TEA
 | [`IntegrationFactory`](#integrationfactory--aixintegration) | `aix.Integration` | Direct |
 | [`MetricFactory`](#metricfactory--aixmetric) | `aix.Metric` | Direct |
 | [`APIKeyFactory`](#apikeyfactory--aixapikey) | `aix.APIKey` | Direct |
-| [`FileFactory`](#filefactory--aixplainv2upload_file) | `aixplain.v2.upload_file` / `FileUploader` | Direct |
+| [`FileFactory`](#filefactory--aixfile) | `aix.File` | Direct |
 | [`ScriptFactory`](#scriptfactory--aixutility) | `aix.Utility` | Shape change — custom code becomes a utility |
 | [`AssetFactory`](#assetfactory) | — | Internal abstract base, never user-facing |
 | [`IndexFactory`](#no-v2-equivalent) | **none** | Gap — see below |
@@ -284,8 +284,8 @@ limits = aix.APIKey.get_usage_limits()
 name, so the rename needs no other change. `get_by_access_key` still exists for the key-value form
 alone. Both match the full key value, not just its first and last four characters.
 
-Rate limits take plain dicts on the user-facing field names, and only the dimensions you set are
-sent:
+Rate limits take plain dicts on the user-facing field names. All four dimensions are still sent on
+every write, with `0` for any you leave out — the backend does not yet accept a partial payload:
 
 ```python
 key.asset_limits = [{"model": "openai/gpt-5", "token_per_minute": 10_000, "token_type": "output"}]
@@ -295,7 +295,7 @@ key.save()
 `APIKeyLimits` and `TokenType` are unchanged and now import from the package root
 (`from aixplain import APIKeyLimits, TokenType`).
 
-### `FileFactory` → `aixplain.v2.upload_file`
+### `FileFactory` → `aix.File`
 
 ```python
 # v1 (removed in 0.3.0)
@@ -307,13 +307,28 @@ storage_type = FileFactory.check_storage_type("/path/to/local.csv")
 
 ```python
 # v2
-from aixplain.v2 import FileUploader, upload_file, validate_file_for_upload
+from aixplain import Aixplain
+
+aix = Aixplain()
+
+file = aix.File.create_from_file("/path/to/local.csv")
+file.save()
+link = file.source          # the uploaded link
+```
+
+`aix.File` is the resource: it also lists, downloads, and handles folders
+(`aix.File.search()`, `file.download(dest)`, `aix.File.get(id)`).
+
+For a one-line upload that just returns a link, `upload_file` is still exported
+from the package root, and `FileUploader` is there when you need to target a
+specific backend or key:
+
+```python
+from aixplain import upload_file, validate_file_for_upload
 
 link = upload_file("/path/to/local.csv")
 validate_file_for_upload("/path/to/local.csv")
 ```
-
-Use `FileUploader` directly when you need to target a specific backend or key.
 
 ### `ScriptFactory` → `aix.Utility`
 

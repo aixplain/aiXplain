@@ -697,8 +697,8 @@ class TestAPIKey:
 
         assert result["tokenType"] == "total"
 
-    def test_api_key_limits_to_api_dict_omits_none_token_type(self):
-        """An unset token_type is left out of the payload rather than sent as null."""
+    def test_api_key_limits_to_api_dict_sends_none_token_type(self):
+        """An unset token_type is sent as null, as it was before 0.3.0."""
         limits = APIKeyLimits(
             token_per_minute=100,
             token_per_day=1000,
@@ -709,8 +709,8 @@ class TestAPIKey:
 
         result = APIKey._limits_to_api_dict(limits)
 
-        assert "tokenType" not in result
-        assert result == {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100}
+        assert result["tokenType"] is None
+        assert result == {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": None}
 
     def test_api_key_parse_limits_static_method(self):
         """_parse_limits() static method should parse dicts and pass through objects."""

@@ -68,11 +68,12 @@ as before, and now import from the package root:
 
 Two correctness fixes ride along:
 
-- **An unset limit is no longer a zero.** Every dimension defaults to `None` and
-  is left out of the save payload, so setting `token_per_minute` alone leaves the
-  other three unrestricted. Previously all four were sent, with `0` for the ones
-  the caller never mentioned — which silently blocked them if the backend reads
-  `0` as blocked. A deliberate `0` is still sent as `0`.
+- **An unset limit is distinguishable from a zero — in memory.** Every dimension
+  defaults to `None` rather than `0`, `validate()` skips an unset one, and
+  `to_dict()` leaves it out. *On the wire nothing has changed yet:* the backend
+  rejects a partial limits payload with a 500, so all four dimensions are still
+  sent, with `0` standing in for one you never set. Sending only the dimensions
+  you set needs a backend change first and is tracked as follow-up work.
 - **Key values are matched in full.** `get_by_access_key()` compared only the
   first and last four characters, so two keys sharing both resolved to whichever
   the backend listed first, and limits were written to a key the caller never

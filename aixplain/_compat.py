@@ -55,7 +55,7 @@ _FACTORY_MAP = (
     ("IntegrationFactory", "aix.Integration"),
     ("MetricFactory", "aix.Metric"),
     ("APIKeyFactory", "aix.APIKey"),
-    ("FileFactory", "aixplain.v2.upload_file / aixplain.v2.FileUploader"),
+    ("FileFactory", "aix.File"),
     ("ScriptFactory", "aix.Utility"),
 )
 

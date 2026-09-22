@@ -235,7 +235,7 @@ key.save()
 aix_admin.APIKey.search()          # list every key in the workspace — admin only
 ```
 
-Limits are plain dicts on the field names above; an unknown key raises and names the accepted fields. Only the dimensions you set are sent, so limiting tokens per minute leaves requests per minute unrestricted — pass `0` explicitly if you mean zero. Reading them back gives `APIKeyLimits` objects (`key.asset_limits[0].token_per_minute`), and `APIKeyLimits(...)`/`TokenType.OUTPUT` still work if you prefer them: `from aixplain import APIKeyLimits, TokenType`.
+Limits are plain dicts on the field names above; an unknown key raises and names the accepted fields. All four dimensions are sent on every write — the backend rejects a partial payload — so a dimension you leave out goes as `0`; set every one you care about. Reading them back gives `APIKeyLimits` objects (`key.asset_limits[0].token_per_minute`), and `APIKeyLimits(...)`/`TokenType.OUTPUT` still work if you prefer them: `from aixplain import APIKeyLimits, TokenType`.
 
 Global and per-asset limits are **both** enforced — whichever is stricter bites first; global does not override per-model. Enforcement lives in the **Access layer inside AgenticOS** and covers every invocation path (REST, SDK, an agent's backbone LLM including team agents, and multi-agent pipelines), so capping a model caps it workspace-wide. Over-limit requests are **rejected immediately, not queued**, and limit changes take effect at the **start of the next timeframe** (next minute / next day).
 

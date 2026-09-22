@@ -949,13 +949,19 @@ class APIKey(
     def _limits_to_api_dict(limits: APIKeyLimits, include_asset: bool = False) -> Dict:
         """Convert APIKeyLimits to a camelCase dictionary for API requests.
 
-        Only the dimensions the caller actually set are emitted. Sending all
-        four unconditionally meant a limit that set ``token_per_minute`` alone
-        also sent ``tpd``/``rpm``/``rpd`` as ``0`` -- which, if the backend reads
-        ``0`` as "blocked" rather than "unlimited", silently blocked the other
-        three dimensions. A field that is not sent cannot do that under either
-        reading. **This is the one place to change** if the backend turns out to
-        require all four on every write.
+        Every dimension is sent, with ``0`` standing in for one the caller never
+        set. That is the payload shape shipped before 0.3.0, and the backend
+        rejects anything less with a 500, so a partial write is not available to
+        send even though the SDK can now express one.
+
+        The in-memory distinction PROD-2917 asked for is unaffected: an unset
+        dimension is still ``None`` on :class:`APIKeyLimits`, ``validate()``
+        still skips it, and ``to_dict()`` still leaves it out. Only this
+        encoding fills the gaps.
+
+        **This is the one place to change** once the backend accepts a partial
+        limits payload -- and what ``0`` means to it is still unconfirmed, which
+        is why nothing here depends on the answer today.
         """
         result: Dict[str, Any] = {}
         for wire_name, field_name in (
@@ -965,10 +971,8 @@ class APIKey(
             ("rpd", "request_per_day"),
         ):
             value = getattr(limits, field_name)
-            if value is not None:
-                result[wire_name] = value
-        if limits.token_type is not None:
-            result["tokenType"] = limits.token_type.value
+            result[wire_name] = 0 if value is None else value
+        result["tokenType"] = limits.token_type.value if limits.token_type else None
         if include_asset and limits.model:
             result["assetId"] = limits.model
         return result

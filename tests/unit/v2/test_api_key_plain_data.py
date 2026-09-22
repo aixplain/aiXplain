@@ -82,7 +82,9 @@ class TestLimitsFromDicts:
 
         payload = key.build_save_payload()
 
-        assert payload["assetsLimits"] == [{"tpm": 10000, "tokenType": "output", "assetId": "model1"}]
+        assert payload["assetsLimits"] == [
+            {"tpm": 10000, "tpd": 0, "rpm": 0, "rpd": 0, "tokenType": "output", "assetId": "model1"}
+        ]
 
     def test_global_limits_assignment_from_dict(self):
         key = APIKey(name="Test Key", budget=10.0)
@@ -186,23 +188,35 @@ class TestTokenTypeStrings:
 # -- Unset is not zero --------------------------------------------------------------
 
 
-class TestUnsetIsNotZero:
-    """An omitted dimension must not be written as ``0``.
+class TestUnsetIsNotZeroInMemory:
+    """An unset dimension stays ``None`` in memory, but is sent as ``0``.
 
-    Whether the backend reads ``0`` as "blocked" or "unlimited" is not settled
-    here — that is the point. A dimension the caller never mentioned is left out
-    of the payload, so it cannot mean either.
+    PROD-2917 asked for an unset dimension to be distinguishable from a
+    deliberate ``0``. In memory it is: the field defaults to ``None``,
+    ``validate()`` skips it, and ``to_dict()`` leaves it out.
+
+    On the wire it is not, yet. The backend rejects a partial limits payload
+    with a 500, so ``_limits_to_api_dict`` fills every dimension the caller did
+    not set with ``0`` -- exactly the payload shipped before 0.3.0. Sending a
+    partial payload is what the follow-up covers, and it needs a backend change
+    first; the SDK cannot deliver it alone.
     """
 
-    def test_only_the_set_dimension_is_sent(self):
+    def test_every_dimension_is_sent_even_when_unset(self):
+        """A partial payload 500s, so the wire carries all four dimensions."""
         key = APIKey(id="k", name="Test Key")
         key.asset_limits = [{"model": "m1", "token_per_minute": 10000}]
 
         sent = key.build_save_payload()["assetsLimits"][0]
 
-        assert sent == {"tpm": 10000, "assetId": "m1"}
-        for other in ("tpd", "rpm", "rpd"):
-            assert other not in sent, f"{other} was sent for a dimension the caller never set"
+        assert sent == {
+            "tpm": 10000,
+            "tpd": 0,
+            "rpm": 0,
+            "rpd": 0,
+            "tokenType": None,
+            "assetId": "m1",
+        }
 
     def test_a_deliberate_zero_is_still_sent(self):
         """Zero has to stay expressible, or "block this dimension" is unsayable."""
@@ -211,10 +225,16 @@ class TestUnsetIsNotZero:
 
         assert key.build_save_payload()["assetsLimits"][0]["tpm"] == 0
 
-    def test_global_limits_omit_unset_dimensions(self):
+    def test_global_limits_also_send_every_dimension(self):
         key = APIKey(id="k", name="Test Key", global_limits={"request_per_minute": 60})
 
-        assert key.build_save_payload()["globalLimits"] == {"rpm": 60}
+        assert key.build_save_payload()["globalLimits"] == {
+            "tpm": 0,
+            "tpd": 0,
+            "rpm": 60,
+            "rpd": 0,
+            "tokenType": None,
+        }
 
     def test_validate_ignores_unset_dimensions(self):
         """``None < 0`` is a TypeError, so validate() has to skip unset ones."""
