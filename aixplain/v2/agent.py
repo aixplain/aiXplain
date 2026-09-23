@@ -770,12 +770,16 @@ class Agent(
             for skill in (self.skills or [])
         ]
 
-        # Unsaved files keep the object itself, not None, so list edits never lose track of which is which.
+        # ``self.files`` is the single source of truth (real File objects, dicts
+        # pending hydration below, or bare id strings) — mirrors ``self.tools``.
+        # ``_original_files`` is kept as its mirror; the various save/validate
+        # helpers below still read from it.
         self._files_ever_configured = bool(self.files)
         self._original_files = list(self.files or [])
-        self.files = [
-            file if isinstance(file, str) else (self._file_reference_id(file) or file) for file in (self.files or [])
-        ]
+        # Hydrate raw backend File dicts (e.g. from a get() response) into real
+        # File objects, so a fetched agent's files are directly usable
+        # (``.name``, ``.download()``, ``.delete()``, ...) — mirrors ``_hydrate_tools``.
+        self._hydrate_files()
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
@@ -812,7 +816,12 @@ class Agent(
         return file.id
 
     def _sync_file_references(self) -> None:
-        """Capture direct mutations to ``agent.files`` before validation or save."""
+        """Reconcile in-place mutations to ``agent.files`` into ``_original_files``.
+
+        ``agent.files`` is the source of truth (real ``File`` objects, dicts, or
+        bare ids — mirrors ``agent.tools``); ``_original_files`` is kept as its
+        mirror for the save/validate helpers that read it.
+        """
         current = list(self.files or [])
         original = list(getattr(self, "_original_files", []) or [])
         # A None slot is a still-unsaved placeholder; only safe to refresh by position if lengths match.
@@ -829,10 +838,11 @@ class Agent(
             original_by_id = {
                 self._file_reference_id(file): file for file in original if self._file_reference_id(file) is not None
             }
-            self._original_files = [
+            effective_current = [
                 original_by_id.get(file, file) if isinstance(file, str) else file for file in effective_current
             ]
-            self.files = current_ids
+            self._original_files = effective_current
+            self.files = list(effective_current)
 
     @staticmethod
     def _skill_reference_id(skill: Optional[Union[str, Dict[str, Any], "Skill"]]) -> Optional[str]:
@@ -945,11 +955,16 @@ class Agent(
         detected; ``save()`` persists changed values unconditionally.
         """
         original_tools = self.tools
+        original_files = self.files
         try:
             self.tools = [self._tool_identity(tool) for tool in original_tools or []]
+            # Files can now hold live File objects (mirrors tools) — reduce them
+            # the same way, or to_dict() would recurse into File's ``context``.
+            self.files = [self._file_identity(file) for file in original_files or []]
             return super()._get_serializable_state()
         finally:
             self.tools = original_tools
+            self.files = original_files
 
     @staticmethod
     def _tool_identity(tool: Any) -> dict:
@@ -959,6 +974,15 @@ class Agent(
         if isinstance(tool, dict):
             return {"id": tool.get("id"), "type": tool.get("type")}
         return {"id": getattr(tool, "id", None), "type": getattr(tool, "type", None)}
+
+    @staticmethod
+    def _file_identity(file: Any) -> dict:
+        """Return a stable id/name/description signature for a files entry."""
+        if isinstance(file, str):
+            return {"id": file}
+        if isinstance(file, dict):
+            return {"id": file.get("id") or file.get("fileId"), "name": file.get("name")}
+        return {"id": getattr(file, "id", None), "name": getattr(file, "name", None)}
 
     # Run kwarg that carries the run's progress tracker from ``run()`` /
     # ``sync_poll()`` down to ``on_poll``. Listed in ``_RUN_CONTROL_KEYS`` so
@@ -1747,6 +1771,48 @@ class Agent(
                 continue
         return None
 
+    def _hydrate_files(self) -> None:
+        """Rebind backend File records in ``self.files`` to a real, usable ``File``.
+
+        ``self.files`` (the public field) holds real ``File`` objects after
+        :meth:`__post_init__`, the same way ``self.tools`` holds ``Tool`` /
+        ``Model`` objects — so a fetched agent's ``agent.files[0].name`` works
+        without a re-fetch. ``_original_files`` mirrors it and is what
+        :meth:`build_save_payload` and the dependency-validation helpers read.
+
+        A dict entry (e.g. straight from a ``get()`` response before
+        dataclasses_json's own ``Union`` decoding runs) is hydrated directly.
+        An entry dataclasses_json already turned into a bare ``File`` — its
+        generic ``Union[str, dict, File]`` decoding does this ahead of
+        ``__post_init__`` — is *contextless* and stuck at ``is_temp=True``
+        (the constructor default), so it can't ``.save()``/``.download()``/
+        ``.delete()`` and looks unsaved even though it came from the backend;
+        it is re-hydrated through :meth:`File._from_data` the same way a dict
+        would be. Best-effort and offline: a record that fails to hydrate is
+        left as-is rather than breaking construction. A bare id string is left
+        as-is too — there is no data to build a ``File`` from without a fetch.
+        """
+        context = getattr(self, "context", None)
+        original_files = getattr(self, "_original_files", None)
+        if context is None or not original_files:
+            return
+        self._original_files = [
+            self._hydrate_file_entry(entry, context) if isinstance(entry, (dict, File)) else entry
+            for entry in original_files
+        ]
+        self.files = list(self._original_files)
+
+    @staticmethod
+    def _hydrate_file_entry(entry: Union[dict, "File"], context: Any) -> Any:
+        """Hydrate one backend File record into a bound ``File`` object (best-effort)."""
+        if isinstance(entry, File) and entry.context is not None:
+            return entry  # already bound to a context, e.g. a caller-supplied File
+        data = entry.to_dict() if isinstance(entry, File) else entry
+        try:
+            return context.File._from_data(data)
+        except Exception:
+            return entry
+
     def _hydrate_tools(self) -> None:
         """Convert plain tool dicts in ``self.tools`` into mutable objects.
 
@@ -2093,11 +2159,14 @@ class Agent(
                 target if isinstance(target, str) else str(target) for target in self.inspector_targets
             ]
 
-        # Null out tools before to_dict(): dataclass_json would otherwise recurse
-        # into Tool/Model objects (which raises on their ``context`` descriptor).
-        # The real tools payload is rebuilt from ``self.tools`` below.
+        # Null out tools and files before to_dict(): dataclass_json would otherwise
+        # recurse into Tool/Model/File objects (which raise on their ``context``
+        # descriptor). The real payloads are rebuilt from ``self.tools`` /
+        # ``self._original_files`` below.
         original_tools = self.tools
         self.tools = []
+        original_files_field = self.files
+        self.files = []
 
         # Now call to_dict() with inspectors and inspector_targets already serialized
         payload = self.to_dict()
@@ -2106,6 +2175,7 @@ class Agent(
         self.inspectors = original_inspectors
         self.inspector_targets = original_inspector_targets
         self.tools = original_tools
+        self.files = original_files_field
 
         # Budget is the single source of truth for the persisted iteration cap.
         # Drop the deprecated standalone ``maxIterations`` and emit the persisted

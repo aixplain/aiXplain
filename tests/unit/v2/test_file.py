@@ -222,15 +222,22 @@ def test_get_retains_immediate_children_when_recursive_endpoint_is_forbidden(aix
 
 def test_search_returns_standard_page(aix):
     """Map query and pagination to the File paginate API."""
-    aix.client.post = Mock(return_value={"results": [_asset("1", "handbook.pdf")], "total": 12, "pageTotal": 1})
+    aix.client.request = Mock(return_value={"results": [_asset("1", "handbook.pdf")], "total": 12, "pageTotal": 1})
 
     page = aix.File.search(query="handbook", page_size=10, file_type=FileType.FILE)
 
     assert isinstance(page, Page)
     assert isinstance(page.results[0], aix.File)
     assert page.total == 12
-    assert aix.client.post.call_args.kwargs["json"]["q"] == "handbook"
-    assert aix.client.post.call_args.kwargs["json"]["fileType"] == "file"
+    assert aix.client.request.call_args.args[:2] == ("post", "sdk/file-asset/paginate")
+    assert aix.client.request.call_args.kwargs["json"]["q"] == "handbook"
+    assert aix.client.request.call_args.kwargs["json"]["fileType"] == "file"
+
+
+def test_search_rejects_unknown_filters(aix):
+    """Reject a typo'd or unsupported filter instead of silently matching everything."""
+    with pytest.raises(ValidationError, match="unsupported filter"):
+        aix.File.search(does_not_exist="x")
 
 
 def test_folder_download_extracts_one_zip_safely(tmp_path, aix):
@@ -264,3 +271,110 @@ def test_folder_download_rejects_zip_traversal(tmp_path, aix):
     with pytest.raises(ResourceError, match="Unsafe ZIP entry"):
         folder.download(tmp_path / "reference")
     assert not (tmp_path.parent / "outside.txt").exists()
+
+
+def test_download_defaults_destination_to_name(tmp_path, aix, monkeypatch):
+    """Downloading without a destination writes to ./{name} in the current directory."""
+    response = Mock()
+    response.iter_content.return_value = [b"data"]
+    aix.client.request_stream = Mock(return_value=response)
+    document = aix.File(id="file-1", name="handbook.pdf", fileType="file")
+    monkeypatch.chdir(tmp_path)
+
+    result = document.download()
+
+    assert result == "handbook.pdf"
+    assert (tmp_path / "handbook.pdf").read_bytes() == b"data"
+
+
+def test_delete_calls_the_backend_and_marks_deleted(aix):
+    """File.delete() DELETEs the asset and marks the instance deleted."""
+    document = aix.File(id="file-1", name="handbook.pdf", fileType="file")
+    aix.client.request_raw = Mock(return_value=Mock())
+
+    result = document.delete()
+
+    aix.client.request_raw.assert_called_once_with("delete", "sdk/file-asset/file-1")
+    assert document.is_deleted is True
+    assert result.deleted_id == "file-1"
+
+
+def test_get_signed_url_addresses_a_root_file_by_its_own_id_twice(aix):
+    """File-asset responses carry no stable url; fetch a short-lived one on demand."""
+    document = aix.File(id="file-1", name="handbook.pdf", fileType="file")
+    aix.client.get = Mock(return_value={"url": "https://signed.example.com/handbook.pdf?sig=abc"})
+
+    url = document.get_signed_url()
+
+    aix.client.get.assert_called_once_with("sdk/file-asset/file-1/file/file-1/url")
+    assert url == "https://signed.example.com/handbook.pdf?sig=abc"
+
+
+def test_get_signed_url_passes_expires_in(aix):
+    """An explicit expiry is forwarded as a query param."""
+    document = aix.File(id="file-1", name="handbook.pdf", fileType="file")
+    aix.client.get = Mock(return_value={"url": "https://signed.example.com/handbook.pdf"})
+
+    document.get_signed_url(expires_in=120)
+
+    aix.client.get.assert_called_once_with("sdk/file-asset/file-1/file/file-1/url", params={"expiresIn": 120})
+
+
+def test_get_signed_url_rejects_unsaved_file(aix):
+    """An unsaved File has no id to address a signed url with."""
+    document = aix.File(name="notes.txt")
+
+    with pytest.raises(ValidationError, match="must be saved"):
+        document.get_signed_url()
+
+
+def test_get_signed_url_rejects_folder(aix):
+    """A folder has no single signed url; download it as a zip instead."""
+    folder = aix.File(id="folder-1", name="reference", fileType="folder")
+
+    with pytest.raises(ValidationError, match="no single signed url"):
+        folder.get_signed_url()
+
+
+def test_save_directory_populates_children_without_a_follow_up_get(tmp_path, aix):
+    """A saved folder's tree is available immediately, not only after File.get()."""
+    root = tmp_path / "reference"
+    (root / "policies").mkdir(parents=True)
+    (root / "policies" / "security.pdf").write_bytes(b"pdf")
+    aix.client.get = Mock(return_value={"allowed": True})
+    aix.client.post = Mock(
+        side_effect=[
+            _asset("root", "reference", "folder"),
+            _asset("policies-id", "policies", "folder"),
+            {"uploadUrl": "https://bucket.s3.amazonaws.com/one", "downloadUrl": "s3://one"},
+            _asset("security", "security.pdf"),
+        ]
+    )
+
+    with patch("aixplain.v2.file.requests.put", return_value=Mock(ok=True)):
+        folder = aix.File(root).save()
+
+    assert [child.name for child in folder.children] == ["policies"]
+    assert [child.name for child in folder.children[0].children] == ["security.pdf"]
+    assert all(isinstance(child, aix.File) for child in folder.children)
+
+
+def test_save_directory_rolls_back_on_partial_failure(tmp_path, aix):
+    """A failed upload mid-directory deletes the partially created root folder."""
+    root = tmp_path / "reference"
+    (root / "policies").mkdir(parents=True)
+    (root / "policies" / "security.pdf").write_bytes(b"pdf")
+    aix.client.get = Mock(return_value={"allowed": True})
+    aix.client.post = Mock(
+        side_effect=[
+            _asset("root", "reference", "folder"),
+            _asset("policies-id", "policies", "folder"),
+            RuntimeError("network blip"),
+        ]
+    )
+    aix.client.request = Mock(return_value={})
+
+    with pytest.raises(ResourceError, match="partial upload"):
+        aix.File(root).save()
+
+    aix.client.request.assert_called_once_with("delete", "sdk/file-asset/root")

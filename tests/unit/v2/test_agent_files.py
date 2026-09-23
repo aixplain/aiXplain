@@ -26,7 +26,9 @@ def test_agent_accepts_saved_files_and_folders(aix):
         {"id": "file-id", "name": "handbook.pdf"},
         {"id": "folder-id", "name": "reference", "description": "Reference tree"},
     ]
-    assert agent.files == ["file-id", "folder-id"]
+    # ``agent.files`` holds the real File objects (mirrors ``agent.tools``), not ids.
+    assert agent.files == [document, folder]
+    assert agent.files[0].name == "handbook.pdf"
 
 
 def test_agent_accepts_file_ids_and_backend_dicts(aix):
@@ -91,10 +93,20 @@ def test_agent_get_round_trips_file_references(aix):
 
     agent = aix.Agent.get("agent-id")
 
-    assert agent.files == ["folder-id"]
     assert agent.build_save_payload()["files"] == [
         {"id": "folder-id", "name": "reference", "description": "Reference tree"}
     ]
+    # `agent.files` is hydrated into real File objects (mirrors `_hydrate_tools`),
+    # so a fetched file is directly usable — e.g. `.name`/`.download()`/`.delete()`
+    # — without a re-fetch.
+    hydrated = agent.files[0]
+    assert isinstance(hydrated, aix.File)
+    assert hydrated.id == "folder-id"
+    assert hydrated.name == "reference"
+    assert hydrated.is_dir
+    assert hydrated.is_temp is False
+    assert hydrated.context is aix
+    assert agent._original_files == agent.files
 
 
 def test_mutating_fetched_agent_files_changes_next_save_payload(aix):

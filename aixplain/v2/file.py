@@ -24,7 +24,8 @@ import tempfile
 import zipfile
 from dataclasses import MISSING, dataclass, field, fields
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+from typing_extensions import NotRequired
 from urllib.parse import quote, unquote, urlparse
 
 import requests
@@ -34,14 +35,44 @@ from aixplain.utils.url_safety import safe_get, validate_upload_url
 
 from .enums import FileType, Privacy
 from .exceptions import APIError, FileUploadError, ResourceError, ValidationError
-from .resource import BaseResource, Page, _is_excluded_from_serialization
+from .resource import (
+    BaseDeleteParams,
+    BaseResource,
+    BaseSearchParams,
+    DeleteResourceMixin,
+    DeleteResult,
+    Page,
+    SearchResourceMixin,
+    _is_excluded_from_serialization,
+)
 
 logger = logging.getLogger(__name__)
 
 
+class FileSearchParams(BaseSearchParams):
+    """Search parameters for File assets.
+
+    Attributes:
+        file_type: Filter by structural type (``file`` or ``folder``).
+        parent_type: Filter by the parent asset's type.
+        parent_id: Filter by parent folder id.
+        sort: Raw sort spec, e.g. ``[{"field": "createdAt", "dir": -1}]``
+            (defaults to newest first).
+    """
+
+    file_type: NotRequired[Union[FileType, str]]
+    parent_type: NotRequired[str]
+    parent_id: NotRequired[str]
+    sort: NotRequired[List[Dict[str, Any]]]
+
+
 @dataclass_json
 @dataclass(repr=False, init=False)
-class File(BaseResource):
+class File(
+    BaseResource,
+    SearchResourceMixin[FileSearchParams, "File"],
+    DeleteResourceMixin[BaseDeleteParams, "File"],
+):
     """A persisted aiXplain file or folder.
 
     Args:
@@ -60,14 +91,12 @@ class File(BaseResource):
     extension: Optional[str] = field(default=None, metadata=config(field_name="ext"))
     size: Optional[int] = None
     parent_id: Optional[str] = field(default=None, metadata=config(field_name="parentId"))
-    relative_path: Optional[str] = field(default=None, metadata=config(field_name="relativePath"))
     tags: List[str] = field(default_factory=list)
     privacy: Privacy = Privacy.PRIVATE
     whitelist: List[Any] = field(default_factory=list)
     status: Optional[str] = None
     created_at: Optional[str] = field(default=None, metadata=config(field_name="createdAt"))
     updated_at: Optional[str] = field(default=None, metadata=config(field_name="updatedAt"))
-    url: Optional[str] = None
 
     def __init__(
         self,
@@ -79,8 +108,6 @@ class File(BaseResource):
         """Initialize a File without performing network writes."""
         if name is not None and not name.strip():
             raise ValidationError("File name cannot be empty")
-        if source is None:
-            source = kwargs.pop("file_path", None)
         BaseResource.__init__(
             self,
             id=kwargs.pop("id", None),
@@ -116,7 +143,12 @@ class File(BaseResource):
         if self.source is not None:
             self._validate_and_infer_source(name)
         elif not self.name and not self.id:
-            raise ValidationError("File requires a source, name, or backend ID")
+            hint = (
+                " ('path' identifies an already-saved asset; pass the local path or URL as 'source' instead)"
+                if self.path
+                else ""
+            )
+            raise ValidationError(f"File requires a source, name, or backend ID{hint}")
 
     @staticmethod
     def _coerce_file_type(value: Any) -> FileType:
@@ -158,16 +190,6 @@ class File(BaseResource):
         """Whether this File represents a directory."""
         return self.file_type == FileType.FOLDER
 
-    @property
-    def file_path(self) -> Optional[str]:
-        """Return the original local path for compatibility with the early Resource API."""
-        return self.source
-
-    @classmethod
-    def create_from_file(cls, file_path: str, is_temp: bool = True, **kwargs: Any) -> "File":
-        """Create a File from a local path."""
-        return cls(file_path, is_temp=is_temp, **kwargs)
-
     @classmethod
     def _from_data(cls, data: Dict[str, Any]) -> "File":
         """Hydrate a File from a backend response."""
@@ -203,6 +225,14 @@ class File(BaseResource):
     def _upload_local_file(self, local_path: str) -> str:
         self._check_upload_allowance(local_path)
         content_type = mimetypes.guess_type(local_path)[0] or "application/octet-stream"
+        # ``sdk/file/upload/temp-url`` is the only presigned-upload endpoint the
+        # file-asset flow uses: the object it returns becomes permanent once
+        # ``POST sdk/file-asset`` claims it below, regardless of ``is_temp``.
+        # ``is_temp`` itself is local state only ("has this File been saved
+        # yet") — the backend's create/paginate responses take no such field
+        # (unlike ``sdk/file/upload-url``, a *different*, legacy endpoint that
+        # both lacks a ``downloadUrl`` and creates its own File record as a
+        # side effect, so it cannot be swapped in here).
         response = self.context.client.post(
             "sdk/file/upload/temp-url",
             json={"contentType": content_type, "originalName": Path(local_path).name},
@@ -245,15 +275,23 @@ class File(BaseResource):
         )
         self._apply_data(data)
 
-    def _create_child_folder(self, root_id: str, path: Path, parent_id: Optional[str]) -> str:
+    def _create_child_folder(self, root_id: str, path: Path, parent_id: Optional[str]) -> Dict[str, Any]:
         body: Dict[str, Any] = {"name": path.name, "description": ""}
         if parent_id:
             body["parentId"] = parent_id
         data = self.context.client.post(f"{self.RESOURCE_PATH}/{quote(root_id, safe='')}/folder", json=body)
-        child_id = data.get("id")
-        if not child_id:
+        if not data.get("id"):
             raise ResourceError(f"Backend did not return an ID for folder {path}")
-        return child_id
+        return data
+
+    def _rollback_directory_upload(self, root: Path, root_id: str) -> str:
+        """Best-effort delete of a partially-uploaded folder, for the failure message."""
+        try:
+            self.context.client.request("delete", f"{self.RESOURCE_PATH}/{quote(root_id, safe='')}")
+        except Exception:
+            logger.warning("Failed to roll back partially uploaded folder %s (id=%s)", root, root_id, exc_info=True)
+            return "The partially uploaded folder could not be automatically removed; delete it manually."
+        return "The partially uploaded folder was removed."
 
     def _save_directory(self, root: Path) -> None:
         root_data = self.context.client.post(
@@ -270,16 +308,26 @@ class File(BaseResource):
         root_id = root_data.get("id")
         if not root_id:
             raise ResourceError("Backend did not return an ID for the root folder")
+        # Track each directory's local Path -> its own File node (still being
+        # built), so newly created children attach to the right parent without
+        # depending on the backend echoing ``parentId`` back on create.
         parents: Dict[Path, Optional[str]] = {root: None}
+        nodes: Dict[Path, "File"] = {}
+        top_level_children: List["File"] = []
         try:
             for current, directory_names, file_names in os.walk(root):
                 directory_names.sort()
                 file_names.sort()
                 current_path = Path(current)
                 parent_id = parents[current_path]
+                parent_children = nodes[current_path].children if current_path in nodes else top_level_children
                 for directory_name in directory_names:
                     directory = current_path / directory_name
-                    parents[directory] = self._create_child_folder(root_id, directory, parent_id)
+                    folder_data = self._create_child_folder(root_id, directory, parent_id)
+                    parents[directory] = folder_data["id"]
+                    folder_node = self._from_data(folder_data)
+                    nodes[directory] = folder_node
+                    parent_children.append(folder_node)
                 for file_name in file_names:
                     local_file = current_path / file_name
                     reference = self._upload_local_file(str(local_file))
@@ -291,10 +339,17 @@ class File(BaseResource):
                     }
                     if parent_id:
                         body["parentId"] = parent_id
-                    self.context.client.post(f"{self.RESOURCE_PATH}/{quote(root_id, safe='')}/file", json=body)
+                    file_data = self.context.client.post(
+                        f"{self.RESOURCE_PATH}/{quote(root_id, safe='')}/file", json=body
+                    )
+                    parent_children.append(self._from_data(file_data))
         except Exception as exc:
-            raise ResourceError(f"Directory upload for {root} stopped after a partial upload: {exc}") from exc
+            rollback_note = self._rollback_directory_upload(root, root_id)
+            raise ResourceError(
+                f"Directory upload for {root} stopped after a partial upload: {exc}. {rollback_note}"
+            ) from exc
         self._apply_data(root_data)
+        self.children = top_level_children
 
     def save(self, **_: Any) -> "File":
         """Upload the source and persist it as a backend File asset.
@@ -341,6 +396,32 @@ class File(BaseResource):
         self._update_saved_state()
         return self
 
+    def get_signed_url(self, expires_in: Optional[int] = None) -> str:
+        """Return a short-lived signed URL for this file's bytes.
+
+        The backend's file-asset responses (create/get/paginate) never carry a
+        stable ``url`` — it must be requested on demand through the same
+        signed-URL endpoint the platform UI uses to render media inline.
+        Addresses this File's own id as both the asset and the file node,
+        which the backend accepts for a standalone root file.
+
+        Args:
+            expires_in: Signed URL lifetime in seconds (backend default: 1
+                hour; capped at 7 days).
+
+        Raises:
+            ValidationError: If the File is unsaved or is a folder (a folder
+                has no single downloadable object — use :meth:`download`).
+        """
+        if not self.id:
+            raise ValidationError("File must be saved before a signed url can be requested")
+        if self.is_dir:
+            raise ValidationError("Folders have no single signed url; use .download() instead")
+        kwargs: Dict[str, Any] = {"params": {"expiresIn": expires_in}} if expires_in is not None else {}
+        encoded_id = quote(self.id, safe="")
+        response = self.context.client.get(f"{self.RESOURCE_PATH}/{encoded_id}/file/{encoded_id}/url", **kwargs)
+        return response["url"]
+
     @classmethod
     def get(cls, identifier: str, recursive: bool = True) -> "File":
         """Retrieve a File by ID, encoded asset path, or instance ID."""
@@ -378,36 +459,65 @@ class File(BaseResource):
                 roots.append(item)
         return roots
 
-    @classmethod
-    def search(
-        cls,
-        query: Optional[str] = None,
-        page_number: int = 0,
-        page_size: int = 20,
-        sort: Optional[List[Dict[str, Any]]] = None,
-        **filters: Any,
-    ) -> Page["File"]:
-        """Search top-level File assets."""
-        body = {"q": query, "pageNumber": page_number, "pageSize": page_size}
-        body["sort"] = sort or [{"field": "createdAt", "dir": -1}]
-        mapping = {"file_type": "fileType", "parent_type": "parentType"}
-        body.update(
-            {mapping.get(key, key): value.value if hasattr(value, "value") else value for key, value in filters.items()}
-        )
-        body = {key: value for key, value in body.items() if value is not None}
-        data = cls.context.client.post(f"{cls.RESOURCE_PATH}/paginate", json=body)
-        return Page(
-            results=[cls._from_data(item) for item in data.get("results", [])],
-            page_number=page_number,
-            page_total=data.get("pageTotal", 0),
-            total=data.get("total", 0),
-        )
+    # Wire keys File.search() understands, beyond the base pagination/query/
+    # ownership/sort ones. Anything else is rejected rather than silently
+    # dropped, so a typo'd filter fails loudly instead of matching everything.
+    _SEARCH_FILTER_KEYS = {"file_type": "fileType", "parent_type": "parentType", "parent_id": "parentId"}
+    _SEARCH_KNOWN_KEYS = frozenset(
+        {"query", "page_number", "page_size", "sort", "resource_path", "api_key", "paginate_items_key", "strict"}
+        | set(_SEARCH_FILTER_KEYS)
+    )
 
-    def download(self, destination: Union[str, os.PathLike[str]]) -> str:
-        """Stream this File to disk, safely extracting folders from one ZIP request."""
+    @classmethod
+    def _populate_filters(cls, params: dict) -> dict:
+        """Build the ``paginate`` request body for File assets.
+
+        Raises:
+            ValidationError: If ``params`` carries a filter this resource does
+                not recognize (a typo'd kwarg would otherwise be dropped and
+                silently match everything).
+        """
+        unknown = set(params) - cls._SEARCH_KNOWN_KEYS
+        if unknown:
+            raise ValidationError(f"File.search() received unsupported filter(s): {sorted(unknown)}")
+        body: Dict[str, Any] = {
+            "q": params.get("query"),
+            "pageNumber": params.get("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER),
+            "pageSize": params.get("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE),
+            "sort": params.get("sort") or [{"field": "createdAt", "dir": -1}],
+        }
+        for key, wire_key in cls._SEARCH_FILTER_KEYS.items():
+            if params.get(key) is not None:
+                value = params[key]
+                body[wire_key] = value.value if hasattr(value, "value") else value
+        return {key: value for key, value in body.items() if value is not None}
+
+    @classmethod
+    def _deserialize_items(cls, items: List[dict], context: Any) -> Tuple[List["File"], List[str]]:
+        """Hydrate paginated records through :meth:`_from_data`, reporting failures."""
+        resources: List["File"] = []
+        errors: List[str] = []
+        for index, item in enumerate(items):
+            try:
+                obj = cls._from_data(item)
+            except Exception as e:
+                logger.warning("Skipping item during %s deserialization: %s", cls.__name__, e)
+                errors.append(f"item[{index}]: {e}")
+                continue
+            obj.context = context
+            resources.append(obj)
+        return resources, errors
+
+    def download(self, destination: Optional[Union[str, os.PathLike[str]]] = None) -> str:
+        """Stream this File to disk, safely extracting folders from one ZIP request.
+
+        Args:
+            destination: Where to write the file (or extract the folder). Defaults
+                to ``self.name`` in the current directory.
+        """
         if not self.id:
             raise ValidationError("File must be saved before it can be downloaded")
-        target = Path(destination).expanduser()
+        target = Path(destination if destination is not None else (self.name or "download")).expanduser()
         response = self.context.client.request_stream("GET", f"{self.RESOURCE_PATH}/{quote(self.id, safe='')}/download")
         if self.is_dir:
             target.mkdir(parents=True, exist_ok=True)
