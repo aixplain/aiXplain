@@ -148,8 +148,30 @@ def test_model_sort_dir_is_plus_or_minus_one(monkeypatch, sort_order, expected_d
     Model.search(sort_by=SortBy.NAME, sort_order=sort_order)
 
     sort = _body(client)["sort"]
-    assert sort == [{"field": "NAME", "dir": expected_dir}]
+    assert sort == [{"field": "name", "dir": expected_dir}]
     assert type(sort[0]["dir"]) is int
+
+
+@pytest.mark.parametrize(
+    "sort_by, expected_field",
+    [
+        (SortBy.NAME, "name"),
+        (SortBy.CREATED_AT, "createdAt"),
+        (SortBy.UPDATED_AT, "updatedAt"),
+        ("CREATED_AT", "createdAt"),
+        ("created_at", "createdAt"),
+        ("createdAt", "createdAt"),
+        ("normalizedPrice", "normalizedPrice"),
+    ],
+    ids=["enum-name", "enum-created", "enum-updated", "str-CREATED_AT", "str-created_at", "raw-createdAt", "raw-other"],
+)
+def test_model_sort_field_is_the_backend_field_name(monkeypatch, sort_by, expected_field):
+    """``/v2/models/paginate`` ignores ``"CREATED_AT"`` and only sorts on camelCase fields."""
+    client = _bind(monkeypatch, Model)
+
+    Model.search(sort_by=sort_by, sort_order=SortOrder.ASC)
+
+    assert _body(client)["sort"] == [{"field": expected_field, "dir": 1}]
 
 
 def test_model_sort_field_defaults_to_name(monkeypatch):
@@ -259,7 +281,7 @@ def test_model_sort_dir_accepts_numeric_and_long_spellings(monkeypatch, sort_ord
 
     Model.search(sort_by=SortBy.NAME, sort_order=sort_order)
 
-    assert _body(client)["sort"] == [{"field": "NAME", "dir": expected_dir}]
+    assert _body(client)["sort"] == [{"field": "name", "dir": expected_dir}]
 
 
 def test_model_sort_dir_unknown_order_defaults_to_ascending(monkeypatch):
@@ -268,7 +290,7 @@ def test_model_sort_dir_unknown_order_defaults_to_ascending(monkeypatch):
 
     Model.search(sort_by=SortBy.NAME, sort_order="sideways")
 
-    assert _body(client)["sort"] == [{"field": "NAME", "dir": 1}]
+    assert _body(client)["sort"] == [{"field": "name", "dir": 1}]
 
 
 # =============================================================================
@@ -291,7 +313,7 @@ def test_model_sort_with_explicit_none_order(monkeypatch):
 
     Model.search(sort_by=SortBy.CREATED_AT, sort_order=None)
 
-    assert _body(client)["sort"] == [{"field": "CREATED_AT", "dir": 1}]
+    assert _body(client)["sort"] == [{"field": "createdAt", "dir": 1}]
 
 
 @pytest.mark.parametrize("cls", RESOURCES, ids=RESOURCE_IDS)

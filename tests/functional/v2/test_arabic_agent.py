@@ -29,7 +29,7 @@ ARABIC_DIACRITICS_RE = re.compile(r"[\u064B-\u065F\u0670]")
 DIGIT_RE = re.compile(r"[\u0660-\u06690-9]")
 
 MODELS = [
-    pytest.param("gpt-4o", "6646261c6eb563165658bbb1", id="gpt-4o"),
+    pytest.param("gpt-5.4", "69b7e5f1b2fe44704ab0e7d0", id="gpt-5.4"),
     pytest.param("claude-opus-4.6", "698c87701239a117fd66b468", id="claude-opus-4.6"),
 ]
 
@@ -195,7 +195,7 @@ def _build_name(prefix: str, model_name: str) -> str:
 
 def _is_inspector_step(step: dict, inspector_name: str = "") -> bool:
     # The backend reports the inspector's own name as the step agent id
-    # (e.g. 'ArabicContentValidator-gpt-4o'), not an 'inspector|...' prefix.
+    # (e.g. 'ArabicContentValidator-gpt-5.4'), not an 'inspector|...' prefix.
     agent_info = step.get("agent") or {}
     step_id = (agent_info.get("id") or "").lower()
     return "inspector" in step_id or (bool(inspector_name) and step_id == inspector_name.lower())
