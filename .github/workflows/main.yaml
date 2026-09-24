@@ -229,7 +229,7 @@ jobs:
           name: dist
           path: ${{ runner.temp }}/dist/*
 
-  setup-and-test:
+  functional:
     runs-on: ubuntu-latest
     timeout-minutes: 45  # Global timeout fallback
     strategy:
@@ -246,17 +246,72 @@ jobs:
         # rather than silent dead code, while parking stays available as an
         # explicit, reviewed choice.
         #
-        # The file_asset, model, general_assets, apikey, agent and team_agent
-        # legs exercised v1 exclusively and were deleted with it (PROD-2918),
-        # along with the already-parked benchmark suite. tests/functional/v2
-        # covers the same resources against the v2 surface. Nothing is parked.
-        test-suite: [
-          'v2',
+        # The v2 suite runs one leg per test file, so the legs run in parallel and a
+        # failure names the resource that broke instead of a single `v2` job. Adding
+        # a test file under tests/functional/v2/ means adding a leg here (both the
+        # name and its include entry); test_ci_matrix_coverage.py fails otherwise.
+        #
+        # The v1 legs (file_asset, model, general_assets, apikey, agent,
+        # team_agent, benchmark) were deleted with v1 in PROD-2918.
+        suite: [
+          'actions-inputs',
+          'agent',
+          'agent-duplicate',
+          'agent-llm-persistence',
+          'api-key',
+          'arabic-agent',
+          'integration',
+          'model',
+          'rlm',
+          'session',
+          'skill',
+          'snake-case-e2e',
+          'tool',
+          'trigger',
         ]
         include:
-          - test-suite: 'v2'
-            path: 'tests/functional/v2'
-            timeout: 45
+          - suite: 'actions-inputs'
+            path: 'tests/functional/v2/test_actions_inputs.py'
+            timeout: 30
+          - suite: 'agent'
+            path: 'tests/functional/v2/test_agent.py'
+            timeout: 30
+          - suite: 'agent-duplicate'
+            path: 'tests/functional/v2/test_agent_duplicate.py'
+            timeout: 30
+          - suite: 'agent-llm-persistence'
+            path: 'tests/functional/v2/test_agent_llm_persistence.py'
+            timeout: 30
+          - suite: 'api-key'
+            path: 'tests/functional/v2/test_api_key.py'
+            timeout: 30
+          - suite: 'arabic-agent'
+            path: 'tests/functional/v2/test_arabic_agent.py'
+            timeout: 30
+          - suite: 'integration'
+            path: 'tests/functional/v2/test_integration.py'
+            timeout: 30
+          - suite: 'model'
+            path: 'tests/functional/v2/test_model.py'
+            timeout: 30
+          - suite: 'rlm'
+            path: 'tests/functional/v2/test_rlm.py'
+            timeout: 30
+          - suite: 'session'
+            path: 'tests/functional/v2/test_session.py'
+            timeout: 30
+          - suite: 'skill'
+            path: 'tests/functional/v2/test_skill.py'
+            timeout: 30
+          - suite: 'snake-case-e2e'
+            path: 'tests/functional/v2/test_snake_case_e2e.py'
+            timeout: 30
+          - suite: 'tool'
+            path: 'tests/functional/v2/test_tool.py'
+            timeout: 30
+          - suite: 'trigger'
+            path: 'tests/functional/v2/test_trigger.py'
+            timeout: 30
 
     steps:
       - name: Checkout repository
