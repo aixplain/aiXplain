@@ -180,10 +180,10 @@ Upload the `.db` file as a Resource first (keep it < 100 MB), then point the too
 
 ```python
 import time
-resource = aix.Resource(name=f"DB {int(time.time())}", file_path="business.db")
-resource.save()                                # uploads to S3, sets resource.url
+resource = aix.File(name=f"DB {int(time.time())}", source="business.db")
+resource.save()                                # uploads to S3
 sqlite_tool = aix.Tool(name="Business Database", description="Company sales data.",
-                       integration="689e06ed3ce71f58d73cc999", config={"url": resource.url})
+                       integration="689e06ed3ce71f58d73cc999", config={"url": resource.get_signed_url()})
 sqlite_tool.save()
 sqlite_tool.list_actions()                     # query, commit, schema
 sqlite_tool.run(action="query", data="SELECT * FROM products")

@@ -21,6 +21,7 @@ import logging
 import mimetypes
 import os
 import tempfile
+import warnings
 import zipfile
 from dataclasses import MISSING, dataclass, field, fields
 from pathlib import Path
@@ -33,7 +34,7 @@ from dataclasses_json import config, dataclass_json
 
 from aixplain.utils.url_safety import safe_get, validate_upload_url
 
-from .enums import FileType, Privacy
+from .enums import FileType, Privacy, SortBy
 from .exceptions import APIError, FileUploadError, ResourceError, ValidationError
 from .resource import (
     BaseDeleteParams,
@@ -43,7 +44,10 @@ from .resource import (
     DeleteResult,
     Page,
     SearchResourceMixin,
+    _filter_value,
+    _filter_values,
     _is_excluded_from_serialization,
+    _sort_direction,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,14 +60,15 @@ class FileSearchParams(BaseSearchParams):
         file_type: Filter by structural type (``file`` or ``folder``).
         parent_type: Filter by the parent asset's type.
         parent_id: Filter by parent folder id.
-        sort: Raw sort spec, e.g. ``[{"field": "createdAt", "dir": -1}]``
-            (defaults to newest first).
+        ownership, sort_by, sort_order: Inherited from :class:`BaseSearchParams`
+            like every other resource. ``sort_by`` accepts ``SortBy.NAME`` /
+            ``SortBy.CREATED_AT`` / ``SortBy.UPDATED_AT`` or a raw backend field
+            name; defaults to newest-created first.
     """
 
     file_type: NotRequired[Union[FileType, str]]
     parent_type: NotRequired[str]
     parent_id: NotRequired[str]
-    sort: NotRequired[List[Dict[str, Any]]]
 
 
 @dataclass_json
@@ -78,7 +83,6 @@ class File(
     Args:
         source: A local file, local directory, or HTTP(S) URL.
         name: Optional name overriding the name inferred from ``source``.
-        is_temp: Whether the source is still transient. A successful save sets this to ``False``.
         kwargs: Backend metadata used when hydrating an existing File.
     """
 
@@ -86,6 +90,11 @@ class File(
 
     source: Optional[str] = field(default=None, metadata=config(exclude=lambda _: True))
     file_type: FileType = field(default=FileType.FILE, metadata=config(field_name="fileType"))
+    # Internal only, not a constructor parameter: whether this File has been
+    # saved yet. The upload flow (``sdk/file/upload/temp-url`` claimed by
+    # ``POST sdk/file-asset``) has no permanent-vs-temporary switch to honor a
+    # caller's request either way, so there is nothing for a public ``is_temp``
+    # parameter to actually control; ``save()`` is what flips this to ``False``.
     is_temp: bool = field(default=True, metadata=config(field_name="isTemp"))
     children: List["File"] = field(default_factory=list)
     extension: Optional[str] = field(default=None, metadata=config(field_name="ext"))
@@ -97,15 +106,25 @@ class File(
     status: Optional[str] = None
     created_at: Optional[str] = field(default=None, metadata=config(field_name="createdAt"))
     updated_at: Optional[str] = field(default=None, metadata=config(field_name="updatedAt"))
+    # SDK-internal: the top-level asset id this node lives under (``get()``'s
+    # ``/children/recursive`` and a saved directory's tree set this on every
+    # child). ``None`` for a standalone root file/folder, where the node's own
+    # id already is the root. Never sent to or read from the wire.
+    _root_id: Optional[str] = field(default=None, repr=False, metadata=config(exclude=lambda _: True))
 
     def __init__(
         self,
         source: Optional[Union[str, os.PathLike[str]]] = None,
         name: Optional[str] = None,
-        is_temp: bool = True,
         **kwargs: Any,
     ) -> None:
         """Initialize a File without performing network writes."""
+        if "is_temp" in kwargs:
+            raise TypeError(
+                "File() no longer accepts 'is_temp': the upload flow has no way to honor a "
+                "caller's temp-vs-permanent choice either way, so it was never a real switch. "
+                "A new File starts as unsaved and save() is what persists it."
+            )
         if name is not None and not name.strip():
             raise ValidationError("File name cannot be empty")
         BaseResource.__init__(
@@ -125,7 +144,6 @@ class File(
                 setattr(self, item.name, item.default)
 
         self.source = os.fspath(source) if source is not None else None
-        self.is_temp = is_temp
         aliases = {
             "fileType": "file_type",
             "ext": "extension",
@@ -285,9 +303,15 @@ class File(
         return data
 
     def _rollback_directory_upload(self, root: Path, root_id: str) -> str:
-        """Best-effort delete of a partially-uploaded folder, for the failure message."""
+        """Best-effort delete of a partially-uploaded folder, for the failure message.
+
+        Uses ``request_raw``, not ``request``: the delete endpoint returns an
+        empty body, and ``request`` always calls ``.json()`` on the response —
+        which would make a *successful* rollback land in the ``except`` below
+        and misreport itself as failed.
+        """
         try:
-            self.context.client.request("delete", f"{self.RESOURCE_PATH}/{quote(root_id, safe='')}")
+            self.context.client.request_raw("delete", f"{self.RESOURCE_PATH}/{quote(root_id, safe='')}")
         except Exception:
             logger.warning("Failed to roll back partially uploaded folder %s (id=%s)", root, root_id, exc_info=True)
             return "The partially uploaded folder could not be automatically removed; delete it manually."
@@ -308,26 +332,30 @@ class File(
         root_id = root_data.get("id")
         if not root_id:
             raise ResourceError("Backend did not return an ID for the root folder")
-        # Track each directory's local Path -> its own File node (still being
+        # Track each directory's local Path -> its own backend id (still being
         # built), so newly created children attach to the right parent without
-        # depending on the backend echoing ``parentId`` back on create.
+        # depending on the backend echoing ``parentId`` back on create. Raw
+        # records are kept (not hydrated into File objects) until every upload
+        # in the walk has actually succeeded — see the comment on
+        # ``raw_records`` below for why.
         parents: Dict[Path, Optional[str]] = {root: None}
-        nodes: Dict[Path, "File"] = {}
-        top_level_children: List["File"] = []
+        raw_records: Dict[Path, Dict[str, Any]] = {}
+        # Path -> child Paths, keyed the same way ``parents`` is (``None`` slot
+        # unused; top-level children live under ``root`` itself).
+        raw_children: Dict[Path, List[Path]] = {root: []}
         try:
             for current, directory_names, file_names in os.walk(root):
                 directory_names.sort()
                 file_names.sort()
                 current_path = Path(current)
                 parent_id = parents[current_path]
-                parent_children = nodes[current_path].children if current_path in nodes else top_level_children
                 for directory_name in directory_names:
                     directory = current_path / directory_name
                     folder_data = self._create_child_folder(root_id, directory, parent_id)
                     parents[directory] = folder_data["id"]
-                    folder_node = self._from_data(folder_data)
-                    nodes[directory] = folder_node
-                    parent_children.append(folder_node)
+                    raw_records[directory] = folder_data
+                    raw_children[current_path].append(directory)
+                    raw_children[directory] = []
                 for file_name in file_names:
                     local_file = current_path / file_name
                     reference = self._upload_local_file(str(local_file))
@@ -342,14 +370,27 @@ class File(
                     file_data = self.context.client.post(
                         f"{self.RESOURCE_PATH}/{quote(root_id, safe='')}/file", json=body
                     )
-                    parent_children.append(self._from_data(file_data))
+                    raw_records[local_file] = file_data
+                    raw_children[current_path].append(local_file)
         except Exception as exc:
             rollback_note = self._rollback_directory_upload(root, root_id)
             raise ResourceError(
                 f"Directory upload for {root} stopped after a partial upload: {exc}. {rollback_note}"
             ) from exc
+
+        # Hydrate the tree only now that every upload has succeeded. Doing this
+        # inside the ``try`` above would make a purely local parsing error (an
+        # ``fileType``/``privacy`` value the SDK doesn't recognize yet) look
+        # exactly like an upload failure and roll back an otherwise fully
+        # uploaded folder.
+        def _hydrate(path: Path) -> "File":
+            node = self._from_data(raw_records[path])
+            node._root_id = root_id
+            node.children = [_hydrate(child) for child in raw_children.get(path, [])]
+            return node
+
         self._apply_data(root_data)
-        self.children = top_level_children
+        self.children = [_hydrate(path) for path in raw_children[root]]
 
     def save(self, **_: Any) -> "File":
         """Upload the source and persist it as a backend File asset.
@@ -401,9 +442,10 @@ class File(
 
         The backend's file-asset responses (create/get/paginate) never carry a
         stable ``url`` — it must be requested on demand through the same
-        signed-URL endpoint the platform UI uses to render media inline.
-        Addresses this File's own id as both the asset and the file node,
-        which the backend accepts for a standalone root file.
+        signed-URL endpoint the platform UI uses to render media inline. The
+        endpoint is ``{rootAssetId}/file/{fileId}/url``: a standalone root file
+        addresses itself both ways, but a child (from ``folder.children``)
+        must address its parent folder's asset id, tracked in ``_root_id``.
 
         Args:
             expires_in: Signed URL lifetime in seconds (backend default: 1
@@ -418,9 +460,26 @@ class File(
         if self.is_dir:
             raise ValidationError("Folders have no single signed url; use .download() instead")
         kwargs: Dict[str, Any] = {"params": {"expiresIn": expires_in}} if expires_in is not None else {}
+        encoded_root = quote(self._root_id or self.id, safe="")
         encoded_id = quote(self.id, safe="")
-        response = self.context.client.get(f"{self.RESOURCE_PATH}/{encoded_id}/file/{encoded_id}/url", **kwargs)
+        response = self.context.client.get(f"{self.RESOURCE_PATH}/{encoded_root}/file/{encoded_id}/url", **kwargs)
         return response["url"]
+
+    def build_delete_url(self, **kwargs: Any) -> str:
+        """Refuse to delete a non-root child node; there is no documented endpoint for one.
+
+        Only the root asset (a standalone File, or a folder as a whole) has a
+        confirmed delete endpoint (``DELETE {RESOURCE_PATH}/{id}``). A node
+        from ``folder.children`` carries a ``_root_id`` different from its own
+        ``id`` — deleting the *folder* removes it along with the rest of the
+        tree; there is no separate per-child delete to fall back on here.
+        """
+        if self._root_id and self._root_id != self.id:
+            raise ValidationError(
+                f"File '{self.name}' (id={self.id}) is a child under folder {self._root_id}; "
+                "delete the parent folder instead of an individual child node."
+            )
+        return super().build_delete_url(**kwargs)
 
     @classmethod
     def get(cls, identifier: str, recursive: bool = True) -> "File":
@@ -448,7 +507,15 @@ class File(
 
     @classmethod
     def _build_tree(cls, root_id: str, nodes: List[Dict[str, Any]]) -> List["File"]:
-        built = {str(node.get("id")): cls._from_data(node) for node in nodes}
+        built = {}
+        for node in nodes:
+            item = cls._from_data(node)
+            # Every node in a recursive-children response lives under this
+            # folder's own asset id (BUG: get_signed_url()/delete() used to
+            # address a child by its own id twice, which the backend only
+            # accepts for a root file).
+            item._root_id = root_id
+            built[str(node.get("id"))] = item
         roots: List[File] = []
         for node in nodes:
             item = built[str(node.get("id"))]
@@ -464,13 +531,38 @@ class File(
     # dropped, so a typo'd filter fails loudly instead of matching everything.
     _SEARCH_FILTER_KEYS = {"file_type": "fileType", "parent_type": "parentType", "parent_id": "parentId"}
     _SEARCH_KNOWN_KEYS = frozenset(
-        {"query", "page_number", "page_size", "sort", "resource_path", "api_key", "paginate_items_key", "strict"}
+        {
+            "query",
+            "page_number",
+            "page_size",
+            "sort_by",
+            "sort_order",
+            "ownership",
+            "resource_path",
+            "api_key",
+            "paginate_items_key",
+            "strict",
+        }
         | set(_SEARCH_FILTER_KEYS)
     )
+
+    # SortBy's UPPER_SNAKE values -> the backend's camelCase field names for
+    # the file-asset paginate endpoint's ``sort: [{field, dir}]`` shape.
+    _SORT_FIELD_BY_KEY = {
+        SortBy.NAME: "name",
+        SortBy.CREATED_AT: "createdAt",
+        SortBy.UPDATED_AT: "updatedAt",
+    }
 
     @classmethod
     def _populate_filters(cls, params: dict) -> dict:
         """Build the ``paginate`` request body for File assets.
+
+        Like every other resource, ``sort_by``/``sort_order``/``ownership``
+        (inherited from :class:`~aixplain.v2.resource.BaseSearchParams`) are
+        accepted here — mapped onto this endpoint's own
+        ``sort: [{field, dir}]`` wire shape rather than the raw shape being
+        exposed directly. Defaults to newest-created-first.
 
         Raises:
             ValidationError: If ``params`` carries a filter this resource does
@@ -480,12 +572,21 @@ class File(
         unknown = set(params) - cls._SEARCH_KNOWN_KEYS
         if unknown:
             raise ValidationError(f"File.search() received unsupported filter(s): {sorted(unknown)}")
+        sort_by = params.get("sort_by")
+        sort_field = cls._SORT_FIELD_BY_KEY.get(sort_by, _filter_value(sort_by)) if sort_by is not None else "createdAt"
+        sort_order = params.get("sort_order")
+        sort_dir = _sort_direction(sort_order) if sort_order is not None else -1
         body: Dict[str, Any] = {
             "q": params.get("query"),
             "pageNumber": params.get("page_number", cls.PAGINATE_DEFAULT_PAGE_NUMBER),
             "pageSize": params.get("page_size", cls.PAGINATE_DEFAULT_PAGE_SIZE),
-            "sort": params.get("sort") or [{"field": "createdAt", "dir": -1}],
+            "sort": [{"field": sort_field, "dir": sort_dir}],
         }
+        ownership = params.get("ownership")
+        if ownership is not None:
+            body["ownership"] = (
+                _filter_values(ownership) if isinstance(ownership, (list, tuple, set)) else _filter_value(ownership)
+            )
         for key, wire_key in cls._SEARCH_FILTER_KEYS.items():
             if params.get(key) is not None:
                 value = params[key]
@@ -517,7 +618,11 @@ class File(
         """
         if not self.id:
             raise ValidationError("File must be saved before it can be downloaded")
-        target = Path(destination if destination is not None else (self.name or "download")).expanduser()
+        # Sanitize before ever using the backend name as a bare filename: a
+        # name containing separators or ".." must not let a caller-omitted
+        # destination write outside the intended directory.
+        safe_name = Path(self.name).name if self.name else "download"
+        target = Path(destination if destination is not None else safe_name).expanduser()
         response = self.context.client.request_stream("GET", f"{self.RESOURCE_PATH}/{quote(self.id, safe='')}/download")
         if self.is_dir:
             target.mkdir(parents=True, exist_ok=True)
@@ -540,9 +645,9 @@ class File(
                 archive_path.unlink(missing_ok=True)
             return str(target)
         if target.exists() and target.is_dir():
-            target = target / (self.name or "download")
+            target = target / safe_name
         elif str(destination).endswith(os.sep):
-            target = target / (self.name or "download")
+            target = target / safe_name
         target.parent.mkdir(parents=True, exist_ok=True)
         temporary = target.with_name(f".{target.name}.part")
         try:
@@ -556,6 +661,21 @@ class File(
         return str(target)
 
 
-Resource = File
-
 __all__ = ["File", "Resource"]
+
+
+def __getattr__(name: str) -> Any:
+    """PEP 562: warn on the deprecated ``Resource`` alias, matching ``Aixplain().Resource``.
+
+    ``Resource`` is deliberately not a plain module attribute: importing this
+    module — including transitively, through ``aixplain.v2`` — must never warn
+    by itself. Only an actual access to the deprecated name does.
+    """
+    if name == "Resource":
+        warnings.warn(
+            "`aixplain.v2.file.Resource` is deprecated; use `File` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return File
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

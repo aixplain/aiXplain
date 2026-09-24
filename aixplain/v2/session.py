@@ -245,6 +245,16 @@ def resolve_attachments(
             stacklevel=3,
         )
         for file_path in files:
+            # ``files`` has only ever accepted local paths — a File (or a dict,
+            # or anything else) here used to be silently stringified into a
+            # bogus "path" and fail with a confusing "local file ... not
+            # found". Name the actual mistake instead: point at `attachments`.
+            if not isinstance(file_path, (str, Path)):
+                where = f" for {error_label}" if error_label else ""
+                raise ResourceError(
+                    f"`files` only accepts local paths{where}; pass {type(file_path).__name__} "
+                    "entries through `attachments` instead."
+                )
             resolved.append(_upload(str(file_path)))
 
     return resolved
@@ -748,7 +758,7 @@ class Session(
         role: str,
         content: str,
         request_id: Optional[str] = None,
-        attachments: Optional[List[Union[str, Path, Dict[str, Any]]]] = None,
+        attachments: Optional[List[Union[str, Path, Dict[str, Any], File]]] = None,
         files: Optional[List[Union[str, Path]]] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> SessionMessage:
@@ -805,7 +815,7 @@ class Session(
 
     def _resolve_attachments(
         self,
-        attachments: Optional[List[Union[str, Path, Dict[str, Any]]]],
+        attachments: Optional[List[Union[str, Path, Dict[str, Any], File]]],
         files: Optional[List[Union[str, Path]]],
     ) -> List[Dict[str, Any]]:
         """Resolve the unified ``attachments`` (+ deprecated ``files``) for this session.

@@ -691,6 +691,15 @@ class TestSessionMessages:
             assert payload["attachments"][0]["name"] == "photo.png"
             assert payload["attachments"][0]["type"] == "image"
 
+    def test_add_message_files_rejects_a_file_object_with_a_clear_error(self):
+        """A File passed through the deprecated, local-path-only `files` must fail clearly."""
+        ctx = _make_mock_context()
+        session = self._make_session(ctx)
+        document = File(id="file-1", name="handbook.pdf", fileType="file")
+
+        with pytest.raises(ResourceError, match="only accepts local paths"):
+            session.add_message(role="user", content="q", files=[document])
+
     def test_add_message_merges_attachments_and_files(self):
         ctx = _make_mock_context()
         ctx.client.request.return_value = SAMPLE_MESSAGE_DICT

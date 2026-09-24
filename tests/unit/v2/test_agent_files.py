@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from aixplain import Aixplain
+from aixplain.v2.file import File
 
 
 @pytest.fixture
@@ -45,6 +46,33 @@ def test_agent_accepts_file_ids_and_backend_dicts(aix):
         {"id": "file-id"},
         {"id": "folder-id", "name": "reference"},
     ]
+
+
+def test_agent_accepts_file_id_dicts(aix):
+    """A dict keyed by fileId (not id) must still hydrate and serialize correctly."""
+    agent = aix.Agent(name="doc-agent", files=[{"fileId": "f-1", "name": "handbook.pdf"}])
+
+    hydrated = agent.files[0]
+    assert isinstance(hydrated, aix.File)
+    assert hydrated.id == "f-1"
+    assert agent.build_save_payload()["files"] == [{"id": "f-1", "name": "handbook.pdf"}]
+
+
+def test_unsaved_file_from_the_module_class_keeps_its_source(aix, tmp_path: Path):
+    """A File built off the unbound module class (not aix.File) must not be treated as fetched."""
+    path = tmp_path / "notes.txt"
+    path.write_text("notes")
+    document = File(path)
+
+    agent = aix.Agent(name="doc-agent", files=[document])
+
+    # Hydration must have left it exactly as given: no id to hydrate from
+    # would otherwise rebuild it through File._from_data, losing ``source``
+    # (excluded from to_dict()) and wrongly flipping is_temp to False.
+    assert agent.files[0] is document
+    assert document.source is not None
+    assert document.id is None
+    assert document.is_temp is True
 
 
 def test_agent_rejects_unsaved_file(aix, tmp_path: Path):
@@ -120,6 +148,21 @@ def test_mutating_fetched_agent_files_changes_next_save_payload(aix):
     assert agent.build_save_payload()["files"] == [
         {"id": "first-id", "name": "first.txt"},
         {"id": "second-id", "name": "second.txt"},
+    ]
+
+
+def test_editing_a_referenced_files_description_marks_the_agent_modified(aix):
+    """A description-only edit on a referenced File must flip is_modified — the save payload persists it."""
+    document = aix.File(id="file-id", name="handbook.pdf", description="old")
+    agent = aix.Agent(id="agent-id", name="doc-agent", files=[document])
+    agent._update_saved_state()
+    assert agent.is_modified is False
+
+    document.description = "new description"
+
+    assert agent.is_modified is True
+    assert agent.build_save_payload()["files"] == [
+        {"id": "file-id", "name": "handbook.pdf", "description": "new description"}
     ]
 
 

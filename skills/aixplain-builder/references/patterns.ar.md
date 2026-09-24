@@ -30,9 +30,9 @@ agent.save()
 استعلامات بلغة طبيعية على قاعدة بيانات.
 ```python
 import time
-resource = aix.Resource(name=f"DB {int(time.time())}", file_path="sales.db"); resource.save()
+resource = aix.File(name=f"DB {int(time.time())}", source="sales.db"); resource.save()
 db = aix.Tool(name="Sales DB", description="Sales database",
-              integration="689e06ed3ce71f58d73cc999", config={"url": resource.url})
+              integration="689e06ed3ce71f58d73cc999", config={"url": resource.get_signed_url()})
 db.allowed_actions = ["query", "schema"]; db.save()
 agent = aix.Agent(name="Data Analyst", description="Answers questions about sales data",
     instructions="Inspect the schema, then query. Read-only — never modify data.", tools=[db])
