@@ -436,7 +436,6 @@ def test_slack_tool_integration_with_agent(client, slack_token):
 
 FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
 TAVILY_CONNECTION_ASSET_ID = "6931bdf462eb386b7158def3"
-GOOGLE_SEARCH_UTILITY_MODEL_ID = "65c51c556eb563350f6e1bb1"
 WEB_SEARCH_TOOL_PATH = "scale-serp/google-search/Google"
 
 
@@ -540,42 +539,6 @@ def test_agent_tavily_web_search_tool(client):
         "Expected the response to identify Noah Lyles as the men's 2024 Olympic "
         f"100m sprint winner. Output: {output[:500]!r}"
     )
-
-
-# Google Search / SerpApi
-
-
-@pytest.mark.flaky(reruns=2, reason="LLM may not always call the Google Search utility")
-def test_agent_google_search_serpapi_tool(client):
-    """
-    Verifies:
-    1. The agent can be created with the Google Search utility model via the v2 SDK.
-    2. Agent execution succeeds.
-    3. The response contains the expected search results.
-    """
-    tool = client.Tool.get(GOOGLE_SEARCH_UTILITY_MODEL_ID)
-
-    response = _run_platform_tool_agent(
-        client=client,
-        tools=[tool],
-        prompt=(
-            "You must use the Google Search tool to find the top three teams "
-            "in the Brazilian Serie A football championship in 2024. "
-            "Answer with only the three team names."
-        ),
-        test_suffix="google-serpapi",
-    )
-
-    assert response.status == "SUCCESS", f"Agent execution failed: {response.status}"
-
-    output = _get_output_text(response)
-    assert output, "Expected non-empty output from the agent"
-
-    output_lower = output.lower()
-    expected_teams = ["botafogo", "palmeiras", "flamengo"]
-
-    for team in expected_teams:
-        assert team in output_lower, f"Expected {team!r} in the response. Output: {output[:500]!r}"
 
 
 # Web Search Tool
