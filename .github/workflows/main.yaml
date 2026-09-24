@@ -274,7 +274,7 @@ jobs:
             path: 'tests/functional/v2/test_actions_inputs.py'
             timeout: 30
           - suite: 'agent'
-            path: 'tests/functional/v2/test_agent.py'
+            path: 'tests/functional/v2/test_agent.py -n 4'
             timeout: 30
           - suite: 'agent-duplicate'
             path: 'tests/functional/v2/test_agent_duplicate.py'

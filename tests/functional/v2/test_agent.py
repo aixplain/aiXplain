@@ -2,6 +2,7 @@ import re
 
 import pytest
 import time
+import uuid
 from aixplain.v2 import AssetStatus, ResponseStatus
 from aixplain.v2.exceptions import APIError
 
@@ -9,8 +10,10 @@ from aixplain.v2.exceptions import APIError
 @pytest.fixture(scope="module")
 def test_agent(client):
     """Create a test agent dynamically for testing and clean up after tests complete."""
+    # Each xdist worker builds its own copy of this module fixture, so the name
+    # needs more than a timestamp to stay unique.
     agent = client.Agent(
-        name=f"Functional Test Agent {int(time.time())}",
+        name=f"Functional Test Agent {int(time.time())}-{uuid.uuid4().hex[:6]}",
         description="A temporary agent for functional testing",
         instructions="You are a helpful test agent. Respond briefly to questions.",
     )
