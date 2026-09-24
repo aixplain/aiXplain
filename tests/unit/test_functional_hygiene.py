@@ -67,28 +67,12 @@ _CREATING_METHODS = ("save", "deploy", "update")
 # ---------------------------------------------------------------------------
 
 #: Files that still end a cleanup `except` with a bare `pass`, and why they are
-#: not fixed here. BUG-947's file list is apikey, file_asset, data_asset,
-#: benchmark, sql_tool and test_rlm plus the four `resource_tracker` copies;
-#: apikey, file_asset and data_asset are fixed, sql_tool and test_rlm create
-#: nothing on a backend to leak (local SQLite files, already removed in a
-#: `finally`, and an in-process RLM handle), benchmark is covered by
-#: BENCHMARK_UNDELETABLE below, and every one of these files is a `v2` or
-#: `agent` module outside that list. Declared rather than silently tolerated,
-#: following PARKED_TARGETS
-#: in test_ci_matrix_coverage.py: adopting the shared `resource_tracker` fixture
-#: is a one-line change per test, so each entry is a small, separately reviewable
-#: follow-up rather than 39 unrelated edits bolted onto the production-mutation
-#: fix. Dropping an entry as it is fixed is the intended direction of travel; the
-#: guard exists so the count cannot grow.
-SWALLOWED_CLEANUP_BACKLOG = {
-    "tests/functional/v2/test_agent.py": "2 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_agent_duplicate.py": "9 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_agent_llm_persistence.py": "1 site; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_session.py": "11 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_snake_case_e2e.py": "4 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_tool.py": "4 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_trigger.py": "3 sites; adopt resource_tracker (BUG-947 follow-up)",
-}
+#: not fixed yet. Empty: the last seven `v2` modules on it moved to the shared
+#: `resource_tracker` / `module_resource_tracker` fixtures (BUG-947 follow-up).
+#: Declared rather than silently tolerated, following PARKED_TARGETS in
+#: test_ci_matrix_coverage.py, so if an entry is ever needed again it has to be
+#: written down here; the guard exists so the count cannot grow.
+SWALLOWED_CLEANUP_BACKLOG = {}
 
 
 def _python_files(directory: Path) -> list:

@@ -6,6 +6,7 @@ Strategy:
 """
 
 import time
+import uuid
 
 import pytest
 
@@ -15,7 +16,7 @@ from aixplain.v2.integration import ActionInputSpec, ActionSpec
 class TestToolDictFieldsRoundTrip:
     """as_tool() produces snake_case keys; save must convert them so the backend stores the value."""
 
-    def test_asset_id_round_trips_through_backend(self, client):
+    def test_asset_id_round_trips_through_backend(self, client, resource_tracker):
         """Set asset_id (renamed from assetId) via as_tool(), save agent, fetch back, compare."""
         model = client.Model.get("69b7e5f1b2fe44704ab0e7d0")  # GPT-5.4
         tool_dict = model.as_tool()
@@ -26,29 +27,24 @@ class TestToolDictFieldsRoundTrip:
 
         # Save an agent carrying this tool
         agent = client.Agent(
-            name=f"asset_id roundtrip {int(time.time())}",
+            name=f"asset_id roundtrip {int(time.time())}-{uuid.uuid4().hex[:6]}",
             instructions="test",
             tools=[model],
         )
         agent.save()
+        resource_tracker.append(agent)
 
-        try:
-            # Read the raw payload: Agent.get hydrates tools into objects, so
-            # the backend's camelCase keys are only visible on the wire shape.
-            raw_agent = client.client.request("get", f"sdk/agents/{agent.id}")
-            saved_tool = raw_agent["assets"][0]
+        # Read the raw payload: Agent.get hydrates tools into objects, so
+        # the backend's camelCase keys are only visible on the wire shape.
+        raw_agent = client.client.request("get", f"sdk/agents/{agent.id}")
+        saved_tool = raw_agent["assets"][0]
 
-            # Backend stores the tool's asset_id under "assetId"
-            assert saved_tool["assetId"] == sent_asset_id, (
-                f"asset_id we sent ({sent_asset_id}) != assetId backend returned ({saved_tool.get('assetId')})"
-            )
-        finally:
-            try:
-                agent.delete()
-            except Exception:
-                pass
+        # Backend stores the tool's asset_id under "assetId"
+        assert saved_tool["assetId"] == sent_asset_id, (
+            f"asset_id we sent ({sent_asset_id}) != assetId backend returned ({saved_tool.get('assetId')})"
+        )
 
-    def test_allow_multi_and_supports_variables_round_trip(self, client):
+    def test_allow_multi_and_supports_variables_round_trip(self, client, resource_tracker):
         """get_parameters() returns allow_multi / supports_variables; verify values survive save."""
         model = client.Model.get("69b7e5f1b2fe44704ab0e7d0")
         params = model.get_parameters()
@@ -61,35 +57,30 @@ class TestToolDictFieldsRoundTrip:
 
         # Save an agent with this model tool (params embedded in the payload)
         agent = client.Agent(
-            name=f"params roundtrip {int(time.time())}",
+            name=f"params roundtrip {int(time.time())}-{uuid.uuid4().hex[:6]}",
             instructions="test",
             tools=[model],
         )
         agent.save()
+        resource_tracker.append(agent)
 
-        try:
-            # Read the raw payload: Agent.get hydrates tools into objects, so
-            # the backend's camelCase keys are only visible on the wire shape.
-            raw_agent = client.client.request("get", f"sdk/agents/{agent.id}")
-            saved_params = raw_agent["assets"][0].get("parameters", [])
-            assert saved_params, "Backend should return the tool parameters we sent"
+        # Read the raw payload: Agent.get hydrates tools into objects, so
+        # the backend's camelCase keys are only visible on the wire shape.
+        raw_agent = client.client.request("get", f"sdk/agents/{agent.id}")
+        saved_params = raw_agent["assets"][0].get("parameters", [])
+        assert saved_params, "Backend should return the tool parameters we sent"
 
-            saved_sample = next((p for p in saved_params if p.get("name") == sample["name"]), None)
-            assert saved_sample is not None, f"Parameter {sample['name']} missing from saved payload"
-            # Backend returns camelCase keys in the raw dict
-            assert saved_sample["allowMulti"] == sent_allow_multi, (
-                f"allow_multi we sent ({sent_allow_multi}) "
-                f"!= allowMulti backend returned ({saved_sample.get('allowMulti')})"
-            )
-            assert saved_sample["supportsVariables"] == sent_supports_variables, (
-                f"supports_variables we sent ({sent_supports_variables}) "
-                f"!= supportsVariables backend returned ({saved_sample.get('supportsVariables')})"
-            )
-        finally:
-            try:
-                agent.delete()
-            except Exception:
-                pass
+        saved_sample = next((p for p in saved_params if p.get("name") == sample["name"]), None)
+        assert saved_sample is not None, f"Parameter {sample['name']} missing from saved payload"
+        # Backend returns camelCase keys in the raw dict
+        assert saved_sample["allowMulti"] == sent_allow_multi, (
+            f"allow_multi we sent ({sent_allow_multi}) "
+            f"!= allowMulti backend returned ({saved_sample.get('allowMulti')})"
+        )
+        assert saved_sample["supportsVariables"] == sent_supports_variables, (
+            f"supports_variables we sent ({sent_supports_variables}) "
+            f"!= supportsVariables backend returned ({saved_sample.get('supportsVariables')})"
+        )
 
 
 class TestInputActionFieldsRoundTrip:
@@ -154,18 +145,15 @@ class TestInputActionFieldsRoundTrip:
 
 
 @pytest.fixture(scope="module")
-def test_agent(client):
+def test_agent(client, module_resource_tracker):
     """Ephemeral agent for run-param tests."""
     agent = client.Agent(
-        name=f"snake_case run params {int(time.time())}",
+        name=f"snake_case run params {int(time.time())}-{uuid.uuid4().hex[:6]}",
         instructions="Reply with the single word 'pong' regardless of input.",
     )
     agent.save()
-    yield agent
-    try:
-        agent.delete()
-    except Exception:
-        pass
+    module_resource_tracker.append(agent)
+    return agent
 
 
 class TestAgentRunParamsKwargs:
@@ -175,24 +163,19 @@ class TestAgentRunParamsKwargs:
     call agent.run() with the snake_case kwarg → backend accepts and responds.
     """
 
-    def test_session(self, client, test_agent):
+    def test_session(self, client, test_agent, resource_tracker):
         """session=… routes the run through the session and reflects the id in the response."""
         agent = client.Agent.get(test_agent.id)
         session = client.Session(agent=agent, name="snake_case_test")
         session.save()
+        resource_tracker.append(session)
         sid = session.id
 
-        try:
-            response = agent.run("ping", session=session)
+        response = agent.run("ping", session=session)
 
-            assert response.status == "SUCCESS"
-            assert response.data.session_id is not None
-            assert sid in response.data.session_id
-        finally:
-            try:
-                session.delete()
-            except Exception:
-                pass
+        assert response.status == "SUCCESS"
+        assert response.data.session_id is not None
+        assert sid in response.data.session_id
 
     def test_execution_params(self, client, test_agent):
         """execution_params (renamed from executionParams) reaches the backend.

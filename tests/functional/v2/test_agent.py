@@ -2,27 +2,24 @@ import re
 
 import pytest
 import time
+import uuid
 from aixplain.v2 import AssetStatus, ResponseStatus
 from aixplain.v2.exceptions import APIError
 
 
 @pytest.fixture(scope="module")
-def test_agent(client):
+def test_agent(client, module_resource_tracker):
     """Create a test agent dynamically for testing and clean up after tests complete."""
+    # Each xdist worker builds its own copy of this module fixture, so the name
+    # needs more than a timestamp to stay unique.
     agent = client.Agent(
-        name=f"Functional Test Agent {int(time.time())}",
+        name=f"Functional Test Agent {int(time.time())}-{uuid.uuid4().hex[:6]}",
         description="A temporary agent for functional testing",
         instructions="You are a helpful test agent. Respond briefly to questions.",
     )
     agent.save()
-
-    yield agent
-
-    # Cleanup after all tests in module complete
-    try:
-        agent.delete()
-    except Exception:
-        pass  # Ignore cleanup errors
+    module_resource_tracker.append(agent)
+    return agent
 
 
 def validate_agent_structure(agent):
@@ -239,11 +236,11 @@ def _get_steps(response):
     return steps
 
 
-def test_agent_creation_and_deletion(client):
+def test_agent_creation_and_deletion(client, resource_tracker):
     """Test agent creation and deletion workflow."""
     # Create a test agent
     agent = client.Agent(
-        name=f"Test Agent for Deletion {int(time.time())}",
+        name=f"Test Agent for Deletion {int(time.time())}-{uuid.uuid4().hex[:6]}",
         description="A temporary agent for testing creation and deletion",
         instructions="You are a test agent for testing purposes only",
     )
@@ -255,6 +252,7 @@ def test_agent_creation_and_deletion(client):
 
     # Save the agent to get an ID
     agent.save()
+    resource_tracker.append(agent)
 
     # Verify the agent now has an ID
     assert agent.id is not None
@@ -273,6 +271,7 @@ def test_agent_creation_and_deletion(client):
 
     # Clean up - delete the agent
     delete_result = agent.delete()
+    resource_tracker.mark_cleaned(agent)
 
     # Verify deletion was successful
     assert delete_result is not None
@@ -321,14 +320,14 @@ def test_agent_field_mappings(client, test_agent):
     reason="Backend rejects the Slack send-message payload: 'Unsupported Slack send message field(s). "
     "text: Use markdown_text for normal content, or fallback_text with blocks.'"
 )
-def test_slack_tool_integration_with_agent(client, slack_token):
+def test_slack_tool_integration_with_agent(client, slack_token, resource_tracker):
     """Test Slack tool integration with agent creation and execution."""
     # Get Slack integration
     integration = client.Integration.get("686432941223092cb4294d3f")  # Slack integration ID
 
     # Create Slack tool
     slack_tool = client.Tool(
-        name=f"test-slack-tool-{int(time.time())}",
+        name=f"test-slack-tool-{int(time.time())}-{uuid.uuid4().hex[:6]}",
         integration=integration,
         config={"token": slack_token},
         allowed_actions=["SLACK_SEND_MESSAGE"],
@@ -341,6 +340,7 @@ def test_slack_tool_integration_with_agent(client, slack_token):
 
     # Save tool before running
     slack_tool.save()
+    resource_tracker.append(slack_tool)
 
     # Test tool execution
     test_message = "Hello from aixplain functional test!"
@@ -368,7 +368,7 @@ def test_slack_tool_integration_with_agent(client, slack_token):
 
     # Create agent with the Slack tool
     agent = client.Agent(
-        name=f"test-slack-agent-{int(time.time())}",
+        name=f"test-slack-agent-{int(time.time())}-{uuid.uuid4().hex[:6]}",
         description="A test agent with Slack integration",
         instructions="You are a test agent that can post messages to Slack",
         tools=[slack_tool],
@@ -382,6 +382,7 @@ def test_slack_tool_integration_with_agent(client, slack_token):
 
     # Save the agent to get an ID
     agent.save()
+    resource_tracker.append(agent)
 
     # Verify the agent now has an ID
     assert agent.id is not None
@@ -427,10 +428,6 @@ def test_slack_tool_integration_with_agent(client, slack_token):
         or agent_response.status == "SUCCESS"
     )
 
-    # Clean up - delete the agent and tool
-    agent.delete()
-    # Note: Tool deletion may not be implemented yet, but agent deletion should work
-
 
 # Platform tool helpers
 
@@ -449,32 +446,24 @@ def _get_output_text(response) -> str:
     return ""
 
 
-def _run_platform_tool_agent(client, tools: list, prompt: str, test_suffix: str):
-    """Create a temporary agent with the given tools, run it, and clean up."""
+def _run_platform_tool_agent(client, tracker, tools: list, prompt: str, test_suffix: str):
+    """Create a temporary agent with the given tools, register it with ``tracker``, and run it."""
     agent = client.Agent(
-        name=f"platform-tool-test-{test_suffix}-{int(time.time())}",
+        name=f"platform-tool-test-{test_suffix}-{int(time.time())}-{uuid.uuid4().hex[:6]}",
         description="Temporary agent for platform tool functional testing",
         instructions="You are a helpful test agent. Always use the tool provided to answer questions.",
         tools=tools,
     )
     agent.save()
-
-    try:
-        response = agent.run(prompt)
-    finally:
-        try:
-            agent.delete()
-        except Exception:
-            pass
-
-    return response
+    tracker.append(agent)
+    return agent.run(prompt)
 
 
 # Firecrawl
 
 
 @pytest.mark.flaky(reruns=2, reason="LLM may not always choose to call the scrape action")
-def test_agent_firecrawl_scrape_tool(client):
+def test_agent_firecrawl_scrape_tool(client, resource_tracker):
     """
     Verifies:
     1. The agent can be created with the Firecrawl tool via the v2 SDK.
@@ -485,6 +474,7 @@ def test_agent_firecrawl_scrape_tool(client):
 
     response = _run_platform_tool_agent(
         client=client,
+        tracker=resource_tracker,
         tools=[tool],
         prompt=(
             "You must use the Firecrawl scrape tool to scrape https://aixplain.com/. "
@@ -509,7 +499,7 @@ def test_agent_firecrawl_scrape_tool(client):
 
 
 @pytest.mark.flaky(reruns=2, reason="LLM may not always invoke Tavily")
-def test_agent_tavily_web_search_tool(client):
+def test_agent_tavily_web_search_tool(client, resource_tracker):
     """
     Verifies:
     1. The agent can be created with the Tavily search tool via the v2 SDK.
@@ -520,6 +510,7 @@ def test_agent_tavily_web_search_tool(client):
 
     response = _run_platform_tool_agent(
         client=client,
+        tracker=resource_tracker,
         tools=[tool],
         prompt=(
             "You must use the Tavily web search tool to look up who won "
@@ -545,7 +536,7 @@ def test_agent_tavily_web_search_tool(client):
 
 
 @pytest.mark.flaky(reruns=2, reason="LLM may not always invoke the Web Search tool")
-def test_agent_web_search_tool(client):
+def test_agent_web_search_tool(client, resource_tracker):
     """
     Verifies:
     1. The agent can be created with the Web Search tool via the v2 SDK.
@@ -556,6 +547,7 @@ def test_agent_web_search_tool(client):
 
     response = _run_platform_tool_agent(
         client=client,
+        tracker=resource_tracker,
         tools=[tool],
         prompt=(
             "You must use the Web Search tool to look up who won the "
