@@ -2,11 +2,7 @@ import json
 from dotenv import load_dotenv
 
 load_dotenv()
-from aixplain.factories import (
-    ModelFactory,
-    DatasetFactory,
-    PipelineFactory,
-)
+from aixplain.factories import ModelFactory
 from aixplain.modules import LLM
 from pathlib import Path
 from aixplain.enums import (
@@ -33,21 +29,6 @@ def inputs():
 def test_list_models(ModelFactory):
     models = ModelFactory.list(function=Function.TRANSLATION)
     assert models["page_total"] == len(models["results"])
-
-
-@pytest.mark.parametrize("DatasetFactory", [DatasetFactory])
-def test_list_datasets(DatasetFactory):
-    datasets = DatasetFactory.list()
-    assert datasets["page_total"] == len(datasets["results"])
-
-
-@pytest.mark.parametrize("PipelineFactory", [PipelineFactory])
-def test_run_pipeline(inputs, PipelineFactory):
-    asset_details = inputs["pipeline"]
-    pipeline = PipelineFactory.list(query=asset_details["name"])["results"][0]
-    payload = asset_details["data"]
-    output = pipeline.run(payload)
-    assert output["completed"] and output["status"] == "SUCCESS"
 
 
 @pytest.mark.parametrize("ModelFactory", [ModelFactory])

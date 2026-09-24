@@ -4,6 +4,15 @@ loaders:
     search_path: ["./"]
     packages: ["aixplain"]
 
+# Defaults are [filter, smart, crossref]; spelled out to slot ours in before
+# `smart`, which strips the indentation RST literal blocks depend on. Imported by
+# dotted path, so the repo root must be on PYTHONPATH (see docs.yaml).
+processors:
+  - type: filter
+  - type: docs_rst_processor.RstProcessor
+  - type: smart
+  - type: crossref
+
 renderer:
   type: docusaurus
   docs_base_path: docs
@@ -11,6 +20,9 @@ renderer:
   relative_sidebar_path: api_sidebar.js
   sidebar_top_level_label: "Python API reference"
   markdown:
+    # Defaults to true, which HTML-escapes docstrings and mangles code spans.
+    # MDX-safe escaping happens in post_process_docs.py instead.
+    escape_html_in_docstring: false
     source_linker:
       type: github
       repo: aixplain/aiXplain
