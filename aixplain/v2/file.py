@@ -32,7 +32,7 @@ from dataclasses_json import config, dataclass_json
 
 from aixplain.utils.url_safety import safe_get, validate_upload_url
 
-from .enums import FileType, Privacy
+from .enums import FileType, FileTypeValue, Privacy, PrivacyValue
 from .exceptions import APIError, FileUploadError, ResourceError, ValidationError
 from .resource import BaseResource, Page, _is_excluded_from_serialization
 
@@ -54,7 +54,7 @@ class File(BaseResource):
     RESOURCE_PATH = "sdk/file-asset"
 
     source: Optional[str] = field(default=None, metadata=config(exclude=lambda _: True))
-    file_type: FileType = field(default=FileType.FILE, metadata=config(field_name="fileType"))
+    file_type: Union[FileType, FileTypeValue] = field(default=FileType.FILE, metadata=config(field_name="fileType"))
     is_temp: bool = field(default=True, metadata=config(field_name="isTemp"))
     children: List["File"] = field(default_factory=list)
     extension: Optional[str] = field(default=None, metadata=config(field_name="ext"))
@@ -62,7 +62,7 @@ class File(BaseResource):
     parent_id: Optional[str] = field(default=None, metadata=config(field_name="parentId"))
     relative_path: Optional[str] = field(default=None, metadata=config(field_name="relativePath"))
     tags: List[str] = field(default_factory=list)
-    privacy: Privacy = Privacy.PRIVATE
+    privacy: Union[Privacy, PrivacyValue] = Privacy.PRIVATE
     whitelist: List[Any] = field(default_factory=list)
     status: Optional[str] = None
     created_at: Optional[str] = field(default=None, metadata=config(field_name="createdAt"))

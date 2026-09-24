@@ -205,32 +205,37 @@ Keys come from Team settings → API keys (`https://app.aixplain.com/team/settin
 
 ```python
 from datetime import datetime
-from aixplain.v2 import APIKey, APIKeyLimits, TokenType   # also: from aixplain.v2.api_key import ...
 
 # Admin key: create a member key with per-asset + global limits, a budget and an expiry
 new_key = aix_admin.APIKey(
     name="member-key-prod",
-    asset_limits=[APIKeyLimits(
-        model="6646261c6eb563165658bbb1",          # asset ID or path
-        token_per_minute=300_000, token_per_day=144_000_000,
-        request_per_minute=60, request_per_day=28_800,
-        token_type=TokenType.OUTPUT,               # INPUT | OUTPUT | TOTAL; omit = input+output
-    )],
-    global_limits=APIKeyLimits(token_per_minute=100, token_per_day=1000,
-                               request_per_minute=100, request_per_day=1000),
+    asset_limits=[{
+        "model": "6646261c6eb563165658bbb1",       # asset ID or path
+        "token_per_minute": 300_000,
+        "token_per_day": 144_000_000,
+        "request_per_minute": 60,
+        "request_per_day": 28_800,
+        "token_type": "output",                    # "input" | "output" | "total"; omit = input+output
+    }],
+    global_limits={
+        "token_per_minute": 100, "token_per_day": 1000,
+        "request_per_minute": 100, "request_per_day": 1000,
+    },
     budget=1000,                                   # total credits; raise the value to top up
     expires_at=datetime(2030, 1, 1),               # omit for a non-expiring key
 ).save()
 
-# Edit an existing key — by ID, or by the key string itself
-key = APIKey.get("your-api-key-id")
+# Edit an existing key — get() takes a key ID, the key value itself, or the key's name
+key = aix_admin.APIKey.get("your-api-key-id")
 key = aix_admin.APIKey.get_by_access_key("TARGET_MEMBER_API_KEY")   # when you hold the secret, not the ID
 print(key.id, key.name, key.is_admin, key.global_limits, key.asset_limits)
-key.asset_limits = [APIKeyLimits(model="669a63646eb56306647e1091", request_per_minute=2)]
+key.asset_limits = [{"model": "669a63646eb56306647e1091", "request_per_minute": 2}]
 key.save()
 
 aix_admin.APIKey.search()          # list every key in the workspace — admin only
 ```
+
+Limits are plain dicts on the field names above; an unknown key raises and names the accepted fields. All four dimensions are sent on every write — the backend rejects a partial payload — so a dimension you leave out goes as `0`; set every one you care about. Reading them back gives `APIKeyLimits` objects (`key.asset_limits[0].token_per_minute`), and `APIKeyLimits(...)`/`TokenType.OUTPUT` still work if you prefer them: `from aixplain import APIKeyLimits, TokenType`.
 
 Global and per-asset limits are **both** enforced — whichever is stricter bites first; global does not override per-model. Enforcement lives in the **Access layer inside AgenticOS** and covers every invocation path (REST, SDK, an agent's backbone LLM including team agents, and multi-agent pipelines), so capping a model caps it workspace-wide. Over-limit requests are **rejected immediately, not queued**, and limit changes take effect at the **start of the next timeframe** (next minute / next day).
 
@@ -242,19 +247,14 @@ Rate-limit errors surface as HTTP **497** (aiXplain per-minute) or **429**. Othe
 
 1 credit = $1 USD. Models/tools/integrations bill at vendor rates (0% margin). Deployed **agents** add a 20% markup over the sum of model + tool calls (covers orchestration, the planner/orchestrator/inspector micro-agents, memory, validation). Track spend via `response.used_credits` or the transaction history at `https://app.aixplain.com/team/settings?tab=usage`.
 
-## What the v2 SDK does NOT cover (legacy v1 only)
+## What the SDK does NOT cover
 
-The unified `aix.*` client (`from aixplain import Aixplain`) is agent/model/tool-centric. **Pipelines, fine-tuning, benchmarking, and datasets/corpora have no v2 API.** They exist only in the legacy v1 factories — which now carry a **hard removal date of 2027-02-01** (`aixplain._compat.V1_REMOVAL_DATE`, verified in the installed package). Importing v1 code emits an `AixplainV1DeprecationWarning` once per process; silence it with `AIXPLAIN_SUPPRESS_V1_DEPRECATION=1`. The porting map is **MIGRATION.md** (`https://github.com/aixplain/aiXplain/blob/main/MIGRATION.md`) — it is not shipped inside the wheel, so an installed copy has no local file. The removal date is contingent on closing the eight factory gaps MIGRATION.md lists, but plan for it rather than against it.
+The unified `aix.*` client (`from aixplain import Aixplain`) is agent/model/tool-centric. **Pipelines, fine-tuning, benchmarking, and datasets/corpora have no Python API.** They existed only in the v1 factories, which were removed in SDK 0.3.0 and have no v2 replacement.
 
-```python
-# Legacy v1 — only if the user explicitly needs these capabilities
-from aixplain.factories import PipelineFactory, FinetuneFactory, BenchmarkFactory, DatasetFactory, CorpusFactory
-pipeline = PipelineFactory.get("<pipeline_id>")
-result = pipeline.run("input")
-```
+Reach them through aiXplain Studio or the REST endpoints at `https://platform-api.aixplain.com`. A project that cannot move off them can pin `aiXplain==0.2.48`, the last release that contained v1 — but that release gets no further updates, so treat it as a hold.
 
-For **pipelines**, prefer building visually in aiXplain Studio and then running by ID (Studio, REST `https://platform-api.aixplain.com` pipeline endpoints, or the v1 `PipelineFactory`). The current Python v2 SDK has no pipeline builder. If a user asks to "build a pipeline" in Python, tell them this and offer either Studio or the equivalent as a **team agent** (which is the v2-native way to compose multi-step workflows).
+For **pipelines**, build visually in aiXplain Studio and run by ID (Studio or the REST pipeline endpoints). The Python SDK has no pipeline builder. If a user asks to "build a pipeline" in Python, tell them this and offer either Studio or the equivalent as a **team agent** (which is the SDK-native way to compose multi-step workflows).
 
 ## v1 → v2 migration
 
-Use `from aixplain import Aixplain; aix = Aixplain(api_key=...)` then `aix.Agent` / `aix.Model` / `aix.Tool`. Avoid the deprecated v1 `aixplain.factories.*` (`AgentFactory`, `ModelFactory`, …) for anything the v2 client covers. If you see old factory code, port it to the `aix.*` equivalents.
+Use `from aixplain import Aixplain; aix = Aixplain(api_key=...)` then `aix.Agent` / `aix.Model` / `aix.Tool`. The v1 `aixplain.factories.*` imports (`AgentFactory`, `ModelFactory`, …) no longer resolve; importing one raises an error naming its `aix.*` replacement. If you see old factory code, port it.

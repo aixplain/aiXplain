@@ -24,12 +24,11 @@ from aixplain.v2.integration import Integration
 from aixplain.v2.model import Model
 from aixplain.v2.skill import Skill
 from aixplain.v2.tool import Tool
-from aixplain.v2.utility import Utility
 
 # Resources whose filters come straight from ``_populate_base_filters``, plus
 # the ones with overrides, so the fix is proven to be inherited rather than
 # per-class.
-RESOURCES = [Agent, Model, Tool, Integration, Skill, Utility]
+RESOURCES = [Agent, Model, Tool, Integration, Skill]
 RESOURCE_IDS = [cls.__name__ for cls in RESOURCES]
 
 

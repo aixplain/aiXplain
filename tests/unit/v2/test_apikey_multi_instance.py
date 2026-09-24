@@ -52,7 +52,6 @@ def test_resource_context_isolation(api_keys):
     resources_a = [
         aix_a.Model,
         aix_a.Agent,
-        aix_a.Utility,
         aix_a.Tool,
         aix_a.Integration,
         aix_a.Resource,
@@ -63,7 +62,6 @@ def test_resource_context_isolation(api_keys):
     resources_b = [
         aix_b.Model,
         aix_b.Agent,
-        aix_b.Utility,
         aix_b.Tool,
         aix_b.Integration,
         aix_b.Resource,

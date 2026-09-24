@@ -35,10 +35,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "main.yaml"
 
-#: Directories that hold modules but no __init__.py. They resolve only because
-#: `namespaces = true`; see aixplain/_compat.py for the redirects that reach
-#: them (aixplain.base -> aixplain.v1.base, aixplain.factories -> ...).
-NAMESPACE_ONLY_DIRS = ("aixplain/v1/base", "aixplain/v1/factories/cli")
+#: Package directories the wheel must carry. Spelled out rather than derived so
+#: that a subpackage vanishing from the build is a failure here and not a silent
+#: pass over a shorter list.
+REQUIRED_PACKAGE_DIRS = ("aixplain", "aixplain/v2", "aixplain/utils", "aixplain/exceptions")
 
 
 @pytest.fixture(scope="module")
@@ -65,9 +65,8 @@ def _package_dirs() -> list[str]:
 def test_the_scan_finds_the_packages_it_is_meant_to_check():
     """Without this the assertions below could pass vacuously on an empty list."""
     dirs = _package_dirs()
-    assert len(dirs) > 20, f"only {len(dirs)} package dirs found under aixplain/: {dirs}"
-    for namespace_dir in NAMESPACE_ONLY_DIRS:
-        assert namespace_dir in dirs, f"{namespace_dir} no longer holds modules; update NAMESPACE_ONLY_DIRS"
+    for required in REQUIRED_PACKAGE_DIRS:
+        assert required in dirs, f"{required} holds no modules; the scan below would not cover it"
 
 
 def test_every_package_dir_is_matched_by_an_include_pattern(find_config):
@@ -107,15 +106,21 @@ def test_the_test_suite_is_not_packaged(find_config):
     assert not matched, f"include={include} would ship the test suite to users via {matched}"
 
 
-def test_namespaces_stays_enabled(find_config):
-    """`namespaces = false` would drop the two __init__-less dirs back out."""
-    missing_init = [d for d in NAMESPACE_ONLY_DIRS if not (REPO_ROOT / d / "__init__.py").exists()]
-    if not missing_init:
-        pytest.skip("every namespace-only dir gained an __init__.py; this guard is moot")
-    assert find_config.get("namespaces") is True, (
-        f"namespaces=true is load-bearing: {missing_init} have no __init__.py and are "
-        "imported through the aixplain._compat redirector, so flipping it produces a wheel "
-        "that looks complete but breaks aixplain.enums"
+def test_namespaces_disabled_only_while_every_package_has_an_init(find_config):
+    """`namespaces = false` is safe exactly while no package dir lacks an __init__.py.
+
+    v1 shipped two __init__-less directories (aixplain/v1/base,
+    aixplain/v1/factories/cli) that only reached the wheel because this was
+    `true`. They went with v1, so the setting was turned off -- but adding
+    another __init__-less directory would now silently drop it from the build,
+    which is the ENG-3543 failure mode again.
+    """
+    missing_init = [d for d in _package_dirs() if not (REPO_ROOT / d / "__init__.py").exists()]
+    if find_config.get("namespaces") is True:
+        return  # explicitly re-enabled; nothing can be dropped
+    assert not missing_init, (
+        f"namespaces=false but {missing_init} have no __init__.py, so setuptools will "
+        "discard them from the wheel. Add an __init__.py, or set namespaces = true."
     )
 
 

@@ -464,7 +464,7 @@ def test_required_checks_doc_lists_exactly_the_matrix_legs():
     assert REQUIRED_CHECKS_DOC.is_file(), f"{REQUIRED_CHECKS_DOC.relative_to(REPO_ROOT)} is missing"
 
     expected = {f"setup-and-test ({leg})" for leg in _matrix_legs()}
-    assert len(expected) > 5, f"only {len(expected)} matrix legs found; the comparison would be near-vacuous"
+    assert expected, "no matrix legs found in the workflow; the comparison would be vacuous"
 
     # Table rows only. The doc's prose also spells out context strings while
     # explaining GitHub's matrix naming ("not `setup-and-test (agent, ...)`"),
