@@ -439,14 +439,14 @@ def test_the_job_holding_the_oidc_token_runs_no_repository_code():
 
 
 def _matrix_legs() -> list[str]:
-    """The `setup-and-test` matrix leg names, from main.yaml.
+    """The `functional` matrix leg names, from main.yaml.
 
     GitHub names a matrix job `<job> (<base matrix values>)`; keys contributed
     only by `include` (`path`, `timeout`) are not part of the name, so the
-    contexts are `setup-and-test (agent)` and so on.
+    contexts are `functional (agent)` and so on.
     """
-    matrix = _load(MAIN_WORKFLOW)["jobs"]["setup-and-test"]["strategy"]["matrix"]
-    return list(matrix["test-suite"])
+    matrix = _load(MAIN_WORKFLOW)["jobs"]["functional"]["strategy"]["matrix"]
+    return list(matrix["suite"])
 
 
 def test_required_checks_doc_lists_exactly_the_matrix_legs():
@@ -463,16 +463,16 @@ def test_required_checks_doc_lists_exactly_the_matrix_legs():
     """
     assert REQUIRED_CHECKS_DOC.is_file(), f"{REQUIRED_CHECKS_DOC.relative_to(REPO_ROOT)} is missing"
 
-    expected = {f"setup-and-test ({leg})" for leg in _matrix_legs()}
+    expected = {f"functional ({leg})" for leg in _matrix_legs()}
     assert expected, "no matrix legs found in the workflow; the comparison would be vacuous"
 
     # Table rows only. The doc's prose also spells out context strings while
-    # explaining GitHub's matrix naming ("not `setup-and-test (agent, ...)`"),
+    # explaining GitHub's matrix naming ("not `functional (agent, ...)`"),
     # and those illustrations are the opposite of what should be pasted into
     # settings. The table is the list a human copies from, so the table is what
     # has to match.
     rows = [line for line in REQUIRED_CHECKS_DOC.read_text().splitlines() if line.lstrip().startswith("|")]
-    documented = set(re.findall(r"`(setup-and-test \([^`)]+\))`", "\n".join(rows)))
+    documented = set(re.findall(r"`(functional \([^`)]+\))`", "\n".join(rows)))
 
     assert documented == expected, (
         "docs/ci/required-checks.md and main.yaml's matrix disagree. "

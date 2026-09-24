@@ -20,28 +20,28 @@ contexts and the order in which they can safely be turned on.
 ## Contexts, in tiers
 
 GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed only by `include`
-(here `path` and `timeout`) are **not** part of the name, so the `setup-and-test` legs appear as
-`setup-and-test (agent)`, not `setup-and-test (agent, tests/functional/agent, 45)`.
+(here `path` and `timeout`) are **not** part of the name, so the `functional` legs appear as
+`functional (agent)`, not `functional (agent, tests/functional/v2/test_agent.py, 30)`.
 
 | Tier | Context | Workflow | Runs on a PR today? | Precondition to require |
 | ---- | ------- | -------- | ------------------- | ----------------------- |
 | 1 | `pre-commit` | `pre-commit.yaml` | Yes (`push: '**'`) | None — requireable as soon as it is green |
 | 1 | `unit-coverage` | `main.yaml` | **No** | `main.yaml` gains a `pull_request` trigger |
 | 1 | `package-integrity` | `main.yaml` | **No** | `main.yaml` gains a `pull_request` trigger |
-| 2 | `setup-and-test (v2-actions-inputs)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-agent)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-agent-duplicate)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-agent-llm-persistence)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-api-key)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-arabic-agent)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-integration)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-model)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-rlm)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-session)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-skill)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-snake-case-e2e)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-tool)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
-| 2 | `setup-and-test (v2-trigger)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (actions-inputs)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (agent)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (agent-duplicate)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (agent-llm-persistence)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (api-key)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (arabic-agent)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (integration)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (model)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (rlm)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (session)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (skill)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (snake-case-e2e)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (tool)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (trigger)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 
 The `file_asset`, `model`, `general_assets`, `apikey`, `agent` and `team_agent` legs exercised v1
 exclusively and were deleted with it (PROD-2918).
@@ -53,7 +53,7 @@ The Tier 2 legs consume `TEAM_API_KEY` and hit live backend assets, so their red
 backend-availability problem rather than an SDK regression. Require each one only once that is no
 longer true for it.
 
-`tests/unit/test_ci_permissions.py` asserts that the `setup-and-test (...)` list above matches
+`tests/unit/test_ci_permissions.py` asserts that the `functional (...)` list above matches
 `main.yaml`'s matrix exactly, so adding, renaming, or deleting a leg fails a unit test instead of
 silently leaving a stale required-context list here.
 
@@ -61,7 +61,7 @@ silently leaving a stale required-context list here.
 
 `main.yaml` triggers only on `push` to `main` and `test`, plus `workflow_dispatch`. A PR from a
 feature branch therefore never produces a `unit-coverage`, `package-integrity`, or
-`setup-and-test (...)` check. Marking those contexts required **right now** would leave every PR
+`functional (...)` check. Marking those contexts required **right now** would leave every PR
 permanently "Expected — Waiting for status to be reported": a merge deadlock, not a merge gate.
 
 `pre-commit.yaml` triggers on `push` to `'**'`, so `pre-commit` is the only context that reports on

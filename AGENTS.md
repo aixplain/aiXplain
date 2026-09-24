@@ -161,7 +161,7 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
 - **Unit tests**: `tests/unit/` -- fast, mocked, no network calls.
 - **Functional tests**: `tests/functional/` -- integration tests against real or staged services.
 - **Mock data**: `tests/mock_responses/` -- JSON fixtures for API responses.
-- **CI**: GitHub Actions runs the credential-free unit suite plus one functional leg per `tests/functional/v2/test_*.py` file (`v2-agent`, `v2-model`, ...) on Python 3.9 with a 30-minute timeout each. A new functional test file needs its own leg in `.github/workflows/main.yaml`; `tests/unit/test_ci_matrix_coverage.py` fails otherwise.
+- **CI**: GitHub Actions runs the credential-free unit suite plus one functional leg per `tests/functional/v2/test_*.py` file (`agent`, `model`, ...) on Python 3.9 with a 30-minute timeout each. A new functional test file needs its own leg in `.github/workflows/main.yaml`; `tests/unit/test_ci_matrix_coverage.py` fails otherwise.
 - **Docstrings in tests**: Not enforced (ruff ignores `D` rules for `tests/**/*.py`).
 - Prefer targeted unit tests under `tests/unit/v2/`.
 
