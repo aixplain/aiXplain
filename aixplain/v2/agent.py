@@ -2759,3 +2759,48 @@ def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
 
 
 Agent.from_dict = classmethod(_agent_from_dict)
+
+
+# Same story for ``to_dict``: ``@dataclass_json`` injects its own, so the role
+# refs are re-attached here rather than in the class body.
+#
+# ``llm`` / ``supervisor`` / ``planner`` / ``response_generator`` carry
+# ``exclude=lambda x: True`` because ``build_save_payload`` emits the nested
+# ``AgentModelInput`` wire shape by hand. But ``exclude`` applies to *every*
+# ``to_dict()``, including the public dump, so the roles vanished from it
+# entirely — and since ``llm`` declares ``DEFAULT_LLM`` as its dataclass
+# default, ``Agent.from_dict(agent.to_dict())`` silently rebuilt the agent
+# pointing at the SDK default model instead of the chosen one (the other three
+# roles came back as ``None``). Re-attaching them under the same wire keys the
+# ``_decode_role_ref`` decoder reads makes the dump round-trip.
+#
+# ``build_save_payload`` is unaffected: it calls ``_apply_llm_fields_to_payload``
+# after ``to_dict()``, which overwrites every role key with the save manifest or
+# pops it (unset roles, and the BUG-1093 default-suppression case).
+_dataclass_json_agent_to_dict = Agent.to_dict
+
+
+def _role_ref_to_public_dict(ref: RoleModelRef) -> Union[str, Dict[str, Any]]:
+    """Return a JSON-safe dump of *ref* that preserves the caller's shape.
+
+    A ``Model`` becomes its ``{id, parameters?}`` manifest — dumping it as-is
+    would make ``dataclasses_json`` recurse into the object and raise on its
+    ``context`` descriptor. A string id or an already-decoded dict is returned
+    untouched, so ``llm="some-id"`` survives a dump/load as the same string
+    rather than turning into a dict.
+    """
+    if isinstance(ref, Model):
+        return Agent._role_ref_to_save_manifest(ref)
+    return ref
+
+
+def _agent_to_dict(self: Agent, encode_json: bool = False) -> Dict[str, Any]:
+    result = _dataclass_json_agent_to_dict(self, encode_json=encode_json)
+    for spec in _ROLES:
+        ref = getattr(self, spec.attr, None)
+        if ref is not None:
+            result[spec.save_key] = _role_ref_to_public_dict(ref)
+    return result
+
+
+Agent.to_dict = _agent_to_dict

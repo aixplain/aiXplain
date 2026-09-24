@@ -7,6 +7,7 @@ platform's ``NameValueInput`` shape — keeps the GraphQL schema agnostic to
 specific parameter names).
 """
 
+import json
 from typing import Any, List, Optional
 
 from unittest.mock import Mock
@@ -197,3 +198,92 @@ class TestAgentLlmInputParametersInSavePayload:
             "responseGeneratorId",
         ):
             assert legacy_key not in payload
+
+
+class TestRoleRefsSurviveToDict:
+    """``to_dict()`` must round-trip role refs, not silently drop them.
+
+    ``to_dict()`` is the public dump API (and what experiment / provenance
+    snapshots capture). The role fields are ``exclude=lambda x: True`` so the
+    *save* path can emit the nested ``AgentModelInput`` shape by hand — but that
+    marker also stripped them from every ``to_dict()``, so
+    ``Agent.from_dict(agent.to_dict())`` silently reset ``llm`` to
+    ``Agent.DEFAULT_LLM`` and the other three roles to ``None``.
+    """
+
+    def test_string_role_refs_round_trip_unchanged(self):
+        """All four roles survive a dump/load as the same string ids."""
+        agent = Agent(
+            name="n",
+            description="d",
+            llm="llm-id",
+            supervisor="sup-id",
+            planner="planner-id",
+            response_generator="rg-id",
+        )
+
+        restored = Agent.from_dict(agent.to_dict())
+
+        assert restored.llm == "llm-id"
+        assert restored.supervisor == "sup-id"
+        assert restored.planner == "planner-id"
+        assert restored.response_generator == "rg-id"
+
+    def test_dumped_llm_is_not_silently_replaced_by_the_sdk_default(self):
+        """The regression that motivated this: a chosen llm came back as the default."""
+        agent = Agent(name="n", description="d", llm="a-deliberately-chosen-llm")
+
+        dumped = agent.to_dict()
+
+        assert dumped["model"] == "a-deliberately-chosen-llm"
+        assert Agent.from_dict(dumped).llm != Agent.DEFAULT_LLM
+
+    def test_model_role_ref_is_serialized_not_recursed_into(self):
+        """A ``Model`` ref dumps as the id/parameters manifest (and stays JSON-safe)."""
+        llm = _reasoning_model("model-ref-1")
+        llm.inputs.reasoning_effort = "low"
+        agent = Agent(name="n", description="d", llm=llm)
+
+        dumped = agent.to_dict()
+
+        assert dumped["model"]["id"] == "model-ref-1"
+        assert _params_as_dict(dumped["model"]["parameters"]) == {"reasoningEffort": "low"}
+        # Parameters survive the round trip, flattened for in-Python access.
+        assert Agent.from_dict(dumped).llm == {
+            "id": "model-ref-1",
+            "parameters": {"reasoningEffort": "low"},
+        }
+
+    def test_unset_roles_are_omitted(self):
+        """Roles left unset stay out of the dump; only ``llm`` has a default."""
+        agent = Agent(name="n", description="d")
+
+        dumped = agent.to_dict()
+
+        assert dumped["model"] == Agent.DEFAULT_LLM
+        for absent in ("supervisor", "planner", "responder"):
+            assert absent not in dumped
+
+    def test_role_change_marks_the_agent_modified(self):
+        """``is_modified`` reads ``to_dict()``, so a swapped llm now registers.
+
+        It previously did not: on a draft agent that made ``before_run`` skip the
+        implicit save, so the run silently used the *old* model — the same class
+        of silent model loss as the dump/load bug above.
+        """
+        agent = Agent.from_dict({"id": "a1", "name": "n", "description": "d", "model": {"id": "llm-1"}})
+        agent._update_saved_state()
+        assert agent.is_modified is False
+
+        agent.llm = "llm-2"
+
+        assert agent.is_modified is True
+
+    def test_to_dict_is_json_serializable(self):
+        """A dump is only useful if it survives ``json.dumps`` (``Model`` refs included)."""
+        agent = Agent(name="n", description="d", llm=_reasoning_model("m-json"), supervisor="sup-id")
+
+        reloaded = json.loads(json.dumps(agent.to_dict()))
+
+        assert reloaded["model"]["id"] == "m-json"
+        assert reloaded["supervisor"] == "sup-id"
