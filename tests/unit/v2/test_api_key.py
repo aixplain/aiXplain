@@ -91,13 +91,17 @@ class TestAPIKeyLimits:
     """Tests for APIKeyLimits class."""
 
     def test_create_limits_with_defaults(self):
-        """Limits should have default values of 0."""
+        """Every dimension defaults to unset, not to zero.
+
+        Zero was indistinguishable from "I did not set this", so a limit that
+        set only ``token_per_minute`` sent zeros for the other three.
+        """
         limits = APIKeyLimits()
 
-        assert limits.token_per_minute == 0
-        assert limits.token_per_day == 0
-        assert limits.request_per_minute == 0
-        assert limits.request_per_day == 0
+        assert limits.token_per_minute is None
+        assert limits.token_per_day is None
+        assert limits.request_per_minute is None
+        assert limits.request_per_day is None
         assert limits.model is None
         assert limits.token_type is None
 
@@ -693,8 +697,8 @@ class TestAPIKey:
 
         assert result["tokenType"] == "total"
 
-    def test_api_key_limits_to_api_dict_none_token_type(self):
-        """_limits_to_api_dict() should serialize None token_type as None."""
+    def test_api_key_limits_to_api_dict_sends_none_token_type(self):
+        """An unset token_type is sent as null, as it was before 0.3.0."""
         limits = APIKeyLimits(
             token_per_minute=100,
             token_per_day=1000,
@@ -706,6 +710,7 @@ class TestAPIKey:
         result = APIKey._limits_to_api_dict(limits)
 
         assert result["tokenType"] is None
+        assert result == {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100, "tokenType": None}
 
     def test_api_key_parse_limits_static_method(self):
         """_parse_limits() static method should parse dicts and pass through objects."""
@@ -847,12 +852,18 @@ class TestAPIKeyList:
 
 
 class TestAPIKeyGet:
-    """Tests for APIKey get functionality via GetResourceMixin."""
+    """Tests for APIKey get functionality via GetResourceMixin.
+
+    The ids here are real ObjectId-shaped values on purpose: ``get()`` sends an
+    ID-shaped argument straight to the by-ID endpoint and resolves anything else
+    from a listing first, so that a key *value* never becomes a URL path segment.
+    A fixture like ``"key123"`` would silently exercise the listing path instead.
+    """
 
     def test_api_key_get_returns_api_key(self):
         """get() should return APIKey object."""
         response_data = {
-            "id": "key123",
+            "id": "6414bd3cd09663e9225130e8",
             "name": "Test Key",
             "accessKey": "abc...xyz",
             "isAdmin": False,
@@ -865,18 +876,18 @@ class TestAPIKeyGet:
         class MockAPIKey(APIKey):
             context = Mock(client=mock_client)
 
-        api_key = MockAPIKey.get("key123")
+        api_key = MockAPIKey.get("6414bd3cd09663e9225130e8")
 
         assert isinstance(api_key, APIKey)
-        assert api_key.id == "key123"
+        assert api_key.id == "6414bd3cd09663e9225130e8"
         assert api_key.name == "Test Key"
         assert api_key.budget == 1000.0
-        mock_client.get.assert_called_once_with("sdk/api-keys/key123")
+        mock_client.get.assert_called_once_with("sdk/api-keys/6414bd3cd09663e9225130e8")
 
     def test_api_key_get_parses_nested_limits(self):
         """get() should parse nested limits via from_dict."""
         response_data = {
-            "id": "key123",
+            "id": "6414bd3cd09663e9225130e8",
             "name": "Test Key",
             "globalLimits": {"tpm": 100, "tpd": 1000, "rpm": 10, "rpd": 100},
             "assetsLimits": [{"tpm": 50, "tpd": 500, "rpm": 5, "rpd": 50, "assetId": "model1"}],
@@ -888,7 +899,7 @@ class TestAPIKeyGet:
         class MockAPIKey(APIKey):
             context = Mock(client=mock_client)
 
-        api_key = MockAPIKey.get("key123")
+        api_key = MockAPIKey.get("6414bd3cd09663e9225130e8")
 
         assert api_key.global_limits is not None
         assert api_key.global_limits.token_per_minute == 100
@@ -897,7 +908,7 @@ class TestAPIKeyGet:
     def test_api_key_get_parses_token_type(self):
         """get() should parse tokenType from API response."""
         response_data = {
-            "id": "key123",
+            "id": "6414bd3cd09663e9225130e8",
             "name": "Test Key",
             "globalLimits": {
                 "tpm": 100,
@@ -924,7 +935,7 @@ class TestAPIKeyGet:
         class MockAPIKey(APIKey):
             context = Mock(client=mock_client)
 
-        api_key = MockAPIKey.get("key123")
+        api_key = MockAPIKey.get("6414bd3cd09663e9225130e8")
 
         assert api_key.global_limits.token_type == TokenType.TOTAL
         assert api_key.asset_limits[0].token_type == TokenType.OUTPUT
@@ -943,14 +954,14 @@ class TestAPIKeyDelete:
         mock_client = Mock()
         mock_client.request_raw = Mock(return_value=Mock())
 
-        api_key = APIKey(id="key123", name="Test Key")
+        api_key = APIKey(id="6414bd3cd09663e9225130e8", name="Test Key")
         api_key.context = Mock(client=mock_client)
 
         api_key.delete()
 
         assert api_key.is_deleted is True
         assert api_key.id is None
-        mock_client.request_raw.assert_called_once_with("delete", "sdk/api-keys/key123")
+        mock_client.request_raw.assert_called_once_with("delete", "sdk/api-keys/6414bd3cd09663e9225130e8")
 
 
 # =============================================================================
@@ -1149,7 +1160,7 @@ class TestAPIKeyUsage:
             ]
         )
 
-        api_key = APIKey(id="key123", name="Test Key")
+        api_key = APIKey(id="6414bd3cd09663e9225130e8", name="Test Key")
         api_key.context = Mock(client=mock_client)
 
         usage_limits = api_key.get_usage()
@@ -1180,7 +1191,7 @@ class TestAPIKeyUsage:
             ]
         )
 
-        api_key = APIKey(id="key123", name="Test Key")
+        api_key = APIKey(id="6414bd3cd09663e9225130e8", name="Test Key")
         api_key.context = Mock(client=mock_client)
 
         usage_limits = api_key.get_usage(model="model1")
@@ -1203,7 +1214,7 @@ class TestAPIKeyUsage:
             ]
         )
 
-        api_key = APIKey(id="key123", name="Test Key")
+        api_key = APIKey(id="6414bd3cd09663e9225130e8", name="Test Key")
         api_key.context = Mock(client=mock_client)
 
         model_obj = Mock(path="openai/gpt-4o-mini/openai", id="model_id")

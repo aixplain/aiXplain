@@ -5,6 +5,8 @@ This module provides all enum types used throughout the v2 SDK.
 
 from enum import Enum
 
+from typing_extensions import Literal
+
 
 class AuthenticationScheme(str, Enum):
     """Authentication schemes supported by integrations."""
@@ -309,6 +311,180 @@ class AttachmentType(str, Enum):
     UNKNOWN = "unknown"
 
 
+# ---------------------------------------------------------------------------
+# Plain-data forms of the input enums
+#
+# Every enum below is one a *caller* passes in, so each has a ``Literal`` alias
+# naming its accepted strings. They are what makes ``privacy="Private"`` type-
+# check without importing ``Privacy``: every enum here subclasses ``str``, so the
+# plain string already worked at runtime, and only the annotation was missing.
+#
+# Output-only enums (``ResponseStatus``, ``OnboardStatus``, ``RunStatus``,
+# ``SessionStatus``) deliberately have no alias -- nothing passes one in, so an
+# alias would only be another name to keep in sync. The full classification is
+# recorded in docs/v2-plain-data.md.
+#
+# ``tests/unit/v2/test_plain_data_inputs.py`` fails if an alias drifts from the
+# members of the enum it describes, so adding a member is caught here rather
+# than by a caller whose valid value a type checker rejects.
+# ---------------------------------------------------------------------------
+
+
+AssetStatusValue = Literal[
+    "draft",
+    "hidden",
+    "scheduled",
+    "onboarding",
+    "onboarded",
+    "pending",
+    "failed",
+    "training",
+    "rejected",
+    "enabling",
+    "deleting",
+    "disabled",
+    "deleted",
+    "in_progress",
+    "completed",
+    "canceling",
+    "canceled",
+    "deprecated_draft",
+]
+
+AttachmentTypeValue = Literal[
+    "text",
+    "image",
+    "video",
+    "audio",
+    "document",
+    "code",
+    "unknown",
+]
+
+AuthenticationSchemeValue = Literal[
+    "BEARER_TOKEN",
+    "OAUTH1",
+    "OAUTH2",
+    "API_KEY",
+    "BASIC",
+    "NO_AUTH",
+]
+
+DataTypeValue = Literal[
+    "audio",
+    "float",
+    "image",
+    "integer",
+    "label",
+    "tensor",
+    "text",
+    "video",
+    "embedding",
+    "number",
+    "boolean",
+]
+
+FileTypeValue = Literal[
+    "file",
+    "folder",
+]
+
+FunctionValue = Literal[
+    "SEARCH",
+    "TRANSLATION",
+    "SENTIMENT_ANALYSIS",
+    "CLASSIFICATION",
+    "QUESTION_ANSWERING",
+    "TEXT_GENERATION",
+    "SPEECH_RECOGNITION",
+    "IMAGE_CLASSIFICATION",
+    "OBJECT_DETECTION",
+    "utilities",
+    "guardrails",
+    "text-to-image-generation",
+    "image-generation",
+    "video-generation",
+    "text-to-video-generation",
+    "image-to-video-generation",
+    "speech-synthesis",
+    "text-to-speech",
+    "text-to-audio",
+    "voice-cloning",
+]
+
+LanguageValue = Literal[
+    "ENGLISH",
+    "SPANISH",
+    "FRENCH",
+    "GERMAN",
+    "ITALIAN",
+    "PORTUGUESE",
+    "CHINESE",
+    "JAPANESE",
+    "KOREAN",
+    "ARABIC",
+    "HINDI",
+    "RUSSIAN",
+]
+
+LicenseValue = Literal[
+    "MIT",
+    "APACHE_2_0",
+    "GPL_3_0",
+    "BSD_3_CLAUSE",
+    "CC_BY_4_0",
+    "CC_BY_SA_4_0",
+    "PROPRIETARY",
+]
+
+OwnershipTypeValue = Literal[
+    "PRIVATE",
+    "PUBLIC",
+    "TEAM",
+]
+
+PrivacyValue = Literal[
+    "Public",
+    "Private",
+    "Restricted",
+]
+
+SortByValue = Literal[
+    "NAME",
+    "CREATED_AT",
+    "UPDATED_AT",
+]
+
+SortOrderValue = Literal[
+    "ASC",
+    "DESC",
+]
+
+SplittingOptionsValue = Literal[
+    "word",
+    "sentence",
+    "passage",
+    "page",
+    "line",
+]
+
+StorageTypeValue = Literal[
+    "S3",
+    "LOCAL",
+    "GCS",
+    "AZURE",
+]
+
+SupplierValue = Literal[
+    "OPENAI",
+    "ANTHROPIC",
+    "GOOGLE",
+    "META",
+    "HUGGINGFACE",
+    "COHERE",
+    "AIXPLAIN",
+]
+
 __all__ = [
     "AuthenticationScheme",
     "FileContentType",
@@ -336,4 +512,20 @@ __all__ = [
     "MessageRole",
     "Reaction",
     "AttachmentType",
+    # Plain-data (Literal) forms of the input enums
+    "AssetStatusValue",
+    "AttachmentTypeValue",
+    "AuthenticationSchemeValue",
+    "DataTypeValue",
+    "FileTypeValue",
+    "FunctionValue",
+    "LanguageValue",
+    "LicenseValue",
+    "OwnershipTypeValue",
+    "PrivacyValue",
+    "SortByValue",
+    "SortOrderValue",
+    "SplittingOptionsValue",
+    "StorageTypeValue",
+    "SupplierValue",
 ]

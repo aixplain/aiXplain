@@ -104,23 +104,22 @@ If you see `latitude: null` in a trace, this is why.
 
 | Surface | Call site | When |
 |---|---|---|
-| v2 `Agent.build_run_payload` | `aixplain/v2/agent.py` | every direct v2 agent run (`agent.run` / `agent.run_async`) |
-| v1 `Agent.run_async` | `aixplain/v1/modules/agent/__init__.py` | every v1 agent run (`run` delegates to `run_async`) |
-| v1 `Agent.generate_session_id` | `aixplain/v1/modules/agent/__init__.py` | v1 session bootstrap |
-| v1 `TeamAgent.run_async` | `aixplain/v1/modules/team_agent/__init__.py` | every v1 team-agent run |
-| v1 `TeamAgent.generate_session_id` | `aixplain/v1/modules/team_agent/__init__.py` | v1 team-agent session bootstrap |
+| `Agent.build_run_payload` | `aixplain/v2/agent.py` | every direct agent run (`agent.run` / `agent.run_async`) |
 
-Direct v2 agent runs reach the single v2 call site through
+The four v1 call sites (`Agent.run_async`, `Agent.generate_session_id`,
+`TeamAgent.run_async`, `TeamAgent.generate_session_id`) went with v1 in 0.3.0.
+
+Direct agent runs reach the single call site through
 `RunnableResourceMixin._post_and_handle_run`, which calls `build_run_payload`. A v2 run
 routed through a session (`agent.run(query, session=…)`) does not go through
 `build_run_payload` at all — see below.
 
 **These do _not_ send `metaData`:**
 
-- v2 session messages — `agent.run(query, session=...)` posts to
+- Session messages — `agent.run(query, session=...)` posts to
   `/v1/sessions/{id}/messages` with `role`, `content`, `requestId`, `attachments` and
   `tools` only.
-- Model runs and pipeline runs.
+- Model runs.
 - Every non-run endpoint: create, list, search, get, update, delete.
 
 ---

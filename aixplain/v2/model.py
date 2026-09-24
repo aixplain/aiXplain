@@ -27,7 +27,16 @@ from .resource import (
     _filter_values,
     _sort_direction,
 )
-from .enums import Function, Supplier, Language, AssetStatus, ResponseStatus
+from .enums import (
+    AssetStatus,
+    Function,
+    FunctionValue,
+    Language,
+    LanguageValue,
+    ResponseStatus,
+    Supplier,
+    SupplierValue,
+)
 from .mixins import ToolableMixin, ToolDict
 from .exceptions import ValidationError
 from .actions import Actions, Action, Inputs
@@ -663,9 +672,9 @@ class ModelSearchParams(BaseSearchParams):
     """Search parameters for model queries."""
 
     functions: NotRequired[List[str]]
-    vendors: NotRequired[Union[str, Supplier, List[Union[str, Supplier]]]]
-    source_languages: NotRequired[Union[Language, List[Language]]]
-    target_languages: NotRequired[Union[Language, List[Language]]]
+    vendors: NotRequired[Union[SupplierValue, Supplier, List[Union[SupplierValue, Supplier]]]]
+    source_languages: NotRequired[Union[LanguageValue, Language, List[Union[LanguageValue, Language]]]]
+    target_languages: NotRequired[Union[LanguageValue, Language, List[Union[LanguageValue, Language]]]]
     is_finetunable: NotRequired[bool]
     saved: NotRequired[bool]
     status: NotRequired[List[str]]
@@ -721,7 +730,7 @@ class Model(
     host: Optional[str] = None
     developer: Optional[str] = None
     vendor: Optional[VendorInfo] = None
-    function: Optional[Function] = field(
+    function: Optional[Union[Function, FunctionValue]] = field(
         default=None,
         metadata=config(decoder=lambda x: find_function_by_id(x["id"]) if isinstance(x, dict) and "id" in x else x),
     )

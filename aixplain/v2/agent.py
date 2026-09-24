@@ -14,11 +14,13 @@ from dataclasses_json import dataclass_json, config
 
 from pydantic import BaseModel
 
-from .enums import AssetStatus, ResponseStatus
+from .enums import AssetStatus, AssetStatusValue, ResponseStatus
 from .model import Model
 from .file import File
 from .skill import Skill
 from .mixins import ToolableMixin
+from .plain_data import coerce_struct_list, struct_fields
+from .exceptions import ValidationError
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
@@ -41,6 +43,19 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+#: The string form of :class:`OutputFormat`, accepted anywhere the enum is.
+OutputFormatValue = Literal["markdown", "text", "json"]
+
+#: The string form of :class:`ContextOverflowStrategy`, accepted anywhere the
+#: enum is -- ``agent.context_overflow_strategy = "summarize"``.
+ContextOverflowStrategyValue = Literal["truncate", "summarize"]
+
+#: The string form of :class:`~aixplain.v2.agent_progress.ProgressFormat`. Defined
+#: here rather than imported: ``agent_progress`` imports from this module, so the
+#: annotation below could not resolve the other way round.
+ProgressFormatValue = Literal["status", "logs", "none"]
 
 
 # Type definitions for conversation history
@@ -150,6 +165,40 @@ class ContextOverflowStrategy(str, Enum):
 
     TRUNCATE = "truncate"
     SUMMARIZE = "summarize"
+
+
+class BudgetDict(TypedDict, total=False):
+    """The dict form of :class:`Budget`, on the user-facing field names.
+
+    Every key is optional; an omitted cap is not sent, leaving that dimension
+    uncapped. Declared as a ``TypedDict`` so a plain dict still gets
+    autocomplete and a type error on a misspelled key, with nothing to import.
+    """
+
+    max_cost: float
+    max_duration_seconds: float
+    max_iterations: int
+
+
+class TaskDict(TypedDict):
+    """The dict form of :class:`Task`, on the user-facing field names.
+
+    ``total=True`` because :class:`Task` genuinely requires ``name``,
+    ``instructions`` and ``expected_output`` -- none has a default. The other
+    config dicts in the SDK are ``total=False``, which is right for them because
+    every field of the struct they describe defaults. Marking these optional
+    would let a dict type-check clean and then fail at runtime, which is the
+    disagreement these TypedDicts exist to prevent.
+    """
+
+    name: str
+    instructions: str
+    expected_output: str
+    dependencies: NotRequired[List[Union[str, "Task"]]]
+
+
+#: Accepted alongside the field names when decoding a ``Task`` from the wire.
+_TASK_WIRE_ALIASES = {"description": "instructions", "expectedOutput": "expected_output"}
 
 
 RoleModelRef = Union[str, Dict[str, Any], Model]
@@ -298,7 +347,7 @@ class AgentRunParams(BaseRunParams):
     run_response_generation: NotRequired[Optional[bool]]
     attachments: NotRequired[Optional[List[Union[str, Path, Dict[str, Any], File]]]]
     files: NotRequired[Optional[List[Any]]]
-    progress_format: NotRequired[Optional[Text]]
+    progress_format: NotRequired[Optional[Union[ProgressFormatValue, "ProgressFormat"]]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
     _progress_tracker: NotRequired[Optional[Any]]
@@ -336,6 +385,11 @@ class Budget:
         default=None,
         metadata=config(field_name="maxIterations", exclude=lambda v: v is None),
     )
+
+
+#: Named in the error raised for an unknown key in a ``budget`` dict. Read off
+#: the dataclass so a field added to Budget needs no second edit here.
+_BUDGET_FIELDS = struct_fields(Budget)
 
 
 @dataclass_json
@@ -633,7 +687,7 @@ class Agent(
 
     # Core fields from Swagger
     instructions: Optional[str] = None
-    status: AssetStatus = AssetStatus.DRAFT
+    status: Union[AssetStatus, AssetStatusValue] = AssetStatus.DRAFT
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
     # ``llm`` / ``supervisor`` / ``planner`` / ``response_generator`` are
     # serialized manually (see ``_apply_llm_fields_to_save_payload`` and
@@ -651,8 +705,9 @@ class Agent(
     supervisor: Optional[RoleModelRef] = _role_field(save_key="supervisor")
     response_generator: Optional[RoleModelRef] = _role_field(save_key="responder")
 
-    # Task fields
-    tasks: Optional[List[Task]] = field(default_factory=list)
+    # Task fields. A dict on the ``TaskDict`` field names works as well as a
+    # ``Task``; ``__post_init__`` coerces either.
+    tasks: Optional[List[Union[Task, "TaskDict"]]] = field(default_factory=list)
     agents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
 
     # Deprecated alias for `agents` — will be removed in a future release
@@ -681,7 +736,7 @@ class Agent(
     )
 
     # Output and execution fields
-    output_format: Optional[Union[str, OutputFormat]] = field(
+    output_format: Optional[Union[OutputFormatValue, OutputFormat]] = field(
         default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
     )
     expected_output: Optional[Union[str, dict, BaseModel]] = field(
@@ -714,14 +769,17 @@ class Agent(
         metadata=config(field_name="budget", exclude=lambda v: True),
     )
     max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
-    context_overflow_strategy: Optional[str] = field(
+    context_overflow_strategy: Optional[Union[ContextOverflowStrategyValue, ContextOverflowStrategy]] = field(
         default=None,
         metadata=config(field_name="contextOverflowStrategy"),
     )
 
     def __post_init__(self) -> None:
         """Initialize agent after dataclass creation."""
-        self.tasks = [Task.from_dict(task) for task in self.tasks]
+        # ``__setattr__`` has already coerced ``tasks`` -- dicts and ``Task``
+        # objects both, on the user-facing field names. The previous
+        # ``Task.from_dict(task)`` here assumed a dict and raised
+        # ``AttributeError`` on a ``Task`` the caller had constructed.
 
         # Deserialize inspectors to Inspector objects so mutate-and-save round-trips.
         # Prebuilt guards and custom inspectors are the same Inspector type, so a
@@ -905,8 +963,15 @@ class Agent(
         for it anyway. Hydration resets the set (see ``_record_server_fields``).
         """
         if name == "budget":
-            coerced = self._coerce_budget(value)
+            coerced = self._coerce_budget(value, strict=True)
             value = coerced if coerced is not None else Budget()
+        elif name == "tasks":
+            # Assignment has to coerce too. Left to ``__post_init__``, a dict
+            # assigned afterwards stayed a dict -- and ``dataclass_json`` passes
+            # an unrecognised dict through untouched, so the user-facing names
+            # reached the backend instead of ``description`` / ``expectedOutput``
+            # and ``dependencies`` was dropped, with no error anywhere.
+            value = coerce_struct_list(value, Task, label="tasks", aliases=_TASK_WIRE_ALIASES)
         if name in _ROLE_ATTRS:
             explicit = getattr(self, "_explicit_roles", None)
             if explicit is not None:
@@ -1147,7 +1212,7 @@ class Agent(
         return {k: v for k, v in normalized.items() if v is not None}
 
     @classmethod
-    def _coerce_budget(cls, budget: Optional[Union[Dict, "Budget"]]) -> Optional["Budget"]:
+    def _coerce_budget(cls, budget: Optional[Union[Dict, "Budget"]], strict: bool = False) -> Optional["Budget"]:
         """Coerce ``None`` / dict / ``Budget`` into a ``Budget`` instance.
 
         A dict may use snake_case or camelCase keys; it is normalized to the
@@ -1155,10 +1220,37 @@ class Agent(
         ``None`` passes through as ``None`` (session's ExecutionConfig relies on
         this); ``Agent.__setattr__`` is what upgrades a ``None`` agent budget to
         an empty ``Budget()`` to keep ``agent.budget`` never-None.
+
+        Args:
+            budget: The value to coerce.
+            strict: Reject a key that is neither a field nor a wire spelling.
+                Off by default, and deliberately: this method sits on the
+                *deserialization* path as well as the input one, and a backend
+                that adds a field to its budget object must not break every
+                ``Session.get()`` on data the SDK only reads. The entry points
+                that know they hold caller input pass ``True``.
+
+        Returns:
+            Optional[Budget]: The coerced budget, or ``None`` for ``None``.
+
+        Raises:
+            ValidationError: Under ``strict``, if a key is unrecognised.
+            TypeError: If *budget* is neither ``None``, a dict, nor a ``Budget``.
         """
         if budget is None or isinstance(budget, Budget):
             return budget
         if isinstance(budget, dict):
+            if strict:
+                # A misspelled ``max_iteration`` used to pass through
+                # ``_normalize_budget`` untouched and then be dropped by the
+                # constructor below, i.e. silently mean "no cap".
+                unknown = sorted(
+                    key for key in budget if key not in _BUDGET_FIELDS and key not in cls._BUDGET_PARAMS_MAP.values()
+                )
+                if unknown:
+                    raise ValidationError(
+                        f"Unknown budget field(s): {', '.join(unknown)}. Accepted fields: {', '.join(_BUDGET_FIELDS)}."
+                    )
             normalized = cls._normalize_budget(budget)
             return Budget(
                 max_cost=normalized.get("maxCost"),

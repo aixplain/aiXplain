@@ -34,7 +34,7 @@ from dataclasses_json import config, dataclass_json
 
 from aixplain.utils.url_safety import safe_get, validate_upload_url
 
-from .enums import FileType, Privacy, SortBy
+from .enums import FileType, FileTypeValue, Privacy, PrivacyValue, SortBy
 from .exceptions import APIError, FileUploadError, ResourceError, ValidationError
 from .resource import (
     BaseDeleteParams,
@@ -89,7 +89,7 @@ class File(
     RESOURCE_PATH = "sdk/file-asset"
 
     source: Optional[str] = field(default=None, metadata=config(exclude=lambda _: True))
-    file_type: FileType = field(default=FileType.FILE, metadata=config(field_name="fileType"))
+    file_type: Union[FileType, FileTypeValue] = field(default=FileType.FILE, metadata=config(field_name="fileType"))
     # Internal only, not a constructor parameter: whether this File has been
     # saved yet. The upload flow (``sdk/file/upload/temp-url`` claimed by
     # ``POST sdk/file-asset``) has no permanent-vs-temporary switch to honor a
@@ -101,7 +101,7 @@ class File(
     size: Optional[int] = None
     parent_id: Optional[str] = field(default=None, metadata=config(field_name="parentId"))
     tags: List[str] = field(default_factory=list)
-    privacy: Privacy = Privacy.PRIVATE
+    privacy: Union[Privacy, PrivacyValue] = Privacy.PRIVATE
     whitelist: List[Any] = field(default_factory=list)
     status: Optional[str] = None
     created_at: Optional[str] = field(default=None, metadata=config(field_name="createdAt"))
