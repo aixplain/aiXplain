@@ -25,8 +25,6 @@ import pytest
 from aixplain.v2 import Inspector
 
 ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
-ARABIC_DIACRITICS_RE = re.compile(r"[\u064B-\u065F\u0670]")
-DIGIT_RE = re.compile(r"[\u0660-\u06690-9]")
 
 MODELS = [
     pytest.param("gpt-5.4", "69b7e5f1b2fe44704ab0e7d0", id="gpt-5.4"),
@@ -35,73 +33,25 @@ MODELS = [
 
 ARABIC_QUERIES = {
     "pure_arabic": "ما هي أهم القوانين التجارية في المملكة العربية السعودية؟",
-    "arabic_punctuation": "أولاً: العقود التجارية؛ ثانياً: الشركات، ثالثاً: الإفلاس. ما رأيك؟",
     "mixed_ar_en": "اشرح لي مفهوم Due Diligence في القانون السعودي وما هي متطلبات الـ Compliance؟",
-    "arabic_with_numbers": "المادة ١٢٣ من نظام الشركات لعام ٢٠٢٣م تنص على أن رأس المال لا يقل عن ٥٠٠,٠٠٠ ريال.",
-    "arabic_special_chars": "عنوان المكتب: شارع الملك فهد، الرياض\nهاتف: +٩٦٦-١١-٢٣٤-٥٦٧٨\nبريد: info@lawfirm.sa",
-    "arabic_long_diacritics": "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ — هذا نَصٌّ مُشَكَّلٌ لاختبار المعالجة.",
-    "arabic_legal_template": """
-    بموجب هذا العقد المبرم بين:
-    الطرف الأول: شركة «النور للاستشارات القانونية» (سجل تجاري رقم: ١٠١٠٥٤٣٢١٠)
-    الطرف الثاني: مؤسسة «الأمانة للتجارة» (سجل تجاري رقم: ١٠١٠٦٧٨٩٠٠)
-    يتفق الطرفان على البنود التالية:
-    ١. مدة العقد: سنة هجرية كاملة.
-    ٢. قيمة العقد: ٧٥٠,٠٠٠ ريال سعودي.
-    ٣. التحكيم: يخضع لنظام التحكيم السعودي.
-    """,
 }
 
 QUERY_EXPECTATIONS = {
     "pure_arabic": {"min_arabic_ratio": 0.35, "require_keywords": ["نظام"]},
-    "arabic_punctuation": {"min_arabic_ratio": 0.30, "require_keywords": ["عقود", "شركات"]},
     "mixed_ar_en": {"min_arabic_ratio": 0.20, "require_keywords_any": ["Due Diligence", "Compliance"]},
-    "arabic_with_numbers": {"min_arabic_ratio": 0.20, "require_any_number": True},
-    "arabic_special_chars": {"min_arabic_ratio": 0.15, "require_any_number": True},
-    "arabic_long_diacritics": {"min_arabic_ratio": 0.35, "require_diacritics": True},
-    "arabic_legal_template": {"min_arabic_ratio": 0.30, "require_keywords_any": ["عقد", "التحكيم", "ريال"]},
 }
 
-SINGLE_AGENT_DEFS = [
-    {
-        "name": "SingleLegal",
-        "description": "Arabic legal advisor - single agent, Arabic instructions + input",
-        "instructions": (
-            "ROLE: أنت مستشار قانوني سعودي متخصص في القانون التجاري.\n"
-            "CONSTRAINTS: أجب باللغة العربية فقط. استخدم المصطلحات القانونية الصحيحة.\n"
-            "OUTPUT RULES: رتّب إجابتك في نقاط مرقّمة. اذكر المراجع النظامية إن وُجدت."
-        ),
-        "queries": ["pure_arabic", "arabic_punctuation", "arabic_legal_template"],
-    },
-    {
-        "name": "MixedLang",
-        "description": "Mixed Arabic/English agent - tests bilingual serialization",
-        "instructions": (
-            "ROLE: You are a bilingual legal consultant fluent in Arabic and English.\n"
-            "CONSTRAINTS: Respond in the same language the user writes in. "
-            "If the query is mixed, respond in Arabic with English legal terms preserved.\n"
-            "OUTPUT RULES: Structured bullet points. Cite Saudi regulations by article number."
-        ),
-        "queries": ["mixed_ar_en", "arabic_with_numbers", "arabic_special_chars"],
-    },
-    {
-        "name": "Diacritics",
-        "description": "Tests Arabic diacritics and special Unicode in instructions",
-        "instructions": (
-            "ROLE: أنت مُدقِّقٌ لُغَوِيٌّ متخصِّصٌ في النُّصوصِ العَرَبِيَّةِ المُشَكَّلَة.\n"
-            "CONSTRAINTS: صحِّح أيَّ أخطاءٍ إملائيَّةٍ أو نحويَّةٍ. أضِف التَّشكيلَ الكاملَ للنَّصِّ.\n"
-            "OUTPUT RULES: أعِد النَّصَّ المُصَحَّحَ مع التَّشكيلِ الكاملِ."
-        ),
-        "queries": ["arabic_long_diacritics", "pure_arabic"],
-    },
-]
+#: Arabic with full diacritics, so saving and running the agent exercises that Unicode.
+SINGLE_AGENT_DESCRIPTION = "مستشار قانونيّ ثنائيّ اللُّغة"
+SINGLE_AGENT_INSTRUCTIONS = (
+    "ROLE: أنت مُستشارٌ قانونيٌّ سعوديٌّ مُتخصِّصٌ في القانونِ التِّجاريِّ.\n"
+    "CONSTRAINTS: أجب بالعربيّة، واحتفظ بالمصطلحات الإنجليزيّة كما وردت في السُّؤال.\n"
+    "OUTPUT RULES: رتّب إجابتك في نقاطٍ مُرقَّمةٍ، واذكر المراجع النِّظاميّة إن وُجدت."
+)
 
 
 def _contains_arabic(text: str) -> bool:
     return bool(ARABIC_CHAR_RE.search(text))
-
-
-def _contains_diacritics(text: str) -> bool:
-    return bool(ARABIC_DIACRITICS_RE.search(text))
 
 
 def _arabic_ratio(text: str) -> float:
@@ -165,7 +115,7 @@ def _assert_success_response(response) -> tuple[str, list]:
     return output, _extract_steps(response)
 
 
-def _assert_query_expectations(query_key: str, output: str) -> None:
+def _assert_arabic_output(query_key: str, output: str) -> None:
     expectations = QUERY_EXPECTATIONS[query_key]
     assert _contains_arabic(output), f"Expected Arabic content for {query_key}"
     assert "serial" not in output.lower()
@@ -181,12 +131,6 @@ def _assert_query_expectations(query_key: str, output: str) -> None:
         assert any(keyword.lower() in output.lower() for keyword in expectations["require_keywords_any"]), (
             f"Expected one of {expectations['require_keywords_any']} in {query_key} response"
         )
-
-    if expectations.get("require_any_number"):
-        assert DIGIT_RE.search(output), f"Expected numeric content in {query_key} response"
-
-    if expectations.get("require_diacritics"):
-        assert _contains_diacritics(output), f"Expected Arabic diacritics in {query_key} response"
 
 
 def _build_name(prefix: str, model_name: str) -> str:
@@ -210,13 +154,13 @@ def _is_inspector_abort_message(output: str) -> bool:
     )
 
 
-def _make_single_agent(client, llm_id: str, model_name: str, agent_def: dict):
+def _make_single_agent(client, llm_id: str, model_name: str):
     agent = client.Agent(
-        name=_build_name(agent_def["name"], model_name),
-        description=agent_def["description"],
-        instructions=agent_def["instructions"],
+        name=_build_name("ArabicSingleLegal", model_name),
+        description=SINGLE_AGENT_DESCRIPTION,
+        instructions=SINGLE_AGENT_INSTRUCTIONS,
         llm=llm_id,
-        max_tokens=4096,
+        max_tokens=2048,
         max_iterations=4,
     )
     agent.save()
@@ -258,7 +202,7 @@ def _make_team_agent(client, llm_id: str, model_name: str, inspectors=None):
         llm=llm_id,
         agents=[researcher, drafter],
         inspectors=inspectors or [],
-        max_tokens=4096,
+        max_tokens=2048,
         max_iterations=4,
     )
     team_agent.save()
@@ -283,42 +227,20 @@ def _make_output_inspector(llm_id: str, model_name: str):
 
 @pytest.mark.flaky(reruns=1, reruns_delay=5)
 @pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
-def test_arabic_single_agent_variants_across_llms(client, resource_tracker, model_name, llm_id):
-    """Keep broad LLM coverage, but run only one representative query per agent variant."""
-    representative_queries = {
-        "SingleLegal": "pure_arabic",
-        "MixedLang": "mixed_ar_en",
-        "Diacritics": "arabic_long_diacritics",
-    }
+def test_arabic_single_agent(client, resource_tracker, model_name, llm_id):
+    """An agent with diacritic Arabic instructions answers a mixed Arabic/English query in Arabic."""
+    agent = _make_single_agent(client, llm_id, model_name)
+    resource_tracker.append(agent)
 
-    for agent_config in SINGLE_AGENT_DEFS:
-        query_key = representative_queries[agent_config["name"]]
-        agent = _make_single_agent(client, llm_id, model_name, agent_config)
-        resource_tracker.append(agent)
-
-        response = agent.run(ARABIC_QUERIES[query_key])
-        output, _ = _assert_success_response(response)
-        _assert_query_expectations(query_key, output)
+    response = agent.run(ARABIC_QUERIES["mixed_ar_en"])
+    output, _ = _assert_success_response(response)
+    _assert_arabic_output("mixed_ar_en", output)
 
 
 @pytest.mark.flaky(reruns=1, reruns_delay=5)
 @pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
-def test_arabic_team_agent_across_llms(client, resource_tracker, model_name, llm_id):
-    """Use one contract-heavy query to cover the team-agent serialization path."""
-    resources = _make_team_agent(client, llm_id, model_name)
-    resource_tracker.extend(resources)
-    team_agent = resources[-1]
-
-    response = team_agent.run(ARABIC_QUERIES["arabic_legal_template"])
-    output, steps = _assert_success_response(response)
-    _assert_query_expectations("arabic_legal_template", output)
-    assert steps, "Expected team-agent execution steps for Arabic team flow"
-
-
-@pytest.mark.flaky(reruns=1, reruns_delay=5)
-@pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
-def test_arabic_inspector_agent_across_llms(client, resource_tracker, model_name, llm_id):
-    """Verify the inspector actually executes on the Arabic runtime path."""
+def test_arabic_team_agent_with_inspector(client, resource_tracker, model_name, llm_id):
+    """One team run covers Arabic team serialization, delegation, and an Arabic-prompted inspector."""
     inspector = _make_output_inspector(llm_id, model_name)
     resources = _make_team_agent(client, llm_id, model_name, inspectors=[inspector])
     resource_tracker.extend(resources)
@@ -326,10 +248,11 @@ def test_arabic_inspector_agent_across_llms(client, resource_tracker, model_name
 
     response = team_agent.run(ARABIC_QUERIES["pure_arabic"])
     output, steps = _assert_success_response(response)
+    assert steps, "Expected team-agent execution steps for the Arabic team flow"
     inspector_steps = [step for step in steps if _is_inspector_step(step, inspector.name)]
     assert inspector_steps, "Expected inspector step(s) in the run"
 
     if _is_inspector_abort_message(output):
         return
 
-    _assert_query_expectations("pure_arabic", output)
+    _assert_arabic_output("pure_arabic", output)

@@ -286,7 +286,7 @@ jobs:
             path: 'tests/functional/v2/test_api_key.py'
             timeout: 30
           - suite: 'arabic-agent'
-            path: 'tests/functional/v2/test_arabic_agent.py'
+            path: 'tests/functional/v2/test_arabic_agent.py -n 4'
             timeout: 30
           - suite: 'integration'
             path: 'tests/functional/v2/test_integration.py'
