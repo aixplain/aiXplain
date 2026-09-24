@@ -311,9 +311,9 @@ from aixplain import Aixplain
 
 aix = Aixplain()
 
-file = aix.File.create_from_file("/path/to/local.csv")
+file = aix.File("/path/to/local.csv")   # a local path, a directory, or an http(s) URL
 file.save()
-link = file.source          # the uploaded link
+link = file.get_signed_url()            # short-lived download URL for the stored bytes
 ```
 
 `aix.File` is the resource: it also lists, downloads, and handles folders

@@ -6,6 +6,7 @@ import re
 import warnings
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
@@ -318,9 +319,10 @@ class AgentRunParams(BaseRunParams):
         inspectors: Inspector configurations
         run_response_generation: Whether to run response generation. Defaults to False.
         attachments: Multimodal attachments for the turn.
-            Each entry is a hosted-URL/local-path string or a dict with ``url`` or
-            ``path`` (plus optional ``type``/``name``/``mimeType``). Local paths are
-            uploaded to aiXplain storage automatically.
+            Each entry is a hosted-URL/local-path string, a dict with ``url`` or
+            ``path`` (plus optional ``type``/``name``/``mimeType``), or a saved
+            :class:`~aixplain.v2.file.File`. Local paths are uploaded to aiXplain
+            storage automatically; a saved ``File`` is attached via a signed url.
         files: Deprecated. Local file paths to upload — pass through ``attachments`` instead.
         progress_format: Display format - "status" (single line) or "logs" (timeline).
                         If None (default), progress tracking is disabled.
@@ -343,7 +345,7 @@ class AgentRunParams(BaseRunParams):
     identifier: NotRequired[Optional[Text]]
     inspectors: NotRequired[Optional[List[Dict]]]
     run_response_generation: NotRequired[Optional[bool]]
-    attachments: NotRequired[Optional[List[Union[str, Dict[str, Any]]]]]
+    attachments: NotRequired[Optional[List[Union[str, Path, Dict[str, Any], File]]]]
     files: NotRequired[Optional[List[Any]]]
     progress_format: NotRequired[Optional[Union[ProgressFormatValue, "ProgressFormat"]]]
     progress_verbosity: NotRequired[Optional[int]]
@@ -722,9 +724,15 @@ class Agent(
 
     # Persistent File assets available to every run. These are definition-level
     # references and are intentionally separate from per-run ``attachments``.
+    # ``decoder`` keeps a ``from_dict()`` load (e.g. ``Agent.get()``) as plain
+    # dicts/strings: without it, dataclasses_json's own Union-aware decoding
+    # eagerly calls ``File.from_dict()`` on any dict entry, which passes every
+    # declared field (``is_temp`` included) as a constructor kwarg and bypasses
+    # ``File._from_data`` entirely. Real hydration into ``File`` objects still
+    # happens, just via ``_hydrate_files()`` in ``__post_init__`` below.
     files: Optional[List[Union[str, Dict[str, Any], "File"]]] = field(
         default_factory=list,
-        metadata=config(field_name="files"),
+        metadata=config(field_name="files", decoder=lambda v: list(v) if v else []),
     )
 
     # Output and execution fields
@@ -828,12 +836,16 @@ class Agent(
             for skill in (self.skills or [])
         ]
 
-        # Unsaved files keep the object itself, not None, so list edits never lose track of which is which.
+        # ``self.files`` is the single source of truth (real File objects, dicts
+        # pending hydration below, or bare id strings) — mirrors ``self.tools``.
+        # ``_original_files`` is kept as its mirror; the various save/validate
+        # helpers below still read from it.
         self._files_ever_configured = bool(self.files)
         self._original_files = list(self.files or [])
-        self.files = [
-            file if isinstance(file, str) else (self._file_reference_id(file) or file) for file in (self.files or [])
-        ]
+        # Hydrate raw backend File dicts (e.g. from a get() response) into real
+        # File objects, so a fetched agent's files are directly usable
+        # (``.name``, ``.download()``, ``.delete()``, ...) — mirrors ``_hydrate_tools``.
+        self._hydrate_files()
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
@@ -870,7 +882,12 @@ class Agent(
         return file.id
 
     def _sync_file_references(self) -> None:
-        """Capture direct mutations to ``agent.files`` before validation or save."""
+        """Reconcile in-place mutations to ``agent.files`` into ``_original_files``.
+
+        ``agent.files`` is the source of truth (real ``File`` objects, dicts, or
+        bare ids — mirrors ``agent.tools``); ``_original_files`` is kept as its
+        mirror for the save/validate helpers that read it.
+        """
         current = list(self.files or [])
         original = list(getattr(self, "_original_files", []) or [])
         # A None slot is a still-unsaved placeholder; only safe to refresh by position if lengths match.
@@ -887,10 +904,11 @@ class Agent(
             original_by_id = {
                 self._file_reference_id(file): file for file in original if self._file_reference_id(file) is not None
             }
-            self._original_files = [
+            effective_current = [
                 original_by_id.get(file, file) if isinstance(file, str) else file for file in effective_current
             ]
-            self.files = current_ids
+            self._original_files = effective_current
+            self.files = list(effective_current)
 
     @staticmethod
     def _skill_reference_id(skill: Optional[Union[str, Dict[str, Any], "Skill"]]) -> Optional[str]:
@@ -1010,11 +1028,16 @@ class Agent(
         detected; ``save()`` persists changed values unconditionally.
         """
         original_tools = self.tools
+        original_files = self.files
         try:
             self.tools = [self._tool_identity(tool) for tool in original_tools or []]
+            # Files can now hold live File objects (mirrors tools) — reduce them
+            # the same way, or to_dict() would recurse into File's ``context``.
+            self.files = [self._file_identity(file) for file in original_files or []]
             return super()._get_serializable_state()
         finally:
             self.tools = original_tools
+            self.files = original_files
 
     @staticmethod
     def _tool_identity(tool: Any) -> dict:
@@ -1024,6 +1047,23 @@ class Agent(
         if isinstance(tool, dict):
             return {"id": tool.get("id"), "type": tool.get("type")}
         return {"id": getattr(tool, "id", None), "type": getattr(tool, "type", None)}
+
+    @staticmethod
+    def _file_identity(file: Any) -> dict:
+        """Return a stable id/name/description signature for a files entry."""
+        if isinstance(file, str):
+            return {"id": file}
+        if isinstance(file, dict):
+            return {
+                "id": file.get("id") or file.get("fileId"),
+                "name": file.get("name"),
+                "description": file.get("description"),
+            }
+        return {
+            "id": getattr(file, "id", None),
+            "name": getattr(file, "name", None),
+            "description": getattr(file, "description", None),
+        }
 
     # Run kwarg that carries the run's progress tracker from ``run()`` /
     # ``sync_poll()`` down to ``on_poll``. Listed in ``_RUN_CONTROL_KEYS`` so
@@ -1839,6 +1879,61 @@ class Agent(
                 continue
         return None
 
+    def _hydrate_files(self) -> None:
+        """Rebind backend File records in ``self.files`` to a real, usable ``File``.
+
+        ``self.files`` (the public field) holds real ``File`` objects after
+        :meth:`__post_init__`, the same way ``self.tools`` holds ``Tool`` /
+        ``Model`` objects — so a fetched agent's ``agent.files[0].name`` works
+        without a re-fetch. ``_original_files`` mirrors it and is what
+        :meth:`build_save_payload` and the dependency-validation helpers read.
+
+        A dict entry (e.g. straight from a ``get()`` response — the ``files``
+        field has a plain identity ``decoder``, so dataclasses_json never
+        auto-decodes it into a ``File`` on its own) is hydrated through
+        :meth:`File._from_data`. A caller-supplied ``File`` built off the
+        unbound module class (``context is None``) is re-hydrated the same
+        way *only if it already carries a resolvable id* — see
+        :meth:`_hydrate_file_entry`. Best-effort and offline: a record that
+        fails to hydrate is left as-is rather than breaking construction. A
+        bare id string is left as-is too — there is no data to build a
+        ``File`` from without a fetch.
+        """
+        context = getattr(self, "context", None)
+        original_files = getattr(self, "_original_files", None)
+        if context is None or not original_files:
+            return
+        self._original_files = [
+            self._hydrate_file_entry(entry, context) if isinstance(entry, (dict, File)) else entry
+            for entry in original_files
+        ]
+        self.files = list(self._original_files)
+
+    @staticmethod
+    def _hydrate_file_entry(entry: Union[dict, "File"], context: Any) -> Any:
+        """Hydrate one backend File record into a bound ``File`` object (best-effort).
+
+        Only entries that already carry a resolvable backend id are hydrated.
+        An id-less dict/File — e.g. a still-unsaved ``File(source=...)`` the
+        caller passed directly, or a dict missing both ``id`` and ``fileId`` —
+        is left exactly as given. Hydrating it anyway would rebuild it through
+        ``File._from_data``, which knows nothing about fields excluded from
+        the wire shape (like ``source``), and silently produce a File that
+        looks fetched-but-broken (``id=None``, ``is_temp=False``) instead of
+        the valid unsaved reference it actually was (BUG).
+        """
+        if isinstance(entry, File) and entry.context is not None:
+            return entry  # already bound to a context, e.g. a caller-supplied File
+        if Agent._file_reference_id(entry) is None:
+            return entry
+        data = entry.to_dict() if isinstance(entry, File) else dict(entry)
+        if not data.get("id"):
+            data["id"] = data.get("fileId") or data.get("assetId")
+        try:
+            return context.File._from_data(data)
+        except Exception:
+            return entry
+
     def _hydrate_tools(self) -> None:
         """Convert plain tool dicts in ``self.tools`` into mutable objects.
 
@@ -2185,11 +2280,14 @@ class Agent(
                 target if isinstance(target, str) else str(target) for target in self.inspector_targets
             ]
 
-        # Null out tools before to_dict(): dataclass_json would otherwise recurse
-        # into Tool/Model objects (which raises on their ``context`` descriptor).
-        # The real tools payload is rebuilt from ``self.tools`` below.
+        # Null out tools and files before to_dict(): dataclass_json would otherwise
+        # recurse into Tool/Model/File objects (which raise on their ``context``
+        # descriptor). The real payloads are rebuilt from ``self.tools`` /
+        # ``self._original_files`` below.
         original_tools = self.tools
         self.tools = []
+        original_files_field = self.files
+        self.files = []
 
         # Now call to_dict() with inspectors and inspector_targets already serialized
         payload = self.to_dict()
@@ -2198,6 +2296,7 @@ class Agent(
         self.inspectors = original_inspectors
         self.inspector_targets = original_inspector_targets
         self.tools = original_tools
+        self.files = original_files_field
 
         # Budget is the single source of truth for the persisted iteration cap.
         # Drop the deprecated standalone ``maxIterations`` and emit the persisted

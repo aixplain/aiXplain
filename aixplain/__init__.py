@@ -113,6 +113,19 @@ def __getattr__(name: str):
     if name in _REMOVED_V1_ATTRS:
         full = f"{__name__}.{name}"
         raise ModuleNotFoundError(_v1_removal_message(full), name=full)
+    if name == "Resource":
+        # Deliberately absent from __all__/the ``from .v2 import *`` above, for
+        # the same reason ``aixplain_v2`` is: either would fire this warning on
+        # every ``import aixplain``, not only on an actual access. Mirrors
+        # ``aixplain.v2.Resource`` and ``Aixplain().Resource``.
+        import warnings
+
+        warnings.warn(
+            "`aixplain.Resource` is deprecated; use `aixplain.File` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return File
     if name != "aixplain_v2":
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

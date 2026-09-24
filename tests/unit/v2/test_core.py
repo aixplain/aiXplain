@@ -13,7 +13,6 @@ from aixplain.v2.model import Model
 from aixplain.v2.tool import Tool
 from aixplain.v2.agent import Agent
 from aixplain.v2.integration import Integration
-from aixplain.v2.file import Resource
 from aixplain.v2.inspector import Inspector
 from aixplain.v2.issue import IssueReporter
 

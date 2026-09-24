@@ -1,6 +1,7 @@
 """Core module for aiXplain v2 API."""
 
 import os
+import warnings
 from typing import Optional, TypeVar
 
 from aixplain.utils.url_safety import validate_config_url
@@ -13,7 +14,7 @@ from .skill import Skill
 from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
 from .integration import Integration
 from .trigger import Trigger
-from .file import File, Resource
+from .file import File
 from .inspector import Inspector
 from .meta_agents import Debugger
 from .api_key import APIKey
@@ -30,7 +31,6 @@ SkillType = TypeVar("SkillType", bound=Skill)
 MetricType = TypeVar("MetricType", bound=MetricBase)
 IntegrationType = TypeVar("IntegrationType", bound=Integration)
 TriggerType = TypeVar("TriggerType", bound=Trigger)
-ResourceType = TypeVar("ResourceType", bound=Resource)
 FileResourceType = TypeVar("FileResourceType", bound=File)
 InspectorType = TypeVar("InspectorType", bound=Inspector)
 DebuggerType = TypeVar("DebuggerType", bound=Debugger)
@@ -61,7 +61,6 @@ class Aixplain:
     Eval: type = None
     Integration: IntegrationType = None
     Trigger: TriggerType = None
-    Resource: ResourceType = None
     File: FileResourceType = None
     Inspector: InspectorType = None
     Debugger: DebuggerType = None
@@ -171,11 +170,30 @@ class Aixplain:
         self.Eval = EvalClass
         self.Integration = type("Integration", (Integration,), {"context": self})
         self.Trigger = type("Trigger", (Trigger,), {"context": self})
-        self.Resource = type("Resource", (Resource,), {"context": self})
         self.File = type("File", (File,), {"context": self})
+        # ``Resource`` is a deprecated alias for ``File``, not a separate
+        # dynamic subclass, so ``aix.Resource is aix.File`` and instances
+        # built through either name are interchangeable. It is implemented as
+        # a property (see below) rather than an instance attribute here, so
+        # the deprecation warning fires only on use, not on every
+        # ``Aixplain()`` construction.
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
         self.Debugger = type("Debugger", (Debugger,), {"context": self})
         self.APIKey = type("APIKey", (APIKey,), {"context": self})
         self.Session = type("Session", (Session,), {"context": self})
         self.RLM = type("RLM", (RLM,), {"context": self})
         self.issue = IssueReporter(context=self)
+
+    @property
+    def Resource(self) -> FileResourceType:
+        """Deprecated alias for :attr:`File`.
+
+        Returns the exact same class as ``self.File`` (not a separate dynamic
+        subclass), so ``aix.Resource is aix.File``.
+        """
+        warnings.warn(
+            "`Aixplain().Resource` is deprecated; use `Aixplain().File` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.File

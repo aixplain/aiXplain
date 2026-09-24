@@ -26,7 +26,7 @@ from .trigger import (
     TriggerRepeatRule,
     TriggerRepeatRuleDict,
 )
-from .file import File, Resource
+from .file import File
 from .resource import Page
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
 from .inspector import Inspector
@@ -152,7 +152,6 @@ __all__ = [
     "TaskDict",
     "Tool",
     "Skill",
-    "Resource",
     "File",
     "Page",
     "FileUploader",
@@ -279,3 +278,27 @@ __all__ = [
     "TriggerEventOption",
     "TriggerTypes",
 ]
+
+
+def __getattr__(name: str):
+    """PEP 562: warn on the deprecated ``Resource`` alias, matching ``Aixplain().Resource``.
+
+    ``Resource`` is deliberately not a plain module attribute, and deliberately
+    absent from ``__all__``: a plain ``from .file import Resource`` above, or
+    listing it in ``__all__``, would fire the warning on every
+    ``import aixplain.v2`` (and, transitively, every ``import aixplain`` — its
+    ``from .v2 import *`` walks every name in this module's ``__all__``)
+    regardless of whether the caller ever touches the name. This way only an
+    actual access to ``aixplain.v2.Resource`` (or ``from aixplain.v2 import
+    Resource``) does.
+    """
+    if name == "Resource":
+        import warnings
+
+        warnings.warn(
+            "`aixplain.v2.Resource` is deprecated; use `aixplain.v2.File` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return File
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -16,6 +16,7 @@ from dataclasses_json import dataclass_json, config
 
 from .enums import AttachmentType
 from .exceptions import APIError, ResourceError, ValidationError
+from .file import File
 from .plain_data import struct_fields
 
 if TYPE_CHECKING:
@@ -153,7 +154,7 @@ def _augment_hosted_attachment(att: Dict[str, Any]) -> Dict[str, Any]:
 
 def resolve_attachments(
     context: Any,
-    attachments: Optional[List[Union[str, Path, Dict[str, Any]]]],
+    attachments: Optional[List[Union[str, Path, Dict[str, Any], File]]],
     files: Optional[List[Union[str, Path]]],
     *,
     error_label: str = "",
@@ -163,7 +164,10 @@ def resolve_attachments(
     Each entry becomes a ``{url, name, type, mimeType}`` dict. URL entries (``http(s)://``
     / ``s3://`` strings, or dicts carrying a ``url``) pass through unchanged; local paths
     (plain strings, or dicts carrying a ``path``) are uploaded to aiXplain storage and the
-    resulting download link is attached. The ``FileUploader`` is created lazily, only when
+    resulting download link is attached. A saved ``File`` is attached by a short-lived
+    signed url fetched on demand (:meth:`File.get_signed_url`) — file-asset responses
+    never carry a stable url; an unsaved ``File`` or a folder raises, rather than
+    silently re-uploading or guessing. The ``FileUploader`` is created lazily, only when
     an upload is actually needed. Shared by ``Session.add_message`` and ``Agent`` runs.
 
     Args:
@@ -216,6 +220,28 @@ def resolve_attachments(
                 resolved.append(_augment_hosted_attachment(att))
             else:
                 resolved.append(_upload(value))
+        elif isinstance(entry, File):
+            where = f" for {error_label}" if error_label else ""
+            if not entry.id:
+                raise ResourceError(
+                    f"File '{entry.name}'{where} must be saved (call .save()) before it can be attached"
+                )
+            if entry.is_dir:
+                raise ResourceError(
+                    f"Folder '{entry.name}'{where} cannot be attached directly; attach its files instead"
+                )
+            # File-asset responses never carry a stable url; request a
+            # short-lived signed one on demand (same endpoint the platform UI
+            # uses to render media inline). Bind the entry to this call's
+            # context first, in case it was constructed ad hoc (e.g.
+            # ``File(id=..., name=...)``) rather than via ``aix.File(...)``.
+            if entry.context is None:
+                entry.context = context
+            try:
+                url = entry.get_signed_url()
+            except Exception as e:
+                raise ResourceError(f"Could not get a signed url for File '{entry.name}' (id={entry.id}){where}: {e}")
+            resolved.append(_augment_hosted_attachment({"url": url, "name": entry.name}))
         else:
             raise ResourceError(f"unsupported attachment entry type: {type(entry).__name__}")
 
@@ -226,6 +252,16 @@ def resolve_attachments(
             stacklevel=3,
         )
         for file_path in files:
+            # ``files`` has only ever accepted local paths — a File (or a dict,
+            # or anything else) here used to be silently stringified into a
+            # bogus "path" and fail with a confusing "local file ... not
+            # found". Name the actual mistake instead: point at `attachments`.
+            if not isinstance(file_path, (str, Path)):
+                where = f" for {error_label}" if error_label else ""
+                raise ResourceError(
+                    f"`files` only accepts local paths{where}; pass {type(file_path).__name__} "
+                    "entries through `attachments` instead."
+                )
             resolved.append(_upload(str(file_path)))
 
     return resolved
@@ -843,7 +879,7 @@ class Session(
         role: str,
         content: str,
         request_id: Optional[str] = None,
-        attachments: Optional[List[Union[str, Path, Dict[str, Any]]]] = None,
+        attachments: Optional[List[Union[str, Path, Dict[str, Any], File]]] = None,
         files: Optional[List[Union[str, Path]]] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> SessionMessage:
@@ -900,7 +936,7 @@ class Session(
 
     def _resolve_attachments(
         self,
-        attachments: Optional[List[Union[str, Path, Dict[str, Any]]]],
+        attachments: Optional[List[Union[str, Path, Dict[str, Any], File]]],
         files: Optional[List[Union[str, Path]]],
     ) -> List[Dict[str, Any]]:
         """Resolve the unified ``attachments`` (+ deprecated ``files``) for this session.

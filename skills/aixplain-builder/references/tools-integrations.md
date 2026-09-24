@@ -208,14 +208,14 @@ It auto-loads within ~30s.
 
 ### SQLite — integration `689e06ed3ce71f58d73cc999`
 
-Upload the `.db` file as a Resource first (keep it < 100 MB), then point the tool at the resource URL.
+Upload the `.db` file as a File first (keep it < 100 MB), then point the tool at a signed url for it.
 
 ```python
 import time
-resource = aix.Resource(source="business.db", name=f"DB {int(time.time())}")
-resource.save()                                # uploads to S3, sets resource.url
+resource = aix.File(source="business.db", name=f"DB {int(time.time())}")
+resource.save()                                # uploads to S3
 sqlite_tool = aix.Tool(name="Business Database", description="Company sales data.",
-                       integration="689e06ed3ce71f58d73cc999", config={"url": resource.url})
+                       integration="689e06ed3ce71f58d73cc999", config={"url": resource.get_signed_url()})
 sqlite_tool.save()
 sqlite_tool.list_actions()                     # query, commit, schema
 sqlite_tool.run(action="query", data="SELECT * FROM products")
@@ -223,12 +223,9 @@ sqlite_tool.run(action="query", data="SELECT * FROM products")
 
 Writes apply to an in-memory copy and are **not** persisted — re-upload to persist. `data` accepts either a bare SQL string or `{"query": "..."}` (same for PostgreSQL).
 
-**`aix.Resource` signature — `(source=None, name=None, is_temp=True, **kwargs)`.** It is now a subclass of `aixplain.v2.file.File`, which changes two things:
+**`aix.File` signature — `(source=None, name=None, **kwargs)`.** `name` occupies the 2nd positional slot: `aix.File("DB", "business.db")` sets `source="DB"` and raises — always pass `source=`/`name=` by keyword. `aix.Resource` is a deprecated alias for the exact same class (emits a `DeprecationWarning`); there is no separate `file_path` parameter or property.
 
-- **`name` occupies the 2nd positional slot.** The old positional order blows up: `aix.Resource("DB", "business.db")` now sets `source="DB"` and raises. Always pass `source=`/`name=` by keyword.
-- **`file_path` is a read-only property** — assigning after construction raises `AttributeError`. Keyword `file_path=` still works at construction as a deprecated compat alias (the docs' own SQLite examples still use it), but write new code with `source=`.
-
-`source` also accepts an **HTTP(S) URL** (name inferred from the URL path; other schemes raise `ValidationError: Unsupported File URL scheme`) or a **directory** (`is_dir` becomes `True`). Validation is eager: a missing path raises `ValidationError: File source does not exist: …` at construction, before any upload, and `aix.Resource()` with no arguments raises too.
+`source` also accepts an **HTTP(S) URL** (name inferred from the URL path; other schemes raise `ValidationError: Unsupported File URL scheme`) or a **directory** (`is_dir` becomes `True`). Validation is eager: a missing path raises `ValidationError: File source does not exist: …` at construction, before any upload, and `aix.File()` with no arguments raises too. File assets never carry a stable `.url` — request one on demand with `.get_signed_url()`.
 
 ### PostgreSQL — integration `aixplain/postgresql`
 

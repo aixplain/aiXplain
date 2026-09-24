@@ -24,7 +24,6 @@ class FileType(str, Enum):
 
     FILE = "file"
     FOLDER = "folder"
-    DIRECTORY = "folder"
 
 
 class FileContentType(str, Enum):
