@@ -154,7 +154,7 @@ def _is_inspector_abort_message(output: str) -> bool:
     )
 
 
-def _make_single_agent(client, llm_id: str, model_name: str):
+def _make_single_agent(client, tracker, llm_id: str, model_name: str):
     agent = client.Agent(
         name=_build_name("ArabicSingleLegal", model_name),
         description=SINGLE_AGENT_DESCRIPTION,
@@ -164,10 +164,12 @@ def _make_single_agent(client, llm_id: str, model_name: str):
         max_iterations=4,
     )
     agent.save()
+    tracker.append(agent)
     return agent
 
 
-def _make_team_agent(client, llm_id: str, model_name: str, inspectors=None):
+def _make_team_agent(client, tracker, llm_id: str, model_name: str, inspectors=None):
+    """Build a researcher + drafter team, registering each agent with ``tracker`` as it is saved."""
     researcher = client.Agent(
         name=_build_name("ArabicResearcher", model_name),
         description="باحث قانوني",
@@ -189,7 +191,9 @@ def _make_team_agent(client, llm_id: str, model_name: str, inspectors=None):
         llm=llm_id,
     )
     researcher.save()
+    tracker.append(researcher)
     drafter.save()
+    tracker.append(drafter)
 
     team_agent = client.Agent(
         name=_build_name("ArabicTeamPipeline", model_name),
@@ -206,7 +210,8 @@ def _make_team_agent(client, llm_id: str, model_name: str, inspectors=None):
         max_iterations=4,
     )
     team_agent.save()
-    return [researcher, drafter, team_agent]
+    tracker.append(team_agent)
+    return team_agent
 
 
 def _make_output_inspector(llm_id: str, model_name: str):
@@ -229,8 +234,7 @@ def _make_output_inspector(llm_id: str, model_name: str):
 @pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
 def test_arabic_single_agent(client, resource_tracker, model_name, llm_id):
     """An agent with diacritic Arabic instructions answers a mixed Arabic/English query in Arabic."""
-    agent = _make_single_agent(client, llm_id, model_name)
-    resource_tracker.append(agent)
+    agent = _make_single_agent(client, resource_tracker, llm_id, model_name)
 
     response = agent.run(ARABIC_QUERIES["mixed_ar_en"])
     output, _ = _assert_success_response(response)
@@ -242,9 +246,7 @@ def test_arabic_single_agent(client, resource_tracker, model_name, llm_id):
 def test_arabic_team_agent_with_inspector(client, resource_tracker, model_name, llm_id):
     """One team run covers Arabic team serialization, delegation, and an Arabic-prompted inspector."""
     inspector = _make_output_inspector(llm_id, model_name)
-    resources = _make_team_agent(client, llm_id, model_name, inspectors=[inspector])
-    resource_tracker.extend(resources)
-    team_agent = resources[-1]
+    team_agent = _make_team_agent(client, resource_tracker, llm_id, model_name, inspectors=[inspector])
 
     response = team_agent.run(ARABIC_QUERIES["pure_arabic"])
     output, steps = _assert_success_response(response)

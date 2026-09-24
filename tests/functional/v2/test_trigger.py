@@ -11,6 +11,7 @@ agent is created and cleaned up). Event-trigger tests are gated on extra env var
 
 import os
 import time
+import uuid
 
 import pytest
 
@@ -23,31 +24,16 @@ FUTURE_RUN_AT = "2099-01-26T12:00:00Z"
 
 
 @pytest.fixture(scope="module")
-def test_agent(client):
+def test_agent(client, module_resource_tracker):
     """Create a temporary agent to attach triggers to, and clean it up."""
     agent = client.Agent(
-        name=f"Trigger Functional Agent {int(time.time())}",
+        name=f"Trigger Functional Agent {int(time.time())}-{uuid.uuid4().hex[:6]}",
         description="Temporary agent for trigger functional tests",
         instructions="You are a helpful test agent. Respond briefly.",
     )
     agent.save()
-    yield agent
-    try:
-        agent.delete()
-    except Exception:
-        pass
-
-
-@pytest.fixture
-def cleanup_triggers():
-    """Collect triggers created during a test and delete them afterwards."""
-    created = []
-    yield created
-    for t in created:
-        try:
-            t.delete()
-        except Exception:
-            pass
+    module_resource_tracker.append(agent)
+    return agent
 
 
 @pytest.fixture(scope="module")
@@ -74,26 +60,26 @@ def connection_id():
 
 
 class TestTimeTriggerLifecycle:
-    def test_create_once_trigger(self, client, test_agent, cleanup_triggers):
+    def test_create_once_trigger(self, client, test_agent, resource_tracker):
         """A one-off (run_at) trigger is created and enabled by default."""
         t = client.Trigger(
-            name=f"once-{int(time.time())}",
+            name=f"once-{int(time.time())}-{uuid.uuid4().hex[:6]}",
             agent=test_agent,
             input="Remind the team about the launch.",
             run_at=FUTURE_RUN_AT,
         )
         t.save()
-        cleanup_triggers.append(t)
+        resource_tracker.append(t)
 
         assert t.id is not None
         assert t.trigger_type == "time"
         assert t.schedule_type == "once"
         assert t.enabled is True
 
-    def test_create_daily_trigger(self, client, test_agent, cleanup_triggers):
+    def test_create_daily_trigger(self, client, test_agent, resource_tracker):
         """A daily trigger maps at/timezone onto a daily schedule."""
         t = client.Trigger(
-            name=f"daily-{int(time.time())}",
+            name=f"daily-{int(time.time())}-{uuid.uuid4().hex[:6]}",
             agent=test_agent,
             input="Summarise today's AI news.",
             every="day",
@@ -102,45 +88,59 @@ class TestTimeTriggerLifecycle:
             notifications=True,
         )
         t.save()
-        cleanup_triggers.append(t)
+        resource_tracker.append(t)
 
         assert t.id is not None
         assert t.schedule_type == "daily"
         assert t.notifications is True
 
-    def test_create_interval_and_weekly_and_monthly(self, client, test_agent, cleanup_triggers):
+    def test_create_interval_and_weekly_and_monthly(self, client, test_agent, resource_tracker):
         """Interval, weekly, and monthly schedules all create successfully."""
         hourly = client.Trigger(
-            name=f"hourly-{int(time.time())}", agent=test_agent, input="Check the queue.",
-            every="hour", interval=2,
+            name=f"hourly-{int(time.time())}-{uuid.uuid4().hex[:6]}",
+            agent=test_agent,
+            input="Check the queue.",
+            every="hour",
+            interval=2,
         )
         hourly.save()
-        cleanup_triggers.append(hourly)
+        resource_tracker.append(hourly)
         assert hourly.schedule_type == "recurring"
 
         weekly = client.Trigger(
-            name=f"weekly-{int(time.time())}", agent=test_agent, input="Compile the weekly report.",
-            every="week", on=["mon", "thu"], at="17:00",
+            name=f"weekly-{int(time.time())}-{uuid.uuid4().hex[:6]}",
+            agent=test_agent,
+            input="Compile the weekly report.",
+            every="week",
+            on=["mon", "thu"],
+            at="17:00",
         )
         weekly.save()
-        cleanup_triggers.append(weekly)
+        resource_tracker.append(weekly)
         assert weekly.schedule_type == "weekly"
 
         monthly = client.Trigger(
-            name=f"monthly-{int(time.time())}", agent=test_agent, input="Generate invoices.",
-            every="month", on=[1, 15], at="09:00",
+            name=f"monthly-{int(time.time())}-{uuid.uuid4().hex[:6]}",
+            agent=test_agent,
+            input="Generate invoices.",
+            every="month",
+            on=[1, 15],
+            at="09:00",
         )
         monthly.save()
-        cleanup_triggers.append(monthly)
+        resource_tracker.append(monthly)
         assert monthly.schedule_type == "monthly"
 
-    def test_get_trigger(self, client, test_agent, cleanup_triggers):
+    def test_get_trigger(self, client, test_agent, resource_tracker):
         """Trigger.get(id) retrieves a created trigger."""
         t = client.Trigger(
-            name=f"get-{int(time.time())}", agent=test_agent, input="Ping.", run_at=FUTURE_RUN_AT,
+            name=f"get-{int(time.time())}-{uuid.uuid4().hex[:6]}",
+            agent=test_agent,
+            input="Ping.",
+            run_at=FUTURE_RUN_AT,
         )
         t.save()
-        cleanup_triggers.append(t)
+        resource_tracker.append(t)
 
         fetched = client.Trigger.get(t.id)
         assert fetched.id == t.id
@@ -148,13 +148,16 @@ class TestTimeTriggerLifecycle:
         assert fetched.trigger_type == "time"
         assert fetched.schedule_type == "once"
 
-    def test_search_by_agent(self, client, test_agent, cleanup_triggers):
+    def test_search_by_agent(self, client, test_agent, resource_tracker):
         """Trigger.search(agent=) returns a Page containing the agent's triggers."""
         t = client.Trigger(
-            name=f"search-{int(time.time())}", agent=test_agent, input="Ping.", run_at=FUTURE_RUN_AT,
+            name=f"search-{int(time.time())}-{uuid.uuid4().hex[:6]}",
+            agent=test_agent,
+            input="Ping.",
+            run_at=FUTURE_RUN_AT,
         )
         t.save()
-        cleanup_triggers.append(t)
+        resource_tracker.append(t)
 
         page = client.Trigger.search(agent=test_agent)
         assert isinstance(page, Page)
@@ -164,13 +167,16 @@ class TestTimeTriggerLifecycle:
             assert isinstance(item, Trigger)
             assert item.asset_id == test_agent.id
 
-    def test_enable_disable_via_save(self, client, test_agent, cleanup_triggers):
+    def test_enable_disable_via_save(self, client, test_agent, resource_tracker):
         """Setting enabled=False and saving disables the trigger."""
         t = client.Trigger(
-            name=f"toggle-{int(time.time())}", agent=test_agent, input="Ping.", run_at=FUTURE_RUN_AT,
+            name=f"toggle-{int(time.time())}-{uuid.uuid4().hex[:6]}",
+            agent=test_agent,
+            input="Ping.",
+            run_at=FUTURE_RUN_AT,
         )
         t.save()
-        cleanup_triggers.append(t)
+        resource_tracker.append(t)
         assert t.enabled is True
 
         t.enabled = False
@@ -181,15 +187,20 @@ class TestTimeTriggerLifecycle:
         t.save()
         assert client.Trigger.get(t.id).enabled is True
 
-    def test_delete_trigger(self, client, test_agent):
+    def test_delete_trigger(self, client, test_agent, resource_tracker):
         """delete() removes the trigger."""
         t = client.Trigger(
-            name=f"delete-{int(time.time())}", agent=test_agent, input="Ping.", run_at=FUTURE_RUN_AT,
+            name=f"delete-{int(time.time())}-{uuid.uuid4().hex[:6]}",
+            agent=test_agent,
+            input="Ping.",
+            run_at=FUTURE_RUN_AT,
         )
         t.save()
+        resource_tracker.append(t)
         trigger_id = t.id
 
         t.delete()
+        resource_tracker.mark_cleaned(t)
 
         with pytest.raises(Exception):
             client.Trigger.get(trigger_id)
@@ -220,7 +231,7 @@ class TestEventTriggerDiscovery:
 
 
 class TestEventTriggerLifecycle:
-    def test_create_and_delete_event_trigger(self, client, test_agent, connection_id):
+    def test_create_and_delete_event_trigger(self, client, test_agent, connection_id, resource_tracker):
         """Create a real Composio event trigger from a connected tool and delete it."""
         tool = client.Tool.get(connection_id)
 
@@ -231,19 +242,14 @@ class TestEventTriggerLifecycle:
         assert option.connection_id == tool.id  # connected tool carries the connection
 
         t = client.Trigger(
-            name=f"event-{int(time.time())}",
+            name=f"event-{int(time.time())}-{uuid.uuid4().hex[:6]}",
             agent=test_agent,
             input="Handle this event.",
             event=option,
         )
-        try:
-            t.save()
-            assert t.id is not None
-            assert t.trigger_type == "external"
-            # Activation filled in the real Composio trigger id.
-            assert t.trigger_id
-        finally:
-            try:
-                t.delete()
-            except Exception:
-                pass
+        t.save()
+        resource_tracker.append(t)
+        assert t.id is not None
+        assert t.trigger_type == "external"
+        # Activation filled in the real Composio trigger id.
+        assert t.trigger_id

@@ -3,12 +3,15 @@
 These tests run against a real backend and require valid credentials.
 Set TEAM_API_KEY (or AIXPLAIN_API_KEY) in the environment.
 
-A test agent is created once per module and cleaned up afterwards.
+A test agent is created once per module. Every agent and session is registered
+with the shared cleanup tracker as soon as it is saved, so a failing test still
+deletes what it created.
 """
 
 import os
 import tempfile
 import time
+import uuid
 
 import pytest
 
@@ -22,25 +25,23 @@ from aixplain.v2.exceptions import APIError
 
 
 @pytest.fixture(scope="module")
-def test_agent(client):
+def test_agent(client, module_resource_tracker):
     """Create a temporary agent for session tests."""
     agent = client.Agent(
-        name=f"Session Test Agent {int(time.time())}",
+        name=f"Session Test Agent {int(time.time())}-{uuid.uuid4().hex[:6]}",
         description="Temporary agent for session functional tests",
         instructions="You are a helpful test agent. Keep responses short.",
     )
     agent.save()
-    yield agent
-    try:
-        agent.delete()
-    except Exception:
-        pass
+    module_resource_tracker.append(agent)
+    return agent
 
 
-def _make_session(client, agent, name=None, **kwargs):
-    """Create and persist a session bound to ``agent`` (the single create path)."""
+def _make_session(client, agent, tracker, name=None, **kwargs):
+    """Create and persist a session bound to ``agent``, registered with ``tracker`` for cleanup."""
     session = client.Session(agent=agent, name=name, **kwargs)
     session.save()
+    tracker.append(session)
     return session
 
 
@@ -52,9 +53,9 @@ def _make_session(client, agent, name=None, **kwargs):
 class TestSessionCRUD:
     """End-to-end session create / get / list / update / delete."""
 
-    def test_create_session_with_agent_object(self, client, test_agent):
+    def test_create_session_with_agent_object(self, client, test_agent, resource_tracker):
         """Creating a session with ``Session(agent=…)`` returns a saved Session."""
-        session = _make_session(client, test_agent, name="Func Test Session")
+        session = _make_session(client, test_agent, resource_tracker, name="Func Test Session")
 
         assert session.id is not None
         assert isinstance(session, Session)
@@ -62,44 +63,27 @@ class TestSessionCRUD:
         assert session.name == "Func Test Session"
         assert session.status == "active"
 
-        # Cleanup
-        try:
-            session.delete()
-        except Exception:
-            pass
-
-    def test_create_session_with_agent_id(self, client, test_agent):
+    def test_create_session_with_agent_id(self, client, test_agent, resource_tracker):
         """``Session(agent=…)`` also accepts a bare agent id string."""
         session = client.Session(agent=test_agent.id, name="Direct Create")
         session.save()
+        resource_tracker.append(session)
 
         assert session.id is not None
         assert session.agent_id == test_agent.id
 
-        # Cleanup
-        try:
-            session.delete()
-        except Exception:
-            pass
-
-    def test_get_session(self, client, test_agent):
+    def test_get_session(self, client, test_agent, resource_tracker):
         """Retrieving a session by ID should return the same session."""
-        session = _make_session(client, test_agent, name="Get Test")
+        session = _make_session(client, test_agent, resource_tracker, name="Get Test")
         fetched = client.Session.get(session.id)
 
         assert fetched.id == session.id
         assert fetched.name == session.name
         assert fetched.agent_id == session.agent_id
 
-        # Cleanup
-        try:
-            session.delete()
-        except Exception:
-            pass
-
-    def test_search_sessions_for_agent(self, client, test_agent):
+    def test_search_sessions_for_agent(self, client, test_agent, resource_tracker):
         """Session.search(agent=…) returns a Page including the created session."""
-        session = _make_session(client, test_agent, name="List Test")
+        session = _make_session(client, test_agent, resource_tracker, name="List Test")
 
         page = client.Session.search(agent=test_agent)
 
@@ -107,43 +91,25 @@ class TestSessionCRUD:
         assert session.id in session_ids
         assert page.total >= 1
 
-        # Cleanup
-        try:
-            session.delete()
-        except Exception:
-            pass
-
-    def test_search_sessions_with_status_filter(self, client, test_agent):
+    def test_search_sessions_with_status_filter(self, client, test_agent, resource_tracker):
         """Filtering by status should only return matching sessions."""
-        session = _make_session(client, test_agent, name="Status Filter Test")
+        _make_session(client, test_agent, resource_tracker, name="Status Filter Test")
 
         page = client.Session.search(agent=test_agent, status="active")
         assert all(s.status == "active" for s in page.results)
 
-        # Cleanup
-        try:
-            session.delete()
-        except Exception:
-            pass
-
-    def test_update_session(self, client, test_agent):
+    def test_update_session(self, client, test_agent, resource_tracker):
         """Updating session name via save() should persist the change."""
-        session = _make_session(client, test_agent, name="Before Update")
+        session = _make_session(client, test_agent, resource_tracker, name="Before Update")
         session.name = "After Update"
         session.save()
 
         fetched = client.Session.get(session.id)
         assert fetched.name == "After Update"
 
-        # Cleanup
-        try:
-            session.delete()
-        except Exception:
-            pass
-
-    def test_seed_session_with_messages(self, client, test_agent):
+    def test_seed_session_with_messages(self, client, test_agent, resource_tracker):
         """Seeding a session via add_message should persist the transcript."""
-        session = _make_session(client, test_agent, name="History Test")
+        session = _make_session(client, test_agent, resource_tracker, name="History Test")
         session.add_message(role="user", content="What is 2+2?")
         session.add_message(role="assistant", content="4")
 
@@ -154,19 +120,14 @@ class TestSessionCRUD:
         assert "What is 2+2?" in contents
         assert "4" in contents
 
-        # Cleanup
-        try:
-            session.delete()
-        except Exception:
-            pass
-
-    def test_delete_session(self, client, test_agent):
+    def test_delete_session(self, client, test_agent, resource_tracker):
         """Deleting a session should succeed."""
-        session = _make_session(client, test_agent, name="Delete Me")
+        session = _make_session(client, test_agent, resource_tracker, name="Delete Me")
         session_id = session.id
         assert session_id is not None
 
         result = session.delete()
+        resource_tracker.mark_cleaned(session)
         assert result.completed is True
 
 
@@ -179,14 +140,11 @@ class TestSessionMessages:
     """End-to-end tests for session message operations."""
 
     @pytest.fixture()
-    def session(self, client, test_agent):
-        """Create a session for message tests and clean up after."""
-        s = _make_session(client, test_agent, name=f"Msg Test {int(time.time())}")
-        yield s
-        try:
-            s.delete()
-        except Exception:
-            pass
+    def session(self, client, test_agent, resource_tracker):
+        """Create a session for message tests; ``resource_tracker`` deletes it afterwards."""
+        return _make_session(
+            client, test_agent, resource_tracker, name=f"Msg Test {int(time.time())}-{uuid.uuid4().hex[:6]}"
+        )
 
     def test_add_and_get_message(self, session):
         """Adding a message should return a SessionMessage with content."""
@@ -291,8 +249,7 @@ class TestSessionMessages:
         assert disliked.reaction == "DISLIKE"
 
     @pytest.mark.skip(
-        reason="Backend bug: sessions service stores every message as "
-        "role='user' — see test_react_like_and_dislike."
+        reason="Backend bug: sessions service stores every message as role='user' — see test_react_like_and_dislike."
     )
     def test_clear_reaction(self, session):
         """Passing None to react() should clear the reaction."""
@@ -312,9 +269,9 @@ class TestSessionMessages:
 class TestSessionWithAgentRun:
     """Tests for how agent.run() interacts with sessions."""
 
-    def test_run_with_session_adds_messages(self, client, test_agent):
+    def test_run_with_session_adds_messages(self, client, test_agent, resource_tracker):
         """Running an agent with session=… should add messages to the session."""
-        session = _make_session(client, test_agent, name="Run Test")
+        session = _make_session(client, test_agent, resource_tracker, name="Run Test")
         msgs_before = session.messages()
 
         result = test_agent.run(
@@ -325,12 +282,6 @@ class TestSessionWithAgentRun:
 
         msgs_after = session.messages()
         assert len(msgs_after) > len(msgs_before), "Backend should auto-add messages to the session during a run"
-
-        # Cleanup
-        try:
-            session.delete()
-        except Exception:
-            pass
 
 
 # ---------------------------------------------------------------------------
@@ -346,16 +297,10 @@ class TestSessionErrors:
         with pytest.raises(APIError):
             client.Session.get("nonexistent-session-id-12345")
 
-    def test_react_to_user_message_raises_error(self, client, test_agent):
+    def test_react_to_user_message_raises_error(self, client, test_agent, resource_tracker):
         """Reacting to a user message should raise an APIError."""
-        session = _make_session(client, test_agent, name="React Error Test")
+        session = _make_session(client, test_agent, resource_tracker, name="React Error Test")
         msg = session.add_message(role="user", content="Can't like this")
 
         with pytest.raises(APIError, match="assistant"):
             session.react(msg.id, "LIKE")
-
-        # Cleanup
-        try:
-            session.delete()
-        except Exception:
-            pass
