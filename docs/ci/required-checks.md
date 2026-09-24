@@ -28,14 +28,30 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | 1 | `pre-commit` | `pre-commit.yaml` | Yes (`push: '**'`) | None — requireable as soon as it is green |
 | 1 | `unit-coverage` | `main.yaml` | **No** | `main.yaml` gains a `pull_request` trigger |
 | 1 | `package-integrity` | `main.yaml` | **No** | `main.yaml` gains a `pull_request` trigger |
-| 2 | `setup-and-test (v2)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-actions-inputs)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-agent)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-agent-duplicate)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-agent-llm-persistence)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-api-key)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-arabic-agent)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-integration)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-model)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-rlm)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-session)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-skill)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-snake-case-e2e)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-tool)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `setup-and-test (v2-trigger)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 
 The `file_asset`, `model`, `general_assets`, `apikey`, `agent` and `team_agent` legs exercised v1
 exclusively and were deleted with it (PROD-2918).
 
-The Tier 2 leg consumes `TEAM_API_KEY` and hits live backend assets, so its redness is frequently a
-backend-availability problem rather than an SDK regression. Require it only once that is no longer
-true.
+The v2 functional suite runs one leg per `tests/functional/v2/test_*.py` file, so each leg can be
+required on its own: a leg that is reliably green can be required before a flaky one.
+
+The Tier 2 legs consume `TEAM_API_KEY` and hit live backend assets, so their redness is frequently a
+backend-availability problem rather than an SDK regression. Require each one only once that is no
+longer true for it.
 
 `tests/unit/test_ci_permissions.py` asserts that the `setup-and-test (...)` list above matches
 `main.yaml`'s matrix exactly, so adding, renaming, or deleting a leg fails a unit test instead of

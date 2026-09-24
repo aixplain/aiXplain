@@ -246,17 +246,72 @@ jobs:
         # rather than silent dead code, while parking stays available as an
         # explicit, reviewed choice.
         #
-        # The file_asset, model, general_assets, apikey, agent and team_agent
-        # legs exercised v1 exclusively and were deleted with it (PROD-2918),
-        # along with the already-parked benchmark suite. tests/functional/v2
-        # covers the same resources against the v2 surface. Nothing is parked.
+        # The v2 suite runs one leg per test file, so the legs run in parallel and a
+        # failure names the resource that broke instead of a single `v2` job. Adding
+        # a test file under tests/functional/v2/ means adding a leg here (both the
+        # name and its include entry); test_ci_matrix_coverage.py fails otherwise.
+        #
+        # The v1 legs (file_asset, model, general_assets, apikey, agent,
+        # team_agent, benchmark) were deleted with v1 in PROD-2918.
         test-suite: [
-          'v2',
+          'v2-actions-inputs',
+          'v2-agent',
+          'v2-agent-duplicate',
+          'v2-agent-llm-persistence',
+          'v2-api-key',
+          'v2-arabic-agent',
+          'v2-integration',
+          'v2-model',
+          'v2-rlm',
+          'v2-session',
+          'v2-skill',
+          'v2-snake-case-e2e',
+          'v2-tool',
+          'v2-trigger',
         ]
         include:
-          - test-suite: 'v2'
-            path: 'tests/functional/v2'
-            timeout: 45
+          - test-suite: 'v2-actions-inputs'
+            path: 'tests/functional/v2/test_actions_inputs.py'
+            timeout: 30
+          - test-suite: 'v2-agent'
+            path: 'tests/functional/v2/test_agent.py'
+            timeout: 30
+          - test-suite: 'v2-agent-duplicate'
+            path: 'tests/functional/v2/test_agent_duplicate.py'
+            timeout: 30
+          - test-suite: 'v2-agent-llm-persistence'
+            path: 'tests/functional/v2/test_agent_llm_persistence.py'
+            timeout: 30
+          - test-suite: 'v2-api-key'
+            path: 'tests/functional/v2/test_api_key.py'
+            timeout: 30
+          - test-suite: 'v2-arabic-agent'
+            path: 'tests/functional/v2/test_arabic_agent.py'
+            timeout: 30
+          - test-suite: 'v2-integration'
+            path: 'tests/functional/v2/test_integration.py'
+            timeout: 30
+          - test-suite: 'v2-model'
+            path: 'tests/functional/v2/test_model.py'
+            timeout: 30
+          - test-suite: 'v2-rlm'
+            path: 'tests/functional/v2/test_rlm.py'
+            timeout: 30
+          - test-suite: 'v2-session'
+            path: 'tests/functional/v2/test_session.py'
+            timeout: 30
+          - test-suite: 'v2-skill'
+            path: 'tests/functional/v2/test_skill.py'
+            timeout: 30
+          - test-suite: 'v2-snake-case-e2e'
+            path: 'tests/functional/v2/test_snake_case_e2e.py'
+            timeout: 30
+          - test-suite: 'v2-tool'
+            path: 'tests/functional/v2/test_tool.py'
+            timeout: 30
+          - test-suite: 'v2-trigger'
+            path: 'tests/functional/v2/test_trigger.py'
+            timeout: 30
 
     steps:
       - name: Checkout repository
