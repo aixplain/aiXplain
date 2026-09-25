@@ -23,8 +23,9 @@ Values move through graph state using node-level `input_mapping`, `output_mappin
 ## Minimal save and run demo
 
 ```python
-from aixplain.v2 import Agent, Graph, LLMNode
+from aixplain import Aixplain, Graph, LLMNode
 
+aix = Aixplain()  # reads TEAM_API_KEY or AIXPLAIN_API_KEY from the environment
 MODEL_ID = "your-model-id"
 
 answer = LLMNode(
@@ -42,7 +43,7 @@ graph = Graph(
     nodes=[answer],
 )
 
-agent = Agent(
+agent = aix.Agent(
     name="Static answer demo",
     instructions="Execute the configured static graph.",
     llm=MODEL_ID,
@@ -64,8 +65,9 @@ entries; otherwise, the SDK generates a readable unique ID from the node name.
 Edges define the execution order. This example runs a sandboxed preparation step before the model call:
 
 ```python
-from aixplain.v2 import Agent, Edge, Graph, LLMNode, ScriptNode
+from aixplain import Aixplain, Edge, Graph, LLMNode, ScriptNode
 
+aix = Aixplain()
 MODEL_ID = "your-model-id"
 
 prepare = ScriptNode(
@@ -90,7 +92,7 @@ graph = Graph(
     edges=[Edge(source=prepare, target=answer)],
 )
 
-agent = Agent(name="Prepared answer", llm=MODEL_ID, graph=graph)
+agent = aix.Agent(name="Prepared answer", llm=MODEL_ID, graph=graph)
 agent.save()
 result = agent.run("  Explain deterministic workflows.  ")
 ```
@@ -102,7 +104,7 @@ order, and the first matching edge is followed. Every node with conditional edge
 fallback edge:
 
 ```python
-from aixplain.v2 import Condition, Edge, Graph
+from aixplain import Condition, Edge, Graph
 
 graph = Graph(
     entry_point=score_node,
@@ -139,10 +141,11 @@ graph = Graph(
 
 ## Fetch and update
 
-Fetched graphs are reconstructed as typed SDK objects, so they can be inspected or changed and saved again:
+Fetched graphs are reconstructed as typed SDK objects, so they can be inspected or changed and saved again. A node
+the SDK does not model (for example a `parallel` node) comes back as a `RawNode` and is saved back unchanged:
 
 ```python
-agent = Agent.get("saved-agent-id")
+agent = aix.Agent.get("saved-agent-id")
 
 print(agent.graph.entry_point_id)
 print([node.id for node in agent.graph.nodes])
@@ -151,7 +154,25 @@ agent.graph.max_loop_iterations = 5
 agent.save()
 ```
 
-Local validation runs when an Agent is constructed and again before graph serialization. It rejects unknown edge
-endpoints, duplicate or unreachable nodes, invalid cycles, duplicate conditions, missing fallbacks, and incorrectly
-ordered fallback edges before a network request is made. The backend and engine perform their own authoritative
-validation at save and run time.
+Local validation runs when the graph is serialized for `save()` (and when a graph is passed as a dict). It rejects
+unknown edge endpoints, duplicate or unreachable nodes, invalid cycles, duplicate conditions, missing fallbacks, and
+incorrectly ordered fallback edges before a network request is made. A fetched graph is not validated locally: the
+backend and engine perform their own authoritative validation at save and run time.
+
+## Plain data
+
+Every graph type also accepts a dict: `Graph`, `Edge`, `Condition`, `RetryPolicy`, and `StaticGraphStrategy` (typed as
+`GraphDict`, `EdgeDict`, `ConditionDict`, `RetryPolicyDict`, and `StaticGraphStrategyDict`). A node dict names its
+`type` (`llm`, `tool`, `agent`, `script`, `inspector`, `conditional`) and takes that node class's fields. An unknown key
+raises `ValidationError` naming the accepted fields:
+
+```python
+agent.graph = {
+    "entry_point": "answer",
+    "nodes": {"answer": {"type": "llm", "model": MODEL_ID, "output_key": "answer"}},
+}
+agent.strategy = {"max_iterations": 5}
+```
+
+Set a cost or duration cap in either `agent.budget` or `agent.strategy.budget`, not both. The SDK sends both and warns
+when both are set.

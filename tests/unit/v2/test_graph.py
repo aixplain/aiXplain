@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import pytest
 
 from aixplain.v2 import (
@@ -14,6 +16,7 @@ from aixplain.v2 import (
     Input,
     Inputs,
     LLMNode,
+    RawNode,
     RetryPolicy,
     ScriptNode,
     StaticGraphStrategy,
@@ -406,7 +409,7 @@ def test_bounded_cycle_serializes_when_explicitly_enabled() -> None:
     assert encoded["max_loop_iterations"] == 4
 
 
-def test_graph_rejects_unknown_node_type_from_backend() -> None:
+def test_graph_rejects_unknown_node_type_from_caller() -> None:
     with pytest.raises(ValidationError, match="Unsupported graph node type 'future_node'"):
         Graph.from_dict(
             {
@@ -431,6 +434,7 @@ def test_realistic_model_tool_subagent_and_inspector_payload() -> None:
         }
     )
     tool.allowed_actions = ["search"]
+
     def get_parameters():
         return [
             {
@@ -512,3 +516,235 @@ def test_realistic_model_tool_subagent_and_inspector_payload() -> None:
     assert payload["graph"]["nodes"]["search"]["arg_mapping"] == {"query": "summary"}
     assert payload["graph"]["nodes"]["delegate"]["agent_name"] == specialist.name
     assert payload["graph"]["nodes"]["inspect"]["inspector_type"] == inspector.name
+
+
+def _llm(node_id: str) -> LLMNode:
+    return LLMNode(name=node_id.upper(), node_id=node_id, model="model")
+
+
+def _single_node_graph() -> Graph:
+    node = _llm("a")
+    return Graph(entry_point=node, nodes=[node])
+
+
+def _bound_agent(response: dict, **kwargs) -> Agent:
+    agent = Agent(name="x", instructions="Run the graph.", **kwargs)
+    agent.context = MagicMock()
+    agent.context.client.request.return_value = response
+    return agent
+
+
+def test_create_response_without_graph_keeps_the_graph() -> None:
+    agent = _bound_agent(
+        {"id": "AG1", "name": "x", "status": "draft"},
+        graph=_single_node_graph(),
+        strategy={"max_iterations": 4},
+        graph_version="2",
+    )
+
+    agent.save()
+
+    assert agent.id == "AG1"
+    assert isinstance(agent.graph, Graph)
+    assert agent.strategy.max_iterations == 4
+    assert agent.graph_version == "2"
+    agent.graph.max_loop_iterations = 5
+    payload = agent.build_save_payload()
+    assert payload["graph"]["max_loop_iterations"] == 5
+    assert payload["strategy"] == {"type": "static_graph", "max_iterations": 4}
+
+
+def test_nameless_node_round_trips() -> None:
+    node = LLMNode(name=None, node_id="b", model="m")
+    encoded = Graph(entry_point=node, nodes=[node]).to_dict()
+
+    assert "name" not in encoded["nodes"]["b"]
+    assert Graph.from_dict(encoded).to_dict() == encoded
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"id": "AG1", "name": "x", "strategy": {"type": "dynamic"}},
+        {"id": "AG1", "name": "x", "graphVersion": "1"},
+        {"id": "AG1", "name": "x", "strategy": {"type": "static_graph"}, "graph": None},
+    ],
+)
+def test_non_graph_agents_deserialize(response: dict) -> None:
+    agent = Agent.from_dict(response)
+
+    assert agent.graph is None
+    assert agent.strategy is None
+    assert agent.graph_version is None
+
+
+def test_fetched_graph_is_not_locally_validated_and_saves_back_unchanged() -> None:
+    stored = {
+        "nodes": {
+            "a": {"id": "a", "type": "llm", "name": "A", "model": "m"},
+            "fanout": {"id": "fanout", "type": "parallel", "branches": ["x", "y"], "future_field": 1},
+            "orphan": {"id": "orphan", "type": "llm", "model": "m", "future_field": True},
+        },
+        "edges": [
+            {"source": "a", "target": "fanout", "future_field": 1},
+        ],
+        "entry_point": "a",
+        "future_graph_field": True,
+    }
+
+    agent = Agent.from_dict({"id": "AG1", "name": "x", "graphVersion": "1", "graph": stored})
+
+    assert isinstance(agent.graph.nodes[1], RawNode)
+    assert agent.graph.nodes[1].to_dict() == stored["nodes"]["fanout"]
+    assert isinstance(agent.graph.nodes[2], RawNode)
+    with pytest.raises(ValidationError, match="unreachable"):
+        agent.build_save_payload()
+
+
+def test_unknown_edge_operator_from_backend_is_kept() -> None:
+    graph = Graph.from_dict(
+        {
+            "nodes": {"a": {"type": "llm", "model": "m"}, "b": {"type": "llm", "model": "m"}},
+            "edges": [
+                {"source": "a", "target": "b", "condition": {"key": "k", "operator": "matches", "value": "x"}},
+                {"source": "a", "target": "b"},
+            ],
+            "entry_point": "a",
+        },
+        strict=False,
+    )
+
+    assert graph.to_dict()["edges"][0]["condition"]["operator"] == "matches"
+
+
+def test_graph_edits_mark_the_agent_modified() -> None:
+    agent = Agent.from_dict({"id": "AG1", "name": "x", "graphVersion": "1", "graph": _single_node_graph().to_dict()})
+    agent._update_saved_state()
+    assert agent.is_modified is False
+
+    agent.graph.max_loop_iterations = 5
+    assert agent.is_modified is True
+
+    agent._update_saved_state()
+    agent.graph.nodes[0].config["temperature"] = 1
+    assert agent.is_modified is True
+
+    agent._update_saved_state()
+    agent.strategy.max_iterations = 3
+    assert agent.is_modified is True
+
+
+def test_assignment_after_construction_is_coerced() -> None:
+    agent = Agent(name="x")
+
+    agent.graph = _single_node_graph().to_dict()
+    agent.strategy = {"type": "static_graph", "max_iterations": 2}
+
+    assert isinstance(agent.graph, Graph)
+    assert isinstance(agent.strategy, StaticGraphStrategy)
+    assert agent.build_save_payload()["strategy"] == {"type": "static_graph", "max_iterations": 2}
+
+
+def test_clearing_the_graph_clears_strategy_and_version() -> None:
+    agent = Agent(name="x", graph=_single_node_graph(), graph_version="2")
+
+    agent.graph = None
+
+    assert agent.strategy is None
+    assert agent.graph_version is None
+    assert "graph" not in agent.build_save_payload()
+
+
+def test_graph_version_is_sent_as_set() -> None:
+    assert Agent(graph=_single_node_graph(), graph_version="2").build_save_payload()["graphVersion"] == "2"
+
+
+def test_both_budgets_warn() -> None:
+    agent = Agent(
+        name="x",
+        graph=_single_node_graph(),
+        budget={"max_cost": 1.0},
+        strategy={"budget": {"max_cost": 2.0}},
+    )
+
+    with pytest.warns(UserWarning, match="agent.strategy.budget"):
+        agent.build_save_payload()
+
+
+@pytest.mark.parametrize(
+    "build, message",
+    [
+        (lambda: Graph.from_dict({**_single_node_graph().to_dict(), "typo": 1}), "Unknown graph field.*typo"),
+        (lambda: Edge.from_dict({"source": "a", "target": "b", "lable": "x"}), "Unknown edge field.*lable"),
+        (lambda: Edge.from_dict({"source": "a"}), "Missing required edge field.*target"),
+        (lambda: RetryPolicy.from_dict({"retries": 1}), "Unknown retry_policy field.*retries"),
+        (lambda: LLMNode(name="a", model="m", timeout="soon"), "timeout must be a non-negative number"),
+        (
+            lambda: Graph.from_dict({"entry_point": "a", "nodes": {"a": {"type": "llm", "model": "m", "modle": 1}}}),
+            "Unknown llm node field.*modle",
+        ),
+        (lambda: StaticGraphStrategy.from_dict({"max_iteration": 1}), "Unknown strategy field.*max_iteration"),
+        (lambda: StaticGraphStrategy.from_dict({"type": "dynamic"}), "static_graph"),
+        (lambda: Agent(name="x", strategy={"type": "static_graph"}), "without a graph"),
+        (lambda: Graph(entry_point="a", nodes=[_llm("a")], edges=[{"source": "a"}]), "Missing required edge"),
+    ],
+)
+def test_plain_data_errors_are_validation_errors(build, message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        build()
+
+
+def test_plain_data_forms_are_accepted() -> None:
+    node = LLMNode(name="a", node_id="a", model="m", retry_policy={"max_retries": 1})
+    graph = Graph(
+        entry_point="a",
+        nodes=[node, {"type": "llm", "id": "b", "model": "m"}],
+        edges=[{"source": "a", "target": "b", "condition": {"key": "k", "operator": "eq", "value": 1}}, Edge("a", "b")],
+    )
+
+    assert isinstance(node.retry_policy, RetryPolicy)
+    assert isinstance(graph.nodes[1], LLMNode)
+    assert graph.edges[0].condition == Condition.equals("k", 1)
+    assert graph.to_dict()["nodes"]["b"]["model"] == "m"
+
+
+def test_duplicate_conditions_compare_by_json_value() -> None:
+    nodes = [_llm("a"), _llm("b"), _llm("c"), _llm("d")]
+    duplicate = Graph(
+        entry_point="a",
+        nodes=nodes,
+        edges=[Edge("a", "b", Condition.equals("k", 1)), Edge("a", "c", Condition.equals("k", 1.0)), Edge("a", "d")],
+    )
+    distinct = Graph(
+        entry_point="a",
+        nodes=nodes,
+        edges=[Edge("a", "b", Condition.equals("k", 1)), Edge("a", "c", Condition.is_true("k")), Edge("a", "d")],
+    )
+
+    with pytest.raises(ValidationError, match="duplicate"):
+        duplicate.validate()
+    distinct.validate()
+
+
+@pytest.mark.parametrize(
+    "graph, message",
+    [
+        (
+            Graph(entry_point="a", nodes=[_llm("a"), _llm("b"), _llm("c")], edges=[Edge("a", "b"), Edge("a", "c")]),
+            "multiple unconditional",
+        ),
+        (
+            Graph(
+                entry_point="a",
+                nodes=[_llm("a"), _llm("b"), _llm("c")],
+                edges=[Edge("a", "b"), Edge("a", "c", Condition.is_true("k"))],
+            ),
+            "after its unconditional fallback",
+        ),
+        (Graph(entry_point="a", nodes=[_llm("a")], edges=[Edge("a", "missing")]), "unknown node"),
+        (Graph(entry_point="missing", nodes=[_llm("a")]), "entry_point must reference"),
+    ],
+)
+def test_graph_structure_rules(graph: Graph, message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        graph.validate()
