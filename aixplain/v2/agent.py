@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import warnings
+from copy import deepcopy
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -18,6 +19,8 @@ from .enums import AssetStatus, AssetStatusValue, ResponseStatus
 from .model import Model
 from .file import File
 from .skill import Skill
+from .graph import Graph, GraphDict, StaticGraphStrategy, StaticGraphStrategyDict
+from .exceptions import ValidationError
 from .mixins import ToolableMixin
 from .plain_data import coerce_struct_list, struct_fields
 from .exceptions import ValidationError
@@ -710,6 +713,21 @@ class Agent(
     tasks: Optional[List[Union[Task, "TaskDict"]]] = field(default_factory=list)
     agents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
 
+    # Static graph fields. A dict works as well as the object; the decoders read a
+    # backend response leniently so an agent with a graph the SDK cannot model stays fetchable.
+    graph: Optional[Union[Graph, GraphDict]] = field(
+        default=None,
+        metadata=config(exclude=lambda value: True, decoder=lambda value: _decode_graph(value)),
+    )
+    graph_version: Optional[str] = field(
+        default=None,
+        metadata=config(field_name="graphVersion", exclude=lambda value: True),
+    )
+    strategy: Optional[Union[StaticGraphStrategy, StaticGraphStrategyDict]] = field(
+        default=None,
+        metadata=config(exclude=lambda value: True, decoder=lambda value: _decode_strategy(value)),
+    )
+
     # Deprecated alias for `agents` — will be removed in a future release
     subagents: Optional[List[Union[str, "Agent"]]] = field(
         default=None,
@@ -780,6 +798,13 @@ class Agent(
         # objects both, on the user-facing field names. The previous
         # ``Task.from_dict(task)`` here assumed a dict and raised
         # ``AttributeError`` on a ``Task`` the caller had constructed.
+
+        # ``__setattr__`` has coerced ``graph`` and ``strategy``; the graph is validated on save.
+        if self.graph is not None:
+            self.graph_version = self.graph_version or "1"
+            self.strategy = self.strategy or StaticGraphStrategy()
+        elif self.strategy is not None or self.graph_version is not None:
+            raise ValidationError("Agent strategy and graph_version cannot be set without a graph.")
 
         # Deserialize inspectors to Inspector objects so mutate-and-save round-trips.
         # Prebuilt guards and custom inspectors are the same Inspector type, so a
@@ -972,6 +997,14 @@ class Agent(
             # reached the backend instead of ``description`` / ``expectedOutput``
             # and ``dependencies`` was dropped, with no error anywhere.
             value = coerce_struct_list(value, Task, label="tasks", aliases=_TASK_WIRE_ALIASES)
+        elif name == "graph":
+            value = Graph.from_dict(value) if value is not None else None
+            if value is None and "strategy" in self.__dict__:
+                # Without a graph the static-graph settings mean nothing; keep the invariant.
+                super().__setattr__("strategy", None)
+                super().__setattr__("graph_version", None)
+        elif name == "strategy":
+            value = StaticGraphStrategy.from_dict(value) if value is not None else None
         if name in _ROLE_ATTRS:
             explicit = getattr(self, "_explicit_roles", None)
             if explicit is not None:
@@ -1034,10 +1067,16 @@ class Agent(
             # Files can now hold live File objects (mirrors tools) — reduce them
             # the same way, or to_dict() would recurse into File's ``context``.
             self.files = [self._file_identity(file) for file in original_files or []]
-            return super()._get_serializable_state()
+            state = super()._get_serializable_state()
         finally:
             self.tools = original_tools
             self.files = original_files
+        # ``graph`` and ``strategy`` are excluded from ``to_dict()``, so edits to them are tracked here.
+        if self.graph is not None:
+            state["graph"] = deepcopy(self.graph.to_dict(validate=False))
+            state["strategy"] = (self.strategy or StaticGraphStrategy()).to_dict(validate=False)
+            state["graphVersion"] = self.graph_version
+        return state
 
     @staticmethod
     def _tool_identity(tool: Any) -> dict:
@@ -1515,9 +1554,20 @@ class Agent(
         # overrides the caller set): a create response would otherwise replace
         # ``self.tools`` with backend dicts and drop those mutations.
         pre_save_tools = list(self.tools) if self.tools else []
+        pre_save_graph = (self.graph, self.strategy, self.graph_version)
 
         # Call the parent save method
         saved_agent = super().save(*args, **kwargs)
+
+        # A create response that does not echo the graph would otherwise leave it None,
+        # and the next save() would send no graph.
+        if pre_save_graph[0] is not None and self._server_omitted("graph"):
+            self.graph, self.strategy, self.graph_version = pre_save_graph
+        elif self.graph is not None:
+            if self._server_omitted("strategy"):
+                self.strategy = pre_save_graph[1] or StaticGraphStrategy()
+            if self._server_omitted("graphVersion"):
+                self.graph_version = pre_save_graph[2] or "1"
 
         # Restore the caller's tool objects, then re-hydrate any dict entries so
         # ``agent.tools[i]`` stays a mutable Tool/Model object after save.
@@ -2328,6 +2378,23 @@ class Agent(
 
         self._apply_llm_fields_to_payload(payload)
 
+        if self.graph is not None:
+            strategy = self.strategy or StaticGraphStrategy()
+            payload["graphVersion"] = self.graph_version or "1"
+            payload["graph"] = self.graph.to_dict()
+            payload["strategy"] = strategy.to_dict()
+            if strategy.budget and payload.get("budget"):
+                warnings.warn(
+                    "Both agent.budget and agent.strategy.budget are set; they are sent as separate caps. "
+                    "Set only one so it is clear which limit applies to the graph run.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+        else:
+            payload.pop("graphVersion", None)
+            payload.pop("graph", None)
+            payload.pop("strategy", None)
+
         # Convert agents to API format, resolving IDs from original objects
         if hasattr(self, "_original_agents") and self._original_agents:
             converted_agents = []
@@ -2845,8 +2912,23 @@ class Agent(
 _dataclass_json_agent_from_dict = Agent.from_dict.__func__
 
 
+def _decode_graph(value: Any) -> Optional[Graph]:
+    """Decode a backend graph leniently: the backend is authoritative for what it stored."""
+    return Graph.from_dict(value, strict=False) if value else None
+
+
+def _decode_strategy(value: Any) -> Optional[StaticGraphStrategy]:
+    """Decode a backend strategy, ignoring any strategy that is not a static graph."""
+    if not isinstance(value, dict) or value.get("type") != "static_graph":
+        return None
+    return StaticGraphStrategy.from_dict(value, strict=False)
+
+
 def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
     kvs = cls._fold_legacy_max_iterations(kvs)
+    if isinstance(kvs, dict) and not kvs.get("graph") and ("strategy" in kvs or "graphVersion" in kvs):
+        # A non-graph agent may still report a strategy or graphVersion; neither applies without a graph.
+        kvs = {key: value for key, value in kvs.items() if key not in ("strategy", "graphVersion")}
     return _dataclass_json_agent_from_dict(cls, kvs, infer_missing=infer_missing)
 
 
