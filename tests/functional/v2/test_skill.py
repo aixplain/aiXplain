@@ -10,6 +10,7 @@ explanation for the original bug.
 import os
 import tempfile
 import time
+import uuid
 import zipfile
 
 import pytest
@@ -95,7 +96,7 @@ class TestAgentReflectsSkillUpdate:
 
     def test_agent_run_reflects_updated_skill_content(self, client, saved_skill, resource_tracker):
         agent = client.Agent(
-            name=f"Skill Update Test Agent {int(time.time())}",
+            name=f"Skill Update Test Agent {int(time.time())}-{uuid.uuid4().hex[:6]}",
             instructions=(
                 "You are a helpful assistant. Always check your attached skills before "
                 "answering, and follow a skill's instructions exactly whenever it applies."

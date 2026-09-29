@@ -36,3 +36,16 @@ def resource_tracker(request):
     tracker = ResourceTracker()
     yield tracker
     finish_cleanup(tracker, request.node.nodeid)
+
+
+@pytest.fixture(scope="module")
+def module_resource_tracker(request):
+    """`resource_tracker` for module-scoped fixtures that share one resource across tests.
+
+    Same contract, torn down once the module finishes. Register each resource
+    right after it is saved, so a fixture that fails half-way through its setup
+    still gets what it already created deleted.
+    """
+    tracker = ResourceTracker()
+    yield tracker
+    finish_cleanup(tracker, request.node.nodeid)

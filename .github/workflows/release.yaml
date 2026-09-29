@@ -126,16 +126,23 @@ jobs:
           cd "$RUNNER_TEMP"
           "$RUNNER_TEMP/venv/bin/python" - <<'PY'
           import aixplain
-          import aixplain.base.parameters  # noqa: F401  -> v1/base/, no __init__.py
-          import aixplain.v1.modules.model  # noqa: F401
           import aixplain.v2.core  # noqa: F401
+          import aixplain.v2.api_key  # noqa: F401
+          import aixplain.utils.url_safety  # noqa: F401
 
           assert "site-packages" in aixplain.__file__, (
               f"imported the source tree, not the wheel: {aixplain.__file__}"
           )
+          # v1 was removed in 0.3.0; a wheel that still resolves a legacy path
+          # would mean the removal did not reach the artifact.
+          try:
+              import aixplain.factories  # noqa: F401
+          except ModuleNotFoundError as exc:
+              assert "aix.Agent" in str(exc), f"v1 error no longer names a v2 equivalent: {exc}"
+          else:
+              raise SystemExit("aixplain.factories still imports; v1 leaked into the wheel")
           print("imported", aixplain.__file__)
           PY
-          "$RUNNER_TEMP/venv/bin/aixplain" --help > /dev/null
 
       - name: Upload the distribution for the publish job
         uses: actions/upload-artifact@v4

@@ -27,7 +27,16 @@ from .resource import (
     _filter_values,
     _sort_direction,
 )
-from .enums import Function, Supplier, Language, AssetStatus, ResponseStatus
+from .enums import (
+    AssetStatus,
+    Function,
+    FunctionValue,
+    Language,
+    LanguageValue,
+    ResponseStatus,
+    Supplier,
+    SupplierValue,
+)
 from .mixins import ToolableMixin, ToolDict
 from .exceptions import ValidationError
 from .actions import Actions, Action, Inputs
@@ -592,6 +601,26 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
 InputsProxy = Inputs
 
 
+#: ``SortBy`` value -> the field name ``/v2/models/paginate`` sorts on. The
+#: backend only honours the camelCase document fields and silently ignores the
+#: enum's upper-case values, returning results unsorted.
+_MODEL_SORT_FIELDS = {"NAME": "name", "CREATED_AT": "createdAt", "UPDATED_AT": "updatedAt"}
+
+
+def _model_sort_field(sort_by: Any) -> str:
+    """Return the backend sort field for a ``sort_by`` argument.
+
+    Args:
+        sort_by: ``SortBy`` member, its string value, or a raw backend field name.
+
+    Returns:
+        str: The camelCase field name for known sort options; any other string
+        is passed through unchanged so raw backend field names keep working.
+    """
+    raw = _filter_value(sort_by)
+    return _MODEL_SORT_FIELDS.get(raw.upper(), raw)
+
+
 def find_function_by_id(function_id: str) -> Optional[Function]:
     """Find function enum by ID.
 
@@ -663,9 +692,9 @@ class ModelSearchParams(BaseSearchParams):
     """Search parameters for model queries."""
 
     functions: NotRequired[List[str]]
-    vendors: NotRequired[Union[str, Supplier, List[Union[str, Supplier]]]]
-    source_languages: NotRequired[Union[Language, List[Language]]]
-    target_languages: NotRequired[Union[Language, List[Language]]]
+    vendors: NotRequired[Union[SupplierValue, Supplier, List[Union[SupplierValue, Supplier]]]]
+    source_languages: NotRequired[Union[LanguageValue, Language, List[Union[LanguageValue, Language]]]]
+    target_languages: NotRequired[Union[LanguageValue, Language, List[Union[LanguageValue, Language]]]]
     is_finetunable: NotRequired[bool]
     saved: NotRequired[bool]
     status: NotRequired[List[str]]
@@ -721,7 +750,7 @@ class Model(
     host: Optional[str] = None
     developer: Optional[str] = None
     vendor: Optional[VendorInfo] = None
-    function: Optional[Function] = field(
+    function: Optional[Union[Function, FunctionValue]] = field(
         default=None,
         metadata=config(decoder=lambda x: find_function_by_id(x["id"]) if isinstance(x, dict) and "id" in x else x),
     )
@@ -1406,7 +1435,7 @@ class Model(
             # the documented defaults rather than serializing ``None``.
             filters["sort"] = [
                 {
-                    "field": _filter_value("name" if sort_by is None else sort_by),
+                    "field": _model_sort_field("name" if sort_by is None else sort_by),
                     "dir": _sort_direction("ASC" if sort_order is None else sort_order),
                 }
             ]
