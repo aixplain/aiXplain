@@ -33,6 +33,18 @@ from aixplain.v2.agent_progress import ProgressFormat, ProgressFormatValue
 from aixplain.v2.api_key import APIKeyLimits, APIKeyLimitsDict, TokenType, TokenTypeValue
 from aixplain.v2.code_utils import UtilityModelInput, UtilityModelInputDict
 from aixplain.v2.exceptions import ValidationError
+from aixplain.v2.graph import (
+    Condition,
+    ConditionDict,
+    Edge,
+    EdgeDict,
+    Graph,
+    GraphDict,
+    RetryPolicy,
+    RetryPolicyDict,
+    StaticGraphStrategy,
+    StaticGraphStrategyDict,
+)
 from aixplain.v2.issue import IssueSeverity, IssueSeverityValue
 from aixplain.v2.session import ExecutionConfig, ExecutionConfigDict
 from aixplain.v2.trigger import (
@@ -77,6 +89,11 @@ STRUCT_DICTS = [
     (TriggerConfiguration, TriggerConfigurationDict),
     (TriggerRepeatRule, TriggerRepeatRuleDict),
     (UtilityModelInput, UtilityModelInputDict),
+    (Condition, ConditionDict),
+    (Edge, EdgeDict),
+    (Graph, GraphDict),
+    (RetryPolicy, RetryPolicyDict),
+    (StaticGraphStrategy, StaticGraphStrategyDict),
 ]
 
 
@@ -236,7 +253,6 @@ class TestExecutionConfigDicts:
 
         assert config.execution_params == {"outputFormat": "json"}
 
-
     def test_direct_construction_with_a_budget_typo_raises(self):
         """``ExecutionConfig(budget={...})`` is an input path and must validate.
 
@@ -278,7 +294,6 @@ class TestExecutionConfigDicts:
         )
 
         assert session.execution_config.budget.max_cost == 1.0
-
 
 
 class TestBudgetDicts:

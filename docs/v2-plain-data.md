@@ -113,15 +113,21 @@ promote the enum to *input* here and add its alias.
 | --- | --- | --- |
 | `APIKeyLimits` | `APIKeyLimitsDict` | `key.global_limits`, `key.asset_limits[*]` (PROD-2917) |
 | `Budget` | `BudgetDict` | `agent.budget`, `ExecutionConfig.budget` |
+| `Condition` | `ConditionDict` | `Edge.condition` |
+| `Edge` | `EdgeDict` | `Graph.edges[*]` |
+| `Graph` | `GraphDict` | `agent.graph`; `nodes` is a list or the wire map of id to node dict |
 | `ExecutionConfig` | `ExecutionConfigDict` | `aix.Session(execution_config=...)` |
+| `RetryPolicy` | `RetryPolicyDict` | `Node.retry_policy` |
+| `StaticGraphStrategy` | `StaticGraphStrategyDict` | `agent.strategy`; `type` is also accepted and must be `static_graph` |
 | `Task` | `TaskDict` | `agent.tasks[*]` |
 | `TriggerConfiguration` | `TriggerConfigurationDict` | `trigger.configuration` |
 | `TriggerRepeatRule` | `TriggerRepeatRuleDict` | `TriggerConfiguration.repeat` |
 | `UtilityModelInput` | `UtilityModelInputDict` | *no consumer* — `aix.Utility` was removed in 0.3.0. Both types are still exported and still pass the drift guards; whether they stay is ENG-3720 |
+| `LLMNode`, `ToolNode`, `AgentNode`, `ScriptNode`, `InspectorNode`, `ConditionalNode` | — | `Graph.nodes[*]`, as a dict naming its `type` plus that class's fields. No `TypedDict`: the key set depends on `type` |
 | `SessionMessageAttachment` | — | Already accepts a plain dict or a URL string through `Session.add_message(attachments=...)` |
 
 Every one of these coerces in `__setattr__` where a caller can assign the field
-after construction — `Agent.budget`, `Agent.tasks`, `Session.execution_config`,
+after construction — `Agent.budget`, `Agent.tasks`, `Agent.graph`, `Agent.strategy`, `Session.execution_config`,
 `Trigger.configuration`, `TriggerConfiguration.repeat`, `APIKey.global_limits`,
 `APIKey.asset_limits`, `APIKeyLimits.token_type`, `UtilityModelInput.type`.
 Coercing only in `__post_init__` is a bug, and a quiet one: the assignment path
@@ -151,6 +157,8 @@ integration offers; they are read off a fetched `Integration`, never constructed
 `Dataset` and `EvalCase` (`aixplain/v2/agent_evaluator.py`) are caller-supplied,
 but evaluators are pending reimplementation and are out of scope for PROD-2921.
 So are the inspector structs (`_ActionConfig`, `_Judge`) and `Inspector` itself.
+
+`RawNode` is returned in a fetched graph for a node the SDK does not model; it is never constructed.
 
 ### Internal
 
