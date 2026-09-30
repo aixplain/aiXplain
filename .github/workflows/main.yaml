@@ -274,8 +274,8 @@ jobs:
             path: 'tests/functional/v2/test_actions_inputs.py'
             timeout: 30
           - suite: 'agent'
-            path: 'tests/functional/v2/test_agent.py -n 4'
-            timeout: 30
+            path: 'tests/functional/v2/test_agent.py -n 2'
+            timeout: 45
           - suite: 'agent-duplicate'
             path: 'tests/functional/v2/test_agent_duplicate.py'
             timeout: 30
@@ -286,8 +286,8 @@ jobs:
             path: 'tests/functional/v2/test_api_key.py'
             timeout: 30
           - suite: 'arabic-agent'
-            path: 'tests/functional/v2/test_arabic_agent.py -n 4'
-            timeout: 30
+            path: 'tests/functional/v2/test_arabic_agent.py -n 2'
+            timeout: 45
           - suite: 'integration'
             path: 'tests/functional/v2/test_integration.py'
             timeout: 30
