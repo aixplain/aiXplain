@@ -18,7 +18,7 @@ import sys
 import time
 import threading
 from enum import Enum
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional, Callable, Tuple
 from typing_extensions import Literal
 
 from ._backoff import next_wait, sleep_with_jitter
@@ -83,6 +83,44 @@ def _is_notebook_environment() -> bool:
         return False
     except (ImportError, AttributeError):
         return False
+
+
+_DONE_STATUSES = ("completed", "failed")
+
+
+def _step_status(step: Dict) -> str:
+    return str(step.get("status") or "").lower()
+
+
+def _is_done(step: Dict) -> bool:
+    """Whether a step finished: it has output, or the engine marked it done.
+
+    A model step that only issues tool calls has no output; its ``status`` is
+    the only sign it finished.
+    """
+    return bool(step.get("output")) or _step_status(step) in _DONE_STATUSES
+
+
+def _has_error(step: Dict) -> bool:
+    return bool(step.get("error") or step.get("error_message")) or _step_status(step) == "failed"
+
+
+def _nested_steps(step: Dict) -> Optional[List[Dict]]:
+    """The subagent steps of a ``delegate_task`` step, or ``None`` for any other step."""
+    nested = step.get("steps")
+    return nested if isinstance(nested, list) else None
+
+
+def _delegation_target(step: Dict) -> Optional[str]:
+    """The subagent a ``delegate_task`` step delegated to, from its input arguments."""
+    raw = step.get("input")
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return None
+    target = raw.get("agent_name") if isinstance(raw, dict) else None
+    return str(target) if target else None
 
 
 class ProgressFormat(str, Enum):
@@ -315,6 +353,37 @@ class AgentProgressTracker:
             normalized.append(step)
         return normalized
 
+    @staticmethod
+    def _scoped_child(raw: Any, index: int, parent_id: str) -> Dict:
+        """A nested step with a progress id scoped by its parent's.
+
+        Child ids are only unique within one delegation, so two subagents that
+        both report ``step-0`` must not share display state.
+        """
+        step = dict(raw) if isinstance(raw, dict) else {}
+        sid = step.get("id") or step.get("step_id") or f"idx-{index}"
+        step["_progress_id"] = f"{parent_id}/{sid}"
+        return step
+
+    def _deepest_active(self, steps: List[Dict]) -> Tuple[Optional[str], int, Dict]:
+        """The step a single status line should show: the newest, descending into running delegations.
+
+        Returns ``(label, index, step)``; ``label`` is ``None`` for a top-level step.
+        """
+        label: Optional[str] = None
+        index = len(steps) - 1
+        step = steps[-1]
+        while not _is_done(step):
+            nested = _nested_steps(step)
+            if not nested:
+                break
+            child_index = len(nested) - 1
+            label = f"{label or index + 1}.{child_index + 1}"
+            step = self._scoped_child(nested[-1], child_index, step["_progress_id"])
+            index = child_index
+            self._first_seen.setdefault(step["_progress_id"], self._now())
+        return label, index, step
+
     def _format_elapsed(self, seconds: Optional[float]) -> str:
         """Format elapsed time as MM:SS.cc."""
         if seconds is None:
@@ -506,6 +575,8 @@ class AgentProgressTracker:
         step_elapsed: Optional[float] = None,
         show_timing: bool = True,
         is_complete: bool = False,
+        label: Optional[str] = None,
+        depth: int = 0,
     ) -> str:
         """Format the main step line with proper symbols and structure.
 
@@ -516,6 +587,9 @@ class AgentProgressTracker:
             step_elapsed: Elapsed time for this step
             show_timing: Whether to show timing information
             is_complete: Whether step is complete (affects time_ticks precision)
+            label: Step number to show for a nested step (``"2.1"``); top-level
+                steps are numbered from ``step_idx``
+            depth: Nesting level of the step, indented two spaces per level
         """
         agent_field = step.get("agent") or step.get("agent_name") or "Unknown"
         if isinstance(agent_field, dict):
@@ -533,6 +607,10 @@ class AgentProgressTracker:
             unit_name = step.get("action") or str(unit)
             unit_type = ""
 
+        target = _delegation_target(step) if _nested_steps(step) is not None else None
+        if target:
+            unit_name = f"{unit_name} → {target}"
+
         if unit_type == "tool":
             agent_action_part = f"{agent_name} ⚒ {unit_name}"
         else:
@@ -541,7 +619,8 @@ class AgentProgressTracker:
             else:
                 agent_action_part = f"{agent_name} ⧈ {unit_name}"
 
-        step_line = f"{icon} Step {step_idx + 1:2d}"
+        number = label if label is not None else f"{step_idx + 1:2d}"
+        step_line = f"{'  ' * depth}{icon} Step {number}"
 
         if show_timing and step_elapsed is not None:
             if _USE_LEGACY_TIME_FORMAT:
@@ -590,12 +669,10 @@ class AgentProgressTracker:
 
     def _refresh_status_display(self, steps: List[Dict]) -> None:
         """Refresh status mode display (single updating line)."""
-        active = steps[-1]
-        step_num = len(steps) - 1
+        label, step_num, active = self._deepest_active(steps)
         step_elapsed = self._now() - self._first_seen.get(active.get("_progress_id"), self._now())
 
-        has_output = active.get("output")
-        is_complete = bool(has_output)
+        is_complete = _is_done(active)
         icon = "✓" if is_complete else self._get_spinner()
 
         status_line = self._format_step_line(
@@ -605,6 +682,7 @@ class AgentProgressTracker:
             step_elapsed,
             show_timing=True,
             is_complete=is_complete,
+            label=label,
         )
 
         if self._verbosity >= 2:
@@ -638,16 +716,32 @@ class AgentProgressTracker:
 
     def _refresh_logs_display(self, steps: List[Dict]) -> None:
         """Refresh logs mode display (update running step spinners)."""
-        for idx, step in enumerate(steps):
+        for label, depth, idx, step in self._walk_steps(steps):
             sid = step.get("_progress_id")
-            has_output = step.get("output")
-
-            if not has_output and sid in self._printed_events:
+            printed = self._printed_events.get(sid)
+            # A delegation's header is a finished line of its own; only leaf spinners repaint.
+            if printed is not None and not printed.get("header") and not _is_done(step):
                 step_elapsed = self._now() - self._first_seen.get(sid, self._now())
                 icon = self._get_spinner()
-                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True, is_complete=False)
+                status_line = self._format_step_line(
+                    step, idx, icon, step_elapsed, show_timing=True, is_complete=False, label=label, depth=depth
+                )
                 print(f"\r{status_line}", end="", flush=True)
-                self._printed_events[sid]["status_line"] = status_line
+                printed["status_line"] = status_line
+
+    def _walk_steps(
+        self, steps: List[Dict], prefix: str = "", depth: int = 0, parent_id: Optional[str] = None
+    ) -> List[Tuple[Optional[str], int, int, Dict]]:
+        """Every step depth-first as ``(label, depth, index, step)``; nested steps get scoped ids."""
+        walked: List[Tuple[Optional[str], int, int, Dict]] = []
+        for idx, raw in enumerate(steps):
+            step = raw if parent_id is None else self._scoped_child(raw, idx, parent_id)
+            label = None if parent_id is None else f"{prefix}{idx + 1}"
+            walked.append((label, depth, idx, step))
+            nested = _nested_steps(step)
+            if nested:
+                walked.extend(self._walk_steps(nested, f"{label or idx + 1}.", depth + 1, step["_progress_id"]))
+        return walked
 
     def _print_step_details(self, step: Dict, idx: int) -> None:
         """Print step details for logs mode (verbosity 2+)."""
@@ -890,38 +984,59 @@ class AgentProgressTracker:
                 except (ValueError, TypeError):
                     pass
 
-    def _display_logs_format(self, steps: List[Dict]) -> None:
-        """Handle display for LOGS format (event timeline)."""
-        for idx, step in enumerate(steps):
-            sid = step.get("_progress_id")
-            prev = self._printed_events.get(sid, {})
-            has_output = step.get("output")
-            prev_has_output = prev.get("has_output", False)
+    def _display_logs_format(
+        self, steps: List[Dict], prefix: str = "", depth: int = 0, parent_id: Optional[str] = None
+    ) -> None:
+        """Handle display for LOGS format (event timeline).
 
-            # First time seeing this step - show spinner
+        A ``delegate_task`` step's subagent steps are printed indented under it:
+        the delegation gets a ``▸`` header when first seen, then its children,
+        then its own completion line once it is done.
+        """
+        for idx, raw in enumerate(steps):
+            step = raw if parent_id is None else self._scoped_child(raw, idx, parent_id)
+            label = None if parent_id is None else f"{prefix}{idx + 1}"
+            sid = step.get("_progress_id")
+            self._first_seen.setdefault(sid, self._now())
+            prev = self._printed_events.get(sid, {})
+            done = _is_done(step)
+            nested = _nested_steps(step)
+
+            # First time seeing this step: a header for a delegation, else a spinner
             if sid not in self._printed_events:
-                step_elapsed = self._now() - self._first_seen.get(sid, self._now())
-                icon = self._get_spinner()
-                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True, is_complete=False)
-                print(f"\r{status_line}", end="", flush=True)
-                self._printed_events[sid] = {
-                    "has_output": False,
-                    "status_line": status_line,
-                }
+                if nested is not None:
+                    header = self._format_step_line(step, idx, "▸", show_timing=False, label=label, depth=depth)
+                    execution_id = step.get("execution_id")
+                    if self._verbosity >= 2 and execution_id:
+                        header += f" · ↳ execution {execution_id}"
+                    print(f"\r{header}")
+                    self._printed_events[sid] = {"has_output": False, "header": True}
+                else:
+                    step_elapsed = self._now() - self._first_seen[sid]
+                    icon = self._get_spinner()
+                    status_line = self._format_step_line(
+                        step, idx, icon, step_elapsed, show_timing=True, is_complete=False, label=label, depth=depth
+                    )
+                    print(f"\r{status_line}", end="", flush=True)
+                    self._printed_events[sid] = {"has_output": False, "status_line": status_line}
 
             # In notebook mode, update spinner synchronously (no background thread)
             # Use sequential spinner to prevent frame skipping from irregular poll intervals
-            elif not has_output and self._is_notebook:
-                step_elapsed = self._now() - self._first_seen.get(sid, self._now())
+            elif not done and self._is_notebook and not prev.get("header"):
+                step_elapsed = self._now() - self._first_seen[sid]
                 icon = self._get_spinner_for_step(sid)
-                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True, is_complete=False)
+                status_line = self._format_step_line(
+                    step, idx, icon, step_elapsed, show_timing=True, is_complete=False, label=label, depth=depth
+                )
                 print(f"\r{status_line}", end="", flush=True)
 
-            # Step completed - show completion icon
-            if has_output and not prev_has_output:
-                step_elapsed = self._now() - self._first_seen.get(sid, self._now())
-                has_error = step.get("error") or step.get("error_message")
-                completion_icon = "✗" if has_error else "✓"
+            if nested:
+                self._display_logs_format(nested, f"{label or idx + 1}.", depth + 1, sid)
+
+            # Step completed - show completion icon (a delegation's after its children)
+            if done and not prev.get("has_output", False):
+                step_elapsed = self._now() - self._first_seen[sid]
+                completion_icon = "✗" if _has_error(step) else "✓"
                 completion_line = self._format_step_line(
                     step,
                     idx,
@@ -929,6 +1044,8 @@ class AgentProgressTracker:
                     step_elapsed,
                     show_timing=True,
                     is_complete=True,
+                    label=label,
+                    depth=depth,
                 )
                 print(f"\r{completion_line}")
                 self._print_step_details(step, idx)
@@ -939,11 +1056,10 @@ class AgentProgressTracker:
         if not steps:
             return
 
-        active = steps[-1]
+        label, step_num, active = self._deepest_active(steps)
         sid = active.get("_progress_id")
-        step_num = len(steps) - 1
-        has_output = active.get("output")
-        is_complete = bool(has_output)
+        has_output = _is_done(active)
+        is_complete = has_output
         step_elapsed = self._now() - self._first_seen.get(sid, self._now())
 
         # Use sequential spinner to prevent frame skipping from irregular poll intervals
@@ -955,6 +1071,7 @@ class AgentProgressTracker:
             step_elapsed,
             show_timing=True,
             is_complete=is_complete,
+            label=label,
         )
 
         # Pad to overwrite previous longer lines
