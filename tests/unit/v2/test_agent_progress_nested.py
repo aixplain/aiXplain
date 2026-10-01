@@ -168,3 +168,77 @@ def test_steps_without_nesting_render_as_before(capsys):
     lines = [line for line in _lines(capsys) if line.strip()]
     assert len(lines) == 1 and lines[0].startswith("✓ Step  1")
     assert "▸" not in lines[0]
+
+
+def test_parallel_delegations_keep_one_live_line_and_label_every_child(capsys):
+    """With two delegations running at once, only the newest running step owns the live line."""
+    tracker = _tracker()
+    a = _delegate(
+        "d1",
+        "a",
+        [_model("m1", "a", output="a done"), _tool("t1", "a", "search", status="executing")],
+        status="executing",
+        output=None,
+    )
+    b = _delegate("d2", "b", [_model("m1", "b", status="executing")], status="executing", output=None)
+    tracker.update(_response([a, b]))
+    tracker.stop()
+
+    lines = [line for line in _lines(capsys) if line.strip()]
+    assert lines[0].startswith("▸ Step  1") and lines[1].startswith("  ✓ Step 1.1")
+    assert lines[2].startswith("▸ Step  2")
+    # The single live line: the newest running step, a's search is still running but b is newer.
+    assert lines[-1].lstrip().startswith(tuple("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")) and "Step 2.1" in lines[-1]
+    assert sum("Step 1.2" in line for line in lines) == 0
+
+
+def test_a_delegation_is_recognised_before_its_steps_arrive(capsys):
+    """An engine may send the delegate step before its nested ``steps``; it still gets a header."""
+    tracker = _tracker()
+    early = _delegate("d1", "facts", [], status="executing", output=None)
+    del early["steps"]
+    tracker.update(_response([early]))
+    tracker.update(_response([_delegate("d1", "facts", [_model("m1", "facts", output="3 facts")])]))
+    tracker.stop()
+
+    out = capsys.readouterr().out
+    assert out.count("▸ Step  1") == 1
+    assert "  ✓ Step 1.1" in out
+
+
+def test_thought_dedup_and_details_use_the_nested_step_number(capsys):
+    """A nested step's thought is keyed by its own number and indented with it."""
+    tracker = _tracker(verbosity=3)
+    top = {**_model("m0", "team", output="plan"), "thought": "same idea"}
+    child = {**_model("m1", "facts", output="facts"), "thought": "child idea", "input": "subtask"}
+    repeat = {**_model("m2", "team", output="final"), "thought": "child idea"}
+    tracker.update(_response([top, _delegate("d1", "facts", [child]), repeat]))
+    tracker.stop()
+
+    out = capsys.readouterr().out
+    assert "    ∷ child idea" in out
+    assert "∷ [see Step 2.1]" in out
+    assert "    ← Context" in out or "    ← Input" in out
+    assert "    ← Query" not in out
+
+
+def test_status_line_follows_the_delegation_still_running(capsys):
+    """When a later sibling already finished, the status line stays on the one still working."""
+    tracker = _tracker(fmt=ProgressFormat.STATUS)
+    running = _delegate("d1", "a", [_tool("t1", "a", "search", status="executing")], status="executing", output=None)
+    finished = _delegate("d2", "b", [_model("m1", "b", output="done")])
+    tracker._refresh_status_display(tracker._parse_steps(_response([running, finished])))
+    tracker.stop()
+
+    assert "Step 1.1" in capsys.readouterr().out.split("\r")[-1]
+
+
+def test_output_that_arrives_after_a_status_only_completion_is_still_shown(capsys):
+    """A step marked done by status first and given its output later prints that output once."""
+    tracker = _tracker(verbosity=3)
+    tracker.update(_response([_model("m1", "team", output=None, status="completed")]))
+    tracker.update(_response([_model("m1", "team", output="late answer", status="completed")]))
+    tracker.update(_response([_model("m1", "team", output="late answer", status="completed")]))
+    tracker.stop()
+
+    assert capsys.readouterr().out.count("late answer") == 1
