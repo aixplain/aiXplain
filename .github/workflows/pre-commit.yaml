@@ -32,14 +32,18 @@ jobs:
       # actually satisfies "a secret scanner runs on every push" (ENG-3686): it
       # walks the whole working tree, using the same rules and allowlists from
       # .gitleaks.toml. Keep GITLEAKS_VERSION in step with the `rev` pinned for
-      # the hook in .pre-commit-config.yaml.
+      # the hook in .pre-commit-config.yaml, and GITLEAKS_SHA256 in step with the
+      # linux_x64 line of that release's gitleaks_<version>_checksums.txt.
       - name: Scan the full tree for secrets
         env:
           GITLEAKS_VERSION: "8.28.0"
+          GITLEAKS_SHA256: "a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb"
         run: |
           set -euo pipefail
           curl -sSfL -o /tmp/gitleaks.tar.gz \
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          # Refuse to run a binary that is not the pinned release.
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c -
           tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
           # `dir` (not `git`) so the scan covers the checked-out tree rather than
           # a commit range; on a first push the range would be empty.
@@ -54,4 +58,8 @@ jobs:
       - name: Run pre-commit hooks
         env:
           TEAM_API_KEY: ${{ secrets.TEAM_API_KEY }}
+          # The gitleaks hook is staged-diff only, so under --all-files it would
+          # build Go from source just to scan nothing. The step above already
+          # scans the whole tree.
+          SKIP: gitleaks
         run: pre-commit run --all-files

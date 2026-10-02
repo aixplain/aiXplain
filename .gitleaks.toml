@@ -2,13 +2,12 @@
 #
 # A 64-hex platform key and a pipeline TEAM_API_KEY were committed in plaintext
 # in root-level scratch files and sat in the tree for months. This config backs
-# the `gitleaks` hook in .pre-commit-config.yaml, which runs on every push via
-# .github/workflows/pre-commit.yaml.
+# the `gitleaks` hook in .pre-commit-config.yaml and the full-tree scan in
+# .github/workflows/pre-commit.yaml, which runs on every push.
 #
 # The allowlists below are deliberately narrow. Do NOT allowlist a whole test
-# directory: the fixtures under tests/ are exactly where a real key gets pasted
-# "just to try something". Allowlist the specific fake value or the specific
-# file, and say why.
+# directory or file: the fixtures under tests/ are exactly where a real key gets
+# pasted "just to try something". Allowlist the specific fake value, and say why.
 
 title = "aiXplain SDK"
 
@@ -18,6 +17,26 @@ title = "aiXplain SDK"
 # than raw entropy, so the repo's 24-hex MongoDB asset IDs are not flagged.
 # detect-secrets was evaluated first and reported ~350 of them (ENG-3686).
 useDefault = true
+
+# The curated rules miss the shapes this repo actually leaked: a 64-hex platform
+# key in `os.environ["TEAM_API_KEY"] = "..."`, in `{"Authorization": "Token ..."}`
+# and passed straight to the client. The deleted notebook's own assignment line
+# went unreported; only its saved cell output tripped a default rule, so the
+# same notebook saved without outputs would have passed. These two rules close
+# that gap. tests/unit/test_secret_scanning.py checks both against those shapes.
+[[rules]]
+id = "aixplain-platform-key"
+description = "aiXplain platform/team API key: 64 hex characters shortly after a credential name on the same line."
+regex = '''(?i)(?:api[_-]?key|team[_-]?key|access[_-]?key|token|secret|authorization)[^0-9a-f\n]{0,40}?([0-9a-f]{64})(?:[^0-9a-f]|$)'''
+secretGroup = 1
+keywords = ["api_key", "api-key", "apikey", "team_key", "access_key", "token", "secret", "authorization"]
+
+[[rules]]
+id = "aixplain-client-positional-key"
+description = "aiXplain platform API key passed positionally, as in `Aixplain(\"<key>\")`, where no credential name is on the line."
+regex = '''(?i)\baixplain\(\s*["']([0-9a-f]{64})["']'''
+secretGroup = 1
+keywords = ["aixplain("]
 
 [[allowlists]]
 description = "Build artifacts, not reviewable source. `gitleaks dir .` walks the working tree, so a local run would otherwise re-report every secret-shaped literal frozen into a .pyc. All of these are gitignored and never reach a CI checkout."
@@ -30,40 +49,23 @@ paths = [
 ]
 
 [[allowlists]]
-description = "Documentation placeholders. Literal instructions to the reader, never live values."
+description = "Documentation placeholder. A literal instruction to the reader, never a live value."
 regexes = [
   '''^YOUR_API_KEY$''',
-  '''^YOUR_TEAM_API_KEY$''',
-  '''^<API_KEY>$''',
-  '''^<YOUR_API_KEY>$''',
 ]
 
 [[allowlists]]
-description = "Hand-written fake credentials in unit tests. Keep this list literal so a real key pasted next to them still trips the scanner."
+description = "Hand-written fake credentials in unit tests, matched by exact value. Keep this list literal so a real key pasted next to them still trips the scanner."
 regexes = [
   '''^abcd1234efgh$''',
   '''^wxyz5678uvst$''',
   '''^valid_api_key_123$''',
+  # The planted key in tests/unit/test_secret_scanning.py, which must look like a real one to test the detector.
+  '''^deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef$''',
 ]
 
 [[allowlists]]
-description = "Canned `docker login` response for the ECR registry. The password field is a recorded AWS data key that expired in 2023 (exp 1692614601); it is replayed by the model-hosting tests and is not a credential to anything live."
-paths = ['''tests/mock_responses/login_response\.json$''']
-
-[[allowlists]]
-description = "SSRF fixtures for the v2 trusted-URL policy (BUG-937). These tests assert that the workspace API key is NOT sent to cloud metadata, loopback or RFC1918 addresses, so the addresses have to appear literally. `condition = \"AND\"` keeps the exemption to these IPs in these files -- a real secret committed to the same file is still reported."
-condition = "AND"
-paths = [
-  '''tests/unit/v2/test_url_guard\.py$''',
-  '''tests/unit/v2/test_poll_url_guard\.py$''',
-  '''tests/unit/v2/test_ssrf_call_sites\.py$''',
-  '''tests/unit/utils/test_url_safety\.py$''',
-]
-regexTarget = "line"
+description = "The password in tests/mock_responses/login_response.json, a canned `docker login` response for the ECR registry, matched by exact value. It is a recorded AWS data key that expired in 2023 (exp 1692614601), replayed by the model-hosting tests, and not a credential to anything live. Exempting the value rather than the file keeps a real key added to that file reportable."
 regexes = [
-  '''169\.254\.169\.254''',   # AWS/GCP/Azure instance metadata
-  '''127\.0\.0\.1''',         # loopback
-  '''10\.0\.0\.5''',          # RFC1918 10/8
-  '''192\.168\.1\.10''',      # RFC1918 192.168/16
-  '''172\.16\.0\.1''',        # RFC1918 172.16/12
+  '''^eyJwYXlsb2FkIjoiNlNkQmp0WkRWbDRtQmxYMk5ZWHh0dFJQRTJFeWpScDFVczI1RTl2WUJMRmN5SVU1TE1wd3hiK2FaZWtnbjZidy9Ea3UxQ1FpcnIwRURwNXZNMTJuZXBJVzhITjNkVEtmeFNCa1RwcTNESSt2ZnVtSm5MVXM3KzlPNEo3cmRySDE5NjdnazYyb0NIRVV1WmZvOUFuUm5CeHUyU2ZmZWFndFlYVyt0dDVXeWtMQjRCRlNFaGJUelNtSnllSW9pNTlkNFNYdGtXY3pDT1RZQ281MUVlVEI0L1c4NGZMVVZQRVF6VThmdmtYRVl1TDNEUWFzc3F3dUxxcHp2bWtrSCtNOHNrdFp6bHZubXlxMnFGYkR0aElhamNXNW1Ud1BkVjJMN2w0ZFJVSTlTQ3Y1SlExbnlZZ01obUxHeDRDRG5KYmh0NndzeEtWcVpxbmMzMDR6WXZnQlZTcWFEY2VvWXV0SFEwSTVSQU1DaUtNd09SZHF0Skt1Y3FxRVBwTkxPaDhlcUFScmd4bkVCYnhQZm4zZ0M5L0x2bHBiZ1I5UFRIWGlqZlFWczNnUW5vTzFmd0R2d1dudTRsMjJDWjdSUTN4WlRNL29NdFNtZ2RScmplclpqNWo0RVMycTdQTEFXOU9UcUtieDRpZklMRUVucTIxbDBXaFNtc0xlR2g4Rm9GZkpOSGJ5L2wzUklTY2hjUzBYUUdYMXJ0cFhFOTc3bUVtdzY0WDdYT3h5UGlnZytzNWowMjhFY0VqSzV6R01sNzdDYUprcVVyZjVUUWZraTU4VURCMTNXWDlvVDVGQVUvcU9DY3F0SlQ5TlBZTnFXQ0xhamdFdk93TXFsQndkVzhKTEhwMTkwZ3psNE1nN0YwRDIvTFpScWRDVVh2SXRBSFJJUmROa1U3RDI1Y3VoL0xjSjlhZUQ2MnJiVDA1R2FIWkV5Z0d5MmxnRWlmekUvbWhPSGNUclBOSnlPTGhHaFc2L0F5dCt1MDRxNEdqMzVFQk1GSHZ0a0lLUEQ5MU04NTVKZnVMV3F3d09QR1NlZnNGRXlRNExxRGZtMkNueVpqd3NuNWRFSlR5VUZhTUMyODMwbCtBV3lZMFBQQ3l6eTFJK0FoMHV0VkJvMlBabkFPZVk1c3hOL05uOFhlbmRMbTA0Mm1wTENWOCtHd3lzYnVFM1BHRDdNV3pDaVVicm0rbXdBLzk0c3hTODlTNkJpVWhnUHp5RC84TWhyVUNNL1FTRGNFY3ZUTjVFc0N0UDM1cUdUT28yOWdxc3VzdWRLZHdEQkhWMlpkaGNNR0xQMElWNEZKN01CQVZSMnd4OTRiZXpDMm4xU3V5TGRGVVBQYVFKa2wwWmw2M3E4MU5FRjdMSzQ0M0FJbzlpV3FuazltbFBYRVo1OHdVUERnMUpZbWw4b3BCYVprazJtM2dvYk5HdEFWUHY1dDlXZitXY2Q2MDN3WnJ1TlhwUTNPSlk2WWI4ZXBMNlZpN1ErTkpaa2Z0NWl5M1FQRFpUUFZjSCs0c1VjZ0E2dmFMSUY2aEZCUncwWitRS0pvK0VZUWtFK0RTQXhMaldFYkt5ZzBSN1V3UHg0VThENjQ4My9mMlV2cU5jSFRORHNkbXRKcjlXcUwxNHRoc1BqQTNqZ3Bqc0pydDJJWTA1bEdNOWJJbGpmbUtGWFdsemppQ2ptSUNsSm14SUxIdzgvSTlKb3JYb2NmNXpoSHVzbCswUkdKc1NMTHAyOWc9PSIsImRhdGFrZXkiOiJBUUVCQUhod20wWWFJU0plUnRKbTVuMUc2dXFlZWtYdW9YWFBlNVVGY2U5UnE4LzE0d0FBQUg0d2ZBWUpLb1pJaHZjTkFRY0dvRzh3YlFJQkFEQm9CZ2txaGtpRzl3MEJCd0V3SGdZSllJWklBV1VEQkFFdU1CRUVERGFyODZkalUxNVFHNCtZaEFJQkVJQTdvY0xIeWFpUHViY2VTQ0g5djB6THd2UFZGbHU0WmJqZ09JSGkrdmxiNEpCVTBlNyt5VmpnT3BpcWVmQlkxbFBGWktKalgvMEIwMkJDcU1nPSIsInZlcnNpb24iOiIyIiwidHlwZSI6IkRBVEFfS0VZIiwiZXhwaXJhdGlvbiI6MTY5MjYxNDYwMX0\=$''',
 ]
