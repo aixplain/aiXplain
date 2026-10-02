@@ -15,13 +15,23 @@ on:
   #
   # `labeled` is in `types` on purpose: adding the `functional-tests` label has to
   # start a run by itself, otherwise the label only takes effect on the next push
-  # and "add the label to run the suites" is false.
+  # and "add the label to run the suites" is false. Any other label starts a run
+  # too, and that run goes through the same path-based decision as a push would;
+  # it is not short-circuited to "skip", because a skipped run on the same SHA
+  # would then be the latest word on a PR whose previous run was red. The
+  # `concurrency:` block below is what bounds the cost of a label storm.
   pull_request:
     types: [opened, synchronize, reopened, labeled]
   # Nightly against the test backend. The functional legs are the only coverage
   # of live-backend behaviour, and gating them on PR paths means a backend change
   # under an untouched SDK is invisible until someone happens to touch
   # `aixplain/**`. `nightly-report` posts to Slack when this run is not green.
+  #
+  # A scheduled run always executes on the default branch, which is `main`, so
+  # it tests `main`'s code -- and `github.ref_name == 'main'` is true for it. The
+  # `functional` job's IS_PROD therefore allow-lists events rather than refs;
+  # without that the nightly ran every leg against production with the
+  # production key (ENG-3683).
   schedule:
     # 03:17 UTC: off the hour, where GitHub's scheduler queues are shortest.
     - cron: '17 3 * * *'
@@ -35,6 +45,26 @@ on:
 # so `contents: read` covers the artifact uploads too.
 permissions:
   contents: read
+
+# One run per PR at a time (ENG-3683). A push, a label and a reopen each start
+# a run of every job, and the functional matrix is 14 legs against a shared test
+# backend; without this a PR opened with three labels starts four matrices at
+# once, and a superseded push keeps burning backend time nobody will look at.
+# Only PR runs cancel each other: the newest event on a PR always re-decides
+# from the paths, so the run that survives says the same thing the cancelled
+# one would have.
+#
+# Every other event gets a group of its own (the run id). A shared group would
+# not cancel an in-progress push run, but GitHub keeps only one *pending* run
+# per group and cancels the rest, so three quick merges to `main` would leave
+# the middle commit with no completed run -- and `release.yaml`'s functional
+# gate refuses to release a commit like that.
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{ github.event_name == 'pull_request'
+    && format('pr-{0}', github.event.pull_request.number)
+    || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Coverage floor for the unit suite, enforced by the `unit-coverage` job.
@@ -274,6 +304,8 @@ jobs:
           # Empty on every non-PR event; quoted through `toJSON` so a label
           # containing a quote or a space cannot break out of the shell.
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          # Empty when the head repository has been deleted (`head.repo` is
+          # null), which the script treats as a fork.
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -299,8 +331,12 @@ jobs:
           # about the contribution. `pull_request_target` is not an acceptable
           # substitute -- it runs base-repo secrets against fork code. See
           # docs/ci/required-checks.md.
-          if [ -n "$HEAD_REPO" ] && [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
-            decide false "fork PR from '$HEAD_REPO': no secrets are available to the legs"
+          #
+          # An empty HEAD_REPO counts as a fork: it is what a PR from a deleted
+          # fork reports, and "we cannot tell where this came from" has to fail
+          # closed rather than be read as "same repository".
+          if [ -z "$HEAD_REPO" ] || [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            decide false "fork PR from '${HEAD_REPO:-a deleted repository}': the legs would get no secrets"
           fi
 
           # The manual override, for a PR whose risk is not visible in the paths
@@ -309,22 +345,52 @@ jobs:
             decide true "PR carries the 'functional-tests' label"
           fi
 
+          # What can change a functional result from inside this repository: the
+          # SDK itself, the suites, the dependency pins and test extras
+          # (pyproject.toml -- dependency bumps are the classic way functional
+          # behaviour breaks), the root conftest every leg loads, and this
+          # workflow, which builds the legs' environment.
+          paths='^(aixplain/|tests/functional/|tests/conftest\.py$|pyproject\.toml$|\.github/workflows/main\.yaml$)'
+
           # Three dots: the merge base, so commits that landed on the base branch
           # after the PR opened are not counted as the PR's own changes.
           changed="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
-          if printf '%s\n' "$changed" | grep -Eq '^(aixplain/|tests/functional/)'; then
-            decide true "PR touches aixplain/** or tests/functional/**"
+
+          # A here-string, never `printf ... | grep -q`: grep -q exits on the
+          # first match, and once the file list outgrows the pipe buffer the
+          # writer dies of SIGPIPE. Under `pipefail` that makes the whole `if`
+          # false, so the largest PRs -- mass reformats, removals -- skipped the
+          # matrix and showed green (ENG-3683).
+          if grep -Eq "$paths" <<< "$changed"; then
+            decide true "PR touches a path the functional suites depend on"
           fi
 
-          decide false "no changes under aixplain/** or tests/functional/**, and no 'functional-tests' label"
+          decide false "no change to a path the functional suites depend on, and no 'functional-tests' label"
 
   functional:
     needs: functional-scope
-    # A skipped job still reports its context, so these legs stay requireable on
-    # `main` even though a docs-only PR does not run them (ENG-3683).
+    # A job-level `if:` is evaluated before the matrix expands, so when this is
+    # false GitHub reports one skipped `functional` context, not fourteen skipped
+    # `functional (<leg>)` ones. That is why the per-leg contexts are not the ones
+    # to require on `main`; `functional-result` below is (ENG-3683).
     if: needs.functional-scope.outputs.run-functional == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45  # Global timeout fallback
+    env:
+      # Production means a push to `main`, or a manual dispatch on `main` or a
+      # `v*` tag -- an allow-list of events, not just refs. A scheduled run
+      # executes on the default branch, so a ref-only test made the nightly a
+      # production run; a PR's ref is never `main`, but it is named here as not
+      # production rather than left to that coincidence.
+      #
+      # A tag counts as production alongside `main`: `release.yaml`'s functional
+      # gate reads the run on the tagged commit, and a release validated against
+      # the test backend would prove nothing about what the wheel is published
+      # for (ENG-3683). Job-level so that the `_PROD` secrets below can key on the
+      # same value instead of repeating the expression.
+      IS_PROD: >-
+        ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -363,70 +429,51 @@ jobs:
           'trigger',
         ]
         #
-        # `models-api` is the /api/<version>/ segment of MODELS_RUN_URL. Declared
-        # per leg rather than defaulted in the shell: the v2 suite used to correct
-        # the URL it was handed inside its own conftest (ENG-3683), and a fixture
-        # quietly patching the workflow is a rewrite nobody sees when it stops
-        # matching. Per-leg also means a leg's setting is deleted with the leg.
         # Keys contributed only by `include` are not part of the job name, so the
         # contexts stay `functional (agent)`.
         include:
           - suite: 'actions-inputs'
             path: 'tests/functional/v2/test_actions_inputs.py'
             timeout: 30
-            models-api: 'v2'
           - suite: 'agent'
             path: 'tests/functional/v2/test_agent.py -n 2'
             timeout: 45
-            models-api: 'v2'
           - suite: 'agent-duplicate'
             path: 'tests/functional/v2/test_agent_duplicate.py'
             timeout: 30
-            models-api: 'v2'
           - suite: 'agent-llm-persistence'
             path: 'tests/functional/v2/test_agent_llm_persistence.py'
             timeout: 30
-            models-api: 'v2'
           - suite: 'api-key'
             path: 'tests/functional/v2/test_api_key.py'
             timeout: 30
-            models-api: 'v2'
           - suite: 'arabic-agent'
             path: 'tests/functional/v2/test_arabic_agent.py -n 2'
             timeout: 45
-            models-api: 'v2'
           - suite: 'integration'
             path: 'tests/functional/v2/test_integration.py'
             timeout: 30
-            models-api: 'v2'
           - suite: 'model'
             path: 'tests/functional/v2/test_model.py'
             timeout: 30
-            models-api: 'v2'
           - suite: 'rlm'
             path: 'tests/functional/v2/test_rlm.py'
             timeout: 30
-            models-api: 'v2'
           - suite: 'session'
             path: 'tests/functional/v2/test_session.py'
             timeout: 30
-            models-api: 'v2'
           - suite: 'skill'
             path: 'tests/functional/v2/test_skill.py'
             timeout: 30
-            models-api: 'v2'
           - suite: 'snake-case-e2e'
             path: 'tests/functional/v2/test_snake_case_e2e.py'
             timeout: 30
-            models-api: 'v2'
           - suite: 'tool'
             path: 'tests/functional/v2/test_tool.py'
             timeout: 30
-            models-api: 'v2'
           - suite: 'trigger'
             path: 'tests/functional/v2/test_trigger.py'
             timeout: 30
-            models-api: 'v2'
 
     steps:
       - name: Checkout repository
@@ -446,26 +493,25 @@ jobs:
       # Secrets arrive through `env:` rather than being interpolated into the
       # script body: `${{ }}` is textual substitution, so a value containing a
       # quote or a newline would be pasted straight into the shell.
+      #
+      # The `_PROD` values expand only when IS_PROD is true and are the empty
+      # string otherwise. A same-repository PR runs `pip install ".[test]"` with
+      # whatever dependency changes it carries, unreviewed, in this job; a PR
+      # job that never holds the production key cannot leak it.
       - name: Set environment variables
         env:
-          TEAM_API_KEY_PROD: ${{ secrets.TEAM_API_KEY_PROD }}
+          TEAM_API_KEY_PROD: ${{ env.IS_PROD == 'true' && secrets.TEAM_API_KEY_PROD || '' }}
           TEAM_API_KEY_TEST: ${{ secrets.TEAM_API_KEY }}
           # Event-trigger fixtures in tests/functional/v2/test_trigger.py. Both
           # name backend-resident objects, so the ids differ per environment and
           # each has a _PROD counterpart. Unset means those classes keep skipping
           # -- see docs/ci/required-checks.md.
-          COMPOSIO_INTEGRATION_ID_PROD: ${{ secrets.TEST_COMPOSIO_INTEGRATION_ID_PROD }}
+          COMPOSIO_INTEGRATION_ID_PROD: ${{ env.IS_PROD == 'true' && secrets.TEST_COMPOSIO_INTEGRATION_ID_PROD || '' }}
           COMPOSIO_INTEGRATION_ID_TEST: ${{ secrets.TEST_COMPOSIO_INTEGRATION_ID }}
-          CONNECTION_ID_PROD: ${{ secrets.TEST_CONNECTION_ID_PROD }}
+          CONNECTION_ID_PROD: ${{ env.IS_PROD == 'true' && secrets.TEST_CONNECTION_ID_PROD || '' }}
           CONNECTION_ID_TEST: ${{ secrets.TEST_CONNECTION_ID }}
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          MODELS_API: ${{ matrix.models-api }}
-          # A tag counts as production alongside `main`: `release.yaml`'s
-          # functional gate reads the run on the tagged commit, and a release
-          # validated against the test backend would prove nothing about what the
-          # wheel is published for (ENG-3683).
-          IS_PROD: ${{ github.ref_name == 'main' || startsWith(github.ref, 'refs/tags/v') }}
         run: |
           set -euo pipefail
 
@@ -476,8 +522,9 @@ jobs:
             composio_integration_id="$COMPOSIO_INTEGRATION_ID_PROD"
             connection_id="$CONNECTION_ID_PROD"
           else
-            # Any ref other than main or a v* tag -- `test`, a PR, the nightly
-            # schedule -- uses the test key and the test backend.
+            # Everything that is not production -- a push to `test`, a PR, the
+            # nightly schedule, a dispatch on any other ref -- uses the test key
+            # and the test backend.
             api_key="$TEAM_API_KEY_TEST"
             backend="https://test-platform-api.aixplain.com"
             models="https://test-models.aixplain.com"
@@ -494,7 +541,12 @@ jobs:
             # credential (ENG-3683).
             echo "AIXPLAIN_API_KEY=$api_key"
             echo "BACKEND_URL=$backend"
-            echo "MODELS_RUN_URL=$models/api/$MODELS_API/execute"
+            # v2 is the only model API the suites speak. tests/functional/v2/
+            # conftest.py takes only the host from this and builds the path
+            # itself, so a per-leg API version here would change nothing; the
+            # full URL is still exported for anything that reads the variable
+            # directly, and it is the URL the conftest would build anyway.
+            echo "MODELS_RUN_URL=$models/api/v2/execute"
             echo "PIPELINES_RUN_URL=$backend/assets/pipeline/execution/run"
             echo "TEST_COMPOSIO_INTEGRATION_ID=$composio_integration_id"
             echo "TEST_CONNECTION_ID=$connection_id"
@@ -506,13 +558,68 @@ jobs:
         timeout-minutes: ${{ matrix.timeout }}
         run: python -m pytest ${{ matrix.path }}
 
+  # The one context to require for the functional matrix (ENG-3683). The
+  # per-leg `functional (<leg>)` contexts cannot be required: when
+  # `functional-scope` says no, the matrix never expands and GitHub reports a
+  # single skipped `functional` context instead, so a required
+  # `functional (agent)` would wait forever on every docs-only or fork PR.
+  #
+  # Not a matrix, so it always reports under one name, and `always()` so it
+  # reports even when a dependency failed or was skipped -- without it, the
+  # default "all needs succeeded" condition would skip this job (which counts
+  # as passing) exactly when a leg is red. It fails when `functional-scope` did
+  # not succeed (nothing decided whether the legs had to run), and when the
+  # scope said run and the matrix is anything but `success` (a leg is red,
+  # cancelled, or never started). It passes when the scope said do not run.
+  functional-result:
+    needs: [functional-scope, functional]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require a green matrix whenever the scope job asked for one
+        env:
+          SCOPE: ${{ needs.functional-scope.result }}
+          RUN_FUNCTIONAL: ${{ needs.functional-scope.outputs.run-functional }}
+          REASON: ${{ needs.functional-scope.outputs.reason }}
+          FUNCTIONAL: ${{ needs.functional.result }}
+        run: |
+          set -euo pipefail
+
+          if [ "$SCOPE" != "success" ]; then
+            echo "::error::functional-scope finished as '$SCOPE', so nothing decided whether the legs had to run."
+            exit 1
+          fi
+
+          case "$RUN_FUNCTIONAL" in
+            true)
+              if [ "$FUNCTIONAL" != "success" ]; then
+                echo "::error::the functional matrix was in scope ($REASON) but finished as '$FUNCTIONAL'."
+                exit 1
+              fi
+              echo "functional matrix ran and every leg passed ($REASON)"
+              ;;
+            false)
+              echo "functional matrix not in scope: $REASON"
+              ;;
+            *)
+              # `decide` always writes true or false; anything else means the
+              # scope script changed shape, and guessing "skip" would fail open.
+              echo "::error::functional-scope published run-functional='$RUN_FUNCTIONAL'; expected true or false."
+              exit 1
+              ;;
+          esac
+
   # The nightly run has no human watching it, so a failure that nobody is told
   # about is the same as no nightly run at all (ENG-3683). Scoped to `schedule`:
   # a push or PR failure is already in front of whoever caused it, and a Slack
   # message per red PR is how a channel gets muted.
   nightly-report:
     if: always() && github.event_name == 'schedule'
-    needs: [unit-coverage, package-integrity, functional]
+    # `functional-scope` and `functional-result` as well as the matrix: if the
+    # scope job fails, `functional` is *skipped*, which matches neither
+    # `failure` nor `cancelled` below, and the nightly would go unreported.
+    needs: [unit-coverage, package-integrity, functional-scope, functional, functional-result]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -526,7 +633,9 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           UNIT: ${{ needs.unit-coverage.result }}
           PACKAGING: ${{ needs.package-integrity.result }}
+          SCOPE: ${{ needs.functional-scope.result }}
           FUNCTIONAL: ${{ needs.functional.result }}
+          RESULT: ${{ needs.functional-result.result }}
         run: |
           set -euo pipefail
 
@@ -540,7 +649,8 @@ jobs:
           fi
 
           text="aiXplain SDK nightly is red on \`${GITHUB_REF_NAME}\`
-          unit-coverage: ${UNIT} | package-integrity: ${PACKAGING} | functional matrix: ${FUNCTIONAL}
+          unit-coverage: ${UNIT} | package-integrity: ${PACKAGING}
+          functional-scope: ${SCOPE} | functional matrix: ${FUNCTIONAL} | functional-result: ${RESULT}
           ${RUN_URL}"
 
           # --fail-with-body: a webhook that has been revoked answers 403 with an

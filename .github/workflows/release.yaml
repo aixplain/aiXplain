@@ -50,6 +50,8 @@ jobs:
           # The commit the tag points at, not the tag name: a tag can be moved,
           # and what was tested is a SHA.
           SHA: ${{ github.sha }}
+          # Only used to recognise a manual dispatch of main.yaml on this tag.
+          TAG: ${{ github.ref_name }}
           SERVER_URL: ${{ github.server_url }}
         run: |
           set -euo pipefail
@@ -70,18 +72,37 @@ jobs:
           )"
           test -n "$legs"
 
-          # Every completed run of main.yaml on this commit, not just the latest:
-          # a first run that failed and a re-run of the failed legs together mean
-          # the commit is green, and only the union says so.
+          # Only runs that used the production backend and key count: a push to
+          # `main` (the normal flow), or a manual dispatch on this very tag (the
+          # recovery path below). main.yaml's IS_PROD is true for both. A push
+          # to `test`, a PR run or the nightly can sit on the same commit,
+          # but their legs passed against the test backend, and a release
+          # validated there proves nothing about what the wheel is published for
+          # (ENG-3683). The dispatch must be on this tag by name,
+          # not on any ref starting with "v": `version_2` is a branch, and a
+          # dispatch on a branch runs against the test backend.
+          #
+          # Every qualifying completed run, not just the latest: a first run that
+          # failed and a re-run of the failed legs together mean the commit is
+          # green, and only the union says so.
+          runs_filter='.workflow_runs[]
+            | select(.status == "completed")
+            | select((.event == "push" and .head_branch == "main")
+                     or (.event == "workflow_dispatch" and .head_branch == $tag))
+            | .id'
           runs="$(gh api --paginate \
             "repos/$REPO/actions/workflows/main.yaml/runs?head_sha=$SHA&per_page=100" \
-            --jq '.workflow_runs[] | select(.status == "completed") | .id')"
+            | jq -r --arg tag "$TAG" "$runs_filter")"
 
           if [ -z "$runs" ]; then
-            echo "::error::no completed run of main.yaml on $SHA."
-            echo "The functional matrix must have run on the exact commit being released."
-            echo "Recovery: run main.yaml against the tag (Actions -> Run Tests -> Run workflow,"
-            echo "ref = this tag), let it go green, then re-run this release."
+            echo "::error::no completed production run of main.yaml on $SHA."
+            echo "The functional matrix must have run against the production backend on the exact commit"
+            echo "being released: a push to main, or a manual dispatch on this tag. Runs from a push to"
+            echo "test, a PR or the nightly do not count -- they used the test backend."
+            echo "If this tag was pushed right after the merge, the main run may still be in progress:"
+            echo "wait for it to finish, then re-run this release."
+            echo "Otherwise: run main.yaml against the tag (Actions -> Run Tests -> Run workflow,"
+            echo "ref = $TAG), let it go green, then re-run this release."
             exit 1
           fi
 
@@ -103,7 +124,9 @@ jobs:
 
           if [ "$missing" -ne 0 ]; then
             echo "::error::functional legs listed as MISSING above never succeeded on $SHA."
-            echo "Runs inspected: $(echo "$runs" | tr '\n' ' ')"
+            echo "Runs inspected (production runs only): $(echo "$runs" | tr '\n' ' ')"
+            echo "Re-run the failed legs of one of those runs, or dispatch main.yaml on $TAG, then"
+            echo "re-run this release."
             echo "See $SERVER_URL/$REPO/actions/workflows/main.yaml"
             exit 1
           fi

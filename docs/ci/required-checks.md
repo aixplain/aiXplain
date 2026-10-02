@@ -29,41 +29,52 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | 1 | `unit-coverage` | `main.yaml` | Yes | None — requireable as soon as it is green |
 | 1 | `package-integrity` | `main.yaml` | Yes | None — requireable as soon as it is green |
 | 1 | `functional-scope` | `main.yaml` | Yes | None — it is a decision, not a test; seconds long, no secrets |
-| 2 | `functional (actions-inputs)` | `main.yaml` | Yes, when in scope | Consistently green |
-| 2 | `functional (agent)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (agent-duplicate)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (agent-llm-persistence)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (api-key)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (arabic-agent)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (integration)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (model)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (rlm)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (session)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (skill)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (snake-case-e2e)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (tool)` | `main.yaml` | Yes, when in scope | as above |
-| 2 | `functional (trigger)` | `main.yaml` | Yes, when in scope | as above |
+| 2 | `functional-result` | `main.yaml` | Yes, always | Every leg consistently green |
+| — | `functional (actions-inputs)` | `main.yaml` | Yes, when in scope | **Do not require** — informational, see below |
+| — | `functional (agent)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (agent-duplicate)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (agent-llm-persistence)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (api-key)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (arabic-agent)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (integration)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (model)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (rlm)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (session)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (skill)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (snake-case-e2e)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (tool)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (trigger)` | `main.yaml` | Yes, when in scope | as above |
 
 The `file_asset`, `model`, `general_assets`, `apikey`, `agent` and `team_agent` legs exercised v1
 exclusively and were deleted with it (PROD-2918).
 
-The v2 functional suite runs one leg per `tests/functional/v2/test_*.py` file, so each leg can be
-required on its own: a leg that is reliably green can be required before a flaky one.
+The v2 functional suite runs one leg per `tests/functional/v2/test_*.py` file, so a failure names the
+resource that broke. The per-leg contexts are what you read; `functional-result` is what you require.
 
-The Tier 2 legs consume `TEAM_API_KEY` and hit live backend assets, so their redness is frequently a
-backend-availability problem rather than an SDK regression. Require each one only once that is no
-longer true for it.
+**Why the legs themselves are not requireable.** "Yes, when in scope" means a leg runs when the
+`functional-scope` job says it should. When it says no, the legs are not reported as fourteen
+skipped `functional (<leg>)` contexts: a job-level `if:` is evaluated *before* the matrix expands,
+so GitHub reports a single skipped context named `functional` instead (documented runner behaviour,
+actions/runner#952). A required `functional (agent)` would then never report on a docs-only or fork
+PR — a permanent "Expected — waiting for status to be reported", which is a merge deadlock rather
+than a merge gate. Confirm this on a real docs-only PR before changing settings (step 3 below).
 
-"Yes, when in scope" means the leg runs when the `functional-scope` job says it should, and is
-reported as **skipped** otherwise. GitHub counts a skipped job as satisfying a required status
-check, so requiring these contexts does not block a docs-only or fork PR. That is the whole reason
-the decision lives in a job's `if:` rather than in `on.pull_request.paths` — a path filter suppresses
-the check itself, and a required context that never reports is a permanent "Expected — waiting for
-status to be reported".
+`functional-result` is a plain, non-matrix job with `if: always()`, so it reports under one fixed
+name on every run. It **fails** when `functional-scope` did not succeed, and when the scope said the
+matrix must run and the matrix finished as anything but `success`. It **passes** when the scope said
+the matrix need not run. The decision still lives in a job rather than in `on.pull_request.paths`
+for the same reason: a path filter suppresses the check itself.
+
+The legs consume `TEAM_API_KEY` and hit live backend assets, so their redness is frequently a
+backend-availability problem rather than an SDK regression. Since `functional-result` is red when
+*any* leg is, require it only once every leg is reliably green; a chronically flaky leg has to be
+fixed or parked first.
 
 `tests/unit/test_ci_permissions.py` asserts that the `functional (...)` list above matches
-`main.yaml`'s matrix exactly, so adding, renaming, or deleting a leg fails a unit test instead of
-silently leaving a stale required-context list here.
+`main.yaml`'s matrix exactly and that `functional-result` is listed, so adding, renaming, or deleting
+a leg fails a unit test instead of silently leaving this table stale. The leg list still matters
+after the aggregate: it is what `functional-result` stands for, and `release.yaml`'s gate checks
+those per-leg names on the runs that actually ran.
 
 ## When each `main.yaml` context runs (ENG-3683)
 
@@ -72,25 +83,37 @@ silently leaving a stale required-context list here.
 
 `unit-coverage` and `package-integrity` are credential-free and run on **every** PR. The
 `functional (...)` legs hit a live backend with a real key, so a `functional-scope` job decides
-per event whether they run:
+per event whether they run, and `functional-result` reports the outcome under one name:
 
 | Event | Functional legs run? |
 | ----- | -------------------- |
 | `push` to `main` / `test` | Always |
 | `schedule` (nightly) | Always |
 | `workflow_dispatch` | Always |
-| PR from a fork | Never — a fork PR receives no secrets, so every leg would be red for a reason that says nothing about the contribution |
-| PR touching `aixplain/**` or `tests/functional/**` | Yes |
+| PR from a fork, or from a deleted repository | Never — a fork PR receives no secrets, so every leg would be red for a reason that says nothing about the contribution |
 | PR carrying the `functional-tests` label | Yes |
-| Any other PR | No (reported as skipped) |
+| PR touching `aixplain/**`, `tests/functional/**`, `tests/conftest.py`, `pyproject.toml` or `.github/workflows/main.yaml` | Yes |
+| Any other PR | No (reported as skipped; `functional-result` passes) |
+
+`pyproject.toml` is in the list because a dependency bump is the classic way functional behaviour
+breaks; `tests/conftest.py` because every leg loads it; `main.yaml` because it builds the legs'
+environment.
 
 The `functional-tests` label is the manual override for a PR whose risk is not visible in its paths
-— a dependency bump, a CI change, a backend migration. `labeled` is in the trigger's `types`, so
-adding the label starts a run by itself rather than waiting for the next push.
+— a backend migration, a change to a file the list above does not name. `labeled` is in the
+trigger's `types`, so adding the label starts a run by itself rather than waiting for the next push.
+
+Adding *any other* label starts a run too, and that run makes the normal path-based decision. It is
+deliberately not short-circuited to "skip": a skipped run on the same commit would then be the latest
+word on a PR whose previous run was red. What bounds the cost instead is the workflow's
+`concurrency:` group — one group per PR with `cancel-in-progress`, so a burst of labels or pushes
+leaves one run going rather than several matrices side by side. Push, schedule and dispatch runs
+each get a group of their own and are never cancelled or dropped: GitHub keeps only one pending run
+per group, and a dropped push run on `main` is a commit the release gate below cannot release.
 
 `pre-commit.yaml` triggers on `push` to `'**'`, so `pre-commit` also reports on a feature-branch
 PR. It runs `tests/unit`, which includes the coverage-relevant suite and all the static CI guards,
-and takes no secret, so unlike the Tier 2 legs its redness always means an SDK-side problem.
+and takes no secret, so unlike the functional legs its redness always means an SDK-side problem.
 
 The `generator-drift` context is gone: the code generator it ran rendered v1 modules only, and both
 went with v1 in 0.3.0 (PROD-2918).
@@ -102,6 +125,11 @@ because the PR path filter is, by construction, blind to anything that changes o
 repository: a backend deployment can break every functional suite while no PR touches
 `aixplain/**`.
 
+A scheduled run always executes on the default branch, which is `main`: the nightly tests `main`'s
+code, and from the workflow's point of view its ref *is* `main`. That is why the `functional` job's
+`IS_PROD` allow-lists events (`push` and `workflow_dispatch`) as well as refs. Keyed on the ref
+alone, as it first was, the nightly ran every leg against production with `TEAM_API_KEY_PROD`.
+
 The `nightly-report` job posts to Slack when the nightly is not green, via a plain incoming webhook
 in the `SLACK_NIGHTLY_WEBHOOK_URL` secret (deliberately not the `SLACK_TOKEN` the Slack *integration
 tests* consume — different audience, different rotation). **Until that secret is set, the job logs a
@@ -110,8 +138,11 @@ red job saying so adds nothing.
 
 ### Secrets the functional legs read
 
-Set per environment: the `_PROD` variant is used on `main` and on a `v*` tag, the plain one on
-everything else (the `test` branch, PRs, the nightly).
+Set per environment. The `_PROD` variant is used by a push to `main` and by a manual dispatch on
+`main` or a `v*` tag; the plain one by everything else (a push to `test`, PRs, the nightly, a
+dispatch on any other ref). Outside production the `_PROD` secrets are not merely unused: the step's
+`env:` expands them to the empty string, so a PR job — which runs `pip install ".[test]"` on whatever
+dependency changes the PR carries — never holds the production key.
 
 | Secret | Used by | If unset |
 | ------ | ------- | -------- |
@@ -142,9 +173,12 @@ test and production backends.
 3. **Read the real check names off a PR.** Open any PR and copy the context strings verbatim from its
    checks list. Do not paste the table above into settings unverified: matrix naming depends on the
    matrix shape, and a context string that matches nothing is indistinguishable from a check that
-   never reports.
+   never reports. Use a docs-only PR as well as one that runs the legs: it is the one that shows the
+   skipped matrix reporting as a single `functional` context, and `functional-result` passing.
 4. **Require Tier 1.**
-5. **Require Tier 2** only after those legs have been green on consecutive runs.
+5. **Require Tier 2** (`functional-result`) only after every leg has been green on consecutive runs.
+   Never require the per-leg `functional (...)` contexts — see "Why the legs themselves are not
+   requireable" above.
 
 ### Setting the contexts
 
@@ -174,10 +208,12 @@ gh api repos/aixplain/aixplain/branches/main/protection/required_status_checks -
 
 ### Fork PRs
 
-`pull_request` runs from a fork receive **no secrets**, so any Tier 2 leg would fail on an external
-contribution. Since ENG-3683 the `functional-scope` job detects this
-(`github.event.pull_request.head.repo.full_name != github.repository`) and skips the legs, which
-counts as satisfying a required context — so Tier 2 can be required without deadlocking fork PRs.
+`pull_request` runs from a fork receive **no secrets**, so any functional leg would fail on an
+external contribution. Since ENG-3683 the `functional-scope` job detects this
+(`github.event.pull_request.head.repo.full_name != github.repository`) and skips the legs, and
+`functional-result` passes — so Tier 2 can be required without deadlocking fork PRs. An empty
+`full_name`, which is what a PR from a deleted fork reports, is treated as a fork too: when the
+origin cannot be told, the check fails closed.
 
 The trade is explicit: an external contribution gets **no functional coverage** before merge. A
 maintainer who wants it must run `main.yaml` by `workflow_dispatch` against a branch holding the
@@ -190,25 +226,38 @@ code.
 ## The release's functional gate (ENG-3683)
 
 `release.yaml` runs a `functional-gate` job before anything is built. It asks one question through
-the Actions API: **did every `functional (...)` leg succeed on the exact commit this tag points
-at?**
+the Actions API: **did every `functional (...)` leg succeed, against the production backend, on the
+exact commit this tag points at?**
 
 - It keys on `github.sha`, not the tag name — a tag can be moved, and what was tested is a commit.
+- It counts only **production runs**: a `push` to `main`, or a `workflow_dispatch` whose ref is this
+  tag. A push to `test`, a PR run or the nightly may sit on the same commit, but their legs passed
+  against the test backend, which proves nothing about what the wheel is published for. The dispatch
+  has to be on the tag by name rather than on any ref starting with `v`, because branches such as
+  `version_2` exist and a dispatch on a branch runs against the test backend.
 - It reads the leg list out of `.github/workflows/main.yaml` **at the tagged commit**, so a leg added
   in the same release is not quietly optional on the release that first ships it.
-- It takes the union of *all* completed runs on that SHA, so "first run failed, failed legs re-run
-  green" correctly counts as green.
+- It takes the union of *all* completed production runs on that SHA, so "first run failed, failed
+  legs re-run green" correctly counts as green.
 - It holds `contents: read` and `actions: read`, nothing else. It decides; it never re-runs anything.
 
 Under the normal flow (bump the version in a PR, merge, tag the merged commit) the push to `main`
 has already produced that run, and the gate passes without any extra step.
 
-**If the gate fails with "no completed run of main.yaml on `<sha>`"**, the tagged commit never had a
-functional run — typically a tag on a commit that was never pushed to `main` or `test`. Recover by
-running the workflow against the tag itself: Actions → *Run Tests* → **Run workflow** → set the ref
-to the tag. A `v*` tag is treated as production there, so that dispatch uses `TEAM_API_KEY_PROD` and
-the production backend — the environment the wheel is being published for. Let it go green, then
-re-run the release.
+**If the gate fails with "no completed production run of main.yaml on `<sha>`"**, first check
+whether the `main` run on that commit is simply still going: a tag pushed right after the merge
+finds it in progress, and an in-progress run does not count. Wait for it to finish, then re-run the
+release.
+
+Otherwise the tagged commit never had a production functional run — typically a tag on a commit
+that was never pushed to `main`. A push to `test` does **not** fix this, nor does a PR run: both use
+the test backend. Recover by running the workflow against the tag itself: Actions → *Run Tests* →
+**Run workflow** → set the ref to the tag. A `v*` tag is treated as production there, so that
+dispatch uses `TEAM_API_KEY_PROD` and the production backend — the environment the wheel is being
+published for. Let it go green, then re-run the release.
+
+**If the gate lists legs as `MISSING`**, a production run exists but those legs never succeeded in
+it. Re-run the failed jobs of that run (or dispatch on the tag as above), then re-run the release.
 
 There is deliberately no override input: `release.yaml` triggers on tag push alone (asserted by
 `tests/unit/test_ci_permissions.py`), so there is nowhere for a "skip the gate" flag to live. That
@@ -283,8 +332,9 @@ gh api repos/pypa/gh-action-pypi-publish/git/ref/heads/release/v1 --jq '.object.
 ## Open questions
 
 1. ~~**How should `main.yaml` run on PRs?**~~ — settled in ENG-3683: credential-free jobs on every
-   PR, functional legs on a path filter (`aixplain/**`, `tests/functional/**`) with a
-   `functional-tests` label as the manual override. See "When each `main.yaml` context runs" above.
+   PR, functional legs on a path filter (`aixplain/**`, `tests/functional/**`, `tests/conftest.py`,
+   `pyproject.toml`, `.github/workflows/main.yaml`) with a `functional-tests` label as the manual
+   override. See "When each `main.yaml` context runs" above.
 2. **Does the project accept external PRs?** If yes, note that fork PRs now skip the functional legs
    rather than failing them — see the fork-PR section above for what that costs.
 3. **Should the `pypi` environment require a human approval**, or is the tag itself the intended gate?
