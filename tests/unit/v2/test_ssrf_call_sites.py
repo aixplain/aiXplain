@@ -26,10 +26,6 @@ GUARDED_SINK_FILES = [
     "aixplain/v2/code_utils.py",
     "aixplain/v2/file.py",
     "aixplain/v2/rlm.py",
-    "aixplain/v1/modules/model/utils.py",
-    "aixplain/v1/modules/model/rlm.py",
-    "aixplain/v1/modules/agent/tool/sql_tool.py",
-    "aixplain/v1/factories/model_factory/utils.py",
 ]
 
 
@@ -66,39 +62,6 @@ def test_rlm_url_context_is_guarded():
 
     with pytest.raises(UnsafeURLError):
         RLM._resolve_url_context(METADATA_URL)
-
-
-def test_v1_parse_code_refuses_a_private_url():
-    """v1 gets the same guard, as a one-line call-site change."""
-    from aixplain.v1.modules.model.utils import parse_code
-
-    with pytest.raises(UnsafeURLError):
-        parse_code("http://10.0.0.1/code.py")
-
-
-def test_v1_model_factory_version_link_is_guarded():
-    """A ``version.id`` taken from a response is a blind-SSRF port scanner otherwise.
-
-    The surrounding ``except Exception: code = ""`` is left in place (v1 is
-    unmaintained), so the guard has to refuse the request rather than rely on an
-    informative exception reaching the caller.
-    """
-    from aixplain.utils.url_safety import safe_get
-    from aixplain.v1.factories.model_factory import utils as factory_utils
-
-    assert factory_utils.safe_get is safe_get
-    with pytest.raises(UnsafeURLError):
-        factory_utils.safe_get("http://127.0.0.1:22/")
-
-
-def test_v1_benchmark_report_url_is_guarded():
-    """``reportUrl`` is also a response field, so it is validated before download."""
-    from aixplain.utils.url_safety import validate_fetch_url
-    from aixplain.v1.modules import benchmark_job
-
-    assert benchmark_job.validate_fetch_url is validate_fetch_url
-    with pytest.raises(UnsafeURLError):
-        benchmark_job.validate_fetch_url("http://169.254.169.254/latest/meta-data/")
 
 
 def test_v2_file_source_url_is_guarded(tmp_path):

@@ -4,6 +4,7 @@ This module provides a comprehensive set of error types for consistent
 error handling across all v2 components.
 """
 
+import builtins
 from typing import Optional, Any, Dict, Union, List
 
 
@@ -83,8 +84,16 @@ class ValidationError(AixplainV2Error):
     pass
 
 
-class TimeoutError(AixplainV2Error):
-    """Raised when operations timeout."""
+class TimeoutError(AixplainV2Error, builtins.TimeoutError):
+    """Raised when operations timeout.
+
+    Also a :class:`builtins.TimeoutError`, which matters because this name is
+    re-exported from the package root: after ``from aixplain import *``, a plain
+    ``except TimeoutError:`` resolves to this class, and without the second base
+    it would silently stop catching socket and asyncio timeouts. Inheriting both
+    means the shadowing is harmless -- the name catches strictly more than it did
+    before, never less.
+    """
 
     pass
 

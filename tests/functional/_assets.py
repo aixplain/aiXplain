@@ -88,9 +88,9 @@ class AssetIds:
     #: survives a round-trip. Must differ from ``client.Agent.DEFAULT_LLM``.
     NON_DEFAULT_LLM: str
 
-    #: Two LLMs from different vendors, for cross-vendor behaviour (Arabic
-    #: rendering, tool-calling style) rather than for any capability of their own.
-    GPT_4O_LLM: str
+    #: A second-vendor LLM, paired with ``DEFAULT_LLM`` (GPT-5.4) for cross-vendor
+    #: behaviour (Arabic rendering, tool-calling style) rather than for any
+    #: capability of its own.
     CLAUDE_LLM: str
 
     #: Emits tool-call deltas over a streaming connection.
@@ -115,7 +115,6 @@ class AssetIds:
     #: Connector tools an agent can be handed to reach the live web.
     FIRECRAWL: str
     TAVILY: str
-    GOOGLE_SEARCH_UTILITY: str
 
 
 @dataclass(frozen=True)
@@ -132,14 +131,11 @@ class AssetSpec:
 
 #: Resolution metadata, keyed by :class:`AssetIds` field name.
 #:
-#: ``resource`` is not inferable from the asset: ``GOOGLE_SEARCH_UTILITY`` is a
-#: utility *model* that the agent tests fetch through ``client.Tool.get``, and
-#: fetching it through ``client.Model.get`` would verify something the suite
-#: never does. Each entry records the call the tests actually make.
+#: ``resource`` is not inferable from the asset, so each entry records the call
+#: the tests actually make.
 SPECS: Dict[str, AssetSpec] = {
     "DEFAULT_LLM": AssetSpec("Model", "default text-generation LLM (GPT-5.4)"),
     "NON_DEFAULT_LLM": AssetSpec("Model", "non-default LLM (GPT-4.1 Nano)"),
-    "GPT_4O_LLM": AssetSpec("Model", "OpenAI GPT-4o"),
     "CLAUDE_LLM": AssetSpec("Model", "Anthropic Claude Opus 4.6"),
     "STREAMING_TOOL_CALL_MODEL": AssetSpec("Model", "streaming tool-calling model"),
     "SYNC_ONLY_MODEL": AssetSpec("Model", "sync-only model (Cloud Translation)"),
@@ -149,7 +145,6 @@ SPECS: Dict[str, AssetSpec] = {
     "SLACK_INTEGRATION": AssetSpec("Integration", "Slack integration"),
     "FIRECRAWL": AssetSpec("Tool", "Firecrawl connector tool"),
     "TAVILY": AssetSpec("Tool", "Tavily Web Search connector tool"),
-    "GOOGLE_SEARCH_UTILITY": AssetSpec("Tool", "Google Search utility model, fetched as a tool"),
 }
 
 
@@ -160,13 +155,6 @@ SPECS: Dict[str, AssetSpec] = {
 DEV = AssetIds(
     DEFAULT_LLM="69b7e5f1b2fe44704ab0e7d0",
     NON_DEFAULT_LLM="67fd9e2bef0365783d06e2f0",
-    # Onboarded 2024-05-16 per the ObjectId timestamp, four days after GPT-4o's
-    # release and five weeks before Claude 3.5 Sonnet's -- so the "Claude 3.5
-    # Sonnet v1" comment the v1 suite attached to this id was the stale half of
-    # the pair, not the `gpt-4o` label the Arabic test uses. Corroborated by
-    # skills/aixplain-builder/references/models.md, which gives this id as the
-    # id form of `openai/gpt-4o`.
-    GPT_4O_LLM="6646261c6eb563165658bbb1",
     CLAUDE_LLM="698c87701239a117fd66b468",
     STREAMING_TOOL_CALL_MODEL="69727676c60248082d79932f",
     SYNC_ONLY_MODEL="66aa869f6eb56342c26057e1",
@@ -179,7 +167,6 @@ DEV = AssetIds(
     # tavily/tavily-search-api/Tavily, which collides with the Legacy Tavily
     # asset whose single generic `run` action breaks the tool tests.
     TAVILY="6931bdf462eb386b7158def3",
-    GOOGLE_SEARCH_UTILITY="65c51c556eb563350f6e1bb1",
 )
 
 #: `test` and `prod` are separate id spaces from `dev`, but the v2 leg has been
