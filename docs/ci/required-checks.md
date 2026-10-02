@@ -31,6 +31,7 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | 2 | `functional (actions-inputs)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (agent)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (agent-duplicate)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (agent-lifecycle)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (agent-llm-persistence)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (api-key)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (arabic-agent)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |

@@ -101,6 +101,10 @@ class AssetIds:
     SYNC_ONLY_MODEL: str
     ASYNC_ONLY_MODEL: str
 
+    #: A translation model carrying a ``sourcelanguage`` input, so a per-tool
+    #: parameter override can be proved to survive save -> fetch -> run.
+    TRANSLATION_MODEL: str
+
     #: Image model whose sync run returns a final output URL that must not be
     #: polled.
     SEEDREAM_MODEL: str
@@ -144,6 +148,7 @@ SPECS: Dict[str, AssetSpec] = {
     "STREAMING_TOOL_CALL_MODEL": AssetSpec("Model", "streaming tool-calling model"),
     "SYNC_ONLY_MODEL": AssetSpec("Model", "sync-only model (Cloud Translation)"),
     "ASYNC_ONLY_MODEL": AssetSpec("Model", "async-only model (Amazon Translate)"),
+    "TRANSLATION_MODEL": AssetSpec("Model", "translation model with a source-language input"),
     "SEEDREAM_MODEL": AssetSpec("Model", "Seedream image model"),
     "RLM_MODEL": AssetSpec("Model", "RLM orchestrator/worker (Gemini 2.5 Pro)"),
     "SLACK_INTEGRATION": AssetSpec("Integration", "Slack integration"),
@@ -171,6 +176,7 @@ DEV = AssetIds(
     STREAMING_TOOL_CALL_MODEL="69727676c60248082d79932f",
     SYNC_ONLY_MODEL="66aa869f6eb56342c26057e1",
     ASYNC_ONLY_MODEL="6686e7946eb563a724229b84",
+    TRANSLATION_MODEL="678025ac6eb563a2566829b1",
     SEEDREAM_MODEL="69f347e7de823633d9604dfd",
     RLM_MODEL="68d43005ce180d2fdb4deac7",
     SLACK_INTEGRATION="686432941223092cb4294d3f",
