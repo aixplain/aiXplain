@@ -23,8 +23,10 @@ def multi_action_tool(client):
 
     Both tests below used to sweep `Tool.search()` for such a tool and skip when
     the sweep came up empty, so an environment with no Slack connection reported
-    green for the allowed_actions serialisation path (ENG-3684). The tool is
-    resolved from the pinned integration now, and its absence is a failure.
+    green for the allowed_actions serialisation path (ENG-3684). The tool now
+    comes from `resolve_multi_action_tool` -- the AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID
+    override, or a bounded search for a Slack-backed tool -- and its absence is a
+    failure.
 
     Function-scoped: both consumers mutate `allowed_actions`, so a shared
     instance would leak one test's setting into the other's assertion.
@@ -385,9 +387,7 @@ def test_tool_as_tool_without_actions(client, multi_action_tool):
     """Test that as_tool() does NOT include actions when allowed_actions is empty and tool has multiple actions."""
     tool = multi_action_tool
     action_names = list(tool.actions)
-    assert len(action_names) >= 2, (
-        f"Tool {tool.id} exposes {len(action_names)} action(s); this test needs at least 2."
-    )
+    assert len(action_names) >= 2, f"Tool {tool.id} exposes {len(action_names)} action(s); this test needs at least 2."
 
     tool.allowed_actions = []
     tool_dict = tool.as_tool()

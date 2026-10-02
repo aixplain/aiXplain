@@ -98,9 +98,7 @@ class TestInputActionFieldsRoundTrip:
         # Every step below used to skip on an empty result. The Slack integration
         # is pinned precisely because it has actions with inputs, so an empty
         # result is a missing fixture or a broken listing endpoint (ENG-3684).
-        assert integration.actions_available, (
-            f"Pinned integration {SLACK_INTEGRATION_ID} reports no actions available."
-        )
+        assert integration.actions_available, f"Pinned integration {SLACK_INTEGRATION_ID} reports no actions available."
 
         actions = integration.list_actions()
         assert actions, f"Pinned integration {SLACK_INTEGRATION_ID} returned no actions."
@@ -133,9 +131,7 @@ class TestInputActionFieldsRoundTrip:
     def test_action_display_name_survives_round_trip(self, client):
         """Fetch real Action from API, read display_name, to_dict → from_dict, value matches."""
         integration = client.Integration.get(SLACK_INTEGRATION_ID)
-        assert integration.actions_available, (
-            f"Pinned integration {SLACK_INTEGRATION_ID} reports no actions available."
-        )
+        assert integration.actions_available, f"Pinned integration {SLACK_INTEGRATION_ID} reports no actions available."
 
         actions = integration.list_actions()
         assert actions, f"Pinned integration {SLACK_INTEGRATION_ID} returned no actions."

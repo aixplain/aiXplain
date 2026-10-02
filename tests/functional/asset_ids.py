@@ -1,5 +1,6 @@
-"""Pinned backend asset ids for the functional suite, and the failure helpers
-that keep a missing one from turning into a skip (ENG-3684).
+"""Pinned backend asset ids for the functional suite (ENG-3684).
+
+Also the failure helpers that keep a missing one from turning into a skip.
 
 Why this module exists
 ----------------------
@@ -9,8 +10,8 @@ one: it can skip, or it can fail. Skipping is the tempting choice, because the
 test cannot check anything without the asset. It is also the wrong one: the leg
 then reports green for a suite that verified nothing, which is the whole
 ENG-3544/ENG-3684 defect at the level of a single test. `tests/functional/v2`
-carried 37 such skips; one of them, in a module-scoped fixture, took ~40 tests
-out on its own.
+carried dozens of such skips, and one of them, in a module-scoped fixture, took
+a whole file's tool tests out on its own (ENG-3684).
 
 So the rule here is: the test environment must carry the fixtures the tests need.
 An id that is absent is a test-infra failure, and these helpers state it as one,
@@ -117,25 +118,64 @@ def require_env(name: str, purpose: str) -> str:
     return value.strip()
 
 
+#: How far `resolve_multi_action_tool` searches before giving up: at most
+#: `_SEARCH_PAGES` pages of `_SEARCH_PAGE_SIZE` tools. Bounded, so a tenant with a
+#: large catalogue costs a handful of requests rather than a full walk.
+_SEARCH_PAGES = 5
+_SEARCH_PAGE_SIZE = 20
+
+_MULTI_ACTION_TOOL_ENV = "AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID"
+
+
+def _action_count(tool) -> int:
+    """How many actions *tool* lists, or 0 when listing them fails."""
+    try:
+        return len(tool.list_actions() or [])
+    except Exception:
+        return 0
+
+
 def resolve_multi_action_tool(client):
     """Return a connected tool exposing two or more actions.
 
-    Prefers the pinned `MULTI_ACTION_TOOL_ID`. Without one, looks for a tool
-    backed by the pinned Slack integration -- a connection id is tenant-specific,
-    so there is no portable default to pin. Either way, *not finding one fails*:
-    the multi-action tests cannot run without such a tool, and the tenant is
-    expected to carry a Slack connection.
+    Prefers the pinned `MULTI_ACTION_TOOL_ID`. Without one, searches up to
+    `_SEARCH_PAGES` pages of tools for one backed by the pinned Slack integration
+    -- a connection id is tenant-specific, so there is no portable default to pin.
+    Either way the tool must list at least two actions, and *not finding one
+    fails*: the multi-action tests cannot run without such a tool, and the tenant
+    is expected to carry a Slack connection.
     """
     if MULTI_ACTION_TOOL_ID:
-        return client.Tool.get(MULTI_ACTION_TOOL_ID)
+        tool = client.Tool.get(MULTI_ACTION_TOOL_ID)
+        count = _action_count(tool)
+        if count < 2:
+            missing_fixture(
+                f"a connected tool with two or more actions at {MULTI_ACTION_TOOL_ID}",
+                f"The pinned tool lists {count} action(s).",
+                env_var=_MULTI_ACTION_TOOL_ENV,
+            )
+        return tool
 
-    candidates = client.Tool.search(page_size=20).results
-    for tool in candidates:
-        if tool.actions_available and tool.integration_id == SLACK_INTEGRATION_ID:
-            return tool
+    searched = 0
+    slack_backed = []
+    for page_number in range(_SEARCH_PAGES):
+        page = client.Tool.search(page_number=page_number, page_size=_SEARCH_PAGE_SIZE)
+        searched += len(page.results)
+        for tool in page.results:
+            # Both fields come with the search result, so only a tool that passes
+            # them costs a LIST_ACTIONS request.
+            if not (tool.actions_available and tool.integration_id == SLACK_INTEGRATION_ID):
+                continue
+            slack_backed.append(tool.id)
+            if _action_count(tool) >= 2:
+                return tool
+        if not page.results or page_number + 1 >= page.page_total:
+            break
 
     missing_fixture(
-        f"a connected tool backed by integration {SLACK_INTEGRATION_ID}",
-        f"Searched the first {len(candidates)} tool(s) and found none with actions available.",
-        env_var="AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID",
+        f"a connected tool backed by the Slack integration {SLACK_INTEGRATION_ID} with two or more actions",
+        f"Searched {searched} tool(s) in up to {_SEARCH_PAGES} page(s) of {_SEARCH_PAGE_SIZE}, filtering on "
+        f"integration_id == {SLACK_INTEGRATION_ID}; Slack-backed tools with actions available: "
+        f"{slack_backed or 'none'}, none listing two or more. Connect Slack in this tenant.",
+        env_var=_MULTI_ACTION_TOOL_ENV,
     )

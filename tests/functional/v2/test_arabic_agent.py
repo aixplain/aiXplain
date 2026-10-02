@@ -24,10 +24,12 @@ import pytest
 
 from aixplain.v2 import Inspector
 
+from tests.functional.asset_ids import TEXT_MODEL_ID
+
 ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
 
 MODELS = [
-    pytest.param("gpt-5.4", "69b7e5f1b2fe44704ab0e7d0", id="gpt-5.4"),
+    pytest.param("gpt-5.4", TEXT_MODEL_ID, id="gpt-5.4"),
     pytest.param("claude-opus-4.6", "698c87701239a117fd66b468", id="claude-opus-4.6"),
 ]
 
@@ -90,6 +92,13 @@ def _extract_steps(response) -> list:
 _OUTPUT_ATTEMPTS = 3
 _OUTPUT_RETRY_DELAY_SECONDS = 10
 
+#: Start of the `_run_until_output` exhaustion failure. The `flaky` markers below
+#: pass it as `rerun_except`, so pytest-rerunfailures does not rerun a test whose
+#: model already came back empty on every attempt: `_run_until_output` is the one
+#: retry layer for empty output, and the marker is only for timeouts and other
+#: transient failures. Stacking the two multiplied the billed runs per item.
+_NO_OUTPUT_FAILURE = "returned no usable content"
+
 
 def _has_usable_output(output: str) -> bool:
     """True if the model produced content these tests can assert against.
@@ -134,9 +143,10 @@ def _run_until_output(run, description: str) -> tuple[str, list]:
             time.sleep(_OUTPUT_RETRY_DELAY_SECONDS)
 
     pytest.fail(
-        f"{description} returned no usable content in {_OUTPUT_ATTEMPTS} attempts "
-        f"(last output: {output!r}). If the model is genuinely unavailable on this "
-        "backend, drop it from MODELS rather than letting the leg pass without it."
+        f"{description} {_NO_OUTPUT_FAILURE} in {_OUTPUT_ATTEMPTS} consecutive runs, "
+        f"{_OUTPUT_RETRY_DELAY_SECONDS}s apart (last output: {output!r}). This failure is not "
+        "rerun. If the model is genuinely unavailable on this backend, drop it from MODELS "
+        "rather than letting the leg pass without it."
     )
 
 
@@ -255,7 +265,7 @@ def _make_output_inspector(llm_id: str, model_name: str):
     )
 
 
-@pytest.mark.flaky(reruns=1, reruns_delay=5)
+@pytest.mark.flaky(reruns=1, reruns_delay=5, rerun_except=_NO_OUTPUT_FAILURE)
 @pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
 def test_arabic_single_agent(client, resource_tracker, model_name, llm_id):
     """An agent with diacritic Arabic instructions answers a mixed Arabic/English query in Arabic."""
@@ -268,7 +278,7 @@ def test_arabic_single_agent(client, resource_tracker, model_name, llm_id):
     _assert_arabic_output("mixed_ar_en", output)
 
 
-@pytest.mark.flaky(reruns=1, reruns_delay=5)
+@pytest.mark.flaky(reruns=1, reruns_delay=5, rerun_except=_NO_OUTPUT_FAILURE)
 @pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
 def test_arabic_team_agent_with_inspector(client, resource_tracker, model_name, llm_id):
     """One team run covers Arabic team serialization, delegation, and an Arabic-prompted inspector."""

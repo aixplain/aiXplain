@@ -28,11 +28,13 @@ def tool(client):
     """The connected, multi-action tool the TOOL sections below are written against.
 
     This fixture used to search for any tool with actions and skip when it found
-    none. Being module-scoped, that one skip took roughly forty tests with it --
-    the six TestTool* classes below -- and the leg still exited 0 (ENG-3684).
-    The tool is pinned in tests/functional/asset_ids.py now, and its
-    absence is a failure: these tests cannot verify the Actions hierarchy without
-    a tool that has actions, and pretending otherwise is what made the leg lie.
+    none. Being module-scoped, that one skip took every test in the TestTool*
+    classes below with it, and the leg still exited 0 (ENG-3684). A connected
+    tool is tenant-specific, so it cannot be pinned portably:
+    `resolve_multi_action_tool` uses AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID when set
+    and otherwise searches for a Slack-backed tool with two or more actions. Not
+    finding one is a failure: these tests cannot verify the Actions hierarchy
+    without such a tool, and pretending otherwise is what made the leg lie.
     """
     return resolve_multi_action_tool(client)
 
