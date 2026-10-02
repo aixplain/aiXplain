@@ -32,16 +32,23 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | 2 | `functional (agent)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (agent-duplicate)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (agent-llm-persistence)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (agent-progress)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (api-key)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (arabic-agent)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (debugger)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (eval)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (file)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (integration)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (issue)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (model)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (resource)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (rlm)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (session)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (skill)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (snake-case-e2e)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (tool)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (trigger)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (utility)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 
 The `file_asset`, `model`, `general_assets`, `apikey`, `agent` and `team_agent` legs exercised v1
 exclusively and were deleted with it (PROD-2918).
