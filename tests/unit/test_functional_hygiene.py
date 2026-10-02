@@ -579,7 +579,7 @@ PARAMETRISED = "def test_upload(is_temp):\n    FileFactory.create(path='x', is_t
 OPTED_IN = (
     "import os\n"
     "import pytest\n\n\n"
-    "@pytest.mark.skipif(not os.getenv('AIXPLAIN_ALLOW_PERMANENT_UPLOADS'), reason='leaks')\n"
+    "@pytest.mark.skipif(not os.getenv('AIXPLAIN_ALLOW_PERMANENT_UPLOADS'), reason='leaks (BUG-947)')\n"
     "def test_upload():\n"
     "    FileFactory.create(path='x', is_temp=False)\n"
 )

@@ -317,8 +317,8 @@ def test_agent_field_mappings(client, test_agent):
 
 
 @pytest.mark.skip(
-    reason="Backend rejects the Slack send-message payload: 'Unsupported Slack send message field(s). "
-    "text: Use markdown_text for normal content, or fallback_text with blocks.'"
+    reason="Backend bug BUG-1098: rejects the Slack send-message payload: 'Unsupported Slack send message field(s). "
+    "text: Use markdown_text for normal content, or fallback_text with blocks.' Re-test monthly."
 )
 def test_slack_tool_integration_with_agent(client, assets, slack_token, resource_tracker):
     """Test Slack tool integration with agent creation and execution."""
