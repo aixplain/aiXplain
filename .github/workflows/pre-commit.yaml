@@ -33,7 +33,10 @@ jobs:
           pip install ".[test]"
           pip install pre-commit coverage
 
+      # No TEAM_API_KEY (ENG-3683). The `pytest-check` hook runs `tests/unit`,
+      # which is credential-free by design (ENG-3431), so the key was only ever
+      # exposed to the third-party hook code this job also executes. If this job
+      # ever starts failing on a missing key, the regression is a unit test that
+      # has grown a backend dependency -- not this workflow.
       - name: Run pre-commit hooks
-        env:
-          TEAM_API_KEY: ${{ secrets.TEAM_API_KEY }}
         run: pre-commit run --all-files
