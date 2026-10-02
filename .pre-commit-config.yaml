@@ -12,11 +12,13 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.12
     hooks:
+      # Tests are formatted too; their docstrings are exempt (see the
+      # per-file-ignores for tests/ in ruff.toml).
       - id: ruff
         args: [--fix]
-        files: ^aixplain/v2/
+        files: ^(aixplain/v2/|tests/)
       - id: ruff-format
-        files: ^aixplain/v2/
+        files: ^(aixplain/v2/|tests/)
 
   - repo: local
     hooks:

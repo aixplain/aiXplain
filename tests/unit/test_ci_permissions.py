@@ -201,13 +201,7 @@ def test_a_job_level_narrowing_cannot_hide_a_workflow_level_write(tmp_path: Path
     """
     workflow = tmp_path / "masked.yaml"
     workflow.write_text(
-        "permissions:\n"
-        "  contents: write\n"
-        "jobs:\n"
-        "  only-job:\n"
-        "    permissions:\n"
-        "      contents: read\n"
-        "    steps: []\n"
+        "permissions:\n  contents: write\njobs:\n  only-job:\n    permissions:\n      contents: read\n    steps: []\n"
     )
 
     grants = _permission_grants(workflow)
@@ -268,7 +262,7 @@ def test_release_build_job_asserts_the_tag_matches_the_declared_version():
 
 
 def test_release_build_job_installs_and_imports_the_built_wheel():
-    """"pip install succeeded" proves nothing.
+    """ "pip install succeeded" proves nothing.
 
     The ENG-3543 wheel shipped 3 of 169 modules, installed cleanly, and only
     failed at first import -- so the build job has to actually import the
@@ -377,9 +371,7 @@ def test_release_yaml_is_the_only_thing_that_uploads_to_pypi():
     )
     with_tokens = {where: [n for n in TOKEN_INPUTS if n in inputs] for where, inputs in found.items()}
     offenders = {where: names for where, names in with_tokens.items() if names}
-    assert not offenders, (
-        f"publish steps carrying a stored credential instead of using OIDC: {offenders}."
-    )
+    assert not offenders, f"publish steps carrying a stored credential instead of using OIDC: {offenders}."
 
 
 def test_no_workflow_carries_a_pypi_token_or_a_manual_twine_upload():

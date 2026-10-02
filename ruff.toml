@@ -19,6 +19,11 @@ select = ["D"]
 ignore = []
 extend-safe-fixes = []
 
+[lint.per-file-ignores]
+# Test modules are linted and formatted, but their docstrings are not held to
+# the public-API pydocstyle rules (AGENTS.md).
+"tests/**/*.py" = ["D"]
+
 [lint.isort]
 known-first-party = ["src"]
 

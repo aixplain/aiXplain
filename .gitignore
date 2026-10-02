@@ -48,6 +48,9 @@ brusk.yaml
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Local run-log scratch written by functional runs (distinct from tests/).
+test/
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
