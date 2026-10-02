@@ -18,13 +18,13 @@ from aixplain.v2.actions import Actions, Action, Inputs, Input
 
 
 @pytest.fixture(scope="module")
-def text_model_id():
-    return "69b7e5f1b2fe44704ab0e7d0"  # GPT-5.4
+def text_model_id(assets):
+    return assets.DEFAULT_LLM
 
 
 @pytest.fixture(scope="module")
-def slack_integration_id():
-    return "686432941223092cb4294d3f"
+def slack_integration_id(assets):
+    return assets.SLACK_INTEGRATION
 
 
 @pytest.fixture(scope="module")
