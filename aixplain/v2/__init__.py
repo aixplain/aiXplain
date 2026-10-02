@@ -2,25 +2,62 @@
 
 from .core import Aixplain
 from .rlm import RLM, RLMResult
-from .utility import Utility
-from .agent import Agent, Artifact, Budget, ContextOverflowStrategy
+from .agent import (
+    Agent,
+    Artifact,
+    Budget,
+    BudgetDict,
+    ContextOverflowStrategy,
+    ContextOverflowStrategyValue,
+    ConversationMessage,
+    OutputFormat,
+    OutputFormatValue,
+    Task,
+    TaskDict,
+)
 from .tool import Tool
 from .skill import Skill
 from .actions import Input, Inputs, Action, Actions
 from .integration import TriggerTypeSpec, TriggerEventOption, TriggerTypes
-from .trigger import Trigger, TriggerConfiguration, TriggerRepeatRule
-from .file import File, Resource
+from .trigger import (
+    Trigger,
+    TriggerConfiguration,
+    TriggerConfigurationDict,
+    TriggerRepeatRule,
+    TriggerRepeatRuleDict,
+)
+from .file import File
+from .graph import (
+    AgentNode,
+    Condition,
+    ConditionDict,
+    ConditionalNode,
+    Edge,
+    EdgeDict,
+    Graph,
+    GraphDict,
+    InspectorNode,
+    LLMNode,
+    RawNode,
+    RetryPolicy,
+    RetryPolicyDict,
+    ScriptNode,
+    StaticGraphStrategy,
+    StaticGraphStrategyDict,
+    ToolNode,
+)
 from .resource import Page
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
 from .inspector import Inspector
 from .session import (
     ExecutionConfig,
+    ExecutionConfigDict,
     Session,
     SessionMessage,
     SessionMessageAttachment,
 )
 from .meta_agents import Debugger, DebugResult
-from .agent_progress import AgentProgressTracker, ProgressFormat
+from .agent_progress import AgentProgressTracker, ProgressFormat, ProgressFormatValue
 from .agent_evaluator import (
     Eval,
     AgentEvaluationResultsChatbot,
@@ -52,8 +89,16 @@ from .eval_results_display import (
     pivot_agents_wide,
     summarize_by_agent,
 )
-from .api_key import APIKey, APIKeyLimits, APIKeyUsageLimit, TokenType
-from .issue import IssueReporter, IssueSeverity
+from .api_key import (
+    APIKey,
+    APIKeyLimits,
+    APIKeyLimitsDict,
+    APIKeyUsageLimit,
+    TokenType,
+    TokenTypeValue,
+)
+from .code_utils import UtilityModelInput, UtilityModelInputDict
+from .issue import IssueReporter, IssueSeverity, IssueSeverityValue
 from .exceptions import (
     AixplainV2Error,
     ResourceError,
@@ -85,27 +130,66 @@ from .enums import (
     EvolveType,
     CodeInterpreterModel,
     SplittingOptions,
+    DataType,
     SessionStatus,
     RunStatus,
     MessageRole,
     Reaction,
     AttachmentType,
+    # Plain-data (Literal) forms of the input enums -- see docs/v2-plain-data.md
+    AssetStatusValue,
+    AttachmentTypeValue,
+    AuthenticationSchemeValue,
+    DataTypeValue,
+    FileTypeValue,
+    FunctionValue,
+    LanguageValue,
+    LicenseValue,
+    OwnershipTypeValue,
+    PrivacyValue,
+    SortByValue,
+    SortOrderValue,
+    SplittingOptionsValue,
+    StorageTypeValue,
+    SupplierValue,
 )
 
 __all__ = [
     "Aixplain",
     "RLM",
     "RLMResult",
-    "Utility",
     "Agent",
     "Artifact",
     "Budget",
+    "BudgetDict",
     "ContextOverflowStrategy",
+    "ContextOverflowStrategyValue",
+    "ConversationMessage",
+    "OutputFormat",
+    "OutputFormatValue",
+    "Task",
+    "TaskDict",
     "Tool",
     "Skill",
-    "Resource",
     "File",
     "Page",
+    "Graph",
+    "GraphDict",
+    "Edge",
+    "EdgeDict",
+    "Condition",
+    "ConditionDict",
+    "RetryPolicy",
+    "RetryPolicyDict",
+    "StaticGraphStrategy",
+    "StaticGraphStrategyDict",
+    "RawNode",
+    "LLMNode",
+    "ToolNode",
+    "AgentNode",
+    "ScriptNode",
+    "InspectorNode",
+    "ConditionalNode",
     "FileUploader",
     "upload_file",
     "validate_file_for_upload",
@@ -114,6 +198,7 @@ __all__ = [
     "SessionMessage",
     "SessionMessageAttachment",
     "ExecutionConfig",
+    "ExecutionConfigDict",
     # Inspector
     "Inspector",
     # Meta-agents
@@ -122,6 +207,7 @@ __all__ = [
     # Progress tracking
     "AgentProgressTracker",
     "ProgressFormat",
+    "ProgressFormatValue",
     # Agent evaluation
     "Eval",
     "AgentEvaluationRow",
@@ -151,13 +237,16 @@ __all__ = [
     # API Key management
     "APIKey",
     "APIKeyLimits",
+    "APIKeyLimitsDict",
     "APIKeyUsageLimit",
     "TokenType",
+    "TokenTypeValue",
     "IssueReporter",
     "IssueSeverity",
-    # Progress tracking
-    "AgentProgressTracker",
-    "ProgressFormat",
+    "IssueSeverityValue",
+    # Utility model inputs
+    "UtilityModelInput",
+    "UtilityModelInputDict",
     # Exceptions
     "AixplainV2Error",
     "ResourceError",
@@ -188,11 +277,28 @@ __all__ = [
     "EvolveType",
     "CodeInterpreterModel",
     "SplittingOptions",
+    "DataType",
     "SessionStatus",
     "RunStatus",
     "MessageRole",
     "Reaction",
     "AttachmentType",
+    # Plain-data (Literal) forms of the input enums
+    "AssetStatusValue",
+    "AttachmentTypeValue",
+    "AuthenticationSchemeValue",
+    "DataTypeValue",
+    "FileTypeValue",
+    "FunctionValue",
+    "LanguageValue",
+    "LicenseValue",
+    "OwnershipTypeValue",
+    "PrivacyValue",
+    "SortByValue",
+    "SortOrderValue",
+    "SplittingOptionsValue",
+    "StorageTypeValue",
+    "SupplierValue",
     # Actions / Inputs hierarchy
     "Input",
     "Inputs",
@@ -201,8 +307,34 @@ __all__ = [
     # Triggers
     "Trigger",
     "TriggerConfiguration",
+    "TriggerConfigurationDict",
     "TriggerRepeatRule",
+    "TriggerRepeatRuleDict",
     "TriggerTypeSpec",
     "TriggerEventOption",
     "TriggerTypes",
 ]
+
+
+def __getattr__(name: str):
+    """PEP 562: warn on the deprecated ``Resource`` alias, matching ``Aixplain().Resource``.
+
+    ``Resource`` is deliberately not a plain module attribute, and deliberately
+    absent from ``__all__``: a plain ``from .file import Resource`` above, or
+    listing it in ``__all__``, would fire the warning on every
+    ``import aixplain.v2`` (and, transitively, every ``import aixplain`` — its
+    ``from .v2 import *`` walks every name in this module's ``__all__``)
+    regardless of whether the caller ever touches the name. This way only an
+    actual access to ``aixplain.v2.Resource`` (or ``from aixplain.v2 import
+    Resource``) does.
+    """
+    if name == "Resource":
+        import warnings
+
+        warnings.warn(
+            "`aixplain.v2.Resource` is deprecated; use `aixplain.v2.File` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return File
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

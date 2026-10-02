@@ -17,7 +17,7 @@ def slack_integration_id():
 
 
 @pytest.fixture(scope="module")
-def single_action_test_agent(client):
+def single_action_test_agent(client, module_resource_tracker):
     """Create a temporary agent using a single-action tool and clean it up."""
     tool = client.Tool.get(TAVILY_TOOL_ID)
     tool.allowed_actions = []
@@ -34,13 +34,9 @@ def single_action_test_agent(client):
         output_format="text",
     )
     agent.save()
+    module_resource_tracker.append(agent)
 
-    yield agent, tool.id
-
-    try:
-        agent.delete()
-    except Exception:
-        pass
+    return agent, tool.id
 
 
 def validate_tool_structure(tool):
@@ -195,7 +191,7 @@ def test_get_tool(client):
     validate_tool_structure(tool)
 
 
-def test_tool_run(client, slack_integration_id, slack_token):
+def test_tool_run(client, slack_integration_id, slack_token, resource_tracker):
     """Test running an integration tool."""
     tool_name = f"test-run-integration-{int(time.time())}"
 
@@ -212,6 +208,7 @@ def test_tool_run(client, slack_integration_id, slack_token):
 
     # Save tool before running
     tool.save()
+    resource_tracker.append(tool)
 
     result = tool.run(
         action="SLACK_SEND_MESSAGE",
@@ -235,6 +232,7 @@ def test_tool_run(client, slack_integration_id, slack_token):
         assert deleted_tool_id is not None, "Tool ID should exist before deletion"
 
         tool.delete()
+        resource_tracker.mark_cleaned(tool)
 
         # Verify the tool was actually deleted by trying to retrieve it
         from aixplain.v2.exceptions import APIError
@@ -404,7 +402,7 @@ def test_tool_as_tool_without_actions(client):
     )
 
 
-def test_tool_update_name(client, slack_integration_id, slack_token):
+def test_tool_update_name(client, slack_integration_id, slack_token, resource_tracker):
     """Test updating an existing tool's name via save().
 
     Validates the full reconnection-based update flow:
@@ -423,35 +421,28 @@ def test_tool_update_name(client, slack_integration_id, slack_token):
         config={"token": slack_token},
     )
     tool.save()
+    resource_tracker.append(tool)
     assert tool.id is not None, "Tool should have an ID after save"
     tool_id = tool.id
 
-    try:
-        # --- Fetch fresh (simulates a new session where integration is not set) ---
-        fetched = client.Tool.get(tool_id)
-        assert fetched.integration_id is not None, "Fetched tool should have integration_id from backend"
-        assert fetched.integration is None, "Fetched tool should not have integration set (local-only field)"
-        assert fetched.name == original_name
+    # --- Fetch fresh (simulates a new session where integration is not set) ---
+    fetched = client.Tool.get(tool_id)
+    assert fetched.integration_id is not None, "Fetched tool should have integration_id from backend"
+    assert fetched.integration is None, "Fetched tool should not have integration set (local-only field)"
+    assert fetched.name == original_name
 
-        # --- Update name ---
-        fetched.name = updated_name
-        fetched.save()
+    # --- Update name ---
+    fetched.name = updated_name
+    fetched.save()
 
-        # --- Verify persistence ---
-        verified = client.Tool.get(tool_id)
-        assert verified.name == updated_name, f"Expected name '{updated_name}', got '{verified.name}'"
+    # --- Verify persistence ---
+    verified = client.Tool.get(tool_id)
+    assert verified.name == updated_name, f"Expected name '{updated_name}', got '{verified.name}'"
 
-        print(f"✅ Tool name updated: '{original_name}' → '{updated_name}'")
-
-    finally:
-        # Clean up
-        try:
-            client.Tool.get(tool_id).delete()
-        except Exception:
-            pass
+    print(f"✅ Tool name updated: '{original_name}' → '{updated_name}'")
 
 
-def test_tool_update_description(client, slack_integration_id, slack_token):
+def test_tool_update_description(client, slack_integration_id, slack_token, resource_tracker):
     """Test updating an existing tool's description via save()."""
     tool_name = f"test-update-desc-{int(time.time())}"
     new_description = "Updated description from functional test."
@@ -462,28 +453,22 @@ def test_tool_update_description(client, slack_integration_id, slack_token):
         config={"token": slack_token},
     )
     tool.save()
+    resource_tracker.append(tool)
     tool_id = tool.id
 
-    try:
-        fetched = client.Tool.get(tool_id)
-        fetched.description = new_description
-        fetched.save()
+    fetched = client.Tool.get(tool_id)
+    fetched.description = new_description
+    fetched.save()
 
-        verified = client.Tool.get(tool_id)
-        assert verified.description == new_description, (
-            f"Expected description '{new_description}', got '{verified.description}'"
-        )
+    verified = client.Tool.get(tool_id)
+    assert verified.description == new_description, (
+        f"Expected description '{new_description}', got '{verified.description}'"
+    )
 
-        print(f"✅ Tool description updated successfully")
-
-    finally:
-        try:
-            client.Tool.get(tool_id).delete()
-        except Exception:
-            pass
+    print(f"✅ Tool description updated successfully")
 
 
-def test_tool_update_preserves_allowed_actions(client, slack_integration_id, slack_token):
+def test_tool_update_preserves_allowed_actions(client, slack_integration_id, slack_token, resource_tracker):
     """Test that local-only fields like allowed_actions survive a save() round-trip."""
     tool_name = f"test-update-actions-{int(time.time())}"
 
@@ -494,25 +479,17 @@ def test_tool_update_preserves_allowed_actions(client, slack_integration_id, sla
         allowed_actions=["SLACK_SEND_MESSAGE"],
     )
     tool.save()
+    resource_tracker.append(tool)
     tool_id = tool.id
 
-    try:
-        fetched = client.Tool.get(tool_id)
-        fetched.allowed_actions = ["SLACK_SEND_MESSAGE"]
-        fetched.name = f"test-update-actions-renamed-{int(time.time())}"
-        fetched.save()
+    fetched = client.Tool.get(tool_id)
+    fetched.allowed_actions = ["SLACK_SEND_MESSAGE"]
+    fetched.name = f"test-update-actions-renamed-{int(time.time())}"
+    fetched.save()
 
-        assert fetched.allowed_actions == ["SLACK_SEND_MESSAGE"], (
-            "allowed_actions should be preserved after save()"
-        )
+    assert fetched.allowed_actions == ["SLACK_SEND_MESSAGE"], "allowed_actions should be preserved after save()"
 
-        print("✅ allowed_actions preserved through update")
-
-    finally:
-        try:
-            client.Tool.get(tool_id).delete()
-        except Exception:
-            pass
+    print("✅ allowed_actions preserved through update")
 
 
 def test_tool_as_tool_auto_detects_single_action(client):

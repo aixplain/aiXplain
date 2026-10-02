@@ -77,14 +77,14 @@ def _script(job: dict) -> str:
 
 
 def _functional_env_step() -> dict:
-    """The `setup-and-test` step that writes the suite's env into $GITHUB_ENV."""
-    steps = [step for step in _job(MAIN_WORKFLOW, "setup-and-test")["steps"] if "GITHUB_ENV" in (step.get("run") or "")]
+    """The `functional` step that writes the suite's env into $GITHUB_ENV."""
+    steps = [step for step in _job(MAIN_WORKFLOW, "functional")["steps"] if "GITHUB_ENV" in (step.get("run") or "")]
     assert len(steps) == 1, f"expected exactly one step writing to $GITHUB_ENV, found {len(steps)}"
     return steps[0]
 
 
 def _matrix() -> dict:
-    return _job(MAIN_WORKFLOW, "setup-and-test")["strategy"]["matrix"]
+    return _job(MAIN_WORKFLOW, "functional")["strategy"]["matrix"]
 
 
 # ---------------------------------------------------------------------------
@@ -161,13 +161,13 @@ def test_the_functional_matrix_is_gated_by_the_scope_job():
         f"docs-only PR. Gate the matrix with `if:` on the `{SCOPE_JOB}` job instead (ENG-3683)."
     )
 
-    job = _job(MAIN_WORKFLOW, "setup-and-test")
+    job = _job(MAIN_WORKFLOW, "functional")
     needs = job.get("needs")
     needs = [needs] if isinstance(needs, str) else (needs or [])
-    assert SCOPE_JOB in needs, f"`setup-and-test` does not depend on `{SCOPE_JOB}`; its `if:` cannot read the decision"
+    assert SCOPE_JOB in needs, f"`functional` does not depend on `{SCOPE_JOB}`; its `if:` cannot read the decision"
     assert f"needs.{SCOPE_JOB}.outputs.run-functional" in str(job.get("if", "")), (
-        f"`setup-and-test` no longer reads `{SCOPE_JOB}`'s decision, so every PR -- docs-only "
-        "and fork PRs included -- runs seven backend-hitting legs (ENG-3683)."
+        f"`functional` no longer reads `{SCOPE_JOB}`'s decision, so every PR -- docs-only "
+        "and fork PRs included -- runs every backend-hitting leg (ENG-3683)."
     )
 
 
@@ -188,7 +188,7 @@ def test_the_scope_job_publishes_its_decision():
 def test_the_scope_job_reads_every_signal_it_decides_on(signal: str, what: str):
     """Each signal has a distinct failure mode if it is dropped.
 
-    Lose the fork check and an external PR runs seven legs with no secrets, all
+    Lose the fork check and an external PR runs every leg with no secrets, all
     of them red for a reason that says nothing about the contribution. Lose the
     labels and the documented manual override silently stops working. Lose the
     base SHA and there is nothing to diff, so the path filter answers the same
@@ -234,29 +234,25 @@ def test_every_leg_declares_the_models_api_version():
     than failing, so a leg added without `models-api` would hit a malformed URL
     and read as a backend problem.
     """
-    missing = [entry["test-suite"] for entry in _matrix()["include"] if not entry.get("models-api")]
+    missing = [entry["suite"] for entry in _matrix()["include"] if not entry.get("models-api")]
     assert not missing, f"matrix include entries with no `models-api`: {missing}"
 
 
-def test_the_v2_leg_is_the_one_on_the_v2_model_api():
-    """CI hands the v2 leg a v2 URL; its conftest no longer has to correct one.
+def test_every_leg_is_on_the_v2_model_api():
+    """CI hands every v2 leg a v2 URL; its conftest no longer has to correct one.
 
     `tests/functional/v2/conftest.py` used to patch the execution path at fixture
     time, which meant the workflow could be wrong about the model API for years
-    without anything noticing (ENG-3683).
+    without anything noticing (ENG-3683). Every leg runs a v2 suite since v1 was
+    removed (PROD-2918).
     """
-    by_leg = {entry["test-suite"]: entry["models-api"] for entry in _matrix()["include"]}
-    assert by_leg.get("v2") == "v2", f"the v2 leg is configured for the {by_leg.get('v2')!r} model API"
-    others = {leg: api for leg, api in by_leg.items() if leg != "v2" and api == "v2"}
-    assert not others, (
-        f"legs other than `v2` are pointed at the v2 model API: {others}. Each leg declares the "
-        "execution API its own suite speaks; sharing one setting is how a leg ends up silently "
-        "exercising the wrong endpoint."
-    )
+    by_leg = {entry["suite"]: entry["models-api"] for entry in _matrix()["include"]}
+    wrong = {leg: api for leg, api in by_leg.items() if api != "v2"}
+    assert not wrong, f"legs configured for a model API other than v2: {wrong}"
 
 
 def test_the_models_url_is_built_from_the_matrix_and_not_hardcoded():
-    script = _script(_job(MAIN_WORKFLOW, "setup-and-test"))
+    script = _script(_job(MAIN_WORKFLOW, "functional"))
     hardcoded = re.findall(r"MODELS_RUN_URL=\S*api/v\d/\S*", script)
     assert not hardcoded, (
         f"MODELS_RUN_URL still hardcodes an API version ({hardcoded}); every leg would get the same "
@@ -294,7 +290,7 @@ def test_the_functional_legs_export_the_event_trigger_fixtures(variable: str):
 
     `tests/functional/v2/test_trigger.py`'s TestEventTriggerDiscovery and
     TestEventTriggerLifecycle gate on these two, so CI executed neither class
-    while `setup-and-test (v2)` went green (ENG-3683).
+    while `functional (trigger)` went green (ENG-3683).
     """
     script = _functional_env_step()["run"]
     assert re.search(rf"{variable}=", script), (
@@ -354,7 +350,7 @@ def test_the_nightly_failure_notification_is_wired_to_the_whole_run():
         "`nightly-report` is not scoped to the `schedule` event; a Slack message per red PR is "
         "how an alert channel gets muted."
     )
-    assert "setup-and-test" in (job.get("needs") or []), (
+    assert "functional" in (job.get("needs") or []), (
         "`nightly-report` does not depend on the functional matrix, so a red functional leg would "
         "never be reported."
     )
@@ -404,7 +400,7 @@ def test_the_functional_gate_checks_the_released_commit_against_the_real_leg_lis
     for move, what in (
         ("main.yaml", "look up the functional workflow's runs"),
         ("head_sha", "restrict those runs to the released commit"),
-        ("setup-and-test", "check the functional legs specifically, not the run's overall conclusion"),
+        ("functional (", "check the functional legs specifically, not the run's overall conclusion"),
         ("conclusion", "require a successful conclusion"),
     ):
         assert move in script, f"release.yaml's functional gate no longer seems to {what} ({move!r} is gone)"

@@ -27,6 +27,7 @@ from aixplain.v2.enums import (
     AttachmentType,
 )
 from aixplain.v2.agent import Agent, Budget
+from aixplain.v2.file import File
 from aixplain.v2.exceptions import ValidationError, APIError, ResourceError
 
 
@@ -621,6 +622,49 @@ class TestSessionMessages:
         assert len(payload["attachments"]) == 1
         assert payload["attachments"][0]["url"] == "https://example.com/f.png"
 
+    def test_add_message_rejects_unsaved_file_object(self):
+        """An unsaved File (no id yet) must not be silently re-uploaded or dropped."""
+        ctx = _make_mock_context()
+        session = self._make_session(ctx)
+        document = File(name="notes.txt")
+
+        with pytest.raises(ResourceError, match="must be saved"):
+            session.add_message(role="user", content="q", attachments=[document])
+
+    def test_add_message_with_saved_file_object_fetches_a_signed_url(self):
+        """A saved File is attached via a signed url fetched on demand."""
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = SAMPLE_MESSAGE_DICT
+        ctx.client.get.return_value = {"url": "https://signed.example.com/handbook.pdf?sig=abc"}
+        session = self._make_session(ctx)
+        document = File(id="file-1", name="handbook.pdf", fileType="file")
+
+        session.add_message(role="user", content="See the handbook", attachments=[document])
+
+        ctx.client.get.assert_called_once_with("sdk/file-asset/file-1/file/file-1/url")
+        att = ctx.client.request.call_args[1]["json"]["attachments"][0]
+        assert att["url"] == "https://signed.example.com/handbook.pdf?sig=abc"
+        assert att["name"] == "handbook.pdf"
+
+    def test_add_message_rejects_saved_file_when_signed_url_fetch_fails(self):
+        """A backend error fetching the signed url surfaces clearly, not as a raw exception."""
+        ctx = _make_mock_context()
+        ctx.client.get.side_effect = RuntimeError("boom")
+        session = self._make_session(ctx)
+        document = File(id="file-1", name="handbook.pdf", fileType="file")
+
+        with pytest.raises(ResourceError, match="Could not get a signed url"):
+            session.add_message(role="user", content="q", attachments=[document])
+
+    def test_add_message_rejects_folder_attachment(self):
+        """A folder has no single signed url; attach its files individually instead."""
+        ctx = _make_mock_context()
+        session = self._make_session(ctx)
+        folder = File(id="folder-1", name="reference", fileType="folder")
+
+        with pytest.raises(ResourceError, match="cannot be attached directly"):
+            session.add_message(role="user", content="q", attachments=[folder])
+
     def test_add_message_with_files(self):
         ctx = _make_mock_context()
         ctx.client.request.return_value = SAMPLE_MESSAGE_DICT
@@ -646,6 +690,15 @@ class TestSessionMessages:
             assert payload["attachments"][0]["url"] == "https://cdn.example.com/uploaded.png"
             assert payload["attachments"][0]["name"] == "photo.png"
             assert payload["attachments"][0]["type"] == "image"
+
+    def test_add_message_files_rejects_a_file_object_with_a_clear_error(self):
+        """A File passed through the deprecated, local-path-only `files` must fail clearly."""
+        ctx = _make_mock_context()
+        session = self._make_session(ctx)
+        document = File(id="file-1", name="handbook.pdf", fileType="file")
+
+        with pytest.raises(ResourceError, match="only accepts local paths"):
+            session.add_message(role="user", content="q", files=[document])
 
     def test_add_message_merges_attachments_and_files(self):
         ctx = _make_mock_context()

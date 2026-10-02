@@ -9,6 +9,7 @@ loses a non-default LLM again.
 """
 
 import time
+import uuid
 
 import pytest
 
@@ -29,23 +30,18 @@ def llm_ref_id(llm):
 
 
 @pytest.fixture(scope="module")
-def non_default_llm_agent(client):
+def non_default_llm_agent(client, module_resource_tracker):
     """Create an agent pinned to a non-default LLM, cleaned up after tests."""
     assert NON_DEFAULT_LLM_ID != client.Agent.DEFAULT_LLM, "test LLM must not be the default"
     agent = client.Agent(
-        name=f"LLM Persistence Test Agent {int(time.time())}",
+        name=f"LLM Persistence Test Agent {int(time.time())}-{uuid.uuid4().hex[:6]}",
         description="Temporary agent verifying the LLM survives fetch/save round-trips",
         instructions="You are a helpful test agent.",
         llm=NON_DEFAULT_LLM_ID,
     )
     agent.save()
-
-    yield agent
-
-    try:
-        agent.delete()
-    except Exception:
-        pass
+    module_resource_tracker.append(agent)
+    return agent
 
 
 class TestAgentLlmPersistence:
@@ -79,8 +75,7 @@ class TestAgentLlmPersistence:
         refetched = client.Agent.get(non_default_llm_agent.id)
         assert refetched.instructions == "You are a helpful test agent. (edited)"
         assert llm_ref_id(refetched.llm) == NON_DEFAULT_LLM_ID, (
-            "instructions-only save() overwrote the agent's LLM — "
-            "DEFAULT_LLM fallback regression (see 0.2.43/0.2.44)"
+            "instructions-only save() overwrote the agent's LLM — DEFAULT_LLM fallback regression (see 0.2.43/0.2.44)"
         )
 
     def test_explicit_llm_update_persists(self, client, non_default_llm_agent):

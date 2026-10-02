@@ -11,7 +11,7 @@ on:
   # `release.yaml` gated a PyPI upload on the unit suite alone. The credential-free
   # jobs (`unit-coverage`, `package-integrity`) run on every PR; the functional
   # matrix is gated by the `functional-scope` job below, so a docs-only or fork PR
-  # does not burn seven backend-hitting legs.
+  # does not burn the backend-hitting legs.
   #
   # `labeled` is in `types` on purpose: adding the `functional-tests` label has to
   # start a run by itself, otherwise the label only takes effect on the next push
@@ -146,13 +146,15 @@ jobs:
               p.relative_to(export).as_posix()
               for p in (export / "aixplain").rglob("*.py")
           }
-          assert len(expected) > 100, f"source scan found only {len(expected)} modules"
+          assert len(expected) > 30, f"source scan found only {len(expected)} modules"
 
-          # aixplain/v1/base/ and aixplain/v1/factories/cli/ have no __init__.py;
-          # they only ship while `namespaces = true` holds. Sharpest canaries.
+          # One module per shipped subpackage. A discovery bug drops whole
+          # directories, so these are the sharpest canaries left after v1.
           for canary in (
-              "aixplain/v1/base/parameters.py",
-              "aixplain/v1/factories/cli/model_factory_cli.py",
+              "aixplain/_compat.py",
+              "aixplain/v2/core.py",
+              "aixplain/utils/url_safety.py",
+              "aixplain/exceptions/types.py",
           ):
               assert canary in expected, f"canary vanished from the tree: {canary}"
 
@@ -202,23 +204,18 @@ jobs:
               f"imported the source tree, not the wheel: {aixplain.__file__}"
           )
 
-          # One entry per top-level subpackage, plus both legacy-redirect paths
-          # through the __init__-less namespace dirs. Deliberately not a
+          # One entry per top-level subpackage. Deliberately not a
           # walk_packages() sweep: modules behind optional extras (plotly,
           # docker, model-interfaces) would fail for reasons unrelated to
           # packaging and make the gate flaky.
           CANARIES = [
               "aixplain.v2.core",
               "aixplain.v2.agent",
-              "aixplain.v1.modules.model",
-              "aixplain.v1.factories.model_factory",
-              "aixplain.v1.processes.data_onboarding",
-              "aixplain.base.parameters",                   # -> v1/base/, no __init__.py
-              "aixplain.factories.cli.model_factory_cli",   # -> v1/factories/cli/, no __init__.py
-              "aixplain.enums",
+              "aixplain.v2.api_key",
               "aixplain.utils.config",
+              "aixplain.utils.url_safety",
               "aixplain.exceptions.types",
-              "aixplain.cli_groups",
+              "aixplain._compat",
           ]
           failed = []
           for m in CANARIES:
@@ -229,13 +226,20 @@ jobs:
           if failed:
               sys.exit("\n".join(["modules failed to import from the wheel:"] + failed))
           print(f"{len(CANARIES)} canary modules imported cleanly")
-          PY
 
-      - name: Check the console script is wired up
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP"
-          "$RUNNER_TEMP/venv/bin/aixplain" --help
+          # v1 is gone: the legacy paths must fail, and with a message that
+          # names the v2 replacement rather than a bare "No module named".
+          for removed in ("aixplain.factories", "aixplain.modules", "aixplain.enums", "aixplain.v1"):
+              try:
+                  importlib.import_module(removed)
+              except ModuleNotFoundError as exc:
+                  assert "aix." in str(exc) or "aixplain.v2" in str(exc), (
+                      f"{removed} failed without naming a v2 equivalent: {exc}"
+                  )
+              else:
+                  sys.exit(f"{removed} still imports; v1 leaked back into the wheel")
+          print("removed v1 paths fail with actionable errors")
+          PY
 
       - name: Upload the built artifacts
         uses: actions/upload-artifact@v4
@@ -244,7 +248,7 @@ jobs:
           name: dist
           path: ${{ runner.temp }}/dist/*
 
-  # Decides whether the seven backend-hitting legs below run for this event
+  # Decides whether the backend-hitting legs below run for this event
   # (ENG-3683). A separate job rather than `on.pull_request.paths` because a path
   # filter suppresses the *check itself*: a required context that never reports
   # leaves the PR stuck on "Expected -- waiting for status to be reported", which
@@ -314,7 +318,7 @@ jobs:
 
           decide false "no changes under aixplain/** or tests/functional/**, and no 'functional-tests' label"
 
-  setup-and-test:
+  functional:
     needs: functional-scope
     # A skipped job still reports its context, so these legs stay requireable on
     # `main` even though a docs-only PR does not run them (ENG-3683).
@@ -335,23 +339,28 @@ jobs:
         # rather than silent dead code, while parking stays available as an
         # explicit, reviewed choice.
         #
-        # Deliberately NOT a leg: benchmark. 04dea96e dropped it because it was
-        # failing, and its green-ness against the test backend has not been
-        # re-established. It stays parked (ENG-3544) until someone runs it with a
-        # test-backend credential and proves it green; re-add the leg name and its
-        # include entry here in the same change that drops the PARKED_TARGETS
-        # entry.
+        # The v2 suite runs one leg per test file, so the legs run in parallel and a
+        # failure names the resource that broke instead of a single `v2` job. Adding
+        # a test file under tests/functional/v2/ means adding a leg here (both the
+        # name and its include entry); test_ci_matrix_coverage.py fails otherwise.
         #
-        # The pipeline and corpus/dataset functional suites were deleted outright
-        # along with their legs, so nothing is parked on their behalf.
-        test-suite: [
-          'file_asset',
-          'model',
-          'general_assets',
-          'apikey',
+        # The v1 legs (file_asset, model, general_assets, apikey, agent,
+        # team_agent, benchmark) were deleted with v1 in PROD-2918.
+        suite: [
+          'actions-inputs',
           'agent',
-          'team_agent',
-          'v2',
+          'agent-duplicate',
+          'agent-llm-persistence',
+          'api-key',
+          'arabic-agent',
+          'integration',
+          'model',
+          'rlm',
+          'session',
+          'skill',
+          'snake-case-e2e',
+          'tool',
+          'trigger',
         ]
         #
         # `models-api` is the /api/<version>/ segment of MODELS_RUN_URL. Declared
@@ -360,35 +369,63 @@ jobs:
         # quietly patching the workflow is a rewrite nobody sees when it stops
         # matching. Per-leg also means a leg's setting is deleted with the leg.
         # Keys contributed only by `include` are not part of the job name, so the
-        # contexts stay `setup-and-test (v2)`.
+        # contexts stay `functional (agent)`.
         include:
-          - test-suite: 'file_asset'
-            path: 'tests/functional/file_asset'
+          - suite: 'actions-inputs'
+            path: 'tests/functional/v2/test_actions_inputs.py'
+            timeout: 30
+            models-api: 'v2'
+          - suite: 'agent'
+            path: 'tests/functional/v2/test_agent.py -n 2'
             timeout: 45
-            models-api: 'v1'
-          - test-suite: 'model'
-            path: 'tests/functional/model'
+            models-api: 'v2'
+          - suite: 'agent-duplicate'
+            path: 'tests/functional/v2/test_agent_duplicate.py'
+            timeout: 30
+            models-api: 'v2'
+          - suite: 'agent-llm-persistence'
+            path: 'tests/functional/v2/test_agent_llm_persistence.py'
+            timeout: 30
+            models-api: 'v2'
+          - suite: 'api-key'
+            path: 'tests/functional/v2/test_api_key.py'
+            timeout: 30
+            models-api: 'v2'
+          - suite: 'arabic-agent'
+            path: 'tests/functional/v2/test_arabic_agent.py -n 2'
             timeout: 45
-            models-api: 'v1'
-          - test-suite: 'general_assets'
-            path: 'tests/functional/general_assets'
-            timeout: 45
-            models-api: 'v1'
-          - test-suite: 'apikey'
-            path: 'tests/functional/apikey'
-            timeout: 45
-            models-api: 'v1'
-          - test-suite: 'agent'
-            path: 'tests/functional/agent'
-            timeout: 45
-            models-api: 'v1'
-          - test-suite: 'team_agent'
-            path: 'tests/functional/team_agent'
-            timeout: 45
-            models-api: 'v1'
-          - test-suite: 'v2'
-            path: 'tests/functional/v2'
-            timeout: 45
+            models-api: 'v2'
+          - suite: 'integration'
+            path: 'tests/functional/v2/test_integration.py'
+            timeout: 30
+            models-api: 'v2'
+          - suite: 'model'
+            path: 'tests/functional/v2/test_model.py'
+            timeout: 30
+            models-api: 'v2'
+          - suite: 'rlm'
+            path: 'tests/functional/v2/test_rlm.py'
+            timeout: 30
+            models-api: 'v2'
+          - suite: 'session'
+            path: 'tests/functional/v2/test_session.py'
+            timeout: 30
+            models-api: 'v2'
+          - suite: 'skill'
+            path: 'tests/functional/v2/test_skill.py'
+            timeout: 30
+            models-api: 'v2'
+          - suite: 'snake-case-e2e'
+            path: 'tests/functional/v2/test_snake_case_e2e.py'
+            timeout: 30
+            models-api: 'v2'
+          - suite: 'tool'
+            path: 'tests/functional/v2/test_tool.py'
+            timeout: 30
+            models-api: 'v2'
+          - suite: 'trigger'
+            path: 'tests/functional/v2/test_trigger.py'
+            timeout: 30
             models-api: 'v2'
 
     steps:
@@ -475,7 +512,7 @@ jobs:
   # message per red PR is how a channel gets muted.
   nightly-report:
     if: always() && github.event_name == 'schedule'
-    needs: [unit-coverage, package-integrity, setup-and-test]
+    needs: [unit-coverage, package-integrity, functional]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -489,7 +526,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           UNIT: ${{ needs.unit-coverage.result }}
           PACKAGING: ${{ needs.package-integrity.result }}
-          FUNCTIONAL: ${{ needs.setup-and-test.result }}
+          FUNCTIONAL: ${{ needs.functional.result }}
         run: |
           set -euo pipefail
 

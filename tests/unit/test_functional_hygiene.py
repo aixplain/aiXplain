@@ -67,30 +67,12 @@ _CREATING_METHODS = ("save", "deploy", "update")
 # ---------------------------------------------------------------------------
 
 #: Files that still end a cleanup `except` with a bare `pass`, and why they are
-#: not fixed here. BUG-947's file list is apikey, file_asset, data_asset,
-#: benchmark, sql_tool and test_rlm plus the four `resource_tracker` copies;
-#: apikey, file_asset and data_asset are fixed, sql_tool and test_rlm create
-#: nothing on a backend to leak (local SQLite files, already removed in a
-#: `finally`, and an in-process RLM handle), benchmark is covered by
-#: BENCHMARK_UNDELETABLE below, and every one of these files is a `v2` or
-#: `agent` module outside that list. Declared rather than silently tolerated,
-#: following PARKED_TARGETS
-#: in test_ci_matrix_coverage.py: adopting the shared `resource_tracker` fixture
-#: is a one-line change per test, so each entry is a small, separately reviewable
-#: follow-up rather than 39 unrelated edits bolted onto the production-mutation
-#: fix. Dropping an entry as it is fixed is the intended direction of travel; the
-#: guard exists so the count cannot grow.
-SWALLOWED_CLEANUP_BACKLOG = {
-    "tests/functional/agent/agent_mcp_deploy_test.py": "3 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/team_agent/evolver_test.py": "2 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_agent.py": "2 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_agent_duplicate.py": "9 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_agent_llm_persistence.py": "1 site; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_session.py": "11 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_snake_case_e2e.py": "4 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_tool.py": "4 sites; adopt resource_tracker (BUG-947 follow-up)",
-    "tests/functional/v2/test_trigger.py": "3 sites; adopt resource_tracker (BUG-947 follow-up)",
-}
+#: not fixed yet. Empty: the last seven `v2` modules on it moved to the shared
+#: `resource_tracker` / `module_resource_tracker` fixtures (BUG-947 follow-up).
+#: Declared rather than silently tolerated, following PARKED_TARGETS in
+#: test_ci_matrix_coverage.py, so if an entry is ever needed again it has to be
+#: written down here; the guard exists so the count cannot grow.
+SWALLOWED_CLEANUP_BACKLOG = {}
 
 
 def _python_files(directory: Path) -> list:
@@ -152,31 +134,6 @@ def test_swallowed_cleanup_backlog_is_not_stale(file):
 
 #: BUG-947 asks for `resource_tracker` in `tests/functional/benchmark/`, and
 #: `benchmark_functional_test.py` does create real benchmarks with no cleanup.
-#: It cannot register them: neither `Benchmark` nor `BenchmarkFactory` exposes a
-#: delete, so there is no call for a tracker entry to make, and adding one to the
-#: SDK is out of scope for a test-hygiene fix on an unmaintained `v1` surface.
-#: `benchmark` is also not a CI leg (see the matrix comment in
-#: .github/workflows/main.yaml), so it leaks only when run by hand. The guard
-#: below is what stops that reasoning from going stale: the day a delete lands,
-#: this test fails and names the file to fix.
-BENCHMARK_CREATING_TEST = "tests/functional/benchmark/benchmark_functional_test.py"
-
-
-def test_benchmark_cleanup_is_still_unimplementable():
-    """When Benchmark gains a delete, register the benchmark tests with the tracker."""
-    from aixplain.factories import BenchmarkFactory
-    from aixplain.modules.benchmark import Benchmark
-
-    deletable = [
-        f"{owner.__module__}.{owner.__name__}" for owner in (Benchmark, BenchmarkFactory) if hasattr(owner, "delete")
-    ]
-    assert not deletable, (
-        f"{deletable} now exposes a delete, so {BENCHMARK_CREATING_TEST} can finally clean up the "
-        "benchmarks it creates. Register them with the shared `resource_tracker` fixture and drop "
-        "this guard (BUG-947)."
-    )
-
-
 # ---------------------------------------------------------------------------
 # One tracker definition
 # ---------------------------------------------------------------------------
