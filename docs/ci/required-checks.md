@@ -58,6 +58,23 @@ longer true for it.
 `main.yaml`'s matrix exactly, so adding, renaming, or deleting a leg fails a unit test instead of
 silently leaving a stale required-context list here.
 
+### Secrets the functional legs read
+
+Set per environment: the `_PROD` variant is used on `main`, the plain one on every other branch. These
+are repository secrets and have to be created by hand (Settings → Secrets and variables → Actions).
+
+| Secret | Used by | If unset |
+| ------ | ------- | -------- |
+| `TEAM_API_KEY` / `TEAM_API_KEY_PROD` | every functional leg | every leg fails |
+| `TEST_COMPOSIO_INTEGRATION_ID` / `TEST_COMPOSIO_INTEGRATION_ID_PROD` | the event-discovery tests in `tests/functional/v2/test_trigger.py` | those tests fail, so the `trigger` leg is red |
+| `TEST_CONNECTION_ID` / `TEST_CONNECTION_ID_PROD` | the event-trigger lifecycle tests in the same file | as above |
+| `SLACK_TOKEN` | the Slack integration tests | those tests skip |
+
+The two `TEST_…_ID` secrets name backend-resident objects — an integration and a connected tool — so
+their values differ between the test and production backends. The tests used to skip themselves when
+they were missing, so the event-trigger half of `test_trigger.py` had never run in CI; they fail now
+instead (ENG-3684), which means both pairs have to exist before the `trigger` leg can go green.
+
 ## Why `main.yaml` contexts cannot be required today
 
 `main.yaml` triggers only on `push` to `main` and `test`, plus `workflow_dispatch`. A PR from a

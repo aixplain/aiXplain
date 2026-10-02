@@ -461,8 +461,8 @@ def test_workflow_pins_the_execution_ratio_floor():
     Leaving `AIXPLAIN_MIN_EXECUTED_RATIO` unset would still enforce the default,
     but the number nobody can see is the number nobody notices being wrong. The
     literal is parsed by the real reader, so a value the guard rejects (`"80%"`,
-    `"high"`) fails here rather than turning every functional leg into an
-    INTERNALERROR on the next push.
+    `"high"`) fails here rather than failing every functional leg as "CI
+    integrity guard misconfigured" on the next push.
     """
     workflow = yaml.safe_load(WORKFLOW.read_text())
     value = workflow.get("env", {}).get(MIN_EXECUTED_RATIO_ENV)
