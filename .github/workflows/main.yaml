@@ -266,6 +266,7 @@ jobs:
           'session',
           'skill',
           'snake-case-e2e',
+          'team-agent',
           'tool',
           'trigger',
         ]
@@ -306,6 +307,9 @@ jobs:
           - suite: 'snake-case-e2e'
             path: 'tests/functional/v2/test_snake_case_e2e.py'
             timeout: 30
+          - suite: 'team-agent'
+            path: 'tests/functional/v2/test_team_agent.py'
+            timeout: 45
           - suite: 'tool'
             path: 'tests/functional/v2/test_tool.py'
             timeout: 30
