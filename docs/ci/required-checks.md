@@ -40,11 +40,13 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | 2 | `functional (session)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (skill)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (snake-case-e2e)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
+| 2 | `functional (team-agent)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (tool)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 | 2 | `functional (trigger)` | `main.yaml` | **No** | `pull_request` trigger **and** consistently green |
 
 The `file_asset`, `model`, `general_assets`, `apikey`, `agent` and `team_agent` legs exercised v1
-exclusively and were deleted with it (PROD-2918).
+exclusively and were deleted with it (PROD-2918). A v2 `team-agent` leg was later reintroduced for
+the ported team-agent scenarios (ENG-3689).
 
 The v2 functional suite runs one leg per `tests/functional/v2/test_*.py` file, so each leg can be
 required on its own: a leg that is reliably green can be required before a flaky one.
