@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from aixplain import Aixplain
+from aixplain.v2.file import File
 
 
 @pytest.fixture
@@ -26,7 +27,9 @@ def test_agent_accepts_saved_files_and_folders(aix):
         {"id": "file-id", "name": "handbook.pdf"},
         {"id": "folder-id", "name": "reference", "description": "Reference tree"},
     ]
-    assert agent.files == ["file-id", "folder-id"]
+    # ``agent.files`` holds the real File objects (mirrors ``agent.tools``), not ids.
+    assert agent.files == [document, folder]
+    assert agent.files[0].name == "handbook.pdf"
 
 
 def test_agent_accepts_file_ids_and_backend_dicts(aix):
@@ -43,6 +46,33 @@ def test_agent_accepts_file_ids_and_backend_dicts(aix):
         {"id": "file-id"},
         {"id": "folder-id", "name": "reference"},
     ]
+
+
+def test_agent_accepts_file_id_dicts(aix):
+    """A dict keyed by fileId (not id) must still hydrate and serialize correctly."""
+    agent = aix.Agent(name="doc-agent", files=[{"fileId": "f-1", "name": "handbook.pdf"}])
+
+    hydrated = agent.files[0]
+    assert isinstance(hydrated, aix.File)
+    assert hydrated.id == "f-1"
+    assert agent.build_save_payload()["files"] == [{"id": "f-1", "name": "handbook.pdf"}]
+
+
+def test_unsaved_file_from_the_module_class_keeps_its_source(aix, tmp_path: Path):
+    """A File built off the unbound module class (not aix.File) must not be treated as fetched."""
+    path = tmp_path / "notes.txt"
+    path.write_text("notes")
+    document = File(path)
+
+    agent = aix.Agent(name="doc-agent", files=[document])
+
+    # Hydration must have left it exactly as given: no id to hydrate from
+    # would otherwise rebuild it through File._from_data, losing ``source``
+    # (excluded from to_dict()) and wrongly flipping is_temp to False.
+    assert agent.files[0] is document
+    assert document.source is not None
+    assert document.id is None
+    assert document.is_temp is True
 
 
 def test_agent_rejects_unsaved_file(aix, tmp_path: Path):
@@ -91,10 +121,20 @@ def test_agent_get_round_trips_file_references(aix):
 
     agent = aix.Agent.get("agent-id")
 
-    assert agent.files == ["folder-id"]
     assert agent.build_save_payload()["files"] == [
         {"id": "folder-id", "name": "reference", "description": "Reference tree"}
     ]
+    # `agent.files` is hydrated into real File objects (mirrors `_hydrate_tools`),
+    # so a fetched file is directly usable — e.g. `.name`/`.download()`/`.delete()`
+    # — without a re-fetch.
+    hydrated = agent.files[0]
+    assert isinstance(hydrated, aix.File)
+    assert hydrated.id == "folder-id"
+    assert hydrated.name == "reference"
+    assert hydrated.is_dir
+    assert hydrated.is_temp is False
+    assert hydrated.context is aix
+    assert agent._original_files == agent.files
 
 
 def test_mutating_fetched_agent_files_changes_next_save_payload(aix):
@@ -108,6 +148,21 @@ def test_mutating_fetched_agent_files_changes_next_save_payload(aix):
     assert agent.build_save_payload()["files"] == [
         {"id": "first-id", "name": "first.txt"},
         {"id": "second-id", "name": "second.txt"},
+    ]
+
+
+def test_editing_a_referenced_files_description_marks_the_agent_modified(aix):
+    """A description-only edit on a referenced File must flip is_modified — the save payload persists it."""
+    document = aix.File(id="file-id", name="handbook.pdf", description="old")
+    agent = aix.Agent(id="agent-id", name="doc-agent", files=[document])
+    agent._update_saved_state()
+    assert agent.is_modified is False
+
+    document.description = "new description"
+
+    assert agent.is_modified is True
+    assert agent.build_save_payload()["files"] == [
+        {"id": "file-id", "name": "handbook.pdf", "description": "new description"}
     ]
 
 

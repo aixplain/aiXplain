@@ -19,6 +19,7 @@ import time
 import threading
 from enum import Enum
 from typing import Any, Dict, List, Optional, Callable
+from typing_extensions import Literal
 
 from ._backoff import next_wait, sleep_with_jitter
 
@@ -90,6 +91,13 @@ class ProgressFormat(str, Enum):
     STATUS = "status"  # Single updating line
     LOGS = "logs"  # Event timeline with details
     NONE = "none"  # No progress display
+
+
+#: The string form of :class:`ProgressFormat`, accepted anywhere the enum is.
+#: Defined in ``agent.py`` (which this module cannot import from at class-body
+#: time) and re-exported here, so there is one definition rather than two that
+#: can drift.
+from .agent import ProgressFormatValue  # noqa: E402
 
 
 class AgentProgressTracker:

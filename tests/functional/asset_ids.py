@@ -73,18 +73,6 @@ TAVILY_TOOL_ID = _pinned("AIXPLAIN_TEST_TAVILY_TOOL_ID", "6931bdf462eb386b7158de
 MULTI_ACTION_TOOL_ID = _pinned("AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID", "")
 
 # ---------------------------------------------------------------------------
-# Guardrail models
-# ---------------------------------------------------------------------------
-
-#: Canonical marketplace paths for the onboarded AWS guards. A guard that is not
-#: onboarded is an environment that cannot run the inspector suite, not a reason
-#: to pass the leg.
-PROMPT_ATTACK_GUARD_PATH = "aws/detect-prompt-attacks-guardrail/aws"
-SENSITIVE_INFO_GUARD_PATH = "aws/sensitive-information-guardrail/aws"
-CONTEXTUAL_GROUNDING_GUARD_PATH = "aws/contextual-grounding-check-guardrail/aws"
-
-
-# ---------------------------------------------------------------------------
 # Failure helpers
 # ---------------------------------------------------------------------------
 

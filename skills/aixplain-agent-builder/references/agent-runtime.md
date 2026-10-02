@@ -60,27 +60,32 @@ The schema selects the strategy; there is no separate `strategy=` flag:
 
 Static task example:
 
-```python
-from aixplain.v2.agent import Task
+Tasks are plain dicts — no import:
 
-collect = Task(
-    name="collect",
-    instructions="Collect the required account evidence.",
-    expected_output="Evidence with sources",
-)
-summarize = Task(
-    name="summarize",
-    instructions="Create the final briefing from collected evidence.",
-    expected_output="A concise markdown briefing",
-    dependencies=[collect],
-)
+```python
 agent = aix.Agent(
     name="Static Briefing Agent",
     description="Runs a predictable evidence-to-briefing workflow.",
     instructions="Complete each task and preserve source attribution.",
-    tasks=[collect, summarize],
+    tasks=[
+        {
+            "name": "collect",
+            "instructions": "Collect the required account evidence.",
+            "expected_output": "Evidence with sources",
+        },
+        {
+            "name": "summarize",
+            "instructions": "Create the final briefing from collected evidence.",
+            "expected_output": "A concise markdown briefing",
+            "dependencies": ["collect"],
+        },
+    ],
 ).save()
 ```
+
+An unknown key raises and names the accepted fields. `Task` objects still work
+(`from aixplain import Task`, or `aix.Agent.Task`) if you prefer them, and
+`agent.tasks` always reads back as `Task` objects.
 
 Use a planner when task shape varies by request:
 

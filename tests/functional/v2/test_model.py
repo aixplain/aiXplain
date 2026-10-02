@@ -1,5 +1,5 @@
 import pytest
-from aixplain.enums import SortBy, SortOrder
+from aixplain.v2 import SortBy, SortOrder
 
 from tests.functional.asset_ids import (
     ASYNC_MODEL_ID,
@@ -220,7 +220,7 @@ def test_search_models_with_filter(client):
 def test_search_models_with_sorting(client):
     """Test searching models with different sorting options."""
     # Test sorting by creation date ascending
-    models_date_asc = client.Model.search(sort_by=SortBy.CREATION_DATE, sort_order=SortOrder.ASCENDING)
+    models_date_asc = client.Model.search(sort_by=SortBy.CREATED_AT, sort_order=SortOrder.ASC)
     assert hasattr(models_date_asc, "results")
     assert isinstance(models_date_asc.results, list)
     assert len(models_date_asc.results) > 0
@@ -238,7 +238,7 @@ def test_search_models_with_sorting(client):
             assert dates == sorted_dates, f"Expected dates to be in ascending order, but got: {dates}"
 
     # Test sorting by creation date descending
-    models_date_desc = client.Model.search(sort_by=SortBy.CREATION_DATE, sort_order=SortOrder.DESCENDING)
+    models_date_desc = client.Model.search(sort_by=SortBy.CREATED_AT, sort_order=SortOrder.DESC)
     assert hasattr(models_date_desc, "results")
     assert isinstance(models_date_desc.results, list)
     assert len(models_date_desc.results) > 0
