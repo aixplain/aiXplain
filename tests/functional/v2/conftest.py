@@ -4,18 +4,17 @@ import os
 
 import pytest
 
-from tests.functional._assets import (
-    ASSET_NAMES,
-    DEFAULT_BACKEND_URL,
-    ENV_PREFIX,
-    SPECS,
-    assets_for,
-    environment_for,
-)
+from tests.functional._assets import DEFAULT_BACKEND_URL, LazyAssets, assets_for, environment_for
 
 
 def _api_key():
-    """Return the functional-suite credential, or None."""
+    """Return the functional-suite credential, or None.
+
+    The fixtures below that skip on a missing credential repeat this read inline
+    rather than calling it: `tests/unit/test_ci_matrix_coverage.py` recognises a
+    guarded skip by its `os.getenv` call, and cannot see one behind a helper
+    (ENG-3544).
+    """
     return os.getenv("TEAM_API_KEY") or os.getenv("AIXPLAIN_API_KEY")
 
 
@@ -49,7 +48,7 @@ def _build_client():
 def client():
     """Initialize Aixplain client with test configuration for v2 tests."""
     # Require credentials from environment variables for security
-    if not _api_key():
+    if not (os.getenv("TEAM_API_KEY") or os.getenv("AIXPLAIN_API_KEY")):
         pytest.skip("TEAM_API_KEY or AIXPLAIN_API_KEY environment variable is required for functional tests")
 
     return _build_client()
@@ -64,48 +63,22 @@ def assets():
     `tests/functional/_assets.py` instead of a sweep through the suite, and a
     single run can point one name somewhere else with
     ``AIXPLAIN_TEST_<NAME>=<id>``.
+
+    Each name is resolved against the backend the first time a test reads it,
+    and the outcome is cached for the session (`LazyAssets`). A retired or
+    environment-specific id therefore fails only the tests that use it, with a
+    message naming the asset, the id, the backend and the override, rather than
+    a 404 from deep inside a test body -- and a leg that uses no asset makes no
+    resolution call.
+
+    The credential check comes first, so a run with no key skips here even when
+    `BACKEND_URL` names a host the asset module does not recognise.
     """
-    return assets_for(_backend_url())
-
-
-@pytest.fixture(scope="session", autouse=True)
-def verify_assets_resolve(assets):
-    """Resolve every named asset once, before any test runs.
-
-    Without this, a retired or environment-specific id surfaces as a 404 inside
-    whichever test reaches it first, in a leg whose other failures look the
-    same. Resolving up front turns that into one message naming the asset, the
-    id, the backend and the override that unblocks the run.
-
-    Every id is attempted before anything is reported, so a backend the suite
-    has never run against lists all of its gaps in one go rather than one per
-    push.
-    """
-    if not _api_key():
+    if not (os.getenv("TEAM_API_KEY") or os.getenv("AIXPLAIN_API_KEY")):
         pytest.skip("TEAM_API_KEY or AIXPLAIN_API_KEY environment variable is required for functional tests")
 
-    client = _build_client()
     backend_url = _backend_url()
-    environment = environment_for(backend_url)
-
-    missing = []
-    for name in ASSET_NAMES:
-        spec = SPECS[name]
-        asset_id = getattr(assets, name)
-        try:
-            getattr(client, spec.resource).get(asset_id)
-        except Exception as error:  # noqa: BLE001 - any failure to resolve is the failure being reported
-            missing.append(f"  {name} ({spec.description}) = {asset_id} via client.{spec.resource}.get: {error}")
-
-    if missing:
-        pytest.fail(
-            f"{len(missing)} of {len(ASSET_NAMES)} functional-test assets did not resolve on "
-            f"{backend_url} (id space {environment!r}):\n"
-            + "\n".join(missing)
-            + f"\n\nFix the id in tests/functional/_assets.py, or point one name elsewhere for this "
-            f"run with {ENV_PREFIX}<NAME>=<id>.",
-            pytrace=False,
-        )
+    return LazyAssets(assets_for(backend_url), _build_client, backend_url, environment_for(backend_url))
 
 
 @pytest.fixture(scope="module")
