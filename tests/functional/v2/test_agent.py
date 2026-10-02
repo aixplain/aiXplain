@@ -6,6 +6,8 @@ import uuid
 from aixplain.v2 import AssetStatus, ResponseStatus
 from aixplain.v2.exceptions import APIError
 
+from tests.functional.asset_ids import SLACK_INTEGRATION_ID, TAVILY_TOOL_ID
+
 
 @pytest.fixture(scope="module")
 def test_agent(client, module_resource_tracker):
@@ -323,7 +325,7 @@ def test_agent_field_mappings(client, test_agent):
 def test_slack_tool_integration_with_agent(client, slack_token, resource_tracker):
     """Test Slack tool integration with agent creation and execution."""
     # Get Slack integration
-    integration = client.Integration.get("686432941223092cb4294d3f")  # Slack integration ID
+    integration = client.Integration.get(SLACK_INTEGRATION_ID)
 
     # Create Slack tool
     slack_tool = client.Tool(
@@ -335,7 +337,7 @@ def test_slack_tool_integration_with_agent(client, slack_token, resource_tracker
 
     # Validate tool creation
     assert slack_tool.name.startswith("test-slack-tool-")
-    assert slack_tool.integration.id == "686432941223092cb4294d3f"
+    assert slack_tool.integration.id == SLACK_INTEGRATION_ID
     assert "SLACK_SEND_MESSAGE" in slack_tool.allowed_actions
 
     # Save tool before running
@@ -432,7 +434,7 @@ def test_slack_tool_integration_with_agent(client, slack_token, resource_tracker
 # Platform tool helpers
 
 FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
-TAVILY_CONNECTION_ASSET_ID = "6931bdf462eb386b7158def3"
+TAVILY_CONNECTION_ASSET_ID = TAVILY_TOOL_ID
 WEB_SEARCH_TOOL_PATH = "scale-serp/google-search/Google"
 
 
