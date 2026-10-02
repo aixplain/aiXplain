@@ -10,13 +10,14 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Callable, List, Text, Tuple, Union, Optional
+from typing import Any, Callable, List, Text, Tuple, Union, Optional
+from typing_extensions import NotRequired, TypedDict
 from uuid import uuid4
 
 import validators
 
 from aixplain.utils.url_safety import safe_get
-from .enums import DataType
+from .enums import DataType, DataTypeValue
 from .upload_utils import FileUploader
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,19 @@ logger = logging.getLogger(__name__)
 MAX_REMOTE_CODE_BYTES = 5 * 1024 * 1024
 
 
+class UtilityModelInputDict(TypedDict):
+    """The dict form of :class:`UtilityModelInput`, on the same field names.
+
+    ``total=True``: ``name`` and ``description`` have no default on the struct,
+    so marking them optional would let a dict type-check and then fail at
+    runtime. Only ``type`` defaults.
+    """
+
+    name: Text
+    description: Text
+    type: NotRequired[Union[DataTypeValue, DataType]]
+
+
 @dataclass
 class UtilityModelInput:
     """Input parameter for a utility model.
@@ -34,12 +48,28 @@ class UtilityModelInput:
     Attributes:
         name: The name of the input parameter.
         description: A description of what this input parameter represents.
-        type: The data type of the input parameter.
+        type: The data type of the input parameter -- a :class:`DataType` or its
+            string value (``"text"``, ``"boolean"``, ``"number"``).
     """
 
     name: Text
     description: Text
-    type: DataType = DataType.TEXT
+    type: Union[DataType, DataTypeValue] = DataType.TEXT
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Coerce a string ``type`` into a :class:`DataType` on every assignment.
+
+        ``to_dict`` reads ``self.type.value``, so a plain string left as-is would
+        reach the wire as an ``AttributeError``. Coercing on assignment (not only
+        in ``__post_init__``) keeps construction and later assignment identical.
+        """
+        if name == "type" and value is not None and not isinstance(value, DataType):
+            try:
+                value = DataType(value)
+            except ValueError:
+                accepted = ", ".join(repr(member.value) for member in DataType)
+                raise ValueError(f"Unknown input type {value!r}. Accepted values: {accepted}.") from None
+        super().__setattr__(name, value)
 
     def validate(self):
         """Validate that the input type is one of TEXT, BOOLEAN, or NUMBER."""

@@ -1,8 +1,8 @@
-"""Guard test: ensure no v1 imports leak into the v2 package.
+"""Guard test: ensure no removed-v1 import path leaks into the v2 package.
 
-The v2 SDK must be fully self-contained so that users who only use
-``Aixplain(api_key=...)`` never trigger the v1 env-var validation
-chain (aixplain.modules -> utils/config -> validate_api_keys).
+v1 is gone (PROD-2918), so ``from aixplain.enums import ...`` inside ``aixplain/v2/``
+would now raise at import time rather than merely dragging in the old env-var
+validation chain. The rule is unchanged; only the consequence got worse.
 """
 
 import ast
@@ -14,17 +14,16 @@ import pytest
 
 V2_PACKAGE_DIR = Path(__file__).resolve().parents[3] / "aixplain" / "v2"
 
-# Files allowed to reference v1 modules:
-#   enums_include.py — auto-generated compatibility shim
-#   core.py — optional try/except guarded sync of api key to v1 config
-EXCLUDED_FILES = {"enums_include.py", "core.py"}
+# No file is exempt. ``enums_include.py`` (the generated v1 enum shim) and
+# ``core.py``'s guarded sync into ``aixplain.utils.config`` both went with v1.
+EXCLUDED_FILES = set()
 
-# Modules under ``aixplain.utils`` that v2 *may* import. The rule exists to keep
-# the v1 env-var validation chain out of v2, and ``aixplain.utils.url_safety``
-# imports nothing from ``aixplain`` at all -- it is the shared URL trust policy
-# used by v1, v2 and ``aixplain/utils`` alike (BUG-939), so it cannot pull that
-# chain in. ``test_url_safety_stays_v1_free`` below keeps that true.
-ALLOWED_SHARED_MODULES = {"aixplain.utils.url_safety"}
+# Modules under ``aixplain.utils`` that v2 *may* import. ``url_safety`` is the
+# shared URL trust policy (BUG-939) and imports nothing from ``aixplain`` at all,
+# so it cannot pull a chain of anything in; ``test_url_safety_stays_self_contained``
+# below keeps that true. ``user_info_utils`` builds the agent run ``metaData``
+# object and likewise imports nothing from the package.
+ALLOWED_SHARED_MODULES = {"aixplain.utils.url_safety", "aixplain.utils.user_info_utils"}
 
 # Patterns that constitute a v1 import.
 # Matches:  from aixplain.modules  / from aixplain.factories
@@ -108,14 +107,15 @@ def test_no_v1_imports(rel_name, filepath):
     assert not violations, f"v1 imports found in aixplain/v2/{rel_name}:\n" + "\n".join(violations)
 
 
-def test_url_safety_stays_v1_free():
-    """The one shared module v2 may import must not reach into v1 itself.
+@pytest.mark.parametrize("module", sorted(ALLOWED_SHARED_MODULES))
+def test_url_safety_stays_self_contained(module):
+    """Each exempted shared module must not reach back into the package.
 
-    ``aixplain.utils.url_safety`` is exempted from the rule above only because it
-    imports nothing from ``aixplain``; if that ever changes, the exemption would
-    silently reopen the v1 import chain for every v2 module that uses it.
+    They are exempted from the rule above only because they import nothing from
+    ``aixplain``; if that ever changes, the exemption would silently reopen an
+    import chain for every v2 module that uses them.
     """
-    path = V2_PACKAGE_DIR.parent / "utils" / "url_safety.py"
+    path = V2_PACKAGE_DIR.parent.joinpath(*module.split(".")[1:]).with_suffix(".py")
     tree = ast.parse(path.read_text(), filename=str(path))
 
     imported = set()

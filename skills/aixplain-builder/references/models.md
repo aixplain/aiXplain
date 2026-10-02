@@ -195,18 +195,19 @@ New in 0.2.48: a registered backend asset (`sdk/file-asset`), distinct from the 
 
 ```python
 f = aix.File(source="/path/audio.mp3", name="audio")   # source may be a local path, a local DIR, or an http(s) URL
-f.save()                                               # uploads, registers, populates f.id / f.url
-print(f.url, f.id, f.size, f.extension, f.status)
+f.save()                                               # uploads, registers, populates f.id
+print(f.id, f.size, f.extension, f.status)
+f.get_signed_url()                                     # short-lived download URL (responses carry no stable .url)
 
-aix.File.create_from_file("/path/audio.mp3")           # classmethod alias for the constructor
-aix.File.get("<id-or-encoded-path>", recursive=True)
+aix.File.get("<id-or-encoded-path>", recursive=True)   # the constructor is the only way to build one (no create_from_file)
 aix.File.search(query=None, page_number=0, page_size=20)   # -> Page[File]
-f.download("/local/dest")                              # folders come down as a single ZIP
+f.download()                                           # defaults to ./<name>; folders come down as a single ZIP
+f.delete()
 ```
 
-Other fields: `description path source file_type is_temp children parent_id relative_path tags privacy whitelist created_at updated_at`; properties `file_path` (alias of `source`), `is_dir`, `encoded_id`, `is_deleted`, `is_modified`. `FileType` is `FILE | FOLDER`; `privacy` defaults to private.
+Other fields: `description path source file_type children parent_id tags privacy whitelist created_at updated_at`; properties `is_dir`, `encoded_id`, `is_deleted`, `is_modified`. `FileType` is `FILE | FOLDER`; `privacy` defaults to private. There is no `.url`/`.relative_path`/`.file_path`, and `is_temp` is not a constructor argument.
 
-> ⚠️ `File(..., is_temp=True)` does **not** keep the asset temporary: `save()` always uploads through the temp-url endpoint, registers a permanent `file-asset` record, then forces `is_temp = False`. For a genuinely throwaway URL use `FileUploader.upload(..., is_temp=True, return_download_link=True)`. An `http(s)` `source` is re-hosted through an SSRF-guarded fetch (every redirect target re-validated, presigned `PUT` with redirects disabled) — a supported way to re-host a remote file.
+> ⚠️ `File(..., is_temp=True)` raises `TypeError`: `save()` always uploads through the temp-url endpoint and registers a permanent `file-asset` record, so there is no temp-vs-permanent switch to honor. For a genuinely throwaway URL use `FileUploader.upload(..., is_temp=True, return_download_link=True)`. An `http(s)` `source` is re-hosted through an SSRF-guarded fetch (every redirect target re-validated, presigned `PUT` with redirects disabled) — a supported way to re-host a remote file.
 
 ## Use a model inside an agent
 

@@ -25,7 +25,7 @@ team.inspectors = [inspector]
 team.save()
 ```
 
-Do not import from `aixplain.modules.team_agent.inspector`; that is v1. Do not generate the older typed config-class form for SDK `0.2.47`.
+Do not import from `aixplain.modules.team_agent.inspector`; that is v1, removed in SDK 0.3.0. Do not generate the older typed config-class form.
 
 ## Action choice
 
