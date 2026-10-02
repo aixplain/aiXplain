@@ -10,11 +10,10 @@ from dotenv import load_dotenv
 
 from tests.ci_guards import (
     ExecutionLedger,
+    breached_execution_floor,
     is_non_executing_session,
     low_execution_ratio_message,
-    min_executed_ratio,
     no_executed_tests_message,
-    should_fail_for_low_execution_ratio,
     should_fail_for_no_executed_tests,
 )
 
@@ -401,17 +400,17 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
     collected = _EXECUTION_LEDGER.collected or session.testscollected
 
     try:
-        if not should_fail_for_low_execution_ratio(_EXECUTION_LEDGER.executed, collected, exitstatus):
-            return
-        ratio = min_executed_ratio()
+        floor = breached_execution_floor(_EXECUTION_LEDGER.executed, collected, exitstatus)
     except ValueError as exc:
         # A misconfigured floor must not pass silently: the workflow would be
         # claiming a threshold nobody enforces.
         _report_ci_integrity_failure(session, f"CI integrity guard misconfigured (ENG-3684): {exc}")
         return
 
-    _EXECUTION_LEDGER.collected = collected
-    _report_ci_integrity_failure(session, low_execution_ratio_message(_EXECUTION_LEDGER, ratio))
+    if floor:
+        _report_ci_integrity_failure(
+            session, low_execution_ratio_message(_EXECUTION_LEDGER, floor, collected=collected)
+        )
 
 
 # ---------------------------------------------------------------------------

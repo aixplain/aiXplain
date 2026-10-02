@@ -88,7 +88,9 @@ def _run(tmp_path: Path, source: str, flag: str = None, *extra_args: str, ratio:
     (tmp_path / "conftest.py").write_text(CONFTEST.format(repo_root=str(REPO_ROOT)))
     (tmp_path / "test_sample.py").write_text(source)
 
-    env = os.environ.copy()
+    # GIT_* is dropped so a run from inside a git hook (where GIT_DIR and
+    # friends point at the outer repository) cannot leak into the child.
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     env.pop("AIXPLAIN_REQUIRE_EXECUTED_TESTS", None)
     env["AIXPLAIN_MIN_EXECUTED_RATIO"] = ratio
     if flag is not None:
@@ -267,7 +269,14 @@ def test_an_unusable_floor_fails_loudly_rather_than_falling_back(tmp_path):
 
 def test_a_real_failure_is_not_rewritten_as_a_ratio_shortfall(tmp_path):
     """A red session keeps its own error, ratio or no ratio."""
-    result = _run(tmp_path, MOSTLY_SKIPPED.replace("def test_five():\n    assert True", "def test_five():\n    assert False, 'a genuine failure'"), "1", ratio="")
+    result = _run(
+        tmp_path,
+        MOSTLY_SKIPPED.replace(
+            "def test_five():\n    assert True", "def test_five():\n    assert False, 'a genuine failure'"
+        ),
+        "1",
+        ratio="",
+    )
 
     output = result.stdout + result.stderr
     assert result.returncode == 1, f"expected exit 1, got {result.returncode}:\n{output[-4000:]}"
@@ -293,6 +302,50 @@ def test_deselected_tests_are_not_counted_against_the_ratio(tmp_path):
     is a guard failing an honest run.
     """
     result = _run(tmp_path, MOSTLY_SKIPPED, "1", "-k", "test_five", ratio="")
+
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, f"expected exit 0, got {result.returncode}:\n{output[-4000:]}"
+    assert RATIO_MESSAGE_MARKER not in output, output[-4000:]
+
+
+# ---------------------------------------------------------------------------
+# ENG-3684 under pytest-xdist.
+#
+# The `agent` and `arabic-agent` legs run with `-n 2`. There the controller
+# never collects, so `pytest_collection_finish` leaves the ledger's denominator
+# at 0 and only the `session.testscollected` fallback in `pytest_sessionfinish`
+# keeps the ratio floor armed. Without these tests, deleting that fallback left
+# every other test here passing while the xdist legs exited 0 at 1 of 5.
+# ---------------------------------------------------------------------------
+
+
+def test_the_ratio_floor_holds_under_xdist(tmp_path):
+    """1 of 5 executed across two workers must fail exactly as it does in-process."""
+    result = _run(tmp_path, MOSTLY_SKIPPED, "1", "-n", "2", ratio="")
+
+    output = result.stdout + result.stderr
+    assert result.returncode == 1, f"expected exit 1, got {result.returncode}:\n{output[-4000:]}"
+    assert RATIO_MESSAGE_MARKER in output, f"guard stood down under xdist:\n{output[-4000:]}"
+    assert "1 of 5 collected test(s) executed" in output, output[-4000:]
+
+
+def test_the_module_table_falls_back_to_reports_under_xdist(tmp_path):
+    """The controller has no per-module collection tally; the table must not come out empty.
+
+    `ExecutionLedger.module_table` falls back to "executed + skipped reports seen"
+    for a module it has no collection count for, which is every module on an
+    xdist controller.
+    """
+    result = _run(tmp_path, MOSTLY_SKIPPED, "1", "-n", "2", ratio="")
+
+    output = result.stdout + result.stderr
+    assert "! test_sample.py: 1/5" in output, output[-4000:]
+    assert "test_sample.py::test_one: No tool with actions found" in output, output[-4000:]
+
+
+def test_a_session_above_the_floor_passes_under_xdist(tmp_path):
+    """The fallback must arm the floor, not trip it: 1 of 5 clears a 0.2 floor."""
+    result = _run(tmp_path, MOSTLY_SKIPPED, "1", "-n", "2", ratio="0.2")
 
     output = result.stdout + result.stderr
     assert result.returncode == 0, f"expected exit 0, got {result.returncode}:\n{output[-4000:]}"
