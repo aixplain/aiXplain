@@ -258,6 +258,7 @@ jobs:
           'agent',
           'agent-duplicate',
           'agent-llm-persistence',
+          'agent-run-params',
           'api-key',
           'arabic-agent',
           'integration',
@@ -282,6 +283,9 @@ jobs:
           - suite: 'agent-llm-persistence'
             path: 'tests/functional/v2/test_agent_llm_persistence.py'
             timeout: 30
+          - suite: 'agent-run-params'
+            path: 'tests/functional/v2/test_agent_run_params.py'
+            timeout: 45
           - suite: 'api-key'
             path: 'tests/functional/v2/test_api_key.py'
             timeout: 30

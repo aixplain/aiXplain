@@ -492,6 +492,37 @@ def test_tool_update_preserves_allowed_actions(client, slack_integration_id, sla
     print("✅ allowed_actions preserved through update")
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=5, reason="tool call is model-dependent")
+def test_allowed_actions_survive_agent_save_fetch_and_run(client, module_resource_tracker):
+    """Regression (BUG-710): a scoped tool keeps its allowed_actions end-to-end.
+
+    The tool is embedded in an agent, saved, re-fetched and run. Dropping
+    allowed_actions on any hop used to leave the agent with an unscoped tool
+    whose run then failed.
+    """
+    tool = client.Tool.get(TAVILY_TOOL_ID)
+    tool.allowed_actions = ["search"]
+
+    agent = client.Agent(
+        name=f"Functional Allowed Actions Agent {int(time.time() * 1000)}",
+        description="Verify allowed_actions survive agent save/fetch and a run.",
+        instructions="Use the web search tool when asked for a fact, then answer briefly.",
+        tools=[tool],
+        output_format="text",
+    )
+    agent.save()
+    module_resource_tracker.append(agent)
+
+    fetched = client.Agent.get(agent.id)
+    assert fetched.tools, "fetched agent lost its tool"
+    assert fetched.tools[0].allowed_actions == ["search"], (
+        f"allowed_actions lost on the agent round-trip: {fetched.tools[0].allowed_actions}"
+    )
+
+    result = fetched.run("Search the web for the capital of France and answer.")
+    assert result.status == "SUCCESS"
+
+
 def test_tool_as_tool_auto_detects_single_action(client):
     """Test that as_tool() auto-includes the action when a tool has exactly one action."""
     tool = client.Tool.get(TAVILY_TOOL_ID)

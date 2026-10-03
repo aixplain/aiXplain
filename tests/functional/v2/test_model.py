@@ -1,17 +1,19 @@
 import pytest
 from aixplain.v2 import SortBy, SortOrder
 
+from .assets import REASONING_MODEL_ID, STREAMING_MODEL_ID
+
 
 @pytest.fixture(scope="module")
 def text_model_id():
     """Return a text-generation model ID for testing."""
-    return "69b7e5f1b2fe44704ab0e7d0"  # GPT-5.4
+    return REASONING_MODEL_ID  # GPT-5.4
 
 
 @pytest.fixture(scope="module")
 def stream_tool_call_model_id():
     """Return model ID dedicated to streaming tool-calling e2e tests."""
-    return "69727676c60248082d79932f"
+    return STREAMING_MODEL_ID  # GPT-5.2
 
 
 @pytest.fixture(scope="module")
@@ -313,8 +315,7 @@ def test_llm_capability_properties(client, stream_tool_call_model_id):
 def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):
     """E2E: stream tool-calling returns OpenAI-style tool call deltas in chunks."""
     model = client.Model.get(stream_tool_call_model_id)
-    if model.supports_streaming is False:
-        pytest.skip("Model does not support streaming")
+    assert model.supports_streaming is True, "pinned streaming model must advertise streaming support"
 
     stream = model.run_stream(
         context=(
@@ -337,9 +338,8 @@ def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):
     # Content may be empty when the model only emits tool-call deltas.
     assert isinstance(stream_content, str)
 
-    # The stream should expose tool call deltas in OpenAI format.
-    if not tool_call_deltas:
-        pytest.skip("Streaming response did not emit tool-call deltas for this model")
+    # The stream must expose tool call deltas in OpenAI format.
+    assert tool_call_deltas, "pinned streaming model did not emit tool-call deltas"
     assert any("function" in delta for delta in tool_call_deltas)
 
     function_names = _extract_function_names(tool_call_deltas)
