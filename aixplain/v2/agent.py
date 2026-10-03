@@ -465,6 +465,48 @@ class Artifact:
 
 @dataclass_json
 @dataclass
+class AgentError:
+    """Structured error of an agent run or step, sent on the wire as ``errorDetails`` ``{code, message}``."""
+
+    code: Optional[str] = None
+    message: Optional[str] = None
+
+    @classmethod
+    def _coerce(cls, value: Any) -> Optional["AgentError"]:
+        """Decode an ``errorDetails`` dict, or a legacy error string, without raising."""
+        if value is None or isinstance(value, cls):
+            return value
+        if isinstance(value, dict):
+            code, message = value.get("code"), value.get("message")
+            if code is None and message is None:
+                return None
+            return cls(code=code, message=message)
+        if isinstance(value, str) and value.strip():
+            return cls(message=value.strip())
+        return None
+
+
+def _restore_legacy_step_outputs(steps: Any) -> None:
+    """Give a failed step the ``ERROR: <message>`` output it carried before steps had an ``error`` field.
+
+    Mutates the step dicts in place so the decoded result and the raw response
+    that progress display reads stay the same.
+    """
+    if not isinstance(steps, list):
+        return
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        error = step.get("error")
+        if isinstance(error, dict) and step.get("output") in (None, ""):
+            text = error.get("message") or error.get("code")
+            if text:
+                step["output"] = f"ERROR: {text}"
+        _restore_legacy_step_outputs(step.get("steps"))
+
+
+@dataclass_json
+@dataclass
 class AgentResponseData:
     """Data structure for agent response."""
 
@@ -474,6 +516,9 @@ class AgentResponseData:
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
+    error: Optional[AgentError] = field(
+        default=None, metadata=config(field_name="errorDetails", decoder=AgentError._coerce)
+    )
     critiques: Optional[str] = ""
     # Declared Optional only to keep dataclasses_json quiet: an explicit
     # ``"artifacts": null`` on a non-Optional field makes it emit a
@@ -502,6 +547,8 @@ class AgentResponseData:
         # ``[]`` rather than ``None``. Re-coercing an already-decoded list is a
         # cheap no-op, since ``Artifact`` instances pass straight through.
         self.artifacts = Artifact._coerce_list(self.artifacts)
+        self.error = AgentError._coerce(self.error)
+        _restore_legacy_step_outputs(self.steps)
         if self.governance is None:
             self.governance = {
                 "status": self._governance_status,
@@ -521,15 +568,27 @@ class AgentRunResult(Result):
     used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
     run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
+    error: Optional[AgentError] = field(
+        default=None, metadata=config(field_name="errorDetails", decoder=AgentError._coerce)
+    )
 
     def __post_init__(self) -> None:
-        """Promote diagnostic codes the backend nests under ``data``.
+        """Promote diagnostic codes and the structured error the backend nests under ``data``.
 
         The poll body carries them at ``data.diagnosticErrorCodes`` (or only
         inside ``executionStats`` on older builds), never top-level.
         """
         if not self.diagnostic_error_codes:
             self.diagnostic_error_codes = self._codes_from_data()
+        data = self.data
+        if isinstance(data, AgentResponseData):
+            data_error = data.error
+        elif isinstance(data, dict):
+            # ``data`` is a bare dict when the result was built by hand rather than decoded.
+            data_error = AgentError._coerce(data.get("errorDetails") or data.get("error_details"))
+        else:
+            data_error = None
+        self.error = AgentError._coerce(self.error) or data_error
 
     def _codes_from_data(self) -> List[str]:
         """Extract diagnostic codes from ``data`` or its execution stats."""
@@ -646,6 +705,8 @@ class AgentRunResult(Result):
         BoundDebugger = type("Debugger", (Debugger,), {"context": self._context})
         debugger = BoundDebugger()
         return debugger.debug_response(self, prompt=prompt, execution_id=execution_id, **kwargs)
+
+
 
 
 @dataclass_json
@@ -1445,7 +1506,11 @@ class Agent(
         Returns:
             AgentRunResult with current execution status.
         """
-        return super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
+        result = super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
+        raw_data = (result._raw_data or {}).get("data")
+        if isinstance(raw_data, dict):
+            _restore_legacy_step_outputs(raw_data.get("steps"))
+        return result
 
     def sync_poll(self, poll_url: str, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Poll until an asynchronous agent execution completes.
