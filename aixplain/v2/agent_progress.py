@@ -56,6 +56,15 @@ def _stdout_is_tty() -> bool:
         return False
 
 
+def _step_error_text(step: Dict) -> Optional[str]:
+    """Render a step's ``error`` (``{code, message}`` or a legacy string) as display text."""
+    error = step.get("error") or step.get("error_message")
+    if isinstance(error, dict):
+        code, message = error.get("code"), error.get("message")
+        return ": ".join(str(part) for part in (code, message) if part) or None
+    return str(error) if error else None
+
+
 def _is_notebook_environment() -> bool:
     """Detect if running in a Jupyter/IPython notebook environment.
 
@@ -616,7 +625,7 @@ class AgentProgressTracker:
                 status_line += f" · ⚡ {action}"
 
         if self._verbosity >= 3:
-            error = active.get("error") or active.get("error_message")
+            error = _step_error_text(active)
             if error:
                 error_str = str(error).replace("\n", " ").strip()
                 if len(error_str) > 50:
@@ -686,7 +695,7 @@ class AgentProgressTracker:
                 else:
                     print(f"    {self._format_multiline(str(input_data))}")
 
-            error = step.get("error") or step.get("error_message")
+            error = _step_error_text(step)
             if error:
                 print(f"  → Error ✗")
                 print(f"    {self._format_multiline(str(error))}")
@@ -920,7 +929,7 @@ class AgentProgressTracker:
             # Step completed - show completion icon
             if has_output and not prev_has_output:
                 step_elapsed = self._now() - self._first_seen.get(sid, self._now())
-                has_error = step.get("error") or step.get("error_message")
+                has_error = _step_error_text(step)
                 completion_icon = "✗" if has_error else "✓"
                 completion_line = self._format_step_line(
                     step,

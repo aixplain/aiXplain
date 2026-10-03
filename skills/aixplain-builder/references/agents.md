@@ -67,6 +67,7 @@ r.data.output        # final answer
 r.status             # "SUCCESS" | "FAILED" | "IN_PROGRESS"
 r.completed          # bool
 r.error_message      # None on success
+r.error              # AgentError(code, message) when reported, else None
 r.used_credits       # float — NOTE: often 0.0 for agents; read cost from execution_stats instead
 r.run_time           # seconds
 r.request_id         # backend run id — quote this in support tickets
