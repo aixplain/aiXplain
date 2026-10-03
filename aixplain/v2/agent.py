@@ -707,8 +707,6 @@ class AgentRunResult(Result):
         return debugger.debug_response(self, prompt=prompt, execution_id=execution_id, **kwargs)
 
 
-
-
 @dataclass_json
 @dataclass
 class Task:
