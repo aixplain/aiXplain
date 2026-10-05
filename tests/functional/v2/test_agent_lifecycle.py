@@ -428,19 +428,8 @@ def test_agent_persists_file_reference(client, tmp_path, resource_tracker):
 # ---------------------------------------------------------------------------
 
 
-def test_fail_non_existent_llm(client, resource_tracker):
-    """Saving an agent with an unknown llm id fails loudly."""
-    agent = client.Agent(name=_unique("Bad LLM Agent"), instructions="Answer briefly.", llm="non_existent_llm")
-
-    try:
-        # ``save`` is wrapped by ``@with_hooks``, which re-raises backend errors as ResourceError.
-        with pytest.raises(ResourceError) as excinfo:
-            agent.save()
-    finally:
-        # If the backend ever accepts the bad id, the agent must not leak.
-        _track_saved(resource_tracker, agent)
-
-    assert "not found" in str(excinfo.value).lower()
+# Saving with an unknown llm id is covered once, by test_team_agent.py::test_fail_non_existent_llm,
+# which asserts the backend's actual error text; a second copy here would assert different text.
 
 
 def test_delete_agent_in_use_fails(client, resource_tracker):
