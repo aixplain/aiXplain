@@ -307,41 +307,53 @@ def test_debug_returns_analysis(run_agent):
 # ---------------------------------------------------------------------------
 
 
-# The model has to repeat the substituted word.
+# The model has to repeat the substituted token.
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_variables_are_substituted_into_instructions(client, module_resource_tracker):
+    """A ``{{code}}`` placeholder in the instructions is filled from ``variables``.
+
+    The placeholder lives in the instructions because that is where the backend
+    substitutes: save rewrites ``{{code}}`` to ``{code}`` and the run sends
+    ``variables`` as extra keys of ``query`` (the v1 contract). The token is random
+    and neutral -- an earlier "secret word" wording made the model answer with the
+    literal word ``word`` -- so only the substitution can put it in the output.
+    """
+    token = f"tok{uuid.uuid4().hex[:10]}"
     agent = _make_agent(
         client,
         module_resource_tracker,
-        instructions="The secret word is {{word}}. Reply with only the word.",
+        instructions="Reply with exactly this code and nothing else: {{code}}",
     )
 
-    payload = agent.build_run_payload(query="What is the secret word?", variables={"word": "zebra"})
-    assert payload["query"]["input"] == "What is the secret word?"
-    assert payload["query"]["word"] == "zebra"
+    payload = agent.build_run_payload(query="Reply now.", variables={"code": token})
+    assert payload["query"]["input"] == "Reply now."
+    assert payload["query"]["code"] == token
 
-    result = agent.run("What is the secret word?", variables={"word": "zebra"})
+    result = agent.run("Reply now.", variables={"code": token})
     assert result.status == "SUCCESS"
-    assert "zebra" in _output(result).lower(), f"expected the substituted variable in the output, got {result.data!r}"
+    assert token in _output(result).lower(), f"expected the substituted token {token!r}, got {result.data!r}"
 
 
-# The model has to repeat the secret from the prompt.
+# The model has to repeat the token from the prompt.
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_prompt_override_reaches_model(run_agent):
-    """``prompt`` reaches the model: the secret exists only in the prompt.
+    """``prompt`` reaches the model: the random token exists only in the prompt.
 
-    ``criteria`` and ``identifier`` ride along and are only verified as
-    accepted: neither changes anything the response exposes.
+    The instruction is deliberately neutral: an earlier "the secret is ..." wording
+    made the model refuse to share secrets. ``criteria`` and ``identifier`` ride
+    along and are only verified as accepted: neither changes anything the response
+    exposes.
     """
+    token = f"tok{uuid.uuid4().hex[:10]}"
     result = run_agent.run(
-        "Say the secret.",
-        prompt="The secret is ORANGE. Reply with only the secret.",
+        "Reply now.",
+        prompt=f"Reply with exactly this code and nothing else: {token}",
         criteria="The answer must be a single word.",
         identifier=_unique("identifier"),
     )
 
     assert result.status == "SUCCESS"
-    assert "ORANGE" in _output(result).upper(), f"expected the secret from the prompt, got {result.data!r}"
+    assert token in _output(result).lower(), f"expected the token {token!r} from the prompt, got {result.data!r}"
 
 
 # The model has to recall the name from the supplied history.
