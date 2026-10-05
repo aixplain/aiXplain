@@ -20,8 +20,9 @@ ignore = []
 extend-safe-fixes = []
 
 [lint.per-file-ignores]
-# Test modules are linted and formatted, but their docstrings are not held to
-# the public-API pydocstyle rules (AGENTS.md).
+# Test modules are format-checked only. `D` is the only selected rule set and
+# test docstrings are not held to the public-API pydocstyle rules (AGENTS.md),
+# so `ruff check` reports nothing for tests/.
 "tests/**/*.py" = ["D"]
 
 [lint.isort]

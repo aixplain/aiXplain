@@ -28,8 +28,8 @@ class AixplainV1DeprecationWarning(DeprecationWarning):
     v1 shipped a ``sys.meta_path`` redirector that warned once per process when a
     legacy path was imported. The redirector is gone and a legacy import now
     raises ``ModuleNotFoundError``, but the category is kept as an importable
-    name so ``-W``/``filterwarnings`` settings that target it -- including the
-    one in ``pytest.ini`` -- keep resolving. Subclassing
+    name so downstream ``-W``/``filterwarnings`` settings that target it keep
+    resolving instead of failing with an unknown-category error. Subclassing
     :class:`DeprecationWarning` means ``-W error::DeprecationWarning`` still
     matches it.
     """
