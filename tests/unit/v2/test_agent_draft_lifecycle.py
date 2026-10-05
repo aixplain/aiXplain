@@ -113,15 +113,22 @@ def test_unmodified_onboarded_agent_runs_without_saving():
 
 
 def test_modified_draft_agent_is_implicitly_saved_as_draft():
-    """A dirty draft is saved as a draft before running."""
-    agent = _persisted_agent(_ctx(), "draft")
+    """A dirty draft is PUT with its edits and ``status: draft`` before running."""
+    ctx = _ctx()
+    ctx.client.request.return_value = _created_response("draft")
+    agent = _persisted_agent(ctx, "draft")
     agent.instructions = "changed"
-    agent.save = Mock(return_value=agent)
 
     agent.before_run(query="hi")
 
-    agent.save.assert_called_once_with(as_draft=True)
-    assert agent.status == AssetStatus.DRAFT
+    ctx.client.request.assert_called_once()
+    method, path = ctx.client.request.call_args.args
+    payload = ctx.client.request.call_args.kwargs["json"]
+    assert method == "put"
+    assert path.endswith("/agent-1")
+    assert payload["status"] == AssetStatus.DRAFT
+    assert payload["instructions"] == "changed"
+    assert not agent.is_modified
 
 
 def test_unmodified_draft_agent_is_not_saved_on_run():

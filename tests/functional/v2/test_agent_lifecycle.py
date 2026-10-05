@@ -5,10 +5,26 @@ before v1 was removed (PROD-2918). Generic CRUD and the web-tool tests already
 have a v2 home in ``test_agent.py``; this file carries the draft/onboard
 transition, subcomponent, tool-kind and round-trip scenarios that had no v2 twin.
 
-Scenarios with no v2 equivalent are annotated in place:
+v1 scenarios not ported here, and why:
 
-- ``AgentFactory.create_sql_tool`` -- no v2 equivalent (see MIGRATION.md).
+- ``AgentFactory.create_sql_tool`` (SQLite and CSV) -- no v2 equivalent (see
+  MIGRATION.md).
 - ``AgentFactory.create_pipeline_tool`` -- no v2 equivalent (see MIGRATION.md).
+- ``AgentFactory.create_python_interpreter_tool`` -- v2 runs Python through the
+  Python Sandbox integration, which ``Tool(code=...)`` already exercises in
+  ``test_custom_code_tool`` below; a marketplace search for an "interpreter"
+  tool depends on backend state and would mostly skip.
+- ``{{var}}`` placeholder substitution (v1 ``test_instructions``; v2 spelling
+  ``run(variables=...)``) -- not ported in this change. The substitution is
+  done by the backend, so the only end-to-end check is another LLM-output
+  assertion; it is not part of the draft/onboard lifecycle this file covers.
+- Agent with two utility tools (v1 ``test_agent_with_utility_tool``) -- v2
+  replaces the utility-model builder with ``Tool(code=...)``, which is
+  covered by ``test_custom_code_tool``; a second tool adds LLM-choice
+  flakiness rather than SDK coverage. Not ported.
+- MCP connector deploy (v1 ``test_agent_with_mcp_tool``) -- already skipped in
+  v1 ("MCP connector has no available actions") and it depended on a
+  hard-coded Zapier MCP URL. Not ported.
 """
 
 import json
@@ -21,12 +37,7 @@ import pytest
 from pydantic import BaseModel
 
 from aixplain.v2 import AssetStatus
-from aixplain.v2.exceptions import APIError
-
-#: Backend bug that keeps the Slack agent test skipped: the send-message payload
-#: is rejected ("Unsupported Slack send message field(s). text: ..."). Link the
-#: ticket here so the skip is lifted with it.
-SLACK_BACKEND_BUG = "BUG-1098"
+from aixplain.v2.exceptions import ResourceError
 
 #: Instructions used by the expected-output tests. The table makes a JSON answer
 #: the only useful shape, so the run exercises the schema end to end.
@@ -41,6 +52,18 @@ EXPECTED_OUTPUT_INSTRUCTIONS = (
 def _unique(prefix: str) -> str:
     """Return a collision-resistant agent/tool name."""
     return f"{prefix} {int(time.time())}-{uuid.uuid4().hex[:6]}"
+
+
+def _track_saved(tracker, *resources) -> None:
+    """Register every resource in *resources* that got an id, in the order given.
+
+    Pass dependencies before the resources that reference them: teardown deletes
+    newest-first. Anything that never got an id was never created, so tracking
+    it would only report a false orphan.
+    """
+    for resource in resources:
+        if getattr(resource, "id", None):
+            tracker.append(resource)
 
 
 def _agent_ids(agents) -> List[Optional[str]]:
@@ -98,17 +121,23 @@ def test_agent_saved_without_draft_is_onboarded(client, resource_tracker):
     assert client.Agent.get(agent.id).status == AssetStatus.ONBOARDED
 
 
+# The "pong" check depends on the LLM following its instructions.
+@pytest.mark.flaky(reruns=2)
 def test_draft_agent_auto_saves_before_run(client, resource_tracker):
     """A modified draft is saved implicitly on ``run()`` and stays a draft."""
     agent = client.Agent(name=_unique("Auto Draft Agent"), instructions="Answer briefly.")
     agent.save(as_draft=True)
     resource_tracker.append(agent)
 
-    agent.instructions = "Always answer with the single word: pong."
+    new_instructions = "Always answer with the single word: pong."
+    agent.instructions = new_instructions
     response = agent.run("ping")
 
     assert response.status == "SUCCESS"
-    assert agent.status == AssetStatus.DRAFT
+    assert "pong" in (response.data.output or "").lower()
+    fetched = client.Agent.get(agent.id)
+    assert fetched.instructions == new_instructions
+    assert fetched.status == AssetStatus.DRAFT
 
 
 def test_onboarded_agent_rejects_mutation_without_save(client, resource_tracker):
@@ -157,11 +186,12 @@ def test_save_subcomponents_persists_unsaved_subagent(client, resource_tracker):
     """``save(save_subcomponents=True)`` saves an unsaved subagent before the parent."""
     sub = client.Agent(name=_unique("Sub Agent"), instructions="You are a subagent.")
     parent = client.Agent(name=_unique("Parent Agent"), instructions="You orchestrate.", agents=[sub])
-    # Register the dependency first: teardown deletes newest-first.
-    resource_tracker.append(sub)
-    resource_tracker.append(parent)
 
-    parent.save(save_subcomponents=True)
+    try:
+        parent.save(save_subcomponents=True)
+    finally:
+        # The dependency first: teardown deletes newest-first.
+        _track_saved(resource_tracker, sub, parent)
 
     assert sub.id is not None
     assert parent.id is not None
@@ -172,13 +202,16 @@ def test_save_without_subcomponents_rejects_unsaved_subagent(client, resource_tr
     """A plain save refuses an unsaved subagent; recursive save then succeeds."""
     sub = client.Agent(name=_unique("Unsaved Sub"), instructions="You are a subagent.")
     parent = client.Agent(name=_unique("Strict Parent"), instructions="You orchestrate.", agents=[sub])
-    resource_tracker.append(sub)
-    resource_tracker.append(parent)
 
     with pytest.raises(ValueError, match="must be saved before saving"):
         parent.save()
+    assert sub.id is None
+    assert parent.id is None
 
-    parent.save(save_subcomponents=True)
+    try:
+        parent.save(save_subcomponents=True)
+    finally:
+        _track_saved(resource_tracker, sub, parent)
     assert sub.id is not None
     assert parent.id is not None
 
@@ -188,6 +221,8 @@ def test_save_without_subcomponents_rejects_unsaved_subagent(client, resource_tr
 # ---------------------------------------------------------------------------
 
 
+# The LLM may answer without calling the tool.
+@pytest.mark.flaky(reruns=2)
 def test_custom_code_tool(client, resource_tracker):
     """``Tool(code=...)`` runs deterministic custom Python inside an agent."""
     tool = client.Tool(
@@ -211,27 +246,6 @@ def test_custom_code_tool(client, resource_tracker):
     assert "HelloWorld" in response.data.output
 
 
-def test_python_interpreter_tool(client, resource_tracker):
-    """The marketplace Python Interpreter tool can be attached and used."""
-    results = client.Tool.search(q="interpreter").results
-    match = next((t for t in results if "interpreter" in (t.name or "").lower()), None)
-    if match is None:
-        pytest.skip("No Python Interpreter tool found in the marketplace")
-
-    tool = client.Tool.get(match.id)
-    agent = client.Agent(
-        name=_unique("Interpreter Agent"),
-        instructions="Use the Python Interpreter tool for every computation.",
-        tools=[tool],
-    )
-    agent.save()
-    resource_tracker.append(agent)
-
-    response = agent.run("Use the Python Interpreter to compute 2 + 2 and print the result.")
-    assert response.status == "SUCCESS"
-    assert "4" in response.data.output
-
-
 def test_add_and_remove_tool_round_trip(client, assets, resource_tracker):
     """Adding then removing a tool survives a fetch round-trip."""
     agent = client.Agent(name=_unique("Tool Round Trip"), instructions="Use tools when asked.")
@@ -240,14 +254,20 @@ def test_add_and_remove_tool_round_trip(client, assets, resource_tracker):
     assert agent.tools == []
 
     agent.tools = [client.Tool.get(assets.TAVILY)]
-    agent.save()
-    assert len(client.Agent.get(agent.id).tools) == 1
+    agent.save(as_draft=True)
+    fetched = client.Agent.get(agent.id)
+    assert len(fetched.tools) == 1
+    assert fetched.status == AssetStatus.DRAFT
 
     agent.tools.pop()
-    agent.save()
-    assert client.Agent.get(agent.id).tools == []
+    agent.save(as_draft=True)
+    fetched = client.Agent.get(agent.id)
+    assert fetched.tools == []
+    assert fetched.status == AssetStatus.DRAFT
 
 
+# The run depends on the LLM choosing to call the translation tool.
+@pytest.mark.flaky(reruns=2)
 def test_model_tool_parameter_survives_round_trip(client, assets, resource_tracker):
     """A per-tool parameter override is persisted and read back after a fetch."""
     model = client.Model.get(assets.TRANSLATION_MODEL)
@@ -266,24 +286,34 @@ def test_model_tool_parameter_survives_round_trip(client, assets, resource_track
     params = fetched_tool.get_parameters()
     assert any(p["name"] == "sourcelanguage" and p["value"] == "pt" for p in params)
 
-    assert agent.run("Translate 'Hello' to Portuguese.").status == "SUCCESS"
+    # The query is Portuguese, matching the pinned sourcelanguage.
+    response = agent.run("Translate: 'Olá, como vai você?'")
+    assert response.status == "SUCCESS"
+    assert response.data.output
 
 
-def test_llm_parameter_is_preserved_on_agent(client, assets):
-    """The exact ``Model`` instance (and its parameter edits) is kept as the agent's llm."""
+def test_llm_parameter_is_persisted_on_agent(client, assets, resource_tracker):
+    """A ``Model`` llm's id and parameter edits survive a save -> fetch round-trip."""
     model = client.Model.get(assets.NON_DEFAULT_LLM)
     model.inputs["temperature"] = 0.1
 
     agent = client.Agent(name=_unique("LLM Param Agent"), instructions="Answer briefly.", llm=model)
+    agent.save()
+    resource_tracker.append(agent)
 
-    assert agent.llm is model
-    assert agent.llm.inputs["temperature"].value == 0.1
+    # A fetch decodes the stored ``model`` as ``{id, name?, parameters?: {name: value}}``.
+    fetched_llm = client.Agent.get(agent.id).llm
+    assert isinstance(fetched_llm, dict), f"unexpected fetched llm shape: {fetched_llm!r}"
+    assert fetched_llm["id"] == assets.NON_DEFAULT_LLM
+    parameters = fetched_llm.get("parameters") or {}
+    assert "temperature" in parameters, f"temperature was not persisted: {fetched_llm!r}"
+    assert float(parameters["temperature"]) == pytest.approx(0.1)
 
 
 @pytest.mark.skip(
     reason=(
         "Backend rejects the Slack send-message payload: 'Unsupported Slack send message field(s). "
-        f"text: Use markdown_text for normal content, or fallback_text with blocks.' ({SLACK_BACKEND_BUG})"
+        "text: Use markdown_text for normal content, or fallback_text with blocks.' (BUG-1098)"
     )
 )
 def test_agent_with_slack_action_tool(client, assets, slack_token, resource_tracker):
@@ -326,9 +356,11 @@ def test_update_draft_agent_name_round_trip(client, resource_tracker):
 
     new_name = _unique("Renamed Agent")
     agent.name = new_name
-    agent.save()
+    agent.save(as_draft=True)
 
-    assert client.Agent.get(agent.id).name == new_name
+    fetched = client.Agent.get(agent.id)
+    assert fetched.name == new_name
+    assert fetched.status == AssetStatus.DRAFT
 
 
 def test_agent_round_trips_execution_and_inspector_fields(client, resource_tracker):
@@ -348,9 +380,15 @@ def test_agent_round_trips_execution_and_inspector_fields(client, resource_track
     assert fetched.max_inspectors == 2
     assert fetched.inspector_targets == ["output"]
     assert fetched.output_format == "json"
-    assert fetched.expected_output
+    # The SDK persists a Pydantic class as ``json.dumps(model_json_schema())``.
+    stored = fetched.expected_output
+    if isinstance(stored, str):
+        stored = json.loads(stored)
+    assert stored == People.model_json_schema()
 
 
+# The JSON shape depends on the LLM honouring the schema.
+@pytest.mark.flaky(reruns=2)
 def test_agent_expected_output_run_returns_json(client, resource_tracker):
     """A run with a JSON schema returns parseable JSON matching the schema."""
     agent = client.Agent(
@@ -392,12 +430,17 @@ def test_agent_persists_file_reference(client, tmp_path, resource_tracker):
 # ---------------------------------------------------------------------------
 
 
-def test_fail_non_existent_llm(client):
+def test_fail_non_existent_llm(client, resource_tracker):
     """Saving an agent with an unknown llm id fails loudly."""
     agent = client.Agent(name=_unique("Bad LLM Agent"), instructions="Answer briefly.", llm="non_existent_llm")
 
-    with pytest.raises(Exception) as excinfo:
-        agent.save()
+    try:
+        # ``save`` is wrapped by ``@with_hooks``, which re-raises backend errors as ResourceError.
+        with pytest.raises(ResourceError) as excinfo:
+            agent.save()
+    finally:
+        # If the backend ever accepts the bad id, the agent must not leak.
+        _track_saved(resource_tracker, agent)
 
     assert "not found" in str(excinfo.value).lower()
 
@@ -412,8 +455,8 @@ def test_delete_agent_in_use_fails(client, resource_tracker):
     team.save()
     resource_tracker.append(team)
 
-    with pytest.raises(APIError) as excinfo:
+    # ``delete`` is wrapped by ``@with_hooks``, which re-raises the APIError as ResourceError.
+    with pytest.raises(ResourceError) as excinfo:
         sub.delete()
 
-    message = str(excinfo.value).lower()
-    assert "cannot be deleted" in message or "team" in message
+    assert "cannot be deleted" in str(excinfo.value).lower()
