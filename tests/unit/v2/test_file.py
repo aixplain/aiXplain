@@ -82,6 +82,12 @@ def test_constructor_rejects_invalid_source(aix, source):
         aix.File(source)
 
 
+def test_constructor_requires_a_source_name_or_id(aix):
+    """A File with nothing to upload and nothing to address is rejected before any request."""
+    with pytest.raises(ValidationError, match="requires a source, name, or backend ID"):
+        aix.File()
+
+
 def test_is_temp_is_not_a_constructor_parameter(tmp_path, aix):
     """is_temp has no real effect, so it must not be offered as a constructor kwarg."""
     local_file = tmp_path / "data.csv"

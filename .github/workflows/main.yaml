@@ -377,8 +377,8 @@ jobs:
   functional:
     needs: functional-scope
     # A job-level `if:` is evaluated before the matrix expands, so when this is
-    # false GitHub reports one skipped `functional` context, not fourteen skipped
-    # `functional (<leg>)` ones. That is why the per-leg contexts are not the ones
+    # false GitHub reports one skipped `functional` context, not a skipped
+    # `functional (<leg>)` one per leg. That is why the per-leg contexts are not the ones
     # to require on `main`; `functional-result` below is (ENG-3683).
     if: needs.functional-scope.outputs.run-functional == 'true'
     runs-on: ubuntu-latest
@@ -424,16 +424,23 @@ jobs:
           'agent',
           'agent-duplicate',
           'agent-llm-persistence',
+          'agent-progress',
           'api-key',
           'arabic-agent',
+          'debugger',
+          'eval',
+          'file',
           'integration',
+          'issue',
           'model',
+          'resource',
           'rlm',
           'session',
           'skill',
           'snake-case-e2e',
           'tool',
           'trigger',
+          'utility',
         ]
         #
         # Keys contributed only by `include` are not part of the job name, so the
@@ -451,17 +458,35 @@ jobs:
           - suite: 'agent-llm-persistence'
             path: 'tests/functional/v2/test_agent_llm_persistence.py'
             timeout: 30
+          - suite: 'agent-progress'
+            path: 'tests/functional/v2/test_agent_progress.py'
+            timeout: 30
           - suite: 'api-key'
             path: 'tests/functional/v2/test_api_key.py'
             timeout: 30
           - suite: 'arabic-agent'
             path: 'tests/functional/v2/test_arabic_agent.py -n 2'
             timeout: 45
+          - suite: 'debugger'
+            path: 'tests/functional/v2/test_debugger.py'
+            timeout: 30
+          - suite: 'eval'
+            path: 'tests/functional/v2/test_eval.py'
+            timeout: 45
+          - suite: 'file'
+            path: 'tests/functional/v2/test_file.py'
+            timeout: 30
           - suite: 'integration'
             path: 'tests/functional/v2/test_integration.py'
             timeout: 30
+          - suite: 'issue'
+            path: 'tests/functional/v2/test_issue.py'
+            timeout: 30
           - suite: 'model'
             path: 'tests/functional/v2/test_model.py'
+            timeout: 30
+          - suite: 'resource'
+            path: 'tests/functional/v2/test_resource.py'
             timeout: 30
           - suite: 'rlm'
             path: 'tests/functional/v2/test_rlm.py'
@@ -480,6 +505,9 @@ jobs:
             timeout: 30
           - suite: 'trigger'
             path: 'tests/functional/v2/test_trigger.py'
+            timeout: 30
+          - suite: 'utility'
+            path: 'tests/functional/v2/test_utility.py'
             timeout: 30
 
     steps:

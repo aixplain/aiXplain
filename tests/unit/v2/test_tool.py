@@ -474,6 +474,10 @@ class TestScriptToolDefaultIntegration:
         with pytest.raises(ValueError, match="No function"):
             Tool(name="Script Tool", description="desc", code="x = 1\n")
 
+    def test_code_with_a_syntax_error_raises(self):
+        with pytest.raises(ValueError, match="not valid Python"):
+            Tool(name="Script Tool", description="desc", code="def main(:\n    return 1\n")
+
     def test_code_accepts_a_callable(self):
         """``ScriptFactory`` migrates to ``Tool``, so a function must work as well
         as a source string -- the migration should not force callers to

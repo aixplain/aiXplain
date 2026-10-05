@@ -35,16 +35,23 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | — | `functional (agent)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (agent-duplicate)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (agent-llm-persistence)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (agent-progress)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (api-key)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (arabic-agent)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (debugger)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (eval)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (file)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (integration)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (issue)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (model)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (resource)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (rlm)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (session)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (skill)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (snake-case-e2e)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (tool)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (trigger)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (utility)` | `main.yaml` | Yes, when in scope | as above |
 
 The `file_asset`, `model`, `general_assets`, `apikey`, `agent` and `team_agent` legs exercised v1
 exclusively and were deleted with it (PROD-2918).
@@ -53,8 +60,8 @@ The v2 functional suite runs one leg per `tests/functional/v2/test_*.py` file, s
 resource that broke. The per-leg contexts are what you read; `functional-result` is what you require.
 
 **Why the legs themselves are not requireable.** "Yes, when in scope" means a leg runs when the
-`functional-scope` job says it should. When it says no, the legs are not reported as fourteen
-skipped `functional (<leg>)` contexts: a job-level `if:` is evaluated *before* the matrix expands,
+`functional-scope` job says it should. When it says no, the legs are not reported as one
+skipped `functional (<leg>)` context each: a job-level `if:` is evaluated *before* the matrix expands,
 so GitHub reports a single skipped context named `functional` instead (documented runner behaviour,
 actions/runner#952). A required `functional (agent)` would then never report on a docs-only or fork
 PR — a permanent "Expected — waiting for status to be reported", which is a merge deadlock rather
