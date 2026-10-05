@@ -317,12 +317,12 @@ def test_llm_capability_properties(client, stream_tool_call_model_id):
 def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):
     """E2E: stream tool-calling returns OpenAI-style tool call deltas in chunks."""
     model = client.Model.get(stream_tool_call_model_id)
-    # The model is pinned *because* it streams (tests/functional/asset_ids.py), so
+    # The model is pinned *because* it streams (tests/functional/_assets.py), so
     # "it does not support streaming" is a regression in the capability flag or a
     # change to the pinned asset -- either way something to fix, not to skip.
     assert model.supports_streaming is not False, (
         f"{model.name} ({model.id}) is pinned as the streaming tool-calling fixture but "
-        "reports supports_streaming=False. Re-pin via AIXPLAIN_TEST_STREAMING_MODEL_ID "
+        "reports supports_streaming=False. Re-pin via AIXPLAIN_TEST_STREAMING_TOOL_CALL_MODEL "
         "if the asset changed."
     )
 
@@ -965,7 +965,7 @@ def test_sync_model_connection_type(client, sync_model_id):
     # metadata is a backend/SDK regression -- the exact thing this test checks.
     assert model.connection_type, (
         f"{model.name} ({model.id}) is pinned as the sync-only fixture but exposes no "
-        "connection_type metadata. Re-pin via AIXPLAIN_TEST_SYNC_MODEL_ID if the asset changed."
+        "connection_type metadata. Re-pin via AIXPLAIN_TEST_SYNC_ONLY_MODEL if the asset changed."
     )
     assert isinstance(model.connection_type, list)
     assert "synchronous" in model.connection_type
@@ -978,7 +978,7 @@ def test_async_model_connection_type(client, async_model_id):
     model = client.Model.get(async_model_id)
     assert model.connection_type, (
         f"{model.name} ({model.id}) is pinned as the async-only fixture but exposes no "
-        "connection_type metadata. Re-pin via AIXPLAIN_TEST_ASYNC_MODEL_ID if the asset changed."
+        "connection_type metadata. Re-pin via AIXPLAIN_TEST_ASYNC_ONLY_MODEL if the asset changed."
     )
     assert isinstance(model.connection_type, list)
     assert "asynchronous" in model.connection_type

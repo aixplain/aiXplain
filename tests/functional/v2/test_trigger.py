@@ -22,7 +22,7 @@ import pytest
 from aixplain.v2 import Trigger, TriggerEventOption
 from aixplain.v2.resource import Page
 
-from tests.functional.asset_ids import require_env
+from tests.functional._helpers import require_env
 
 
 # Far-future instant so a "once" trigger is valid/schedulable.

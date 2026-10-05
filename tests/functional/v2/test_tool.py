@@ -4,7 +4,7 @@ import time
 
 from aixplain.v2.integration import Integration
 
-from tests.functional.asset_ids import resolve_multi_action_tool
+from tests.functional._helpers import resolve_multi_action_tool
 
 
 @pytest.fixture(scope="module")
@@ -20,7 +20,7 @@ def slack_integration_id(assets):
 
 
 @pytest.fixture
-def multi_action_tool(client):
+def multi_action_tool(client, assets):
     """A connected tool with two or more actions.
 
     Both tests below used to sweep `Tool.search()` for such a tool and skip when
@@ -33,7 +33,7 @@ def multi_action_tool(client):
     Function-scoped: both consumers mutate `allowed_actions`, so a shared
     instance would leak one test's setting into the other's assertion.
     """
-    return resolve_multi_action_tool(client)
+    return resolve_multi_action_tool(client, assets.SLACK_INTEGRATION)
 
 
 @pytest.fixture(scope="module")

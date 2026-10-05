@@ -1,6 +1,4 @@
-"""Pinned backend asset ids for the functional suite (ENG-3684).
-
-Also the failure helpers that keep a missing one from turning into a skip.
+"""Failure helpers that keep a missing functional-test fixture from turning into a skip (ENG-3684).
 
 Why this module exists
 ----------------------
@@ -14,68 +12,21 @@ carried dozens of such skips, and one of them, in a module-scoped fixture, took
 a whole file's tool tests out on its own (ENG-3684).
 
 So the rule here is: the test environment must carry the fixtures the tests need.
-An id that is absent is a test-infra failure, and these helpers state it as one,
-with the id in the message so whoever reads the CI log knows exactly what to
-onboard.
+An absent one is a test-infra failure, and these helpers state it as one, with
+the id in the message so whoever reads the CI log knows exactly what to onboard.
 
-Ids are pinned rather than searched so a test exercises the same asset on every
-run; each is overridable by environment variable so a tenant that onboarded a
-different asset can point the suite at it without a code change.
+Asset ids do not live here. Every portable id is a named field in
+`tests/functional/_assets.py` (ENG-3685), read through the `assets` fixture and
+overridable per run with ``AIXPLAIN_TEST_<NAME>``. The one id this module reads
+itself is the multi-action tool's: a connection belongs to the account that made
+it, so there is no portable default to register, only the
+``AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID`` override.
 """
 
 import os
 from typing import NoReturn
 
 import pytest
-
-
-def _pinned(env_var: str, default: str) -> str:
-    """The id to use for a fixture: the environment's override, or the default."""
-    value = os.getenv(env_var)
-    return value.strip() if value and value.strip() else default
-
-
-# ---------------------------------------------------------------------------
-# Models
-# ---------------------------------------------------------------------------
-
-#: GPT-5.4. The general-purpose text-generation model the v2 tests run against.
-TEXT_MODEL_ID = _pinned("AIXPLAIN_TEST_TEXT_MODEL_ID", "69b7e5f1b2fe44704ab0e7d0")
-
-#: A text-generation model that streams *and* emits OpenAI-style tool-call
-#: deltas. Pinned rather than discovered: "find a model that supports streaming"
-#: silently degrades into "skip" the moment the catalogue shifts, which is how
-#: test_model.py's streaming coverage went dark.
-STREAMING_TOOL_CALL_MODEL_ID = _pinned("AIXPLAIN_TEST_STREAMING_MODEL_ID", "69727676c60248082d79932f")
-
-#: Cloud Translation -- synchronous-only, used to assert connection_type metadata.
-SYNC_MODEL_ID = _pinned("AIXPLAIN_TEST_SYNC_MODEL_ID", "66aa869f6eb56342c26057e1")
-
-#: Amazon Translate -- asynchronous-only, the other half of that pair.
-ASYNC_MODEL_ID = _pinned("AIXPLAIN_TEST_ASYNC_MODEL_ID", "6686e7946eb563a724229b84")
-
-# ---------------------------------------------------------------------------
-# Integrations and tools
-# ---------------------------------------------------------------------------
-
-#: The Slack integration. Its actions/inputs are the fixture behind the
-#: Actions -> Action -> Inputs -> Input hierarchy tests.
-SLACK_INTEGRATION_ID = _pinned("AIXPLAIN_TEST_SLACK_INTEGRATION_ID", "686432941223092cb4294d3f")
-
-#: "Tavily Web Search" connector tool (single action: search). Fetched by id: the
-#: marketplace path tavily/tavily-search-api/Tavily collides with the Legacy
-#: Tavily asset (6736411c...), whose single generic 'run' action breaks these tests.
-TAVILY_TOOL_ID = _pinned("AIXPLAIN_TEST_TAVILY_TOOL_ID", "6931bdf462eb386b7158def3")
-
-#: A *connected* tool exposing two or more actions. Unlike the ids above this one
-#: is tenant-specific -- a connection belongs to the account that made it -- so it
-#: has no portable default and is resolved from `SLACK_INTEGRATION_ID` when the
-#: override is unset. Set the override to skip the lookup and pin an exact tool.
-MULTI_ACTION_TOOL_ID = _pinned("AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID", "")
-
-# ---------------------------------------------------------------------------
-# Failure helpers
-# ---------------------------------------------------------------------------
 
 
 def missing_fixture(what: str, detail: str = "", env_var: str = "") -> NoReturn:
@@ -124,6 +75,10 @@ def require_env(name: str, purpose: str) -> str:
 _SEARCH_PAGES = 5
 _SEARCH_PAGE_SIZE = 20
 
+#: A *connected* tool exposing two or more actions. Unlike the ids in
+#: `tests/functional/_assets.py` this one is tenant-specific, so it has no
+#: default: unset, `resolve_multi_action_tool` searches for a tool backed by the
+#: Slack integration instead. Set it to skip the lookup and pin an exact tool.
 _MULTI_ACTION_TOOL_ENV = "AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID"
 
 
@@ -135,22 +90,29 @@ def _action_count(tool) -> int:
         return 0
 
 
-def resolve_multi_action_tool(client):
+def resolve_multi_action_tool(client, slack_integration_id: str):
     """Return a connected tool exposing two or more actions.
 
-    Prefers the pinned `MULTI_ACTION_TOOL_ID`. Without one, searches up to
-    `_SEARCH_PAGES` pages of tools for one backed by the pinned Slack integration
-    -- a connection id is tenant-specific, so there is no portable default to pin.
-    Either way the tool must list at least two actions, and *not finding one
-    fails*: the multi-action tests cannot run without such a tool, and the tenant
-    is expected to carry a Slack connection.
+    Prefers the tool pinned by ``AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID``. Without
+    one, searches up to `_SEARCH_PAGES` pages of tools for one backed by
+    *slack_integration_id* -- a connection id is tenant-specific, so there is no
+    portable default to pin. Either way the tool must list at least two actions,
+    and *not finding one fails*: the multi-action tests cannot run without such a
+    tool, and the tenant is expected to carry a Slack connection.
+
+    Args:
+        client: The ``Aixplain`` client for this run.
+        slack_integration_id: The Slack integration the searched-for tool must be
+            backed by. Callers pass ``assets.SLACK_INTEGRATION``, so the id comes
+            from the shared registry like every other one.
     """
-    if MULTI_ACTION_TOOL_ID:
-        tool = client.Tool.get(MULTI_ACTION_TOOL_ID)
+    pinned = (os.getenv(_MULTI_ACTION_TOOL_ENV) or "").strip()
+    if pinned:
+        tool = client.Tool.get(pinned)
         count = _action_count(tool)
         if count < 2:
             missing_fixture(
-                f"a connected tool with two or more actions at {MULTI_ACTION_TOOL_ID}",
+                f"a connected tool with two or more actions at {pinned}",
                 f"The pinned tool lists {count} action(s).",
                 env_var=_MULTI_ACTION_TOOL_ENV,
             )
@@ -164,7 +126,7 @@ def resolve_multi_action_tool(client):
         for tool in page.results:
             # Both fields come with the search result, so only a tool that passes
             # them costs a LIST_ACTIONS request.
-            if not (tool.actions_available and tool.integration_id == SLACK_INTEGRATION_ID):
+            if not (tool.actions_available and tool.integration_id == slack_integration_id):
                 continue
             slack_backed.append(tool.id)
             if _action_count(tool) >= 2:
@@ -173,9 +135,9 @@ def resolve_multi_action_tool(client):
             break
 
     missing_fixture(
-        f"a connected tool backed by the Slack integration {SLACK_INTEGRATION_ID} with two or more actions",
+        f"a connected tool backed by the Slack integration {slack_integration_id} with two or more actions",
         f"Searched {searched} tool(s) in up to {_SEARCH_PAGES} page(s) of {_SEARCH_PAGE_SIZE}, filtering on "
-        f"integration_id == {SLACK_INTEGRATION_ID}; Slack-backed tools with actions available: "
+        f"integration_id == {slack_integration_id}; Slack-backed tools with actions available: "
         f"{slack_backed or 'none'}, none listing two or more. Connect Slack in this tenant.",
         env_var=_MULTI_ACTION_TOOL_ENV,
     )

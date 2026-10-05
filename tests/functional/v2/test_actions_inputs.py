@@ -10,7 +10,7 @@ Covers both Model (single "run" action + shorthand) and Tool (multiple actions).
 import pytest
 
 from aixplain.v2.actions import Actions, Action, Inputs, Input
-from tests.functional.asset_ids import missing_fixture, resolve_multi_action_tool
+from tests.functional._helpers import missing_fixture, resolve_multi_action_tool
 
 
 # ---------------------------------------------------------------------------
@@ -24,7 +24,7 @@ def model(client, assets):
 
 
 @pytest.fixture(scope="module")
-def tool(client):
+def tool(client, assets):
     """The connected, multi-action tool the TOOL sections below are written against.
 
     This fixture used to search for any tool with actions and skip when it found
@@ -36,7 +36,7 @@ def tool(client):
     finding one is a failure: these tests cannot verify the Actions hierarchy
     without such a tool, and pretending otherwise is what made the leg lie.
     """
-    return resolve_multi_action_tool(client)
+    return resolve_multi_action_tool(client, assets.SLACK_INTEGRATION)
 
 
 @pytest.fixture(scope="module")
