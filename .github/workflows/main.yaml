@@ -308,7 +308,7 @@ jobs:
             path: 'tests/functional/v2/test_snake_case_e2e.py'
             timeout: 30
           - suite: 'team-agent'
-            path: 'tests/functional/v2/test_team_agent.py'
+            path: 'tests/functional/v2/test_team_agent.py -n 2'
             timeout: 45
           - suite: 'tool'
             path: 'tests/functional/v2/test_tool.py'

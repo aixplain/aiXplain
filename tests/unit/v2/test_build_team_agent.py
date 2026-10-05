@@ -2,16 +2,17 @@
 
 The v1 file lived at ``tests/functional/team_agent/build_team_agent_test.py``
 but used ``mocker`` and touched no backend, so it was a unit test occupying a
-functional CI leg. It now lives under ``tests/unit/`` where it belongs.
+functional CI leg. It now lives under ``tests/unit/v2/``.
 
 v1's ``aixplain.factories.team_agent_factory.utils.build_team_agent(payload)``
 was removed with v1; in v2 the same job is ``Agent.from_dict(payload)``. The
 assertions below preserve the legacy intent: a team payload decodes to an agent
-whose ``agents`` are the referenced subagent ids and whose task dependencies
-resolve to the depended-on task name.
+whose ``agents`` are the referenced subagent ids, and a task dependency resolves
+to the depended-on task's name.
 """
 
 from aixplain.v2 import Agent
+from aixplain.v2.agent import Task
 
 TEAM_PAYLOAD = {
     "id": "123",
@@ -25,7 +26,7 @@ TEAM_PAYLOAD = {
 }
 
 
-def test_build_team_agent_decodes_core_fields_and_agents():
+def test_team_payload_decodes_core_fields_and_agents():
     """The decoded team keeps its identity and references both subagents."""
     team = Agent.from_dict(TEAM_PAYLOAD)
 
@@ -36,35 +37,30 @@ def test_build_team_agent_decodes_core_fields_and_agents():
     assert team.planner == {"id": "planner-1"}
 
 
-def test_build_team_agent_resolves_task_dependency_names():
-    """A task's ``dependencies`` decode to the names of the tasks they depend on.
+def test_task_dependency_on_a_task_object_resolves_to_its_name():
+    """A ``Task`` passed as a dependency is stored, and saved, as that task's name.
 
     This is the v2 shape of the legacy ``agent1.tasks[0].dependencies[0].name``
-    assertion: ``Task.__post_init__`` normalizes dependencies to names, so the
-    dependency is a string here.
+    assertion: ``Task.__post_init__`` normalizes a ``Task`` dependency to its
+    name, which is what the backend expects on the wire.
     """
-    agent = Agent.from_dict(
-        {
-            "id": "agent1",
-            "name": "Test Agent 1",
-            "tasks": [
-                {
-                    "name": "Test Task 1",
-                    "description": "Test Task Description",
-                    "expectedOutput": "Test Task Output",
-                    "dependencies": ["Test Task 2"],
-                },
-            ],
-        }
+    gather = Task(name="Test Task 2", instructions="Gather the facts", expected_output="facts")
+    summarize = Task(
+        name="Test Task 1",
+        instructions="Test Task Description",
+        expected_output="Test Task Output",
+        dependencies=[gather],
     )
+    agent = Agent(name="Test Agent 1", tasks=[summarize, gather])
 
-    assert agent.tasks[0].name == "Test Task 1"
-    assert agent.tasks[0].instructions == "Test Task Description"
-    assert agent.tasks[0].expected_output == "Test Task Output"
     assert agent.tasks[0].dependencies == ["Test Task 2"]
+    saved_tasks = agent.build_save_payload()["tasks"]
+    assert saved_tasks[0]["dependencies"] == ["Test Task 2"]
+    assert saved_tasks[0]["description"] == "Test Task Description"
+    assert saved_tasks[0]["expectedOutput"] == "Test Task Output"
 
 
-def test_build_team_agent_save_payload_serializes_agents_as_objects():
+def test_team_save_payload_serializes_agents_as_objects():
     """A decoded team round-trips to the ``agents: [{id, inspectors}]`` wire shape."""
     payload = Agent.from_dict(TEAM_PAYLOAD).build_save_payload()
 
