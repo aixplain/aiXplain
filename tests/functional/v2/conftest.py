@@ -35,6 +35,13 @@ def _backend_url():
     repeated here: the id space that module selects and the backend this client
     talks to have to be the same one, and two copies of the literal is exactly
     how they would stop being (ENG-3685).
+
+    That default is the test backend, the one CI's non-`main` runs use. It used
+    to be dev-platform-api while CI ran these suites against test-platform-api
+    (ENG-3683). The asset ids in tests/functional/ exist on one backend at a
+    time, so a developer with no BACKEND_URL was validating them against a
+    different environment than the one whose result gates a merge -- and each
+    side read as "it passes for me".
     """
     return os.getenv("BACKEND_URL") or DEFAULT_BACKEND_URL
 

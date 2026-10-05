@@ -856,8 +856,8 @@ def test_no_functional_test_hard_codes_an_asset_id():
     """An inline ObjectId names no asset and works on only one backend.
 
     CI resolves these ids against `test-platform-api`, `main` resolves them
-    against production and a laptop resolves them against `dev-platform-api`:
-    three id spaces, so a retired asset failed one leg at a time and read as an
+    against production and a laptop pointed at `dev-platform-api` resolves them
+    there: three id spaces, so a retired asset failed one leg at a time and read as an
     unrelated backend error each time (ENG-3685).
     """
     offenders = _object_id_offenders()

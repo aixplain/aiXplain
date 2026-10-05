@@ -87,6 +87,17 @@ def test_the_default_backend_is_the_one_the_v2_conftest_builds_against():
     assert environment_for(environ={}) == environment_for(DEFAULT_BACKEND_URL, environ={})
 
 
+def test_an_unset_backend_selects_the_test_id_space():
+    """The default backend is the one CI's non-`main` runs use, not dev (ENG-3683).
+
+    `TEST` is `DEV` until an entry in `_assets.py` says otherwise, so moving the
+    default changed which id space is selected but not which ids are read.
+    """
+    assert DEFAULT_BACKEND_URL == TEST_URL
+    assert environment_for(environ={}) == "test"
+    assert assets_for(environ={}) == ASSETS_BY_ENVIRONMENT["test"]
+
+
 def test_an_unknown_backend_is_an_error_not_a_silent_default():
     """Falling back to `dev` here is how a leg goes green while resolving nothing."""
     with pytest.raises(UnknownBackendError) as excinfo:
