@@ -24,13 +24,15 @@ import pytest
 
 from aixplain.v2 import Inspector
 
-from tests.functional.asset_ids import TEXT_MODEL_ID
-
 ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
 
+#: (display name, asset name in `tests/functional/_assets.py`). Parametrising
+#: on the asset *name* keeps collection backend-independent: the id is resolved
+#: from the `assets` fixture at setup, so the same parameter ids run against
+#: dev, test and prod. gpt-5.4 is the registry's ``DEFAULT_LLM``.
 MODELS = [
-    pytest.param("gpt-5.4", TEXT_MODEL_ID, id="gpt-5.4"),
-    pytest.param("claude-opus-4.6", "698c87701239a117fd66b468", id="claude-opus-4.6"),
+    pytest.param("gpt-5.4", "DEFAULT_LLM", id="gpt-5.4"),
+    pytest.param("claude-opus-4.6", "CLAUDE_LLM", id="claude-opus-4.6"),
 ]
 
 ARABIC_QUERIES = {
@@ -266,10 +268,10 @@ def _make_output_inspector(llm_id: str, model_name: str):
 
 
 @pytest.mark.flaky(reruns=1, reruns_delay=5, rerun_except=_NO_OUTPUT_FAILURE)
-@pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
-def test_arabic_single_agent(client, resource_tracker, model_name, llm_id):
+@pytest.mark.parametrize(("model_name", "llm_asset"), MODELS)
+def test_arabic_single_agent(client, assets, resource_tracker, model_name, llm_asset):
     """An agent with diacritic Arabic instructions answers a mixed Arabic/English query in Arabic."""
-    agent = _make_single_agent(client, resource_tracker, llm_id, model_name)
+    agent = _make_single_agent(client, resource_tracker, getattr(assets, llm_asset), model_name)
 
     output, _ = _run_until_output(
         lambda: agent.run(ARABIC_QUERIES["mixed_ar_en"]),
@@ -279,9 +281,10 @@ def test_arabic_single_agent(client, resource_tracker, model_name, llm_id):
 
 
 @pytest.mark.flaky(reruns=1, reruns_delay=5, rerun_except=_NO_OUTPUT_FAILURE)
-@pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
-def test_arabic_team_agent_with_inspector(client, resource_tracker, model_name, llm_id):
+@pytest.mark.parametrize(("model_name", "llm_asset"), MODELS)
+def test_arabic_team_agent_with_inspector(client, assets, resource_tracker, model_name, llm_asset):
     """One team run covers Arabic team serialization, delegation, and an Arabic-prompted inspector."""
+    llm_id = getattr(assets, llm_asset)
     inspector = _make_output_inspector(llm_id, model_name)
     team_agent = _make_team_agent(client, resource_tracker, llm_id, model_name, inspectors=[inspector])
 

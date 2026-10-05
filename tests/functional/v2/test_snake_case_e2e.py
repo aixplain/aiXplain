@@ -12,15 +12,13 @@ import pytest
 
 from aixplain.v2.integration import ActionInputSpec, ActionSpec
 
-from tests.functional.asset_ids import SLACK_INTEGRATION_ID, TEXT_MODEL_ID
-
 
 class TestToolDictFieldsRoundTrip:
     """as_tool() produces snake_case keys; save must convert them so the backend stores the value."""
 
-    def test_asset_id_round_trips_through_backend(self, client, resource_tracker):
+    def test_asset_id_round_trips_through_backend(self, client, assets, resource_tracker):
         """Set asset_id (renamed from assetId) via as_tool(), save agent, fetch back, compare."""
-        model = client.Model.get(TEXT_MODEL_ID)
+        model = client.Model.get(assets.DEFAULT_LLM)
         tool_dict = model.as_tool()
 
         # Value we're about to send (snake_case key)
@@ -46,9 +44,9 @@ class TestToolDictFieldsRoundTrip:
             f"asset_id we sent ({sent_asset_id}) != assetId backend returned ({saved_tool.get('assetId')})"
         )
 
-    def test_allow_multi_and_supports_variables_round_trip(self, client, resource_tracker):
+    def test_allow_multi_and_supports_variables_round_trip(self, client, assets, resource_tracker):
         """get_parameters() returns allow_multi / supports_variables; verify values survive save."""
-        model = client.Model.get(TEXT_MODEL_ID)
+        model = client.Model.get(assets.DEFAULT_LLM)
         params = model.get_parameters()
         # The model is pinned as the parameterised fixture; no parameters means
         # either the wrong asset or a broken get_parameters(), both worth failing.
@@ -92,23 +90,24 @@ class TestToolDictFieldsRoundTrip:
 class TestInputActionFieldsRoundTrip:
     """Input / Action fields are read from the backend; verify snake_case ↔ camelCase mapping."""
 
-    def test_input_fields_survive_serialization_round_trip(self, client):
+    def test_input_fields_survive_serialization_round_trip(self, client, assets):
         """Fetch real Input from API, read snake_case attrs, to_dict → from_dict, values match."""
-        integration = client.Integration.get(SLACK_INTEGRATION_ID)
+        slack_id = assets.SLACK_INTEGRATION
+        integration = client.Integration.get(slack_id)
         # Every step below used to skip on an empty result. The Slack integration
         # is pinned precisely because it has actions with inputs, so an empty
         # result is a missing fixture or a broken listing endpoint (ENG-3684).
-        assert integration.actions_available, f"Pinned integration {SLACK_INTEGRATION_ID} reports no actions available."
+        assert integration.actions_available, f"Pinned integration {slack_id} reports no actions available."
 
         actions = integration.list_actions()
-        assert actions, f"Pinned integration {SLACK_INTEGRATION_ID} returned no actions."
+        assert actions, f"Pinned integration {slack_id} returned no actions."
 
         action_name = actions[0].name or actions[0].slug
-        assert action_name, f"First action of {SLACK_INTEGRATION_ID} has neither a name nor a slug."
+        assert action_name, f"First action of {slack_id} has neither a name nor a slug."
 
         input_actions = integration.list_inputs(action_name)
         assert input_actions and input_actions[0].inputs, (
-            f"Action {action_name!r} on {SLACK_INTEGRATION_ID} declares no inputs, so the "
+            f"Action {action_name!r} on {slack_id} declares no inputs, so the "
             "snake_case round-trip has nothing to verify."
         )
 
@@ -128,13 +127,14 @@ class TestInputActionFieldsRoundTrip:
         assert restored.supports_variables == orig_supports_variables
         assert restored.available_options == orig_available_options
 
-    def test_action_display_name_survives_round_trip(self, client):
+    def test_action_display_name_survives_round_trip(self, client, assets):
         """Fetch real Action from API, read display_name, to_dict → from_dict, value matches."""
-        integration = client.Integration.get(SLACK_INTEGRATION_ID)
-        assert integration.actions_available, f"Pinned integration {SLACK_INTEGRATION_ID} reports no actions available."
+        slack_id = assets.SLACK_INTEGRATION
+        integration = client.Integration.get(slack_id)
+        assert integration.actions_available, f"Pinned integration {slack_id} reports no actions available."
 
         actions = integration.list_actions()
-        assert actions, f"Pinned integration {SLACK_INTEGRATION_ID} returned no actions."
+        assert actions, f"Pinned integration {slack_id} returned no actions."
 
         original = actions[0]
         orig_display_name = original.display_name

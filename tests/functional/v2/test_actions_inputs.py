@@ -10,7 +10,7 @@ Covers both Model (single "run" action + shorthand) and Tool (multiple actions).
 import pytest
 
 from aixplain.v2.actions import Actions, Action, Inputs, Input
-from tests.functional.asset_ids import TEXT_MODEL_ID, missing_fixture, resolve_multi_action_tool
+from tests.functional.asset_ids import missing_fixture, resolve_multi_action_tool
 
 
 # ---------------------------------------------------------------------------
@@ -19,8 +19,8 @@ from tests.functional.asset_ids import TEXT_MODEL_ID, missing_fixture, resolve_m
 
 
 @pytest.fixture(scope="module")
-def model(client):
-    return client.Model.get(TEXT_MODEL_ID)
+def model(client, assets):
+    return client.Model.get(assets.DEFAULT_LLM)
 
 
 @pytest.fixture(scope="module")

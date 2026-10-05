@@ -1,31 +1,23 @@
 import pytest
 from aixplain.v2 import SortBy, SortOrder
 
-from tests.functional.asset_ids import (
-    ASYNC_MODEL_ID,
-    SLACK_INTEGRATION_ID,
-    STREAMING_TOOL_CALL_MODEL_ID,
-    SYNC_MODEL_ID,
-    TEXT_MODEL_ID,
-)
-
 
 @pytest.fixture(scope="module")
-def text_model_id():
+def text_model_id(assets):
     """Return a text-generation model ID for testing."""
-    return TEXT_MODEL_ID
+    return assets.DEFAULT_LLM
 
 
 @pytest.fixture(scope="module")
-def stream_tool_call_model_id():
+def stream_tool_call_model_id(assets):
     """Return model ID dedicated to streaming tool-calling e2e tests."""
-    return STREAMING_TOOL_CALL_MODEL_ID
+    return assets.STREAMING_TOOL_CALL_MODEL
 
 
 @pytest.fixture(scope="module")
-def slack_integration_id():
+def slack_integration_id(assets):
     """Return a Slack integration model ID for testing."""
-    return SLACK_INTEGRATION_ID
+    return assets.SLACK_INTEGRATION
 
 
 def validate_model_structure(model):
@@ -955,15 +947,15 @@ def test_model_inputs_proxy_integration_with_run(client, text_model_id):
 
 
 @pytest.fixture(scope="module")
-def sync_model_id():
+def sync_model_id(assets):
     """Return a sync-only model ID for testing (Cloud Translation)."""
-    return SYNC_MODEL_ID
+    return assets.SYNC_ONLY_MODEL
 
 
 @pytest.fixture(scope="module")
-def async_model_id():
+def async_model_id(assets):
     """Return an async-only model ID for testing (Amazon Translate)."""
-    return ASYNC_MODEL_ID
+    return assets.ASYNC_ONLY_MODEL
 
 
 def test_sync_model_connection_type(client, sync_model_id):
@@ -1006,9 +998,9 @@ def test_sync_model_run(client, sync_model_id):
     assert "Hola" in result.data or "hola" in result.data.lower()
 
 
-def test_seedream_run_returns_non_poll_url_without_polling(client):
+def test_seedream_run_returns_non_poll_url_without_polling(client, assets):
     """Sync model run should return Seedream's final output URL without polling it."""
-    model = client.Model.get("69f347e7de823633d9604dfd")
+    model = client.Model.get(assets.SEEDREAM_MODEL)
 
     result = model.run(
         text="A small red cube on a plain white background.",

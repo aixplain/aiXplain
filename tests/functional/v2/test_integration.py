@@ -1,12 +1,10 @@
 import pytest
 
-from tests.functional.asset_ids import SLACK_INTEGRATION_ID
-
 
 @pytest.fixture(scope="module")
-def slack_integration_id():
+def slack_integration_id(assets):
     """Return a Slack integration model ID for testing."""
-    return SLACK_INTEGRATION_ID
+    return assets.SLACK_INTEGRATION
 
 
 def validate_integration_structure(integration):
