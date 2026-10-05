@@ -34,6 +34,7 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | — | `functional (actions-inputs)` | `main.yaml` | Yes, when in scope | **Do not require** — informational, see below |
 | — | `functional (agent)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (agent-duplicate)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (agent-lifecycle)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (agent-llm-persistence)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (agent-progress)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (api-key)` | `main.yaml` | Yes, when in scope | as above |

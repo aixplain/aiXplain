@@ -423,6 +423,7 @@ jobs:
           'actions-inputs',
           'agent',
           'agent-duplicate',
+          'agent-lifecycle',
           'agent-llm-persistence',
           'agent-progress',
           'api-key',
@@ -456,6 +457,9 @@ jobs:
           - suite: 'agent-duplicate'
             path: 'tests/functional/v2/test_agent_duplicate.py'
             timeout: 30
+          - suite: 'agent-lifecycle'
+            path: 'tests/functional/v2/test_agent_lifecycle.py -n 2'
+            timeout: 45
           - suite: 'agent-llm-persistence'
             path: 'tests/functional/v2/test_agent_llm_persistence.py'
             timeout: 30
