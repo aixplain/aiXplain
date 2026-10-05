@@ -462,7 +462,8 @@ def _run_platform_tool_agent(client, tracker, tools: list, prompt: str, test_suf
 # Firecrawl
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always choose to call the scrape action")
+# flaky: the LLM may not always choose to call the scrape action.
+@pytest.mark.flaky(reruns=2)
 def test_agent_firecrawl_scrape_tool(client, assets, resource_tracker):
     """
     Verifies:
@@ -498,7 +499,8 @@ def test_agent_firecrawl_scrape_tool(client, assets, resource_tracker):
 # Tavily
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always invoke Tavily")
+# flaky: the LLM may not always invoke Tavily.
+@pytest.mark.flaky(reruns=2)
 def test_agent_tavily_web_search_tool(client, assets, resource_tracker):
     """
     Verifies:
@@ -535,7 +537,8 @@ def test_agent_tavily_web_search_tool(client, assets, resource_tracker):
 # Web Search Tool
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always invoke the Web Search tool")
+# flaky: the LLM may not always invoke the Web Search tool.
+@pytest.mark.flaky(reruns=2)
 def test_agent_web_search_tool(client, resource_tracker):
     """
     Verifies:

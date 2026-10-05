@@ -100,16 +100,6 @@ def validate_tool_structure(tool):
     if tool.status is not None:
         assert hasattr(tool.status, "value"), "Tool status should be an enum with value attribute"
 
-    # Tool doesn't have hosted_by, developed_by, or supplier attributes, skip these checks
-    # if hasattr(tool, "host") and tool.host is not None:
-    #     assert isinstance(tool.host, str), "Tool host should be a string"
-    # if hasattr(tool, "developer") and tool.developer is not None:
-    #     assert isinstance(tool.developer, str), "Tool developer should be a string"
-    # if hasattr(tool, "supplier") and tool.supplier is not None:
-    #     assert hasattr(tool.supplier, "id"), "Tool supplier should have id attribute"
-    #     assert hasattr(tool.supplier, "name"), "Tool supplier should have name attribute"
-    #     assert hasattr(tool.supplier, "code"), "Tool supplier should have code attribute"
-
     if tool.function is not None:
         assert isinstance(tool.function, (dict, str)), "Tool function should be dict or string"
 

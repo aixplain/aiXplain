@@ -95,6 +95,12 @@ Eight v1 factories — `IndexFactory`, `PipelineFactory`, `BenchmarkFactory`,
 on any of them, stay on `0.2.48` and
 [open an issue](https://github.com/aixplain/aiXplain/issues) naming it.
 
+`aixplain._compat.AixplainV1DeprecationWarning` is kept as an importable name,
+although nothing emits it any more. `-W` options and `filterwarnings` entries
+that name it (for example `error::aixplain._compat.AixplainV1DeprecationWarning`)
+keep resolving instead of failing as an unknown warning category. It still
+subclasses `DeprecationWarning`.
+
 ### Removed: `aix.Utility`
 
 Custom Python code is a `Tool` in v2, not a separate resource. `aix.Tool(code=...)`

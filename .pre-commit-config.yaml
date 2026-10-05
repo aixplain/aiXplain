@@ -22,11 +22,14 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.12
     hooks:
+      # Lint (pydocstyle `D`, the only selected rule set) covers aixplain/v2/.
+      # Tests are format-checked only: ruff.toml exempts them from `D`, so
+      # linting them would check nothing (see the per-file-ignores there).
       - id: ruff
         args: [--fix]
         files: ^aixplain/v2/
       - id: ruff-format
-        files: ^aixplain/v2/
+        files: ^(aixplain/v2/|tests/)
 
   - repo: local
     hooks:

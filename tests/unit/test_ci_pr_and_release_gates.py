@@ -694,8 +694,7 @@ def test_the_nightly_failure_notification_is_wired_to_the_whole_run():
     job = _job(MAIN_WORKFLOW, "nightly-report")
     condition = str(job.get("if", ""))
     assert "always()" in condition, (
-        "`nightly-report` does not use `always()`, so it is skipped by the very failures it "
-        "exists to announce."
+        "`nightly-report` does not use `always()`, so it is skipped by the very failures it exists to announce."
     )
     assert "schedule" in condition, (
         "`nightly-report` is not scoped to the `schedule` event; a Slack message per red PR is "

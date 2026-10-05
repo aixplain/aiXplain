@@ -223,7 +223,7 @@ def test_parked_targets_still_exist_and_still_hold_tests(target):
 
 @pytest.mark.parametrize("target", sorted(PARKED_TARGETS))
 def test_parked_targets_cite_a_ticket(target):
-    """"Parked because it was flaky" is how coverage disappears for a year."""
+    """ "Parked because it was flaky" is how coverage disappears for a year."""
     reason = PARKED_TARGETS[target]
     assert _TICKET_PATTERN.search(reason), (
         f"the PARKED_TARGETS reason for {target} cites no ticket ({reason!r}); parked coverage needs "
