@@ -68,10 +68,6 @@ from pydantic import BaseModel
 from aixplain.v2 import AssetStatus
 from aixplain.v2.exceptions import ResourceError
 
-# Replaced by the shared assets fixture once ENG-3685 is in this branch.
-#: A non-default LLM, so a role override cannot be confused with the platform default.
-ALT_LLM = "698c87701239a117fd66b468"
-
 #: Team instructions that make delegation mandatory, so a run's steps must name a subagent.
 DELEGATE = "Always delegate the user's request to one of your agents and never answer it yourself."
 
@@ -261,7 +257,7 @@ def test_team_agent_llm_parameter_preservation(client, resource_tracker):
 
 
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
-def test_role_llm_overrides_persisted_and_used(client, resource_tracker):
+def test_role_llm_overrides_persisted_and_used(client, resource_tracker, assets):
     """``planner`` / ``supervisor`` / ``response_generator`` overrides persist, and the team runs with them.
 
     The run-payload half (``modelParameters``) is pure SDK serialization and is
@@ -271,23 +267,24 @@ def test_role_llm_overrides_persisted_and_used(client, resource_tracker):
     sub = client.Agent(name=_name("TA-roles-sub"), instructions="Answer briefly.")
     sub.save()
     resource_tracker.append(sub)
-    # ALT_LLM (Claude Opus) is switched to the cheaper NON_DEFAULT_LLM when the shared
-    # assets fixture lands; any non-default model proves the override.
+    # Any non-default model proves the override; NON_DEFAULT_LLM is much cheaper than CLAUDE_LLM.
+    model_id = assets.NON_DEFAULT_LLM
+    assert model_id != client.Agent.DEFAULT_LLM, "NON_DEFAULT_LLM must differ from the SDK default LLM"
     team = client.Agent(
         name=_name("TA-roles-team"),
         instructions="Coordinate the subagents.",
         agents=[sub],
-        planner={"id": ALT_LLM, "parameters": {"temperature": "0.1"}},
-        supervisor={"id": ALT_LLM, "parameters": {"temperature": "0.2"}},
-        response_generator={"id": ALT_LLM, "parameters": {"temperature": "0.4"}},
+        planner={"id": model_id, "parameters": {"temperature": "0.1"}},
+        supervisor={"id": model_id, "parameters": {"temperature": "0.2"}},
+        response_generator={"id": model_id, "parameters": {"temperature": "0.4"}},
     )
     team.save()
     resource_tracker.append(team)
 
     fetched = client.Agent.get(team.id)
-    _assert_role(fetched.planner, ALT_LLM, {"temperature": "0.1"})
-    _assert_role(fetched.supervisor, ALT_LLM, {"temperature": "0.2"})
-    _assert_role(fetched.response_generator, ALT_LLM, {"temperature": "0.4"})
+    _assert_role(fetched.planner, model_id, {"temperature": "0.1"})
+    _assert_role(fetched.supervisor, model_id, {"temperature": "0.2"})
+    _assert_role(fetched.response_generator, model_id, {"temperature": "0.4"})
 
     _assert_success(fetched.run("Reply with exactly the word OK."))
 
