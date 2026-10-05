@@ -8,8 +8,12 @@ real pagination metadata, and an unknown id raises.
 
 import pytest
 
+from aixplain.v2 import SortBy, SortOrder
 from aixplain.v2.exceptions import APIError
 from aixplain.v2.resource import Page
+
+#: Page size for the paging test: small, but more than one record per page.
+_PAGE_SIZE = 3
 
 
 @pytest.fixture(scope="module")
@@ -48,9 +52,20 @@ def test_get_unknown_id_raises(client):
 
 
 def test_second_page_does_not_repeat_the_first(client):
-    first = client.Model.search(page_size=1, page_number=0)
-    second = client.Model.search(page_size=1, page_number=1)
+    """Two consecutive pages of a sorted search share no record.
 
-    assert first.total >= 2, f"need at least two models to page through, got total={first.total}"
-    assert first.results and second.results, (first.results, second.results)
-    assert first.results[0].id != second.results[0].id
+    Sorted by creation time so the order is stable across requests: without a sort
+    the SDK sends ``sort: [{}]`` and the backend's order is not guaranteed between
+    two calls. Pages 1 and 2 are compared rather than 0 and 1 because they are two
+    distinct pages whether the backend counts ``pageNumber`` from 0 or from 1; in
+    the first live CI run pages 0 and 1 of an unsorted single-item search returned
+    the same model.
+    """
+    search = dict(page_size=_PAGE_SIZE, sort_by=SortBy.CREATED_AT, sort_order=SortOrder.ASC)
+    first = client.Model.search(page_number=1, **search)
+    second = client.Model.search(page_number=2, **search)
+
+    assert first.total >= 3 * _PAGE_SIZE, f"need at least three pages of models, got total={first.total}"
+    assert len(first.results) == _PAGE_SIZE and len(second.results) == _PAGE_SIZE, (first.results, second.results)
+    overlap = {model.id for model in first.results} & {model.id for model in second.results}
+    assert not overlap, f"pages 1 and 2 share {sorted(overlap)}"
