@@ -26,8 +26,8 @@ def multi_action_tool(client, assets):
     the sweep came up empty, so an environment with no Slack connection reported
     green for the allowed_actions serialisation path (ENG-3684). The tool now
     comes from `resolve_multi_action_tool` -- the AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID
-    override, or a bounded search for a Slack-backed tool -- and its absence is a
-    failure.
+    override, or a bounded search that prefers a Slack-backed tool and falls back
+    to any connected tool with two or more actions -- and its absence is a failure.
 
     Function-scoped: both consumers mutate `allowed_actions`, so a shared
     instance would leak one test's setting into the other's assertion.

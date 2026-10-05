@@ -33,8 +33,8 @@ def tool(client, assets):
     classes below with it, and the leg still exited 0 (ENG-3684). A connected
     tool is tenant-specific, so it cannot be pinned portably:
     `resolve_multi_action_tool` uses AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID when set
-    and otherwise searches for a Slack-backed tool with two or more actions. Not
-    finding one is a failure: these tests cannot verify the Actions hierarchy
+    and otherwise searches for a tool with two or more actions, Slack-backed ones
+    first, then any other connected tool. Not finding one is a failure: these tests cannot verify the Actions hierarchy
     without such a tool, and pretending otherwise is what made the leg lie.
     """
     return resolve_multi_action_tool(client, assets.SLACK_INTEGRATION)

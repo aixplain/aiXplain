@@ -24,7 +24,7 @@ it, so there is no portable default to register, only the
 """
 
 import os
-from typing import NoReturn
+from typing import Any, List, NoReturn, Tuple
 
 import pytest
 
@@ -70,15 +70,17 @@ def require_env(name: str, purpose: str) -> str:
 
 
 #: How far `resolve_multi_action_tool` searches before giving up: at most
-#: `_SEARCH_PAGES` pages of `_SEARCH_PAGE_SIZE` tools. Bounded, so a tenant with a
-#: large catalogue costs a handful of requests rather than a full walk.
+#: `_SEARCH_PAGES` pages of `_SEARCH_PAGE_SIZE` tools, and at most
+#: `_MAX_ACTION_PROBES` LIST_ACTIONS requests across them. Bounded, so a tenant with
+#: a large catalogue costs a handful of requests rather than a full walk.
 _SEARCH_PAGES = 5
 _SEARCH_PAGE_SIZE = 20
+_MAX_ACTION_PROBES = 25
 
 #: A *connected* tool exposing two or more actions. Unlike the ids in
 #: `tests/functional/_assets.py` this one is tenant-specific, so it has no
-#: default: unset, `resolve_multi_action_tool` searches for a tool backed by the
-#: Slack integration instead. Set it to skip the lookup and pin an exact tool.
+#: default: unset, `resolve_multi_action_tool` searches for one instead. Set it to
+#: skip the lookup and pin an exact tool.
 _MULTI_ACTION_TOOL_ENV = "AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID"
 
 
@@ -90,21 +92,40 @@ def _action_count(tool) -> int:
         return 0
 
 
+def _searched_tools(client) -> List[Any]:
+    """Every tool in the first `_SEARCH_PAGES` pages of ``Tool.search``."""
+    tools: List[Any] = []
+    for page_number in range(_SEARCH_PAGES):
+        page = client.Tool.search(page_number=page_number, page_size=_SEARCH_PAGE_SIZE)
+        tools.extend(page.results)
+        if not page.results or page_number + 1 >= page.page_total:
+            break
+    return tools
+
+
 def resolve_multi_action_tool(client, slack_integration_id: str):
     """Return a connected tool exposing two or more actions.
 
     Prefers the tool pinned by ``AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID``. Without
-    one, searches up to `_SEARCH_PAGES` pages of tools for one backed by
-    *slack_integration_id* -- a connection id is tenant-specific, so there is no
-    portable default to pin. Either way the tool must list at least two actions,
-    and *not finding one fails*: the multi-action tests cannot run without such a
-    tool, and the tenant is expected to carry a Slack connection.
+    one, searches up to `_SEARCH_PAGES` pages of tools and probes them for actions:
+    tools backed by *slack_integration_id* first, then tools backed by any other
+    integration, then the rest, stopping after `_MAX_ACTION_PROBES` probes. A
+    connection id is tenant-specific, so there is no portable default to pin, and
+    the multi-action tests need *a* tool with two or more actions, not Slack in
+    particular. Not finding one fails: the tests cannot run without such a tool.
+
+    Candidates are probed with ``list_actions()`` rather than filtered on
+    ``actions_available``: the backend leaves that field unset (``None``) on
+    search results and on integrations alike -- the Slack integration reports
+    ``actions_available=None`` yet lists its actions -- so filtering on it ruled
+    out every tool (first live CI run: "Searched 100 tool(s) ... none"). Only an
+    explicit ``False`` is skipped.
 
     Args:
         client: The ``Aixplain`` client for this run.
-        slack_integration_id: The Slack integration the searched-for tool must be
-            backed by. Callers pass ``assets.SLACK_INTEGRATION``, so the id comes
-            from the shared registry like every other one.
+        slack_integration_id: The integration whose tools are tried first. Callers
+            pass ``assets.SLACK_INTEGRATION``, so the id comes from the shared
+            registry like every other one.
     """
     pinned = (os.getenv(_MULTI_ACTION_TOOL_ENV) or "").strip()
     if pinned:
@@ -118,26 +139,64 @@ def resolve_multi_action_tool(client, slack_integration_id: str):
             )
         return tool
 
-    searched = 0
-    slack_backed = []
-    for page_number in range(_SEARCH_PAGES):
-        page = client.Tool.search(page_number=page_number, page_size=_SEARCH_PAGE_SIZE)
-        searched += len(page.results)
-        for tool in page.results:
-            # Both fields come with the search result, so only a tool that passes
-            # them costs a LIST_ACTIONS request.
-            if not (tool.actions_available and tool.integration_id == slack_integration_id):
-                continue
-            slack_backed.append(tool.id)
-            if _action_count(tool) >= 2:
-                return tool
-        if not page.results or page_number + 1 >= page.page_total:
-            break
+    tools = [tool for tool in _searched_tools(client) if tool.actions_available is not False]
+    slack_backed = [tool for tool in tools if tool.integration_id == slack_integration_id]
+    other_backed = [tool for tool in tools if tool.integration_id and tool.integration_id != slack_integration_id]
+    unbacked = [tool for tool in tools if not tool.integration_id]
+
+    probed = []
+    for tool in (slack_backed + other_backed + unbacked)[:_MAX_ACTION_PROBES]:
+        count = _action_count(tool)
+        if count >= 2:
+            return tool
+        probed.append(f"{tool.id}={count}")
 
     missing_fixture(
-        f"a connected tool backed by the Slack integration {slack_integration_id} with two or more actions",
-        f"Searched {searched} tool(s) in up to {_SEARCH_PAGES} page(s) of {_SEARCH_PAGE_SIZE}, filtering on "
-        f"integration_id == {slack_integration_id}; Slack-backed tools with actions available: "
-        f"{slack_backed or 'none'}, none listing two or more. Connect Slack in this tenant.",
+        "a connected tool with two or more actions",
+        f"Searched {len(tools)} tool(s) in up to {_SEARCH_PAGES} page(s) of {_SEARCH_PAGE_SIZE} "
+        f"({len(slack_backed)} backed by the Slack integration {slack_integration_id}, {len(other_backed)} by "
+        f"another integration) and probed {len(probed)} for actions (id=count): {', '.join(probed) or 'none'}. "
+        "Connect Slack, or any integration whose tool exposes two or more actions, in this tenant.",
         env_var=_MULTI_ACTION_TOOL_ENV,
     )
+
+
+def resolve_action_source(client, integration_id: str) -> Tuple[Any, List[Any]]:
+    """Return something that lists actions, and the actions it lists.
+
+    Tries the integration *integration_id* first (callers pass
+    ``assets.SLACK_INTEGRATION``). When it lists no actions, falls back to the
+    tool from `resolve_multi_action_tool`, which carries the same
+    ``list_actions()`` / ``list_inputs()`` surface. Either way the result has at
+    least one action, and nothing suitable is a failure, not a skip.
+
+    ``actions_available`` is deliberately not consulted: the backend returns it
+    unset even for an integration that lists actions (see
+    `resolve_multi_action_tool`).
+
+    Args:
+        client: The ``Aixplain`` client for this run.
+        integration_id: The integration to try first.
+
+    Returns:
+        A ``(source, actions)`` pair, where *source* is an ``Integration`` or a
+        ``Tool`` and *actions* is its non-empty ``list_actions()`` result.
+    """
+    integration = client.Integration.get(integration_id)
+    try:
+        actions = integration.list_actions()
+    except Exception:
+        actions = []
+    if actions:
+        return integration, actions
+
+    tool = resolve_multi_action_tool(client, integration_id)
+    actions = tool.list_actions()
+    if not actions:
+        missing_fixture(
+            f"an integration or connected tool that lists actions (tried integration {integration_id}, then tool "
+            f"{tool.id})",
+            "Both returned an empty list_actions().",
+            env_var=_MULTI_ACTION_TOOL_ENV,
+        )
+    return tool, actions
