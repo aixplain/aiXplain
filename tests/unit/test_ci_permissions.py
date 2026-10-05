@@ -452,11 +452,14 @@ def _matrix_legs() -> list[str]:
 def test_required_checks_doc_lists_exactly_the_matrix_legs():
     """The doc is the input to a settings change, so drift there is a real defect.
 
-    Someone will paste these strings into branch protection. A leg renamed in
-    the matrix but not here yields a required context that no check ever
-    reports -- every PR stuck on "Expected — waiting for status to be reported",
-    which is a merge deadlock rather than a merge gate. A leg *added* and not
-    listed here is the quieter half: it simply never becomes required.
+    Since ENG-3683 the per-leg contexts are informational and `functional-result`
+    is the one to require (a skipped matrix reports a single `functional`
+    context, so a required `functional (agent)` would deadlock a docs-only PR).
+    The leg list still has to be right: it is what the aggregate stands for, and
+    `release.yaml`'s gate checks exactly these per-leg names. A leg renamed in
+    the matrix but not here leaves a reader looking for a context that no run
+    reports; a leg *added* and not listed here is coverage nobody knows the
+    aggregate now depends on.
 
     This is the 04dea96e failure mode (matrix names drifting from reality
     without anything failing), applied to documentation.
@@ -476,8 +479,21 @@ def test_required_checks_doc_lists_exactly_the_matrix_legs():
 
     assert documented == expected, (
         "docs/ci/required-checks.md and main.yaml's matrix disagree. "
-        f"In the matrix but not documented (these would never become required): {sorted(expected - documented)}; "
-        f"documented but not in the matrix (these would block every PR forever): {sorted(documented - expected)}."
+        f"In the matrix but not documented: {sorted(expected - documented)}; "
+        f"documented but not in the matrix (no run reports these): {sorted(documented - expected)}."
+    )
+
+    # The aggregate is the context the doc tells people to require, so it must
+    # be in the table people copy from -- and it must be a real job, or the
+    # pasted string matches nothing and every PR waits on it forever.
+    assert any("`functional-result`" in row for row in rows), (
+        "docs/ci/required-checks.md's table does not list `functional-result`, the only functional "
+        "context that is safe to require (ENG-3683)."
+    )
+    jobs = _load(MAIN_WORKFLOW)["jobs"]
+    assert "functional-result" in jobs and "strategy" not in jobs["functional-result"], (
+        "main.yaml has no non-matrix `functional-result` job, but the required-checks doc names it "
+        "as the context to require."
     )
 
 

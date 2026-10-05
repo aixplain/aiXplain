@@ -1,10 +1,20 @@
 """Fixtures for the v2 functional leg: a configured client, and named asset ids."""
 
 import os
+import re
+from urllib.parse import urlparse
 
 import pytest
 
 from tests.functional._assets import DEFAULT_BACKEND_URL, LazyAssets, assets_for, environment_for
+
+#: The only model-execution endpoint these suites speak.
+MODELS_EXECUTE_PATH = "/api/v2/execute"
+
+#: Backend hosts whose models host follows the `<env>-platform-api` ->
+#: `<env>-models` naming. Anything else -- localhost, a proxy, a host on another
+#: domain -- has no models host that can be guessed from it.
+_PLATFORM_API_HOST = re.compile(r"([a-z0-9]+-)?platform-api\.aixplain\.com", re.IGNORECASE)
 
 
 def _api_key():
@@ -25,22 +35,70 @@ def _backend_url():
     repeated here: the id space that module selects and the backend this client
     talks to have to be the same one, and two copies of the literal is exactly
     how they would stop being (ENG-3685).
+
+    That default is the test backend, the one CI's non-`main` runs use. It used
+    to be dev-platform-api while CI ran these suites against test-platform-api
+    (ENG-3683). The asset ids in tests/functional/ exist on one backend at a
+    time, so a developer with no BACKEND_URL was validating them against a
+    different environment than the one whose result gates a merge -- and each
+    side read as "it passes for me".
     """
     return os.getenv("BACKEND_URL") or DEFAULT_BACKEND_URL
 
 
+def _models_run_url(backend_url: str) -> str:
+    """The v2 model-execution URL matching *backend_url*.
+
+    Derived rather than defaulted independently: a developer who points
+    BACKEND_URL at prod and leaves MODELS_RUN_URL unset would otherwise run the
+    suite half against one environment and half against another.
+
+    An explicit MODELS_RUN_URL contributes its *host* only. These suites speak
+    the v2 execution API and nothing else, so the path is always built here: a
+    `/api/v1/` URL left over in a developer's shell cannot send them to the wrong
+    endpoint.
+
+    Raises:
+        ValueError: MODELS_RUN_URL is set but is not an absolute URL, or it is
+            unset and BACKEND_URL is not an aiXplain `platform-api` host, so
+            there is no models host to derive. Guessing used to turn
+            `http://localhost:8000` into `https://localhostmodels.aixplain.com`,
+            and any host that merely *starts* with `platform-api` into the
+            production models host (ENG-3683).
+    """
+    explicit = os.getenv("MODELS_RUN_URL")
+    if explicit:
+        parts = urlparse(explicit)
+        if not parts.scheme or not parts.netloc:
+            raise ValueError(
+                f"MODELS_RUN_URL={explicit!r} is not an absolute URL; set it to something like "
+                f"'https://test-models.aixplain.com{MODELS_EXECUTE_PATH}'."
+            )
+        return f"{parts.scheme}://{parts.netloc}{MODELS_EXECUTE_PATH}"
+
+    hostname = urlparse(backend_url).hostname or ""
+    match = _PLATFORM_API_HOST.fullmatch(hostname)
+    if not match:
+        raise ValueError(
+            f"cannot derive the models host from BACKEND_URL={backend_url!r}: only "
+            "'<env>-platform-api.aixplain.com' and 'platform-api.aixplain.com' map to a known models host. "
+            "Set MODELS_RUN_URL explicitly for this backend."
+        )
+
+    # "test-" -> "test-models...", "dev-" -> "dev-models...", no prefix -> "models...".
+    prefix = (match.group(1) or "").lower()
+    return f"https://{prefix}models.aixplain.com{MODELS_EXECUTE_PATH}"
+
+
 def _build_client():
     """Construct an Aixplain client against the configured backend."""
-    # V2 tests require V2 model URL - ensure we use /api/v2/ even if env has /api/v1/
-    model_url = os.getenv("MODELS_RUN_URL") or "https://dev-models.aixplain.com/api/v2/execute"
-    model_url = model_url.replace("/api/v1/", "/api/v2/")
-
     from aixplain import Aixplain
 
+    backend_url = _backend_url()
     return Aixplain(
         api_key=_api_key(),
-        backend_url=_backend_url(),
-        model_url=model_url,
+        backend_url=backend_url,
+        model_url=_models_run_url(backend_url),
     )
 
 
