@@ -1,20 +1,44 @@
 """Functional coverage for public v2 agent run-time features.
 
-Each test exercises one public run-time knob against the live backend and
-asserts the documented observable effect, not merely that the call returned.
-The features here previously had no functional coverage (or only a unit test),
-so a backend regression would have slipped through. Keep one test per feature
-row; assert the wire payload for deterministic behaviour and the response for
-backend behaviour.
+These features previously had no functional coverage (or only a unit test), so
+a backend regression would have slipped through. Each test runs against the
+live backend. Where the backend exposes the effect, the test asserts it: a
+token that only the parameter can put in the output, a governance status, a
+diagnostic code, an artifact, a step in ``result.data.steps``, or the printed
+progress timeline. The wire payload is asserted wherever the behaviour is
+deterministic on the SDK side.
+
+Tests named ``*_accepted`` verify only that the backend accepts the parameter;
+their docstrings say why nothing stronger is asserted.
+
+Not covered here:
+
+- ``wait_time``, ``run_retries`` and ``run_retry_wait``: SDK-side poll and
+  submission-retry controls with no observable effect on a healthy run. Unit
+  tests in tests/unit/v2 cover them.
+- ``execution_params.max_time``: a backend time cap. A run short enough to test
+  cheaply never reaches it.
+- ``evolve``: nothing in a run's response shows its effect, so a run could
+  only show that the backend accepts it.
+- ``progress_format="status"`` and ``progress_truncate``: only the ``logs``
+  format at verbosity 3 is asserted.
+- ``run_response_generation``: the agent runtime treats it as deprecated and
+  ignores it. ``test_execution_params_output_format_json`` passes it, so it is
+  accepted, but no effect is asserted.
 """
 
 import json
+import re
 import time
 import uuid
+from typing import Any, List, Optional
 
 import pytest
 
+from aixplain.v2 import Inspector
+from aixplain.v2.agent import AgentResponseData
 from aixplain.v2.exceptions import APIError
+from aixplain.v2.exceptions import TimeoutError as SDKTimeoutError
 
 from .assets import (
     IMAGE_MODEL_ID,
@@ -24,13 +48,17 @@ from .assets import (
     VISION_LLM_ID,
 )
 
-#: The platform's default LLM is intermittently marked unavailable; every test
-#: here runs the live backend, so retry the whole module rather than special-case.
-pytestmark = pytest.mark.flaky(reruns=2, reruns_delay=5, reason="platform model availability is intermittent")
+# No module-wide ``flaky`` mark: tests/functional/conftest.py already reruns any
+# test whose run timed out. Only tests whose assertion depends on what the model
+# chooses to say or do carry their own ``flaky`` mark, with the reason beside it.
 
 BUDGET_BLOCKED = "BLOCKED_BY_BUDGET"
 MAX_ITERATIONS_REACHED = "MAX_ITERATIONS_REACHED"
 BUDGET_EXCEEDED = "BUDGET_EXCEEDED"
+
+#: Tavily's single action and the optional input the tool-override test sets.
+TAVILY_ACTION = "search"
+TAVILY_RESULT_COUNT_INPUT = "num_results"
 
 
 def _unique(prefix: str) -> str:
@@ -55,13 +83,58 @@ def _make_tool_agent(client, tracker):
 
 
 def _output(response) -> str:
+    """Return the run's output as text, whatever type the backend sent."""
     data = getattr(response, "data", None)
     if data is None:
         return ""
-    output = getattr(data, "output", None)
-    if output is None and isinstance(data, str):
-        output = data
-    return output or ""
+    output = data if isinstance(data, str) else getattr(data, "output", None)
+    if output is None:
+        return ""
+    if isinstance(output, str):
+        return output
+    if isinstance(output, (dict, list)):
+        return json.dumps(output)
+    return str(output)
+
+
+def _response_data(result) -> AgentResponseData:
+    data = result.data
+    assert isinstance(data, AgentResponseData), (
+        f"expected structured agent response data, got {type(data).__name__}: {data!r}"
+    )
+    return data
+
+
+def _steps(result) -> List[dict]:
+    data = result.data
+    steps = None if isinstance(data, str) else getattr(data, "steps", None)
+    return [step for step in steps or [] if isinstance(step, dict)]
+
+
+def _step_agent_label(step: dict) -> str:
+    agent = step.get("agent") or step.get("agent_name") or ""
+    if isinstance(agent, dict):
+        return f"{agent.get('id') or ''} {agent.get('name') or ''}".lower()
+    return str(agent).lower()
+
+
+def _is_tool_step(step: dict) -> bool:
+    unit = step.get("unit")
+    return isinstance(unit, dict) and str(unit.get("type") or "").lower() == "tool"
+
+
+def _search_result_count(output: Any) -> Optional[int]:
+    """Number of Tavily results in a tool step's output, or ``None`` if the shape is unknown."""
+    if isinstance(output, str):
+        try:
+            output = json.loads(output)
+        except ValueError:
+            return None
+    if isinstance(output, dict):
+        output = output.get("results")
+    if isinstance(output, list):
+        return len(output)
+    return None
 
 
 def _write_temp(tmp_path, name: str, payload: bytes) -> str:
@@ -95,7 +168,8 @@ def image_agent(client, module_resource_tracker):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.flaky(reruns=2, reruns_delay=5, reason="tool call is model-dependent")
+# The iteration cap only trips if the model calls the tool first.
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_budget_max_iterations_halts_after_one_step(client, module_resource_tracker):
     agent = _make_tool_agent(client, module_resource_tracker)
     agent.budget.max_iterations = 1
@@ -108,16 +182,17 @@ def test_budget_max_iterations_halts_after_one_step(client, module_resource_trac
     )
 
 
-@pytest.mark.flaky(reruns=2, reruns_delay=5, reason="tool call is model-dependent")
 def test_budget_max_cost_zero_blocks_run(client, module_resource_tracker):
     agent = _make_tool_agent(client, module_resource_tracker)
     agent.budget.max_cost = 0.0
 
     result = agent.run("Search the web for the capital of France, then answer.")
 
-    assert result.data.governance is not None
-    assert result.data.governance["status"] == BUDGET_BLOCKED
-    assert BUDGET_EXCEEDED in result.diagnostic_error_codes
+    governance = _response_data(result).governance
+    assert governance["status"] == BUDGET_BLOCKED, f"expected a budget block, got governance={governance}"
+    assert BUDGET_EXCEEDED in result.diagnostic_error_codes, (
+        f"expected {BUDGET_EXCEEDED} in diagnostic codes, got {result.diagnostic_error_codes}"
+    )
 
 
 def test_budget_max_duration_zero_blocks_run(client, module_resource_tracker):
@@ -126,8 +201,8 @@ def test_budget_max_duration_zero_blocks_run(client, module_resource_tracker):
 
     result = agent.run("Search the web for the capital of France, then answer.")
 
-    assert result.data.governance is not None
-    assert result.data.governance["status"] == BUDGET_BLOCKED
+    governance = _response_data(result).governance
+    assert governance["status"] == BUDGET_BLOCKED, f"expected a budget block, got governance={governance}"
 
 
 # ---------------------------------------------------------------------------
@@ -136,6 +211,11 @@ def test_budget_max_duration_zero_blocks_run(client, module_resource_tracker):
 
 
 def test_context_overflow_strategy_round_trips_and_overrides(client, module_resource_tracker):
+    """The saved strategy round-trips and a per-run override replaces it on the wire.
+
+    No run is made: a short query can never overflow the context, so a run
+    could not show which strategy the backend applied.
+    """
     agent = _make_agent(client, module_resource_tracker)
     agent.context_overflow_strategy = "summarize"
     agent.save()
@@ -145,11 +225,8 @@ def test_context_overflow_strategy_round_trips_and_overrides(client, module_reso
 
     assert fetched.build_run_payload(query="hi")["executionParams"]["contextOverflowStrategy"] == "summarize"
 
-    result = fetched.run("hi")
-    assert result.status == "SUCCESS"
-
-    override = fetched.run("hi", execution_params={"context_overflow_strategy": "truncate"})
-    assert override.status == "SUCCESS"
+    override = fetched.build_run_payload(query="hi", execution_params={"context_overflow_strategy": "truncate"})
+    assert override["executionParams"]["contextOverflowStrategy"] == "truncate"
 
 
 # ---------------------------------------------------------------------------
@@ -157,17 +234,30 @@ def test_context_overflow_strategy_round_trips_and_overrides(client, module_reso
 # ---------------------------------------------------------------------------
 
 
-def test_progress_logs_are_printed(run_agent, capsys):
+def test_progress_logs_format_prints_step_timeline_at_full_verbosity(run_agent, capsys):
+    """``progress_format="logs"`` prints the step timeline; verbosity 3 adds each step's I/O.
+
+    Off a terminal (pytest's capture) the status format prints only the
+    completion summary. A newline-terminated completed-step line therefore
+    comes from the logs format, and a ``  → <label>`` detail line comes only
+    from verbosity 3.
+    """
     result = run_agent.run(
         "Say hi.",
         progress_format="logs",
-        progress_verbosity=2,
+        progress_verbosity=3,
         progress_truncate=False,
     )
 
     captured = capsys.readouterr().out
     assert result.status == "SUCCESS"
-    assert "Step" in captured, f"expected progress timeline on stdout, got {captured!r}"
+    assert re.search(r"[✓✗] Step\s+\d+ · [^\n]*\n", captured), (
+        f"expected a newline-terminated completed step line (logs format), got {captured!r}"
+    )
+    assert re.search(r"^  → \S", captured, re.MULTILINE), (
+        f"expected a step output detail line (verbosity 3), got {captured!r}"
+    )
+    assert re.search(r"✓ Completed \d+ steps", captured), f"expected the completion summary, got {captured!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +265,8 @@ def test_progress_logs_are_printed(run_agent, capsys):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.flaky(reruns=2, reruns_delay=5, reason="image tool call is model-dependent")
+# The artifact exists only if the model calls the image tool.
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_artifacts_carry_presigned_urls(image_agent):
     result = image_agent.run(
         "Use the image generation tool to generate an image of a red cube. You MUST call the tool. Then reply DONE."
@@ -204,21 +295,23 @@ def test_debug_returns_analysis(run_agent):
     try:
         debug_result = result.debug()
     except APIError as exc:
-        # The pinned meta-agent is not deployed on every backend; the SDK path
-        # still ran, so skip rather than report a platform gap as a test bug.
-        if "Not Found" not in str(exc):
-            raise
-        pytest.skip(f"Debugger meta-agent {DEBUGGER_AGENT_ID} not deployed on this backend")
+        pytest.fail(
+            f"result.debug() failed calling the Debugger meta-agent {DEBUGGER_AGENT_ID} "
+            f"(status {exc.status_code}): {exc}. If the meta-agent is not deployed on this "
+            "backend, that is a platform gap to fix, not a reason to skip."
+        )
 
     assert debug_result.analysis, "debugger returned an empty analysis"
 
 
 # ---------------------------------------------------------------------------
-# Variables / prompt / criteria / identifier / history
+# Variables / prompt / criteria / identifier / history / tasks / inspectors
 # ---------------------------------------------------------------------------
 
 
-def test_variables_are_forwarded_in_query(client, module_resource_tracker):
+# The model has to repeat the substituted word.
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
+def test_variables_are_substituted_into_instructions(client, module_resource_tracker):
     agent = _make_agent(
         client,
         module_resource_tracker,
@@ -231,10 +324,17 @@ def test_variables_are_forwarded_in_query(client, module_resource_tracker):
 
     result = agent.run("What is the secret word?", variables={"word": "zebra"})
     assert result.status == "SUCCESS"
-    assert _output(result)
+    assert "zebra" in _output(result).lower(), f"expected the substituted variable in the output, got {result.data!r}"
 
 
-def test_prompt_criteria_and_identifier_are_accepted(run_agent):
+# The model has to repeat the secret from the prompt.
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
+def test_prompt_override_reaches_model(run_agent):
+    """``prompt`` reaches the model: the secret exists only in the prompt.
+
+    ``criteria`` and ``identifier`` ride along and are only verified as
+    accepted: neither changes anything the response exposes.
+    """
     result = run_agent.run(
         "Say the secret.",
         prompt="The secret is ORANGE. Reply with only the secret.",
@@ -243,10 +343,12 @@ def test_prompt_criteria_and_identifier_are_accepted(run_agent):
     )
 
     assert result.status == "SUCCESS"
-    assert _output(result)
+    assert "ORANGE" in _output(result).upper(), f"expected the secret from the prompt, got {result.data!r}"
 
 
-def test_history_is_accepted(run_agent):
+# The model has to recall the name from the supplied history.
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
+def test_history_is_used(run_agent):
     result = run_agent.run(
         "What did I say my name was?",
         history=[
@@ -256,39 +358,61 @@ def test_history_is_accepted(run_agent):
     )
 
     assert result.status == "SUCCESS"
-    assert "sam" in _output(result).lower()
+    assert re.search(r"\bsam\b", _output(result), re.IGNORECASE), f"expected the name from history, got {result.data!r}"
 
 
-def test_run_response_generation_returns_output(run_agent):
-    result = run_agent.run("Say hi.", run_response_generation=True)
+def test_tasks_are_accepted(run_agent):
+    """``tasks`` is sent as given and the backend accepts it.
+
+    Only acceptance is verified: a single agent's response exposes no field
+    showing which task, if any, it worked on.
+    """
+    tasks = [{"name": "t1", "description": "Say hi.", "expectedOutput": "A greeting."}]
+
+    assert run_agent.build_run_payload(query="Say hi.", tasks=tasks)["tasks"] == tasks
+
+    assert run_agent.run("Say hi.", tasks=tasks).status == "SUCCESS"
+
+
+def test_run_time_inspector_runs(run_agent):
+    """A run-time inspector runs and shows up as a step.
+
+    The action is ``continue`` and the judge is told to always pass, so the
+    inspector cannot abort the run whatever its verdict.
+    """
+    name = _unique("RunTimeInspector")
+    inspector = Inspector(
+        name=name,
+        targets=["input"],
+        action="continue",
+        metric={"asset_id": REASONING_MODEL_ID, "prompt": "Always answer PASS, whatever the content."},
+    )
+
+    result = run_agent.run("Say hi.", inspectors=[inspector.to_dict()])
 
     assert result.status == "SUCCESS"
-    assert _output(result)
+    steps = _steps(result)
+    labels = [_step_agent_label(step) for step in steps]
+    assert any(name.lower() in label or "inspector" in label for label in labels), (
+        f"expected a step for inspector {name!r}, got step agents {labels}"
+    )
 
 
-def test_evolve_tasks_and_inspectors_are_accepted(run_agent):
-    assert run_agent.run("Say hi.", evolve='{"toEvolve": true}').status == "SUCCESS"
-    assert (
-        run_agent.run(
-            "Say hi.",
-            tasks=[{"name": "t1", "description": "d", "expectedOutput": "o"}],
-        ).status
-        == "SUCCESS"
-    )
-    assert (
-        run_agent.run(
-            "Say hi.",
-            inspectors=[
-                {
-                    "name": "Gate",
-                    "targets": ["input"],
-                    "action": {"type": "abort"},
-                    "evaluator": {"type": "asset", "assetId": REASONING_MODEL_ID, "prompt": "PASS or FAIL"},
-                }
-            ],
-        ).status
-        == "SUCCESS"
-    )
+# ---------------------------------------------------------------------------
+# Run control: timeout
+# ---------------------------------------------------------------------------
+
+
+def test_timeout_zero_raises_before_first_poll(run_agent):
+    """``timeout`` bounds the SDK's wait for an accepted run.
+
+    Agent runs are asynchronous: the submission returns a poll URL, and
+    ``sync_poll`` checks the remaining budget before its first poll, so
+    ``timeout=0`` raises deterministically. The run itself carries on on the
+    backend.
+    """
+    with pytest.raises(SDKTimeoutError, match=r"timed out after 0 seconds"):
+        run_agent.run("Say hi.", timeout=0)
 
 
 # ---------------------------------------------------------------------------
@@ -297,10 +421,29 @@ def test_evolve_tasks_and_inspectors_are_accepted(run_agent):
 
 
 def test_execution_params_max_tokens_is_honoured(run_agent):
-    with pytest.raises(APIError):
+    """``max_tokens=1`` makes an otherwise healthy run fail.
+
+    The backend's error text for this is generic (no token wording, see
+    test_snake_case_e2e.py), so instead of matching the message the test checks
+    that the failure is a business ``FAILED`` run outcome rather than a 401, a
+    5xx or a polling error, and that the same run succeeds without the cap.
+    """
+    control = run_agent.run("Say hi.", execution_params={"output_format": "text"})
+    assert control.status == "SUCCESS", f"control run without max_tokens failed: {control.status}"
+
+    with pytest.raises(APIError) as excinfo:
         run_agent.run("Say hi.", execution_params={"max_tokens": 1, "output_format": "text"})
 
+    error = excinfo.value
+    assert error.retryable is False and error.response_data.get("status") == "FAILED", (
+        f"expected a FAILED run outcome, got status_code={error.status_code} "
+        f"retryable={error.retryable} response_data={error.response_data!r}"
+    )
+    assert str(error).startswith("Operation failed"), f"unexpected error: {error}"
 
+
+# The model has to produce valid JSON with the expected key.
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_execution_params_output_format_json(run_agent):
     result = run_agent.run(
         "What color is the sky? Answer with one word.",
@@ -321,22 +464,27 @@ def test_execution_params_output_format_json(run_agent):
 # ---------------------------------------------------------------------------
 
 
+# The vision model has to name the colour.
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_attachments_send_image_to_vision_model(vision_agent, tmp_path):
     path = _write_temp(tmp_path, "red.png", RED_PNG_BYTES)
 
     result = vision_agent.run("What is the color of the attached image? Answer with one word.", attachments=[path])
 
     assert result.status == "SUCCESS"
-    assert _output(result)
+    assert re.search(r"\bred", _output(result), re.IGNORECASE), f"expected the image colour, got {result.data!r}"
 
 
+# The model has to read the code back from the file.
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_deprecated_files_alias_uploads_and_reads(vision_agent, tmp_path):
-    path = _write_temp(tmp_path, "note.txt", b"The magic number is 42.")
+    token = f"CODE-{uuid.uuid4().hex[:8].upper()}"
+    path = _write_temp(tmp_path, "note.txt", f"The magic code is {token}.".encode())
 
-    result = vision_agent.run("Read the attached file and reply with the magic number.", files=[path])
+    result = vision_agent.run("Read the attached file and reply with only the magic code.", files=[path])
 
     assert result.status == "SUCCESS"
-    assert "42" in _output(result)
+    assert token.lower() in _output(result).lower(), f"expected {token} from the file, got {result.data!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -344,23 +492,28 @@ def test_deprecated_files_alias_uploads_and_reads(vision_agent, tmp_path):
 # ---------------------------------------------------------------------------
 
 
+# The model has to recall the codeword within the session.
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_session_recalls_and_stateless_forgets(client, module_resource_tracker):
+    """One agent recalls a codeword inside a session and not in a run without one.
+
+    Using the same agent for both means the session is the only difference.
+    The codeword is random, so the model cannot produce it without memory.
+    """
+    codeword = f"PLUM-{uuid.uuid4().hex[:6].upper()}"
     agent = _make_agent(client, module_resource_tracker)
     session = client.Session(agent=agent, name=_unique("memory"))
     session.save()
     module_resource_tracker.append(session)
 
-    agent.run("Remember the codeword PLUM-9137. Reply OK.", session=session)
+    agent.run(f"Remember the codeword {codeword}. Reply OK.", session=session)
     recalled = agent.run("What is the codeword? Reply only the codeword.", session=session)
-    assert "PLUM-9137" in _output(recalled)
+    assert codeword in _output(recalled).upper(), f"session did not recall {codeword}: {recalled.data!r}"
 
-    stateless = _make_agent(client, module_resource_tracker)
-    stateless.run("Remember the codeword PLUM-9137. Reply OK.")
-    forgotten = stateless.run("What is the codeword? Reply only the codeword.")
-    assert "PLUM-9137" not in _output(forgotten)
-
-    results = client.Session.search(memory_enabled=True)
-    assert isinstance(results.results, list)
+    forgotten = agent.run("What is the codeword? Reply only the codeword.")
+    assert codeword not in _output(forgotten).upper(), (
+        f"a run without the session should not know {codeword}: {forgotten.data!r}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -368,8 +521,14 @@ def test_session_recalls_and_stateless_forgets(client, module_resource_tracker):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.flaky(reruns=2, reruns_delay=5, reason="reasoning model can be unavailable")
-def test_reasoning_effort_lands_in_payload_and_backend(client, module_resource_tracker):
+def test_reasoning_effort_payload_and_run_accepted(client, module_resource_tracker):
+    """``reasoning_effort`` lands in ``modelParameters`` and the backend accepts the run.
+
+    Only acceptance is verified. No response field reports the effort level
+    applied. The run-time path is not isolated either: ``save()`` also persists
+    the value, and changing the LLM's inputs after saving marks an onboarded
+    agent as modified, so ``run()`` refuses it.
+    """
     llm = client.Model.get(REASONING_MODEL_ID)
     llm.inputs.reasoning_effort = "low"
 
@@ -383,25 +542,45 @@ def test_reasoning_effort_lands_in_payload_and_backend(client, module_resource_t
     assert result.status == "SUCCESS"
 
 
-@pytest.mark.flaky(reruns=2, reruns_delay=5, reason="tool call is model-dependent")
-def test_tool_input_override_is_forwarded(client, module_resource_tracker):
-    tool = client.Tool.get(TAVILY_TOOL_ID)
-    action_name = next(iter(tool.actions))
-    action = tool.actions[action_name]
-    input_name = next(iter(action.inputs))
-    action.inputs[input_name].value = "override-value"
+# The tool step exists only if the model calls the search tool.
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
+def test_tool_input_override_applies_at_run_time_only(client, module_resource_tracker):
+    """A tool input changed after ``save()`` is sent with the run and not persisted.
 
-    agent = _make_agent(
-        client,
-        module_resource_tracker,
-        instructions="Always use the web search tool before answering.",
-        tools=[tool],
+    The SDK does not pin the shape of a tool step's output. When it carries a
+    Tavily ``results`` list, the test also asserts that the override capped it
+    at one result. Otherwise the wire payload and the non-persistence are what
+    is asserted.
+    """
+    override = 1
+    agent = _make_tool_agent(client, module_resource_tracker)
+
+    tool = agent.tools[0]
+    search = tool.actions[TAVILY_ACTION]
+    saved_value = search.inputs[TAVILY_RESULT_COUNT_INPUT].value
+    assert str(saved_value) != str(override), (
+        f"precondition: the override must differ from the saved {TAVILY_RESULT_COUNT_INPUT}={saved_value!r}"
     )
+    search.inputs[TAVILY_RESULT_COUNT_INPUT] = override
+    assert not agent.is_modified, "a tool input override must not mark the saved agent as modified"
 
-    overrides = agent._build_tool_overrides()
-    assert overrides, "expected the mutated tool input to be forwarded as a run-time override"
-    assert overrides[0]["id"] == tool.id
-    assert any(p["value"] == "override-value" for p in overrides[0]["parameters"])
+    payload = agent.build_run_payload(query="hi")
+    tool_entry = next((entry for entry in payload.get("tools", []) if entry["id"] == tool.id), None)
+    assert tool_entry is not None, f"expected a run-time override for tool {tool.id}, got {payload.get('tools')}"
+    assert {"name": TAVILY_RESULT_COUNT_INPUT, "value": override} in tool_entry["parameters"]
 
     result = agent.run("Search the web for the capital of France, then answer.")
     assert result.status == "SUCCESS"
+
+    tool_steps = [step for step in _steps(result) if _is_tool_step(step)]
+    assert tool_steps, f"expected the search tool to run, got steps {_steps(result)!r}"
+    counts = [count for count in (_search_result_count(step.get("output")) for step in tool_steps) if count is not None]
+    assert all(count <= override for count in counts), (
+        f"expected at most {override} search result(s) per call with the override, got {counts}"
+    )
+
+    fetched = client.Agent.get(agent.id)
+    persisted = fetched.tools[0].actions[TAVILY_ACTION].inputs[TAVILY_RESULT_COUNT_INPUT].value
+    assert str(persisted) != str(override), (
+        f"the run-time override was persisted: saved {TAVILY_RESULT_COUNT_INPUT}={persisted!r}"
+    )
