@@ -14,7 +14,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from aixplain import Agent
+from aixplain import Agent, ExecutionConfig
 
 
 class ChatReply(BaseModel):
@@ -119,3 +119,29 @@ class TestRunPayloadSendsExpectedOutputAsString:
         sent = payload["executionParams"]["expectedOutput"]
         assert isinstance(sent, str)
         assert json.loads(sent) == instance.model_dump()
+
+
+class TestSessionExecutionConfigSendsExpectedOutputAsString:
+    """Session runs go through ``ExecutionConfig.to_api_dict``, not ``build_run_payload``.
+
+    The same ``400 executionParams.expectedOutput must be a string`` applies there, so
+    the session path encodes ``expected_output`` the way the direct run path does.
+    """
+
+    def test_basemodel_class_is_sent_as_schema_string(self):
+        sent = ExecutionConfig(execution_params={"expected_output": ChatReply}).to_api_dict()
+
+        assert json.loads(sent["executionParams"]["expectedOutput"]) == ChatReply.model_json_schema()
+
+    def test_basemodel_instance_is_sent_as_json_string(self):
+        instance = ChatReply(content="hi")
+        sent = ExecutionConfig(execution_params={"expectedOutput": instance}).to_api_dict()
+
+        assert json.loads(sent["executionParams"]["expectedOutput"]) == instance.model_dump()
+
+    def test_dict_is_sent_as_json_string_and_strings_pass_through(self):
+        as_dict = ExecutionConfig(execution_params={"expected_output": {"type": "object"}}).to_api_dict()
+        as_str = ExecutionConfig(execution_params={"expected_output": "a list of names"}).to_api_dict()
+
+        assert as_dict["executionParams"]["expectedOutput"] == '{"type": "object"}'
+        assert as_str["executionParams"]["expectedOutput"] == "a list of names"
