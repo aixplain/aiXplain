@@ -8,10 +8,11 @@ between the agent and tool suites.
 
 Those literals are not portable. CI validates them against
 ``test-platform-api``, a push to ``main`` validates them against production, and
-a laptop with no ``BACKEND_URL`` set validates them against
-``dev-platform-api`` (see ``DEFAULT_BACKEND_URL`` below). Those are three
-separate id spaces, so a retired asset failed one leg at a time and each failure
-read as an unrelated backend error from somewhere deep inside a test body.
+a laptop validated them against ``dev-platform-api`` -- the suite's default
+backend until ENG-3683 moved it to ``test-platform-api`` (see
+``DEFAULT_BACKEND_URL`` below). Those are three separate id spaces, so a retired
+asset failed one leg at a time and each failure read as an unrelated backend
+error from somewhere deep inside a test body.
 
 This module is the single source. Ask for an asset by name::
 
@@ -59,7 +60,14 @@ ENVIRONMENT_ENV = "AIXPLAIN_TEST_ENV"
 #: conftest.py`` imports this rather than repeating the literal, so the id space
 #: this module selects and the backend the client is built against cannot drift
 #: apart -- which is the whole failure mode ENG-3685 is about.
-DEFAULT_BACKEND_URL = "https://dev-platform-api.aixplain.com"
+#:
+#: It is the test backend because that is the one CI's non-``main`` runs (PRs,
+#: pushes to ``test``, the nightly) use. It used to be ``dev-platform-api``, so a
+#: developer with no ``BACKEND_URL`` validated the suite against a different
+#: environment than the one whose result gates a merge, and each side read as
+#: "it passes for me" (ENG-3683). An unset ``BACKEND_URL`` therefore selects the
+#: ``test`` id space.
+DEFAULT_BACKEND_URL = "https://test-platform-api.aixplain.com"
 
 #: ``BACKEND_URL`` hostname -> environment key. Matched exactly against the
 #: parsed, lower-cased hostname: ``platform-api.aixplain.com`` is a suffix of
@@ -155,9 +163,10 @@ SPECS: Dict[str, AssetSpec] = {
 
 
 #: The ids the v2 suite has been running with. Captured from the literals the
-#: tests carried before ENG-3685, which is `dev` by construction: that is what
-#: `DEFAULT_BACKEND_URL` points at, so it is the id space every local run and
-#: every id added by hand was validated against.
+#: tests carried before ENG-3685, which is `dev` by construction: that was the
+#: suite's default backend until ENG-3683 moved `DEFAULT_BACKEND_URL` to `test`,
+#: so it is the id space every local run and every id added by hand was
+#: validated against.
 DEV = AssetIds(
     DEFAULT_LLM="69b7e5f1b2fe44704ab0e7d0",
     NON_DEFAULT_LLM="67fd9e2bef0365783d06e2f0",
@@ -181,6 +190,10 @@ DEV = AssetIds(
 #: checks on every run: an id that does not exist on a backend fails the tests
 #: that read it, by name, and the fix is one line here --
 #: ``TEST = replace(DEV, SEEDREAM_MODEL="<the test-backend id>")``.
+#:
+#: `TEST` is also what a run with no ``BACKEND_URL`` selects (see
+#: :data:`DEFAULT_BACKEND_URL`). Moving the default from `dev` to `test` changed
+#: no id, since `TEST` is `DEV` until an entry here says otherwise.
 TEST = replace(DEV)
 PROD = replace(DEV)
 
