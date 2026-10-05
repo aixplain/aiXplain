@@ -1,25 +1,23 @@
 import pytest
 from aixplain.v2 import SortBy, SortOrder
 
-from .assets import REASONING_MODEL_ID, STREAMING_MODEL_ID
-
 
 @pytest.fixture(scope="module")
-def text_model_id():
+def text_model_id(assets):
     """Return a text-generation model ID for testing."""
-    return REASONING_MODEL_ID  # GPT-5.4
+    return assets.DEFAULT_LLM
 
 
 @pytest.fixture(scope="module")
-def stream_tool_call_model_id():
+def stream_tool_call_model_id(assets):
     """Return model ID dedicated to streaming tool-calling e2e tests."""
-    return STREAMING_MODEL_ID  # GPT-5.2
+    return assets.STREAMING_TOOL_CALL_MODEL
 
 
 @pytest.fixture(scope="module")
-def slack_integration_id():
+def slack_integration_id(assets):
     """Return a Slack integration model ID for testing."""
-    return "686432941223092cb4294d3f"  # Slack integration
+    return assets.SLACK_INTEGRATION
 
 
 def validate_model_structure(model):
@@ -174,8 +172,12 @@ def test_search_models(client):
     for model in models.results:
         validate_model_structure(model)
 
-    if number_of_models < 2:
-        pytest.skip("Expected to have at least 2 models for testing pagination")
+    # Asserted, not skipped: a catalogue with fewer than two models is a broken
+    # test environment, and skipping past it took the pagination coverage with it.
+    assert number_of_models >= 2, (
+        f"Model search returned {number_of_models} model(s); pagination cannot be "
+        "exercised with fewer than 2. The test tenant must expose a populated catalogue."
+    )
 
     # Test with page size
     models = client.Model.search(page_size=number_of_models - 1)
@@ -315,7 +317,14 @@ def test_llm_capability_properties(client, stream_tool_call_model_id):
 def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):
     """E2E: stream tool-calling returns OpenAI-style tool call deltas in chunks."""
     model = client.Model.get(stream_tool_call_model_id)
-    assert model.supports_streaming is True, "pinned streaming model must advertise streaming support"
+    # The model is pinned *because* it streams (tests/functional/_assets.py), so
+    # "it does not support streaming" is a regression in the capability flag or a
+    # change to the pinned asset -- either way something to fix, not to skip.
+    assert model.supports_streaming is not False, (
+        f"{model.name} ({model.id}) is pinned as the streaming tool-calling fixture but "
+        "reports supports_streaming=False. Re-pin via AIXPLAIN_TEST_STREAMING_TOOL_CALL_MODEL "
+        "if the asset changed."
+    )
 
     stream = model.run_stream(
         context=(
@@ -338,8 +347,14 @@ def test_run_stream_tool_calling_e2e(client, stream_tool_call_model_id):
     # Content may be empty when the model only emits tool-call deltas.
     assert isinstance(stream_content, str)
 
-    # The stream must expose tool call deltas in OpenAI format.
-    assert tool_call_deltas, "pinned streaming model did not emit tool-call deltas"
+    # The stream should expose tool call deltas in OpenAI format. The run forces
+    # the tool with tool_choice, so an empty delta list means the streaming
+    # tool-call path is broken -- which is precisely what this test exists to
+    # catch. `flaky(reruns=2)` above absorbs a one-off provider hiccup.
+    assert tool_call_deltas, (
+        "Streaming response emitted no tool-call deltas despite tool_choice forcing "
+        "get_current_time; the OpenAI-style delta path is not working."
+    )
     assert any("function" in delta for delta in tool_call_deltas)
 
     function_names = _extract_function_names(tool_call_deltas)
@@ -493,27 +508,25 @@ def test_model_parameter_structure(client, text_model_id):
             assert isinstance(param.available_options, list)
 
 
-def test_model_validation_edge_cases(client):
-    """Test edge cases in dynamic validation."""
-    models = client.Model.search()
+def test_model_validation_edge_cases(client, text_model_id):
+    """Test the zero-argument edge case in dynamic validation.
 
-    for model in models.results:
-        if model.params:
-            # Test with empty parameters
-            try:
-                result = model.run()
-                # If no required parameters, this should work
-                assert result.status == "SUCCESS"
-                break
-            except ValueError as e:
-                # If there are required parameters, this should fail
-                assert "Required parameter" in str(e)
-                break
-            except Exception:
-                # If the model doesn't support running, try the next one
-                continue
-    else:
-        pytest.skip("No suitable model found for testing edge cases")
+    `test_dynamic_validation_gpt5_4` drops one required key from an otherwise
+    complete call; this drops all of them, which is the path where the validator
+    has no parameters at all to work from.
+
+    Runs against the pinned text model rather than sweeping the catalogue for the
+    first model that happens to cooperate. The sweep ended in a skip reading "No
+    suitable model found for testing edge cases", so a catalogue change quietly
+    deleted this test's coverage (ENG-3684); pinning makes the same change a
+    failure that names the asset.
+    """
+    model = client.Model.get(text_model_id)
+    assert model.params, f"{model.name} ({model.id}) declares no parameters, so validation cannot be exercised"
+
+    # `text` is required, so a bare run() must be rejected by client-side validation.
+    with pytest.raises(ValueError, match="Required parameter"):
+        model.run()
 
 
 def test_model_legacy_compatibility(client, text_model_id):
@@ -934,23 +947,27 @@ def test_model_inputs_proxy_integration_with_run(client, text_model_id):
 
 
 @pytest.fixture(scope="module")
-def sync_model_id():
+def sync_model_id(assets):
     """Return a sync-only model ID for testing (Cloud Translation)."""
-    return "66aa869f6eb56342c26057e1"
+    return assets.SYNC_ONLY_MODEL
 
 
 @pytest.fixture(scope="module")
-def async_model_id():
+def async_model_id(assets):
     """Return an async-only model ID for testing (Amazon Translate)."""
-    return "6686e7946eb563a724229b84"
+    return assets.ASYNC_ONLY_MODEL
 
 
 def test_sync_model_connection_type(client, sync_model_id):
     """Test that sync model has correct connection_type."""
     model = client.Model.get(sync_model_id)
-    assert model.connection_type is None or isinstance(model.connection_type, list)
-    if not model.connection_type:
-        pytest.skip("Model does not expose connection_type metadata")
+    # The model is pinned as the sync-only fixture, so missing connection_type
+    # metadata is a backend/SDK regression -- the exact thing this test checks.
+    assert model.connection_type, (
+        f"{model.name} ({model.id}) is pinned as the sync-only fixture but exposes no "
+        "connection_type metadata. Re-pin via AIXPLAIN_TEST_SYNC_ONLY_MODEL if the asset changed."
+    )
+    assert isinstance(model.connection_type, list)
     assert "synchronous" in model.connection_type
     assert model.is_sync_only is True
     assert model.is_async_capable is False
@@ -959,9 +976,11 @@ def test_sync_model_connection_type(client, sync_model_id):
 def test_async_model_connection_type(client, async_model_id):
     """Test that async model has correct connection_type."""
     model = client.Model.get(async_model_id)
-    assert model.connection_type is None or isinstance(model.connection_type, list)
-    if not model.connection_type:
-        pytest.skip("Model does not expose connection_type metadata")
+    assert model.connection_type, (
+        f"{model.name} ({model.id}) is pinned as the async-only fixture but exposes no "
+        "connection_type metadata. Re-pin via AIXPLAIN_TEST_ASYNC_ONLY_MODEL if the asset changed."
+    )
+    assert isinstance(model.connection_type, list)
     assert "asynchronous" in model.connection_type
     assert model.is_sync_only is False
     assert model.is_async_capable is True
@@ -979,9 +998,9 @@ def test_sync_model_run(client, sync_model_id):
     assert "Hola" in result.data or "hola" in result.data.lower()
 
 
-def test_seedream_run_returns_non_poll_url_without_polling(client):
+def test_seedream_run_returns_non_poll_url_without_polling(client, assets):
     """Sync model run should return Seedream's final output URL without polling it."""
-    model = client.Model.get("69f347e7de823633d9604dfd")
+    model = client.Model.get(assets.SEEDREAM_MODEL)
 
     result = model.run(
         text="A small red cube on a plain white background.",

@@ -140,6 +140,7 @@ The v1 tool-builder classmethods are replaced by resources:
 | `AgentFactory.create_custom_python_code_tool(code=...)` | `aix.Tool(code=...)` — see [`ScriptFactory`](#scriptfactory--aixtool) |
 | `AgentFactory.create_python_interpreter_tool()` | `aix.Tool.get(...)` for the Python sandbox integration |
 | `AgentFactory.create_pipeline_tool(pipeline=...)` | No v2 equivalent — see [the gaps](#no-v2-equivalent) |
+| `AgentFactory.create_sql_tool(...)` | No v2 equivalent — v2 has no SQL tool builder; stay on `0.2.48` if you depend on it |
 
 Runs return typed objects in v2: read `result.data.output`, not `result["data"]`.
 

@@ -79,7 +79,7 @@ ruff format .           # Format
 pre-commit install
 ```
 
-Hooks run: trailing-whitespace, end-of-file-fixer, check-merge-conflict, check-added-large-files, ruff (lint + format for `aixplain/v2/`), and unit tests with coverage.
+Hooks run: trailing-whitespace, end-of-file-fixer, check-merge-conflict, check-added-large-files, ruff (lint for `aixplain/v2/`; format for `aixplain/v2/` and `tests/` -- tests are format-checked only), and unit tests with coverage.
 
 ---
 
@@ -88,7 +88,7 @@ Hooks run: trailing-whitespace, end-of-file-fixer, check-merge-conflict, check-a
 - **Line length**: 120 characters.
 - **Indentation**: 4 spaces.
 - **Quotes**: Double quotes for strings.
-- **Docstrings**: Google style (enforced by ruff `pydocstyle`). Docstring rules are **not** enforced in `tests/`.
+- **Docstrings**: Google style (enforced by ruff `pydocstyle`). Docstring rules are **not** enforced in `tests/`; tests are format-checked only (no lint rules apply to them).
 - **Type hints**: Required on all public functions. Use `typing` (`Optional`, `Union`, `List`, `Dict`, `TypeVar`, generics).
 - **Naming**: `PascalCase` for classes, `snake_case` for functions and methods, `UPPER_SNAKE_CASE` for constants.
 - **Exceptions**: Use the custom hierarchy in `aixplain/exceptions/` (`AixplainBaseException` and subclasses). Never raise bare `Exception`. Preserve useful context in error messages and include status or response details when available.
@@ -161,8 +161,9 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
 - **Unit tests**: `tests/unit/` -- fast, mocked, no network calls.
 - **Functional tests**: `tests/functional/` -- integration tests against real or staged services.
 - **Mock data**: `tests/mock_responses/` -- JSON fixtures for API responses.
+- **Backend asset ids**: never inline a 24-hex ObjectId in a functional test. `tests/functional/_assets.py` holds one named field per asset, per environment (`dev`/`test`/`prod`, selected by `BACKEND_URL`); read it through the `assets` fixture and override a single id for one run with `AIXPLAIN_TEST_<NAME>`. Each name is resolved against the backend the first time a test reads it (cached for the session), so a retired id fails only the tests that use it, by name; `tests/unit/test_functional_hygiene.py` fails if a bare literal reappears.
 - **CI**: GitHub Actions runs the credential-free unit suite plus one functional leg per `tests/functional/v2/test_*.py` file (`agent`, `model`, ...) on Python 3.9 with a 30-minute timeout each. A new functional test file needs its own leg in `.github/workflows/main.yaml`; `tests/unit/test_ci_matrix_coverage.py` fails otherwise.
-- **Docstrings in tests**: Not enforced (ruff ignores `D` rules for `tests/**/*.py`).
+- **Docstrings in tests**: Not enforced (ruff ignores `D` rules for `tests/**/*.py`). Since `D` is the only selected rule set, `ruff check` reports nothing for tests; they are format-checked only.
 - Prefer targeted unit tests under `tests/unit/v2/`.
 
 ---
