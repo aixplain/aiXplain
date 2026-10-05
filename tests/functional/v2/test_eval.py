@@ -1,7 +1,8 @@
 """Functional tests for Eval / Metric / Dataset / EvalCase and experiment diffing.
 
-These were entirely untested end to end: the only usage was the root-level
-``test_agent_eval.py`` script against the dev backend. The tests build a local
+These were entirely untested end to end: the only usage was a root-level
+``test_agent_eval.py`` script against the dev backend, outside ``testpaths`` and
+deleted in ENG-3686 for its committed key. The tests build a local
 dataset, run an eval against a saved agent with a metric this module creates,
 fetch the structured results and diff two runs of one experiment. The
 empty-dataset edge is covered too.
