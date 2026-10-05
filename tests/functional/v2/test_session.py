@@ -233,9 +233,9 @@ class TestSessionMessages:
             os.remove(tmp_path)
 
     @pytest.mark.skip(
-        reason="Backend bug: sessions service validates role but stores every "
-        "message as role='user' (verified 2026-07-21), so assistant messages "
-        "can never be reacted to. Unskip when the backend persists the role."
+        reason="Backend bug BUG-1099: sessions service validates role but stores every "
+        "message as role='user' (re-verified 2026-10-02), so assistant messages "
+        "can never be reacted to. Re-test monthly; unskip when the backend persists the role."
     )
     def test_react_like_and_dislike(self, session):
         """Reacting to an assistant message with LIKE then DISLIKE should work."""
@@ -249,7 +249,8 @@ class TestSessionMessages:
         assert disliked.reaction == "DISLIKE"
 
     @pytest.mark.skip(
-        reason="Backend bug: sessions service stores every message as role='user' — see test_react_like_and_dislike."
+        reason="Backend bug BUG-1099: sessions service stores every message as role='user' "
+        "(see test_react_like_and_dislike). Re-test monthly."
     )
     def test_clear_reaction(self, session):
         """Passing None to react() should clear the reaction."""
