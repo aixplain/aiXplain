@@ -27,6 +27,7 @@ Not covered here:
   accepted, but no effect is asserted.
 """
 
+import base64
 import json
 import re
 import time
@@ -40,14 +41,6 @@ from aixplain.v2.agent import AgentResponseData
 from aixplain.v2.exceptions import APIError
 from aixplain.v2.exceptions import TimeoutError as SDKTimeoutError
 
-from .assets import (
-    IMAGE_MODEL_ID,
-    REASONING_MODEL_ID,
-    RED_PNG_BYTES,
-    TAVILY_TOOL_ID,
-    VISION_LLM_ID,
-)
-
 # No module-wide ``flaky`` mark: tests/functional/conftest.py already reruns any
 # test whose run timed out. Only tests whose assertion depends on what the model
 # chooses to say or do carry their own ``flaky`` mark, with the reason beside it.
@@ -59,6 +52,11 @@ BUDGET_EXCEEDED = "BUDGET_EXCEEDED"
 #: Tavily's single action and the optional input the tool-override test sets.
 TAVILY_ACTION = "search"
 TAVILY_RESULT_COUNT_INPUT = "num_results"
+
+#: Minimal 1x1 red PNG, used as a deterministic attachment payload.
+RED_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
 
 
 def _unique(prefix: str) -> str:
@@ -72,8 +70,8 @@ def _make_agent(client, tracker, *, instructions="You are a helpful test agent. 
     return agent
 
 
-def _make_tool_agent(client, tracker):
-    tool = client.Tool.get(TAVILY_TOOL_ID)
+def _make_tool_agent(client, tracker, tavily_tool_id):
+    tool = client.Tool.get(tavily_tool_id)
     return _make_agent(
         client,
         tracker,
@@ -149,17 +147,17 @@ def run_agent(client, module_resource_tracker):
 
 
 @pytest.fixture(scope="module")
-def vision_agent(client, module_resource_tracker):
-    return _make_agent(client, module_resource_tracker, llm=VISION_LLM_ID)
+def vision_agent(client, module_resource_tracker, assets):
+    return _make_agent(client, module_resource_tracker, llm=assets.VISION_LLM)
 
 
 @pytest.fixture(scope="module")
-def image_agent(client, module_resource_tracker):
+def image_agent(client, module_resource_tracker, assets):
     return _make_agent(
         client,
         module_resource_tracker,
         instructions="You generate images with the attached image tool.",
-        tools=[client.Model.get(IMAGE_MODEL_ID)],
+        tools=[client.Model.get(assets.SEEDREAM_MODEL)],
     )
 
 
@@ -170,8 +168,8 @@ def image_agent(client, module_resource_tracker):
 
 # The iteration cap only trips if the model calls the tool first.
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
-def test_budget_max_iterations_halts_after_one_step(client, module_resource_tracker):
-    agent = _make_tool_agent(client, module_resource_tracker)
+def test_budget_max_iterations_halts_after_one_step(client, module_resource_tracker, assets):
+    agent = _make_tool_agent(client, module_resource_tracker, assets.TAVILY)
     agent.budget.max_iterations = 1
 
     result = agent.run("Search the web for the capital of France, then answer.")
@@ -182,8 +180,8 @@ def test_budget_max_iterations_halts_after_one_step(client, module_resource_trac
     )
 
 
-def test_budget_max_cost_zero_blocks_run(client, module_resource_tracker):
-    agent = _make_tool_agent(client, module_resource_tracker)
+def test_budget_max_cost_zero_blocks_run(client, module_resource_tracker, assets):
+    agent = _make_tool_agent(client, module_resource_tracker, assets.TAVILY)
     agent.budget.max_cost = 0.0
 
     result = agent.run("Search the web for the capital of France, then answer.")
@@ -195,8 +193,8 @@ def test_budget_max_cost_zero_blocks_run(client, module_resource_tracker):
     )
 
 
-def test_budget_max_duration_zero_blocks_run(client, module_resource_tracker):
-    agent = _make_tool_agent(client, module_resource_tracker)
+def test_budget_max_duration_zero_blocks_run(client, module_resource_tracker, assets):
+    agent = _make_tool_agent(client, module_resource_tracker, assets.TAVILY)
     agent.budget.max_duration_seconds = 0
 
     result = agent.run("Search the web for the capital of France, then answer.")
@@ -374,7 +372,7 @@ def test_tasks_are_accepted(run_agent):
     assert run_agent.run("Say hi.", tasks=tasks).status == "SUCCESS"
 
 
-def test_run_time_inspector_runs(run_agent):
+def test_run_time_inspector_runs(run_agent, assets):
     """A run-time inspector runs and shows up as a step.
 
     The action is ``continue`` and the judge is told to always pass, so the
@@ -385,7 +383,7 @@ def test_run_time_inspector_runs(run_agent):
         name=name,
         targets=["input"],
         action="continue",
-        metric={"asset_id": REASONING_MODEL_ID, "prompt": "Always answer PASS, whatever the content."},
+        metric={"asset_id": assets.DEFAULT_LLM, "prompt": "Always answer PASS, whatever the content."},
     )
 
     result = run_agent.run("Say hi.", inspectors=[inspector.to_dict()])
@@ -521,7 +519,7 @@ def test_session_recalls_and_stateless_forgets(client, module_resource_tracker):
 # ---------------------------------------------------------------------------
 
 
-def test_reasoning_effort_payload_and_run_accepted(client, module_resource_tracker):
+def test_reasoning_effort_payload_and_run_accepted(client, module_resource_tracker, assets):
     """``reasoning_effort`` lands in ``modelParameters`` and the backend accepts the run.
 
     Only acceptance is verified. No response field reports the effort level
@@ -529,7 +527,8 @@ def test_reasoning_effort_payload_and_run_accepted(client, module_resource_track
     the value, and changing the LLM's inputs after saving marks an onboarded
     agent as modified, so ``run()`` refuses it.
     """
-    llm = client.Model.get(REASONING_MODEL_ID)
+    # The suite's default LLM (GPT-5.4) exposes a ``reasoning_effort`` input.
+    llm = client.Model.get(assets.DEFAULT_LLM)
     llm.inputs.reasoning_effort = "low"
 
     agent = _make_agent(client, module_resource_tracker, llm=llm)
@@ -544,7 +543,7 @@ def test_reasoning_effort_payload_and_run_accepted(client, module_resource_track
 
 # The tool step exists only if the model calls the search tool.
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
-def test_tool_input_override_applies_at_run_time_only(client, module_resource_tracker):
+def test_tool_input_override_applies_at_run_time_only(client, module_resource_tracker, assets):
     """A tool input changed after ``save()`` is sent with the run and not persisted.
 
     The SDK does not pin the shape of a tool step's output. When it carries a
@@ -553,7 +552,7 @@ def test_tool_input_override_applies_at_run_time_only(client, module_resource_tr
     is asserted.
     """
     override = 1
-    agent = _make_tool_agent(client, module_resource_tracker)
+    agent = _make_tool_agent(client, module_resource_tracker, assets.TAVILY)
 
     tool = agent.tools[0]
     search = tool.actions[TAVILY_ACTION]
