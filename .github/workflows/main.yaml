@@ -400,6 +400,15 @@ jobs:
         && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     strategy:
       fail-fast: false
+      # Every leg runs agents against the same test tenant, which caps concurrent
+      # agent runs per team (20 at the time of writing). With all legs at once --
+      # several of them at `-n 2` -- runs beyond the cap are refused with
+      # `429 err.agent_concurrency_limit_reached`, which fails tests that have
+      # nothing wrong with them (~40 in the first live run of this matrix). Four
+      # legs at a time keep one run under the cap. It does not bound runs of
+      # *other* PRs sharing the tenant; the per-PR `concurrency:` group above
+      # keeps that to one matrix per PR.
+      max-parallel: 4
       matrix:
         # 'unit' is absent on purpose: it runs in the credential-free
         # `unit-coverage` job above, so it is not executed twice.

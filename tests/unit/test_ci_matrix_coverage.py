@@ -578,3 +578,20 @@ def test_every_leg_declares_a_timeout():
     """
     missing = [entry["suite"] for entry in _matrix()["include"] if "timeout" not in entry]
     assert not missing, f"matrix include entries with no `timeout`: {missing}"
+
+
+def test_functional_matrix_caps_its_parallelism():
+    """The legs share one test tenant, which caps concurrent agent runs.
+
+    With every leg running at once, the first live run of this matrix had ~40
+    tests refused with `err.agent_concurrency_limit_reached` -- failures that say
+    nothing about the SDK. `max-parallel` is the bound; dropping it, or raising it
+    past what the tenant absorbs, brings those failures back.
+    """
+    strategy = yaml.safe_load(WORKFLOW.read_text())["jobs"]["functional"]["strategy"]
+    max_parallel = strategy.get("max-parallel")
+
+    assert isinstance(max_parallel, int) and 1 <= max_parallel <= 4, (
+        f"jobs.functional.strategy.max-parallel is {max_parallel!r}; it must be an integer from 1 to 4 so the "
+        "legs stay under the test tenant's agent concurrency limit (err.agent_concurrency_limit_reached)."
+    )

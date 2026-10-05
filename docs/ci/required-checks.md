@@ -123,6 +123,11 @@ leaves one run going rather than several matrices side by side. Push, schedule a
 each get a group of their own and are never cancelled or dropped: GitHub keeps only one pending run
 per group, and a dropped push run on `main` is a commit the release gate below cannot release.
 
+Within one run, the `functional` job's `max-parallel: 4` runs four legs at a time. Every leg drives
+agents on the same test tenant, which refuses runs past its concurrency cap with
+`err.agent_concurrency_limit_reached`; with all legs at once, the first live run lost ~40 tests to it.
+`tests/unit/test_ci_matrix_coverage.py` fails if the cap is removed or raised above four.
+
 `pre-commit.yaml` triggers on `push` to `'**'`, so `pre-commit` also reports on a feature-branch
 PR. It runs `tests/unit`, which includes the coverage-relevant suite and all the static CI guards,
 and takes no secret, so unlike the functional legs its redness always means an SDK-side problem.
