@@ -268,9 +268,7 @@ class TestAttachShapes:
             "id": "tool-1",
             "asset_id": "tool-1",
             "type": "model",
-            "parameters": [
-                {"name": "temperature", "value": "0.5", "allow_multi": False, "supports_variables": True}
-            ],
+            "parameters": [{"name": "temperature", "value": "0.5", "allow_multi": False, "supports_variables": True}],
         }
         # A dict that already carries a type must not trigger asset resolution.
         with patch.object(Agent, "_resolve_tool_snapshot", side_effect=AssertionError("must not resolve")):

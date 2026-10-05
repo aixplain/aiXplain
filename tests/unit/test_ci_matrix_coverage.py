@@ -35,7 +35,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.ci_guards import REQUIRE_EXECUTED_ENV, should_fail_for_no_executed_tests
+from tests.ci_guards import (
+    MIN_EXECUTED_RATIO_ENV,
+    REQUIRE_EXECUTED_ENV,
+    min_executed_ratio,
+    should_fail_for_no_executed_tests,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "main.yaml"
@@ -218,7 +223,7 @@ def test_parked_targets_still_exist_and_still_hold_tests(target):
 
 @pytest.mark.parametrize("target", sorted(PARKED_TARGETS))
 def test_parked_targets_cite_a_ticket(target):
-    """"Parked because it was flaky" is how coverage disappears for a year."""
+    """ "Parked because it was flaky" is how coverage disappears for a year."""
     reason = PARKED_TARGETS[target]
     assert _TICKET_PATTERN.search(reason), (
         f"the PARKED_TARGETS reason for {target} cites no ticket ({reason!r}); parked coverage needs "
@@ -247,6 +252,27 @@ def test_parked_targets_are_not_also_running_in_ci(target):
 _GUARD_CALLS = ("getenv", "environ", "get_closest_marker", "getoption", "getvalue")
 
 
+def _consults_a_guard(node: ast.AST) -> bool:
+    """True if *node* actually reads one of `_GUARD_CALLS` (`os.getenv`, `os.environ`, ...).
+
+    Matched on attribute and name nodes, not on the text of the dump: a fixture
+    whose docstring talks about "the environment", or that calls something named
+    `environment_for`, consults nothing, and a substring test let exactly that
+    pass as guarded (ENG-3685).
+    """
+    for child in ast.walk(node):
+        if isinstance(child, ast.Attribute) and child.attr in _GUARD_CALLS:
+            return True
+        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load) and child.id in _GUARD_CALLS:
+            return True
+    return False
+
+
+def _skips(node: ast.AST) -> bool:
+    body = ast.dump(node)
+    return "'skip'" in body or '"skip"' in body
+
+
 def _skips_unconditionally(node: ast.AST) -> bool:
     """True if *node*'s body reaches a skip without consulting anything.
 
@@ -254,9 +280,7 @@ def _skips_unconditionally(node: ast.AST) -> bool:
     directory-wide skip reads the environment, a marker, or an option, so
     requiring one of those keeps false positives unlikely and easy to resolve.
     """
-    body = ast.dump(node)
-    skips = "'skip'" in body or '"skip"' in body
-    return skips and not any(call in body for call in _GUARD_CALLS)
+    return _skips(node) and not _consults_a_guard(node)
 
 
 def _is_autouse_fixture(node: ast.AST) -> bool:
@@ -368,6 +392,29 @@ GUARDED_SETUP_HOOK = (
     "        pytest.skip('no credentials')\n"
 )
 
+# An unconditional skip that merely *talks* about the environment: a docstring,
+# a variable and a helper whose names contain "environ". The detector once took
+# that text for a guard, which hid an autouse skip in the v2 conftest (ENG-3685).
+BLANKET_FIXTURE_NAMING_THE_ENVIRONMENT = (
+    "import pytest\n"
+    "from tests.functional._assets import environment_for\n"
+    "@pytest.fixture(scope='session', autouse=True)\n"
+    "def verify_assets_resolve():\n"
+    '    """Resolve every asset in the environment this run targets."""\n'
+    "    environment = environment_for()\n"
+    "    pytest.skip(f'no credentials for {environment}')\n"
+)
+
+# The guard reached through `from os import environ` -- still a real read.
+GUARDED_FIXTURE_BARE_ENVIRON = (
+    "from os import environ\n"
+    "import pytest\n"
+    "@pytest.fixture(autouse=True)\n"
+    "def _require_api_key():\n"
+    "    if not environ.get('TEAM_API_KEY'):\n"
+    "        pytest.skip('no credentials')\n"
+)
+
 
 @pytest.mark.parametrize(
     ("source", "expected"),
@@ -378,6 +425,8 @@ GUARDED_SETUP_HOOK = (
         (GUARDED_FIXTURE, {}),
         (BLANKET_SETUP_HOOK, {OFFENDER: "pytest_runtest_setup"}),
         (GUARDED_SETUP_HOOK, {}),
+        (BLANKET_FIXTURE_NAMING_THE_ENVIRONMENT, {OFFENDER: "autouse fixture verify_assets_resolve()"}),
+        (GUARDED_FIXTURE_BARE_ENVIRON, {}),
     ],
     ids=[
         "blanket-hook",
@@ -386,6 +435,8 @@ GUARDED_SETUP_HOOK = (
         "guarded-autouse-fixture",
         "blanket-runtest-setup-hook",
         "guarded-runtest-setup-hook",
+        "blanket-autouse-fixture-naming-the-environment",
+        "guarded-autouse-fixture-bare-environ",
     ],
 )
 def test_blanket_skip_detector_distinguishes_guarded_from_unconditional(tmp_path, source, expected):
@@ -414,13 +465,57 @@ def test_the_real_conftests_are_the_guarded_shape(directory):
         "ENG-3544; use a credential-guarded fixture instead."
     )
 
+    # Every skip in the file has to read the environment itself, autouse or not:
+    # a fixture every test requests (`client`, `assets`) silences a leg as surely
+    # as an autouse one, and a check behind a helper is invisible to the
+    # detector above.
+    unguarded = sorted(f.name for f in functions if _skips_unconditionally(f))
+    assert not unguarded, (
+        f"tests/functional/{directory}/conftest.py skips in {unguarded} without reading the "
+        "environment there; inline the `os.getenv(...)` credential check so the guard is visible "
+        "(ENG-3544)."
+    )
+
     # Not necessarily autouse: the v2 suite reaches the credential through the
     # `client` fixture every test already requests, which skips on the same read.
-    guards = [f for f in functions if "getenv" in ast.dump(f) and "skip" in ast.dump(f)]
+    guards = [f for f in functions if _skips(f) and _reads_api_key(f)]
     assert guards, (
         f"tests/functional/{directory}/conftest.py has no fixture guarding its skip on an "
         "API key; without one the suite either runs with no credential or skips unconditionally."
     )
+
+
+class _StripEnvironmentReads(ast.NodeTransformer):
+    """Replace every `getenv(...)`/`environ.get(...)` call with `None` -- the guard, deleted."""
+
+    def visit_Call(self, node):
+        if _consults_a_guard(node.func):
+            return ast.copy_location(ast.Constant(None), node)
+        return self.generic_visit(node)
+
+
+def test_the_real_v2_conftest_is_guarded_only_by_its_environment_reads():
+    """Delete the env reads from the real v2 conftest and every skip must become unconditional.
+
+    The proof that the guard test above sees the real guards rather than an
+    incidental word: with the reads gone, each skipping fixture -- the
+    credential checks in `client` and `assets` among them -- is flagged.
+    """
+    tree = _StripEnvironmentReads().visit(ast.parse((FUNCTIONAL_DIR / "v2" / "conftest.py").read_text()))
+    skipping = {node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and _skips(node)}
+
+    assert {"client", "assets"} <= set(skipping), f"expected credential skips in client and assets, got {skipping}"
+    assert all(_skips_unconditionally(node) for node in skipping.values())
+
+
+def _reads_api_key(node: ast.AST) -> bool:
+    """True if *node* reads `TEAM_API_KEY` or `AIXPLAIN_API_KEY` through `getenv`/`environ`."""
+    for child in ast.walk(node):
+        if isinstance(child, ast.Call) and _consults_a_guard(child.func):
+            names = {arg.value for arg in child.args if isinstance(arg, ast.Constant)}
+            if names & {"TEAM_API_KEY", "AIXPLAIN_API_KEY"}:
+                return True
+    return False
 
 
 def test_workflow_enables_the_execution_guard():
@@ -447,6 +542,30 @@ def test_workflow_enables_the_execution_guard():
     assert should_fail_for_no_executed_tests(0, 0, env={REQUIRE_EXECUTED_ENV: str(value)}), (
         f"{REQUIRE_EXECUTED_ENV} is set to {value!r}, which tests/ci_guards.py does not read as "
         "truthy, so the execution guard is off in CI while looking enabled."
+    )
+
+
+def test_workflow_pins_the_execution_ratio_floor():
+    """CI must state the floor it holds every leg to (ENG-3684).
+
+    Leaving `AIXPLAIN_MIN_EXECUTED_RATIO` unset would still enforce the default,
+    but the number nobody can see is the number nobody notices being wrong. The
+    literal is parsed by the real reader, so a value the guard rejects (`"80%"`,
+    `"high"`) fails here rather than failing every functional leg as "CI
+    integrity guard misconfigured" on the next push.
+    """
+    workflow = yaml.safe_load(WORKFLOW.read_text())
+    value = workflow.get("env", {}).get(MIN_EXECUTED_RATIO_ENV)
+
+    assert value is not None, (
+        f"{MIN_EXECUTED_RATIO_ENV} is missing from the workflow-level `env:` block in "
+        f"{WORKFLOW.name}. The floor each leg is held to belongs in the workflow, where it "
+        "is visible and reviewable (ENG-3684)."
+    )
+    ratio = min_executed_ratio({MIN_EXECUTED_RATIO_ENV: str(value)})
+    assert ratio > 0, (
+        f"{MIN_EXECUTED_RATIO_ENV} is set to {value!r}, which disables the ratio floor while "
+        "looking like it enforces one."
     )
 
 
