@@ -37,6 +37,7 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | — | `functional (agent-lifecycle)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (agent-llm-persistence)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (agent-progress)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (agent-run-params)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (api-key)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (arabic-agent)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (debugger)` | `main.yaml` | Yes, when in scope | as above |

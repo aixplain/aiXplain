@@ -426,6 +426,7 @@ jobs:
           'agent-lifecycle',
           'agent-llm-persistence',
           'agent-progress',
+          'agent-run-params',
           'api-key',
           'arabic-agent',
           'debugger',
@@ -466,6 +467,9 @@ jobs:
           - suite: 'agent-progress'
             path: 'tests/functional/v2/test_agent_progress.py'
             timeout: 30
+          - suite: 'agent-run-params'
+            path: 'tests/functional/v2/test_agent_run_params.py -n 2'
+            timeout: 45
           - suite: 'api-key'
             path: 'tests/functional/v2/test_api_key.py'
             timeout: 30

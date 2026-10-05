@@ -110,6 +110,10 @@ class AssetIds:
     #: Emits tool-call deltas over a streaming connection.
     STREAMING_TOOL_CALL_MODEL: str
 
+    #: A vision-capable LLM (Gemini) that accepts image attachments on an agent
+    #: run, so an attachment's content can be proved to reach the model.
+    VISION_LLM: str
+
     #: One model that only advertises ``synchronous`` and one that only
     #: advertises ``asynchronous``, for the connection-type routing tests.
     SYNC_ONLY_MODEL: str
@@ -156,6 +160,7 @@ SPECS: Dict[str, AssetSpec] = {
     "NON_DEFAULT_LLM": AssetSpec("Model", "non-default LLM (GPT-4.1 Nano)"),
     "CLAUDE_LLM": AssetSpec("Model", "Anthropic Claude Opus 4.6"),
     "STREAMING_TOOL_CALL_MODEL": AssetSpec("Model", "streaming tool-calling model"),
+    "VISION_LLM": AssetSpec("Model", "vision-capable LLM for image attachments (Gemini)"),
     "SYNC_ONLY_MODEL": AssetSpec("Model", "sync-only model (Cloud Translation)"),
     "ASYNC_ONLY_MODEL": AssetSpec("Model", "async-only model (Amazon Translate)"),
     "TRANSLATION_MODEL": AssetSpec("Model", "translation model with a source-language input"),
@@ -177,6 +182,7 @@ DEV = AssetIds(
     NON_DEFAULT_LLM="67fd9e2bef0365783d06e2f0",
     CLAUDE_LLM="698c87701239a117fd66b468",
     STREAMING_TOOL_CALL_MODEL="69727676c60248082d79932f",
+    VISION_LLM="6a2846019a0a2598b61e12b8",
     SYNC_ONLY_MODEL="66aa869f6eb56342c26057e1",
     ASYNC_ONLY_MODEL="6686e7946eb563a724229b84",
     TRANSLATION_MODEL="678025ac6eb563a2566829b1",

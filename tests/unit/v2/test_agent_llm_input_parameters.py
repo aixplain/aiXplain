@@ -200,6 +200,32 @@ class TestAgentLlmInputParametersInSavePayload:
             assert legacy_key not in payload
 
 
+class TestAgentLlmInputParametersInRunPayload:
+    """Model input mutations must flow into ``build_run_payload()`` as run-time overrides.
+
+    The run shape is top-level ``modelParameters: {llm: [{name, value}]}``; the
+    backend applies it over the persisted agent. ``reasoning_effort`` is the
+    canonical parameter a caller sets at run time, so assert it lands on the
+    wire under the camelCase ``reasoningEffort`` key.
+    """
+
+    def test_reasoning_effort_is_emitted_in_run_payload(self):
+        llm = _reasoning_model()
+        llm.inputs.reasoning_effort = "low"
+
+        agent = _agent_for_save_payload(name="n", description="d", llm=llm)
+        payload = agent.build_run_payload(query="hi")
+
+        assert payload["modelParameters"] == {"llm": [{"name": "reasoningEffort", "value": "low"}]}
+
+    def test_no_model_parameters_key_when_no_inputs_set(self):
+        agent = _agent_for_save_payload(name="n", description="d", llm=_reasoning_model())
+
+        payload = agent.build_run_payload(query="hi")
+
+        assert "modelParameters" not in payload
+
+
 class TestRoleOverridesReachRunPayload:
     """Role overrides must reach the run payload the Temporal worker consumes.
 

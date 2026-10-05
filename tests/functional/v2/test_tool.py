@@ -1,4 +1,3 @@
-import os
 import pytest
 import time
 
@@ -452,7 +451,7 @@ def test_tool_update_description(client, slack_integration_id, slack_token, reso
         f"Expected description '{new_description}', got '{verified.description}'"
     )
 
-    print(f"✅ Tool description updated successfully")
+    print("✅ Tool description updated successfully")
 
 
 def test_tool_update_preserves_allowed_actions(client, slack_integration_id, slack_token, resource_tracker):
@@ -477,6 +476,57 @@ def test_tool_update_preserves_allowed_actions(client, slack_integration_id, sla
     assert fetched.allowed_actions == ["SLACK_SEND_MESSAGE"], "allowed_actions should be preserved after save()"
 
     print("✅ allowed_actions preserved through update")
+
+
+def test_allowed_actions_survive_agent_save_and_fetch(client, module_resource_tracker, multi_action_tool):
+    """Regression (BUG-710): a tool scoped to one of its actions keeps that scope through an agent.
+
+    The tool lists two or more actions, so a scope that is dropped (every action
+    comes back) or replaced (a different action comes back) is visible. The scope
+    is checked on the agent the backend stored and on the hydrated tool a fetch
+    returns. An action is matched case-insensitively against its ``name`` and its
+    ``code`` (slug), since the saved snapshot may carry either.
+    """
+    tool = multi_action_tool
+    actions = tool.list_actions()
+    assert actions and len(actions) >= 2, (
+        f"Tool {tool.id} exposes {len(actions or [])} action(s); this test needs at least 2."
+    )
+    chosen = actions[0]
+    chosen_ids = {value.lower() for value in (chosen.name, chosen.slug) if value}
+    tool.allowed_actions = [chosen.name or chosen.slug]
+
+    agent = client.Agent(
+        name=f"Functional Allowed Actions Agent {int(time.time() * 1000)}",
+        description="Verify a one-action tool scope survives agent save and fetch.",
+        instructions="Answer briefly.",
+        tools=[tool],
+        output_format="text",
+    )
+    agent.save()
+    module_resource_tracker.append(agent)
+
+    raw_agent = client.client.request("get", f"sdk/agents/{agent.id}")
+    asset = next((item for item in raw_agent.get("assets", []) if item.get("assetId") == tool.id), None)
+    assert asset is not None, f"Expected tool asset {tool.id} in the saved agent payload"
+    saved_actions = [str(action).lower() for action in asset.get("actions") or []]
+    assert len(saved_actions) == 1 and saved_actions[0] in chosen_ids, (
+        f"Expected the saved agent to scope tool {tool.id} to {sorted(chosen_ids)}, got {asset.get('actions')}"
+    )
+    saved_parameters = [
+        {str(param.get(key) or "").lower() for key in ("name", "code")} for param in asset.get("parameters") or []
+    ]
+    assert len(saved_parameters) == 1 and saved_parameters[0] & chosen_ids, (
+        f"Expected saved parameters for {sorted(chosen_ids)} only, got {asset.get('parameters')}"
+    )
+
+    fetched = client.Agent.get(agent.id)
+    fetched_tool = next((item for item in fetched.tools or [] if getattr(item, "id", None) == tool.id), None)
+    assert fetched_tool is not None, f"fetched agent lost tool {tool.id}: {fetched.tools}"
+    surviving = [str(action).lower() for action in fetched_tool.allowed_actions or []]
+    assert len(surviving) == 1 and surviving[0] in chosen_ids, (
+        f"Expected only {sorted(chosen_ids)} to survive the agent round-trip, got {fetched_tool.allowed_actions}"
+    )
 
 
 def test_tool_as_tool_auto_detects_single_action(client, tavily_tool_id):
