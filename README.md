@@ -1,8 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/aixplain-logo-light.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/aixplain-logo-dark.svg">
-    <img src="docs/assets/aixplain-logo-dark.svg" alt="aixplain" width="420">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/aixplain-logo-on-dark.svg">
+    <img alt="aixplain" src="docs/assets/aixplain-logo.svg" width="240">
   </picture>
 </p>
 
