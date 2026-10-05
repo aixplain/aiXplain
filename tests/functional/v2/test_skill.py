@@ -36,7 +36,9 @@ def skill_dir(tmp_path):
     """A minimal single-file skill folder, authored fresh per test."""
     d = tmp_path / "skill"
     d.mkdir()
-    _write_skill_md(str(d / "SKILL.md"), f"func-test-skill-{int(time.time())}", "SIGNAL-ALPHA")
+    # Seconds alone collide: two tests (or a rerun) can create a skill within the same
+    # second, and the backend refuses the second one with err.exist_name.
+    _write_skill_md(str(d / "SKILL.md"), f"func-test-skill-{int(time.time())}-{uuid.uuid4().hex[:6]}", "SIGNAL-ALPHA")
     return str(d)
 
 
