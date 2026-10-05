@@ -579,7 +579,7 @@ PARAMETRISED = "def test_upload(is_temp):\n    FileFactory.create(path='x', is_t
 OPTED_IN = (
     "import os\n"
     "import pytest\n\n\n"
-    "@pytest.mark.skipif(not os.getenv('AIXPLAIN_ALLOW_PERMANENT_UPLOADS'), reason='leaks')\n"
+    "@pytest.mark.skipif(not os.getenv('AIXPLAIN_ALLOW_PERMANENT_UPLOADS'), reason='leaks (BUG-947)')\n"
     "def test_upload():\n"
     "    FileFactory.create(path='x', is_temp=False)\n"
 )
@@ -817,36 +817,13 @@ def test_late_registration_detector(tmp_path, source, expected):
 # Hard-coded backend asset ids (ENG-3685)
 # ---------------------------------------------------------------------------
 
-#: A bare 24-character ObjectId. The lookarounds keep a longer hex run -- a
-#: commit sha, a hashed token -- from being chopped into a false positive.
-OBJECT_ID_PATTERN = re.compile(r"(?<![0-9a-fA-F])[0-9a-f]{24}(?![0-9a-fA-F])")
+#: A bare 24-character ObjectId, in either case. The lookarounds keep a longer
+#: hex run -- a commit sha, a hashed token -- from being chopped into a false
+#: positive.
+OBJECT_ID_PATTERN = re.compile(r"(?<![0-9a-f])[0-9a-f]{24}(?![0-9a-f])", re.IGNORECASE)
 
 #: The one module that may spell an asset id out.
 ASSET_MODULE = "tests/functional/_assets.py"
-
-#: Directories PROD-2918 deletes in full, together with the v1 surface they
-#: exercise. They are not exempt on their merits -- each still carries its own
-#: literals -- but rewriting a file that is being deleted buys a delete/modify
-#: conflict and nothing else. When PROD-2918 lands these directories are gone,
-#: this tuple matches nothing, and it can be deleted along with them; until
-#: then the exemption is written down rather than achieved by pointing the
-#: detector at `tests/functional/v2` and calling it "the functional suite".
-V1_LEGS = (
-    "agent",
-    "apikey",
-    "benchmark",
-    "file_asset",
-    "finetune",
-    "general_assets",
-    "model",
-    "team_agent",
-)
-
-
-def _is_v1_leg(relative: str) -> bool:
-    """True for a file inside one of the `tests/functional/<leg>/` directories PROD-2918 deletes."""
-    parts = Path(relative).parts
-    return len(parts) > 3 and parts[:2] == ("tests", "functional") and parts[2] in V1_LEGS
 
 
 def _object_id_offenders(functional_dir: Path = FUNCTIONAL_DIR, repo_root: Path = REPO_ROOT) -> dict:
@@ -856,10 +833,14 @@ def _object_id_offenders(functional_dir: Path = FUNCTIONAL_DIR, repo_root: Path 
     stale exactly as an id in code does, and one of the ids this ticket removed
     had been documenting a Web Search tool that no longer existed.
     """
+    files = _python_files(functional_dir)
+    assert files, f"no Python files under {functional_dir}; the scan would pass without looking at anything"
+
     offenders = {}
-    for path in _python_files(functional_dir):
-        relative = _relative(path, repo_root)
-        if relative == ASSET_MODULE or _is_v1_leg(relative):
+    for path in files:
+        # POSIX form, so the exemption below holds on Windows too.
+        relative = path.relative_to(repo_root).as_posix()
+        if relative == ASSET_MODULE:
             continue
         lines = [
             number
@@ -875,8 +856,8 @@ def test_no_functional_test_hard_codes_an_asset_id():
     """An inline ObjectId names no asset and works on only one backend.
 
     CI resolves these ids against `test-platform-api`, `main` resolves them
-    against production and a laptop resolves them against `dev-platform-api`:
-    three id spaces, so a retired asset failed one leg at a time and read as an
+    against production and a laptop pointed at `dev-platform-api` resolves them
+    there: three id spaces, so a retired asset failed one leg at a time and read as an
     unrelated backend error each time (ENG-3685).
     """
     offenders = _object_id_offenders()
@@ -900,18 +881,43 @@ def test_the_asset_module_actually_holds_the_ids():
 
 
 def test_every_asset_says_how_to_resolve_itself():
-    """A field with no `SPECS` entry is an id the session fixture never checks."""
+    """A field with no `SPECS` entry is an id `LazyAssets` cannot resolve."""
     assert sorted(SPECS) == sorted(ASSET_NAMES), (
         "AssetIds fields and SPECS entries have drifted apart: "
         f"missing from SPECS {sorted(set(ASSET_NAMES) - set(SPECS))}, "
-        f"stale in SPECS {sorted(set(SPECS) - set(ASSET_NAMES))}. The session fixture in "
-        "tests/functional/v2/conftest.py resolves what SPECS lists, so an unlisted field is "
-        "verified by nothing (ENG-3685)."
+        f"stale in SPECS {sorted(set(SPECS) - set(ASSET_NAMES))}. `LazyAssets` in "
+        "tests/functional/_assets.py resolves a name through its SPECS entry and refuses a name "
+        "without one, so an unlisted field cannot be read by any test (ENG-3685)."
     )
+
+
+def _parametrized_asset_names(path: Path, variable: str) -> list:
+    """The asset names a module's `pytest.param(label, "<ASSET_NAME>", ...)` list refers to.
+
+    Parsed rather than imported, so this unit test does not import a
+    functional test module (and with it the SDK client).
+    """
+    for node in ast.parse(path.read_text()).body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == variable for t in node.targets):
+            return [ast.literal_eval(param.args[1]) for param in node.value.elts]
+    raise AssertionError(f"{path} defines no {variable}")
+
+
+def test_every_arabic_agent_model_names_a_registered_asset():
+    """`test_arabic_agent.py` parametrises on asset *names*, read with `getattr(assets, name)`.
+
+    A typo there would collect fine and fail only at run time, on a backend.
+    """
+    names = _parametrized_asset_names(FUNCTIONAL_DIR / "v2" / "test_arabic_agent.py", "MODELS")
+
+    assert names, "test_arabic_agent.py's MODELS is empty"
+    unknown = sorted(set(names) - set(ASSET_NAMES))
+    assert not unknown, f"test_arabic_agent.py's MODELS names {unknown}, which are not fields of AssetIds"
 
 
 OBJECT_ID_IN_CODE = 'def test_x(client):\n    client.Model.get("69b7e5f1b2fe44704ab0e7d0")\n'
 OBJECT_ID_IN_COMMENT = "def test_x(client):\n    # was 69b7e5f1b2fe44704ab0e7d0\n    pass\n"
+OBJECT_ID_UPPER_CASE = 'def test_x(client):\n    client.Model.get("69B7E5F1B2FE44704AB0E7D0")\n'
 # 40 hex characters: a sha, not an asset id, and not something to flag.
 LONGER_HEX_RUN = 'SHA = "69b7e5f1b2fe44704ab0e7d069b7e5f1b2fe4470"\n'
 NAMED_ASSET = "def test_x(client, assets):\n    client.Model.get(assets.DEFAULT_LLM)\n"
@@ -922,10 +928,20 @@ NAMED_ASSET = "def test_x(client, assets):\n    client.Model.get(assets.DEFAULT_
     [
         (OBJECT_ID_IN_CODE, {"functional/some_test.py": [2]}),
         (OBJECT_ID_IN_COMMENT, {"functional/some_test.py": [2]}),
+        (OBJECT_ID_UPPER_CASE, {"functional/some_test.py": [2]}),
         (LONGER_HEX_RUN, {}),
         (NAMED_ASSET, {}),
     ],
-    ids=["id-in-code", "id-in-comment", "longer-hex-run", "named-asset"],
+    ids=["id-in-code", "id-in-comment", "id-in-upper-case", "longer-hex-run", "named-asset"],
 )
 def test_object_id_detector(tmp_path, source, expected):
+    """The detector flags an id wherever and however it is spelled, and nothing else."""
     assert _object_id_offenders(_tree(tmp_path, source), tmp_path) == expected
+
+
+def test_object_id_detector_refuses_an_empty_scan(tmp_path):
+    """A detector pointed at the wrong directory must not pass for finding nothing."""
+    (tmp_path / "functional").mkdir()
+
+    with pytest.raises(AssertionError, match="no Python files"):
+        _object_id_offenders(tmp_path / "functional", tmp_path)

@@ -311,10 +311,8 @@ def test_llm_parameter_is_persisted_on_agent(client, assets, resource_tracker):
 
 
 @pytest.mark.skip(
-    reason=(
-        "Backend rejects the Slack send-message payload: 'Unsupported Slack send message field(s). "
-        "text: Use markdown_text for normal content, or fallback_text with blocks.' (BUG-1098)"
-    )
+    reason="Backend bug BUG-1098: rejects the Slack send-message payload: 'Unsupported Slack send message field(s). "
+    "text: Use markdown_text for normal content, or fallback_text with blocks.' Re-test monthly."
 )
 def test_agent_with_slack_action_tool(client, assets, slack_token, resource_tracker):
     """An agent runs a Slack action tool end to end."""

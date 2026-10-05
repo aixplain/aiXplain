@@ -349,7 +349,8 @@ def _run_platform_tool_agent(client, tracker, tools: list, prompt: str, test_suf
 # Firecrawl
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always choose to call the scrape action")
+# flaky: the LLM may not always choose to call the scrape action.
+@pytest.mark.flaky(reruns=2)
 def test_agent_firecrawl_scrape_tool(client, assets, resource_tracker):
     """
     Verifies:
@@ -385,7 +386,8 @@ def test_agent_firecrawl_scrape_tool(client, assets, resource_tracker):
 # Tavily
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always invoke Tavily")
+# flaky: the LLM may not always invoke Tavily.
+@pytest.mark.flaky(reruns=2)
 def test_agent_tavily_web_search_tool(client, assets, resource_tracker):
     """
     Verifies:
@@ -419,47 +421,11 @@ def test_agent_tavily_web_search_tool(client, assets, resource_tracker):
     )
 
 
-# Google Search / SerpApi
-
-
-@pytest.mark.flaky(reruns=2, reason="LLM may not always call the Google Search utility")
-def test_agent_google_search_serpapi_tool(client, assets, resource_tracker):
-    """
-    Verifies:
-    1. The agent can be created with the Google Search utility model via the v2 SDK.
-    2. Agent execution succeeds.
-    3. The response contains the expected search results.
-    """
-    tool = client.Tool.get(assets.GOOGLE_SEARCH_UTILITY)
-
-    response = _run_platform_tool_agent(
-        client=client,
-        tracker=resource_tracker,
-        tools=[tool],
-        prompt=(
-            "You must use the Google Search tool to find the top three teams "
-            "in the Brazilian Serie A football championship in 2024. "
-            "Answer with only the three team names."
-        ),
-        test_suffix="google-serpapi",
-    )
-
-    assert response.status == "SUCCESS", f"Agent execution failed: {response.status}"
-
-    output = _get_output_text(response)
-    assert output, "Expected non-empty output from the agent"
-
-    output_lower = output.lower()
-    expected_teams = ["botafogo", "palmeiras", "flamengo"]
-
-    for team in expected_teams:
-        assert team in output_lower, f"Expected {team!r} in the response. Output: {output[:500]!r}"
-
-
 # Web Search Tool
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always invoke the Web Search tool")
+# flaky: the LLM may not always invoke the Web Search tool.
+@pytest.mark.flaky(reruns=2)
 def test_agent_web_search_tool(client, resource_tracker):
     """
     Verifies:

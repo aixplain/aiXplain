@@ -32,7 +32,7 @@ def non_default_llm_id(assets):
 
 
 @pytest.fixture(scope="module")
-def non_default_llm_agent(client, module_resource_tracker, non_default_llm_id):
+def non_default_llm_agent(client, non_default_llm_id, module_resource_tracker):
     """Create an agent pinned to a non-default LLM, cleaned up after tests."""
     assert non_default_llm_id != client.Agent.DEFAULT_LLM, "test LLM must not be the default"
     agent = client.Agent(

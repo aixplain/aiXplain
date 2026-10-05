@@ -1,9 +1,10 @@
 """Unit tests for the v2 agent progress formatter."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from aixplain.v2.agent import Agent
-from aixplain.v2.agent_progress import AgentProgressTracker
+from aixplain.v2.agent_progress import AgentProgressTracker, ProgressFormat
 
 
 def _tracker() -> AgentProgressTracker:
@@ -132,3 +133,78 @@ class TestSdkRequestKwargsStayOffTheAgentWire:
         assert "api_key" not in body
         assert "resource_path" not in body
         assert "SECRET" not in str(body)
+
+
+def _response(steps, status="SUCCESS"):
+    """A minimal stand-in for a poll response carrying ``steps``."""
+    return SimpleNamespace(steps=steps, status=status, _raw_data={})
+
+
+def _step(sid="s1", **extra):
+    step = {
+        "id": sid,
+        "agent": {"name": "Bot"},
+        "unit": {"name": "Think", "type": "llm"},
+        "api_calls": 1,
+        "used_credits": 0.001,
+    }
+    step.update(extra)
+    return step
+
+
+class TestParseSteps:
+    def test_normalizes_steps_with_progress_ids(self):
+        tracker = _tracker()
+
+        steps = tracker._parse_steps(_response([{"id": "a"}, {"step_id": "b"}, {}]))
+
+        assert [s["_progress_id"] for s in steps] == ["a", "b", "idx-2"]
+
+    def test_reads_steps_from_raw_data(self):
+        tracker = _tracker()
+        response = SimpleNamespace(_raw_data={"data": {"steps": [{"id": "nested"}]}})
+
+        assert [s["_progress_id"] for s in tracker._parse_steps(response)] == ["nested"]
+
+    def test_missing_steps_yields_empty_list(self):
+        tracker = _tracker()
+
+        assert tracker._parse_steps(SimpleNamespace(_raw_data={})) == []
+
+
+class TestLogsFormatEmitsPerStepLines:
+    def test_update_prints_a_line_per_step_and_completion(self, capsys):
+        tracker = _tracker()
+        tracker._is_notebook = True
+        tracker.start(format=ProgressFormat.LOGS, verbosity=1)
+
+        tracker.update(_response([_step("s1")]))
+        tracker.update(_response([_step("s1", output="done")]))
+        tracker.finish(_response([_step("s1", output="done")]))
+
+        out = capsys.readouterr().out
+        # The spinner line also reads "Step  1" and the summary also carries a
+        # "✓", so only the completed step's own line matches this.
+        assert "✓ Step  1" in out
+        assert "✓ Completed 1 steps" in out
+
+
+class TestStatusFormat:
+    def test_none_format_stays_silent(self, capsys):
+        tracker = _tracker()
+        tracker._is_notebook = True
+        tracker.start(format=ProgressFormat.NONE)
+
+        tracker.update(_response([_step("s1")]))
+        tracker.finish(_response([_step("s1")]))
+
+        assert capsys.readouterr().out == ""
+
+    def test_finish_reports_failure_status(self, capsys):
+        tracker = _tracker()
+        tracker._is_notebook = True
+        tracker.start(format=ProgressFormat.LOGS)
+
+        tracker.finish(_response([_step("s1")], status="FAILED"))
+
+        assert "Agent failed with status: FAILED" in capsys.readouterr().out

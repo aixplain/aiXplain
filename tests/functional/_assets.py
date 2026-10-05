@@ -1,17 +1,18 @@
 """Named backend asset ids for the functional suite (ENG-3685).
 
-Every functional test that needed a platform asset carried the raw ObjectId
-inline: 24 hex characters, no name, no owner, no way to point a run at a
-different backend. The same default LLM appeared in four v2 files and the Slack
-integration in seven, and three of the ids were copy-pasted byte-for-byte
+Before this module, every functional test that needed a platform asset carried
+the raw ObjectId inline: 24 hex characters, no name, no owner, no way to point a
+run at a different backend. The same default LLM appeared in four v2 files and
+the Slack integration in six, and the Firecrawl and Tavily ids were repeated
 between the agent and tool suites.
 
 Those literals are not portable. CI validates them against
 ``test-platform-api``, a push to ``main`` validates them against production, and
-a laptop with no ``BACKEND_URL`` set validates them against
-``dev-platform-api`` (see ``DEFAULT_BACKEND_URL`` below). Those are three
-separate id spaces, so a retired asset failed one leg at a time and each failure
-read as an unrelated backend error from somewhere deep inside a test body.
+a laptop validated them against ``dev-platform-api`` -- the suite's default
+backend until ENG-3683 moved it to ``test-platform-api`` (see
+``DEFAULT_BACKEND_URL`` below). Those are three separate id spaces, so a retired
+asset failed one leg at a time and each failure read as an unrelated backend
+error from somewhere deep inside a test body.
 
 This module is the single source. Ask for an asset by name::
 
@@ -19,9 +20,11 @@ This module is the single source. Ask for an asset by name::
         model = client.Model.get(assets.DEFAULT_LLM)
 
 ``assets`` is the session fixture in ``tests/functional/v2/conftest.py``. It
-picks the id set for the backend this run points at and resolves every id once
-before any test runs, so a retired asset fails the leg immediately and by name
-rather than in whichever test happened to reach it first.
+picks the id set for the backend this run points at and hands back a
+:class:`LazyAssets`, which resolves a name the first time a test reads it. A
+retired asset therefore fails the tests that use it, by name, with the id, the
+backend and the override that unblocks the run -- and no other test. A leg that
+reads no asset makes no resolution call at all.
 
 Retiring an id is a one-line change here. Overriding one for a single run is an
 environment variable -- ``AIXPLAIN_TEST_<NAME>``, e.g.
@@ -31,40 +34,51 @@ working id without a commit.
 
 ``tests/unit/test_functional_hygiene.py`` fails if a bare 24-hex literal
 reappears anywhere under ``tests/functional/``, which is what keeps this module
-the only source rather than merely the first one.
-
-Scope: the v2 suite. The v1 functional legs still carry their own literals and
-are deliberately untouched -- PROD-2918 deletes every one of those files, so
-editing them here would mean resolving a delete/modify conflict over code that
-is on its way out. The guard test names them explicitly for the same reason.
+the only source rather than merely the first one. ``tests/functional/v2`` is the
+whole functional suite now that the v1 legs are gone (PROD-2918), so the guard
+has no exemptions.
 """
 
 import os
 from dataclasses import dataclass, fields, replace
-from typing import Dict, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, Mapping, Optional, Tuple
+from urllib.parse import urlparse
+
+import pytest
 
 #: Prefix for the per-asset override, e.g. ``AIXPLAIN_TEST_SLACK_INTEGRATION``.
 #: The suffix is the field name on :class:`AssetIds` exactly as spelled there.
 ENV_PREFIX = "AIXPLAIN_TEST_"
 
 #: Pins the id space when ``BACKEND_URL`` names a host this module does not
-#: recognise. Values are the keys of :data:`ASSETS_BY_ENVIRONMENT`.
+#: recognise. Values are the keys of :data:`ASSETS_BY_ENVIRONMENT`. Ignored for
+#: a recognised host unless it disagrees, which is an error rather than a
+#: silent choice between the two.
 ENVIRONMENT_ENV = "AIXPLAIN_TEST_ENV"
 
 #: The backend a run with no ``BACKEND_URL`` talks to. ``tests/functional/v2/
 #: conftest.py`` imports this rather than repeating the literal, so the id space
 #: this module selects and the backend the client is built against cannot drift
 #: apart -- which is the whole failure mode ENG-3685 is about.
-DEFAULT_BACKEND_URL = "https://dev-platform-api.aixplain.com"
+#:
+#: It is the test backend because that is the one CI's non-``main`` runs (PRs,
+#: pushes to ``test``, the nightly) use. It used to be ``dev-platform-api``, so a
+#: developer with no ``BACKEND_URL`` validated the suite against a different
+#: environment than the one whose result gates a merge, and each side read as
+#: "it passes for me" (ENG-3683). An unset ``BACKEND_URL`` therefore selects the
+#: ``test`` id space.
+DEFAULT_BACKEND_URL = "https://test-platform-api.aixplain.com"
 
-#: Substring of ``BACKEND_URL`` -> environment key. Ordered longest-first
-#: because ``platform-api.aixplain.com`` is a substring of both of the others;
-#: matching on the shorter one first would read every backend as production.
-_HOST_MARKERS: Tuple[Tuple[str, str], ...] = (
-    ("dev-platform-api.aixplain.com", "dev"),
-    ("test-platform-api.aixplain.com", "test"),
-    ("platform-api.aixplain.com", "prod"),
-)
+#: ``BACKEND_URL`` hostname -> environment key. Matched exactly against the
+#: parsed, lower-cased hostname: ``platform-api.aixplain.com`` is a suffix of
+#: both of the others, and a substring test would also read a host such as
+#: ``staging-platform-api`` -- or a query string that merely mentions one of
+#: these -- as a backend it is not.
+_HOSTS: Dict[str, str] = {
+    "dev-platform-api.aixplain.com": "dev",
+    "test-platform-api.aixplain.com": "test",
+    "platform-api.aixplain.com": "prod",
+}
 
 
 @dataclass(frozen=True)
@@ -88,9 +102,9 @@ class AssetIds:
     #: survives a round-trip. Must differ from ``client.Agent.DEFAULT_LLM``.
     NON_DEFAULT_LLM: str
 
-    #: Two LLMs from different vendors, for cross-vendor behaviour (Arabic
-    #: rendering, tool-calling style) rather than for any capability of their own.
-    GPT_4O_LLM: str
+    #: A second-vendor LLM, paired with ``DEFAULT_LLM`` (GPT-5.4) for cross-vendor
+    #: behaviour (Arabic rendering, tool-calling style) rather than for any
+    #: capability of its own.
     CLAUDE_LLM: str
 
     #: Emits tool-call deltas over a streaming connection.
@@ -119,7 +133,6 @@ class AssetIds:
     #: Connector tools an agent can be handed to reach the live web.
     FIRECRAWL: str
     TAVILY: str
-    GOOGLE_SEARCH_UTILITY: str
 
 
 @dataclass(frozen=True)
@@ -136,14 +149,11 @@ class AssetSpec:
 
 #: Resolution metadata, keyed by :class:`AssetIds` field name.
 #:
-#: ``resource`` is not inferable from the asset: ``GOOGLE_SEARCH_UTILITY`` is a
-#: utility *model* that the agent tests fetch through ``client.Tool.get``, and
-#: fetching it through ``client.Model.get`` would verify something the suite
-#: never does. Each entry records the call the tests actually make.
+#: ``resource`` is not inferable from the asset, so each entry records the call
+#: the tests actually make.
 SPECS: Dict[str, AssetSpec] = {
     "DEFAULT_LLM": AssetSpec("Model", "default text-generation LLM (GPT-5.4)"),
     "NON_DEFAULT_LLM": AssetSpec("Model", "non-default LLM (GPT-4.1 Nano)"),
-    "GPT_4O_LLM": AssetSpec("Model", "OpenAI GPT-4o"),
     "CLAUDE_LLM": AssetSpec("Model", "Anthropic Claude Opus 4.6"),
     "STREAMING_TOOL_CALL_MODEL": AssetSpec("Model", "streaming tool-calling model"),
     "SYNC_ONLY_MODEL": AssetSpec("Model", "sync-only model (Cloud Translation)"),
@@ -154,24 +164,17 @@ SPECS: Dict[str, AssetSpec] = {
     "SLACK_INTEGRATION": AssetSpec("Integration", "Slack integration"),
     "FIRECRAWL": AssetSpec("Tool", "Firecrawl connector tool"),
     "TAVILY": AssetSpec("Tool", "Tavily Web Search connector tool"),
-    "GOOGLE_SEARCH_UTILITY": AssetSpec("Tool", "Google Search utility model, fetched as a tool"),
 }
 
 
 #: The ids the v2 suite has been running with. Captured from the literals the
-#: tests carried before ENG-3685, which is `dev` by construction: that is what
-#: `DEFAULT_BACKEND_URL` points at, so it is the id space every local run and
-#: every id added by hand was validated against.
+#: tests carried before ENG-3685, which is `dev` by construction: that was the
+#: suite's default backend until ENG-3683 moved `DEFAULT_BACKEND_URL` to `test`,
+#: so it is the id space every local run and every id added by hand was
+#: validated against.
 DEV = AssetIds(
     DEFAULT_LLM="69b7e5f1b2fe44704ab0e7d0",
     NON_DEFAULT_LLM="67fd9e2bef0365783d06e2f0",
-    # Onboarded 2024-05-16 per the ObjectId timestamp, four days after GPT-4o's
-    # release and five weeks before Claude 3.5 Sonnet's -- so the "Claude 3.5
-    # Sonnet v1" comment the v1 suite attached to this id was the stale half of
-    # the pair, not the `gpt-4o` label the Arabic test uses. Corroborated by
-    # skills/aixplain-builder/references/models.md, which gives this id as the
-    # id form of `openai/gpt-4o`.
-    GPT_4O_LLM="6646261c6eb563165658bbb1",
     CLAUDE_LLM="698c87701239a117fd66b468",
     STREAMING_TOOL_CALL_MODEL="69727676c60248082d79932f",
     SYNC_ONLY_MODEL="66aa869f6eb56342c26057e1",
@@ -185,15 +188,18 @@ DEV = AssetIds(
     # tavily/tavily-search-api/Tavily, which collides with the Legacy Tavily
     # asset whose single generic `run` action breaks the tool tests.
     TAVILY="6931bdf462eb386b7158def3",
-    GOOGLE_SEARCH_UTILITY="65c51c556eb563350f6e1bb1",
 )
 
 #: `test` and `prod` are separate id spaces from `dev`, but the v2 leg has been
 #: running these same literals against all three, so they are recorded as shared
-#: rather than guessed at per environment. That is a claim the session fixture
-#: checks on every run: the first id that does not exist on a backend fails that
-#: leg by name, and the fix is one line here --
+#: rather than guessed at per environment. That is a claim :class:`LazyAssets`
+#: checks on every run: an id that does not exist on a backend fails the tests
+#: that read it, by name, and the fix is one line here --
 #: ``TEST = replace(DEV, SEEDREAM_MODEL="<the test-backend id>")``.
+#:
+#: `TEST` is also what a run with no ``BACKEND_URL`` selects (see
+#: :data:`DEFAULT_BACKEND_URL`). Moving the default from `dev` to `test` changed
+#: no id, since `TEST` is `DEV` until an entry here says otherwise.
 TEST = replace(DEV)
 PROD = replace(DEV)
 
@@ -205,6 +211,16 @@ ASSET_NAMES: Tuple[str, ...] = tuple(field.name for field in fields(AssetIds))
 
 class UnknownBackendError(RuntimeError):
     """Raised when ``BACKEND_URL`` names a host with no known id space."""
+
+
+class ConflictingEnvironmentError(RuntimeError):
+    """Raised when :data:`ENVIRONMENT_ENV` names a different id space from a recognised ``BACKEND_URL``."""
+
+
+def _setting(environ: Mapping[str, str], key: str) -> Optional[str]:
+    """Return *key* from *environ* with surrounding whitespace removed, or None when blank."""
+    value = (environ.get(key) or "").strip()
+    return value or None
 
 
 def environment_for(backend_url: Optional[str] = None, environ: Optional[Mapping[str, str]] = None) -> str:
@@ -220,28 +236,39 @@ def environment_for(backend_url: Optional[str] = None, environ: Optional[Mapping
 
     Raises:
         UnknownBackendError: If the host is unrecognised and
-            :data:`ENVIRONMENT_ENV` does not say which id space it mirrors.
-            Failing here is the point: silently falling back to `dev` against an
-            unknown backend is how a leg goes green while resolving nothing.
+            :data:`ENVIRONMENT_ENV` does not say which id space it mirrors, or
+            names one that does not exist. Failing here is the point: silently
+            falling back to `dev` against an unknown backend is how a leg goes
+            green while resolving nothing.
+        ConflictingEnvironmentError: If the host is recognised and
+            :data:`ENVIRONMENT_ENV` names a different id space. Either choice
+            would validate one backend's ids against another backend.
     """
     environ = os.environ if environ is None else environ
 
-    pinned = environ.get(ENVIRONMENT_ENV)
-    if pinned:
-        if pinned not in ASSETS_BY_ENVIRONMENT:
-            raise UnknownBackendError(f"{ENVIRONMENT_ENV}={pinned!r} is not one of {sorted(ASSETS_BY_ENVIRONMENT)}.")
-        return pinned
+    pinned = _setting(environ, ENVIRONMENT_ENV)
+    if pinned is not None and pinned not in ASSETS_BY_ENVIRONMENT:
+        raise UnknownBackendError(f"{ENVIRONMENT_ENV}={pinned!r} is not one of {sorted(ASSETS_BY_ENVIRONMENT)}.")
 
     backend_url = backend_url or environ.get("BACKEND_URL") or DEFAULT_BACKEND_URL
-    for marker, environment in _HOST_MARKERS:
-        if marker in backend_url:
-            return environment
+    recognised = _HOSTS.get((urlparse(backend_url).hostname or "").lower())
+
+    if recognised is not None:
+        if pinned is not None and pinned != recognised:
+            raise ConflictingEnvironmentError(
+                f"{ENVIRONMENT_ENV}={pinned!r} contradicts BACKEND_URL={backend_url!r}, which is the "
+                f"{recognised!r} backend. {ENVIRONMENT_ENV} only pins the id space of a host this suite does "
+                f"not recognise; unset it, or override individual ids with {ENV_PREFIX}<NAME>."
+            )
+        return recognised
+    if pinned is not None:
+        return pinned
 
     raise UnknownBackendError(
         f"BACKEND_URL={backend_url!r} is not one of the backends this suite has asset ids for "
-        f"({', '.join(marker for marker, _ in _HOST_MARKERS)}). Set {ENVIRONMENT_ENV} to the id "
-        f"space it mirrors ({', '.join(sorted(ASSETS_BY_ENVIRONMENT))}), or override the ids "
-        f"individually with {ENV_PREFIX}<NAME>."
+        f"({', '.join(_HOSTS)}). Set {ENVIRONMENT_ENV} to the id space it mirrors "
+        f"({', '.join(sorted(ASSETS_BY_ENVIRONMENT))}), or override the ids individually with "
+        f"{ENV_PREFIX}<NAME>."
     )
 
 
@@ -252,12 +279,14 @@ def overrides_from(environ: Optional[Mapping[str, str]] = None) -> Dict[str, str
         environ: Environment to read, defaulting to ``os.environ``.
 
     Returns:
-        Asset name -> id, for the names actually overridden. An empty value is
-        ignored rather than treated as an override, so an unset CI variable that
-        expands to ``""`` does not blank out an id.
+        Asset name -> id, for the names actually overridden, with surrounding
+        whitespace removed. An empty or whitespace-only value is ignored rather
+        than treated as an override, so an unset CI variable that expands to
+        ``""`` does not blank out an id.
     """
     environ = os.environ if environ is None else environ
-    return {name: environ[ENV_PREFIX + name] for name in ASSET_NAMES if environ.get(ENV_PREFIX + name)}
+    overrides = {name: _setting(environ, ENV_PREFIX + name) for name in ASSET_NAMES}
+    return {name: value for name, value in overrides.items() if value is not None}
 
 
 def assets_for(backend_url: Optional[str] = None, environ: Optional[Mapping[str, str]] = None) -> AssetIds:
@@ -273,3 +302,71 @@ def assets_for(backend_url: Optional[str] = None, environ: Optional[Mapping[str,
     """
     base = ASSETS_BY_ENVIRONMENT[environment_for(backend_url, environ)]
     return replace(base, **overrides_from(environ))
+
+
+class LazyAssets:
+    """Asset ids that are resolved against the backend the first time a test reads them.
+
+    ``assets.DEFAULT_LLM`` returns the id string, exactly as the plain
+    :class:`AssetIds` would, after one ``client.<resource>.get(id)`` per name
+    per session (see :data:`SPECS`). A name that does not resolve fails the
+    reading test with ``pytest.fail``, naming the asset, the id, the backend,
+    the call and the ``AIXPLAIN_TEST_<NAME>`` override.
+
+    Resolving per name rather than all up front keeps one retired asset from
+    erroring every leg: only the tests that read it fail, and a leg that reads
+    no asset never touches the backend. Failures are cached as well as
+    successes, so a ``@flaky`` rerun reports the same failure again without
+    repeating the request. The cache lives on this object, and the session
+    fixture that builds it succeeds even when a name later fails, so
+    pytest-rerunfailures (which only discards the cached results of fixtures
+    that errored) keeps it across reruns.
+    """
+
+    def __init__(
+        self,
+        ids: AssetIds,
+        client_factory: Callable[[], Any],
+        backend_url: str,
+        environment: str,
+    ) -> None:
+        """Wrap *ids*; *client_factory* is called once, on the first resolution."""
+        self._ids = ids
+        self._client_factory = client_factory
+        self._client: Any = None
+        self._backend_url = backend_url
+        self._environment = environment
+        #: Asset name -> None once resolved, or the failure message to repeat.
+        self._outcomes: Dict[str, Optional[str]] = {}
+
+    def __getattr__(self, name: str) -> str:
+        """Return the id for asset *name*, resolving it on first access."""
+        if name.startswith("_") or name not in SPECS:
+            raise AttributeError(f"{type(self).__name__} has no asset named {name!r}; see tests/functional/_assets.py")
+        return self.resolve(name)
+
+    def resolve(self, name: str) -> str:
+        """Return the id for asset *name*, or fail the current test if it does not resolve."""
+        if name not in self._outcomes:
+            self._outcomes[name] = self._attempt(name)
+        failure = self._outcomes[name]
+        if failure is not None:
+            pytest.fail(failure, pytrace=False)
+        return getattr(self._ids, name)
+
+    def _attempt(self, name: str) -> Optional[str]:
+        """Resolve *name* once; return None on success or the message to fail with."""
+        spec = SPECS[name]
+        asset_id = getattr(self._ids, name)
+        try:
+            if self._client is None:
+                self._client = self._client_factory()
+            getattr(self._client, spec.resource).get(asset_id)
+        except Exception as error:  # noqa: BLE001 - any failure to resolve is the failure being reported
+            return (
+                f"functional-test asset {name} ({spec.description}) = {asset_id} did not resolve on "
+                f"{self._backend_url} (id space {self._environment!r}) via client.{spec.resource}.get: "
+                f"{error}\n\nFix the id in tests/functional/_assets.py, or point it elsewhere for this run "
+                f"with {ENV_PREFIX}{name}=<id>."
+            )
+        return None

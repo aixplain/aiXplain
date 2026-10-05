@@ -3,6 +3,10 @@
 v1 is gone (PROD-2918), so ``from aixplain.enums import ...`` inside ``aixplain/v2/``
 would now raise at import time rather than merely dragging in the old env-var
 validation chain. The rule is unchanged; only the consequence got worse.
+
+The same scan covers ``tests/functional/v2/``: those files are the examples a
+user copies, and a stale v1 import there fires the deprecation notice and pulls
+the legacy package into the functional leg.
 """
 
 import ast
@@ -13,6 +17,7 @@ from pathlib import Path
 import pytest
 
 V2_PACKAGE_DIR = Path(__file__).resolve().parents[3] / "aixplain" / "v2"
+FUNCTIONAL_V2_DIR = Path(__file__).resolve().parents[3] / "tests" / "functional" / "v2"
 
 # No file is exempt. ``enums_include.py`` (the generated v1 enum shim) and
 # ``core.py``'s guarded sync into ``aixplain.utils.config`` both went with v1.
@@ -35,16 +40,16 @@ V1_IMPORT_PATTERNS = re.compile(
 )
 
 
-def _collect_v2_python_files():
-    """Yield (relative_name, full_path) for every .py file in aixplain/v2/."""
-    for root, _dirs, files in os.walk(V2_PACKAGE_DIR):
+def _collect_v2_python_files(base_dir=V2_PACKAGE_DIR):
+    """Yield (relative_name, full_path) for every .py file under *base_dir*."""
+    for root, _dirs, files in os.walk(base_dir):
         for name in sorted(files):
             if not name.endswith(".py"):
                 continue
             if name in EXCLUDED_FILES:
                 continue
             full = os.path.join(root, name)
-            rel = os.path.relpath(full, V2_PACKAGE_DIR)
+            rel = os.path.relpath(full, base_dir)
             yield rel, full
 
 
@@ -98,6 +103,7 @@ def _find_v1_imports_via_ast(filepath):
 
 
 _v2_files = list(_collect_v2_python_files())
+_functional_v2_files = list(_collect_v2_python_files(FUNCTIONAL_V2_DIR))
 
 
 @pytest.mark.parametrize("rel_name,filepath", _v2_files, ids=[r for r, _ in _v2_files])
@@ -105,6 +111,13 @@ def test_no_v1_imports(rel_name, filepath):
     """``aixplain/v2/{rel_name}`` must not import from v1 modules."""
     violations = _find_v1_imports_via_ast(filepath)
     assert not violations, f"v1 imports found in aixplain/v2/{rel_name}:\n" + "\n".join(violations)
+
+
+@pytest.mark.parametrize("rel_name,filepath", _functional_v2_files, ids=[r for r, _ in _functional_v2_files])
+def test_no_v1_imports_in_functional_v2(rel_name, filepath):
+    """``tests/functional/v2/{rel_name}`` must not import from v1 modules."""
+    violations = _find_v1_imports_via_ast(filepath)
+    assert not violations, f"v1 imports found in tests/functional/v2/{rel_name}:\n" + "\n".join(violations)
 
 
 @pytest.mark.parametrize("module", sorted(ALLOWED_SHARED_MODULES))

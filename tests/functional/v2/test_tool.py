@@ -4,6 +4,8 @@ import time
 
 from aixplain.v2.integration import Integration
 
+from tests.functional._helpers import resolve_multi_action_tool
+
 
 @pytest.fixture(scope="module")
 def tavily_tool_id(assets):
@@ -17,8 +19,25 @@ def slack_integration_id(assets):
     return assets.SLACK_INTEGRATION
 
 
+@pytest.fixture
+def multi_action_tool(client, assets):
+    """A connected tool with two or more actions.
+
+    Both tests below used to sweep `Tool.search()` for such a tool and skip when
+    the sweep came up empty, so an environment with no Slack connection reported
+    green for the allowed_actions serialisation path (ENG-3684). The tool now
+    comes from `resolve_multi_action_tool` -- the AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID
+    override, or a bounded search for a Slack-backed tool -- and its absence is a
+    failure.
+
+    Function-scoped: both consumers mutate `allowed_actions`, so a shared
+    instance would leak one test's setting into the other's assertion.
+    """
+    return resolve_multi_action_tool(client, assets.SLACK_INTEGRATION)
+
+
 @pytest.fixture(scope="module")
-def single_action_test_agent(client, module_resource_tracker, tavily_tool_id):
+def single_action_test_agent(client, tavily_tool_id, module_resource_tracker):
     """Create a temporary agent using a single-action tool and clean it up."""
     tool = client.Tool.get(tavily_tool_id)
     tool.allowed_actions = []
@@ -81,16 +100,6 @@ def validate_tool_structure(tool):
     if tool.status is not None:
         assert hasattr(tool.status, "value"), "Tool status should be an enum with value attribute"
 
-    # Tool doesn't have hosted_by, developed_by, or supplier attributes, skip these checks
-    # if hasattr(tool, "host") and tool.host is not None:
-    #     assert isinstance(tool.host, str), "Tool host should be a string"
-    # if hasattr(tool, "developer") and tool.developer is not None:
-    #     assert isinstance(tool.developer, str), "Tool developer should be a string"
-    # if hasattr(tool, "supplier") and tool.supplier is not None:
-    #     assert hasattr(tool.supplier, "id"), "Tool supplier should have id attribute"
-    #     assert hasattr(tool.supplier, "name"), "Tool supplier should have name attribute"
-    #     assert hasattr(tool.supplier, "code"), "Tool supplier should have code attribute"
-
     if tool.function is not None:
         assert isinstance(tool.function, (dict, str)), "Tool function should be dict or string"
 
@@ -129,8 +138,12 @@ def test_search_tools(client):
     for tool in tools.results:
         validate_tool_structure(tool)
 
-    if number_of_tools < 2:
-        pytest.skip("Expected to have at least 2 tools for testing pagination")
+    # Asserted, not skipped: fewer than two tools is a broken test tenant, and
+    # skipping past it silently deleted the pagination coverage.
+    assert number_of_tools >= 2, (
+        f"Tool search returned {number_of_tools} tool(s); pagination cannot be exercised "
+        "with fewer than 2. The test tenant must carry at least two connected tools."
+    )
 
     # Test with page size
     tools = client.Tool.search(page_size=number_of_tools - 1)
@@ -296,32 +309,17 @@ def test_tool_get_parameters(client, slack_integration_id, slack_token):
         tool.delete()
 
 
-def test_tool_as_tool_includes_actions(client):
+def test_tool_as_tool_includes_actions(client, multi_action_tool):
     """Test that as_tool() includes actions field when allowed_actions is set.
 
     This test verifies the fix for the bug where allowed_actions was stored locally
     but NOT sent to the backend when creating an agent with the tool.
     """
-    # Search for an existing tool that has actions
-    tools = client.Tool.search()
-    assert len(tools.results) > 0, "Expected to have at least one tool available for testing"
-
-    # Find a tool with actions available
-    tool = None
-    for t in tools.results:
-        try:
-            actions = t.list_actions()
-            if actions and len(actions) >= 2:
-                tool = t
-                break
-        except Exception:
-            continue
-
-    if tool is None:
-        pytest.skip("No tool with multiple actions found for testing")
-
-    # Get the first two action names
+    tool = multi_action_tool
     actions = tool.list_actions()
+    assert actions and len(actions) >= 2, (
+        f"Tool {tool.id} exposes {len(actions or [])} action(s); this test needs at least 2."
+    )
     allowed_actions = [actions[0].name, actions[1].name]
 
     # Set allowed_actions on the tool
@@ -377,23 +375,11 @@ def test_tool_run_with_default_params(client, tavily_tool_id):
     assert result_defaults.completed is True, "Result with defaults should be completed"
 
 
-def test_tool_as_tool_without_actions(client):
+def test_tool_as_tool_without_actions(client, multi_action_tool):
     """Test that as_tool() does NOT include actions when allowed_actions is empty and tool has multiple actions."""
-    tools = client.Tool.search()
-    assert len(tools.results) > 0, "Expected to have at least one tool available for testing"
-
-    tool = None
-    for t in tools.results:
-        try:
-            action_names = list(t.actions)
-            if len(action_names) >= 2:
-                tool = t
-                break
-        except Exception:
-            continue
-
-    if tool is None:
-        pytest.skip("No multi-action tool found for testing")
+    tool = multi_action_tool
+    action_names = list(tool.actions)
+    assert len(action_names) >= 2, f"Tool {tool.id} exposes {len(action_names)} action(s); this test needs at least 2."
 
     tool.allowed_actions = []
     tool_dict = tool.as_tool()
