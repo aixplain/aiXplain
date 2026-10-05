@@ -446,4 +446,5 @@ def test_delete_agent_in_use_fails(client, resource_tracker):
     with pytest.raises(ResourceError) as excinfo:
         sub.delete()
 
-    assert "cannot be deleted" in str(excinfo.value).lower()
+    # The backend reports the refusal by code: "failed to delete resource: err.agent_is_in_use".
+    assert "agent_is_in_use" in str(excinfo.value).lower()
