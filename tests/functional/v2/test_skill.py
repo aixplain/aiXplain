@@ -123,10 +123,9 @@ class TestAgentReflectsSkillUpdate:
 class TestSkillRetrievalAndDownload:
     """The list/get/download surface the resource docstring advertises."""
 
-    def test_search_returns_the_saved_skill(self, client, saved_skill):
-        page = client.Skill.search()
-        assert hasattr(page, "results")
-        assert any(skill.id == saved_skill.id for skill in page.results)
+    def test_search_by_name_returns_the_saved_skill(self, client, saved_skill):
+        page = client.Skill.search(query=saved_skill.name)
+        assert any(skill.id == saved_skill.id for skill in page.results), [skill.id for skill in page.results]
 
     def test_get_round_trips_the_saved_skill(self, client, saved_skill):
         fetched = client.Skill.get(saved_skill.id)
@@ -147,17 +146,11 @@ class TestSkillRetrievalAndDownload:
 class TestSkillAsTool:
     """``as_tool()`` serializes a skill the way an agent attaches it."""
 
-    def test_as_tool_shape(self, saved_skill):
-        payload = saved_skill.as_tool()
+    def test_fetched_skill_serializes_its_persisted_description(self, client, saved_skill):
+        """The description an agent sees comes from ``SKILL.md`` and must survive the backend round-trip."""
+        payload = client.Skill.get(saved_skill.id).as_tool()
         assert payload["id"] == saved_skill.id
-        assert payload["asset_id"] == saved_skill.id
-        assert payload["type"] == "skill"
-        assert payload["supplier"] == "aixplain"
-
-    def test_skill_without_required_tools_still_serializes(self, saved_skill):
-        """A bare ``SKILL.md`` has no ``requires``; as_tool() must not choke on it."""
-        assert saved_skill.required_tools == []
-        assert saved_skill.as_tool()["description"] == saved_skill.description
+        assert "the current signal" in payload["description"], payload
 
     def test_agent_with_skill_tool_runs(self, client, saved_skill, resource_tracker):
         skill_tool = saved_skill.as_tool()

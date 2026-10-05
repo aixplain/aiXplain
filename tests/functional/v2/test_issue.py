@@ -1,7 +1,15 @@
 """Functional tests for ``aix.issue`` against the live issue endpoint.
 
-The issue endpoint may be gated per environment, so a controlled 4xx is an
-acceptable acknowledgement; a 5xx or a missing ``issue_id`` is not.
+A report must come back with an ``issue_id``: neither the SDK nor the backend
+documents a gating response for this endpoint, so any error -- a wrong path, a
+bad key, a rejected payload -- fails the test rather than passing as gated.
+
+The endpoint has no delete API, so every issue these tests file stays on the
+backend. Each one is marked as test traffic (the ``sdk-functional-test`` tag, a
+``[sdk-functional-test]`` title prefix and the lowest severity, SEV4) so triage
+can filter it out. The
+validations that never reach the backend are unit-tested in
+``tests/unit/v2/test_issue.py``.
 """
 
 import time
@@ -9,7 +17,8 @@ import uuid
 
 import pytest
 
-from aixplain.v2.exceptions import AixplainIssueError
+TEST_TAG = "sdk-functional-test"
+TEST_SEVERITY = "SEV4"
 
 
 @pytest.fixture(scope="module")
@@ -23,45 +32,33 @@ def issue_agent(client, module_resource_tracker):
     return agent
 
 
-def _report_or_accept_gating(client, description, **kwargs):
-    """Report an issue; return the id, or None when the endpoint is gated 4xx."""
-    try:
-        return client.issue.report(description, **kwargs)
-    except AixplainIssueError as error:
-        assert 400 <= (error.status_code or 0) < 500, error
-        return None
+def _report_test_issue(client, title, description, **kwargs):
+    """File an issue marked as functional-test traffic and return its id."""
+    return client.issue.report(
+        description,
+        title=f"[{TEST_TAG}] {title}",
+        severity=TEST_SEVERITY,
+        tags=[TEST_TAG],
+        **kwargs,
+    )
 
 
 def test_report_minimal_issue(client):
-    issue_id = _report_or_accept_gating(client, "Functional test: minimal issue report.")
+    issue_id = _report_test_issue(client, "Minimal issue report", "Functional test: minimal issue report.")
 
-    if issue_id is not None:
-        assert isinstance(issue_id, str) and issue_id
+    assert isinstance(issue_id, str) and issue_id, issue_id
 
 
 def test_report_issue_against_a_run_id(client, issue_agent):
     run = issue_agent.run(query="Say hello.")
     run_id = run.request_id or run.url
+    assert run_id, run
 
-    issue_id = _report_or_accept_gating(
+    issue_id = _report_test_issue(
         client,
+        "Agent run issue",
         "Functional test: issue tied to an agent run.",
-        title="Agent run issue",
-        severity="SEV3",
         runtime_context={"run_id": run_id},
     )
 
-    if issue_id is not None:
-        assert isinstance(issue_id, str) and issue_id
-
-
-def test_report_validates_severity_without_a_backend_call(client):
-    with pytest.raises(AixplainIssueError) as exc_info:
-        client.issue.report("Functional test: bad severity.", severity="CRITICAL")
-
-    assert exc_info.value.status_code == 400
-
-
-def test_report_requires_a_description(client):
-    with pytest.raises(AixplainIssueError):
-        client.issue.report(None)
+    assert isinstance(issue_id, str) and issue_id, issue_id

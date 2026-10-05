@@ -183,9 +183,10 @@ class TestLogsFormatEmitsPerStepLines:
         tracker.finish(_response([_step("s1", output="done")]))
 
         out = capsys.readouterr().out
-        assert "Step  1" in out
-        assert "✓" in out
-        assert "Completed 1 steps" in out
+        # The spinner line also reads "Step  1" and the summary also carries a
+        # "✓", so only the completed step's own line matches this.
+        assert "✓ Step  1" in out
+        assert "✓ Completed 1 steps" in out
 
 
 class TestStatusFormat:

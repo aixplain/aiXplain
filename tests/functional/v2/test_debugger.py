@@ -1,7 +1,9 @@
 """Functional tests for the Debugger meta-agent.
 
 The debugger is a pre-configured backend agent, so this is the one path that
-actually exercises ``Debugger.run`` / ``AgentRunResult.debug`` end to end.
+actually exercises ``Debugger.run`` / ``AgentRunResult.debug`` end to end. It
+needs ``meta_agents.DEBUGGER_AGENT_ID`` to exist on whichever backend the leg
+runs against.
 """
 
 import time
@@ -9,7 +11,7 @@ import uuid
 
 import pytest
 
-from aixplain.v2.meta_agents import DebugResult
+from aixplain.v2.meta_agents import Debugger
 
 
 @pytest.fixture(scope="module")
@@ -23,29 +25,37 @@ def debug_agent(client, module_resource_tracker):
     return agent
 
 
-def test_agent_result_debug_returns_debug_result(client, debug_agent):
+def _assert_debug_succeeded(debug):
+    assert debug.status == "SUCCESS", debug
+    assert debug.analysis and str(debug.analysis).strip(), debug.data
+
+
+def test_agent_result_debug_returns_an_analysis(client, debug_agent):
     run = debug_agent.run(query="What is 2 + 2?")
 
-    debug = run.debug()
-
-    assert isinstance(debug, DebugResult)
-    assert debug.status == "SUCCESS", debug
-    assert debug.analysis
+    _assert_debug_succeeded(run.debug())
 
 
-def test_debug_response_accepts_a_custom_prompt(client, debug_agent):
+def test_debug_sends_the_custom_prompt_to_the_debugger(client, debug_agent, monkeypatch):
+    queries = []
+    build_query = Debugger._build_query
+
+    def spy_build_query(self, content=None, prompt=None):
+        query = build_query(self, content=content, prompt=prompt)
+        queries.append(query)
+        return query
+
+    monkeypatch.setattr(Debugger, "_build_query", spy_build_query)
     run = debug_agent.run(query="Name one primary colour.")
 
     debug = run.debug(prompt="Focus on whether the answer was concise.")
 
-    assert isinstance(debug, DebugResult)
-    assert debug.analysis
+    _assert_debug_succeeded(debug)
+    assert len(queries) == 1
+    assert "Focus: Focus on whether the answer was concise." in queries[0]
 
 
 def test_standalone_debugger_run(client):
     debugger = client.Debugger()
 
-    debug = debugger.run(content="Agent returned: 'Error 500'", prompt="Explain the failure.")
-
-    assert isinstance(debug, DebugResult)
-    assert debug.analysis
+    _assert_debug_succeeded(debugger.run(content="Agent returned: 'Error 500'", prompt="Explain the failure."))

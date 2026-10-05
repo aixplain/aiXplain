@@ -1,18 +1,17 @@
 """Functional tests for File assets and the upload utilities.
 
 Covers the two halves of the File surface that had no functional twin: the
-``upload_file`` / ``validate_file_for_upload`` helpers, and the ``aix.File``
-resource's own save/get/delete round-trip. ``File`` is also what the deprecated
-``aix.Resource`` alias points at.
+``upload_file`` helper, and the ``aix.File`` resource's own save/get/delete
+round-trip. ``File`` is also what the deprecated ``aix.Resource`` alias points
+at. The offline checks (``validate_file_for_upload`` and constructor
+validation) are unit-tested in ``tests/unit/v2/``.
 """
 
-import time
-
 import pytest
+import requests
 
-from aixplain.v2.exceptions import FileUploadError, ValidationError
-from aixplain.v2.file import File
-from aixplain.v2.upload_utils import upload_file, validate_file_for_upload
+from aixplain.v2.exceptions import APIError
+from aixplain.v2.upload_utils import upload_file
 
 MB = 1024 * 1024
 
@@ -23,48 +22,20 @@ def _write(path, size_bytes):
     return str(path)
 
 
-def _unique_name(prefix, suffix=".txt"):
-    return f"{prefix}-{int(time.time())}-{time.time_ns() % 100000}{suffix}"
-
-
 class TestUploadFileHelper:
-    def test_upload_small_file_returns_reference(self, client, tmp_path):
+    def test_upload_small_file_returns_s3_reference(self, client, tmp_path):
         path = _write(tmp_path / "small.txt", 1024)
 
         reference = upload_file(path, api_key=client.api_key, backend_url=client.backend_url)
 
-        assert isinstance(reference, str)
-        assert reference
+        assert reference.startswith("s3://"), reference
 
-    def test_upload_file_over_five_megabytes(self, client, tmp_path):
+    def test_upload_multi_megabyte_file_returns_s3_reference(self, client, tmp_path):
         path = _write(tmp_path / "large.txt", 6 * MB)
 
         reference = upload_file(path, api_key=client.api_key, backend_url=client.backend_url)
 
-        assert isinstance(reference, str)
-        assert reference
-
-
-class TestValidateFileForUpload:
-    def test_valid_file_reports_its_type_and_size(self, tmp_path):
-        path = _write(tmp_path / "ok.txt", 2048)
-
-        info = validate_file_for_upload(path)
-
-        assert info["valid"] is True
-        assert info["file_size_mb"] == pytest.approx(2048 / MB, abs=0.001)
-        assert info["max_size_mb"] > 0
-
-    def test_missing_file_is_rejected(self, tmp_path):
-        with pytest.raises(FileUploadError, match="not found"):
-            validate_file_for_upload(str(tmp_path / "nope.txt"))
-
-    def test_oversized_audio_type_is_rejected(self, tmp_path):
-        """A ``.wav`` is classified as audio (50 MB limit) and 51 MB must fail."""
-        path = _write(tmp_path / "big.wav", 51 * MB)
-
-        with pytest.raises(FileUploadError, match="exceeds"):
-            validate_file_for_upload(path)
+        assert reference.startswith("s3://"), reference
 
 
 class TestFileResource:
@@ -86,22 +57,28 @@ class TestFileResource:
         deleted_id = file.id
         file.delete()
         resource_tracker.mark_cleaned(file)
-        with pytest.raises(Exception):
+        with pytest.raises(APIError):
             client.File.get(deleted_id)
 
-    def test_get_requires_a_source_or_id(self, client):
-        with pytest.raises(ValidationError):
-            client.File()
-
-    def test_upload_timeout_config_is_honoured(self, client, tmp_path, resource_tracker):
-        """The client's configured timeout is what the upload path uses."""
+    def test_upload_put_uses_the_client_timeout(self, client, tmp_path, resource_tracker, monkeypatch):
+        """The presigned PUT of the file body is sent with the client's configured timeout."""
         source = _write(tmp_path / "timeout.txt", 1024)
+        real_put = requests.put
+        put_timeouts = []
+
+        def spy_put(*args, **kwargs):
+            put_timeouts.append(kwargs.get("timeout"))
+            return real_put(*args, **kwargs)
+
+        monkeypatch.setattr("aixplain.v2.file.requests.put", spy_put)
         original = client.client.timeout
         client.client.timeout = (10, 60)
         try:
             file = client.File(source=source)
             file.save()
             resource_tracker.append(file)
-            assert file.id
         finally:
             client.client.timeout = original
+
+        assert file.id
+        assert put_timeouts == [(10, 60)]

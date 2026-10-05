@@ -23,12 +23,9 @@ def test_search_returns_a_page_with_pagination_metadata(client):
     page = client.Model.search(page_size=2)
 
     assert isinstance(page, Page)
-    assert isinstance(page.results, list)
-    assert len(page.results) <= 2
-    assert page.page_number >= 0
+    assert len(page.results) == 2, "the model catalogue should fill a two-item page"
     assert page.page_total >= 1
-    assert page.total >= len(page.results)
-    assert page.skipped >= 0
+    assert page.total >= 2
 
 
 def test_page_supports_iteration_and_keyed_access(client):
@@ -54,7 +51,6 @@ def test_second_page_does_not_repeat_the_first(client):
     first = client.Model.search(page_size=1, page_number=0)
     second = client.Model.search(page_size=1, page_number=1)
 
-    if first.total < 2:
-        pytest.skip("fewer than two models available")
-
+    assert first.total >= 2, f"need at least two models to page through, got total={first.total}"
+    assert first.results and second.results, (first.results, second.results)
     assert first.results[0].id != second.results[0].id
