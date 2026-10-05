@@ -86,3 +86,36 @@ class TestSaveDoesNotLoseExpectedOutput:
         sent = run_payload["executionParams"]["expectedOutput"]
         assert sent is not None, "run() after save() must send the JSON contract to the backend"
         assert json.loads(sent) == ChatReply.model_json_schema()
+
+
+class TestRunPayloadSendsExpectedOutputAsString:
+    """``executionParams.expectedOutput`` is always a string on the wire.
+
+    The backend answers a non-string with ``400 executionParams.expectedOutput must
+    be a string``; the first live CI run of the agent-lifecycle leg hit exactly that
+    when a run passed ``execution_params={"expected_output": People}``.
+    """
+
+    def test_basemodel_class_in_execution_params_is_sent_as_schema_string(self):
+        payload = _json_agent().build_run_payload(
+            query="hi", execution_params={"output_format": "json", "expected_output": ChatReply}
+        )
+
+        sent = payload["executionParams"]["expectedOutput"]
+        assert isinstance(sent, str)
+        assert json.loads(sent) == ChatReply.model_json_schema()
+
+    def test_unsaved_agent_basemodel_class_is_sent_as_the_string_save_persists(self):
+        agent = _json_agent()
+
+        sent = agent.build_run_payload(query="hi")["executionParams"]["expectedOutput"]
+
+        assert sent == agent.build_save_payload()["expectedOutput"]
+
+    def test_basemodel_instance_is_sent_as_json_string(self):
+        instance = ChatReply(content="hi", artifact=None)
+        payload = _json_agent(expected_output=instance).build_run_payload(query="hi")
+
+        sent = payload["executionParams"]["expectedOutput"]
+        assert isinstance(sent, str)
+        assert json.loads(sent) == instance.model_dump()

@@ -2572,24 +2572,26 @@ class Agent(
         for k, v in defaults.items():
             execution_params.setdefault(k, v)
 
-        # Handle BaseModel conversion for expectedOutput (following legacy pattern)
         # Use agent's expected_output if none provided in execution_params
         if "expectedOutput" not in execution_params:
             execution_params["expectedOutput"] = self.expected_output
 
         expected_output = execution_params["expectedOutput"]
 
-        # For non-JSON formats, don't send empty string expected_output
+        # The backend rejects any non-string executionParams.expectedOutput with a 400
+        # ("executionParams.expectedOutput must be a string"), so a Pydantic class, a
+        # Pydantic instance and a dict are all JSON-encoded here. A class becomes its
+        # JSON schema, the same string ``build_save_payload`` persists.
         if execution_params.get("outputFormat") in ["text", "markdown"] and expected_output == "":
+            # For non-JSON formats, don't send empty string expected_output
             execution_params["expectedOutput"] = None
         elif (
             expected_output is not None and isinstance(expected_output, type) and issubclass(expected_output, BaseModel)
         ):
-            execution_params["expectedOutput"] = expected_output.model_json_schema()
+            execution_params["expectedOutput"] = json.dumps(expected_output.model_json_schema())
         elif isinstance(expected_output, BaseModel):
-            execution_params["expectedOutput"] = expected_output.model_dump()
+            execution_params["expectedOutput"] = expected_output.model_dump_json()
         elif isinstance(expected_output, dict):
-            # Backend expects executionParams.expectedOutput as a string.
             execution_params["expectedOutput"] = json.dumps(expected_output)
 
         # Run-time budget: the agent's current ``budget`` state travels inside
