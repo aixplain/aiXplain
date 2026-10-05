@@ -14,8 +14,9 @@ dozen `main.yaml` runs were failures.
 
 Every gate added by the surrounding work — the 62% coverage floor (ENG-3431), the `.git`-less
 package-integrity build (ENG-3543), the zero-executed-test guard and the matrix/filesystem drift check
-(ENG-3544) — is **advisory** until at least one context is marked required. This document names the
-contexts and the order in which they can safely be turned on.
+(ENG-3544), and the 80% execution-ratio floor (ENG-3684) — is **advisory** until at least one context
+is marked required. This document names the contexts and the order in which they can safely be turned
+on.
 
 ## Contexts, in tiers
 
@@ -147,8 +148,8 @@ dependency changes the PR carries — never holds the production key.
 | Secret | Used by | If unset |
 | ------ | ------- | -------- |
 | `TEAM_API_KEY` / `TEAM_API_KEY_PROD` | every functional leg | every leg fails |
-| `TEST_COMPOSIO_INTEGRATION_ID` / `…_PROD` | `TestEventTriggerDiscovery` in `tests/functional/v2/test_trigger.py` | **the class skips and the leg is still green** |
-| `TEST_CONNECTION_ID` / `…_PROD` | `TestEventTriggerLifecycle` in the same file | **as above** |
+| `TEST_COMPOSIO_INTEGRATION_ID` / `TEST_COMPOSIO_INTEGRATION_ID_PROD` | the event-discovery tests (`TestEventTriggerDiscovery`) in `tests/functional/v2/test_trigger.py` | those tests fail, so the `trigger` leg is red |
+| `TEST_CONNECTION_ID` / `TEST_CONNECTION_ID_PROD` | the event-trigger lifecycle tests (`TestEventTriggerLifecycle`) in the same file | as above |
 | `SLACK_TOKEN` | the Slack integration tests | those tests skip |
 | `HF_TOKEN` | Hugging Face model tests | those tests skip |
 | `SLACK_NIGHTLY_WEBHOOK_URL` | `nightly-report` | no alert is sent; the job logs a warning |
@@ -158,10 +159,13 @@ dependency changes the PR carries — never holds the production key.
 `aixplain/utils/config.py` raises when the two are set and differ. Adding a second, different
 credential under that name would fail every leg at import time.
 
-The two `TEST_…_ID` rows are the reason this table exists: nothing fails when they are missing. The
-event-trigger classes skip, the leg reports green, and the coverage is absent without a single red
-check to say so (ENG-3683). Both name backend-resident objects, so the values differ between the
-test and production backends.
+These are repository secrets and have to be created by hand (Settings → Secrets and variables →
+Actions). The two `TEST_…_ID` secrets name backend-resident objects — an integration and a connected
+tool — so their values differ between the test and production backends, and their `_PROD` variants
+are gated on IS_PROD exactly like `TEAM_API_KEY_PROD`. The tests used to skip themselves when they
+were missing, so the event-trigger half of `test_trigger.py` had never run in CI and the leg still
+reported green; they fail now instead (ENG-3684), which means both pairs have to exist before the
+`trigger` leg can go green.
 
 ## Ordered procedure
 

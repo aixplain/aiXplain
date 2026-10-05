@@ -4,22 +4,42 @@ import time
 
 from aixplain.v2.integration import Integration
 
-# "Tavily Web Search" connector tool (action: search). Fetched by id: the
-# marketplace path tavily/tavily-search-api/Tavily collides with the Legacy
-# Tavily asset (6736411c...), whose single generic 'run' action breaks these tests.
-TAVILY_TOOL_ID = "6931bdf462eb386b7158def3"
+from tests.functional._helpers import resolve_multi_action_tool
 
 
 @pytest.fixture(scope="module")
-def slack_integration_id():
+def tavily_tool_id(assets):
+    """Return the "Tavily Web Search" connector tool (action: search)."""
+    return assets.TAVILY
+
+
+@pytest.fixture(scope="module")
+def slack_integration_id(assets):
     """Return Slack integration ID for testing."""
-    return "686432941223092cb4294d3f"
+    return assets.SLACK_INTEGRATION
+
+
+@pytest.fixture
+def multi_action_tool(client, assets):
+    """A connected tool with two or more actions.
+
+    Both tests below used to sweep `Tool.search()` for such a tool and skip when
+    the sweep came up empty, so an environment with no Slack connection reported
+    green for the allowed_actions serialisation path (ENG-3684). The tool now
+    comes from `resolve_multi_action_tool` -- the AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID
+    override, or a bounded search for a Slack-backed tool -- and its absence is a
+    failure.
+
+    Function-scoped: both consumers mutate `allowed_actions`, so a shared
+    instance would leak one test's setting into the other's assertion.
+    """
+    return resolve_multi_action_tool(client, assets.SLACK_INTEGRATION)
 
 
 @pytest.fixture(scope="module")
-def single_action_test_agent(client, module_resource_tracker):
+def single_action_test_agent(client, tavily_tool_id, module_resource_tracker):
     """Create a temporary agent using a single-action tool and clean it up."""
-    tool = client.Tool.get(TAVILY_TOOL_ID)
+    tool = client.Tool.get(tavily_tool_id)
     tool.allowed_actions = []
 
     agent = client.Agent(
@@ -128,8 +148,12 @@ def test_search_tools(client):
     for tool in tools.results:
         validate_tool_structure(tool)
 
-    if number_of_tools < 2:
-        pytest.skip("Expected to have at least 2 tools for testing pagination")
+    # Asserted, not skipped: fewer than two tools is a broken test tenant, and
+    # skipping past it silently deleted the pagination coverage.
+    assert number_of_tools >= 2, (
+        f"Tool search returned {number_of_tools} tool(s); pagination cannot be exercised "
+        "with fewer than 2. The test tenant must carry at least two connected tools."
+    )
 
     # Test with page size
     tools = client.Tool.search(page_size=number_of_tools - 1)
@@ -295,32 +319,17 @@ def test_tool_get_parameters(client, slack_integration_id, slack_token):
         tool.delete()
 
 
-def test_tool_as_tool_includes_actions(client):
+def test_tool_as_tool_includes_actions(client, multi_action_tool):
     """Test that as_tool() includes actions field when allowed_actions is set.
 
     This test verifies the fix for the bug where allowed_actions was stored locally
     but NOT sent to the backend when creating an agent with the tool.
     """
-    # Search for an existing tool that has actions
-    tools = client.Tool.search()
-    assert len(tools.results) > 0, "Expected to have at least one tool available for testing"
-
-    # Find a tool with actions available
-    tool = None
-    for t in tools.results:
-        try:
-            actions = t.list_actions()
-            if actions and len(actions) >= 2:
-                tool = t
-                break
-        except Exception:
-            continue
-
-    if tool is None:
-        pytest.skip("No tool with multiple actions found for testing")
-
-    # Get the first two action names
+    tool = multi_action_tool
     actions = tool.list_actions()
+    assert actions and len(actions) >= 2, (
+        f"Tool {tool.id} exposes {len(actions or [])} action(s); this test needs at least 2."
+    )
     allowed_actions = [actions[0].name, actions[1].name]
 
     # Set allowed_actions on the tool
@@ -343,14 +352,14 @@ def test_tool_as_tool_includes_actions(client):
     print(f"✅ as_tool() correctly includes actions: {tool_dict['actions']}")
 
 
-def test_tool_run_with_default_params(client):
+def test_tool_run_with_default_params(client, tavily_tool_id):
     """Test running a tool without specifying optional params that have backend defaults.
 
     Regression test for the bug where optional parameters (e.g. num_results)
     were sent as raw default dicts instead of extracted primitive values,
     causing the backend to reject the request.
     """
-    tavily_tool = client.Tool.get(TAVILY_TOOL_ID)
+    tavily_tool = client.Tool.get(tavily_tool_id)
 
     # Verify the action proxy stores extracted primitives, not raw dicts
     action_proxy = tavily_tool.actions["search"]
@@ -376,23 +385,11 @@ def test_tool_run_with_default_params(client):
     assert result_defaults.completed is True, "Result with defaults should be completed"
 
 
-def test_tool_as_tool_without_actions(client):
+def test_tool_as_tool_without_actions(client, multi_action_tool):
     """Test that as_tool() does NOT include actions when allowed_actions is empty and tool has multiple actions."""
-    tools = client.Tool.search()
-    assert len(tools.results) > 0, "Expected to have at least one tool available for testing"
-
-    tool = None
-    for t in tools.results:
-        try:
-            action_names = list(t.actions)
-            if len(action_names) >= 2:
-                tool = t
-                break
-        except Exception:
-            continue
-
-    if tool is None:
-        pytest.skip("No multi-action tool found for testing")
+    tool = multi_action_tool
+    action_names = list(tool.actions)
+    assert len(action_names) >= 2, f"Tool {tool.id} exposes {len(action_names)} action(s); this test needs at least 2."
 
     tool.allowed_actions = []
     tool_dict = tool.as_tool()
@@ -492,9 +489,9 @@ def test_tool_update_preserves_allowed_actions(client, slack_integration_id, sla
     print("✅ allowed_actions preserved through update")
 
 
-def test_tool_as_tool_auto_detects_single_action(client):
+def test_tool_as_tool_auto_detects_single_action(client, tavily_tool_id):
     """Test that as_tool() auto-includes the action when a tool has exactly one action."""
-    tool = client.Tool.get(TAVILY_TOOL_ID)
+    tool = client.Tool.get(tavily_tool_id)
     tool.allowed_actions = []
 
     tool_dict = tool.as_tool()
@@ -503,9 +500,9 @@ def test_tool_as_tool_auto_detects_single_action(client):
     assert len(tool_dict["actions"]) == 1, f"Expected 1 auto-detected action, got {len(tool_dict['actions'])}"
 
 
-def test_tool_as_tool_no_mutation(client):
+def test_tool_as_tool_no_mutation(client, tavily_tool_id):
     """Test that as_tool() does NOT mutate self.allowed_actions as a side effect."""
-    tool = client.Tool.get(TAVILY_TOOL_ID)
+    tool = client.Tool.get(tavily_tool_id)
     tool.allowed_actions = []
 
     tool.as_tool()
@@ -515,11 +512,11 @@ def test_tool_as_tool_no_mutation(client):
     )
 
 
-def test_tool_as_tool_caching(client):
+def test_tool_as_tool_caching(client, tavily_tool_id):
     """Test that repeated as_tool() calls reuse cached actions instead of hitting the API again."""
     from unittest.mock import patch
 
-    tool = client.Tool.get(TAVILY_TOOL_ID)
+    tool = client.Tool.get(tavily_tool_id)
     tool.allowed_actions = []
 
     tool.as_tool()
@@ -541,9 +538,9 @@ def test_tool_as_tool_caching(client):
     )
 
 
-def test_tool_run_auto_detects_single_action(client):
+def test_tool_run_auto_detects_single_action(client, tavily_tool_id):
     """Test that run() auto-detects the action for single-action tools without explicit action kwarg."""
-    tool = client.Tool.get(TAVILY_TOOL_ID)
+    tool = client.Tool.get(tavily_tool_id)
     tool.allowed_actions = []
 
     result = tool.run(data={"query": "friendship paradox", "num_results": 1})

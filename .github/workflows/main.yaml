@@ -77,6 +77,13 @@ env:
   # `pytest_sessionfinish` guard in tests/conftest.py fails any session in which
   # no test body ran.
   AIXPLAIN_REQUIRE_EXECUTED_TESTS: "1"
+  # ...and "at least one test ran" is a floor low enough that `v2` cleared it
+  # while skipping most of its collected tests (ENG-3684). Each leg must now
+  # execute at least this share of what it collected. The legs carry no
+  # conditional skips of their own, and a missing credential skips a whole leg,
+  # which the zero-executed floor already fails. Lower it here only with a
+  # comment saying which leg needs the slack and why.
+  AIXPLAIN_MIN_EXECUTED_RATIO: "0.8"
 
 jobs:
   # The unit suite is deliberately credential-free: no TEAM_API_KEY, no
@@ -502,10 +509,13 @@ jobs:
         env:
           TEAM_API_KEY_PROD: ${{ env.IS_PROD == 'true' && secrets.TEAM_API_KEY_PROD || '' }}
           TEAM_API_KEY_TEST: ${{ secrets.TEAM_API_KEY }}
-          # Event-trigger fixtures in tests/functional/v2/test_trigger.py. Both
-          # name backend-resident objects, so the ids differ per environment and
-          # each has a _PROD counterpart. Unset means those classes keep skipping
-          # -- see docs/ci/required-checks.md.
+          # Event-trigger fixtures for tests/functional/v2/test_trigger.py. These
+          # used to be absent, and the tests skipped themselves -- so the
+          # event-trigger half of that file had never run in CI (ENG-3684). They
+          # fail loudly now, which means these secrets have to exist. Both name
+          # backend-resident objects, so the ids differ per environment and each
+          # has a _PROD counterpart, gated on IS_PROD like TEAM_API_KEY_PROD; see
+          # docs/ci/required-checks.md.
           COMPOSIO_INTEGRATION_ID_PROD: ${{ env.IS_PROD == 'true' && secrets.TEST_COMPOSIO_INTEGRATION_ID_PROD || '' }}
           COMPOSIO_INTEGRATION_ID_TEST: ${{ secrets.TEST_COMPOSIO_INTEGRATION_ID }}
           CONNECTION_ID_PROD: ${{ env.IS_PROD == 'true' && secrets.TEST_CONNECTION_ID_PROD || '' }}
