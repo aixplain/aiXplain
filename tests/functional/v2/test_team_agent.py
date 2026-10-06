@@ -10,7 +10,6 @@ exercised end to end:
 * team instructions steering which subagent the team delegates to;
 * the ``llm`` / ``planner`` / ``supervisor`` / ``response_generator`` role
   overrides and their parameters, persisted on a real team;
-* the ``run_response_generation`` run parameter (acceptance only);
 * the nested save chain, its statuses, and a run that reaches the subteam;
 * mutating the subagent list of a saved team, then saving and running;
 * one deployed agent shared by two teams, each delegating to it;
@@ -20,6 +19,10 @@ Delegation is checked against ``response.data.steps``: the instructions,
 tasks, nested, shared-agent, expected-output and end-to-end tests only pass if
 the expected subagent shows up in the run's steps, so a team that answered on
 its own fails them. No assertion matches exact LLM text.
+
+``run_response_generation`` is not exercised either: the agent runtime ignores
+it (see the module docstring of ``test_agent_run_params.py``), so a billed team
+run could only show that the backend accepts it.
 
 The legacy ``evolve_async`` twin is intentionally not exercised: what a bare
 ``evolve`` run parameter triggers on the backend (and what it costs per CI run)
@@ -291,24 +294,6 @@ def test_role_llm_overrides_persisted_and_used(client, resource_tracker, assets)
 
 
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
-def test_run_response_generation_accepted(client, resource_tracker):
-    """A run with ``run_response_generation=True`` is accepted and succeeds.
-
-    Only acceptance is verified: the SDK exposes nothing on the response that
-    distinguishes a run with response generation from one without, so this test
-    cannot prove the backend honoured the flag.
-    """
-    sub = client.Agent(name=_name("TA-rrg-sub"), instructions="Answer briefly.")
-    sub.save()
-    resource_tracker.append(sub)
-    team = client.Agent(name=_name("TA-rrg-team"), instructions="Coordinate.", agents=[sub])
-    team.save()
-    resource_tracker.append(team)
-
-    _assert_success(team.run("Reply with exactly the word OK.", run_response_generation=True))
-
-
-@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_nested_deployment_chain(client, resource_tracker):
     """Saving a team recursively onboards the whole chain, and a run reaches the subteam."""
     leaf = client.Agent(name=_name("TA-leaf"), description="Answers questions.", instructions="Answer briefly.")
@@ -426,7 +411,10 @@ class _People(BaseModel):
 
 
 #: The roster the expected-output subagent answers from.
-_ROSTER = {"Ana": 19, "Bruno": 34, "Carla": 45@pytest.mark.xfail(
+_ROSTER = {"Ana": 19, "Bruno": 34, "Carla": 45, "Davi": 28}
+
+
+@pytest.mark.xfail(
     strict=True,
     raises=pydantic.ValidationError,
     reason=(
