@@ -52,16 +52,19 @@ def test_get_unknown_id_raises(client):
 
 
 def test_second_page_does_not_repeat_the_first(client):
-    """Two consecutive pages of a sorted search share no record.
+    """Consecutive pages of a sorted search share no record, starting from page 0.
 
     Sorted by creation time so the order is stable across requests: without a sort
     the SDK sends ``sort: [{}]`` and the backend's order is not guaranteed between
-    two calls. Pages 1 and 2 are compared rather than 0 and 1 because they are two
-    distinct pages whether the backend counts ``pageNumber`` from 0 or from 1; in
-    the first live CI run pages 0 and 1 of an unsorted single-item search returned
-    the same model.
+    two calls. Pages 1 and 2 are distinct pages whether the backend counts
+    ``pageNumber`` from 0 or from 1, so they are checked first. Pages 0 and 1 are
+    checked too, because the SDK documents ``page_number`` as 0-based: a backend
+    that counts from 1 and clamps 0 up to 1 would serve the same page twice. In the
+    first live CI run pages 0 and 1 of an unsorted search returned the same model;
+    under a stable sort that can no longer be put down to ordering.
     """
     search = dict(page_size=_PAGE_SIZE, sort_by=SortBy.CREATED_AT, sort_order=SortOrder.ASC)
+    zeroth = client.Model.search(page_number=0, **search)
     first = client.Model.search(page_number=1, **search)
     second = client.Model.search(page_number=2, **search)
 
@@ -69,3 +72,10 @@ def test_second_page_does_not_repeat_the_first(client):
     assert len(first.results) == _PAGE_SIZE and len(second.results) == _PAGE_SIZE, (first.results, second.results)
     overlap = {model.id for model in first.results} & {model.id for model in second.results}
     assert not overlap, f"pages 1 and 2 share {sorted(overlap)}"
+
+    assert len(zeroth.results) == _PAGE_SIZE, zeroth.results
+    aliased = {model.id for model in zeroth.results} & {model.id for model in first.results}
+    assert not aliased, (
+        f"pages 0 and 1 share {sorted(aliased)}: page_number is documented as 0-based, but the backend "
+        "appears to count from 1 and serve page 1 for page 0"
+    )
