@@ -1,12 +1,10 @@
 """Guard: no plaintext credentials in the tree, and the scanner stays wired up (ENG-3686).
 
-Two live credentials sat in tracked files for months. ``test_agent_eval.py`` at
-the repository root passed a 64-hex platform key as a literal ``api_key=``
-argument pointed at ``dev-platform-api``, and ``pipeline_test2.ipynb`` -- a
-scratch notebook, also at the root -- set ``TEAM_API_KEY`` to another 64-hex key
-and then committed the execution output, which echoed that key back inside
-request logs, webhook JWTs and pipeline payloads. Neither file ran under pytest:
-both are outside ``testpaths``, so no suite ever looked at them.
+Live 64-hex platform keys sat in tracked scratch files for months, as a literal
+``api_key=`` argument and as a ``TEAM_API_KEY`` assignment whose saved notebook
+output echoed the key back many times over. Neither file ran under pytest: both
+were outside ``testpaths``, so no suite ever looked at them. They were removed
+in ENG-3686; docs/ci/secret-scanning.md says what remains to be done.
 
 Gitleaks now runs on the staged diff via .pre-commit-config.yaml and over the
 whole tree in .github/workflows/pre-commit.yaml. That is the real scanner; this

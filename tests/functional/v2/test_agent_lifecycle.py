@@ -24,7 +24,7 @@ v1 scenarios not ported here, and why:
   flakiness rather than SDK coverage. Not ported.
 - MCP connector deploy (v1 ``test_agent_with_mcp_tool``) -- already skipped in
   v1 ("MCP connector has no available actions") and it depended on a
-  hard-coded Zapier MCP URL. Not ported.
+  hard-coded third-party MCP URL. Not ported.
 """
 
 import json

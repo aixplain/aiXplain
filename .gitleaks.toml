@@ -1,7 +1,7 @@
 # Secret scanning for the aiXplain SDK (ENG-3686).
 #
-# A 64-hex platform key and a pipeline TEAM_API_KEY were committed in plaintext
-# in root-level scratch files and sat in the tree for months. This config backs
+# Live platform keys were committed in plaintext in scratch files and sat in the
+# tree for months. This config backs
 # the `gitleaks` hook in .pre-commit-config.yaml and the full-tree scan in
 # .github/workflows/pre-commit.yaml, which runs on every push.
 #
@@ -20,9 +20,9 @@ useDefault = true
 
 # The curated rules miss the shapes this repo actually leaked: a 64-hex platform
 # key in `os.environ["TEAM_API_KEY"] = "..."`, in `{"Authorization": "Token ..."}`
-# and passed straight to the client. The deleted notebook's own assignment line
-# went unreported; only its saved cell output tripped a default rule, so the
-# same notebook saved without outputs would have passed. These two rules close
+# and passed straight to the client. A leaked assignment line went unreported;
+# only saved notebook output tripped a default rule, so the same notebook saved
+# without outputs would have passed. These two rules close
 # that gap. tests/unit/test_secret_scanning.py checks both against those shapes.
 [[rules]]
 id = "aixplain-platform-key"
