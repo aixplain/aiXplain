@@ -21,7 +21,7 @@ on.
 ## Contexts, in tiers
 
 GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed only by `include`
-(here `path`, `timeout` and `prod_safe`) are **not** part of the name, so the `functional` legs appear as
+(here `path`, `timeout`, `slack` and `prod_safe`) are **not** part of the name, so the `functional` legs appear as
 `functional (agent)`, not `functional (agent, tests/functional/v2/test_agent.py, 30)`.
 
 | Tier | Context | Workflow | Runs on a PR today? | Precondition to require |
@@ -174,9 +174,13 @@ dependency changes the PR carries — never holds the production key.
 | `TEAM_API_KEY` / `TEAM_API_KEY_PROD` | every functional leg | every leg fails |
 | `TEST_COMPOSIO_INTEGRATION_ID` / `TEST_COMPOSIO_INTEGRATION_ID_PROD` | the event-discovery tests (`TestEventTriggerDiscovery`) in `tests/functional/v2/test_trigger.py` | those tests fail, so the `trigger` leg is red |
 | `TEST_CONNECTION_ID` / `TEST_CONNECTION_ID_PROD` | the event-trigger lifecycle tests (`TestEventTriggerLifecycle`) in the same file | as above |
-| `SLACK_TOKEN` | the Slack integration tests | those tests skip |
-| `HF_TOKEN` | Hugging Face model tests | those tests skip |
+| `SLACK_TOKEN` | the Slack tests in the `agent-lifecycle`, `model` and `tool` legs — the legs with `slack: true`; no other leg receives it | those tests skip |
 | `SLACK_NIGHTLY_WEBHOOK_URL` | `nightly-report` | no alert is sent; the job logs a warning |
+
+`SLACK_TOKEN` is gated like the `_PROD` secrets: the step's `env:` expands it only on a leg whose
+`include` entry has `slack: true`, and `tests/unit/test_ci_pr_and_release_gates.py` fails if that set
+drifts from the legs whose test file uses the `slack_token` fixture. `HF_TOKEN` is no longer exported
+at all: no functional test reads it.
 
 `AIXPLAIN_API_KEY` is **not** a separate secret. The workflow exports it with the same value as
 `TEAM_API_KEY`, because every functional conftest accepts it as the canonical fallback while

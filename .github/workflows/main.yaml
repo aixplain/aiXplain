@@ -456,9 +456,13 @@ jobs:
         ]
         #
         # Keys contributed only by `include` are not part of the job name, so the
-        # contexts stay `functional (agent)`. Besides `path` and `timeout`, one
-        # optional key:
+        # contexts stay `functional (agent)`. Besides `path` and `timeout`, two
+        # optional keys:
         #
+        # - `slack: true` -- the leg reads SLACK_TOKEN (the `slack_token` fixture
+        #   in tests/functional/v2/conftest.py). Only these legs are handed the
+        #   token; a same-repository PR runs unreviewed dependency changes in
+        #   every leg, and a leg that never uses the token should not hold it.
         # - `prod_safe: false` -- the leg has side effects production cannot undo,
         #   so "Run Tests" skips it on production runs. See that step.
         include:
@@ -474,6 +478,7 @@ jobs:
           - suite: 'agent-lifecycle'
             path: 'tests/functional/v2/test_agent_lifecycle.py -n 2'
             timeout: 45
+            slack: true
           - suite: 'agent-llm-persistence'
             path: 'tests/functional/v2/test_agent_llm_persistence.py'
             timeout: 30
@@ -509,6 +514,7 @@ jobs:
           - suite: 'model'
             path: 'tests/functional/v2/test_model.py'
             timeout: 30
+            slack: true
           - suite: 'resource'
             path: 'tests/functional/v2/test_resource.py'
             timeout: 30
@@ -530,6 +536,7 @@ jobs:
           - suite: 'tool'
             path: 'tests/functional/v2/test_tool.py'
             timeout: 30
+            slack: true
           - suite: 'trigger'
             path: 'tests/functional/v2/test_trigger.py'
             timeout: 30
@@ -559,7 +566,8 @@ jobs:
       # The `_PROD` values expand only when IS_PROD is true and are the empty
       # string otherwise. A same-repository PR runs `pip install ".[test]"` with
       # whatever dependency changes it carries, unreviewed, in this job; a PR
-      # job that never holds the production key cannot leak it.
+      # job that never holds the production key cannot leak it. SLACK_TOKEN is
+      # gated the same way on the leg's `slack` key.
       - name: Set environment variables
         env:
           TEAM_API_KEY_PROD: ${{ env.IS_PROD == 'true' && secrets.TEAM_API_KEY_PROD || '' }}
@@ -575,8 +583,7 @@ jobs:
           COMPOSIO_INTEGRATION_ID_TEST: ${{ secrets.TEST_COMPOSIO_INTEGRATION_ID }}
           CONNECTION_ID_PROD: ${{ env.IS_PROD == 'true' && secrets.TEST_CONNECTION_ID_PROD || '' }}
           CONNECTION_ID_TEST: ${{ secrets.TEST_CONNECTION_ID }}
-          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SLACK_TOKEN: ${{ matrix.slack && secrets.SLACK_TOKEN || '' }}
         run: |
           set -euo pipefail
 
@@ -615,8 +622,10 @@ jobs:
             echo "PIPELINES_RUN_URL=$backend/assets/pipeline/execution/run"
             echo "TEST_COMPOSIO_INTEGRATION_ID=$composio_integration_id"
             echo "TEST_CONNECTION_ID=$connection_id"
-            echo "SLACK_TOKEN=$SLACK_TOKEN"
-            echo "HF_TOKEN=$HF_TOKEN"
+            # Empty on every leg without `slack: true`, so nothing is written there.
+            if [ -n "$SLACK_TOKEN" ]; then
+              echo "SLACK_TOKEN=$SLACK_TOKEN"
+            fi
           } >> "$GITHUB_ENV"
 
       # A leg with `prod_safe: false` is skipped on production runs. The issue

@@ -697,6 +697,70 @@ def test_secrets_reach_the_env_step_through_env_and_not_string_interpolation():
     assert step.get("env"), "the functional env step has no `env:` block, so it has nothing to export"
 
 
+def _env_step_writes(tmp_path: Path, **values: str) -> dict:
+    """Run the real env step with every `env:` key set; returns what it wrote to $GITHUB_ENV."""
+    step = _functional_env_step()
+    script = tmp_path / "env-step.sh"
+    script.write_text(step["run"])
+    github_env = tmp_path / "github_env"
+    github_env.write_text("")
+    env = {name: f"<{name}>" for name in step["env"]}
+    env.update(values)
+    result = subprocess.run(
+        ["bash", str(script)],
+        capture_output=True,
+        text=True,
+        env=_clean_env(GITHUB_ENV=str(github_env), **env),
+        timeout=30,
+    )
+    assert result.returncode == 0, f"the env step failed:\n{result.stdout}{result.stderr}"
+    return dict(line.split("=", 1) for line in github_env.read_text().splitlines() if "=" in line)
+
+
+def test_only_the_legs_that_read_slack_token_are_handed_it():
+    """Least privilege: a same-repo PR runs unreviewed dependency changes in every leg.
+
+    So SLACK_TOKEN expands only on legs with `slack: true`, and those must be
+    exactly the legs whose test file uses the `slack_token` fixture -- a leg that
+    starts reading it without the key would skip its Slack tests, and a key left
+    on a leg that stopped reading it is a token held for nothing.
+    """
+    value = str((_functional_env_step().get("env") or {}).get("SLACK_TOKEN", ""))
+    assert "secrets.SLACK_TOKEN" in value, f"the functional env step no longer reads SLACK_TOKEN ({value!r})"
+    assert MAIN_WORKFLOW.read_text().count("secrets.SLACK_TOKEN") == 1, "SLACK_TOKEN is read outside the gated entry"
+
+    readers = {
+        entry["suite"]
+        for entry in _include()
+        if "slack_token" in (REPO_ROOT / entry["path"].split()[0]).read_text(encoding="utf-8")
+    }
+    assert readers, "no functional leg uses the `slack_token` fixture any more; drop SLACK_TOKEN and this test"
+    for entry in _include():
+        rendered = _render(value.replace("secrets.SLACK_TOKEN", "'<secret>'"), {}, matrix=entry)
+        expected = "<secret>" if entry["suite"] in readers else ""
+        assert rendered == expected, (
+            f"the `{entry['suite']}` leg gets SLACK_TOKEN={rendered!r}; expected {expected!r} because it "
+            f"{'reads' if expected else 'does not read'} the `slack_token` fixture. Set or drop `slack: true`."
+        )
+
+
+@needs_bash
+@pytest.mark.parametrize("token", ["", "xoxb-fixture"], ids=["leg-without-slack", "slack-leg"])
+def test_the_env_step_exports_slack_token_only_when_it_has_one(tmp_path, token: str):
+    written = _env_step_writes(tmp_path, IS_PROD="false", SLACK_TOKEN=token)
+    if token:
+        assert written.get("SLACK_TOKEN") == token, written
+    else:
+        assert "SLACK_TOKEN" not in written, f"a leg without `slack: true` still exports SLACK_TOKEN: {written}"
+
+
+def test_no_leg_is_handed_hf_token():
+    """Nothing under tests/functional reads HF_TOKEN, so no leg should hold it."""
+    readers = [path for path in (REPO_ROOT / "tests" / "functional").rglob("*.py") if "HF_TOKEN" in path.read_text()]
+    assert not readers, f"{readers} read HF_TOKEN; export it to those legs only, like SLACK_TOKEN"
+    assert "HF_TOKEN" not in MAIN_WORKFLOW.read_text(), "main.yaml exports HF_TOKEN, which no functional test reads"
+
+
 def _run_leg(tmp_path: Path, suite: str, is_prod: str) -> tuple:
     """Run the real `Run Tests` step for *suite* with a stub `python`.
 
