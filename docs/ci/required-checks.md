@@ -57,8 +57,8 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | — | `functional (trigger)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (utility)` | `main.yaml` | Yes, when in scope | as above |
 
-The `file_asset`, `model`, `general_assets`, `apikey`, `agent` and `team_agent` legs exercised v1
-exclusively and were deleted with it (PROD-2918). A v2 `team-agent` leg was later reintroduced for
+The `file_asset`, `model`, `general_assets`, `apikey`, `agent`, `team_agent` and `benchmark` legs
+exercised v1 exclusively and were deleted with it (PROD-2918). A v2 `team-agent` leg was later reintroduced for
 the ported team-agent scenarios (ENG-3689).
 
 The v2 functional suite runs one leg per `tests/functional/v2/test_*.py` file, so a failure names the

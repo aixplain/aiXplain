@@ -29,8 +29,9 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      # `gh api .../actions/runs` and `.../jobs` on a private repository. Read
-      # only: this job decides, it never re-runs anything.
+      # `gh api .../actions/runs` and `.../jobs`, which this workflow's deny-all
+      # default does not grant. Read only: this job decides, it never re-runs
+      # anything.
       actions: read
     steps:
       - name: Checkout the tagged commit

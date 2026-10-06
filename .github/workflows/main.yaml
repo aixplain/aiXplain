@@ -47,9 +47,9 @@ permissions:
   contents: read
 
 # One run per PR at a time (ENG-3683). A push, a label and a reopen each start
-# a run of every job, and the functional matrix is 14 legs against a shared test
-# backend; without this a PR opened with three labels starts four matrices at
-# once, and a superseded push keeps burning backend time nobody will look at.
+# a run of every job, and the functional matrix is one leg per functional test
+# file against a shared test backend; without this a PR opened with three labels
+# starts four matrices at once, and a superseded push keeps burning backend time nobody will look at.
 # Only PR runs cancel each other: the newest event on a PR always re-decides
 # from the paths, so the run that survives says the same thing the cancelled
 # one would have.

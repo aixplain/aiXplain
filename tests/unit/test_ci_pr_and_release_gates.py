@@ -262,8 +262,8 @@ def _concurrency(event_name: str, **github: object) -> tuple:
 def test_runs_of_the_same_pr_share_a_group_and_cancel_each_other():
     """A label storm or a run of pushes must leave one matrix going, not several.
 
-    Every label starts a run (see the `labeled` test above), and the matrix is 14
-    legs against a shared backend.
+    Every label starts a run (see the `labeled` test above), and the matrix is one
+    leg per functional test file against a shared backend.
     """
     first = _concurrency("pull_request", event={"pull_request": {"number": 7}}, run_id=1, ref="refs/pull/7/merge")
     second = _concurrency("pull_request", event={"pull_request": {"number": 7}}, run_id=2, ref="refs/pull/7/merge")
@@ -1031,8 +1031,8 @@ def test_the_functional_gate_is_read_only():
     writes = {scope: value for scope, value in permissions.items() if value != "read"}
     assert not writes, f"release.yaml's functional gate holds write-capable permissions: {writes}"
     assert permissions.get("actions") == "read", (
-        "the gate needs `actions: read` to list workflow runs; without it the `gh api` calls 404 "
-        "on a private repository and the gate cannot tell 'never ran' from 'no access'."
+        "the gate needs `actions: read` to list workflow runs; without it the `gh api` calls are "
+        "refused and the gate cannot tell 'never ran' from 'no access'."
     )
 
 
