@@ -148,11 +148,43 @@ def _safe_token_count(val: Any) -> Optional[int]:
 
 @dataclass_json
 @dataclass
+class PromptTokensDetails:
+    """Breakdown of prompt token usage."""
+
+    cached_tokens: Optional[int] = field(
+        default=None,
+        metadata=config(field_name="cached_tokens", decoder=_safe_token_count),
+    )
+
+
+@dataclass_json
+@dataclass
+class CompletionTokensDetails:
+    """Breakdown of completion token usage."""
+
+    reasoning_tokens: Optional[int] = field(
+        default=None,
+        metadata=config(field_name="reasoning_tokens", decoder=_safe_token_count),
+    )
+
+
+# Non-mapping blocks would make dataclasses_json raise instead of decoding to None.
+def _decode_prompt_tokens_details(value: Any) -> Optional[PromptTokensDetails]:
+    return PromptTokensDetails.from_dict(value) if isinstance(value, Mapping) else None
+
+
+def _decode_completion_tokens_details(value: Any) -> Optional[CompletionTokensDetails]:
+    return CompletionTokensDetails.from_dict(value) if isinstance(value, Mapping) else None
+
+
+@dataclass_json
+@dataclass
 class Usage:
     """Usage structure from the API response.
 
     Token counts are nullable because some model providers (GPT-5.4, Claude,
-    Mistral Large) return ``"NaN"`` or ``null`` instead of integers.
+    Mistral Large) return ``"NaN"`` or ``null`` instead of integers. The
+    detail blocks are ``None`` when the model does not report them.
     """
 
     prompt_tokens: Optional[int] = field(
@@ -167,6 +199,24 @@ class Usage:
         default=None,
         metadata=config(field_name="total_tokens", decoder=_safe_token_count),
     )
+    prompt_tokens_details: Optional[PromptTokensDetails] = field(
+        default=None,
+        metadata=config(field_name="prompt_tokens_details", decoder=_decode_prompt_tokens_details),
+    )
+    completion_tokens_details: Optional[CompletionTokensDetails] = field(
+        default=None,
+        metadata=config(field_name="completion_tokens_details", decoder=_decode_completion_tokens_details),
+    )
+
+    @property
+    def cached_tokens(self) -> Optional[int]:
+        """Cached prompt tokens, or None when the model did not report them."""
+        return self.prompt_tokens_details.cached_tokens if self.prompt_tokens_details else None
+
+    @property
+    def reasoning_tokens(self) -> Optional[int]:
+        """Reasoning completion tokens, or None when the model did not report them."""
+        return self.completion_tokens_details.reasoning_tokens if self.completion_tokens_details else None
 
 
 def _decode_details(value: Any) -> Any:
