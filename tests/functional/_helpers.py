@@ -174,6 +174,11 @@ def resolve_action_source(client, integration_id: str) -> Tuple[Any, List[Any]]:
     unset even for an integration that lists actions (see
     `resolve_multi_action_tool`).
 
+    Only an *empty* listing falls back. An exception from the integration's
+    ``list_actions()`` propagates: a broken listing endpoint is a failure to
+    report, and falling back past it would let the tests pass on a tool while
+    the integration path they are meant to cover is down.
+
     Args:
         client: The ``Aixplain`` client for this run.
         integration_id: The integration to try first.
@@ -183,10 +188,7 @@ def resolve_action_source(client, integration_id: str) -> Tuple[Any, List[Any]]:
         ``Tool`` and *actions* is its non-empty ``list_actions()`` result.
     """
     integration = client.Integration.get(integration_id)
-    try:
-        actions = integration.list_actions()
-    except Exception:
-        actions = []
+    actions = integration.list_actions()
     if actions:
         return integration, actions
 
