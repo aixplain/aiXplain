@@ -28,6 +28,12 @@ from tests.functional._helpers import require_env
 # Far-future instant so a "once" trigger is valid/schedulable.
 FUTURE_RUN_AT = "2099-01-26T12:00:00Z"
 
+# Recurring triggers are created disabled. Teardown deletes them, but a PR run
+# cancelled by a newer push (`cancel-in-progress`) can skip teardown, and an
+# enabled recurring trigger left behind would keep running its agent on the
+# shared backend. The schedule mapping these tests check does not depend on it.
+RECURRING_ENABLED = False
+
 
 @pytest.fixture(scope="module")
 def test_agent(client, module_resource_tracker):
@@ -86,6 +92,7 @@ class TestTimeTriggerLifecycle:
             at="09:00",
             timezone="Europe/London",
             notifications=True,
+            enabled=RECURRING_ENABLED,
         )
         t.save()
         resource_tracker.append(t)
@@ -102,10 +109,13 @@ class TestTimeTriggerLifecycle:
             input="Check the queue.",
             every="hour",
             interval=2,
+            enabled=RECURRING_ENABLED,
         )
         hourly.save()
         resource_tracker.append(hourly)
         assert hourly.schedule_type == "recurring"
+        # The most frequent schedule here: make sure the backend stored it disabled.
+        assert client.Trigger.get(hourly.id).enabled is False
 
         weekly = client.Trigger(
             name=f"weekly-{int(time.time())}-{uuid.uuid4().hex[:6]}",
@@ -114,6 +124,7 @@ class TestTimeTriggerLifecycle:
             every="week",
             on=["mon", "thu"],
             at="17:00",
+            enabled=RECURRING_ENABLED,
         )
         weekly.save()
         resource_tracker.append(weekly)
@@ -126,6 +137,7 @@ class TestTimeTriggerLifecycle:
             every="month",
             on=[1, 15],
             at="09:00",
+            enabled=RECURRING_ENABLED,
         )
         monthly.save()
         resource_tracker.append(monthly)
