@@ -60,11 +60,29 @@ class TestSavePayloadPersistsExpectedOutput:
         assert isinstance(sent, str), "BaseModel-class expected_output must be persisted as a JSON string"
         assert json.loads(sent) == ChatReply.model_json_schema()
 
-    def test_basemodel_instance_is_still_dumped_to_dict(self):
+    def test_basemodel_instance_is_persisted_as_json_string(self):
+        """An instance used to be saved as a dict, which the engine read back as a Python repr."""
         instance = ChatReply(content="hi", artifact=None)
         payload = _json_agent(expected_output=instance).build_save_payload()
 
-        assert payload.get("expectedOutput") == instance.model_dump()
+        sent = payload.get("expectedOutput")
+        assert isinstance(sent, str), "a BaseModel-instance expected_output must be persisted as a JSON string"
+        assert json.loads(sent) == instance.model_dump()
+
+    def test_dict_is_persisted_as_json_string_and_strings_pass_through(self):
+        schema = {"type": "object", "properties": {"name": {"type": "string"}}}
+
+        assert _json_agent(expected_output=schema).build_save_payload()["expectedOutput"] == json.dumps(schema)
+        assert _json_agent(expected_output='{"a": 1}').build_save_payload()["expectedOutput"] == '{"a": 1}'
+
+    def test_save_and_run_send_the_same_string(self):
+        """One encoder for both paths: a run falling back to the stored value sees what a run would send."""
+        for expected_output in (ChatReply, ChatReply(content="hi"), {"type": "object"}):
+            agent = _json_agent(expected_output=expected_output)
+
+            sent_on_run = agent.build_run_payload(query="hi")["executionParams"]["expectedOutput"]
+
+            assert sent_on_run == agent.build_save_payload()["expectedOutput"], expected_output
 
 
 class TestSaveDoesNotLoseExpectedOutput:
@@ -119,6 +137,20 @@ class TestRunPayloadSendsExpectedOutputAsString:
         sent = payload["executionParams"]["expectedOutput"]
         assert isinstance(sent, str)
         assert json.loads(sent) == instance.model_dump()
+
+    def test_list_in_execution_params_is_sent_as_json_string(self):
+        """Session runs always encoded a list; the direct run path used to send it raw."""
+        names = ["Ana", "Bob"]
+        payload = _json_agent().build_run_payload(
+            query="hi", execution_params={"output_format": "json", "expected_output": names}
+        )
+
+        assert payload["executionParams"]["expectedOutput"] == json.dumps(names)
+
+    def test_empty_string_is_dropped_for_text_formats(self):
+        agent = _json_agent(output_format="text", expected_output="")
+
+        assert agent.build_run_payload(query="hi")["executionParams"]["expectedOutput"] is None
 
 
 class TestSessionExecutionConfigSendsExpectedOutputAsString:

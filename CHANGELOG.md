@@ -219,6 +219,22 @@ Two fixes fall out of the audit:
 - A misspelled key in a `budget` or `execution_config` dict was silently dropped,
   so `{"max_iteration": 10}` meant "no cap" rather than an error.
 
+### Fixed: `expected_output` is always sent as JSON text
+
+An agent's `expected_output` went over the wire in a different shape depending on
+how it was sent. A run that passed a Pydantic class, an instance or a dict in
+`execution_params` was refused with `400 executionParams.expectedOutput must be a
+string`, a list was sent unencoded on direct runs, and `save()` stored a Pydantic
+instance or a dict as an object, which the agent engine read back as a Python
+repr rather than JSON. `save()`, `run()` and session runs now share one encoder:
+a Pydantic class becomes its JSON schema, an instance its JSON, and a dict or list
+is JSON-encoded. Strings and `None` are sent unchanged.
+
+A dict or Pydantic instance `expected_output` is now persisted as a JSON string,
+the way a Pydantic class already was, so an agent fetched with
+`aix.Agent.get(...)` carries it as that string. `json.loads` it if you need the
+object.
+
 ### Breaking, beyond the v1 removal
 
 - **`APIKeyLimits` defaults changed from `0` to `None`.** This is a *read*-path

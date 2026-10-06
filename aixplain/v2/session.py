@@ -59,12 +59,14 @@ def _normalize_execution_params(params: Optional[Dict[str, Any]]) -> Optional[Di
 
 
 def _expected_output_to_wire(value: Any) -> Any:
-    """Return ``value`` as the string the backend requires for ``executionParams.expectedOutput``.
+    """Return ``value`` as the string the backend requires for ``expectedOutput``.
 
-    The backend rejects a non-string with ``400 executionParams.expectedOutput must be a
-    string``. Mirrors ``Agent.build_run_payload``: a Pydantic class becomes its JSON
-    schema, a Pydantic instance its JSON, and a dict or list is JSON-encoded. Strings and
-    ``None`` pass through unchanged.
+    The one encoder for every path that sends it: ``Agent.build_save_payload``,
+    ``Agent.build_run_payload`` and ``ExecutionConfig.to_api_dict``. The run endpoints
+    reject a non-string with ``400 executionParams.expectedOutput must be a string``, and
+    an object persisted on save reaches the engine as a Python repr rather than JSON. A
+    Pydantic class becomes its JSON schema, a Pydantic instance its JSON, and a dict or
+    list is JSON-encoded. Strings and ``None`` pass through unchanged.
     """
     if isinstance(value, type) and issubclass(value, BaseModel):
         return json.dumps(value.model_json_schema())
