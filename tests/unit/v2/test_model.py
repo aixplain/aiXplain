@@ -15,10 +15,12 @@ from unittest.mock import Mock, patch
 from aixplain.v2.enums import Function, ResponseStatus
 from aixplain.v2.exceptions import APIError, ValidationError, create_operation_failed_error
 from aixplain.v2.model import (
+    CompletionTokensDetails,
     Message,
     Model,
     ModelResponseStreamer,
     ModelResult,
+    PromptTokensDetails,
     StreamChunk,
     Usage,
     find_function_by_id,
@@ -967,6 +969,138 @@ class TestReasoningNormalization:
         assert data.get("reasoning_details") is None
 
 
+FULL_USAGE_PAYLOAD = {
+    "prompt_tokens": 1779,
+    "completion_tokens": 2048,
+    "total_tokens": 3827,
+    "prompt_tokens_details": {"cached_tokens": 1664},
+    "completion_tokens_details": {"reasoning_tokens": 0},
+}
+
+
+class TestUsageTokenDetails:
+    """Tests for cached/reasoning token detail decoding on v2 Usage."""
+
+    def test_full_payload(self):
+        """Detail blocks decode into typed objects and properties expose the counts."""
+        usage = Usage.from_dict(FULL_USAGE_PAYLOAD)
+
+        assert usage.prompt_tokens == 1779
+        assert usage.completion_tokens == 2048
+        assert usage.total_tokens == 3827
+        assert isinstance(usage.prompt_tokens_details, PromptTokensDetails)
+        assert isinstance(usage.completion_tokens_details, CompletionTokensDetails)
+        assert usage.cached_tokens == 1664
+        assert usage.reasoning_tokens is not None
+        assert usage.reasoning_tokens == 0
+
+    def test_model_result_full_payload(self):
+        """ModelResult.from_dict should carry the detail blocks through to usage."""
+        result = ModelResult.from_dict({"status": "SUCCESS", "completed": True, "usage": FULL_USAGE_PAYLOAD})
+
+        assert isinstance(result.usage, Usage)
+        assert result.usage.cached_tokens == 1664
+        assert result.usage.reasoning_tokens == 0
+
+    def test_payload_without_details(self):
+        """Absent detail keys decode to None, never 0."""
+        usage = Usage.from_dict({"prompt_tokens": 13, "completion_tokens": 17, "total_tokens": 30})
+
+        assert usage.prompt_tokens == 13
+        assert usage.completion_tokens == 17
+        assert usage.total_tokens == 30
+        assert usage.prompt_tokens_details is None
+        assert usage.completion_tokens_details is None
+        assert usage.cached_tokens is None
+        assert usage.reasoning_tokens is None
+
+    def test_null_detail_blocks(self):
+        """A null detail block decodes to None."""
+        usage = Usage.from_dict({"prompt_tokens_details": None, "completion_tokens_details": None})
+
+        assert usage.prompt_tokens_details is None
+        assert usage.completion_tokens_details is None
+        assert usage.cached_tokens is None
+        assert usage.reasoning_tokens is None
+
+    @pytest.mark.parametrize(
+        "raw, expected",
+        [("NaN", None), ("nan", None), (None, None), ("12", 12), ("0", 0), (float("nan"), None), ("abc", None)],
+    )
+    def test_detail_counts_are_safely_coerced(self, raw, expected):
+        """Detail counts use the same tolerant decoding as top-level counts."""
+        usage = Usage.from_dict(
+            {
+                "prompt_tokens_details": {"cached_tokens": raw},
+                "completion_tokens_details": {"reasoning_tokens": raw},
+            }
+        )
+
+        assert usage.cached_tokens == expected
+        assert usage.reasoning_tokens == expected
+
+    def test_unknown_detail_keys_are_ignored(self):
+        """Extra keys inside detail blocks must not raise."""
+        usage = Usage.from_dict(
+            {
+                "prompt_tokens_details": {"cached_tokens": 5, "audio_tokens": 3},
+                "completion_tokens_details": {
+                    "reasoning_tokens": 7,
+                    "audio_tokens": 0,
+                    "accepted_prediction_tokens": 1,
+                    "rejected_prediction_tokens": 2,
+                },
+            }
+        )
+
+        assert usage.cached_tokens == 5
+        assert usage.reasoning_tokens == 7
+
+    @pytest.mark.parametrize("block", [5, "x", ["cached_tokens"], True])
+    def test_malformed_detail_blocks_decode_to_none(self, block):
+        """Non-mapping detail blocks decode to None instead of raising."""
+        usage = Usage.from_dict({"prompt_tokens_details": block, "completion_tokens_details": block})
+
+        assert usage.prompt_tokens_details is None
+        assert usage.completion_tokens_details is None
+        assert usage.cached_tokens is None
+        assert usage.reasoning_tokens is None
+
+    def test_empty_detail_blocks(self):
+        """An empty detail block yields a details object whose counts are None."""
+        usage = Usage.from_dict({"prompt_tokens_details": {}, "completion_tokens_details": {}})
+
+        assert usage.prompt_tokens_details == PromptTokensDetails()
+        assert usage.completion_tokens_details == CompletionTokensDetails()
+        assert usage.cached_tokens is None
+        assert usage.reasoning_tokens is None
+
+    def test_round_trip_with_details(self):
+        """to_dict emits the nested blocks and from_dict restores an equal Usage."""
+        usage = Usage.from_dict(FULL_USAGE_PAYLOAD)
+        data = usage.to_dict()
+
+        assert data == FULL_USAGE_PAYLOAD
+        assert Usage.from_dict(data) == usage
+
+    def test_round_trip_old_shape(self):
+        """Old payloads keep their top-level counts and gain None detail blocks."""
+        old = {"prompt_tokens": 13, "completion_tokens": 17, "total_tokens": 30}
+        usage = Usage.from_dict(old)
+        data = usage.to_dict()
+
+        assert {k: data[k] for k in old} == old
+        assert data["prompt_tokens_details"] is None
+        assert data["completion_tokens_details"] is None
+        assert Usage.from_dict(data) == usage
+
+    def test_model_result_round_trip(self):
+        """ModelResult.to_dict should emit the nested usage blocks."""
+        result = ModelResult.from_dict({"status": "SUCCESS", "completed": True, "usage": FULL_USAGE_PAYLOAD})
+
+        assert result.to_dict()["usage"] == FULL_USAGE_PAYLOAD
+
+
 class TestModelStreaming:
     """Tests for v2 streaming parser and streaming payload options."""
 
@@ -1077,6 +1211,28 @@ class TestModelStreaming:
 
         with pytest.raises(StopIteration):
             next(streamer)
+
+    def test_streamer_preserves_usage_token_details(self):
+        """StreamChunk.usage should stay a raw dict that keeps the token detail blocks."""
+        streamer = self._create_streamer(
+            [
+                'data: {"id":"chatcmpl-3","choices":[{"index":0,"delta":{"content":"Hi"},"finish_reason":null}]}',
+                (
+                    'data: {"id":"chatcmpl-3","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],'
+                    '"usage":{"prompt_tokens":1779,"completion_tokens":2048,"total_tokens":3827,'
+                    '"prompt_tokens_details":{"cached_tokens":1664},'
+                    '"completion_tokens_details":{"reasoning_tokens":0}}}'
+                ),
+                "data: [DONE]",
+            ]
+        )
+
+        next(streamer)
+        usage_chunk = next(streamer)
+
+        assert usage_chunk.usage == FULL_USAGE_PAYLOAD
+        assert usage_chunk.usage["prompt_tokens_details"] == {"cached_tokens": 1664}
+        assert usage_chunk.usage["completion_tokens_details"] == {"reasoning_tokens": 0}
 
     def test_streamer_parses_reasoning_content_deltas(self):
         """ModelResponseStreamer should preserve delta.reasoning_content from OpenAI chunks.
@@ -1460,6 +1616,21 @@ class TestModelIntegrationGaps:
         assert result.used_credits == 3.725e-05
         assert result.run_time == 1.766
         assert result.asset == {"assetId": "test-model-id", "id": "openai/gpt-5-mini/openai"}
+
+    def test_run_sync_v2_preserves_usage_token_details(self):
+        """_run_sync_v2() should decode cached and reasoning token details."""
+        model = self._create_sync_model()
+        direct_response = {"status": "SUCCESS", "completed": True, "data": "ok", "usage": FULL_USAGE_PAYLOAD}
+        model.context.client.request = Mock(return_value=direct_response)
+
+        with patch.object(model, "_ensure_valid_state"):
+            with patch.object(model, "build_run_payload", return_value={"data": "hi"}):
+                with patch.object(model, "build_run_url", return_value="v2/models/test-model-id"):
+                    result = model._run_sync_v2(data="hi")
+
+        assert result.usage.prompt_tokens == 1779
+        assert result.usage.cached_tokens == 1664
+        assert result.usage.reasoning_tokens == 0
 
     def test_run_sync_v2_retries_only_the_submission(self):
         """A sync-only model retries a retryable POST up to run_retries times."""
