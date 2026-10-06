@@ -456,7 +456,11 @@ jobs:
         ]
         #
         # Keys contributed only by `include` are not part of the job name, so the
-        # contexts stay `functional (agent)`.
+        # contexts stay `functional (agent)`. Besides `path` and `timeout`, one
+        # optional key:
+        #
+        # - `prod_safe: false` -- the leg has side effects production cannot undo,
+        #   so "Run Tests" skips it on production runs. See that step.
         include:
           - suite: 'actions-inputs'
             path: 'tests/functional/v2/test_actions_inputs.py'
@@ -500,6 +504,8 @@ jobs:
           - suite: 'issue'
             path: 'tests/functional/v2/test_issue.py'
             timeout: 30
+            # Every test files a real issue, and there is no API to delete one.
+            prod_safe: false
           - suite: 'model'
             path: 'tests/functional/v2/test_model.py'
             timeout: 30
@@ -613,9 +619,31 @@ jobs:
             echo "HF_TOKEN=$HF_TOKEN"
           } >> "$GITHUB_ENV"
 
+      # A leg with `prod_safe: false` is skipped on production runs. The issue
+      # leg files real issues that cannot be deleted, so running it on every push
+      # to `main` would fill the production issue system with test reports; it
+      # still runs on PRs, `test` and the nightly, against the test backend.
+      #
+      # The skipped leg exits 0, so on a production run `functional (issue)`
+      # reports success without having run, and `release.yaml`'s functional gate
+      # counts it green. That is deliberate: no production run can exercise it
+      # without the side effect, and the gate would otherwise block every release.
+      #
+      # Matrix values arrive through `env:` like the secrets above. LEG_ARGS is
+      # expanded unquoted on purpose: some legs append `-n 2` to the path.
       - name: Run Tests
         timeout-minutes: ${{ matrix.timeout }}
-        run: python -m pytest ${{ matrix.path }}
+        env:
+          LEG_ARGS: ${{ matrix.path }}
+          PROD_SAFE: ${{ matrix.prod_safe }}
+        run: |
+          set -euo pipefail
+          if [ "$IS_PROD" = "true" ] && [ "$PROD_SAFE" = "false" ]; then
+            echo "::notice::Skipped on production: this leg files issues that cannot be deleted. It runs against the test backend on PRs, pushes to test and the nightly."
+            exit 0
+          fi
+          # shellcheck disable=SC2086
+          python -m pytest $LEG_ARGS
 
   # The one context to require for the functional matrix (ENG-3683). The
   # per-leg `functional (<leg>)` contexts cannot be required: when

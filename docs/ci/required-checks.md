@@ -21,7 +21,7 @@ on.
 ## Contexts, in tiers
 
 GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed only by `include`
-(here `path` and `timeout`) are **not** part of the name, so the `functional` legs appear as
+(here `path`, `timeout` and `prod_safe`) are **not** part of the name, so the `functional` legs appear as
 `functional (agent)`, not `functional (agent, tests/functional/v2/test_agent.py, 30)`.
 
 | Tier | Context | Workflow | Runs on a PR today? | Precondition to require |
@@ -110,6 +110,14 @@ per event whether they run, and `functional-result` reports the outcome under on
 `pyproject.toml` is in the list because a dependency bump is the classic way functional behaviour
 breaks; `tests/conftest.py` because every leg loads it; `main.yaml` because it builds the legs'
 environment.
+
+**The `issue` leg does not run on production.** Every test in `tests/functional/v2/test_issue.py`
+files a real issue, and there is no API to delete one, so a run against production (a push to
+`main`, a dispatch on `main` or a `v*` tag) would add two test reports to the production issue
+system each time. The leg carries `prod_safe: false` in the matrix, and the "Run Tests" step skips
+pytest for such a leg when IS_PROD is true, logs a `::notice::` saying why, and exits 0. It still
+runs against the test backend on PRs, pushes to `test` and the nightly. On a production run
+`functional (issue)` therefore reports **success without having run** — see the release gate below.
 
 The `functional-tests` label is the manual override for a PR whose risk is not visible in its paths
 — a backend migration, a change to a file the list above does not name. `labeled` is in the
@@ -263,6 +271,11 @@ exact commit this tag points at?**
 
 Under the normal flow (bump the version in a PR, merge, tag the merged commit) the push to `main`
 has already produced that run, and the gate passes without any extra step.
+
+`functional (issue)` is green on every production run because the leg is skipped there (see "When
+each `main.yaml` context runs"), so the gate counts it without it having run against production. That
+is deliberate: no production run can exercise it without filing issues that cannot be deleted, and
+the gate would otherwise block every release. Its coverage comes from the test-backend runs.
 
 **If the gate fails with "no completed production run of main.yaml on `<sha>`"**, first check
 whether the `main` run on that commit is simply still going: a tag pushed right after the merge

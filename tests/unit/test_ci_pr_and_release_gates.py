@@ -105,6 +105,24 @@ def _functional_env_step() -> dict:
     return steps[0]
 
 
+def _include() -> list:
+    """The `functional` matrix's `include` entries, one per leg."""
+    return _job(MAIN_WORKFLOW, "functional")["strategy"]["matrix"]["include"]
+
+
+def _leg(suite: str) -> dict:
+    entries = [entry for entry in _include() if entry["suite"] == suite]
+    assert len(entries) == 1, f"expected one `include` entry for the `{suite}` leg, found {len(entries)}"
+    return entries[0]
+
+
+def _run_tests_step() -> dict:
+    """The `functional` step that runs a leg's pytest."""
+    steps = [step for step in _job(MAIN_WORKFLOW, "functional")["steps"] if step.get("name") == "Run Tests"]
+    assert len(steps) == 1, f"expected exactly one `Run Tests` step in `functional`, found {len(steps)}"
+    return steps[0]
+
+
 def _clean_env(**extra: str) -> dict:
     """The environment for a subprocess, minus anything git would obey.
 
@@ -122,10 +140,10 @@ def _clean_env(**extra: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _render(template: str, github: dict, env: Optional[dict] = None) -> str:
+def _render(template: str, github: dict, env: Optional[dict] = None, matrix: Optional[dict] = None) -> str:
     """Evaluate every `${{ }}` in *template* the way Actions would, for the subset used here.
 
-    Supported: `github.*` and `env.*` lookups, `==`/`!=`, `&&`/`||` (which, as in
+    Supported: `github.*`, `env.*` and `matrix.*` lookups, `==`/`!=`, `&&`/`||` (which, as in
     Actions, return an operand rather than a boolean), parentheses, string
     literals, `startsWith` and `format`. Anything else fails loudly, so an
     expression rewritten beyond this subset is a test to update, not a guard
@@ -155,11 +173,13 @@ def _render(template: str, github: dict, env: Optional[dict] = None) -> str:
         python = body.replace("&&", " and ").replace("||", " or ")
         python = re.sub(r"\bstartsWith\(", "_starts_with(", python)
         python = re.sub(r"\bformat\(", "_format(", python)
-        python = re.sub(r"\b(github|env)\.([\w.-]+)", lambda m: f"_lookup({m.group(1)!r}, {m.group(2)!r})", python)
+        python = re.sub(
+            r"\b(github|env|matrix)\.([\w.-]+)", lambda m: f"_lookup({m.group(1)!r}, {m.group(2)!r})", python
+        )
         bare = re.sub(r"'[^']*'", "''", python)
         unknown = set(re.findall(r"[A-Za-z_]\w*", bare)) - {"and", "or", "_starts_with", "_format", "_lookup"}
         assert not unknown, f"expression {body!r} uses {sorted(unknown)}, which this evaluator does not model"
-        roots = {"github": github, "env": env or {}}
+        roots = {"github": github, "env": env or {}, "matrix": matrix or {}}
         return eval(  # noqa: S307 -- the input is this repository's own workflow file
             python,
             {"__builtins__": {}},
@@ -675,6 +695,71 @@ def test_secrets_reach_the_env_step_through_env_and_not_string_interpolation():
         "through the step's `env:` block instead (ENG-3683)."
     )
     assert step.get("env"), "the functional env step has no `env:` block, so it has nothing to export"
+
+
+def _run_leg(tmp_path: Path, suite: str, is_prod: str) -> tuple:
+    """Run the real `Run Tests` step for *suite* with a stub `python`.
+
+    Returns (exit code, stdout, the stub's argv or None if it was never called).
+    The step's `env:` is rendered from the leg's real `include` entry, so a key
+    dropped from the matrix is a key dropped here.
+    """
+    step = _run_tests_step()
+    leg = _leg(suite)
+    work = tmp_path / suite
+    stub_dir = work / "bin"
+    stub_dir.mkdir(parents=True)
+    argv_file = work / "argv"
+    stub = stub_dir / "python"
+    stub.write_text(f'#!/bin/sh\nprintf \'%s\\n\' "$@" > "{argv_file}"\n')
+    stub.chmod(0o755)
+    script = work / "run-tests.sh"
+    script.write_text(step["run"])
+    env = {name: _render(str(value), {}, matrix=leg) for name, value in (step.get("env") or {}).items()}
+    result = subprocess.run(
+        ["bash", str(script)],
+        capture_output=True,
+        text=True,
+        env=_clean_env(PATH=f"{stub_dir}{os.pathsep}{os.environ.get('PATH', '')}", IS_PROD=is_prod, **env),
+        timeout=30,
+    )
+    argv = argv_file.read_text().splitlines() if argv_file.exists() else None
+    return result.returncode, result.stdout, argv
+
+
+@needs_bash
+@pytest.mark.parametrize(("is_prod", "runs"), [("true", False), ("false", True)], ids=["production", "test-backend"])
+def test_the_issue_leg_never_files_issues_on_production(tmp_path, is_prod: str, runs: bool):
+    """tests/functional/v2/test_issue.py files real issues, and there is no API to delete one.
+
+    On production (every push to `main`) the leg must exit 0 without running
+    pytest; everywhere else it runs against the test backend as usual.
+    """
+    code, stdout, argv = _run_leg(tmp_path, "issue", is_prod)
+    assert code == 0, f"the issue leg exited {code} with IS_PROD={is_prod}:\n{stdout}"
+    if runs:
+        assert argv == ["-m", "pytest", "tests/functional/v2/test_issue.py"], argv
+    else:
+        assert argv is None, f"the issue leg ran pytest on production: {argv}"
+        assert "::notice::" in stdout, "the skipped issue leg does not say why it was skipped"
+
+
+@needs_bash
+def test_every_other_leg_still_runs_on_production(tmp_path):
+    """The production skip is for the issue leg only; a key copied to another leg would hide it."""
+    for entry in _include():
+        if entry["suite"] == "issue":
+            continue
+        code, stdout, argv = _run_leg(tmp_path, entry["suite"], "true")
+        assert code == 0, f"`{entry['suite']}` exited {code}:\n{stdout}"
+        assert argv == ["-m", "pytest", *entry["path"].split()], (
+            f"`{entry['suite']}` did not run `pytest {entry['path']}` on production: {argv}"
+        )
+
+
+def test_the_run_tests_step_takes_matrix_values_through_env():
+    """`${{ matrix.path }}` pasted into the script is the same textual substitution as a secret would be."""
+    assert "${{" not in _run_tests_step()["run"], "the Run Tests step interpolates `${{ }}` into its script body"
 
 
 # ---------------------------------------------------------------------------
