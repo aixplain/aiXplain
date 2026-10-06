@@ -11,6 +11,12 @@ deterministic on the SDK side.
 Tests named ``*_accepted`` verify only that the backend accepts the parameter;
 their docstrings say why nothing stronger is asserted.
 
+Tests marked ``xfail(strict=True)`` check an effect the backend does not deliver
+yet; each reason says what is missing. The wire payload for those features is
+asserted by a separate test, or before the expected failure, so the SDK side
+keeps passing or failing on its own merits, and a backend fix turns the xfail
+into a strict XPASS failure that asks for the mark to be removed.
+
 Not covered here:
 
 - ``wait_time``, ``run_retries`` and ``run_retry_wait``: SDK-side poll and
@@ -25,6 +31,8 @@ Not covered here:
 - ``run_response_generation``: the agent runtime treats it as deprecated and
   ignores it. ``test_execution_params_output_format_json`` passes it, so it is
   accepted, but no effect is asserted.
+- ``result.debug()``: tests/functional/v2/test_debugger.py covers it, so a
+  missing Debugger meta-agent turns one leg red rather than two.
 """
 
 import base64
@@ -53,10 +61,22 @@ BUDGET_EXCEEDED = "BUDGET_EXCEEDED"
 TAVILY_ACTION = "search"
 TAVILY_RESULT_COUNT_INPUT = "num_results"
 
-#: Minimal 1x1 red PNG, used as a deterministic attachment payload.
+#: A 16x16 solid red PNG (8-bit RGB, no alpha channel, every pixel (255, 0, 0)),
+#: used as a deterministic attachment payload. The previous fixture was a single
+#: pixel at 50% alpha, which a vision model fairly calls "coral".
 RED_PNG_BYTES = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR42mP4z8BAEmIY1TCqYfhqAACQ+f8B8u7oVwAAAABJRU5ErkJggg=="
 )
+
+#: The agent engine reads only ``query.input``: the extra ``query`` keys that carry
+#: ``variables`` and the top-level ``prompt`` are dropped, although the SDK sends
+#: them in the v1-compatible shape the payload tests below assert.
+ENGINE_IGNORES_RUN_TIME_INPUTS = (
+    "Backend: the agent engine does not apply run-time variables / prompt (ticket to be filed)"
+)
+
+#: Instructions whose only content the model can repeat is the ``{{code}}`` variable.
+VARIABLES_INSTRUCTIONS = "Reply with exactly this code and nothing else: {{code}}"
 
 
 def _unique(prefix: str) -> str:
@@ -140,6 +160,11 @@ def run_agent(client, module_resource_tracker):
 
 
 @pytest.fixture(scope="module")
+def variables_agent(client, module_resource_tracker):
+    return _make_agent(client, module_resource_tracker, instructions=VARIABLES_INSTRUCTIONS)
+
+
+@pytest.fixture(scope="module")
 def vision_agent(client, module_resource_tracker, assets):
     return _make_agent(client, module_resource_tracker, llm=assets.VISION_LLM)
 
@@ -186,11 +211,26 @@ def test_budget_max_cost_zero_blocks_run(client, module_resource_tracker, assets
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    raises=SDKTimeoutError,
+    reason="Backend: a run with budget maxDurationSeconds=0 hangs IN_PROGRESS instead of returning BLOCKED "
+    "(ticket to be filed)",
+)
 def test_budget_max_duration_zero_blocks_run(client, module_resource_tracker, assets):
+    """A zero duration cap blocks the run.
+
+    The payload is asserted before the run, so an SDK that stopped sending the cap
+    fails here with an ``AssertionError`` rather than counting as the expected
+    timeout. The run waits 60 seconds instead of the default 300: a blocked run
+    answers at once, and the expected hang should not hold the leg for five minutes.
+    """
+    query = "Search the web for the capital of France, then answer."
     agent = _make_tool_agent(client, module_resource_tracker, assets.TAVILY)
     agent.budget.max_duration_seconds = 0
+    assert agent.build_run_payload(query=query)["executionParams"]["budget"]["maxDurationSeconds"] == 0
 
-    result = agent.run("Search the web for the capital of France, then answer.")
+    result = agent.run(query, timeout=60)
 
     governance = _response_data(result).governance
     assert governance["status"] == BUDGET_BLOCKED, f"expected a budget block, got governance={governance}"
@@ -274,68 +314,69 @@ def test_artifacts_carry_presigned_urls(image_agent):
 
 
 # ---------------------------------------------------------------------------
-# Debug
-# ---------------------------------------------------------------------------
-
-
-def test_debug_returns_analysis(run_agent):
-    from aixplain.v2.meta_agents import DEBUGGER_AGENT_ID
-
-    result = run_agent.run("Say hi.")
-
-    try:
-        debug_result = result.debug()
-    except APIError as exc:
-        pytest.fail(
-            f"result.debug() failed calling the Debugger meta-agent {DEBUGGER_AGENT_ID} "
-            f"(status {exc.status_code}): {exc}. If the meta-agent is not deployed on this "
-            "backend, that is a platform gap to fix, not a reason to skip."
-        )
-
-    assert debug_result.analysis, "debugger returned an empty analysis"
-
-
-# ---------------------------------------------------------------------------
 # Variables / prompt / criteria / identifier / history / tasks / inspectors
 # ---------------------------------------------------------------------------
 
 
-# The model has to repeat the substituted token.
-@pytest.mark.flaky(reruns=2, reruns_delay=5)
-def test_variables_are_substituted_into_instructions(client, module_resource_tracker):
-    """A ``{{code}}`` placeholder in the instructions is filled from ``variables``.
+def test_variables_are_sent_as_query_keys(variables_agent):
+    """``variables`` travel as extra keys of ``query`` beside ``input`` (the v1 contract).
 
     The placeholder lives in the instructions because that is where the backend
-    substitutes: save rewrites ``{{code}}`` to ``{code}`` and the run sends
-    ``variables`` as extra keys of ``query`` (the v1 contract). The token is random
-    and neutral -- an earlier "secret word" wording made the model answer with the
-    literal word ``word`` -- so only the substitution can put it in the output.
+    substitutes: save rewrites ``{{code}}`` to ``{code}``.
     """
     token = f"tok{uuid.uuid4().hex[:10]}"
-    agent = _make_agent(
-        client,
-        module_resource_tracker,
-        instructions="Reply with exactly this code and nothing else: {{code}}",
-    )
 
-    payload = agent.build_run_payload(query="Reply now.", variables={"code": token})
+    payload = variables_agent.build_run_payload(query="Reply now.", variables={"code": token})
+
     assert payload["query"]["input"] == "Reply now."
     assert payload["query"]["code"] == token
 
-    result = agent.run("Reply now.", variables={"code": token})
-    assert result.status == "SUCCESS"
+
+@pytest.mark.xfail(strict=True, raises=AssertionError, reason=ENGINE_IGNORES_RUN_TIME_INPUTS)
+def test_variables_are_substituted_into_instructions(variables_agent):
+    """A ``{{code}}`` placeholder in the instructions is filled from ``variables``.
+
+    The token is random and neutral -- an earlier "secret word" wording made the
+    model answer with the literal word ``word`` -- so only the substitution can put
+    it in the output. Only that output check is expected to fail: a run that is
+    refused raises ``APIError`` and a non-success status calls ``pytest.fail``,
+    neither of which the xfail accepts. The payload is asserted by
+    ``test_variables_are_sent_as_query_keys``.
+    """
+    token = f"tok{uuid.uuid4().hex[:10]}"
+
+    result = variables_agent.run("Reply now.", variables={"code": token})
+    if result.status != "SUCCESS":
+        pytest.fail(f"the run itself failed with status {result.status}: {result.data!r}")
+
     assert token in _output(result).lower(), f"expected the substituted token {token!r}, got {result.data!r}"
 
 
-# The model has to repeat the token from the prompt.
-@pytest.mark.flaky(reruns=2, reruns_delay=5)
+def test_prompt_criteria_and_identifier_are_sent_top_level(run_agent):
+    """``prompt``, ``criteria`` and ``identifier`` are top-level payload keys (the v1 contract)."""
+    prompt = "Reply with exactly this code and nothing else: tok0123456789"
+    identifier = _unique("identifier")
+
+    payload = run_agent.build_run_payload(
+        query="Reply now.", prompt=prompt, criteria="The answer must be a single word.", identifier=identifier
+    )
+
+    assert payload["query"] == {"input": "Reply now."}
+    assert payload["prompt"] == prompt
+    assert payload["criteria"] == "The answer must be a single word."
+    assert payload["identifier"] == identifier
+
+
+@pytest.mark.xfail(strict=True, raises=AssertionError, reason=ENGINE_IGNORES_RUN_TIME_INPUTS)
 def test_prompt_override_reaches_model(run_agent):
     """``prompt`` reaches the model: the random token exists only in the prompt.
 
     The instruction is deliberately neutral: an earlier "the secret is ..." wording
     made the model refuse to share secrets. ``criteria`` and ``identifier`` ride
-    along and are only verified as accepted: neither changes anything the response
-    exposes.
+    along, so the backend still has to accept them: a refused run raises
+    ``APIError``, which the xfail does not cover. Only the output check is expected
+    to fail; the payload is asserted by
+    ``test_prompt_criteria_and_identifier_are_sent_top_level``.
     """
     token = f"tok{uuid.uuid4().hex[:10]}"
     result = run_agent.run(
@@ -344,8 +385,9 @@ def test_prompt_override_reaches_model(run_agent):
         criteria="The answer must be a single word.",
         identifier=_unique("identifier"),
     )
+    if result.status != "SUCCESS":
+        pytest.fail(f"the run itself failed with status {result.status}: {result.data!r}")
 
-    assert result.status == "SUCCESS"
     assert token in _output(result).lower(), f"expected the token {token!r} from the prompt, got {result.data!r}"
 
 
