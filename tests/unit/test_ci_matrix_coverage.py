@@ -580,6 +580,21 @@ def test_every_leg_declares_a_timeout():
     assert not missing, f"matrix include entries with no `timeout`: {missing}"
 
 
+def test_the_job_timeout_outlasts_every_leg_timeout():
+    """A leg's step timeout has to fire before the job's.
+
+    When the job timeout lands first the runner kills the job outright, so the
+    leg reports as cancelled with no teardown; with six legs at `timeout: 45`
+    under a 45-minute job, that is what a hung leg did.
+    """
+    job = yaml.safe_load(WORKFLOW.read_text())["jobs"]["functional"]
+    longest = max(int(entry["timeout"]) for entry in _matrix()["include"])
+    assert int(job["timeout-minutes"]) > longest, (
+        f"jobs.functional.timeout-minutes is {job['timeout-minutes']}, not above the longest leg timeout "
+        f"({longest}); the job is killed before the leg's own timeout can fire."
+    )
+
+
 def test_functional_matrix_caps_its_parallelism():
     """The legs share one test tenant, which caps concurrent agent runs.
 
