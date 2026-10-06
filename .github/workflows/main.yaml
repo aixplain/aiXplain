@@ -654,6 +654,27 @@ jobs:
           # shellcheck disable=SC2086
           python -m pytest $LEG_ARGS
 
+  # Proof, inside the run, that it used the production backend (ENG-3683).
+  # `release.yaml`'s functional gate recognises a manual dispatch on a release
+  # tag by the run's `head_branch`, and that field holds a bare name: a dispatch
+  # on a *branch* called `v0.3.1` looks the same as one on the tag `v0.3.1`, but
+  # ran against the test backend. This job runs exactly when the `functional`
+  # job's IS_PROD is true -- the same expression, which a job-level `if:` has to
+  # repeat because it cannot read another job's `env:` -- and the gate counts a
+  # run only if this job succeeded in it. tests/unit/test_ci_pr_and_release_gates.py
+  # fails if the two expressions ever disagree.
+  production-backend:
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record that this run used the production backend
+        env:
+          REF: ${{ github.ref }}
+        run: echo "production run on $REF"
+
   # The one context to require for the functional matrix (ENG-3683). The
   # per-leg `functional (<leg>)` contexts cannot be required: when
   # `functional-scope` says no, the matrix never expands and GitHub reports a

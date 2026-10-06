@@ -31,6 +31,7 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | 1 | `package-integrity` | `main.yaml` | Yes | None — requireable as soon as it is green |
 | 1 | `functional-scope` | `main.yaml` | Yes | None — it is a decision, not a test; seconds long, no secrets |
 | 2 | `functional-result` | `main.yaml` | Yes, always | Every leg consistently green |
+| — | `production-backend` | `main.yaml` | No — production runs only | **Do not require** — skipped on every PR; it exists for the release gate |
 | — | `functional (actions-inputs)` | `main.yaml` | Yes, when in scope | **Do not require** — informational, see below |
 | — | `functional (agent)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (agent-duplicate)` | `main.yaml` | Yes, when in scope | as above |
@@ -267,6 +268,11 @@ exact commit this tag points at?**
   against the test backend, which proves nothing about what the wheel is published for. The dispatch
   has to be on the tag by name rather than on any ref starting with `v`, because branches such as
   `version_2` exist and a dispatch on a branch runs against the test backend.
+- A run's `head_branch` is a bare name, so a dispatch on a *branch* named exactly like the tag would
+  pass that filter. Each counted run must therefore also contain a successful `production-backend`
+  job, which `main.yaml` runs only when IS_PROD is true (the same expression, repeated because a
+  job-level `if:` cannot read another job's `env:`; a unit test fails if the two disagree). A run
+  without it is logged as a warning and ignored.
 - It reads the leg list out of `.github/workflows/main.yaml` **at the tagged commit**, so a leg added
   in the same release is not quietly optional on the release that first ships it.
 - It takes the union of *all* completed production runs on that SHA, so "first run failed, failed

@@ -898,6 +898,7 @@ def test_the_functional_gate_checks_the_released_commit_against_the_real_leg_lis
         ('jq -r --arg tag "$TAG" "$runs_filter"', "filter the runs to production ones"),
         ('["jobs"]["functional"]["strategy"]["matrix"]["suite"]', "read the leg list from main.yaml"),
         ('select(.conclusion == "success")', "require a successful conclusion"),
+        ('jq -rs "$jobs_filter"', "drop runs that did not use the production backend"),
         ('grep -Fxq "$leg"', "match each leg's job name exactly"),
     ):
         assert move in script, f"release.yaml's functional gate no longer seems to {what} ({move!r} is gone)"
@@ -957,6 +958,66 @@ def test_the_release_gate_counts_only_production_runs():
         "the release gate counted the wrong runs: expected the pushes to main and the dispatch on "
         f"this tag only, got {result.stdout.split()}"
     )
+
+
+@pytest.mark.parametrize(
+    ("event", "ref"),
+    [
+        ("push", "refs/heads/main"),
+        ("workflow_dispatch", "refs/tags/v0.3.1"),
+        ("workflow_dispatch", "refs/heads/main"),
+        ("schedule", "refs/heads/main"),
+        ("push", "refs/heads/test"),
+        ("pull_request", "refs/pull/12/merge"),
+        ("workflow_dispatch", "refs/heads/v0.3.1"),
+        ("workflow_dispatch", "refs/heads/version_2"),
+    ],
+)
+def test_the_production_backend_job_runs_exactly_when_is_prod_is_true(event: str, ref: str):
+    """The release gate's proof that a run used production has to mean what IS_PROD means.
+
+    A job-level `if:` cannot read the `functional` job's env, so the expression
+    is repeated; this fails the moment the copies disagree. The dispatch on a
+    *branch* named like a tag is the case the job exists for.
+    """
+    condition = str(_job(MAIN_WORKFLOW, "production-backend").get("if", ""))
+    assert condition, "the `production-backend` job has no `if:`, so it would run on every event"
+    context = {"event_name": event, "ref": ref, "ref_name": ref.rsplit("/", 1)[-1]}
+    runs = _render("${{ " + condition + " }}", context) == "true"
+    assert runs is _is_prod(event, ref), f"production-backend runs={runs} but IS_PROD={_is_prod(event, ref)} on {ref}"
+
+
+def _jobs_filter() -> str:
+    match = re.search(r"jobs_filter='([^']*)'", _script(_job(RELEASE_WORKFLOW, "functional-gate")))
+    assert match, "release.yaml's functional gate no longer defines `jobs_filter='...'`"
+    return match.group(1)
+
+
+def _green_jobs(*pages: list) -> list:
+    """Run the gate's `jobs_filter` over one run's job pages, as `gh api --paginate` prints them."""
+    stdin = "".join(json.dumps({"jobs": [{"name": n, "conclusion": c} for n, c in page]}) + "\n" for page in pages)
+    result = subprocess.run(
+        ["jq", "-rs", _jobs_filter()], input=stdin, capture_output=True, text=True, env=_clean_env(), timeout=30
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.split("\n")[:-1]
+
+
+@needs_jq
+def test_the_release_gate_ignores_a_run_that_did_not_use_production():
+    """`head_branch` cannot tell a dispatch on the tag `v0.3.1` from one on a branch of that name.
+
+    The branch run used the test backend, so its green legs must not count;
+    only a run whose `production-backend` job succeeded contributes its jobs.
+    """
+    on_a_branch = _green_jobs([("production-backend", "skipped"), ("functional (agent)", "success")])
+    assert on_a_branch == [], f"a run without a successful production-backend job was counted: {on_a_branch}"
+
+    on_the_tag = _green_jobs(
+        [("functional (agent)", "success"), ("functional (model)", "failure")],
+        [("production-backend", "success"), ("functional (issue)", "success")],
+    )
+    assert sorted(on_the_tag) == ["functional (agent)", "functional (issue)", "production-backend"], on_the_tag
 
 
 def test_the_functional_gate_is_read_only():
@@ -1117,7 +1178,7 @@ def test_an_explicit_models_url_without_scheme_or_host_is_rejected(monkeypatch, 
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("term", [SCOPE_JOB, RESULT_JOB, FUNCTIONAL_LABEL, "functional-gate"])
+@pytest.mark.parametrize("term", [SCOPE_JOB, RESULT_JOB, FUNCTIONAL_LABEL, "functional-gate", "production-backend"])
 def test_the_required_checks_doc_describes_the_new_gates(term: str):
     """Someone pastes context strings out of this doc into branch protection.
 

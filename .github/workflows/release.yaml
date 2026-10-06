@@ -82,6 +82,11 @@ jobs:
           # not on any ref starting with "v": `version_2` is a branch, and a
           # dispatch on a branch runs against the test backend.
           #
+          # `head_branch` is a bare name, though, so a dispatch on a *branch*
+          # named exactly like this tag passes the filter too. Each run's jobs
+          # therefore have to include a successful `production-backend` job,
+          # which main.yaml runs only when IS_PROD is true; see `jobs_filter`.
+          #
           # Every qualifying completed run, not just the latest: a first run that
           # failed and a re-run of the failed legs together mean the commit is
           # green, and only the union says so.
@@ -106,10 +111,19 @@ jobs:
             exit 1
           fi
 
+          # The names of a run's successful jobs, or nothing at all when its
+          # `production-backend` job did not succeed. Slurped, because
+          # `gh api --paginate` prints one JSON document per page.
+          jobs_filter='[.[].jobs[] | select(.conclusion == "success") | .name]
+            | if any(.[]; . == "production-backend") then .[] else empty end'
           green="$(mktemp)"
           for run in $runs; do
-            gh api --paginate "repos/$REPO/actions/runs/$run/jobs?per_page=100" \
-              --jq '.jobs[] | select(.conclusion == "success") | .name' >> "$green"
+            jobs="$(gh api --paginate "repos/$REPO/actions/runs/$run/jobs?per_page=100" | jq -rs "$jobs_filter")"
+            if [ -z "$jobs" ]; then
+              echo "::warning::run $run did not run against production (no successful production-backend job); not counted."
+              continue
+            fi
+            printf '%s\n' "$jobs" >> "$green"
           done
 
           missing=0
