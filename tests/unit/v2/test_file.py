@@ -8,8 +8,8 @@ import zipfile
 import pytest
 
 from aixplain import Aixplain
-from aixplain.v2 import File, FileType, Page, Privacy
-from aixplain.v2.exceptions import APIError, FileUploadError, ResourceError, ValidationError
+from aixplain import File, FileType, Page, Privacy
+from aixplain import APIError, FileUploadError, ResourceError, ValidationError
 
 
 @pytest.fixture

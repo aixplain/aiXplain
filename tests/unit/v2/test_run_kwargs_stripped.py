@@ -20,19 +20,13 @@ from unittest.mock import MagicMock, Mock
 import pytest
 from dataclasses_json import dataclass_json
 
-from aixplain.v2.actions import Action, Actions, Inputs
-from aixplain.v2.agent import Agent
-from aixplain.v2.integration import ActionInputSpec
-from aixplain.v2.model import Model
-from aixplain.v2.resource import (
-    BaseDeleteParams,
-    BaseResource,
-    DeleteResourceMixin,
-    DeleteResult,
-    GetResourceMixin,
-    RunnableResourceMixin,
-)
-from aixplain.v2.tool import Tool
+from aixplain import Action, Actions, Inputs
+from aixplain import Agent
+from aixplain import ActionInputSpec
+from aixplain import Model
+from aixplain import DeleteResult
+from aixplain.v2.resource import BaseDeleteParams, BaseResource, DeleteResourceMixin, GetResourceMixin, RunnableResourceMixin
+from aixplain import Tool
 
 SDK_REQUEST_KWARGS = {"api_key": "SECRET-TEAM-KEY", "resource_path": "v2/custom"}
 

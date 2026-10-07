@@ -10,25 +10,12 @@ from unittest.mock import Mock, patch, call
 
 import pytest
 
-from aixplain.v2.session import (
-    EXECUTION_PARAMS_MAP,
-    ExecutionConfig,
-    Session,
-    SessionMessage,
-    SessionMessageAttachment,
-    _mime_to_attachment_type,
-    _normalize_execution_params,
-)
-from aixplain.v2.enums import (
-    SessionStatus,
-    RunStatus,
-    MessageRole,
-    Reaction,
-    AttachmentType,
-)
-from aixplain.v2.agent import Agent, Budget
-from aixplain.v2.file import File
-from aixplain.v2.exceptions import ValidationError, APIError, ResourceError
+from aixplain import ExecutionConfig, Session, SessionMessage, SessionMessageAttachment
+from aixplain.v2.session import EXECUTION_PARAMS_MAP, _mime_to_attachment_type, _normalize_execution_params
+from aixplain import SessionStatus, RunStatus, MessageRole, Reaction, AttachmentType
+from aixplain import Agent, Budget
+from aixplain import File
+from aixplain import ValidationError, APIError, ResourceError
 
 
 # ---------------------------------------------------------------------------
@@ -1078,7 +1065,7 @@ class TestCoreSessionRegistration:
     """Tests that Session is properly registered in Aixplain."""
 
     def test_session_registered_on_init(self):
-        from aixplain.v2.core import Aixplain
+        from aixplain import Aixplain
 
         ax = Aixplain(api_key="test_key")
         assert ax.Session is not None
@@ -1086,7 +1073,7 @@ class TestCoreSessionRegistration:
         assert ax.Session.context is ax
 
     def test_session_unique_per_instance(self):
-        from aixplain.v2.core import Aixplain
+        from aixplain import Aixplain
 
         ax1 = Aixplain(api_key="key1")
         ax2 = Aixplain(api_key="key2")
@@ -1095,7 +1082,7 @@ class TestCoreSessionRegistration:
         assert ax2.Session.context is ax2
 
     def test_session_enums_on_aixplain_class(self):
-        from aixplain.v2.core import Aixplain
+        from aixplain import Aixplain
 
         assert Aixplain.SessionStatus is SessionStatus
         assert Aixplain.RunStatus is RunStatus

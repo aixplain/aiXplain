@@ -8,13 +8,13 @@ import os
 import pytest
 from unittest.mock import patch, Mock
 
-from aixplain.v2.core import Aixplain
-from aixplain.v2.model import Model
-from aixplain.v2.tool import Tool
-from aixplain.v2.agent import Agent
-from aixplain.v2.integration import Integration
-from aixplain.v2.inspector import Inspector
-from aixplain.v2.issue import IssueReporter
+from aixplain import Aixplain
+from aixplain import Model
+from aixplain import Tool
+from aixplain import Agent
+from aixplain import Integration
+from aixplain import Inspector
+from aixplain import IssueReporter
 
 
 class TestAixplainInitialization:

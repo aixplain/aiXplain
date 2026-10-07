@@ -3,30 +3,17 @@ sidebar_label: exceptions
 title: aixplain.exceptions
 ---
 
-Error message registry for aiXplain SDK.
+Exception types for the aiXplain SDK.
 
-This module maintains a centralized registry of error messages used throughout the aiXplain ecosystem.
-It allows developers to look up existing error messages and reuse them instead of creating new ones.
+This module is the non-versioned exceptions path: ``from aixplain.exceptions
+import ValidationError`` resolves to the same class the SDK actually raises, so
+``except ValidationError`` catches what it looks like it catches. Before this,
+the package carried its own v1-era ``ValidationError`` / ``ResourceError``
+classes that nothing in ``aixplain.v2`` raised, and the obvious spelling
+silently caught nothing.
 
-#### get\_error\_from\_status\_code
-
-```python
-def get_error_from_status_code(status_code: int,
-                               error_details: str = None
-                               ) -> AixplainBaseException
-```
-
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/__init__.py#L35)
-
-Map HTTP status codes to appropriate exception types.
-
-**Arguments**:
-
-- `status_code` _int_ - The HTTP status code to map.
-- `error_details` _str, optional_ - Additional error details to include in the message.
-  
-
-**Returns**:
-
-- `AixplainBaseException` - An exception of the appropriate type.
+The classes the v2 SDK raises are re-exported here from
+`aixplain.v2.exceptions`. The v1-only types that have no v2 counterpart
+(``AuthenticationError``, ``BillingError``, ...) are kept importable from
+``aixplain.exceptions.types`` so existing imports keep working.
 

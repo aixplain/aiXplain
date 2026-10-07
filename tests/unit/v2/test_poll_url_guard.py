@@ -13,11 +13,12 @@ from unittest.mock import Mock, patch
 
 from dataclasses_json import dataclass_json
 
-from aixplain.v2.agent import Agent
+from aixplain import Agent
 from aixplain.v2.client import AixplainClient
-from aixplain.v2.exceptions import UntrustedURLError
-from aixplain.v2.model import Model
-from aixplain.v2.resource import BaseResource, Result, RunnableResourceMixin
+from aixplain import UntrustedURLError
+from aixplain import Model
+from aixplain import Result
+from aixplain.v2.resource import BaseResource, RunnableResourceMixin
 
 
 BACKEND_URL = "https://platform-api.aixplain.com"

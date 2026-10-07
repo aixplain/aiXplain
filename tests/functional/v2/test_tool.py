@@ -2,7 +2,7 @@ import os
 import pytest
 import time
 
-from aixplain.v2.integration import Integration
+from aixplain import Integration
 
 # "Tavily Web Search" connector tool (action: search). Fetched by id: the
 # marketplace path tavily/tavily-search-api/Tavily collides with the Legacy
@@ -235,7 +235,7 @@ def test_tool_run(client, slack_integration_id, slack_token, resource_tracker):
         resource_tracker.mark_cleaned(tool)
 
         # Verify the tool was actually deleted by trying to retrieve it
-        from aixplain.v2.exceptions import APIError
+        from aixplain import APIError
 
         with pytest.raises(APIError) as exc_info:
             client.Tool.get(deleted_tool_id)

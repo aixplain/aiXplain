@@ -10,29 +10,13 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from aixplain.v2.agent import AgentResponseData
-from aixplain.v2.agent_evaluator import (
-    Eval,
-    AgentEvaluationResultsChatbot,
-    AgentEvaluationRow,
-    AgentEvaluationRun,
-    Dataset,
-    EvalCase,
-    Metric,
-    _infer_prompt_input_field_name,
-    _reply_text_from_model_result,
-    compare_agents_side_by_side,
-    normalize_eval_results_dataframe,
-)
-from aixplain.v2.eval_results_display import summarize_by_agent
-from aixplain.v2.eval_experiment import (
-    EXPERIMENT_COMPARISON_COL_RUN_INDEX,
-    Experiment,
-    ExperimentLocalCache,
-    ExperimentRun,
-)
-from aixplain.v2.model import Detail, Message, ModelResult
-from aixplain.v2.exceptions import APIError, ValidationError
+from aixplain import AgentResponseData
+from aixplain import Eval, AgentEvaluationResultsChatbot, AgentEvaluationRow, AgentEvaluationRun, Dataset, EvalCase, Metric, compare_agents_side_by_side, normalize_eval_results_dataframe
+from aixplain.v2.agent_evaluator import _infer_prompt_input_field_name, _reply_text_from_model_result
+from aixplain import summarize_by_agent
+from aixplain import EXPERIMENT_COMPARISON_COL_RUN_INDEX, Experiment, ExperimentLocalCache, ExperimentRun
+from aixplain import Detail, Message, ModelResult
+from aixplain import APIError, ValidationError
 
 
 def _eval_ds(*cases: EvalCase) -> Dataset:

@@ -4,16 +4,10 @@ import warnings
 import pytest
 from unittest.mock import Mock
 
-from aixplain.v2.trigger import (
-    Trigger,
-    TriggerConfiguration,
-    TriggerRepeatRule,
-    _normalize_weekdays,
-    _normalize_monthdays,
-    _strip_none,
-)
-from aixplain.v2.integration import TriggerTypeSpec, TriggerEventOption, TriggerTypes
-from aixplain.v2.resource import Page
+from aixplain import Trigger, TriggerConfiguration, TriggerRepeatRule
+from aixplain.v2.trigger import _normalize_weekdays, _normalize_monthdays, _strip_none
+from aixplain import TriggerTypeSpec, TriggerEventOption, TriggerTypes
+from aixplain import Page
 
 
 AGENT_ID = "66a060000000000000000000"

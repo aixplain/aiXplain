@@ -18,42 +18,15 @@ import pytest
 
 import aixplain
 import aixplain.v2 as v2
-from aixplain.v2.agent import (
-    Agent,
-    Budget,
-    BudgetDict,
-    ContextOverflowStrategy,
-    ContextOverflowStrategyValue,
-    OutputFormat,
-    OutputFormatValue,
-    Task,
-    TaskDict,
-)
-from aixplain.v2.agent_progress import ProgressFormat, ProgressFormatValue
-from aixplain.v2.api_key import APIKeyLimits, APIKeyLimitsDict, TokenType, TokenTypeValue
-from aixplain.v2.code_utils import UtilityModelInput, UtilityModelInputDict
-from aixplain.v2.exceptions import ValidationError
-from aixplain.v2.graph import (
-    Condition,
-    ConditionDict,
-    Edge,
-    EdgeDict,
-    Graph,
-    GraphDict,
-    RetryPolicy,
-    RetryPolicyDict,
-    StaticGraphStrategy,
-    StaticGraphStrategyDict,
-)
-from aixplain.v2.issue import IssueSeverity, IssueSeverityValue
-from aixplain.v2.session import ExecutionConfig, ExecutionConfigDict
-from aixplain.v2.trigger import (
-    Trigger,
-    TriggerConfiguration,
-    TriggerConfigurationDict,
-    TriggerRepeatRule,
-    TriggerRepeatRuleDict,
-)
+from aixplain import Agent, Budget, BudgetDict, ContextOverflowStrategy, ContextOverflowStrategyValue, OutputFormat, OutputFormatValue, Task, TaskDict
+from aixplain import ProgressFormat, ProgressFormatValue
+from aixplain import APIKeyLimits, APIKeyLimitsDict, TokenType, TokenTypeValue
+from aixplain import UtilityModelInput, UtilityModelInputDict
+from aixplain import ValidationError
+from aixplain import Condition, ConditionDict, Edge, EdgeDict, Graph, GraphDict, RetryPolicy, RetryPolicyDict, StaticGraphStrategy, StaticGraphStrategyDict
+from aixplain import IssueSeverity, IssueSeverityValue
+from aixplain import ExecutionConfig, ExecutionConfigDict
+from aixplain import Trigger, TriggerConfiguration, TriggerConfigurationDict, TriggerRepeatRule, TriggerRepeatRuleDict
 
 #: Every input enum and the ``Literal`` alias that spells its values.
 #: docs/v2-plain-data.md classifies these; a new input enum belongs in both.
@@ -211,7 +184,7 @@ class TestExecutionConfigDicts:
         assert config.to_api_dict()["executionParams"] == {"outputFormat": "json"}
 
     def test_session_accepts_an_execution_config_dict(self):
-        from aixplain.v2.session import Session
+        from aixplain import Session
 
         session = Session(agent_id="agent-1", execution_config={"criteria": "be terse"})
 
@@ -220,7 +193,7 @@ class TestExecutionConfigDicts:
 
     def test_assignment_after_construction_coerces(self):
         """``session.execution_config = {...}`` died on save as a raw dict."""
-        from aixplain.v2.session import Session
+        from aixplain import Session
 
         session = Session(agent="abc")
         session.execution_config = {"criteria": "be terse"}
@@ -229,7 +202,7 @@ class TestExecutionConfigDicts:
         assert session.build_save_payload()["executionConfig"] == {"criteria": "be terse"}
 
     def test_assignment_after_construction_validates(self):
-        from aixplain.v2.session import Session
+        from aixplain import Session
 
         session = Session(agent="abc")
         with pytest.raises(ValidationError, match="Unknown execution_config field"):
@@ -266,7 +239,7 @@ class TestExecutionConfigDicts:
 
     def test_budget_assignment_coerces_to_a_budget_object(self):
         """``config.budget = {...}`` left a raw dict, so attribute access broke."""
-        from aixplain.v2.agent import Budget
+        from aixplain import Budget
 
         config = ExecutionConfig()
         config.budget = {"max_cost": 0.5}
@@ -287,7 +260,7 @@ class TestExecutionConfigDicts:
         opt-in -- a budget field added by the backend must not break every
         ``Session.get()``.
         """
-        from aixplain.v2.session import Session
+        from aixplain import Session
 
         session = Session.from_dict(
             {"id": "s", "executionConfig": {"executionParams": {"budget": {"maxCost": 1.0, "maxTokens": 9}}}}
@@ -331,7 +304,7 @@ class TestBudgetDicts:
         assert budget.max_cost == 1.0
 
     def test_a_session_hydrates_through_an_unknown_budget_field(self):
-        from aixplain.v2.session import Session
+        from aixplain import Session
 
         session = Session.from_dict(
             {"id": "s", "executionConfig": {"executionParams": {"budget": {"maxCost": 1.0, "maxTokens": 9}}}}

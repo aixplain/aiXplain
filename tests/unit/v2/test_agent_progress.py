@@ -2,8 +2,8 @@
 
 from unittest.mock import MagicMock
 
-from aixplain.v2.agent import Agent
-from aixplain.v2.agent_progress import AgentProgressTracker
+from aixplain import Agent
+from aixplain import AgentProgressTracker
 
 
 def _tracker() -> AgentProgressTracker:

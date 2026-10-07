@@ -61,13 +61,13 @@ def split_code_spans(text):
             cursor = candidate.end()
 
         if closer is None:
-            segments.append((False, text[pos:opener.end()]))
+            segments.append((False, text[pos : opener.end()]))
             pos = opener.end()
             continue
 
         if opener.start() > pos:
-            segments.append((False, text[pos:opener.start()]))
-        segments.append((True, text[opener.start():closer.end()]))
+            segments.append((False, text[pos : opener.start()]))
+        segments.append((True, text[opener.start() : closer.end()]))
         pos = closer.end()
 
     if pos < len(text):
@@ -92,7 +92,7 @@ def transform_markdown(text):
     3. Escape MDX characters in prose, never inside code spans or fences
     """
     match = re.match(r"\A---\n.*?\n---\n", text, re.DOTALL)
-    frontmatter, body = (match.group(0), text[match.end():]) if match else ("", text)
+    frontmatter, body = (match.group(0), text[match.end() :]) if match else ("", text)
 
     body = convert_rst(ENTITY_RE.sub(lambda m: ENTITIES[m.group(0)], body))
 
@@ -113,6 +113,51 @@ def is_private(name):
     return name.startswith("_") and not name.startswith("__")
 
 
+def _root_exported_names_by_module():
+    """Map each ``aixplain.v2`` module to the names the package root re-exports.
+
+    ``aixplain/__init__.py`` star-imports ``aixplain.v2.__all__``, so every one of
+    these names is importable as ``from aixplain import X`` -- the whole point of
+    this step. Parsed from the ``from .<module> import ...`` statements in
+    ``aixplain/v2/__init__.py`` so the pages cannot drift from the source.
+
+    Returns:
+        dict[str, list[str]]: module name (e.g. ``model``) to sorted names.
+    """
+    import ast
+
+    init_path = os.path.join("aixplain", "v2", "__init__.py")
+    if not os.path.exists(init_path):
+        return {}
+
+    with open(init_path) as f:
+        tree = ast.parse(f.read())
+
+    exported: set = set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(getattr(target, "id", None) == "__all__" for target in node.targets):
+            exported = {ast.literal_eval(elt) for elt in getattr(node.value, "elts", [])}
+
+    mapping: dict = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.level == 1 and node.module:
+            names = sorted(a.name for a in node.names if a.name in exported)
+            if names:
+                mapping.setdefault(node.module, []).extend(names)
+    return mapping
+
+
+def add_root_import(content, names):
+    """Insert a ``from aixplain import ...`` line just below the frontmatter."""
+    if not names:
+        return content
+    line = "`from aixplain import " + ", ".join(names) + "`\n\n"
+    match = re.match(r"\A(---\n.*?\n---\n)", content, re.DOTALL)
+    if match:
+        return match.group(1) + "\n" + line + content[match.end() :]
+    return line + content
+
+
 def rename_files(docs_dir="docs/api-reference/python"):
     """
     1. Rename __init__.md files to init.md
@@ -131,7 +176,7 @@ def rename_files(docs_dir="docs/api-reference/python"):
             # has no option to skip one -- FilterProcessor.exclude_private applies
             # to members, and modules are exempt from filtering entirely -- so the
             # page is dropped here instead.
-            elif file.endswith(".md") and is_private(file[:-len(".md")]):
+            elif file.endswith(".md") and is_private(file[: -len(".md")]):
                 os.remove(os.path.join(root, file))
                 removed_private_files += 1
 
@@ -143,15 +188,19 @@ def process_content(docs_dir="docs/api-reference/python"):
     """
     Process markdown content:
     1. Decode HTML entities, convert RST, escape braces outside code
+    2. On ``aixplain/v2/<module>.md`` pages, add the ``from aixplain import ...``
+       line for the names that module re-exports, so the documented path is
+       versionless even though the page lives under ``aixplain.v2``.
     """
     modified_files = 0
+    root_imports = _root_exported_names_by_module()
 
     for root, _, files in os.walk(docs_dir):
         for file in files:
             # A generated page is named after its module, and a module name
             # cannot contain a dot, so a dotted stem (client.ar.md) marks a
             # hand-written file such as a translation. Those are not ours.
-            if not file.endswith(".md") or "." in file[:-len(".md")]:
+            if not file.endswith(".md") or "." in file[: -len(".md")]:
                 continue
 
             file_path = os.path.join(root, file)
@@ -159,6 +208,8 @@ def process_content(docs_dir="docs/api-reference/python"):
                 content = f.read()
 
             updated = transform_markdown(content)
+            if os.path.basename(root) == "v2" and os.path.basename(os.path.dirname(root)) == "aixplain":
+                updated = add_root_import(updated, root_imports.get(file[: -len(".md")], []))
             if updated != content:
                 with open(file_path, "w") as f:
                     f.write(updated)
@@ -225,8 +276,9 @@ def configure_sidebar(sidebar_path="docs/api-reference/python/api_sidebar.js"):
                 return f"{head}/init" if head else "init"
             return node
         if isinstance(node, list):
-            return [rewrite(item) for item in node
-                    if not (isinstance(item, str) and is_private(item.rpartition("/")[2]))]
+            return [
+                rewrite(item) for item in node if not (isinstance(item, str) and is_private(item.rpartition("/")[2]))
+            ]
         if isinstance(node, dict):
             return {k: rewrite(v) if k == "items" else v for k, v in node.items()}
         return node

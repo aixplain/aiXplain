@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+### Added: versionless imports for the whole public surface
+
+`from aixplain import X` now works for every public name. `aixplain/__init__.py`
+already star-re-exports `aixplain.v2.__all__`; the commonly used classes that had
+been left out of that list were added:
+
+- `Model`, `Integration`, `ModelResult`, `ModelResponseStreamer`, `Usage`,
+  `StreamChunk`, `Message`, `Parameter`, `Pricing`, `VendorInfo`, `Version`,
+  `PromptTokensDetails`, `CompletionTokensDetails`, `Detail`
+- `AgentRunResult`, `AgentResponseData`, `RoleModelRef`, `ToolResult`
+- `ActionSpec`, `ActionInputSpec`, `IntegrationResult`, `ToolId`
+- `Result`, `DeleteResult`, `Node`
+- `ToolDict`, `ParameterInput`, `ParameterDefinition`, `APIKeyLimitsInput`
+- `AUTO_DEFAULT_MODEL_ID`
+
+The versioned path (`from aixplain.v2.<module> import X`) keeps working
+unchanged; this is a non-breaking addition.
+
+### Changed (breaking): `aixplain.exceptions` now aliases the v2 hierarchy
+
+`aixplain.exceptions.ValidationError` / `ResourceError` were v1-era classes that
+nothing in `aixplain.v2` raised, so `from aixplain.exceptions import ValidationError`
+silently caught nothing. They now resolve to the same objects as
+`aixplain.ValidationError` / `aixplain.ResourceError` -- the classes the SDK
+actually raises. `aixplain.exceptions.types` still exposes the v1-only types
+(`AuthenticationError`, `BillingError`, ...) for backward compatibility.
+
+See [MIGRATION.md](MIGRATION.md#import-paths) for the old -> new mapping. A
+follow-up in `aixplain-agents` switches its versioned imports to the root.
+
 ## 0.3.0
 
 ### Removed: SDK v1

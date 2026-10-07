@@ -25,9 +25,9 @@ These tests cover:
 from typing import Any, Dict, List
 from unittest.mock import Mock, patch
 
-from aixplain.v2.agent import Agent
-from aixplain.v2.model import Model, Parameter
-from aixplain.v2.tool import Tool
+from aixplain import Agent
+from aixplain import Model, Parameter
+from aixplain import Tool
 
 
 def _params_as_dict(parameters: List[dict]) -> Dict[str, Any]:

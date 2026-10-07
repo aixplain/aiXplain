@@ -21,7 +21,7 @@ errors, ranging from informational messages to critical system errors.
 **Attributes**:
 
 - `INFO` _str_ - Informational message, not an actual error.
-- `WARNING` _str_ - Warning that doesn&#x27;t prevent operation completion.
+- `WARNING` _str_ - Warning that doesn't prevent operation completion.
 - `ERROR` _str_ - Error condition that prevents operation completion.
 - `CRITICAL` _str_ - Severe error that might affect system stability.
 
@@ -117,8 +117,8 @@ class ErrorCode(str, Enum)
 
 Standard error codes for aiXplain exceptions.
 
-The format is AX-&lt;CATEGORY&gt;-&lt;ID&gt;, where &lt;CATEGORY&gt; is a short identifier
-derived from the ErrorCategory (e.g., AUTH, VAL, RES) and &lt;ID&gt; is a
+The format is AX-\<CATEGORY>-\<ID>, where \<CATEGORY> is a short identifier
+derived from the ErrorCategory (e.g., AUTH, VAL, RES) and \<ID> is a
 unique sequential number within that category, starting from 1000.
 
 How to Add a New Error Code:
@@ -498,4 +498,26 @@ class AlreadyDeployedError(AixplainBaseException)
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L359)
 
 Raised when an asset is already deployed.
+
+#### get\_error\_from\_status\_code
+
+```python
+def get_error_from_status_code(status_code: int,
+                               error_details: str = None
+                               ) -> AixplainBaseException
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/types.py#L373)
+
+Map HTTP status codes to appropriate exception types.
+
+**Arguments**:
+
+- `status_code` _int_ - The HTTP status code to map.
+- `error_details` _str, optional_ - Additional error details to include in the message.
+  
+
+**Returns**:
+
+- `AixplainBaseException` - An exception of the appropriate type.
 

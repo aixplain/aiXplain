@@ -4,9 +4,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from aixplain.v2.core import Aixplain
-from aixplain.v2.exceptions import APIError, AixplainIssueError
-from aixplain.v2.issue import IssueSeverity
+from aixplain import Aixplain
+from aixplain import APIError, AixplainIssueError
+from aixplain import IssueSeverity
 
 
 class TestIssueReporter:

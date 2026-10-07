@@ -10,7 +10,7 @@ import uuid
 
 import pytest
 
-from aixplain.v2.integration import ActionInputSpec, ActionSpec
+from aixplain import ActionInputSpec, ActionSpec
 
 
 class TestToolDictFieldsRoundTrip:
@@ -183,7 +183,7 @@ class TestAgentRunParamsKwargs:
         We prove the backend honours it by setting maxTokens=1, which forces a
         token-limit error — that error would not occur if the param were ignored.
         """
-        from aixplain.v2.exceptions import APIError
+        from aixplain import APIError
 
         agent = client.Agent.get(test_agent.id)
 

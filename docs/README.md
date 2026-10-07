@@ -87,7 +87,7 @@ print(result.data.output)
 
 ```python
 from aixplain import Aixplain
-from aixplain.v2 import Inspector
+from aixplain import Inspector
 
 aix = Aixplain()  # reads AIXPLAIN_API_KEY from the environment
 search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")

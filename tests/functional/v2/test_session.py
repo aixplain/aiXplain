@@ -15,8 +15,8 @@ import uuid
 
 import pytest
 
-from aixplain.v2 import Session, SessionMessage, SessionStatus
-from aixplain.v2.exceptions import APIError
+from aixplain import Session, SessionMessage, SessionStatus
+from aixplain import APIError
 
 
 # ---------------------------------------------------------------------------

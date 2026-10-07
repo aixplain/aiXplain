@@ -8,14 +8,9 @@ import pytest
 from unittest.mock import Mock, MagicMock, patch
 from datetime import datetime, timedelta, timezone
 
-from aixplain.v2.api_key import (
-    APIKey,
-    APIKeyLimits,
-    APIKeyUsageLimit,
-    TokenType,
-    _resolve_model,
-)
-from aixplain.v2.exceptions import ResourceError, ValidationError
+from aixplain import APIKey, APIKeyLimits, APIKeyUsageLimit, TokenType
+from aixplain.v2.api_key import _resolve_model
+from aixplain import ResourceError, ValidationError
 
 # =============================================================================
 # _resolve_model Tests
@@ -1090,7 +1085,7 @@ class TestAPIKeySave:
 
     def test_api_key_create_populates_from_existing_on_conflict(self):
         """_create() should populate from existing key when backend returns 422 conflict."""
-        from aixplain.v2.exceptions import APIError
+        from aixplain import APIError
 
         mock_client = Mock()
 

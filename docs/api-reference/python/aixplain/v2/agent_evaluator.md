@@ -3,13 +3,16 @@ sidebar_label: agent_evaluator
 title: aixplain.v2.agent_evaluator
 ---
 
+`from aixplain import AgentEvaluationResultsChatbot, AgentEvaluationRow, AgentEvaluationRun, Dataset, Eval, EvalCase, Metric, MetricResponse, compare_agents_side_by_side, normalize_eval_results_dataframe`
+
+
 Agent evaluation utilities for aiXplain v2 SDK.
 
-Provides a minimal executor that runs a :class:`Dataset` of :class:`EvalCase`
-rows through one or more :class:`~aixplain.v2.agent.Agent` instances, runs optional
-:class:`Metric` instances, and returns a structured :class:`AgentEvaluationRun`.
-Use :meth:`AgentEvaluationRun.to_dataframe` for tabular export and
-:meth:`Eval.load_from_csv` to reload from disk.
+Provides a minimal executor that runs a `Dataset` of `EvalCase`
+rows through one or more `Agent` instances, runs optional
+`Metric` instances, and returns a structured `AgentEvaluationRun`.
+Use `AgentEvaluationRun.to_dataframe` for tabular export and
+`Eval.load_from_csv` to reload from disk.
 
 ### MetricResponse Objects
 
@@ -76,9 +79,9 @@ Tool wrapper for creating a tool from a metric integration.
 Adds optional pre-processing before creation (placeholder) and
 post-processing (response validation and cleanup) when running.
 
-Optional :attr:`threshold` marks each evaluated row with ``metric_pass`` when
+Optional `threshold` marks each evaluated row with ``metric_pass`` when
 set: for string/enum scores use a list of passing values; for numeric scores
-use a single float (pass when ``score &gt; threshold``).
+use a single float (pass when ``score > threshold``).
 
 #### \_\_post\_init\_\_
 
@@ -112,7 +115,7 @@ def create(cls,
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L185)
 
-Create and persist a :class:`Metric` backed by the custom LLM prompt integration.
+Create and persist a `Metric` backed by the custom LLM prompt integration.
 
 Provide either a ready-made ``prompt_template`` **or** generation parameters
 (``score_type``, ``instruction``, and type-specific fields). When
@@ -122,31 +125,31 @@ parameters are ignored.
 **Arguments**:
 
 - `name` - Name of the metric tool.
-- ``0 - The path or ID of the LLM to use.
-- ``1 - Optional description of the metric tool.
-- ``2 - Full prompt template for the LLM. If omitted or blank,
-  a template is built via :meth:``3.
-- ``4 - One of ``numeric``, ``categorical``, or ``boolean`` (required
+- `llm_path` - The path or ID of the LLM to use.
+- `metric_description` - Optional description of the metric tool.
+- `prompt_template` - Full prompt template for the LLM. If omitted or blank,
+  a template is built via `_generate_prompt_template`.
+- `score_type` - One of ``numeric``, ``categorical``, or ``boolean`` (required
   when ``prompt_template`` is not set).
-- ``3 - Task instruction embedded in the generated template (required
+- `instruction` - Task instruction embedded in the generated template (required
   when ``prompt_template`` is not set).
-- ``6 - Scale lower bound for ``numeric`` metrics.
-- ``9 - Scale upper bound for ``numeric`` metrics.
-- ``2 - Allowed labels for ``categorical`` metrics.
-- ``5 - Optional extra rubric lines appended to the rubric section.
-- ``6 - Reserved for future use; passed through to template generation.
-- ``7 - Optional list of allowed actions (currently unused).
-- ``8 - Reserved for future :class:``9 construction options.
+- `start_number` - Scale lower bound for ``numeric`` metrics.
+- `end_number` - Scale upper bound for ``numeric`` metrics.
+- `categories` - Allowed labels for ``categorical`` metrics.
+- `detailed_rubric` - Optional extra rubric lines appended to the rubric section.
+- `auto_complete` - Reserved for future use; passed through to template generation.
+- `allowed_actions` - Optional list of allowed actions (currently unused).
+- `**kwargs` - Reserved for future `Tool` construction options.
   
 
 **Returns**:
 
-  The saved :class:`Metric` instance.
+  The saved `Metric` instance.
   
 
 **Raises**:
 
-- ``1 - When neither a usable template nor valid generation inputs are given.
+- `ValidationError` - When neither a usable template nor valid generation inputs are given.
 
 #### initialize
 
@@ -163,7 +166,7 @@ def initialize(cls,
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L279)
 
-Deprecated. Use :meth:`create` instead.
+Deprecated. Use `create` instead.
 
 Preserves the historical argument order ``(name, prompt_template, llm_path)``.
 
@@ -211,24 +214,28 @@ def metric_pass_rates_from_rows(
 Aggregate pass counts and rates for each metric prefix that has ``metric_pass``.
 
 Only rows with a coercible boolean ``metric_pass`` under a prefix are counted.
-Structure::
+Structure:
 
-\{
-&quot;&lt;prefix&gt;&quot;: \{
-&quot;passed&quot;: int,
-&quot;evaluated&quot;: int,
-&quot;pass_rate&quot;: float,
-&quot;by_agent&quot;: \{
-&quot;&lt;agent_name&gt;&quot;: \{&quot;passed&quot;: int, &quot;evaluated&quot;: int, &quot;pass_rate&quot;: float},
-...
-},
-},
-...
+
+
+```text
+{
+    "<prefix>": {
+        "passed": int,
+        "evaluated": int,
+        "pass_rate": float,
+        "by_agent": {
+            "<agent_name>": {"passed": int, "evaluated": int, "pass_rate": float},
+            ...
+        },
+    },
+    ...
 }
+```
 
 **Arguments**:
 
-- `rows` - Evaluation rows (typically :attr:`AgentEvaluationRun.rows`).
+- `rows` - Evaluation rows (typically `AgentEvaluationRun.rows`).
   
 
 **Returns**:
@@ -250,7 +257,7 @@ One evaluation example (input plus optional reference and metadata).
 
 - `query` - Passed to ``agent.run(query, **agent_run_kwargs)``.
 - `reference` - Optional ground truth or expected value for metrics.
-- `metadata` - Optional extra fields merged into the result row as ``case_meta__&lt;key&gt;``.
+- `metadata` - Optional extra fields merged into the result row as ``case_meta__<key>``.
 
 ### Dataset Objects
 
@@ -261,9 +268,9 @@ class Dataset()
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L1102)
 
-Named evaluation dataset: a list of :class:`EvalCase` with optional description.
+Named evaluation dataset: a list of `EvalCase` with optional description.
 
-Use :meth:`from_csv` or :meth:`from_queries` to build common shapes, or construct
+Use `from_csv` or `from_queries` to build common shapes, or construct
 with ``Dataset(name=..., cases=[EvalCase(...), ...])``.
 
 #### \_\_iter\_\_
@@ -299,7 +306,7 @@ def from_queries(cls,
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L1122)
 
-Build a dataset from plain query strings (one :class:`EvalCase` per string).
+Build a dataset from plain query strings (one `EvalCase` per string).
 
 #### from\_csv
 
@@ -318,18 +325,18 @@ def from_csv(cls,
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L1137)
 
-Build a :class:`Dataset` from a CSV with at least a query column.
+Build a `Dataset` from a CSV with at least a query column.
 
 **Arguments**:
 
-- `path` - CSV path or file-like accepted by :func:`pandas.read_csv`.
+- `path` - CSV path or file-like accepted by `pandas.read_csv`.
 - `name` - Human-readable name; defaults to the path stem when ``path`` is
-  a :class:`str` or :class:`pathlib.Path`, otherwise ``&quot;dataset&quot;``.
-- `path`0 - Optional longer description of the dataset.
-- `path`1 - Column name used as :attr:`path`2.
-- `path`3 - Column for :attr:`path`4, or ``None`` to skip.
-- `path`7 - Optional column names merged into each case&#x27;s ``metadata``.
-- `pandas.read_csv`0 - Forwarded to :func:`pandas.read_csv`.
+  a `str` or `pathlib.Path`, otherwise ``"dataset"``.
+- `description` - Optional longer description of the dataset.
+- `query_column` - Column name used as `EvalCase.query`.
+- `reference_column` - Column for `EvalCase.reference`, or ``None`` to skip.
+- `metadata_columns` - Optional column names merged into each case's ``metadata``.
+- `**read_csv_kwargs` - Forwarded to `pandas.read_csv`.
   
 
 **Returns**:
@@ -339,7 +346,7 @@ Build a :class:`Dataset` from a CSV with at least a query column.
 
 **Raises**:
 
-- `pandas.read_csv`6 - If the query column is missing or a row has an empty query.
+- `ValidationError` - If the query column is missing or a row has an empty query.
 
 ### AgentEvaluationRow Objects
 
@@ -352,13 +359,13 @@ class AgentEvaluationRow()
 
 One evaluated (case, agent) pair including nested metric tool fields.
 
-``metrics`` maps each metric tool prefix (see :func:`_metric_prefix`) to
+``metrics`` maps each metric tool prefix (see `_metric_prefix`) to
 a dict of flattened keys (for example ``metric_status``, ``score``,
-``metric_pass`` when the tool defines a :attr:`~Metric.threshold`) matching
-the former ``&lt;prefix&gt;__&lt;key&gt;`` column names without the ``&lt;prefix&gt;__`` prefix.
+``metric_pass`` when the tool defines a `threshold`) matching
+the former ``<prefix>__<key>`` column names without the ``<prefix>__`` prefix.
 
 ``per_asset_stats`` maps a stable asset label (``type`` and ``name`` from each
-step&#x27;s ``unit``, joined as ``type:name``, or breakdown keys from
+step's ``unit``, joined as ``type:name``, or breakdown keys from
 ``execution_stats`` when steps are absent) to ``run_time``, ``used_credits``,
 and ``n_steps`` aggregates.
 
@@ -381,19 +388,19 @@ class AgentEvaluationRun()
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L1240)
 
-Structured output of :meth:`Eval.evaluate`.
+Structured output of `Eval.evaluate`.
 
 Convenience methods (filtering, LLM-ready text, summaries, HTML, optional plots,
-and :meth:`chatbot`) build on :meth:`to_dataframe` and
-:mod:`aixplain.v2.eval_results_display`.
+and `chatbot`) build on `to_dataframe` and
+`aixplain.v2.eval_results_display`.
 
-Default LLM-backed insight features (:meth:`executive_summary`, :meth:`chatbot`
-without ``model=``) resolve the model at :attr:`DEFAULT_INSIGHT_MODEL_PATH`
-using the client bound by :meth:`configure_insights`. After creating
+Default LLM-backed insight features (`executive_summary`, `chatbot`
+without ``model=``) resolve the model at `DEFAULT_INSIGHT_MODEL_PATH`
+using the client bound by `configure_insights`. After creating
 ``aix = Aixplain(...)``, call ``AgentEvaluationRun.configure_insights(aix)``
-so :meth:`chatbot`4 with the path-style model id uses the same API key and
-URLs as your agents. :attr:`chatbot`5 stays ``None`` until the
-first successful resolution; call :meth:`chatbot`8 to
+so `aix.Model.get` with the path-style model id uses the same API key and
+URLs as your agents. `DEFAULT_INSIGHT_MODEL` stays ``None`` until the
+first successful resolution; call `ensure_insight_model_loaded` to
 populate it without generating a summary.
 
 #### configure\_insights
@@ -405,7 +412,7 @@ def configure_insights(cls, client: Any) -> None
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L1264)
 
-Bind default insight model resolution to an :class:`~aixplain.v2.core.Aixplain` client.
+Bind default insight model resolution to an `Aixplain` client.
 
 Clears any cached default model so the next resolution uses ``client.Model``.
 
@@ -423,13 +430,13 @@ def ensure_insight_model_loaded(cls) -> Optional[Model]
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L1277)
 
-Resolve and cache :attr:`DEFAULT_INSIGHT_MODEL` from :attr:`DEFAULT_INSIGHT_MODEL_PATH`.
+Resolve and cache `DEFAULT_INSIGHT_MODEL` from `DEFAULT_INSIGHT_MODEL_PATH`.
 
-Call after :meth:`configure_insights`. Idempotent when a model is already cached.
+Call after `configure_insights`. Idempotent when a model is already cached.
 
 **Returns**:
 
-  The cached :class:`~aixplain.v2.model.Model`, or ``None`` if get/search fails.
+  The cached `Model`, or ``None`` if get/search fails.
 
 #### \_\_iter\_\_
 
@@ -469,7 +476,7 @@ def to_dataframe() -> pd.DataFrame
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L1340)
 
-Materialize rows into a long-format :class:`pandas.DataFrame` (CSV / pivot helpers).
+Materialize rows into a long-format `pandas.DataFrame` (CSV / pivot helpers).
 
 #### compare\_agents\_side\_by\_side
 
@@ -483,7 +490,7 @@ def compare_agents_side_by_side(
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L1395)
 
-Pivot to one row per case with agents in columns; see :func:`compare_agents_side_by_side`.
+Pivot to one row per case with agents in columns; see `compare_agents_side_by_side`.
 
 #### filter\_base
 
@@ -499,7 +506,7 @@ def filter_base(*,
 Return a new run containing only rows matching structural filters.
 
 Filters by evaluation case index, agent name, and/or agent run failure flag.
-For metric score, latency, or credits filters use :meth:`filter` instead.
+For metric score, latency, or credits filters use `filter` instead.
 
 #### filter
 
@@ -519,12 +526,12 @@ def filter(*,
 Return a new run after structural filters and an optional metric clause.
 
 Structural arguments (``case_indices``, ``agent_names``, ``agent_run_failed``)
-are applied first via :meth:`filter_base`, then rows are kept that satisfy the
+are applied first via `filter_base`, then rows are kept that satisfy the
 metric clause when ``metric`` is set.
 
-``metric`` is either a key under :attr:``1 (the same
-prefix used by :meth:``2 and
-``metrics[prefix][&#x27;score&#x27;]`` in :func:``5),
+``metric`` is either a key under `AgentEvaluationRow.metrics` (the same
+prefix used by `diff` and
+``metrics[prefix]['score']`` in `_read_metric_score`),
 or a reserved per-row field alias: ``run_time`` / ``latency`` (row latency),
 ``used_credits`` / ``credits_used`` / ``cost`` (row credits).
 
@@ -534,23 +541,23 @@ numeric scores and row-level metrics; string membership otherwise).
 
 **Arguments**:
 
-- ``6 - Optional set of case indices to keep.
-- ``7 - Optional set of agent names to keep.
-- ``8 - When set, keep only rows with this failure flag.
-- ``9 - Metric tool prefix or reserved row field name.
-- ``0 - Comparison operator (required when ``metric`` is set).
-- ``3 - Right-hand side: scalar for numeric/string compare, or sequence for ``in``.
-- ``6 - Bucket field to read when ``metric`` is a tool prefix (default ``score``).
+- `case_indices` - Optional set of case indices to keep.
+- `agent_names` - Optional set of agent names to keep.
+- `agent_run_failed` - When set, keep only rows with this failure flag.
+- `metric` - Metric tool prefix or reserved row field name.
+- `op` - Comparison operator (required when ``metric`` is set).
+- `value` - Right-hand side: scalar for numeric/string compare, or sequence for ``in``.
+- `inner_key` - Bucket field to read when ``metric`` is a tool prefix (default ``score``).
   
 
 **Returns**:
 
-  New :class:`filter_base`1 with matching rows.
+  New `AgentEvaluationRun` with matching rows.
   
 
 **Raises**:
 
-- `filter_base`2 - When ``metric``, ``op``, and ``value`` are inconsistent.
+- `ValidationError` - When ``metric``, ``op``, and ``value`` are inconsistent.
 
 #### filter\_where
 
@@ -587,7 +594,7 @@ Aggregate pass counts and rates for metrics that recorded ``metric_pass``.
 
   Mapping from metric tool prefix to ``passed``, ``evaluated``, ``pass_rate``,
   and nested ``by_agent`` (same keys per agent). Empty when no thresholds
-  were applied. See :func:``0.
+  were applied. See `metric_pass_rates_from_rows`.
 
 #### evaluate\_quality\_gates
 
@@ -603,48 +610,48 @@ def evaluate_quality_gates(
 
 Assess pass/fail against custom metric score rules and run-level aggregates.
 
-**Metric scores** (per :class:`Metric` prefix in :attr:`rows` ``metrics``):
+**Metric scores** (per `Metric` prefix in `rows` ``metrics``):
 
-- A bare number uses the same rule as :attr:`Metric.threshold` for numeric scores
-(pass when ``score &gt; threshold``).
+- A bare number uses the same rule as `Metric.threshold` for numeric scores
+(pass when ``score > threshold``).
 - A list/tuple of strings passes when the score string is in that set (enum-style).
 - A dict supports ``threshold``, optional ``operator`` (``lt`` / ``le`` / ``gt`` / ``ge`` /
-``eq``), and optional ``score_key`` (defaults to ``&quot;score&quot;``).
+``eq``), and optional ``score_key`` (defaults to ``"score"``).
 
-Rows with ``metric_skipped`` or missing ``score_key`` are omitted from that metric&#x27;s
+Rows with ``metric_skipped`` or missing ``score_key`` are omitted from that metric's
 evaluation count. If every row is omitted, that metric gate **fails** (nothing to verify).
 
 **Per-sample latency and cost** use the same criterion shapes as numeric metrics but
 reserved criterion names (not metric prefixes): ``run_time`` / ``latency`` compare
-:attr:``3; ``used_credits`` / ``credits_used`` / ``cost``
-compare :attr:`Metric.threshold`0. Every row is evaluated; list/enum
+`AgentEvaluationRow.run_time`; ``used_credits`` / ``credits_used`` / ``cost``
+compare `AgentEvaluationRow.used_credits`. Every row is evaluated; list/enum
 criteria are not allowed for these fields.
 
-**Run aggregate gates** use the same **field names** as overall :meth:`Metric.threshold`1
+**Run aggregate gates** use the same **field names** as overall `run_summary`
 (``agent_failure_rate``, ``total_time_seconds``, ``total_cost``, ``n_agent_failures``,
 ``total_tool_calls``, ``rows_evaluated``, plus aliases ``credits_used``, ``run_time``).
-They are evaluated **per agent** against that agent&#x27;s slice (sums / counts / failure
-rate for that agent&#x27;s rows only).
+They are evaluated **per agent** against that agent's slice (sums / counts / failure
+rate for that agent's rows only).
 
-Each gate is ``\{&quot;bound&quot;: float, &quot;operator&quot;: &quot;lt&quot;}`` (default operator ``lt``).
+Each gate is ``{"bound": float, "operator": "lt"}`` (default operator ``lt``).
 
 **Arguments**:
 
-- ``2 - Map metric prefix or reserved per-row field name → criterion.
-- ``3 - Map run-summary-style field → ``\{&quot;bound&quot;, &quot;operator&quot;}``.
+- `metric_score_criteria` - Map metric prefix or reserved per-row field name → criterion.
+- `run_aggregate_gates` - Map run-summary-style field → ``{"bound", "operator"}``.
   
 
 **Returns**:
 
-  Dict with ``by_agent`` (each agent&#x27;s ``overall_pass``, ``metric_gates``,
+  Dict with ``by_agent`` (each agent's ``overall_pass``, ``metric_gates``,
   ``aggregate_gates``), ``all_agents_pass`` (conjunction across agents), ``agents``,
   ``criteria`` echoing inputs, and ``debug_dataframe`` — a long-format
-  :class:``2 with ``query`` / ``input``, ``agent_name``, ``output``,
-  ``agent_response``, core row fields, ``&lt;metric_prefix&gt;__&lt;metric_field&gt;`` columns
+  `pandas.DataFrame` with ``query`` / ``input``, ``agent_name``, ``output``,
+  ``agent_response``, core row fields, ``<metric_prefix>__<metric_field>`` columns
   (``score``, ``metric_pass``, ``metric_status``, ``metric_error``, skip fields, etc.),
-  plus ``&lt;key&gt;__criteria_pass`` / ``&lt;key&gt;__criteria_reason`` when the corresponding
+  plus ``<key>__criteria_pass`` / ``<key>__criteria_reason`` when the corresponding
   ``metric_score_criteria`` entry applies to that row. Rows with missing ``agent_name``
-  are grouped under ``&quot;__unnamed__&quot;`` in ``by_agent``; the debug frame lists raw
+  are grouped under ``"__unnamed__"`` in ``by_agent``; the debug frame lists raw
   ``agent_name`` values.
 
 #### to\_llm\_context
@@ -666,13 +673,13 @@ Includes per-row fields needed for analysis: ``reference``, ``run_time``,
 ``case_metadata``, ``metrics``, ``output``, and ``agent_response`` (both
 long text fields respect ``max_output_chars`` when set). When any row has
 ``metric_pass`` under a metric prefix, a leading section summarizes overall
-and per-agent pass rates (same data as :meth:``8).
+and per-agent pass rates (same data as `metric_pass_rates`).
 
 **Arguments**:
 
-- ``9 - ``markdown`` (headings and bullets) or ``text`` (plain lines).
-- ``4 - Truncate ``output`` and ``agent_response``; ``None`` for no limit.
-- ``1 - If set, only include rows whose ``case_index`` is listed.
+- `layout` - ``markdown`` (headings and bullets) or ``text`` (plain lines).
+- `max_output_chars` - Truncate ``output`` and ``agent_response``; ``None`` for no limit.
+- `case_indices` - If set, only include rows whose ``case_index`` is listed.
 
 #### to\_json\_records
 
@@ -684,7 +691,7 @@ def to_json_records() -> List[Dict[str, Any]]
 
 One JSON-serializable dict per row (metrics flattened as ``prefix__key``).
 
-Run-level pass-rate aggregates live under :meth:`run_summary`&#x27;s
+Run-level pass-rate aggregates live under `run_summary`'s
 ``metric_pass_rates`` (not duplicated on each record).
 
 #### executive\_summary
@@ -704,20 +711,20 @@ Generate an executive summary, optionally using an LLM for dynamic insights.
 
 **Arguments**:
 
-- `model` - Optional :class:`~aixplain.v2.model.Model` used to generate
+- `model` - Optional `Model` used to generate
   richer narrative insights from run statistics and compact context.
-  If omitted, :attr:`AgentEvaluationRun.DEFAULT_INSIGHT_MODEL_PATH` is
-  resolved via :meth:`AgentEvaluationRun.configure_insights` (bound
+  If omitted, `AgentEvaluationRun.DEFAULT_INSIGHT_MODEL_PATH` is
+  resolved via `AgentEvaluationRun.configure_insights` (bound
   ``client.Model``); otherwise a deterministic template summary is returned.
 - `prompt_input_kw` - Optional explicit keyword for ``model.run`` (for
-  example ``&quot;text&quot;`` or ``&quot;data&quot;``). When omitted it is inferred
+  example ``"text"`` or ``"data"``). When omitted it is inferred
   from model parameters.
-- `~aixplain.v2.model.Model`3 - Maximum size of embedded evaluation context passed
+- `max_context_chars` - Maximum size of embedded evaluation context passed
   to the model.
-- `~aixplain.v2.model.Model`4 - Optional mapping from :meth:`~aixplain.v2.model.Model`5
+- `quality_gates_report` - Optional mapping from `evaluate_quality_gates`
   (or its ``by_agent`` slice only); embedded as JSON for LLM/template context.
   ``debug_dataframe`` is stripped automatically.
-- `AgentEvaluationRun.DEFAULT_INSIGHT_MODEL_PATH`0 - Extra kwargs forwarded to ``model.run`` when
+- `**model_run_kwargs` - Extra kwargs forwarded to ``model.run`` when
   ``model`` is provided.
 
 #### run\_summary
@@ -737,8 +744,8 @@ def run_summary(*,
 Return aggregate run statistics and optional executive summary text.
 
 When ``include_executive_summary`` is true and ``summary_model`` is not
-provided, :attr:`AgentEvaluationRun.DEFAULT_INSIGHT_MODEL_PATH` is resolved
-using the client from :meth:`AgentEvaluationRun.configure_insights` when set.
+provided, `AgentEvaluationRun.DEFAULT_INSIGHT_MODEL_PATH` is resolved
+using the client from `AgentEvaluationRun.configure_insights` when set.
 
 **Arguments**:
 
@@ -746,10 +753,10 @@ using the client from :meth:`AgentEvaluationRun.configure_insights` when set.
 - `summary_model` - Optional model for executive summary; defaults to configured insight model.
 - `summary_prompt_input_kw` - Explicit keyword for model run input.
 - `summary_max_context_chars` - Truncate embedded evaluation context to this size.
-- ``0 - Optional :meth:``1 result (or ``by_agent``
+- `quality_gates_report` - Optional `evaluate_quality_gates` result (or ``by_agent``
   only); copied into ``quality_gates`` on the returned dict (without
-  ``debug_dataframe``) and passed into :meth:``8 when enabled.
-- ``9 - Additional kwargs passed to ``summary_model.run()``.
+  ``debug_dataframe``) and passed into `executive_summary` when enabled.
+- `**summary_model_run_kwargs` - Additional kwargs passed to ``summary_model.run()``.
   
 
 **Returns**:
@@ -766,7 +773,7 @@ def summarize_by_agent() -> pd.DataFrame
 
 Per-agent counts, failures, numeric metric means, and ``__metric_pass`` pass rates.
 
-See :func:`summarize_by_agent`.
+See `summarize_by_agent`.
 
 #### pivot\_agents\_wide
 
@@ -779,7 +786,7 @@ def pivot_agents_wide(value_columns: Optional[Sequence[str]] = None,
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L2152)
 
-Wide pivot with MultiIndex columns; see :func:`pivot_agents_wide`.
+Wide pivot with MultiIndex columns; see `pivot_agents_wide`.
 
 #### case\_comparison\_html
 
@@ -791,7 +798,7 @@ def case_comparison_html(case_index: int,
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L2169)
 
-HTML table comparing agents for one case; see :func:`case_comparison_html`.
+HTML table comparing agents for one case; see `case_comparison_html`.
 
 #### case\_rows
 
@@ -801,7 +808,7 @@ def case_rows(case_index: int) -> pd.DataFrame
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L2175)
 
-Long-format :class:`pandas.DataFrame` for a single ``case_index``; see :func:`case_rows`.
+Long-format `pandas.DataFrame` for a single ``case_index``; see `case_rows`.
 
 #### metric\_prefixes
 
@@ -823,10 +830,10 @@ def metric_inner_key_is_numeric(inner_key: str = "score",
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L2209)
 
-Return True if every non-null ``inner_key`` value coerces to a number via :func:`pandas.to_numeric`.
+Return True if every non-null ``inner_key`` value coerces to a number via `pandas.to_numeric`.
 
-``inner_key`` defaults to ``&quot;score&quot;``. Use this to choose between :meth:`plot_mean_metric_by_agent`
-(numeric) and :meth:`plot_enum_metric_by_agent` (string / enum-like categories).
+``inner_key`` defaults to ``"score"``. Use this to choose between `plot_mean_metric_by_agent`
+(numeric) and `plot_enum_metric_by_agent` (string / enum-like categories).
 
 **Raises**:
 
@@ -848,15 +855,15 @@ def plot_mean_metric_by_agent(
 Draw a bar chart of mean ``inner_key`` per ``agent_name`` (numeric metrics only).
 
 ``inner_key`` is a key inside ``AgentEvaluationRow.metrics[tool_prefix]``; it defaults to
-``&quot;score&quot;``. If ``tool_prefix`` is omitted and exactly one metric prefix exists on the run,
+``"score"``. If ``tool_prefix`` is omitted and exactly one metric prefix exists on the run,
 it is used; otherwise pass ``tool_prefix`` explicitly.
 
 Requires plotly (``pip install plotly``). Jupyter / Cursor notebook inline display also needs
-``nbformat&gt;=4.2.0`` (``pip install nbformat`` or ``pip install -e &quot;.[notebook]&quot;`` from this repo).
+``nbformat>=4.2.0`` (``pip install nbformat`` or ``pip install -e ".[notebook]"`` from this repo).
 
 **Returns**:
 
-  A :class:``2.
+  A `plotly.graph_objects.Figure`.
 
 #### plot\_enum\_metric\_by\_agent
 
@@ -873,16 +880,16 @@ def plot_enum_metric_by_agent(inner_key: str = "score",
 
 Draw a grouped bar chart of categorical ``inner_key`` counts or shares per ``agent_name``.
 
-``inner_key`` defaults to ``&quot;score&quot;``. Values are treated as discrete categories (strings or
-:class:`enum.Enum` members).
+``inner_key`` defaults to ``"score"``. Values are treated as discrete categories (strings or
+`enum.Enum` members).
 When ``normalize`` is True (default), values are row-normalized (proportion per agent).
 
 Requires plotly (``pip install plotly``). Jupyter / Cursor notebook inline display also needs
-``nbformat&gt;=4.2.0`` (``pip install nbformat`` or ``pip install -e &quot;.[notebook]&quot;`` from this repo).
+``nbformat>=4.2.0`` (``pip install nbformat`` or ``pip install -e ".[notebook]"`` from this repo).
 
 **Returns**:
 
-  A :class:``9.
+  A `plotly.graph_objects.Figure`.
 
 #### plot\_metric\_by\_agent
 
@@ -899,16 +906,16 @@ def plot_metric_by_agent(inner_key: str = "score",
 
 Plot ``inner_key`` by agent, dispatching on numeric vs categorical values.
 
-``inner_key`` defaults to ``&quot;score&quot;``. Calls :meth:`metric_inner_key_is_numeric`; numeric metrics use
-:meth:`plot_mean_metric_by_agent`, otherwise :meth:`plot_enum_metric_by_agent`.
+``inner_key`` defaults to ``"score"``. Calls `metric_inner_key_is_numeric`; numeric metrics use
+`plot_mean_metric_by_agent`, otherwise `plot_enum_metric_by_agent`.
 ``normalize_enum`` is passed only to the enum path.
 
 Requires plotly (``pip install plotly``). Jupyter / Cursor notebook inline display also needs
-``nbformat&gt;=4.2.0`` (``pip install nbformat`` or ``pip install -e &quot;.[notebook]&quot;`` from this repo).
+``nbformat>=4.2.0`` (``pip install nbformat`` or ``pip install -e ".[notebook]"`` from this repo).
 
 **Returns**:
 
-  A :class:``9.
+  A `plotly.graph_objects.Figure`.
 
 #### chatbot
 
@@ -927,29 +934,29 @@ def chatbot(
 
 Build an LLM-backed helper that answers questions about this evaluation run.
 
-The underlying :class:`~aixplain.v2.model.Model` is invoked with one text
+The underlying `Model` is invoked with one text
 payload per question. The run keyword (``text``, ``data``, etc.) is taken
 from ``prompt_input_kw`` when provided; otherwise it is inferred from
-:attr:`~aixplain.v2.model.Model.params` (required fields first), then
-``&quot;text&quot;`` if the model declares no parameters.
+`params` (required fields first), then
+``"text"`` if the model declares no parameters.
 
 **Arguments**:
 
-- ``0 - Optional loaded :class:`~aixplain.v2.model.Model`. If omitted,
+- `model` - Optional loaded `Model`. If omitted,
   the default insight model is resolved via
-  :meth:``2 when set.
-- ``3 - Override the default analyst instructions.
-- ``4 - Truncate embedded evaluation context to this size.
-- ``5 - Explicit keyword for :meth:``6
-  (e.g. ``&quot;data&quot;`` for some utilities). ``None`` selects automatically.
-- ``1 - Optional :meth:``2 result (or ``by_agent``
+  `AgentEvaluationRun.configure_insights` when set.
+- `system_prompt` - Override the default analyst instructions.
+- `max_context_chars` - Truncate embedded evaluation context to this size.
+- `prompt_input_kw` - Explicit keyword for `run`
+  (e.g. ``"data"`` for some utilities). ``None`` selects automatically.
+- `quality_gates_report` - Optional `evaluate_quality_gates` result (or ``by_agent``
   only); appended as JSON after the evaluation excerpt on each turn.
   ``debug_dataframe`` is stripped automatically.
   
 
 **Returns**:
 
-  :class:``7 with :meth:``8.
+  `AgentEvaluationResultsChatbot` with `ask`.
 
 ### AgentEvaluationResultsChatbot Objects
 
@@ -960,10 +967,10 @@ class AgentEvaluationResultsChatbot()
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L2596)
 
-LLM-backed Q&amp;A over a single :class:`AgentEvaluationRun`.
+LLM-backed Q&A over a single `AgentEvaluationRun`.
 
-Call :meth:`ask` with natural-language questions; prior turns are kept in
-``conversation_history`` until :meth:`reset_conversation`.
+Call `ask` with natural-language questions; prior turns are kept in
+``conversation_history`` until `reset_conversation`.
 
 #### reset\_conversation
 
@@ -983,7 +990,7 @@ def ask_with_result(question: str, **model_run_kwargs: Any) -> ModelResult
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L2672)
 
-Run the model on ``question`` and return the raw :class:`~aixplain.v2.model.ModelResult`.
+Run the model on ``question`` and return the raw `ModelResult`.
 
 #### ask
 
@@ -1005,11 +1012,11 @@ def normalize_eval_results_dataframe(df: pd.DataFrame) -> pd.DataFrame
 
 Return a copy of evaluator results with stable dtypes after CSV round-trip.
 
-:meth:`AgentEvaluationRun.to_dataframe` (or CSV from ``to_csv``) followed by
-:func:`pandas.read_csv` often yields object dtypes for booleans and occasionally
+`AgentEvaluationRun.to_dataframe` (or CSV from ``to_csv``) followed by
+`pandas.read_csv` often yields object dtypes for booleans and occasionally
 mis-typed integers. Use this on frames loaded from disk before calling helpers
-such as :func:`~aixplain.v2.eval_results_display.pivot_agents_wide` or
-:func:`~aixplain.v2.eval_results_display.summarize_by_agent`.
+such as `pivot_agents_wide` or
+`summarize_by_agent`.
 
 Only columns that exist are touched; unknown columns are left unchanged.
 
@@ -1038,24 +1045,24 @@ def compare_agents_side_by_side(
 Pivot long evaluator results so each case is one row and agents are columns.
 
 Typical long output (one row per case per agent, from
-:class:`AgentEvaluationRun` or ``results.csv`` from ``to_dataframe().to_csv``)
-is normalized with :func:`normalize_eval_results_dataframe`, then pivoted.
+`AgentEvaluationRun` or ``results.csv`` from ``to_dataframe().to_csv``)
+is normalized with `normalize_eval_results_dataframe`, then pivoted.
 By default only ``output`` and metric **score** fields are included (columns
 ending with ``__score`` / ``__scores``, or other numeric metric payload columns
 such as ``m1__bleu``). Pass ``value_columns`` to override.
 
-Result columns look like ``output__&lt;agent_name&gt;`` and
-``aws-correctness__score__&lt;agent_name&gt;``. Optional ``query`` / ``reference``
+Result columns look like ``output__<agent_name>`` and
+``aws-correctness__score__<agent_name>``. Optional ``query`` / ``reference``
 are one column each per case (not split by agent).
 
 **Arguments**:
 
-- ``4 - Long-format :class:``5 or :class:`AgentEvaluationRun`.
-- ``7 - Fields to spread by ``agent_name``; default is score-like
+- `results` - Long-format `pandas.DataFrame` or `AgentEvaluationRun`.
+- `value_columns` - Fields to spread by ``agent_name``; default is score-like
   columns only plus ``output``.
-- ``2 - If True and ``query`` is present, add a single ``query``
+- `include_query` - If True and ``query`` is present, add a single ``query``
   column per ``case_index``.
-- ``9 - Same for ``reference``.
+- `include_reference` - Same for ``reference``.
   
 
 **Returns**:
@@ -1066,7 +1073,7 @@ are one column each per case (not split by agent).
 
 **Raises**:
 
-- ``4 - If required columns are missing or ``value_columns``
+- `ValidationError` - If required columns are missing or ``value_columns``
   references absent columns.
 
 ### Eval Objects
@@ -1077,18 +1084,18 @@ class Eval()
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L3227)
 
-Runs eval cases across agents, runs metric tools, returns :class:`AgentEvaluationRun`.
+Runs eval cases across agents, runs metric tools, returns `AgentEvaluationRun`.
 
 For each pair of (case, agent) the executor calls ``agent.run`` with the
-case&#x27;s ``query``. Each :class:`Metric` is invoked with ``run`` payload
+case's ``query``. Each `Metric` is invoked with ``run`` payload
 ``data`` containing at least ``output`` (agent output) and ``reference``
 (from the case, may be ``None``). Metric results are nested under
-``AgentEvaluationRow.metrics[prefix]`` using the tool&#x27;s ``name``, ``id``, or
-``metric_&lt;n&gt;`` as prefix (see :meth:``4 for the
-legacy ``&lt;prefix&gt;__&lt;key&gt;`` flat layout).
+``AgentEvaluationRow.metrics[prefix]`` using the tool's ``name``, ``id``, or
+``metric_<n>`` as prefix (see `AgentEvaluationRun.to_dataframe` for the
+legacy ``<prefix>__<key>`` flat layout).
 
-Set ``cache_experiments=False`` to skip writing :class:``9
-snapshots to the local cache after each :meth:``0. Use
+Set ``cache_experiments=False`` to skip writing `Experiment`
+snapshots to the local cache after each `Experiment.run`. Use
 ``experiment_cache_dir`` to override the default cache directory.
 
 #### \_\_init\_\_
@@ -1102,14 +1109,14 @@ def __init__(*,
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L3243)
 
-Configure optional local persistence for :class:`~aixplain.v2.eval_experiment.Experiment`.
+Configure optional local persistence for `Experiment`.
 
 **Arguments**:
 
 - `cache_experiments` - When True (default), experiments created via
-  :meth:`create_experiment` are saved to disk after :meth:`~aixplain.v2.eval_experiment.Experiment.run`.
+  `create_experiment` are saved to disk after `run`.
 - `experiment_cache_dir` - Root directory for experiment JSON files; defaults to a
-  platform-appropriate user cache path (see :func:`~aixplain.v2.eval_experiment.default_experiment_cache_dir`).
+  platform-appropriate user cache path (see `default_experiment_cache_dir`).
 - `autosave_eval_runs` - Deprecated alias for ``cache_experiments`` when not ``None``.
 
 #### create\_experiment
@@ -1124,18 +1131,18 @@ def create_experiment(agents: Union[Agent, Sequence[Agent]],
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L3272)
 
-Build an :class:`~aixplain.v2.eval_experiment.Experiment` bound to this executor.
+Build an `Experiment` bound to this executor.
 
 Snapshots ``agents`` and ``metrics`` via ``to_dict()`` for provenance and cache
-reload. Call :meth:`~aixplain.v2.eval_experiment.Experiment.run` to execute and
-append an :class:`~aixplain.v2.eval_experiment.ExperimentRun`.
+reload. Call `run` to execute and
+append an `ExperimentRun`.
 
 **Arguments**:
 
 - `agents` - Agent or sequence evaluated against ``dataset``.
-- ``2 - Named evaluation dataset (:class:``3).
-- ``4 - Optional metric tools.
-- ``5 - Arbitrary JSON-serializable metadata stored on the experiment.
+- `dataset` - Named evaluation dataset (`Dataset`).
+- `metrics` - Optional metric tools.
+- `metadata` - Arbitrary JSON-serializable metadata stored on the experiment.
   
 
 **Returns**:
@@ -1150,7 +1157,7 @@ def list_cached_experiments() -> List[Dict[str, Any]]
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L3318)
 
-List experiments on disk under this executor&#x27;s cache directory.
+List experiments on disk under this executor's cache directory.
 
 #### load\_cached\_experiment
 
@@ -1160,7 +1167,7 @@ def load_cached_experiment(experiment_id: str) -> Experiment
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L3322)
 
-Load a cached experiment and bind this executor for subsequent :meth:`~aixplain.v2.eval_experiment.Experiment.run` calls.
+Load a cached experiment and bind this executor for subsequent `run` calls.
 
 #### load\_from\_csv
 
@@ -1175,29 +1182,29 @@ def load_from_csv(cls,
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_evaluator.py#L3327)
 
-Load a CSV written by :meth:`AgentEvaluationRun.to_dataframe` into a structured run.
+Load a CSV written by `AgentEvaluationRun.to_dataframe` into a structured run.
 
 Unknown columns (for example a legacy ``agent_id`` column) are ignored.
-Flat ``&lt;metric_prefix&gt;__&lt;field&gt;`` columns are split into
+Flat ``<metric_prefix>__<field>`` columns are split into
 ``AgentEvaluationRow.metrics``.
 
 **Arguments**:
 
 - `path` - Path to the CSV file, or a file-like object accepted by
-  :func:`pandas.read_csv`.
-- `normalize` - If True, run :func:``0 so dtypes
+  `pandas.read_csv`.
+- `normalize` - If True, run `normalize_eval_results_dataframe` so dtypes
   match in-memory evaluation results.
-- ``1 - Forwarded to :func:`pandas.read_csv`.
+- `**read_csv_kwargs` - Forwarded to `pandas.read_csv`.
   
 
 **Returns**:
 
-  :class:``3 with one row per CSV record.
+  `AgentEvaluationRun` with one row per CSV record.
   
 
 **Raises**:
 
-- ``4 - If the CSV is non-empty but missing ``case_index`` or
+- `ValidationError` - If the CSV is non-empty but missing ``case_index`` or
   ``agent_name``.
 
 #### evaluate
@@ -1215,17 +1222,17 @@ Execute all cases against all agents and build a structured result.
 
 **Arguments**:
 
-- `agents` - A single :class:`~aixplain.v2.agent.Agent` or a sequence of agents.
-- `dataset` - Named evaluation dataset whose :attr:`Dataset.cases` are executed.
-- `metrics` - Optional sequence of :class:`Metric` instances. When a
-  tool sets :attr:`Metric.threshold`, each successful metric row
+- `agents` - A single `Agent` or a sequence of agents.
+- `dataset` - Named evaluation dataset whose `Dataset.cases` are executed.
+- `metrics` - Optional sequence of `Metric` instances. When a
+  tool sets `Metric.threshold`, each successful metric row
   includes ``metric_pass`` (boolean) from the score and threshold.
 - `**agent_run_kwargs` - Forwarded to each ``agent.run`` call.
   
 
 **Returns**:
 
-  :class:`~aixplain.v2.agent.Agent`2 with one :class:`~aixplain.v2.agent.Agent`3 per
+  `AgentEvaluationRun` with one `AgentEvaluationRow` per
   (case, agent). Agent or metric failures are recorded per row instead of
   aborting the batch. Empty ``dataset.cases`` yields an empty run.
 

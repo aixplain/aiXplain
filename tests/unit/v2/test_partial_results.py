@@ -37,17 +37,11 @@ from unittest.mock import Mock
 import pytest
 from dataclasses_json import dataclass_json
 
-from aixplain.v2.exceptions import ResourceError
-from aixplain.v2.inspector import Inspector
-from aixplain.v2.model import Model
-from aixplain.v2.resource import (
-    BaseResource,
-    BaseRunParams,
-    Page,
-    Result,
-    RunnableResourceMixin,
-    SearchResourceMixin,
-)
+from aixplain import ResourceError
+from aixplain import Inspector
+from aixplain import Model
+from aixplain import Page, Result
+from aixplain.v2.resource import BaseResource, BaseRunParams, RunnableResourceMixin, SearchResourceMixin
 
 # A record the deserializer cannot handle at all: ``from_dict`` needs a mapping.
 BAD_RECORD = "not_a_dict"

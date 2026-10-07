@@ -22,7 +22,7 @@ import uuid
 
 import pytest
 
-from aixplain.v2 import Inspector
+from aixplain import Inspector
 
 ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
 

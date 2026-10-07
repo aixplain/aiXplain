@@ -9,7 +9,7 @@ Covers both Model (single "run" action + shorthand) and Tool (multiple actions).
 
 import pytest
 
-from aixplain.v2.actions import Actions, Action, Inputs, Input
+from aixplain import Actions, Action, Inputs, Input
 
 
 # ---------------------------------------------------------------------------

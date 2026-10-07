@@ -12,19 +12,11 @@ import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from aixplain.v2.enums import Function, ResponseStatus
-from aixplain.v2.exceptions import APIError, ValidationError, create_operation_failed_error
-from aixplain.v2.model import (
-    CompletionTokensDetails,
-    Message,
-    Model,
-    ModelResponseStreamer,
-    ModelResult,
-    PromptTokensDetails,
-    StreamChunk,
-    Usage,
-    find_function_by_id,
-)
+from aixplain import Function, ResponseStatus
+from aixplain import APIError, ValidationError
+from aixplain.v2.exceptions import create_operation_failed_error
+from aixplain import CompletionTokensDetails, Message, Model, ModelResponseStreamer, ModelResult, PromptTokensDetails, StreamChunk, Usage
+from aixplain.v2.model import find_function_by_id
 
 
 # =============================================================================

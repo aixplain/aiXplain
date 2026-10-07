@@ -76,7 +76,7 @@ def test_v2_file_upload_does_not_follow_redirects(tmp_path):
     """``File._upload_local_file`` PUTs with redirects disabled."""
     from types import SimpleNamespace
 
-    from aixplain.v2.file import File
+    from aixplain import File
 
     target = tmp_path / "data.csv"
     target.write_text("x")

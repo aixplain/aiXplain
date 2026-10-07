@@ -16,7 +16,7 @@ import pytest
 
 from aixplain.utils import config, url_safety
 from aixplain.utils.url_safety import INSECURE_OPT_IN_ENV_VAR, UnsafeURLError
-from aixplain.v2.core import Aixplain
+from aixplain import Aixplain
 
 
 @pytest.fixture(autouse=True)

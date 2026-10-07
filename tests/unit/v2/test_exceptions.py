@@ -6,16 +6,8 @@ provide consistent error handling across the SDK.
 
 import pytest
 
-from aixplain.v2.exceptions import (
-    AixplainV2Error,
-    ResourceError,
-    APIError,
-    AixplainIssueError,
-    ValidationError,
-    TimeoutError,
-    FileUploadError,
-    create_operation_failed_error,
-)
+from aixplain import AixplainV2Error, ResourceError, APIError, AixplainIssueError, ValidationError, TimeoutError, FileUploadError
+from aixplain.v2.exceptions import create_operation_failed_error
 
 
 class TestAixplainV2Error:
@@ -268,7 +260,7 @@ class TestTimeoutError:
 
     def test_does_not_shadow_builtin(self):
         """Should not interfere with built-in TimeoutError in different context."""
-        from aixplain.v2.exceptions import TimeoutError as V2TimeoutError
+        from aixplain import TimeoutError as V2TimeoutError
 
         error = V2TimeoutError("V2 timeout")
         assert isinstance(error, AixplainV2Error)

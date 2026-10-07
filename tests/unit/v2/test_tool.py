@@ -7,12 +7,12 @@ from dataclasses_json import dataclass_json
 
 import requests
 
-from aixplain.v2.actions import Action, Actions, Inputs
-from aixplain.v2.exceptions import APIError
-from aixplain.v2.integration import ActionInputSpec, ActionSpec
-from aixplain.v2.tool import Tool, ToolResult
-from aixplain.v2.integration import Integration
-from aixplain.v2.resource import ResourceError
+from aixplain import Action, Actions, Inputs
+from aixplain import APIError
+from aixplain import ActionInputSpec, ActionSpec
+from aixplain import Tool, ToolResult
+from aixplain import Integration
+from aixplain import ResourceError
 
 MOCK_BACKEND_RESPONSE = {
     "id": "69bbf9c19e1085b478304903",

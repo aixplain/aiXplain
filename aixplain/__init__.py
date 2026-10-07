@@ -78,6 +78,11 @@ from .v2 import __all__ as _V2_ALL  # noqa: E402
 from .v2.core import Aixplain  # noqa: E402,F401
 from .v2.file import File  # noqa: E402,F401
 
+# Bind the non-versioned exceptions package so ``aixplain.exceptions.APIError``
+# works after a bare ``import aixplain``. It re-exports the v2 classes the SDK
+# actually raises (see aixplain/exceptions/__init__.py).
+from . import exceptions as exceptions  # noqa: E402,F401
+
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=LOG_LEVEL)
 
