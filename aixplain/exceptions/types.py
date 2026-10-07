@@ -373,6 +373,12 @@ class AlreadyDeployedError(AixplainBaseException):
 def get_error_from_status_code(status_code: int, error_details: str = None) -> AixplainBaseException:
     """Map HTTP status codes to appropriate exception types.
 
+    The result is one of the v1-era classes defined in this module (all
+    subclasses of :class:`AixplainBaseException`), not the v2 classes that
+    ``aixplain.exceptions`` re-exports under the same names. Catch it with
+    ``AixplainBaseException`` or ``aixplain.exceptions.types.ValidationError``;
+    ``aixplain.exceptions.ValidationError`` does not match it.
+
     Args:
         status_code (int): The HTTP status code to map.
         error_details (str, optional): Additional error details to include in the message.

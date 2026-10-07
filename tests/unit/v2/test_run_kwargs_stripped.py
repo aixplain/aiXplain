@@ -25,7 +25,13 @@ from aixplain import Agent
 from aixplain import ActionInputSpec
 from aixplain import Model
 from aixplain import DeleteResult
-from aixplain.v2.resource import BaseDeleteParams, BaseResource, DeleteResourceMixin, GetResourceMixin, RunnableResourceMixin
+from aixplain.v2.resource import (
+    BaseDeleteParams,
+    BaseResource,
+    DeleteResourceMixin,
+    GetResourceMixin,
+    RunnableResourceMixin,
+)
 from aixplain import Tool
 
 SDK_REQUEST_KWARGS = {"api_key": "SECRET-TEAM-KEY", "resource_path": "v2/custom"}

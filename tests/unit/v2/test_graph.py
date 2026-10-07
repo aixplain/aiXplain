@@ -2,7 +2,28 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aixplain import Agent, AgentNode, Action, Actions, Condition, ConditionalNode, Edge, Graph, InspectorNode, Inspector, Input, Inputs, LLMNode, RawNode, RetryPolicy, ScriptNode, StaticGraphStrategy, ToolNode, Tool, ValidationError
+from aixplain import (
+    Agent,
+    AgentNode,
+    Action,
+    Actions,
+    Condition,
+    ConditionalNode,
+    Edge,
+    Graph,
+    InspectorNode,
+    Inspector,
+    Input,
+    Inputs,
+    LLMNode,
+    RawNode,
+    RetryPolicy,
+    ScriptNode,
+    StaticGraphStrategy,
+    ToolNode,
+    Tool,
+    ValidationError,
+)
 
 
 def test_retry_policy_and_common_node_fields_round_trip() -> None:

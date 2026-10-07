@@ -148,14 +148,18 @@ def _root_exported_names_by_module():
 
 
 def add_root_import(content, names):
-    """Insert a ``from aixplain import ...`` line just below the frontmatter."""
+    """Insert a ``from aixplain import ...`` line just below the frontmatter.
+
+    An import line left by an earlier run is replaced rather than duplicated, so
+    the script can be re-run over pages it already processed.
+    """
     if not names:
         return content
     line = "`from aixplain import " + ", ".join(names) + "`\n\n"
     match = re.match(r"\A(---\n.*?\n---\n)", content, re.DOTALL)
-    if match:
-        return match.group(1) + "\n" + line + content[match.end() :]
-    return line + content
+    head, body = (match.group(1) + "\n", content[match.end() :]) if match else ("", content)
+    body = re.sub(r"\A\s*`from aixplain import [^`\n]*`\n\n", "", body)
+    return head + line + body
 
 
 def rename_files(docs_dir="docs/api-reference/python"):

@@ -29,6 +29,18 @@ silently caught nothing. They now resolve to the same objects as
 actually raises. `aixplain.exceptions.types` still exposes the v1-only types
 (`AuthenticationError`, `BillingError`, ...) for backward compatibility.
 
+What changes for code that used the old classes through `aixplain.exceptions`:
+
+- The constructor is the v2 one, `(message, details=None)`. Passing v1 keywords
+  such as `status_code=` raises `TypeError`, and the v1 attributes
+  (`status_code`, `error_code`, `category`, ...) are gone.
+- They no longer subclass `aixplain.exceptions.AixplainBaseException`, so
+  `except AixplainBaseException` stops catching them.
+- `aixplain.exceptions.get_error_from_status_code()` still returns the v1
+  classes from `aixplain.exceptions.types`. `except aixplain.exceptions.ValidationError`
+  does not catch what it returns; catch `AixplainBaseException` or the
+  `aixplain.exceptions.types` class instead.
+
 See [MIGRATION.md](MIGRATION.md#import-paths) for the old -> new mapping. A
 follow-up in `aixplain-agents` switches its versioned imports to the root.
 

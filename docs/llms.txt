@@ -12,34 +12,34 @@ Use `llms-full.txt` when you want the complete SDK v2 reference in one context w
 ## SDK v2 Modules
 
 - [aixplain.v2](api-reference/python/aixplain/v2/init.md): aiXplain SDK v2 - Modern Python SDK for the aiXplain platform.
-- [aixplain.v2.actions](api-reference/python/aixplain/v2/actions.md): `from aixplain import Action, Actions, Input, Inputs`
-- [aixplain.v2.agent](api-reference/python/aixplain/v2/agent.md): `from aixplain import Agent, AgentResponseData, AgentRunResult, Artifact, Budget, BudgetDict, ContextOverflowStrategy, ContextOverflowStrategyValue, ConversationMessage, OutputFormat, OutputFormatValue, RoleModelRef, Task, TaskDict`
-- [aixplain.v2.agent_evaluator](api-reference/python/aixplain/v2/agent_evaluator.md): `from aixplain import AgentEvaluationResultsChatbot, AgentEvaluationRow, AgentEvaluationRun, Dataset, Eval, EvalCase, Metric, MetricResponse, compare_agents_side_by_side, normalize_eval_results_dataframe`
-- [aixplain.v2.agent_progress](api-reference/python/aixplain/v2/agent_progress.md): `from aixplain import AgentProgressTracker, ProgressFormat, ProgressFormatValue`
-- [aixplain.v2.api_key](api-reference/python/aixplain/v2/api_key.md): `from aixplain import APIKey, APIKeyLimits, APIKeyLimitsDict, APIKeyLimitsInput, APIKeyUsageLimit, TokenType, TokenTypeValue`
+- [aixplain.v2.actions](api-reference/python/aixplain/v2/actions.md): Unified Actions / Inputs hierarchy for models and tools.
+- [aixplain.v2.agent](api-reference/python/aixplain/v2/agent.md): Agent module for aiXplain v2 SDK.
+- [aixplain.v2.agent_evaluator](api-reference/python/aixplain/v2/agent_evaluator.md): Agent evaluation utilities for aiXplain v2 SDK.
+- [aixplain.v2.agent_progress](api-reference/python/aixplain/v2/agent_progress.md): Agent progress tracking and display module.
+- [aixplain.v2.api_key](api-reference/python/aixplain/v2/api_key.md): API Key management module for aiXplain v2 API.
 - [aixplain.v2.client](api-reference/python/aixplain/v2/client.md): Client module for making HTTP requests to the aiXplain API.
-- [aixplain.v2.code_utils](api-reference/python/aixplain/v2/code_utils.md): `from aixplain import UtilityModelInput, UtilityModelInputDict`
-- [aixplain.v2.core](api-reference/python/aixplain/v2/core.md): `from aixplain import Aixplain`
-- [aixplain.v2.enums](api-reference/python/aixplain/v2/enums.md): `from aixplain import AssetStatus, AssetStatusValue, AttachmentType, AttachmentTypeValue, AuthenticationScheme, AuthenticationSchemeValue, CodeInterpreterModel, DataType, DataTypeValue, ErrorHandler, EvolveType, FileContentType, FileType, FileTypeValue, Function, FunctionType, FunctionValue, Language, LanguageValue, License, LicenseValue, MessageRole, OnboardStatus, OwnershipType, OwnershipTypeValue, Privacy, PrivacyValue, Reaction, ResponseStatus, RunStatus, SessionStatus, SortBy, SortByValue, SortOrder, SortOrderValue, SplittingOptions, SplittingOptionsValue, StorageType, StorageTypeValue, Supplier, SupplierValue`
-- [aixplain.v2.eval_experiment](api-reference/python/aixplain/v2/eval_experiment.md): `from aixplain import EXPERIMENT_COMPARISON_COL_RUN_CREATED_AT, EXPERIMENT_COMPARISON_COL_RUN_INDEX, Experiment, ExperimentLocalCache, ExperimentRun, ExperimentRunDiff, ExperimentRunDiffCase, ExperimentRunDiffCaseList, default_experiment_cache_dir`
-- [aixplain.v2.eval_results_display](api-reference/python/aixplain/v2/eval_results_display.md): `from aixplain import case_comparison_html, case_rows, guess_compare_value_columns, load_eval_csv, pivot_agents_wide, summarize_by_agent`
-- [aixplain.v2.exceptions](api-reference/python/aixplain/v2/exceptions.md): `from aixplain import APIError, AixplainIssueError, AixplainV2Error, FileUploadError, ResourceError, TimeoutError, UntrustedURLError, ValidationError`
-- [aixplain.v2.file](api-reference/python/aixplain/v2/file.md): `from aixplain import File`
-- [aixplain.v2.graph](api-reference/python/aixplain/v2/graph.md): `from aixplain import AgentNode, Condition, ConditionDict, ConditionalNode, Edge, EdgeDict, Graph, GraphDict, InspectorNode, LLMNode, Node, RawNode, RetryPolicy, RetryPolicyDict, ScriptNode, StaticGraphStrategy, StaticGraphStrategyDict, ToolNode`
-- [aixplain.v2.inspector](api-reference/python/aixplain/v2/inspector.md): `from aixplain import AUTO_DEFAULT_MODEL_ID, Inspector`
-- [aixplain.v2.integration](api-reference/python/aixplain/v2/integration.md): `from aixplain import ActionInputSpec, ActionSpec, Integration, IntegrationResult, ToolId, TriggerEventOption, TriggerTypeSpec, TriggerTypes`
-- [aixplain.v2.issue](api-reference/python/aixplain/v2/issue.md): `from aixplain import IssueReporter, IssueSeverity, IssueSeverityValue`
-- [aixplain.v2.meta_agents](api-reference/python/aixplain/v2/meta_agents.md): `from aixplain import DebugResult, Debugger`
-- [aixplain.v2.mixins](api-reference/python/aixplain/v2/mixins.md): `from aixplain import ParameterDefinition, ParameterInput, ToolDict`
-- [aixplain.v2.model](api-reference/python/aixplain/v2/model.md): `from aixplain import CompletionTokensDetails, Detail, Message, Model, ModelResponseStreamer, ModelResult, Parameter, Pricing, PromptTokensDetails, StreamChunk, Usage, VendorInfo, Version`
+- [aixplain.v2.code_utils](api-reference/python/aixplain/v2/code_utils.md): Code parsing utilities for v2 utility models.
+- [aixplain.v2.core](api-reference/python/aixplain/v2/core.md): Core module for aiXplain v2 API.
+- [aixplain.v2.enums](api-reference/python/aixplain/v2/enums.md): V2 enums module - self-contained to avoid legacy dependencies.
+- [aixplain.v2.eval_experiment](api-reference/python/aixplain/v2/eval_experiment.md): Experiment definitions and local filesystem cache for agent evaluations.
+- [aixplain.v2.eval_results_display](api-reference/python/aixplain/v2/eval_results_display.md): Display helpers for `AgentEvaluationRun` results.
+- [aixplain.v2.exceptions](api-reference/python/aixplain/v2/exceptions.md): Unified error hierarchy for v2 system.
+- [aixplain.v2.file](api-reference/python/aixplain/v2/file.md): Unified File asset resource for files and directories.
+- [aixplain.v2.graph](api-reference/python/aixplain/v2/graph.md): Portable static graph definitions for aiXplain v2 agents.
+- [aixplain.v2.inspector](api-reference/python/aixplain/v2/inspector.md): Inspector module for v2 API - Team agent inspection and validation.
+- [aixplain.v2.integration](api-reference/python/aixplain/v2/integration.md): Integration module for managing external service integrations.
+- [aixplain.v2.issue](api-reference/python/aixplain/v2/issue.md): Issue reporting helpers for the V2 SDK.
+- [aixplain.v2.meta_agents](api-reference/python/aixplain/v2/meta_agents.md): Meta agents module - Debugger and other meta-agent utilities.
+- [aixplain.v2.mixins](api-reference/python/aixplain/v2/mixins.md): Mixins for v2 API classes.
+- [aixplain.v2.model](api-reference/python/aixplain/v2/model.md): Model resource for v2 API.
 - [aixplain.v2.plain_data](api-reference/python/aixplain/v2/plain_data.md): Coercion of plain dicts into the v2 config structs (PROD-2921).
-- [aixplain.v2.resource](api-reference/python/aixplain/v2/resource.md): `from aixplain import DeleteResult, Page, Result`
-- [aixplain.v2.rlm](api-reference/python/aixplain/v2/rlm.md): `from aixplain import RLM, RLMResult`
-- [aixplain.v2.session](api-reference/python/aixplain/v2/session.md): `from aixplain import ExecutionConfig, ExecutionConfigDict, Session, SessionMessage, SessionMessageAttachment`
-- [aixplain.v2.skill](api-reference/python/aixplain/v2/skill.md): `from aixplain import Skill`
-- [aixplain.v2.tool](api-reference/python/aixplain/v2/tool.md): `from aixplain import Tool, ToolResult`
-- [aixplain.v2.trigger](api-reference/python/aixplain/v2/trigger.md): `from aixplain import Trigger, TriggerConfiguration, TriggerConfigurationDict, TriggerRepeatRule, TriggerRepeatRuleDict`
-- [aixplain.v2.upload_utils](api-reference/python/aixplain/v2/upload_utils.md): `from aixplain import FileUploader, upload_file, validate_file_for_upload`
+- [aixplain.v2.resource](api-reference/python/aixplain/v2/resource.md): Resource management module for v2 API.
+- [aixplain.v2.rlm](api-reference/python/aixplain/v2/rlm.md): RLM (Recursive Language Model) for aiXplain SDK v2.
+- [aixplain.v2.session](api-reference/python/aixplain/v2/session.md): Session module for aiXplain v2 SDK.
+- [aixplain.v2.skill](api-reference/python/aixplain/v2/skill.md): Skill resource module.
+- [aixplain.v2.tool](api-reference/python/aixplain/v2/tool.md): Tool resource module for managing tools and their integrations.
+- [aixplain.v2.trigger](api-reference/python/aixplain/v2/trigger.md): Trigger management module for the aiXplain v2 API.
+- [aixplain.v2.upload_utils](api-reference/python/aixplain/v2/upload_utils.md): File upload utilities for v2 Resource system.
 
 ## Regeneration
 

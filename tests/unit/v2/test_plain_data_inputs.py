@@ -18,12 +18,33 @@ import pytest
 
 import aixplain
 import aixplain.v2 as v2
-from aixplain import Agent, Budget, BudgetDict, ContextOverflowStrategy, ContextOverflowStrategyValue, OutputFormat, OutputFormatValue, Task, TaskDict
+from aixplain import (
+    Agent,
+    Budget,
+    BudgetDict,
+    ContextOverflowStrategy,
+    ContextOverflowStrategyValue,
+    OutputFormat,
+    OutputFormatValue,
+    Task,
+    TaskDict,
+)
 from aixplain import ProgressFormat, ProgressFormatValue
 from aixplain import APIKeyLimits, APIKeyLimitsDict, TokenType, TokenTypeValue
 from aixplain import UtilityModelInput, UtilityModelInputDict
 from aixplain import ValidationError
-from aixplain import Condition, ConditionDict, Edge, EdgeDict, Graph, GraphDict, RetryPolicy, RetryPolicyDict, StaticGraphStrategy, StaticGraphStrategyDict
+from aixplain import (
+    Condition,
+    ConditionDict,
+    Edge,
+    EdgeDict,
+    Graph,
+    GraphDict,
+    RetryPolicy,
+    RetryPolicyDict,
+    StaticGraphStrategy,
+    StaticGraphStrategyDict,
+)
 from aixplain import IssueSeverity, IssueSeverityValue
 from aixplain import ExecutionConfig, ExecutionConfigDict
 from aixplain import Trigger, TriggerConfiguration, TriggerConfigurationDict, TriggerRepeatRule, TriggerRepeatRuleDict

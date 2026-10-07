@@ -115,17 +115,17 @@ default LLM; the effective model ID must be resolved before the graph reaches th
 The following example contains scripts, an LLM, a routing decision, parallel execution, a tool, and sub-agents:
 
 ```python
-from aixplain import Agent
 from aixplain import (
+    Agent,
     AgentNode,
     Condition,
     Edge,
     Graph,
     LLMNode,
+    ParallelNode,
     ScriptNode,
     ToolNode,
 )
-from aixplain.v2.graph import ParallelNode
 
 prepare = ScriptNode(
     name="Prepare review",

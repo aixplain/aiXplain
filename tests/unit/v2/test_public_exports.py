@@ -11,6 +11,9 @@ not an accident: the entry has to be written down here.
 """
 
 import ast
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -153,6 +156,31 @@ def test_a_raised_v2_error_is_caught_through_either_path():
 
     with pytest.raises(PathValidationError):
         raise RootValidationError("boom")
+
+
+def test_bare_import_binds_the_exceptions_package():
+    """``import aixplain`` alone is enough for ``aixplain.exceptions.APIError``.
+
+    Runs in a fresh interpreter: in this process an earlier ``import
+    aixplain.exceptions`` would bind the attribute and hide a missing root import.
+    """
+    code = "import aixplain; assert aixplain.exceptions.APIError is aixplain.APIError"
+    env = {**os.environ, "PYTHONPATH": str(V2_DIR.parent.parent)}
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env)
+    assert result.returncode == 0, result.stderr
+
+
+def test_status_code_helper_still_returns_the_v1_hierarchy():
+    """Pins the split documented in aixplain/exceptions/__init__.py and MIGRATION.md."""
+    from aixplain.exceptions import AixplainBaseException, ValidationError, get_error_from_status_code
+    from aixplain.exceptions import types
+
+    error = get_error_from_status_code(400)
+
+    assert isinstance(error, types.ValidationError)
+    assert isinstance(error, AixplainBaseException)
+    assert not isinstance(error, ValidationError)
+    assert not issubclass(ValidationError, AixplainBaseException)
 
 
 def test_v1_only_exception_types_stay_importable():

@@ -6,7 +6,15 @@ provide consistent error handling across the SDK.
 
 import pytest
 
-from aixplain import AixplainV2Error, ResourceError, APIError, AixplainIssueError, ValidationError, TimeoutError, FileUploadError
+from aixplain import (
+    AixplainV2Error,
+    ResourceError,
+    APIError,
+    AixplainIssueError,
+    ValidationError,
+    TimeoutError,
+    FileUploadError,
+)
 from aixplain.v2.exceptions import create_operation_failed_error
 
 

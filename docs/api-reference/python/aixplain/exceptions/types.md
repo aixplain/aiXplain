@@ -511,6 +511,12 @@ def get_error_from_status_code(status_code: int,
 
 Map HTTP status codes to appropriate exception types.
 
+The result is one of the v1-era classes defined in this module (all
+subclasses of `AixplainBaseException`), not the v2 classes that
+``aixplain.exceptions`` re-exports under the same names. Catch it with
+``AixplainBaseException`` or ``aixplain.exceptions.types.ValidationError``;
+``aixplain.exceptions.ValidationError`` does not match it.
+
 **Arguments**:
 
 - `status_code` _int_ - The HTTP status code to map.
