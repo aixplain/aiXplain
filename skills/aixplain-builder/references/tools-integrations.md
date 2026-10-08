@@ -22,12 +22,12 @@ Setting `allowed_actions = None` or `[]` exposes everything — only do that del
 
 ### Pre-fill action arguments (`.actions` / `.inputs`)
 
-Pin an action's arguments at build time so the agent doesn't have to supply them. `tool.actions[...]` is case-insensitive; the values live on the action's **`.inputs`** mapping:
+Pin an action's arguments at build time so the agent doesn't have to supply them. The rule, now stated explicitly in the docs: **action parameters always go via `.inputs` on the action; model parameters via `.inputs` on the model.** `tool.actions[...]` is case-insensitive and also reads in dot notation.
 
 ```python
 tool.actions['SLACK_SEND_MESSAGE'].inputs.channel = '#general'    # dot notation
 tool.actions['SLACK_SEND_MESSAGE'].inputs['text'] = 'Hello'       # item notation
-tool.actions['SLACK_SEND_MESSAGE'].inputs.update(channel='#general', text='Hello')   # kwargs only
+tool.actions.slack_send_message.inputs.update(channel='#general', text='Hello')   # kwargs only
 
 tool.set_inputs({                                   # bulk, across several actions
     'SLACK_SEND_MESSAGE': {'channel': '#general', 'text': 'Hello'},
@@ -35,12 +35,30 @@ tool.set_inputs({                                   # bulk, across several actio
 })
 
 inputs = tool.actions['SLACK_SEND_MESSAGE'].inputs
-print(inputs.keys(), inputs.required)               # introspect the schema
-inputs['channel'].reset()                           # clear one
-inputs.reset()                                      # clear all
+print(inputs.keys(), inputs.required)   # names; `.required` is a list of NAMES
+print(dict(inputs.items()))             # {name: value} — shaped as an API payload
+print(inputs.validate())                # list of error strings; [] means valid
+inputs.reset('channel')                 # restore one to its backend default
+inputs['channel'].reset()               # clear one to None (or `.reset(default)`)
+inputs.reset()                          # restore all to their defaults
 ```
 
-> Set the value on `.inputs`, **not** on the action itself — `tool.actions['X'].channel = '…'` silently sets a stray attribute and is ignored, and `tool.actions['X']['text'] = …` raises `TypeError`. `Integration` objects carry the same `.actions` proxy and `set_inputs()`. `tool.list_inputs(*actions)` still exists but is **deprecated** in favour of `.actions[...].inputs`. Models have no `.actions` — they use `model.inputs` directly.
+> **Set the value on `.inputs` — never on the action, never on the tool.** `tool.actions['X'].channel = '…'` silently sets an inert Python attribute that is dropped at save time, and `tool.actions['X']['text'] = …` raises `TypeError` (`Action` has no `__getitem__`). On a tool, `tool.inputs` itself raises `AttributeError: Tools have multiple actions — use tool.actions['action_name'].inputs instead`, on both read and write. Models are the mirror image: one implicit `run` action, so `model.inputs` directly and no `.actions` layer to disambiguate.
+
+The hierarchy (`aixplain.v2.actions`) is `Actions → Action → Inputs → Input`:
+
+| Level | Type | Surface |
+|---|---|---|
+| `tool.actions` | `Actions` — lazily fetched from the backend | `['NAME']` and `.name` (both case-insensitive), `in`, `len()`, iteration over names, `.refresh()` to drop the cache |
+| `tool.actions['X']` | `Action` | read-only `.name`, `.description`, `.inputs` — nothing else on it is settable |
+| `… .inputs` | `Inputs` | `['k']` / `.k` read+write, `.keys()`, `.values()`, `.items()`, `.get(k, default)`, `.update(**kw)`, `.copy()`, `.reset(k=None)`, `.required`, `.validate(data=None)` |
+| `… .inputs['k']` | `Input` | `.name`, `.required`, `.type`, `.value`, `.description`, `.reset(default=None)`; compares by value, so `inputs['k'] == 'x'` works |
+
+`keys()` / `values()` / `items()` operate on **raw values**, not `Input` objects — only `inputs['k']` / `inputs.get('k')` hand you the `Input` itself.
+
+`Integration` objects carry the same `.actions` collection and `set_inputs()`. `list_actions()` and `list_inputs(*actions)` still exist and now return `ActionSpec` objects (renamed from `Action`), but `list_inputs` is formally **deprecated** in favour of `.actions[...].inputs`. `Input`, `Inputs`, `Action` and `Actions` *are* still exported from `aixplain.v2` (an earlier docs note claiming the import had been removed has been retracted) — you just rarely need to import them.
+
+> The docs' own "Configuring action inputs" example is still stale: it shows `tool.actions['X'].channel = …` plus a `proxy.reset_input()` / `reset_all_inputs()` API that no longer exists. The same page's troubleshooting section carries the corrected rule. Follow the table above.
 
 ## Marketplace tools
 
@@ -76,7 +94,7 @@ integration = aix.Integration.get("composio/gmail")    # or by ID
 integration.list_actions()                              # discover action names
 ```
 
-Then create a connected tool with `aix.Tool(integration=..., config=...)` and `.save()`. The `integration=` field accepts an ID, a path (`"composio/slack"`, `"aixplain/postgresql"`), or an `Integration` object.
+Then create a connected tool with `aix.Tool(integration=..., config=...)` and `.save()`. The `integration=` field accepts an ID, a path (`"composio/slack"`, `"aixplain/postgresql"`), or an `Integration` object. Read it back with `tool.integration_path` (e.g. `"aixplain/python-sandbox"`) — it returns `None` while `tool.integration` is still an unresolved ID string, so it tells you whether the integration has actually been fetched.
 
 ### Authentication schemes
 
@@ -157,7 +175,10 @@ print(bmi_tool.run(data={"weight_kg": 70, "height_m": 1.75}, action="calculate_b
 
 ```python
 tool = aix.Tool(integration="688779d8bfb8e46c273982ca", code="def run(data): return data")
+tool = aix.Tool(code="def run(data): return data")   # integration= omitted entirely
 ```
+
+Omitting `integration=` on a new tool is the documented shorthand: the constructor falls back to `Tool.DEFAULT_INTEGRATION_ID` (the Python Sandbox) and resolves `function_name` from the source for you. It asserts `Code is required to create a (script) Tool` if neither `code=` nor `config["code"]` is present.
 
 Most legacy authoring rules have been **relaxed** — top-level imports, missing type hints, multi-line `def` signatures, short parameter names, default values, helper functions in the same source, and zero-argument functions all work now. Only two hard constraints remain:
 
@@ -177,7 +198,7 @@ Two ways to give an agent code abilities — pick by *when* the code is written:
 - **Code Execution** (marketplace tool `698cda188bbb345db14ac13b`) — the agent **writes and runs arbitrary Python at runtime** in a secure cloud sandbox with internet access. Use for calculations, data transforms, visualizations, file processing, fetching from URLs/APIs. The agent should `print()` final results; if it generates files (plots, CSVs), it must print a JSON metadata list to stdout — `[{"name":"<display_name>","file":"<filename>"}]` — or the files are silently lost. Resolve it with `aix.Tool.search(query="code execution")` — the ID above is unverified as of 2026-09 (see the asset table) — then scope `allowed_actions`.
 - **Python Sandbox** (integration `688779d8bfb8e46c273982ca`, above) — a **fixed function authored at build time**, not written at runtime. Use for deterministic tools with known inputs/outputs when no marketplace tool fits.
 
-> Separately, `aix.Utility` (custom utility code) has its own parser rules and requires a `def main(...)` entry point — don't confuse it with the Python Sandbox integration.
+> Separately, `aix.Utility` (custom utility code) has its own parser rules and requires a `def main(...)` entry point — don't confuse it with the Python Sandbox integration. `Utility.run(**kwargs)` is an **instance** method (it was a classmethod in earlier builds — calling `aix.Utility.run(...)` on the class no longer works).
 
 ## MCP servers
 
@@ -230,6 +251,17 @@ Writes apply to an in-memory copy and are **not** persisted — re-upload to per
 
 `source` also accepts an **HTTP(S) URL** (name inferred from the URL path; other schemes raise `ValidationError: Unsupported File URL scheme`) or a **directory** (`is_dir` becomes `True`). Validation is eager: a missing path raises `ValidationError: File source does not exist: …` at construction, before any upload, and `aix.Resource()` with no arguments raises too.
 
+Because `aix.Resource` *is* an `aix.File`, the full File-asset surface comes with it — a saved upload is a retrievable backend asset, not just a URL:
+
+```python
+f = aix.File.get("<id>")                      # id, encoded asset path, or instance id; recursive=True by default
+page = aix.File.search(query="business", page_size=20)   # also page_number=, sort=, **filters
+f.download("/tmp/out")                        # folders stream down as one ZIP and are extracted safely
+f.is_dir                                      # True for directory assets
+```
+
+Two upload behaviours worth knowing: every SDK HTTP call now carries a default `(connect, read)` timeout of `(10, 300)` seconds — previously it could hang forever on a silent peer — overridable per call with `timeout=` or globally via `AIXPLAIN_HTTP_CONNECT_TIMEOUT` / `AIXPLAIN_HTTP_READ_TIMEOUT`. And the presigned upload URL is validated against an allowed-host list before any bytes are sent, raising `UnsafeURLError` (from `aixplain.utils.url_safety`, not the v2 `exceptions` module) rather than a generic `FileUploadError`; redirects are not followed.
+
 ### PostgreSQL — integration `aixplain/postgresql`
 
 Connects to a live DB via connection string (no upload).
@@ -244,7 +276,7 @@ pg.run(action="query", data={"query": "SELECT * FROM customers LIMIT 3"})
 
 Use read-only DB credentials when possible and reinforce read-only in the agent's `instructions`.
 
-> **Don't use `enable_commit`.** The docs overview recommends `enable_commit=False` for read-only SQL tools, but it is a **v1 `SQLTool` parameter only** — it is not on `aix.Tool.__init__` in 0.2.48 and appears nowhere in the v2 SQLite or PostgreSQL pages. Read-only enforcement is credential-level (a Postgres `readonly_user`) plus instruction-level.
+> **There is no `enable_commit`.** It was a v1 `SQLTool` parameter; it is not on `aix.Tool.__init__` in 0.2.48 and appears nowhere in the v2 SQLite or PostgreSQL pages. The docs overview used to recommend `enable_commit=False` for read-only SQL tools and has since been corrected to say exactly this. Writes go through the tool's separate **`commit` action**, so a read-only workflow is `allowed_actions=["query", "schema"]` — plus credential-level enforcement (a Postgres `readonly_user`) and a reinforcing instruction.
 
 ## Built-in utility tools (fetch by ID, no auth)
 
@@ -308,7 +340,10 @@ An integration can expose events an agent fires on (a new email, a new file). Di
 integration.list_trigger_types()      # -> List[TriggerTypeSpec]; also on Tool
 list(integration.triggers)            # discovery only: ['NEW_EMAIL', 'NEW_LABELED_EMAIL', ...]
 tool.triggers["NEW_EMAIL"]            # -> TriggerEventOption, case-insensitive; needs a CONNECTED tool
+tool.triggers["NEW_EMAIL"].configure(labelIds=["INBOX"])   # returns the option, so chain it into Trigger(event=…)
 ```
+
+`.triggers` is a `TriggerTypes` collection — `['NAME']`, `in`, `len()`, iteration — and the option carries the `connection_id` **only when read off a connected tool**; off a bare `Integration` it is discovery-only and can't be activated. `.configure(**values)` sets the event's config payload and returns the option itself.
 
 Pass that option as `event=` to `aix.Trigger`. **See `references/agents.md` for the full Trigger API** (time and event triggers, schedules, save/pause/delete).
 
