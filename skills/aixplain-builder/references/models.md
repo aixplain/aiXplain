@@ -9,6 +9,7 @@ Run any of aiXplain's 170+ LLMs and 900+ assets (speech, vision, translation, em
 page = aix.Model.search("llama")
 page.results        # list[Model]   (page["results"] also works — __getitem__ is just getattr)
 page.total          # matches across all pages
+page.page_number    # current page, 0-indexed
 page.page_total     # number of pages
 page.skipped        # records the API returned that failed to deserialize
 for m in page: ...  # the Page iterates over .results directly; there is no len(page)
@@ -141,7 +142,8 @@ For a **local** audio file, upload it first (see `references/deployment-access.m
 > If a "public" URL fails with `err.invalid_input_data_or_input_url`, the host may be behind a bot-challenge/WAF (e.g. AWS WAF returns an HTTP 202 challenge instead of the file), which aiXplain's backend can't fetch. Fix: download the file once through a real browser, then re-host it through aiXplain and pass that URL:
 >
 > ```python
-> from aixplain.v2.upload_utils import FileUploader, upload_file   # NOT aixplain.v2.file — that raises ImportError
+> from aixplain.v2 import FileUploader, upload_file   # NOT aixplain.v2.file — that raises ImportError
+> # (aixplain.v2.upload_utils re-exports the same two objects)
 > url = FileUploader(api_key=API_KEY).upload("audio.mp3", is_temp=True, return_download_link=True)
 > url = upload_file("audio.mp3", is_temp=True, return_download_link=True)   # module-level one-shot, no class needed
 > ```
@@ -208,6 +210,27 @@ Other fields: `description path source file_type is_temp children parent_id rela
 
 > ⚠️ `File(..., is_temp=True)` does **not** keep the asset temporary: `save()` always uploads through the temp-url endpoint, registers a permanent `file-asset` record, then forces `is_temp = False`. For a genuinely throwaway URL use `FileUploader.upload(..., is_temp=True, return_download_link=True)`. An `http(s)` `source` is re-hosted through an SSRF-guarded fetch (every redirect target re-validated, presigned `PUT` with redirects disabled) — a supported way to re-host a remote file.
 
+## RLM — long-context analysis (`aix.RLM`)
+
+For a context too big for one call. An **orchestrator** model plans and writes Python in a managed sandbox to chunk/explore the text; a cheap **worker** model analyses the chunks via `llm_query()` (credential-free inside the sandbox — prompts go out on stdout and the SDK answers them in-process, so nothing the orchestrator writes can steal a key). `RLM` is a **local orchestrator**: no platform endpoint, nothing to `save()`.
+
+```python
+rlm = aix.RLM(orchestrator_id="<model-id>", worker_id="<model-id>",
+              max_iterations=10, timeout=600.0,            # defaults
+              rag_index_id="", rag_top_k=10, rag_max_chunk_chars=30000)
+
+r = rlm.run(data={"context": very_long_doc, "query": "What are the key findings?"},
+            name="rlm_process", timeout=None, mode="auto")
+print(r.data, r.iterations_used, r.used_credits)
+r.repl_logs            # per-iteration REPL log (recursive mode only; not serialized)
+```
+
+`data` also takes a bare `str` (raw text, http(s) URL, or file path), or a `pathlib.Path` — URLs/files are fetched and `.json` is parsed. Modes: `parallel` (chunk → concurrent worker calls → reduce; no orchestrator or sandbox — cheap, deterministic, best for summarize/extract), `rag` (chunk → aiR index → top-k → one worker call; set `rag_index_id` to reuse a pre-built index), `recursive` (the REPL loop; expensive but adaptive — best for multi-hop/cross-chunk reasoning), and `auto` (default: `recursive` if the query contains a multi-hop hint such as "compare across", "inconsistenc", "contradict", "verify against", "step by step", "trace through"; otherwise `parallel` — `rag` is opt-in only and auto never picks it). `run_async()` / `run_stream()` raise `NotImplementedError`.
+
+Recursive runs hold two sandbox sessions; they are torn down in a `finally`, but use `with aix.RLM(...) as rlm:` (or `rlm.close()`, idempotent) to force it early.
+
+**Reach for it when** a single document exceeds the model's window and you need an answer over all of it. Prefer a plain `model.run()` when the context fits; prefer an **agent** when the work needs tools, memory, or a persistent endpoint — RLM has none of those. `rlm.as_tool()` attaches it to an agent for long-context questions.
+
 ## Use a model inside an agent
 
 ```python
@@ -218,11 +241,13 @@ agent = aix.Agent(name="Assistant", description="...", llm=llm)   # as the reaso
 agent = aix.Agent(name="Assistant", description="...", tools=[llm.as_tool()])
 ```
 
+> ⚠️ **Field-verified (not in the docs, not visible in any signature): `as_tool()` breaks video input.** When a video model is attached to an agent via `as_tool()`, the video/text payload is wrapped in a list on the way through and the model fails. For video, call the model directly with `model.run(...)` instead of routing it through an agent.
+
 ## Troubleshooting
 
 - **Model not found** → verify path/ID with `aix.Model.search()`; confirm your key has access.
 - **Invalid parameters** → not all models accept all params; check the model's Studio page or `model.inputs.keys()`.
 - **`AttributeError: Input 'get_all_parameters' not found`** (or `get_required_parameters` / `reset_parameter` / `reset_all_parameters`) → pre-0.2.48 code; see the renames under *Configure parameters*.
-- **`ImportError: cannot import name 'FileUploader' from 'aixplain.v2.file'`** → import from `aixplain.v2.upload_utils` (or `aixplain.v2`); `aixplain.v2.file` now holds the `File` resource.
+- **`ImportError: cannot import name 'FileUploader' from 'aixplain.v2.file'`** → import from `aixplain.v2` (or `aixplain.v2.upload_utils`); `aixplain.v2.file` now holds the `File` resource.
 - **Async timing out** → increase the poll interval; check the dashboard that the task is still running.
 - **Rate limiting** → reduce concurrency or use `run_async()` for batches (see HTTP 497/429 in `deployment-access.md`).

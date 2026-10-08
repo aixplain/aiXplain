@@ -1,6 +1,6 @@
 # Agents & team agents
 
-[Create](#create-a-single-agent) · [Lifecycle](#lifecycle) · [Run](#run) · [Budget](#budget-cost--time--iteration-caps) · [Sessions](#sessions-multi-turn-memory) · [Skills](#skills) · [Triggers](#triggers-scheduled--event-driven-runs) · [Teams](#team-agents-multi-agent) · [Update](#update-a-deployed-agent) · [Troubleshooting](#troubleshooting)
+[Create](#create-a-single-agent) · [Lifecycle](#lifecycle) · [Run](#run) · [Budget](#budget-cost--time--iteration-caps) · [Sessions](#sessions-multi-turn-memory) · [Skills](#skills) · [Files](#files-persistent-file--folder-assets) · [Triggers](#triggers-scheduled--event-driven-runs) · [Teams](#team-agents-multi-agent) · [Update](#update-a-deployed-agent) · [Troubleshooting](#troubleshooting)
 
 An agent runs a **plan → act → observe → repeat** loop: it reads its instructions, picks tools, calls models/tools, and returns text, markdown, or JSON. A "team agent" is the **same `Agent` class** — passing `agents=[...]` is what makes it a team. There is no separate `TeamAgent` class.
 
@@ -33,7 +33,7 @@ Constructor parameters (all verified against the SDK):
 | `tasks` | `[]` | Structured-workflow tasks (see Teams below). |
 | `inspectors` | `[]` | Runtime guardrails (see `references/governance.md`). |
 | `skills` | `[]` | `aix.Skill` objects or ids — each must be `save()`d first (see Skills). |
-| `files` | `[]` | `aix.File` objects/dicts/ids permanently attached to the agent — each must be `save()`d first. |
+| `files` | `[]` | `aix.File` objects/dicts/ids permanently attached to the agent — each must be `save()`d first (see Files). |
 | `budget` | `Budget(None, None, None)` | Cost / duration / iteration caps. Always present; all-`None` means no enforcement. |
 | `context_overflow_strategy` | `None` | `"truncate"` (engine default) \| `"summarize"` — how the working context is trimmed. |
 | `planner` / `supervisor` / `response_generator` | `None` | LLM overrides for the coordination micro-agents. A `Model`, model id str, or dict. (Renamed from `planner_id` / `supervisor_id`; `response_generator` is new and serializes to the wire key `responder`.) |
@@ -81,7 +81,9 @@ r.data.governance    # budget/policy verdict — see below
 
 Useful `run()` parameters: `query` (str or dict), `session` (multi-turn — a `Session` or session id), `attachments` (URLs or local paths; local files are auto-uploaded), `history` (list of `{"role","content"}` to seed context), `variables` (dict substituted into `{{placeholders}}` in instructions/description), `run_response_generation` (set `True` for JSON output), `execution_params` (per-run overrides, e.g. `{"context_overflow_strategy": "truncate"}`), `criteria`, `evolve`, `identifier`, `progress_format` (`"status"` | `"logs"`), `progress_verbosity` (1–3), `progress_truncate`, `run_retries` / `run_retry_wait` (extra submission attempts; total = 1 + n), `timeout` (default 300s), `wait_time` (poll interval).
 
-> **`session_id=` is dead.** `generate_session_id()` and `create_session()` have been **removed** from `Agent`, and a `session_id=` kwarg passed to `run()` is **silently stripped from the payload** — the run executes statelessly with no error and no warning. Old code keeps "working" while quietly losing all memory. Use `session=` (see Sessions).
+> **Run-time `files=` ≠ constructor `files=`.** On `run()`, `files=` is a **deprecated alias for `attachments`** (per-run media, warns when used). On the constructor it means persistent File assets. Use `attachments=` for run inputs and reserve `files=` for the agent definition.
+
+> **`session_id=` is dead.** `generate_session_id()` and `create_session()` have been **removed** from `Agent`, and a `session_id=` kwarg passed to `run()` never reaches the run body — it travels only as an `x-session-id` correlation header, so the run executes **statelessly** with no error and no warning. Old code keeps "working" while quietly losing all memory. Use `session=` (see Sessions).
 
 **Async:**
 ```python
@@ -91,7 +93,7 @@ print(r.data.output)
 # or manual: while not (res := agent.poll(ar.url, timeout=600)).completed: time.sleep(5)
 ```
 
-`poll()` takes an optional `timeout` (seconds) and accepts a bare execution id as well as a full URL.
+`poll()` takes an optional `timeout` (seconds) and accepts a bare execution id as well as a full URL. The lower-level `AgentProgressTracker.stream_progress(url, …)` now takes `timeout` too (default **300s**, `None` for unbounded) and **raises `TimeoutError`** on expiry instead of returning an `IN_PROGRESS` response; its poll interval starts at 0.5s and backs off 10% per poll with jitter. `force_display=True/False` overrides TTY auto-detection, and `stop()` shuts the repaint thread down without printing a summary.
 
 **JSON output** requires both `output_format="json"` + `expected_output=<schema>` on the agent, and `run_response_generation=True` at run time — otherwise the backend rejects with `AX-VAL-1000`.
 
@@ -107,9 +109,11 @@ agent = aix.Agent(name="Governed", description="...",
 agent.budget.max_cost = 1.0          # or set field-by-field, then save()
 ```
 
-Every agent always has a `budget` object; leaving its fields `None` means no enforcement. Do **not** assume an SDK-side default of `5` iterations — that is a backend default, not the SDK's.
+Every agent always has a `budget` object; every field defaults to `None`, meaning **no cap until you set one**. (The docs used to claim a default of `5` iterations for agents and teams; they now say `None` — don't rely on an implicit cap.)
 
 > **Silent no-op:** `agent.max_iterations = 30` after construction never reaches the save payload — the value is lost without an error. Only `agent.budget.max_iterations = 30` works. (The constructor kwarg `max_iterations=` still works but is deprecated; if both are given, `budget` wins with a `UserWarning`.)
+
+> **Field-verified (not in the docs, not visible in signatures):** `max_cost` is **accepted and persisted but not enforced** at runtime — a run that exceeds it completes and bills normally. Treat `max_cost` as advisory. `max_duration_seconds` and `max_iterations` are the fields that actually bound a run.
 
 A per-run `execution_params={"budget": {...}}` is **overwritten** by the agent's own budget whenever that budget has any field set. To vary a budget per run, mutate `agent.budget.<field>` before `run()` (not persisted unless you `save()`).
 
@@ -136,13 +140,18 @@ agent.run("What is my name?", session=session)     # remembers; or session=sessi
 Persist per-session run config instead of repeating it on every call:
 
 ```python
-from aixplain.v2 import ExecutionConfig
+from aixplain.v2 import Budget, ExecutionConfig
 cfg = ExecutionConfig(execution_params={"max_tokens": 1024, "output_format": "text"},
-                      criteria="Be concise.", identifier="support-desk")   # also: evolve, run_response_generation, budget
+                      criteria="Be concise.", identifier="support-desk",
+                      budget=Budget(max_iterations=20))   # also: evolve, run_response_generation
 aix.Session(agent=agent, name="Configured", execution_config=cfg)
 ```
 
-Message management: `session.messages()`, `add_message(role, content, attachments=[...])`, `get_message(id)`, `delete_message(id)`, `react(message_id, reaction)`; plus `aix.Session.get/search(agent=, status=, …)`, `clone()`, `delete()`.
+`ExecutionConfig.budget` (a `Budget` or a dict) is the **session-scoped equivalent of `agent.budget`** — it serializes into `executionParams.budget`, so every message posted to the session runs under it. A deprecated `execution_params["max_iterations"]` is folded into that budget (the `Budget` wins) and never emitted on its own.
+
+Message management: `session.messages()`, `add_message(role, content, attachments=[...], tools=[...])`, `get_message(id)`, `delete_message(id)`, `react(message_id, "LIKE"|"DISLIKE"|None)` (assistant messages only); plus `clone()` and `delete()`. `content` may be empty when `attachments` carry the turn's input (e.g. an audio clip that *is* the prompt); each attachment entry is a URL string, a local path string (uploaded for you), or a dict with `url`/`path` plus optional `type`/`name`/`mimeType`.
+
+`aix.Session.search(...)` is the **only** listing route — there is no `agent.list_sessions()` and no `Session.list()`. Filters: `agent` (object or id), `status`, `user_id`, `created_after` / `created_before` (datetime or ISO str), `memory_enabled`, `page_number` (0-based), `page_size` (20). It returns a `Page`. Note `memory_enabled` is forwarded by the SDK but **the backend filter is not wired up yet**, so don't rely on it.
 
 **Constraints (enforced in the SDK):**
 
@@ -155,19 +164,68 @@ For durable cross-session / cross-agent memory, use the Shared Memory tool — s
 
 ## Skills
 
-A skill packages reusable expertise as a Claude-style folder (`SKILL.md` plus optional `scripts/` and `resources/`) uploaded as one asset. The frontmatter is parsed locally at construction time.
+A skill is a **Claude-style `SKILL.md`** — YAML frontmatter plus markdown instructions, optionally alongside `scripts/` and `resources/` — registered as one aiXplain asset. Author it from a local folder containing `SKILL.md`, or from a single `.md` file that *is* the `SKILL.md`. The frontmatter is parsed locally at construction time; no network call happens until `save()`.
+
+Routing works by **progressive disclosure**: the frontmatter `description` is the only signal the agent sees when deciding whether to use the skill; the body and resources load just-in-time at runtime. Make the `description` specific.
 
 ```python
 skill = aix.Skill(file_path="pdf-filler/", tags=["forms"], privacy=aix.Privacy.PRIVATE)
-skill.name            # from frontmatter `name`
-skill.description     # the ONLY field the agent sees for routing — make it specific
-skill.required_tools  # from frontmatter `requires:`
+skill = aix.Skill(file_path="calculator.md")    # ...or a single .md that IS the SKILL.md
+skill.name            # frontmatter `name`
+skill.description     # frontmatter `description` — the routing signal
+skill.required_tools  # frontmatter `requires:` (or `required_tools:`), a str or list
 skill.save()          # uploads the whole tree
 
 agent = aix.Agent(name="Forms Assistant", description="...", skills=[skill])   # Skill object or id str
 ```
 
-An unsaved skill raises `ValueError: All skills must be saved before saving the agent.` Same rule for `files=[...]` (`aix.File`). Other methods: `Skill.get/search`, `download()`, `clone()`, `update()`, `refresh()`, `list_files()`, `as_tool()`, `delete()`.
+An unsaved skill raises `ValueError: All skills must be saved before saving the agent.` Same rule for `files=[...]` (`aix.File`).
+
+- `save()` **re-parses `file_path` from disk on every call** — edit `SKILL.md` (or point `file_path` at new content) and re-save to push the change, including an edited frontmatter `name`/`description`. Caveat: the uploaded tree is added to and updated in place, so a file you **delete or rename locally is not removed** from the bundle.
+- `update(path, name=None)` pushes a **single** file or subfolder without re-uploading everything — e.g. `skill.update("./helper.py", "scripts/helper.py")`. Pushing a `SKILL.md` also rewrites the asset's `description`. `name` defaults to `os.path.basename(path)`; `list_files()` shows the paths you can target.
+- `Skill.get(id_or_path)` accepts an id or a workspace path (`"my-workspace/pdf-filler"`). `download(file_path=None)` writes the bundle to `./{name}.zip` by default. Also: `Skill.search(query, tags=, suppliers=, saved=)`, `clone()`, `refresh()`, `as_tool()` (wire type `"skill"`), `delete()`.
+
+## Files (persistent file / folder assets)
+
+`aix.File` is a **persistent** file or folder asset. Attach it once to an agent and every run can read it — no per-run upload. This is the opposite end from `attachments`, which are media for a single turn.
+
+One class covers three sources: a local file, a **local directory uploaded as one asset with its full tree**, and a **public HTTP(S) URL streamed to the platform on `save()`**. The constructor performs no network calls — it only inspects the source and infers `name` and `file_type`; other URL schemes raise `ValidationError: Unsupported File URL scheme`.
+
+```python
+notes    = aix.File("reference/internal_notes.txt", name="internal-notes.txt")
+handbook = aix.File("reference/policies", name="policy-handbook")   # whole tree, one asset
+logo     = aix.File("https://example.com/assets/company-logo.png")  # fetched on save()
+
+notes.save(); handbook.save()
+notes.file_type   # aix.FileType.FILE | aix.FileType.FOLDER   (notes.is_dir is the shorthand)
+notes.is_temp     # True until a successful save()
+notes.id, notes.url, notes.path     # path = the encoded asset path, also accepted by get()
+```
+
+`save()` walks a directory and uploads every descendant under one root asset, preserving nested paths and empty folders. Root File names must be unique within a team. Local-only attributes: `extension`, `size` (both `None` for URL and folder sources). The first arg is `source`, but `file_path=` is accepted as an alias (as is `File.create_from_file(path)`), so Skill-style code still works.
+
+```python
+folder = aix.File.get(handbook.id)        # or an encoded asset path, or an instance id
+folder.children                           # immediate children; full tree by default
+aix.File.get(handbook.id, recursive=False)   # root + immediate children only
+
+page = aix.File.search(query="policy", page_number=0, page_size=20,
+                       file_type=aix.FileType.FOLDER)   # -> Page; also sort=[{"field","dir"}]
+notes.download("downloads/internal_notes.txt")
+folder.download("downloads/policy-handbook")   # one ZIP request, extracted for you
+```
+
+`download()` requires a saved asset; if the destination is an existing directory the asset's own name is appended.
+
+Attach saved Files to an agent with the constructor's `files=` (objects or id strings). `agent.files` normalises to asset ids and survives a `save()` / `get()` round trip:
+
+```python
+agent = aix.Agent(name="Policy assistant", description="...",
+                  instructions="Answer only from the attached reference files.",
+                  files=[notes, handbook])
+agent.save()
+aix.Agent.get(agent.id).files        # ['6a3f…334', '6a3f…338']
+```
 
 ## Triggers (scheduled / event-driven runs)
 
@@ -194,9 +252,18 @@ aix.Trigger(name="Triage inbox", agent=agent,
             event=tool.triggers["NEW_EMAIL"]).save()
 ```
 
-Other kwargs: `notifications` (default `False`), `enabled` (default `True`). Standard `get`/`search`/`delete`.
+Other kwargs: `notifications` (default `False`), `enabled` (default `True`). Management:
 
-> The docs say time triggers report `trigger_type="scheduled"`; the SDK actually emits **`"time"`** (`triggerType: 'time'` in the save payload). Event triggers report `external` and carry a `trigger_id`.
+```python
+t = aix.Trigger.get("<id>")
+aix.Trigger.search(agent=agent)      # -> Page; also agent_id="…", page_number=…
+aix.Trigger.list()                   # same, but returns the results list directly
+t.schedule_type                      # once | daily | weekly | monthly | recurring (time triggers only)
+t.enabled = False; t.save()          # disable in place; True re-enables
+t.delete()                           # for an event trigger this also deactivates it upstream
+```
+
+> `trigger_type` is **`"time"`** for schedules (`triggerType: 'time'` in the save payload) and **`"external"`** for events, which also carry a `trigger_id` from the activated connection. The docs used to say `"scheduled"`; that was a docs bug and is now corrected — `"time"` is right. Only whitelisted fields are sent on save (the backend rejects anything else), so read-only attributes never round-trip.
 
 ## Debug: inspect the reasoning trace
 
@@ -226,7 +293,7 @@ team.save(save_subcomponents=True)     # REQUIRED for teams — saves subagents 
 print(team.run(query="Research quantum computing and write a summary").data.output)
 ```
 
-Give each subagent a **distinct `description`** — autonomous routing depends on it. Raise `team.budget.max_iterations` (e.g. 30–50) for complex teams, then `save()`.
+Give each subagent a **distinct `description`** — autonomous routing depends on it. Teams have no default iteration cap either, so **set** `team.budget.max_iterations` explicitly (e.g. 30–50) for multi-step plans, then `save()`.
 
 ### Structured workflow (deterministic task graph)
 
@@ -259,6 +326,8 @@ agent.save()
 ```
 
 > **`.llm` not `.llm_id`:** assign the model to `agent.llm`. The attribute `agent.llm_id` exists but assigning it does **not** propagate to the save payload — `save()` silently keeps the old model.
+
+> **Field-verified (not in the docs, not visible in signatures):** `agent.save()` can **reset the agent's LLM back to the platform default (GPT-5.4)**. After any save on an agent whose `llm` you set deliberately, re-read `agent.llm` and re-assign + re-save if it drifted. This has silently reverted model choices mid-project — always verify after the save, never before.
 
 You can also update an attached tool in place (no detach/reattach) — change its `description` or `allowed_actions`, call `tool.save()`, and the agent picks it up on the next run:
 
@@ -302,5 +371,9 @@ print(agent.name, agent.status, agent.tools)
 | Agent ignores a tool | Inspect `r.data.steps`; sharpen the tool's `name`/`description`. Keep total tool params low. |
 | Team subagent never used | Make each subagent `description` distinct; in structured mode confirm task assignment. |
 | Tasks run out of order | Declare every `dependencies` edge — missing edges are the usual cause. |
+| LLM reverted to the default (GPT-5.4) | Field-verified: `save()` can reset `agent.llm`. Re-read `agent.llm` **after** every save and re-assign + re-save if it drifted. |
+| Run blew past `budget.max_cost` | Field-verified: `max_cost` is persisted but **not enforced**. Bound runs with `max_duration_seconds` / `max_iterations`. |
+| `ValueError: All files must be saved before saving the agent` | `save()` each `aix.File` first — constructor `files=` takes saved assets only. |
+| Agent can't see a file you passed to `run()` | Run-time `files=` is a deprecated alias for per-run `attachments`. For permanent material use constructor `files=` (see Files). |
 | JSON rejected `AX-VAL-1000` | Need `output_format="json"` + `expected_output` + `run_response_generation=True`. |
 | `name_already_exists` on save | Rename, or ask the user whether to update the existing agent. |
