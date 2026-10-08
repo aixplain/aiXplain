@@ -21,8 +21,13 @@ Example usage:
     response = agent.run("Hello!")
     debug_result = response.debug()  # Uses default prompt
     debug_result = response.debug("Why did it take so long?")  # Custom prompt
+
+The debugger agent can be overridden per call with ``debugger_agent_id`` or by
+setting ``AIXPLAIN_DEBUGGER_AGENT_ID``. The explicit argument takes precedence,
+followed by the environment variable and then the default agent ID.
 """
 
+import os
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union, TYPE_CHECKING
 from dataclasses_json import dataclass_json, config
@@ -34,7 +39,22 @@ if TYPE_CHECKING:
 
 
 # Debugger agent ID - pre-configured aiXplain agent for debugging
-DEBUGGER_AGENT_ID = "696fdccad63e898317c097a0"
+DEBUGGER_AGENT_ID = "6a83989b20d5ce8082cdc775"
+
+
+def _resolve_debugger_agent_id(debugger_agent_id: Optional[str] = None) -> str:
+    """Resolve the debugger agent ID using the configured precedence.
+
+    Args:
+        debugger_agent_id: Optional explicit debugger agent ID.
+
+    Returns:
+        The explicit ID, the call-time environment override, or the default ID.
+    """
+    if debugger_agent_id is not None:
+        return debugger_agent_id
+
+    return os.getenv("AIXPLAIN_DEBUGGER_AGENT_ID") or DEBUGGER_AGENT_ID
 
 
 @dataclass_json
@@ -85,6 +105,9 @@ class Debugger:
     The Debugger uses a pre-configured aiXplain agent to provide insights into
     agent runs, errors, and potential improvements.
 
+    The debugger agent can be overridden per call with ``debugger_agent_id`` or
+    by setting ``AIXPLAIN_DEBUGGER_AGENT_ID``.
+
     Attributes:
         context: The Aixplain client context for API access.
 
@@ -115,8 +138,11 @@ class Debugger:
                 "Use: aix = Aixplain('<api_key>'); debugger = aix.Debugger()"
             )
 
-    def _get_debugger_agent(self) -> Any:
+    def _get_debugger_agent(self, debugger_agent_id: Optional[str] = None) -> Any:
         """Get the pre-configured debugger agent.
+
+        Args:
+            debugger_agent_id: Optional explicit debugger agent ID.
 
         Returns:
             The debugger Agent instance.
@@ -125,12 +151,13 @@ class Debugger:
 
         # Create a dynamically bound Agent class with our context
         BoundAgent = type("Agent", (Agent,), {"context": self.context})
-        return BoundAgent.get(DEBUGGER_AGENT_ID)
+        return BoundAgent.get(_resolve_debugger_agent_id(debugger_agent_id))
 
     def run(
         self,
         content: Optional[str] = None,
         prompt: Optional[str] = None,
+        debugger_agent_id: Optional[str] = None,
         **kwargs: Any,
     ) -> DebugResult:
         """Run the debugger on provided content.
@@ -143,6 +170,9 @@ class Debugger:
                     error messages, or any text requiring analysis.
             prompt: Optional custom prompt to guide the debugging analysis.
                    If not provided, uses a default debugging prompt.
+            debugger_agent_id: Optional debugger agent ID override. If not provided,
+                               uses AIXPLAIN_DEBUGGER_AGENT_ID at call time, then the
+                               default debugger agent ID.
             **kwargs: Additional parameters to pass to the underlying agent.
 
         Returns:
@@ -157,7 +187,7 @@ class Debugger:
         query = self._build_query(content=content, prompt=prompt)
 
         # Get the debugger agent and run
-        agent = self._get_debugger_agent()
+        agent = self._get_debugger_agent(debugger_agent_id=debugger_agent_id)
         kwargs.setdefault("run_response_generation", True)
         agent_result = agent.run(query=query, **kwargs)
 
@@ -169,6 +199,7 @@ class Debugger:
         response: "AgentRunResult",
         prompt: Optional[str] = None,
         execution_id: Optional[str] = None,
+        debugger_agent_id: Optional[str] = None,
         **kwargs: Any,
     ) -> DebugResult:
         """Debug an agent response.
@@ -183,6 +214,9 @@ class Debugger:
                          extracted from the response's request_id or poll URL.
                          The execution_id allows the debugger to fetch additional
                          information like logs from the backend.
+            debugger_agent_id: Optional debugger agent ID override. If not provided,
+                               uses AIXPLAIN_DEBUGGER_AGENT_ID at call time, then the
+                               default debugger agent ID.
             **kwargs: Additional parameters to pass to the underlying agent.
 
         Returns:
@@ -199,7 +233,7 @@ class Debugger:
         content = self._serialize_response(response, execution_id_override=execution_id)
 
         # Run debugging with the serialized content
-        return self.run(content=content, prompt=prompt, **kwargs)
+        return self.run(content=content, prompt=prompt, debugger_agent_id=debugger_agent_id, **kwargs)
 
     def _build_query(
         self,
