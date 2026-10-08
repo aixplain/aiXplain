@@ -3,6 +3,7 @@
 import requests
 import inspect
 import logging
+import re
 import time
 import reprlib
 from datetime import datetime
@@ -22,6 +23,8 @@ from typing import (
     runtime_checkable,
     Union,
     Callable,
+    Iterable,
+    Iterator,
 )
 from typing_extensions import Unpack, NotRequired
 from functools import wraps
@@ -308,6 +311,41 @@ def _flatten_asset_info(data: dict) -> dict:
             elif "assetPath" in asset_info:
                 data["path"] = asset_info.get("assetPath")
     return data
+
+
+_OBJECT_ID = re.compile(r"[0-9a-fA-F]{24}")
+
+
+def _dedupe_ids(ids: Iterable[str]) -> List[str]:
+    """Drop repeated ids, keeping first-seen order."""
+    return list(dict.fromkeys(ids))
+
+
+def _chunked(items: List[str], size: int) -> Iterator[List[str]]:
+    """Yield consecutive slices of ``items`` of at most ``size`` elements."""
+    for i in range(0, len(items), size):
+        yield items[i : i + size]
+
+
+def _key_batch_results(requested: List[str], failed: Iterable[str], results: List[Any]) -> List[Tuple[str, dict]]:
+    """Pair each batch result row with the key it was requested under.
+
+    The backend returns results in request order with unserved keys removed, so
+    the served keys zip with ``results``. ObjectId keys are checked against the
+    row's ``id``; on any mismatch every row is keyed by its own ``id`` instead.
+    """
+    failed = set(failed)
+    served = [k for k in requested if k not in failed]
+    if len(served) == len(results) and all(
+        isinstance(r, dict) and (not _OBJECT_ID.fullmatch(k) or r.get("id") == k) for k, r in zip(served, results)
+    ):
+        return list(zip(served, results))
+    logger.warning(
+        "Batch results do not line up with the requested ids (%d served, %d returned); keying by row id",
+        len(served),
+        len(results),
+    )
+    return [(r["id"], r) for r in results if isinstance(r, dict) and r.get("id")]
 
 
 class BaseMixin:
@@ -1406,10 +1444,14 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         # ``delete`` (BUG-1091).
         kwargs = {k: v for k, v in kwargs.items() if k not in _SDK_REQUEST_KEYS}
 
-        obj = context.client.get(path, **kwargs)
+        return cls._from_row(context.client.get(path, **kwargs), context, id=id)
 
-        # Flatten assetInfo structure before deserialization
-        obj = _flatten_asset_info(dict(obj)) if isinstance(obj, dict) else obj
+    @classmethod
+    def _from_row(cls: type, row: Any, context: Any, id: Any = None) -> ResourceT:
+        """Build an instance from a backend row, exactly as ``get`` returns it."""
+        # Flatten assetInfo structure before deserialization; the shallow copy
+        # leaves the caller's raw row untouched.
+        obj = _flatten_asset_info(dict(row)) if isinstance(row, dict) else row
 
         if isinstance(cls, HasFromDict):
             try:

@@ -23,6 +23,7 @@ attached to agents the same way tools are::
     skill.download(file_path="./pdf-filler.zip")   # ...or an explicit path
 """
 
+import logging
 import os
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
@@ -42,10 +43,19 @@ from .resource import (
     DeleteResourceMixin,
     Page,
     _filter_values,
+    _chunked,
+    _dedupe_ids,
+    _key_batch_results,
 )
+from .client import TimeoutType
 from .enums import Privacy
+from .exceptions import ResourceError
 from .mixins import ToolableMixin
 from .upload_utils import FileUploader
+
+logger = logging.getLogger(__name__)
+
+MAX_SKILL_BATCH_SIZE = 100
 
 
 def _exclude(_: Any) -> bool:
@@ -89,6 +99,16 @@ class SkillSearchParams(BaseSearchParams):
     tags: NotRequired[List[str]]
     suppliers: NotRequired[List[str]]
     saved: NotRequired[bool]
+
+
+@dataclass
+class SkillBatch:
+    """Result of :meth:`Skill.get_many`, keyed by the requested id or path."""
+
+    skills: Dict[str, "Skill"] = field(default_factory=dict)
+    rows: Dict[str, dict] = field(default_factory=dict)
+    not_found: List[str] = field(default_factory=list)
+    forbidden: List[str] = field(default_factory=list)
 
 
 @dataclass_json
@@ -221,6 +241,47 @@ class Skill(
     def get(cls: type["Skill"], id: str, **kwargs: Unpack[BaseGetParams]) -> "Skill":
         """Get a skill by path or id."""
         return super().get(id, **kwargs)
+
+    @classmethod
+    def get_many(cls, ids: List[str], *, timeout: Optional[TimeoutType] = None) -> SkillBatch:
+        """Fetch skills by id, asset path or instance id in batches of at most 100.
+
+        Args:
+            ids: Skill keys. Duplicates are dropped, order is kept.
+            timeout: Per-request timeout; the client default applies when omitted.
+
+        Returns:
+            SkillBatch: Parsed skills and their raw backend rows, keyed by the
+            requested key, plus the keys the backend did not find or forbade.
+            A row that fails to deserialize is reported in ``not_found``.
+
+        Raises:
+            APIError: Unchanged from the client on a failed request, so a backend
+                without the batch route (404/405) can fall back to per-id ``get``.
+        """
+        batch = SkillBatch()
+        if not ids:
+            return batch
+        context = getattr(cls, "context", None)
+        if context is None:
+            raise ResourceError("Context is required for resource operations")
+        request_kwargs = {"timeout": timeout} if timeout is not None else {}
+
+        for chunk in _chunked(_dedupe_ids(ids), MAX_SKILL_BATCH_SIZE):
+            response = context.client.post(f"{cls.RESOURCE_PATH}/batch", json={"ids": chunk}, **request_kwargs)
+            not_found = list(response.get("notFound") or [])
+            forbidden = list(response.get("forbidden") or [])
+            batch.not_found.extend(not_found)
+            batch.forbidden.extend(forbidden)
+            for key, row in _key_batch_results(chunk, not_found + forbidden, response.get("results") or []):
+                try:
+                    batch.skills[key] = cls._from_row(row, context, id=key)
+                except Exception as e:
+                    logger.warning(f"Skipping skill '{key}' from batch: {e}")
+                    batch.not_found.append(key)
+                    continue
+                batch.rows[key] = row
+        return batch
 
     @classmethod
     def search(

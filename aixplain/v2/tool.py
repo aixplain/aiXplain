@@ -6,7 +6,7 @@ import textwrap
 import logging
 import re
 import warnings
-from typing import Callable, Union, List, Optional, Any
+from typing import Callable, Dict, Union, List, Optional, Any
 from typing_extensions import Unpack
 from dataclasses_json import dataclass_json, config as dj_config
 from dataclasses import dataclass, field
@@ -19,13 +19,19 @@ from .resource import (
     DeleteResourceMixin,
     BaseDeleteParams,
     DeleteResult,
+    _chunked,
+    _dedupe_ids,
+    _key_batch_results,
 )
-from .exceptions import APIError
+from .client import TimeoutType
+from .exceptions import APIError, ResourceError
 from .model import Model, ModelRunParams
 from .integration import Integration, ActionSpec, ActionMixin
 from .actions import Actions
 
 logger = logging.getLogger(__name__)
+
+MAX_TOOL_BATCH_SIZE = 100
 
 
 def _is_transport_failure(exc: BaseException) -> bool:
@@ -55,6 +61,15 @@ class ToolResult(Result):
     """Result for a tool."""
 
     pass
+
+
+@dataclass
+class ToolBatch:
+    """Result of :meth:`Tool.get_many`, keyed by the requested id or path."""
+
+    tools: Dict[str, "Tool"] = field(default_factory=dict)
+    rows: Dict[str, dict] = field(default_factory=dict)
+    missing: List[str] = field(default_factory=list)
 
 
 @dataclass_json
@@ -187,6 +202,44 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
     def inputs(self, value):
         """Prevent setting inputs directly on tools."""
         raise AttributeError("Tools have multiple actions — use tool.actions['action_name'].inputs instead")
+
+    @classmethod
+    def get_many(cls, ids: List[str], *, timeout: Optional[TimeoutType] = None) -> ToolBatch:
+        """Fetch tools by id or asset path in batches of at most 100.
+
+        Args:
+            ids: Tool ids or asset paths. Duplicates are dropped, order is kept.
+            timeout: Per-request timeout; the client default applies when omitted.
+
+        Returns:
+            ToolBatch: Parsed tools and their raw backend rows, keyed by the
+            requested id or path, plus every requested key that was not served.
+
+        Raises:
+            APIError: Unchanged from the client on a failed request, so a backend
+                without the batch route (404/405) can fall back to per-id ``get``.
+        """
+        batch = ToolBatch()
+        if not ids:
+            return batch
+        context = getattr(cls, "context", None)
+        if context is None:
+            raise ResourceError("Context is required for resource operations")
+        request_kwargs = {"timeout": timeout} if timeout is not None else {}
+
+        for chunk in _chunked(_dedupe_ids(ids), MAX_TOOL_BATCH_SIZE):
+            response = context.client.get(cls.RESOURCE_PATH, params={"ids": ",".join(chunk)}, **request_kwargs)
+            missing = list(response.get("missing") or [])
+            batch.missing.extend(missing)
+            for key, row in _key_batch_results(chunk, missing, response.get("results") or []):
+                try:
+                    batch.tools[key] = cls._from_row(row, context, id=key)
+                except Exception as e:
+                    logger.warning(f"Skipping tool '{key}' from batch: {e}")
+                    batch.missing.append(key)
+                    continue
+                batch.rows[key] = row
+        return batch
 
     # ------------------------------------------------------------------
     # Action / Input listing (with integration fallback)
