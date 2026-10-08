@@ -15,8 +15,8 @@ from .agent import (
     Task,
     TaskDict,
 )
-from .tool import Tool
-from .skill import Skill
+from .tool import Tool, ToolBatch
+from .skill import Skill, SkillBatch
 from .actions import Input, Inputs, Action, Actions
 from .integration import TriggerTypeSpec, TriggerEventOption, TriggerTypes
 from .trigger import (
@@ -170,7 +170,9 @@ __all__ = [
     "Task",
     "TaskDict",
     "Tool",
+    "ToolBatch",
     "Skill",
+    "SkillBatch",
     "File",
     "Page",
     "Graph",
