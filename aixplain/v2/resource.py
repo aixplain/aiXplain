@@ -321,6 +321,13 @@ def _dedupe_ids(ids: Iterable[str]) -> List[str]:
     return list(dict.fromkeys(ids))
 
 
+def _split_blank_ids(ids: Union[str, Iterable[str]]) -> Tuple[List[str], List[Any]]:
+    """Dedupe ``ids`` and split off blank entries; a bare string counts as one id."""
+    keys = _dedupe_ids([ids] if isinstance(ids, str) else ids)
+    blank = [k for k in keys if not isinstance(k, str) or not k.strip()]
+    return [k for k in keys if k not in blank], blank
+
+
 def _chunked(items: List[str], size: int) -> Iterator[List[str]]:
     """Yield consecutive slices of ``items`` of at most ``size`` elements."""
     for i in range(0, len(items), size):

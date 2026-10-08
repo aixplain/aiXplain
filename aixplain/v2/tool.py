@@ -3,6 +3,7 @@
 import ast
 import inspect
 import textwrap
+import copy
 import logging
 import re
 import warnings
@@ -20,7 +21,7 @@ from .resource import (
     BaseDeleteParams,
     DeleteResult,
     _chunked,
-    _dedupe_ids,
+    _split_blank_ids,
     _key_batch_results,
 )
 from .client import TimeoutType
@@ -227,13 +228,18 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             raise ResourceError("Context is required for resource operations")
         request_kwargs = {"timeout": timeout} if timeout is not None else {}
 
-        for chunk in _chunked(_dedupe_ids(ids), MAX_TOOL_BATCH_SIZE):
+        keys, blank = _split_blank_ids(ids)
+        # The backend rejects the whole request on a blank id.
+        batch.missing.extend(blank)
+
+        for chunk in _chunked(keys, MAX_TOOL_BATCH_SIZE):
             response = context.client.get(cls.RESOURCE_PATH, params={"ids": ",".join(chunk)}, **request_kwargs)
             missing = list(response.get("missing") or [])
             batch.missing.extend(missing)
             for key, row in _key_batch_results(chunk, missing, response.get("results") or []):
                 try:
-                    batch.tools[key] = cls._from_row(row, context, id=key)
+                    # Deep copy so a mutated handle cannot leak into the cached raw row.
+                    batch.tools[key] = cls._from_row(copy.deepcopy(row), context, id=key)
                 except Exception as e:
                     logger.warning(f"Skipping tool '{key}' from batch: {e}")
                     batch.missing.append(key)

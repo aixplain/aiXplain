@@ -71,6 +71,35 @@ class TestToolGetMany:
         assert list(batch.rows) == [a, b]
         assert batch.missing == []
 
+    def test_bare_string_is_one_id(self, aix):
+        a = _oid(1)
+        aix.client.get = Mock(return_value={"results": [_tool_row(a)], "missing": []})
+
+        batch = aix.Tool.get_many(a)
+
+        aix.client.get.assert_called_once_with("v2/tools", params={"ids": a})
+        assert list(batch.tools) == [a]
+
+    def test_blank_ids_go_to_missing_without_reaching_backend(self, aix):
+        a = _oid(1)
+        aix.client.get = Mock(return_value={"results": [_tool_row(a)], "missing": []})
+
+        batch = aix.Tool.get_many(["", a, "  "])
+
+        aix.client.get.assert_called_once_with("v2/tools", params={"ids": a})
+        assert list(batch.tools) == [a]
+        assert batch.missing == ["", "  "]
+
+    def test_mutating_tool_leaves_raw_row_untouched(self, aix):
+        a = _oid(1)
+        row = {**_tool_row(a), "config": {"nested": {"k": "v"}}}
+        aix.client.get = Mock(return_value={"results": [row], "missing": []})
+
+        batch = aix.Tool.get_many([a])
+        batch.tools[a].config["nested"]["k"] = "changed"
+
+        assert batch.rows[a]["config"] == {"nested": {"k": "v"}}
+
     def test_250_ids_are_split_into_three_requests(self, aix):
         ids = [_oid(i) for i in range(250)]
         aix.client.get = Mock(side_effect=_echo_tools)
@@ -229,6 +258,25 @@ class TestSkillGetMany:
 
         assert aix.client.post.call_args.kwargs["json"] == {"ids": [b, a]}
         assert list(batch.skills) == [b, a]
+
+    def test_blank_ids_go_to_not_found_without_reaching_backend(self, aix):
+        a = _oid(1)
+        aix.client.post = Mock(side_effect=_echo_skills)
+
+        batch = aix.Skill.get_many([a, " "])
+
+        assert aix.client.post.call_args.kwargs["json"] == {"ids": [a]}
+        assert batch.not_found == [" "]
+
+    def test_mutating_skill_leaves_raw_row_untouched(self, aix):
+        a = _oid(1)
+        aix.client.post = Mock(side_effect=_echo_skills)
+
+        batch = aix.Skill.get_many([a])
+        batch.skills[a].name = "changed"
+
+        assert batch.rows[a]["name"] == f"skill-{a[-4:]}"
+        assert batch.rows[a]["assetInfo"] == {"instanceId": f"team/skill-{a[-4:]}"}
 
     def test_not_found_and_forbidden_are_passed_through(self, aix):
         a, b, c, d = _oid(1), _oid(2), _oid(3), _oid(4)

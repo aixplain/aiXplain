@@ -23,6 +23,7 @@ attached to agents the same way tools are::
     skill.download(file_path="./pdf-filler.zip")   # ...or an explicit path
 """
 
+import copy
 import logging
 import os
 import warnings
@@ -44,7 +45,7 @@ from .resource import (
     Page,
     _filter_values,
     _chunked,
-    _dedupe_ids,
+    _split_blank_ids,
     _key_batch_results,
 )
 from .client import TimeoutType
@@ -267,7 +268,11 @@ class Skill(
             raise ResourceError("Context is required for resource operations")
         request_kwargs = {"timeout": timeout} if timeout is not None else {}
 
-        for chunk in _chunked(_dedupe_ids(ids), MAX_SKILL_BATCH_SIZE):
+        keys, blank = _split_blank_ids(ids)
+        # The backend rejects the whole request on a blank id.
+        batch.not_found.extend(blank)
+
+        for chunk in _chunked(keys, MAX_SKILL_BATCH_SIZE):
             response = context.client.post(f"{cls.RESOURCE_PATH}/batch", json={"ids": chunk}, **request_kwargs)
             not_found = list(response.get("notFound") or [])
             forbidden = list(response.get("forbidden") or [])
@@ -275,7 +280,8 @@ class Skill(
             batch.forbidden.extend(forbidden)
             for key, row in _key_batch_results(chunk, not_found + forbidden, response.get("results") or []):
                 try:
-                    batch.skills[key] = cls._from_row(row, context, id=key)
+                    # Deep copy so a mutated handle cannot leak into the cached raw row.
+                    batch.skills[key] = cls._from_row(copy.deepcopy(row), context, id=key)
                 except Exception as e:
                     logger.warning(f"Skipping skill '{key}' from batch: {e}")
                     batch.not_found.append(key)
