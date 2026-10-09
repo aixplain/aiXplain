@@ -28,6 +28,7 @@ pre-commit on every branch push, so drift is caught when the YAML is edited.
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import os
@@ -265,12 +266,39 @@ def test_runs_of_the_same_pr_share_a_group_and_cancel_each_other():
     Every label starts a run (see the `labeled` test above), and the matrix is one
     leg per functional test file against a shared backend.
     """
-    first = _concurrency("pull_request", event={"pull_request": {"number": 7}}, run_id=1, ref="refs/pull/7/merge")
-    second = _concurrency("pull_request", event={"pull_request": {"number": 7}}, run_id=2, ref="refs/pull/7/merge")
-    other = _concurrency("pull_request", event={"pull_request": {"number": 8}}, run_id=3, ref="refs/pull/8/merge")
+    pr_7 = {"action": "synchronize", "pull_request": {"number": 7}}
+    first = _concurrency("pull_request", event=pr_7, run_id=1, ref="refs/pull/7/merge")
+    second = _concurrency("pull_request", event=pr_7, run_id=2, ref="refs/pull/7/merge")
+    pr_8 = {"action": "synchronize", "pull_request": {"number": 8}}
+    other = _concurrency("pull_request", event=pr_8, run_id=3, ref="refs/pull/8/merge")
     assert first[0] == second[0], f"two runs of PR #7 land in different groups: {first[0]!r} vs {second[0]!r}"
     assert first[0] != other[0], f"PR #7 and PR #8 share a concurrency group ({first[0]!r})"
     assert first[1] == "true", "a newer run on a PR does not cancel the superseded one"
+
+
+@pytest.mark.parametrize(
+    ("action", "label", "cancels"),
+    [
+        ("synchronize", None, "true"),
+        ("labeled", FUNCTIONAL_LABEL, "true"),
+        ("labeled", "bug", "false"),
+        ("labeled", "needs-review", "false"),
+    ],
+    ids=["push", "functional-label", "unrelated-label", "another-unrelated-label"],
+)
+def test_only_new_code_or_the_functional_label_cancels_a_running_matrix(action: str, label, cancels: str):
+    """Labelling a PR `bug` must not throw away a matrix that is halfway through.
+
+    The run still joins the PR's group, so it queues behind the current one rather
+    than running beside it on the shared backend.
+    """
+    event = {"action": action, "pull_request": {"number": 7}}
+    if label is not None:
+        event["label"] = {"name": label}
+    group, cancel = _concurrency("pull_request", event=event, run_id=9, ref="refs/pull/7/merge")
+    plain, _ = _concurrency("pull_request", event={"pull_request": {"number": 7}}, run_id=1, ref="refs/pull/7/merge")
+    assert group == plain, f"a `{action}` run left the PR's concurrency group: {group!r} vs {plain!r}"
+    assert cancel == cancels, f"a `{action}` run with label {label!r} has cancel-in-progress={cancel!r}"
 
 
 @pytest.mark.parametrize("event", ["push", "schedule", "workflow_dispatch"])
@@ -471,10 +499,27 @@ def test_the_label_overrides_the_paths(pr_repo, labels: list, expected: str):
         (["tests/functional/v2/test_agent.py"], "true"),
         (["pyproject.toml"], "true"),
         (["tests/conftest.py"], "true"),
+        (["tests/ci_guards.py"], "true"),
+        (["tests/cleanup_guards.py"], "true"),
+        (["pytest.ini"], "true"),
         ([".github/workflows/main.yaml"], "true"),
-        (["tests/unit/test_x.py", "docs/pyproject.toml", "tests/conftest.py.bak"], "false"),
+        (
+            ["tests/unit/test_x.py", "docs/pyproject.toml", "tests/conftest.py.bak", "docs/pytest.ini"],
+            "false",
+        ),
     ],
-    ids=["docs-only", "sdk", "functional-suite", "pyproject", "root-conftest", "workflow", "near-misses"],
+    ids=[
+        "docs-only",
+        "sdk",
+        "functional-suite",
+        "pyproject",
+        "root-conftest",
+        "ci-guards",
+        "cleanup-guards",
+        "pytest-ini",
+        "workflow",
+        "near-misses",
+    ],
 )
 def test_the_paths_decide_a_same_repo_pr(pr_repo, paths: list, expected: str):
     repo, base, commit_paths = pr_repo
@@ -717,30 +762,55 @@ def _env_step_writes(tmp_path: Path, **values: str) -> dict:
     return dict(line.split("=", 1) for line in github_env.read_text().splitlines() if "=" in line)
 
 
+def _is_unconditional_skip(decorator: ast.expr) -> bool:
+    """`@pytest.mark.skip` or `@pytest.mark.skip(...)` -- not `skipif`, which may run."""
+    target = decorator.func if isinstance(decorator, ast.Call) else decorator
+    return isinstance(target, ast.Attribute) and target.attr == "skip" and ast.unparse(target) == "pytest.mark.skip"
+
+
+def _runs_a_slack_token_test(path: Path) -> bool:
+    """Whether *path* has a test that requests `slack_token` and is not skipped outright.
+
+    Only test functions are considered: they are where the fixture is requested,
+    and a test that always skips never reads the token, so its leg need not hold it.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    module_skipped = any(
+        isinstance(node, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in node.targets)
+        and _is_unconditional_skip(node.value)
+        for node in tree.body
+    )
+    if module_skipped:
+        return False
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test"):
+            requests = any(arg.arg == "slack_token" for arg in node.args.args)
+            if requests and not any(_is_unconditional_skip(d) for d in node.decorator_list):
+                return True
+    return False
+
+
 def test_only_the_legs_that_read_slack_token_are_handed_it():
     """Least privilege: a same-repo PR runs unreviewed dependency changes in every leg.
 
     So SLACK_TOKEN expands only on legs with `slack: true`, and those must be
-    exactly the legs whose test file uses the `slack_token` fixture -- a leg that
-    starts reading it without the key would skip its Slack tests, and a key left
-    on a leg that stopped reading it is a token held for nothing.
+    exactly the legs that run a test using the `slack_token` fixture -- a leg that
+    starts reading it without the key would fail its Slack tests, and a key left
+    on a leg whose only reader is skipped is a token held for nothing.
     """
     value = str((_functional_env_step().get("env") or {}).get("SLACK_TOKEN", ""))
     assert "secrets.SLACK_TOKEN" in value, f"the functional env step no longer reads SLACK_TOKEN ({value!r})"
     assert MAIN_WORKFLOW.read_text().count("secrets.SLACK_TOKEN") == 1, "SLACK_TOKEN is read outside the gated entry"
 
-    readers = {
-        entry["suite"]
-        for entry in _include()
-        if "slack_token" in (REPO_ROOT / entry["path"].split()[0]).read_text(encoding="utf-8")
-    }
+    readers = {entry["suite"] for entry in _include() if _runs_a_slack_token_test(REPO_ROOT / entry["path"].split()[0])}
     assert readers, "no functional leg uses the `slack_token` fixture any more; drop SLACK_TOKEN and this test"
     for entry in _include():
         rendered = _render(value.replace("secrets.SLACK_TOKEN", "'<secret>'"), {}, matrix=entry)
         expected = "<secret>" if entry["suite"] in readers else ""
         assert rendered == expected, (
             f"the `{entry['suite']}` leg gets SLACK_TOKEN={rendered!r}; expected {expected!r} because it "
-            f"{'reads' if expected else 'does not read'} the `slack_token` fixture. Set or drop `slack: true`."
+            f"{'runs' if expected else 'runs no'} test using the `slack_token` fixture. Set or drop `slack: true`."
         )
 
 

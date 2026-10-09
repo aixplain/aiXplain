@@ -19,7 +19,8 @@ on:
   # too, and that run goes through the same path-based decision as a push would;
   # it is not short-circuited to "skip", because a skipped run on the same SHA
   # would then be the latest word on a PR whose previous run was red. The
-  # `concurrency:` block below is what bounds the cost of a label storm.
+  # `concurrency:` block below is what bounds the cost of a label storm, and it
+  # does not let an unrelated label cancel a matrix that is already running.
   pull_request:
     types: [opened, synchronize, reopened, labeled]
   # Nightly against the test backend. The functional legs are the only coverage
@@ -64,7 +65,15 @@ concurrency:
     ${{ github.workflow }}-${{ github.event_name == 'pull_request'
     && format('pr-{0}', github.event.pull_request.number)
     || format('run-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # An unrelated label (`bug`, `needs-review`) must not cancel a matrix that is
+  # already running: with plain cancel-in-progress, labelling a PR threw away up
+  # to ~25 legs of work and started them again. Such a run still joins the PR's
+  # group, so it waits as the one pending run and starts when the current one
+  # ends; a push or the `functional-tests` label in the meantime replaces it, and
+  # that run does cancel, because it is new code or an explicit request.
+  cancel-in-progress: >-
+    ${{ github.event_name == 'pull_request'
+    && (github.event.action != 'labeled' || github.event.label.name == 'functional-tests') }}
 
 env:
   # Coverage floor for the unit suite, enforced by the `unit-coverage` job.
@@ -355,9 +364,16 @@ jobs:
           # What can change a functional result from inside this repository: the
           # SDK itself, the suites, the dependency pins and test extras
           # (pyproject.toml -- dependency bumps are the classic way functional
-          # behaviour breaks), the root conftest every leg loads, and this
+          # behaviour breaks), the shared harness every leg loads, and this
           # workflow, which builds the legs' environment.
-          paths='^(aixplain/|tests/functional/|tests/conftest\.py$|pyproject\.toml$|\.github/workflows/main\.yaml$)'
+          #
+          # The harness is every module directly under tests/ (the root conftest,
+          # and the ci_guards / cleanup_guards modules it and `resource_tracker`
+          # import) plus pytest.ini, which carries `--strict-markers` and the
+          # marker registry. Naming only tests/conftest.py let a PR that touched
+          # just one of the others skip the matrix and pass `functional-result`
+          # green, although it could break every leg.
+          paths='^(aixplain/|tests/functional/|tests/[^/]+\.py$|pytest\.ini$|pyproject\.toml$|\.github/workflows/main\.yaml$)'
 
           # Three dots: the merge base, so commits that landed on the base branch
           # after the PR opened are not counted as the PR's own changes.
@@ -462,10 +478,12 @@ jobs:
         # contexts stay `functional (agent)`. Besides `path` and `timeout`, two
         # optional keys:
         #
-        # - `slack: true` -- the leg reads SLACK_TOKEN (the `slack_token` fixture
-        #   in tests/functional/v2/conftest.py). Only these legs are handed the
-        #   token; a same-repository PR runs unreviewed dependency changes in
-        #   every leg, and a leg that never uses the token should not hold it.
+        # - `slack: true` -- the leg runs a test that reads SLACK_TOKEN (the
+        #   `slack_token` fixture in tests/functional/v2/conftest.py); a test under
+        #   an unconditional `pytest.mark.skip` does not count. Only these legs are
+        #   handed the token; a same-repository PR runs unreviewed dependency
+        #   changes in every leg, and a leg that never uses the token should not
+        #   hold it.
         # - `prod_safe: false` -- the leg has side effects production cannot undo,
         #   so "Run Tests" skips it on production runs. See that step.
         include:
@@ -481,7 +499,8 @@ jobs:
           - suite: 'agent-lifecycle'
             path: 'tests/functional/v2/test_agent_lifecycle.py -n 2'
             timeout: 45
-            slack: true
+            # No `slack: true`: its one Slack test is skipped for BUG-1098. Add the
+            # key back when that skip goes; the unit guard fails until you do.
           - suite: 'agent-llm-persistence'
             path: 'tests/functional/v2/test_agent_llm_persistence.py'
             timeout: 30
