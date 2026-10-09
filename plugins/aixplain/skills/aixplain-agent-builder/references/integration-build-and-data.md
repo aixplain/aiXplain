@@ -150,15 +150,15 @@ MimeTypeDetector.EXTENSION_MAPPING[".html"] = "text/html"
 MimeTypeDetector.EXTENSION_MAPPING[".zip"] = "application/zip"
 ```
 
-When a tool config needs an uploaded resource URL, construction alone does not upload. Call `.save()` and then read `.url`:
+When a tool config needs an uploaded file's URL, construction alone does not upload. Call `.save()` and then request a signed url — file assets never carry a stable url:
 
 ```python
-resource = aix.Resource(name="Input Database", file_path="/absolute/path/to/data.db")
-resource.save()
-assert resource.url
+document = aix.File(source="/absolute/path/to/data.db", name="Input Database")
+document.save()
+assert document.get_signed_url()
 ```
 
-`aix.Resource.create_from_file(...)` only constructs the object in `0.2.47`; its URL remains empty until `.save()` uploads it.
+`aix.File` is the class name (`aix.Resource` is a deprecated alias). There is no `create_from_file(...)` — the constructor is the only way to build one.
 
 For deliverables, the File Manager tool is preferred:
 

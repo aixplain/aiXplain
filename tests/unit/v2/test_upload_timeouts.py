@@ -14,8 +14,9 @@ import pytest
 import requests
 
 from aixplain.v2.client import DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ
-from aixplain.v2.exceptions import FileUploadError
-from aixplain.v2.upload_utils import FileUploader, RequestManager
+from aixplain import FileUploadError
+from aixplain import FileUploader
+from aixplain.v2.upload_utils import RequestManager
 
 # ``blackhole_url`` comes from tests/unit/conftest.py.
 

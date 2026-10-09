@@ -4,8 +4,10 @@ import json
 import logging
 import re
 import warnings
+from copy import deepcopy
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
@@ -13,11 +15,16 @@ from dataclasses_json import dataclass_json, config
 
 from pydantic import BaseModel
 
-from .enums import AssetStatus, ResponseStatus
+from ._expected_output import expected_output_to_wire
+from .enums import AssetStatus, AssetStatusValue, ResponseStatus
 from .model import Model
 from .file import File
 from .skill import Skill
+from .graph import Graph, GraphDict, StaticGraphStrategy, StaticGraphStrategyDict
+from .exceptions import ValidationError
 from .mixins import ToolableMixin
+from .plain_data import coerce_struct_list, struct_fields
+from .exceptions import ValidationError
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
@@ -40,6 +47,19 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+#: The string form of :class:`OutputFormat`, accepted anywhere the enum is.
+OutputFormatValue = Literal["markdown", "text", "json"]
+
+#: The string form of :class:`ContextOverflowStrategy`, accepted anywhere the
+#: enum is -- ``agent.context_overflow_strategy = "summarize"``.
+ContextOverflowStrategyValue = Literal["truncate", "summarize"]
+
+#: The string form of :class:`~aixplain.v2.agent_progress.ProgressFormat`. Defined
+#: here rather than imported: ``agent_progress`` imports from this module, so the
+#: annotation below could not resolve the other way round.
+ProgressFormatValue = Literal["status", "logs", "none"]
 
 
 # Type definitions for conversation history
@@ -149,6 +169,40 @@ class ContextOverflowStrategy(str, Enum):
 
     TRUNCATE = "truncate"
     SUMMARIZE = "summarize"
+
+
+class BudgetDict(TypedDict, total=False):
+    """The dict form of :class:`Budget`, on the user-facing field names.
+
+    Every key is optional; an omitted cap is not sent, leaving that dimension
+    uncapped. Declared as a ``TypedDict`` so a plain dict still gets
+    autocomplete and a type error on a misspelled key, with nothing to import.
+    """
+
+    max_cost: float
+    max_duration_seconds: float
+    max_iterations: int
+
+
+class TaskDict(TypedDict):
+    """The dict form of :class:`Task`, on the user-facing field names.
+
+    ``total=True`` because :class:`Task` genuinely requires ``name``,
+    ``instructions`` and ``expected_output`` -- none has a default. The other
+    config dicts in the SDK are ``total=False``, which is right for them because
+    every field of the struct they describe defaults. Marking these optional
+    would let a dict type-check clean and then fail at runtime, which is the
+    disagreement these TypedDicts exist to prevent.
+    """
+
+    name: str
+    instructions: str
+    expected_output: str
+    dependencies: NotRequired[List[Union[str, "Task"]]]
+
+
+#: Accepted alongside the field names when decoding a ``Task`` from the wire.
+_TASK_WIRE_ALIASES = {"description": "instructions", "expectedOutput": "expected_output"}
 
 
 RoleModelRef = Union[str, Dict[str, Any], Model]
@@ -269,9 +323,10 @@ class AgentRunParams(BaseRunParams):
         inspectors: Inspector configurations
         run_response_generation: Whether to run response generation. Defaults to False.
         attachments: Multimodal attachments for the turn.
-            Each entry is a hosted-URL/local-path string or a dict with ``url`` or
-            ``path`` (plus optional ``type``/``name``/``mimeType``). Local paths are
-            uploaded to aiXplain storage automatically.
+            Each entry is a hosted-URL/local-path string, a dict with ``url`` or
+            ``path`` (plus optional ``type``/``name``/``mimeType``), or a saved
+            :class:`~aixplain.v2.file.File`. Local paths are uploaded to aiXplain
+            storage automatically; a saved ``File`` is attached via a signed url.
         files: Deprecated. Local file paths to upload — pass through ``attachments`` instead.
         progress_format: Display format - "status" (single line) or "logs" (timeline).
                         If None (default), progress tracking is disabled.
@@ -294,9 +349,9 @@ class AgentRunParams(BaseRunParams):
     identifier: NotRequired[Optional[Text]]
     inspectors: NotRequired[Optional[List[Dict]]]
     run_response_generation: NotRequired[Optional[bool]]
-    attachments: NotRequired[Optional[List[Union[str, Dict[str, Any]]]]]
+    attachments: NotRequired[Optional[List[Union[str, Path, Dict[str, Any], File]]]]
     files: NotRequired[Optional[List[Any]]]
-    progress_format: NotRequired[Optional[Text]]
+    progress_format: NotRequired[Optional[Union[ProgressFormatValue, "ProgressFormat"]]]
     progress_verbosity: NotRequired[Optional[int]]
     progress_truncate: NotRequired[Optional[bool]]
     _progress_tracker: NotRequired[Optional[Any]]
@@ -334,6 +389,11 @@ class Budget:
         default=None,
         metadata=config(field_name="maxIterations", exclude=lambda v: v is None),
     )
+
+
+#: Named in the error raised for an unknown key in a ``budget`` dict. Read off
+#: the dataclass so a field added to Budget needs no second edit here.
+_BUDGET_FIELDS = struct_fields(Budget)
 
 
 @dataclass_json
@@ -406,6 +466,55 @@ class Artifact:
 
 @dataclass_json
 @dataclass
+class AgentError:
+    """Structured error of an agent run or step, sent on the wire as ``errorDetails`` ``{code, message}``."""
+
+    code: Optional[str] = None
+    message: Optional[str] = None
+
+    @classmethod
+    def _coerce(cls, value: Any) -> Optional["AgentError"]:
+        """Decode an ``errorDetails`` dict, or a legacy error string, without raising."""
+        if value is None or isinstance(value, cls):
+            return value
+        if isinstance(value, dict):
+            code, message = value.get("code"), value.get("message")
+            if code is None and message is None:
+                return None
+            return cls(code=code, message=message)
+        if isinstance(value, str) and value.strip():
+            return cls(message=value.strip())
+        return None
+
+
+def _with_legacy_step_outputs(steps: Any) -> Any:
+    """Give a failed step the ``ERROR: <message>`` output it carried before steps had an ``error`` field.
+
+    Returns copies of the changed step dicts and leaves the raw response alone:
+    callers that forward the raw steps (the engine's remote subagent traces)
+    must keep the error in ``error`` only.
+    """
+    if not isinstance(steps, list):
+        return steps
+    restored = []
+    for step in steps:
+        if not isinstance(step, dict):
+            restored.append(step)
+            continue
+        new_step = dict(step)
+        error = step.get("error")
+        if isinstance(error, dict) and step.get("output") in (None, ""):
+            text = error.get("message") or error.get("code")
+            if text:
+                new_step["output"] = f"ERROR: {text}"
+        if isinstance(step.get("steps"), list):
+            new_step["steps"] = _with_legacy_step_outputs(step["steps"])
+        restored.append(new_step)
+    return restored
+
+
+@dataclass_json
+@dataclass
 class AgentResponseData:
     """Data structure for agent response."""
 
@@ -415,6 +524,9 @@ class AgentResponseData:
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
+    error: Optional[AgentError] = field(
+        default=None, metadata=config(field_name="errorDetails", decoder=AgentError._coerce)
+    )
     critiques: Optional[str] = ""
     # Declared Optional only to keep dataclasses_json quiet: an explicit
     # ``"artifacts": null`` on a non-Optional field makes it emit a
@@ -443,6 +555,8 @@ class AgentResponseData:
         # ``[]`` rather than ``None``. Re-coercing an already-decoded list is a
         # cheap no-op, since ``Artifact`` instances pass straight through.
         self.artifacts = Artifact._coerce_list(self.artifacts)
+        self.error = AgentError._coerce(self.error)
+        self.steps = _with_legacy_step_outputs(self.steps)
         if self.governance is None:
             self.governance = {
                 "status": self._governance_status,
@@ -462,15 +576,27 @@ class AgentRunResult(Result):
     used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
     run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
+    error: Optional[AgentError] = field(
+        default=None, metadata=config(field_name="errorDetails", decoder=AgentError._coerce)
+    )
 
     def __post_init__(self) -> None:
-        """Promote diagnostic codes the backend nests under ``data``.
+        """Promote diagnostic codes and the structured error the backend nests under ``data``.
 
         The poll body carries them at ``data.diagnosticErrorCodes`` (or only
         inside ``executionStats`` on older builds), never top-level.
         """
         if not self.diagnostic_error_codes:
             self.diagnostic_error_codes = self._codes_from_data()
+        data = self.data
+        if isinstance(data, AgentResponseData):
+            data_error = data.error
+        elif isinstance(data, dict):
+            # ``data`` is a bare dict when the result was built by hand rather than decoded.
+            data_error = AgentError._coerce(data.get("errorDetails") or data.get("error_details"))
+        else:
+            data_error = None
+        self.error = AgentError._coerce(self.error) or data_error
 
     def _codes_from_data(self) -> List[str]:
         """Extract diagnostic codes from ``data`` or its execution stats."""
@@ -631,7 +757,7 @@ class Agent(
 
     # Core fields from Swagger
     instructions: Optional[str] = None
-    status: AssetStatus = AssetStatus.DRAFT
+    status: Union[AssetStatus, AssetStatusValue] = AssetStatus.DRAFT
     team_id: Optional[int] = field(default=None, metadata=config(field_name="teamId"))
     # ``llm`` / ``supervisor`` / ``planner`` / ``response_generator`` are
     # serialized manually (see ``_apply_llm_fields_to_save_payload`` and
@@ -649,9 +775,25 @@ class Agent(
     supervisor: Optional[RoleModelRef] = _role_field(save_key="supervisor")
     response_generator: Optional[RoleModelRef] = _role_field(save_key="responder")
 
-    # Task fields
-    tasks: Optional[List[Task]] = field(default_factory=list)
+    # Task fields. A dict on the ``TaskDict`` field names works as well as a
+    # ``Task``; ``__post_init__`` coerces either.
+    tasks: Optional[List[Union[Task, "TaskDict"]]] = field(default_factory=list)
     agents: Optional[List[Union[str, "Agent"]]] = field(default_factory=list, metadata=config(field_name="agents"))
+
+    # Static graph fields. A dict works as well as the object; the decoders read a
+    # backend response leniently so an agent with a graph the SDK cannot model stays fetchable.
+    graph: Optional[Union[Graph, GraphDict]] = field(
+        default=None,
+        metadata=config(exclude=lambda value: True, decoder=lambda value: _decode_graph(value)),
+    )
+    graph_version: Optional[str] = field(
+        default=None,
+        metadata=config(field_name="graphVersion", exclude=lambda value: True),
+    )
+    strategy: Optional[Union[StaticGraphStrategy, StaticGraphStrategyDict]] = field(
+        default=None,
+        metadata=config(exclude=lambda value: True, decoder=lambda value: _decode_strategy(value)),
+    )
 
     # Deprecated alias for `agents` — will be removed in a future release
     subagents: Optional[List[Union[str, "Agent"]]] = field(
@@ -667,13 +809,19 @@ class Agent(
 
     # Persistent File assets available to every run. These are definition-level
     # references and are intentionally separate from per-run ``attachments``.
+    # ``decoder`` keeps a ``from_dict()`` load (e.g. ``Agent.get()``) as plain
+    # dicts/strings: without it, dataclasses_json's own Union-aware decoding
+    # eagerly calls ``File.from_dict()`` on any dict entry, which passes every
+    # declared field (``is_temp`` included) as a constructor kwarg and bypasses
+    # ``File._from_data`` entirely. Real hydration into ``File`` objects still
+    # happens, just via ``_hydrate_files()`` in ``__post_init__`` below.
     files: Optional[List[Union[str, Dict[str, Any], "File"]]] = field(
         default_factory=list,
-        metadata=config(field_name="files"),
+        metadata=config(field_name="files", decoder=lambda v: list(v) if v else []),
     )
 
     # Output and execution fields
-    output_format: Optional[Union[str, OutputFormat]] = field(
+    output_format: Optional[Union[OutputFormatValue, OutputFormat]] = field(
         default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
     )
     expected_output: Optional[Union[str, dict, BaseModel]] = field(
@@ -706,14 +854,24 @@ class Agent(
         metadata=config(field_name="budget", exclude=lambda v: True),
     )
     max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
-    context_overflow_strategy: Optional[str] = field(
+    context_overflow_strategy: Optional[Union[ContextOverflowStrategyValue, ContextOverflowStrategy]] = field(
         default=None,
         metadata=config(field_name="contextOverflowStrategy"),
     )
 
     def __post_init__(self) -> None:
         """Initialize agent after dataclass creation."""
-        self.tasks = [Task.from_dict(task) for task in self.tasks]
+        # ``__setattr__`` has already coerced ``tasks`` -- dicts and ``Task``
+        # objects both, on the user-facing field names. The previous
+        # ``Task.from_dict(task)`` here assumed a dict and raised
+        # ``AttributeError`` on a ``Task`` the caller had constructed.
+
+        # ``__setattr__`` has coerced ``graph`` and ``strategy``; the graph is validated on save.
+        if self.graph is not None:
+            self.graph_version = self.graph_version or "1"
+            self.strategy = self.strategy or StaticGraphStrategy()
+        elif self.strategy is not None or self.graph_version is not None:
+            raise ValidationError("Agent strategy and graph_version cannot be set without a graph.")
 
         # Deserialize inspectors to Inspector objects so mutate-and-save round-trips.
         # Prebuilt guards and custom inspectors are the same Inspector type, so a
@@ -770,12 +928,16 @@ class Agent(
             for skill in (self.skills or [])
         ]
 
-        # Unsaved files keep the object itself, not None, so list edits never lose track of which is which.
+        # ``self.files`` is the single source of truth (real File objects, dicts
+        # pending hydration below, or bare id strings) — mirrors ``self.tools``.
+        # ``_original_files`` is kept as its mirror; the various save/validate
+        # helpers below still read from it.
         self._files_ever_configured = bool(self.files)
         self._original_files = list(self.files or [])
-        self.files = [
-            file if isinstance(file, str) else (self._file_reference_id(file) or file) for file in (self.files or [])
-        ]
+        # Hydrate raw backend File dicts (e.g. from a get() response) into real
+        # File objects, so a fetched agent's files are directly usable
+        # (``.name``, ``.download()``, ``.delete()``, ...) — mirrors ``_hydrate_tools``.
+        self._hydrate_files()
 
         if isinstance(self.output_format, OutputFormat):
             self.output_format = self.output_format.value
@@ -812,7 +974,12 @@ class Agent(
         return file.id
 
     def _sync_file_references(self) -> None:
-        """Capture direct mutations to ``agent.files`` before validation or save."""
+        """Reconcile in-place mutations to ``agent.files`` into ``_original_files``.
+
+        ``agent.files`` is the source of truth (real ``File`` objects, dicts, or
+        bare ids — mirrors ``agent.tools``); ``_original_files`` is kept as its
+        mirror for the save/validate helpers that read it.
+        """
         current = list(self.files or [])
         original = list(getattr(self, "_original_files", []) or [])
         # A None slot is a still-unsaved placeholder; only safe to refresh by position if lengths match.
@@ -829,10 +996,11 @@ class Agent(
             original_by_id = {
                 self._file_reference_id(file): file for file in original if self._file_reference_id(file) is not None
             }
-            self._original_files = [
+            effective_current = [
                 original_by_id.get(file, file) if isinstance(file, str) else file for file in effective_current
             ]
-            self.files = current_ids
+            self._original_files = effective_current
+            self.files = list(effective_current)
 
     @staticmethod
     def _skill_reference_id(skill: Optional[Union[str, Dict[str, Any], "Skill"]]) -> Optional[str]:
@@ -887,8 +1055,23 @@ class Agent(
         for it anyway. Hydration resets the set (see ``_record_server_fields``).
         """
         if name == "budget":
-            coerced = self._coerce_budget(value)
+            coerced = self._coerce_budget(value, strict=True)
             value = coerced if coerced is not None else Budget()
+        elif name == "tasks":
+            # Assignment has to coerce too. Left to ``__post_init__``, a dict
+            # assigned afterwards stayed a dict -- and ``dataclass_json`` passes
+            # an unrecognised dict through untouched, so the user-facing names
+            # reached the backend instead of ``description`` / ``expectedOutput``
+            # and ``dependencies`` was dropped, with no error anywhere.
+            value = coerce_struct_list(value, Task, label="tasks", aliases=_TASK_WIRE_ALIASES)
+        elif name == "graph":
+            value = Graph.from_dict(value) if value is not None else None
+            if value is None and "strategy" in self.__dict__:
+                # Without a graph the static-graph settings mean nothing; keep the invariant.
+                super().__setattr__("strategy", None)
+                super().__setattr__("graph_version", None)
+        elif name == "strategy":
+            value = StaticGraphStrategy.from_dict(value) if value is not None else None
         if name in _ROLE_ATTRS:
             explicit = getattr(self, "_explicit_roles", None)
             if explicit is not None:
@@ -945,11 +1128,22 @@ class Agent(
         detected; ``save()`` persists changed values unconditionally.
         """
         original_tools = self.tools
+        original_files = self.files
         try:
             self.tools = [self._tool_identity(tool) for tool in original_tools or []]
-            return super()._get_serializable_state()
+            # Files can now hold live File objects (mirrors tools) — reduce them
+            # the same way, or to_dict() would recurse into File's ``context``.
+            self.files = [self._file_identity(file) for file in original_files or []]
+            state = super()._get_serializable_state()
         finally:
             self.tools = original_tools
+            self.files = original_files
+        # ``graph`` and ``strategy`` are excluded from ``to_dict()``, so edits to them are tracked here.
+        if self.graph is not None:
+            state["graph"] = deepcopy(self.graph.to_dict(validate=False))
+            state["strategy"] = (self.strategy or StaticGraphStrategy()).to_dict(validate=False)
+            state["graphVersion"] = self.graph_version
+        return state
 
     @staticmethod
     def _tool_identity(tool: Any) -> dict:
@@ -959,6 +1153,23 @@ class Agent(
         if isinstance(tool, dict):
             return {"id": tool.get("id"), "type": tool.get("type")}
         return {"id": getattr(tool, "id", None), "type": getattr(tool, "type", None)}
+
+    @staticmethod
+    def _file_identity(file: Any) -> dict:
+        """Return a stable id/name/description signature for a files entry."""
+        if isinstance(file, str):
+            return {"id": file}
+        if isinstance(file, dict):
+            return {
+                "id": file.get("id") or file.get("fileId"),
+                "name": file.get("name"),
+                "description": file.get("description"),
+            }
+        return {
+            "id": getattr(file, "id", None),
+            "name": getattr(file, "name", None),
+            "description": getattr(file, "description", None),
+        }
 
     # Run kwarg that carries the run's progress tracker from ``run()`` /
     # ``sync_poll()`` down to ``on_poll``. Listed in ``_RUN_CONTROL_KEYS`` so
@@ -1107,7 +1318,7 @@ class Agent(
         return {k: v for k, v in normalized.items() if v is not None}
 
     @classmethod
-    def _coerce_budget(cls, budget: Optional[Union[Dict, "Budget"]]) -> Optional["Budget"]:
+    def _coerce_budget(cls, budget: Optional[Union[Dict, "Budget"]], strict: bool = False) -> Optional["Budget"]:
         """Coerce ``None`` / dict / ``Budget`` into a ``Budget`` instance.
 
         A dict may use snake_case or camelCase keys; it is normalized to the
@@ -1115,10 +1326,37 @@ class Agent(
         ``None`` passes through as ``None`` (session's ExecutionConfig relies on
         this); ``Agent.__setattr__`` is what upgrades a ``None`` agent budget to
         an empty ``Budget()`` to keep ``agent.budget`` never-None.
+
+        Args:
+            budget: The value to coerce.
+            strict: Reject a key that is neither a field nor a wire spelling.
+                Off by default, and deliberately: this method sits on the
+                *deserialization* path as well as the input one, and a backend
+                that adds a field to its budget object must not break every
+                ``Session.get()`` on data the SDK only reads. The entry points
+                that know they hold caller input pass ``True``.
+
+        Returns:
+            Optional[Budget]: The coerced budget, or ``None`` for ``None``.
+
+        Raises:
+            ValidationError: Under ``strict``, if a key is unrecognised.
+            TypeError: If *budget* is neither ``None``, a dict, nor a ``Budget``.
         """
         if budget is None or isinstance(budget, Budget):
             return budget
         if isinstance(budget, dict):
+            if strict:
+                # A misspelled ``max_iteration`` used to pass through
+                # ``_normalize_budget`` untouched and then be dropped by the
+                # constructor below, i.e. silently mean "no cap".
+                unknown = sorted(
+                    key for key in budget if key not in _BUDGET_FIELDS and key not in cls._BUDGET_PARAMS_MAP.values()
+                )
+                if unknown:
+                    raise ValidationError(
+                        f"Unknown budget field(s): {', '.join(unknown)}. Accepted fields: {', '.join(_BUDGET_FIELDS)}."
+                    )
             normalized = cls._normalize_budget(budget)
             return Budget(
                 max_cost=normalized.get("maxCost"),
@@ -1383,9 +1621,20 @@ class Agent(
         # overrides the caller set): a create response would otherwise replace
         # ``self.tools`` with backend dicts and drop those mutations.
         pre_save_tools = list(self.tools) if self.tools else []
+        pre_save_graph = (self.graph, self.strategy, self.graph_version)
 
         # Call the parent save method
         saved_agent = super().save(*args, **kwargs)
+
+        # A create response that does not echo the graph would otherwise leave it None,
+        # and the next save() would send no graph.
+        if pre_save_graph[0] is not None and self._server_omitted("graph"):
+            self.graph, self.strategy, self.graph_version = pre_save_graph
+        elif self.graph is not None:
+            if self._server_omitted("strategy"):
+                self.strategy = pre_save_graph[1] or StaticGraphStrategy()
+            if self._server_omitted("graphVersion"):
+                self.graph_version = pre_save_graph[2] or "1"
 
         # Restore the caller's tool objects, then re-hydrate any dict entries so
         # ``agent.tools[i]`` stays a mutable Tool/Model object after save.
@@ -1747,6 +1996,61 @@ class Agent(
                 continue
         return None
 
+    def _hydrate_files(self) -> None:
+        """Rebind backend File records in ``self.files`` to a real, usable ``File``.
+
+        ``self.files`` (the public field) holds real ``File`` objects after
+        :meth:`__post_init__`, the same way ``self.tools`` holds ``Tool`` /
+        ``Model`` objects — so a fetched agent's ``agent.files[0].name`` works
+        without a re-fetch. ``_original_files`` mirrors it and is what
+        :meth:`build_save_payload` and the dependency-validation helpers read.
+
+        A dict entry (e.g. straight from a ``get()`` response — the ``files``
+        field has a plain identity ``decoder``, so dataclasses_json never
+        auto-decodes it into a ``File`` on its own) is hydrated through
+        :meth:`File._from_data`. A caller-supplied ``File`` built off the
+        unbound module class (``context is None``) is re-hydrated the same
+        way *only if it already carries a resolvable id* — see
+        :meth:`_hydrate_file_entry`. Best-effort and offline: a record that
+        fails to hydrate is left as-is rather than breaking construction. A
+        bare id string is left as-is too — there is no data to build a
+        ``File`` from without a fetch.
+        """
+        context = getattr(self, "context", None)
+        original_files = getattr(self, "_original_files", None)
+        if context is None or not original_files:
+            return
+        self._original_files = [
+            self._hydrate_file_entry(entry, context) if isinstance(entry, (dict, File)) else entry
+            for entry in original_files
+        ]
+        self.files = list(self._original_files)
+
+    @staticmethod
+    def _hydrate_file_entry(entry: Union[dict, "File"], context: Any) -> Any:
+        """Hydrate one backend File record into a bound ``File`` object (best-effort).
+
+        Only entries that already carry a resolvable backend id are hydrated.
+        An id-less dict/File — e.g. a still-unsaved ``File(source=...)`` the
+        caller passed directly, or a dict missing both ``id`` and ``fileId`` —
+        is left exactly as given. Hydrating it anyway would rebuild it through
+        ``File._from_data``, which knows nothing about fields excluded from
+        the wire shape (like ``source``), and silently produce a File that
+        looks fetched-but-broken (``id=None``, ``is_temp=False``) instead of
+        the valid unsaved reference it actually was (BUG).
+        """
+        if isinstance(entry, File) and entry.context is not None:
+            return entry  # already bound to a context, e.g. a caller-supplied File
+        if Agent._file_reference_id(entry) is None:
+            return entry
+        data = entry.to_dict() if isinstance(entry, File) else dict(entry)
+        if not data.get("id"):
+            data["id"] = data.get("fileId") or data.get("assetId")
+        try:
+            return context.File._from_data(data)
+        except Exception:
+            return entry
+
     def _hydrate_tools(self) -> None:
         """Convert plain tool dicts in ``self.tools`` into mutable objects.
 
@@ -2093,11 +2397,14 @@ class Agent(
                 target if isinstance(target, str) else str(target) for target in self.inspector_targets
             ]
 
-        # Null out tools before to_dict(): dataclass_json would otherwise recurse
-        # into Tool/Model objects (which raises on their ``context`` descriptor).
-        # The real tools payload is rebuilt from ``self.tools`` below.
+        # Null out tools and files before to_dict(): dataclass_json would otherwise
+        # recurse into Tool/Model/File objects (which raise on their ``context``
+        # descriptor). The real payloads are rebuilt from ``self.tools`` /
+        # ``self._original_files`` below.
         original_tools = self.tools
         self.tools = []
+        original_files_field = self.files
+        self.files = []
 
         # Now call to_dict() with inspectors and inspector_targets already serialized
         payload = self.to_dict()
@@ -2106,6 +2413,7 @@ class Agent(
         self.inspectors = original_inspectors
         self.inspector_targets = original_inspector_targets
         self.tools = original_tools
+        self.files = original_files_field
 
         # Budget is the single source of truth for the persisted iteration cap.
         # Drop the deprecated standalone ``maxIterations`` and emit the persisted
@@ -2136,6 +2444,23 @@ class Agent(
         payload["tools"] = converted_assets
 
         self._apply_llm_fields_to_payload(payload)
+
+        if self.graph is not None:
+            strategy = self.strategy or StaticGraphStrategy()
+            payload["graphVersion"] = self.graph_version or "1"
+            payload["graph"] = self.graph.to_dict()
+            payload["strategy"] = strategy.to_dict()
+            if strategy.budget and payload.get("budget"):
+                warnings.warn(
+                    "Both agent.budget and agent.strategy.budget are set; they are sent as separate caps. "
+                    "Set only one so it is clear which limit applies to the graph run.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+        else:
+            payload.pop("graphVersion", None)
+            payload.pop("graph", None)
+            payload.pop("strategy", None)
 
         # Convert agents to API format, resolving IDs from original objects
         if hasattr(self, "_original_agents") and self._original_agents:
@@ -2206,14 +2531,11 @@ class Agent(
 
         # Persist expected_output server-side so fetched agents and runs that
         # don't pass executionParams.expectedOutput (the backend falls back to
-        # the stored value) keep the JSON contract.
+        # the stored value) keep the JSON contract. Encoded exactly as the run
+        # paths encode it: a Pydantic instance or a dict stored as an object came
+        # back to the engine as a Python repr rather than JSON.
         if "expectedOutput" in payload:
-            expected_output = payload["expectedOutput"]
-            if isinstance(expected_output, type) and issubclass(expected_output, BaseModel):
-                payload["expectedOutput"] = json.dumps(expected_output.model_json_schema())
-            elif isinstance(expected_output, BaseModel):
-                # Convert BaseModel instance to dict for save
-                payload["expectedOutput"] = expected_output.model_dump()
+            payload["expectedOutput"] = expected_output_to_wire(payload["expectedOutput"])
 
         return payload
 
@@ -2248,25 +2570,21 @@ class Agent(
         for k, v in defaults.items():
             execution_params.setdefault(k, v)
 
-        # Handle BaseModel conversion for expectedOutput (following legacy pattern)
         # Use agent's expected_output if none provided in execution_params
         if "expectedOutput" not in execution_params:
             execution_params["expectedOutput"] = self.expected_output
 
         expected_output = execution_params["expectedOutput"]
 
-        # For non-JSON formats, don't send empty string expected_output
+        # The backend rejects any non-string executionParams.expectedOutput with a 400
+        # ("executionParams.expectedOutput must be a string"), so everything but a
+        # string or None is JSON-encoded -- by the same helper ``build_save_payload``
+        # and session runs use, so the three paths cannot drift apart again.
         if execution_params.get("outputFormat") in ["text", "markdown"] and expected_output == "":
+            # For non-JSON formats, don't send empty string expected_output
             execution_params["expectedOutput"] = None
-        elif (
-            expected_output is not None and isinstance(expected_output, type) and issubclass(expected_output, BaseModel)
-        ):
-            execution_params["expectedOutput"] = expected_output.model_json_schema()
-        elif isinstance(expected_output, BaseModel):
-            execution_params["expectedOutput"] = expected_output.model_dump()
-        elif isinstance(expected_output, dict):
-            # Backend expects executionParams.expectedOutput as a string.
-            execution_params["expectedOutput"] = json.dumps(expected_output)
+        else:
+            execution_params["expectedOutput"] = expected_output_to_wire(expected_output)
 
         # Run-time budget: the agent's current ``budget`` state travels inside
         # ``executionParams.budget`` (the backend merges it field-by-field over the
@@ -2654,9 +2972,69 @@ class Agent(
 _dataclass_json_agent_from_dict = Agent.from_dict.__func__
 
 
+def _decode_graph(value: Any) -> Optional[Graph]:
+    """Decode a backend graph leniently: the backend is authoritative for what it stored."""
+    return Graph.from_dict(value, strict=False) if value else None
+
+
+def _decode_strategy(value: Any) -> Optional[StaticGraphStrategy]:
+    """Decode a backend strategy, ignoring any strategy that is not a static graph."""
+    if not isinstance(value, dict) or value.get("type") != "static_graph":
+        return None
+    return StaticGraphStrategy.from_dict(value, strict=False)
+
+
 def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
     kvs = cls._fold_legacy_max_iterations(kvs)
+    if isinstance(kvs, dict) and not kvs.get("graph") and ("strategy" in kvs or "graphVersion" in kvs):
+        # A non-graph agent may still report a strategy or graphVersion; neither applies without a graph.
+        kvs = {key: value for key, value in kvs.items() if key not in ("strategy", "graphVersion")}
     return _dataclass_json_agent_from_dict(cls, kvs, infer_missing=infer_missing)
 
 
 Agent.from_dict = classmethod(_agent_from_dict)
+
+
+# Same story for ``to_dict``: ``@dataclass_json`` injects its own, so the role
+# refs are re-attached here rather than in the class body.
+#
+# ``llm`` / ``supervisor`` / ``planner`` / ``response_generator`` carry
+# ``exclude=lambda x: True`` because ``build_save_payload`` emits the nested
+# ``AgentModelInput`` wire shape by hand. But ``exclude`` applies to *every*
+# ``to_dict()``, including the public dump, so the roles vanished from it
+# entirely — and since ``llm`` declares ``DEFAULT_LLM`` as its dataclass
+# default, ``Agent.from_dict(agent.to_dict())`` silently rebuilt the agent
+# pointing at the SDK default model instead of the chosen one (the other three
+# roles came back as ``None``). Re-attaching them under the same wire keys the
+# ``_decode_role_ref`` decoder reads makes the dump round-trip.
+#
+# ``build_save_payload`` is unaffected: it calls ``_apply_llm_fields_to_payload``
+# after ``to_dict()``, which overwrites every role key with the save manifest or
+# pops it (unset roles, and the BUG-1093 default-suppression case).
+_dataclass_json_agent_to_dict = Agent.to_dict
+
+
+def _role_ref_to_public_dict(ref: RoleModelRef) -> Union[str, Dict[str, Any]]:
+    """Return a JSON-safe dump of *ref* that preserves the caller's shape.
+
+    A ``Model`` becomes its ``{id, parameters?}`` manifest — dumping it as-is
+    would make ``dataclasses_json`` recurse into the object and raise on its
+    ``context`` descriptor. A string id or an already-decoded dict is returned
+    untouched, so ``llm="some-id"`` survives a dump/load as the same string
+    rather than turning into a dict.
+    """
+    if isinstance(ref, Model):
+        return Agent._role_ref_to_save_manifest(ref)
+    return ref
+
+
+def _agent_to_dict(self: Agent, encode_json: bool = False) -> Dict[str, Any]:
+    result = _dataclass_json_agent_to_dict(self, encode_json=encode_json)
+    for spec in _ROLES:
+        ref = getattr(self, spec.attr, None)
+        if ref is not None:
+            result[spec.save_key] = _role_ref_to_public_dict(ref)
+    return result
+
+
+Agent.to_dict = _agent_to_dict

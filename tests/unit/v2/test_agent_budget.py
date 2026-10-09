@@ -23,7 +23,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aixplain.v2.agent import Agent, Budget
+from aixplain import Agent, Budget
 
 
 def _create_agent():
@@ -487,7 +487,7 @@ class TestSessionBudgetPreservation:
 
     @staticmethod
     def _session(execution_config=None):
-        from aixplain.v2.session import Session
+        from aixplain import Session
 
         session = MagicMock(spec=Session)
         session.id = "sess_abc"
@@ -503,7 +503,7 @@ class TestSessionBudgetPreservation:
 
     def test_override_preserves_session_budget(self):
         """Row 1: session cap, no agent cap → the cap survives the override."""
-        from aixplain.v2.session import ExecutionConfig
+        from aixplain import ExecutionConfig
 
         agent = _create_agent()
         session = self._session(ExecutionConfig(criteria="old", budget=Budget(max_cost=5.0, max_iterations=7)))
@@ -520,7 +520,7 @@ class TestSessionBudgetPreservation:
 
     def test_preserves_every_other_execution_config_field(self):
         """The same trap would reopen for any other field, so pin them all."""
-        from aixplain.v2.session import ExecutionConfig
+        from aixplain import ExecutionConfig
 
         agent = _create_agent()
         stored = ExecutionConfig(
@@ -544,7 +544,7 @@ class TestSessionBudgetPreservation:
 
     def test_session_cap_wins_over_agent_cap(self):
         """Row 2: a persisted session cap is never widened or replaced."""
-        from aixplain.v2.session import ExecutionConfig
+        from aixplain import ExecutionConfig
 
         agent = _create_agent()
         agent.budget = Budget(max_cost=1.0)
@@ -556,7 +556,7 @@ class TestSessionBudgetPreservation:
 
     def test_agent_cap_fills_unset_session_slot(self):
         """Row 3: the agent's budget only fills caps the session leaves unset."""
-        from aixplain.v2.session import ExecutionConfig
+        from aixplain import ExecutionConfig
 
         agent = _create_agent()
         agent.budget = Budget(max_iterations=7)
@@ -590,7 +590,7 @@ class TestSessionBudgetPreservation:
 
     def test_no_overrides_and_no_new_cap_does_not_save(self):
         """Row 6: a plain session run must still perform no write."""
-        from aixplain.v2.session import ExecutionConfig
+        from aixplain import ExecutionConfig
 
         agent = _create_agent()
         session = self._session(ExecutionConfig(criteria="be brief", budget=Budget(max_cost=5.0)))
@@ -629,7 +629,7 @@ class TestSessionBudgetPreservation:
         ``to_api_dict`` overwrites the session's persisted cap wholesale
         (BUG-1091).
         """
-        from aixplain.v2.session import ExecutionConfig
+        from aixplain import ExecutionConfig
 
         agent = _create_agent()
         agent.budget = Budget(max_cost=0.01, max_iterations=3)

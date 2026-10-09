@@ -3,16 +3,25 @@
 import os
 import logging
 import mimetypes
+from contextlib import contextmanager
+from contextvars import ContextVar
 import warnings
 from dataclasses import dataclass, field, InitVar
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing_extensions import TypedDict
 from pathlib import Path
 
 from dataclasses_json import dataclass_json, config
 
+from ._expected_output import expected_output_to_wire
 from .enums import AttachmentType
-from .exceptions import APIError, ResourceError
+from .exceptions import APIError, ResourceError, ValidationError
+from .file import File
+from .plain_data import struct_fields
+
+if TYPE_CHECKING:
+    from .agent import Budget, BudgetDict
 from .resource import (
     BaseResource,
     GetResourceMixin,
@@ -146,7 +155,7 @@ def _augment_hosted_attachment(att: Dict[str, Any]) -> Dict[str, Any]:
 
 def resolve_attachments(
     context: Any,
-    attachments: Optional[List[Union[str, Path, Dict[str, Any]]]],
+    attachments: Optional[List[Union[str, Path, Dict[str, Any], File]]],
     files: Optional[List[Union[str, Path]]],
     *,
     error_label: str = "",
@@ -156,7 +165,10 @@ def resolve_attachments(
     Each entry becomes a ``{url, name, type, mimeType}`` dict. URL entries (``http(s)://``
     / ``s3://`` strings, or dicts carrying a ``url``) pass through unchanged; local paths
     (plain strings, or dicts carrying a ``path``) are uploaded to aiXplain storage and the
-    resulting download link is attached. The ``FileUploader`` is created lazily, only when
+    resulting download link is attached. A saved ``File`` is attached by a short-lived
+    signed url fetched on demand (:meth:`File.get_signed_url`) — file-asset responses
+    never carry a stable url; an unsaved ``File`` or a folder raises, rather than
+    silently re-uploading or guessing. The ``FileUploader`` is created lazily, only when
     an upload is actually needed. Shared by ``Session.add_message`` and ``Agent`` runs.
 
     Args:
@@ -209,6 +221,28 @@ def resolve_attachments(
                 resolved.append(_augment_hosted_attachment(att))
             else:
                 resolved.append(_upload(value))
+        elif isinstance(entry, File):
+            where = f" for {error_label}" if error_label else ""
+            if not entry.id:
+                raise ResourceError(
+                    f"File '{entry.name}'{where} must be saved (call .save()) before it can be attached"
+                )
+            if entry.is_dir:
+                raise ResourceError(
+                    f"Folder '{entry.name}'{where} cannot be attached directly; attach its files instead"
+                )
+            # File-asset responses never carry a stable url; request a
+            # short-lived signed one on demand (same endpoint the platform UI
+            # uses to render media inline). Bind the entry to this call's
+            # context first, in case it was constructed ad hoc (e.g.
+            # ``File(id=..., name=...)``) rather than via ``aix.File(...)``.
+            if entry.context is None:
+                entry.context = context
+            try:
+                url = entry.get_signed_url()
+            except Exception as e:
+                raise ResourceError(f"Could not get a signed url for File '{entry.name}' (id={entry.id}){where}: {e}")
+            resolved.append(_augment_hosted_attachment({"url": url, "name": entry.name}))
         else:
             raise ResourceError(f"unsupported attachment entry type: {type(entry).__name__}")
 
@@ -219,6 +253,16 @@ def resolve_attachments(
             stacklevel=3,
         )
         for file_path in files:
+            # ``files`` has only ever accepted local paths — a File (or a dict,
+            # or anything else) here used to be silently stringified into a
+            # bogus "path" and fail with a confusing "local file ... not
+            # found". Name the actual mistake instead: point at `attachments`.
+            if not isinstance(file_path, (str, Path)):
+                where = f" for {error_label}" if error_label else ""
+                raise ResourceError(
+                    f"`files` only accepts local paths{where}; pass {type(file_path).__name__} "
+                    "entries through `attachments` instead."
+                )
             resolved.append(_upload(str(file_path)))
 
     return resolved
@@ -321,6 +365,46 @@ class SessionMessage:
     created_at: str = field(default="", metadata=config(field_name="createdAt"))
 
 
+#: True while a backend payload is being decoded. ``ExecutionConfig.budget`` is
+#: typed ``Any``, so ``dataclasses_json`` hands it over as a raw wire dict rather
+#: than decoding it -- the one input struct that does not get a decoded value for
+#: free. Without this, the strict check in ``__setattr__`` would fire on backend
+#: data and a budget field added by the backend would break every
+#: ``Session.get()``. Caller input never sets it, so it stays strict.
+_DECODING_WIRE_PAYLOAD: ContextVar[bool] = ContextVar("_DECODING_WIRE_PAYLOAD", default=False)
+
+
+@contextmanager
+def _decoding_wire_payload():
+    """Mark the enclosing block as decoding a backend payload, not caller input.
+
+    Wraps both ``from_dict`` entry points that can produce an ``ExecutionConfig``:
+    its own, and ``Session``'s -- ``dataclasses_json`` decodes a nested dataclass
+    inline and never calls the nested type's ``from_dict``.
+    """
+    token = _DECODING_WIRE_PAYLOAD.set(True)
+    try:
+        yield
+    finally:
+        _DECODING_WIRE_PAYLOAD.reset(token)
+
+
+class ExecutionConfigDict(TypedDict, total=False):
+    """The dict form of :class:`ExecutionConfig`, on the same field names.
+
+    Every key is optional, so a partial update leaves the rest of the session's
+    configuration alone. Declared as a ``TypedDict`` so a plain dict still gets
+    autocomplete and a type error on a misspelled key, with nothing to import.
+    """
+
+    execution_params: Dict[str, Any]
+    criteria: str
+    evolve: str
+    identifier: str
+    run_response_generation: bool
+    budget: Union["BudgetDict", "Budget"]
+
+
 @dataclass_json
 @dataclass
 class ExecutionConfig:
@@ -360,11 +444,28 @@ class ExecutionConfig:
     # auto-generated dataclass_json serialization.
     budget: Optional[Any] = field(default=None, metadata=config(field_name="budget", exclude=lambda v: True))
 
-    def __post_init__(self) -> None:
-        """Coerce a dict/Budget ``budget`` into a ``Budget`` instance."""
-        from .agent import Agent
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Coerce a dict ``budget`` into a ``Budget``, rejecting unknown keys.
 
-        self.budget = Agent._coerce_budget(self.budget)
+        Here rather than in ``__post_init__`` so that ``config.budget = {...}``
+        behaves the same as passing it to the constructor: reading it back gives
+        an object with attributes, and a misspelled key raises instead of
+        silently meaning "no cap". The generated ``__init__`` assigns through
+        this too, so ``ExecutionConfig(budget={...})`` is covered by the same
+        check. Mirrors how ``Agent.__setattr__`` coerces ``budget``.
+
+        Strict everywhere except inside :func:`_decoding_wire_payload`, which the
+        two ``from_dict`` entry points set. ``budget`` is typed ``Any``, so
+        ``dataclasses_json`` hands over the raw wire dict instead of decoding it
+        the way it does for every other input struct -- and a field the backend
+        adds to the budget object is not a caller's typo, so it must not break
+        every ``Session.get()``.
+        """
+        if name == "budget":
+            from .agent import Agent
+
+            value = Agent._coerce_budget(value, strict=not _DECODING_WIRE_PAYLOAD.get())
+        super().__setattr__(name, value)
 
     def to_api_dict(self) -> Dict[str, Any]:
         """Build the camelCase API payload, normalizing nested params.
@@ -381,6 +482,8 @@ class ExecutionConfig:
         out: Dict[str, Any] = {}
 
         normalized = _normalize_execution_params(self.execution_params) or {}
+        if "expectedOutput" in normalized:
+            normalized["expectedOutput"] = expected_output_to_wire(normalized["expectedOutput"])
         # Resolve the run-time budget first so the deprecated fold can defer to it.
         budget = self.budget
 
@@ -448,6 +551,9 @@ class ExecutionConfig:
         ep = dict(ep)
         nested = ep.pop("budget")
         if kvs.get("budget") is None:
+            # Left as the raw wire dict on purpose. ``budget`` is typed ``Any``,
+            # so dataclasses_json walks it as a generic and chokes on a dataclass
+            # instance here; ``__post_init__`` coerces it permissively instead.
             kvs["budget"] = nested
         kvs[key] = ep
         return kvs
@@ -486,13 +592,40 @@ class ExecutionConfig:
 
     @classmethod
     def coerce(cls, value: Any) -> Optional["ExecutionConfig"]:
-        """Accept an ExecutionConfig, dict, or None and return a config or None."""
+        """Accept an ExecutionConfig, dict, or None and return a config or None.
+
+        An unknown key raises rather than being dropped: ``from_dict`` ignores
+        what it does not recognise, so a misspelled ``critera`` used to produce a
+        session configured with no criteria at all and no indication why.
+
+        Raises:
+            ValidationError: If *value* is a dict carrying an unrecognised key.
+            TypeError: If *value* is neither ``None``, a config, nor a dict.
+        """
         if value is None:
             return None
         if isinstance(value, cls):
             return value
         if isinstance(value, dict):
-            return cls.from_dict(value)
+            # The strict check lives here, on the input entry point, and not in
+            # ``ExecutionConfig.__post_init__`` -- which ``from_dict`` also runs,
+            # where an unrecognised key is the backend adding a field rather than
+            # the caller mistyping one.
+            unknown = sorted(key for key in value if key not in _EXECUTION_CONFIG_KEYS)
+            if unknown:
+                raise ValidationError(
+                    f"Unknown execution_config field(s): {', '.join(unknown)}. "
+                    f"Accepted fields: {', '.join(_EXECUTION_CONFIG_FIELDS)}."
+                )
+            config = cls.from_dict(value)
+            # ``from_dict`` -> ``__post_init__`` coerces the budget permissively,
+            # because it also serves deserialization. This is caller input, so
+            # re-run the check strictly.
+            from .agent import Agent
+
+            if "budget" in value:
+                config.budget = Agent._coerce_budget(value["budget"], strict=True)
+            return config
         raise TypeError(f"execution_config must be ExecutionConfig, dict, or None; got {type(value).__name__}")
 
 
@@ -507,10 +640,18 @@ _dataclass_json_execution_config_from_dict = ExecutionConfig.from_dict.__func__
 
 def _execution_config_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "ExecutionConfig":
     kvs = cls._fold_legacy_max_iterations(cls._lift_wire_budget(kvs))
-    return _dataclass_json_execution_config_from_dict(cls, kvs, infer_missing=infer_missing)
+    with _decoding_wire_payload():
+        return _dataclass_json_execution_config_from_dict(cls, kvs, infer_missing=infer_missing)
 
 
 ExecutionConfig.from_dict = classmethod(_execution_config_from_dict)
+
+#: The user-facing field names, named in the error for an unknown key.
+_EXECUTION_CONFIG_FIELDS = struct_fields(ExecutionConfig)
+
+#: What ``coerce`` accepts: the field names plus the camelCase wire spellings, so
+#: the same entry point takes a caller's dict and a backend payload.
+_EXECUTION_CONFIG_KEYS = frozenset(_EXECUTION_CONFIG_FIELDS) | {"executionParams", "runResponseGeneration"}
 
 
 @dataclass_json
@@ -552,16 +693,35 @@ class Session(
     last_message_at: Optional[str] = field(default=None, metadata=config(field_name="lastMessageAt"))
     created_at: str = field(default="", metadata=config(field_name="createdAt"))
     updated_at: str = field(default="", metadata=config(field_name="updatedAt"))
-    execution_config: Optional[ExecutionConfig] = field(default=None, metadata=config(field_name="executionConfig"))
+    # A dict on the ``ExecutionConfigDict`` field names works as well as an
+    # ``ExecutionConfig``; ``__setattr__`` coerces either.
+    execution_config: Optional[Union[ExecutionConfig, ExecutionConfigDict]] = field(
+        default=None, metadata=config(field_name="executionConfig")
+    )
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Coerce a dict ``execution_config`` into an :class:`ExecutionConfig`.
+
+        On every assignment rather than in ``__post_init__`` alone: a dict
+        assigned afterwards stayed a dict, so ``build_save_payload`` died with
+        ``AttributeError: 'dict' object has no attribute 'to_api_dict'`` and an
+        unknown key went unvalidated. Mirrors how :class:`Trigger` coerces
+        ``configuration``.
+        """
+        if name == "execution_config" and value is not None and not isinstance(value, ExecutionConfig):
+            value = ExecutionConfig.coerce(value)
+        super().__setattr__(name, value)
 
     def __post_init__(self, agent: Optional[Any] = None) -> None:
-        """Resolve the ``agent`` convenience arg and coerce ``execution_config``."""
+        """Resolve the ``agent`` convenience arg.
+
+        ``execution_config`` is coerced by ``__setattr__``, which the generated
+        ``__init__`` routes through, so there is nothing left to do here.
+        """
         if agent is not None:
             resolved = _resolve_agent_id(agent)
             if resolved:
                 self.agent_id = resolved
-        if self.execution_config is not None and not isinstance(self.execution_config, ExecutionConfig):
-            self.execution_config = ExecutionConfig.coerce(self.execution_config)
 
     @classmethod
     def _fold_legacy_execution_config(cls, kvs: Any) -> Any:
@@ -722,7 +882,7 @@ class Session(
         role: str,
         content: str,
         request_id: Optional[str] = None,
-        attachments: Optional[List[Union[str, Path, Dict[str, Any]]]] = None,
+        attachments: Optional[List[Union[str, Path, Dict[str, Any], File]]] = None,
         files: Optional[List[Union[str, Path]]] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> SessionMessage:
@@ -779,7 +939,7 @@ class Session(
 
     def _resolve_attachments(
         self,
-        attachments: Optional[List[Union[str, Path, Dict[str, Any]]]],
+        attachments: Optional[List[Union[str, Path, Dict[str, Any], File]]],
         files: Optional[List[Union[str, Path]]],
     ) -> List[Dict[str, Any]]:
         """Resolve the unified ``attachments`` (+ deprecated ``files``) for this session.
@@ -870,7 +1030,8 @@ _dataclass_json_session_from_dict = Session.from_dict.__func__
 
 def _session_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Session":
     kvs = cls._fold_legacy_execution_config(kvs)
-    return _dataclass_json_session_from_dict(cls, kvs, infer_missing=infer_missing)
+    with _decoding_wire_payload():
+        return _dataclass_json_session_from_dict(cls, kvs, infer_missing=infer_missing)
 
 
 Session.from_dict = classmethod(_session_from_dict)

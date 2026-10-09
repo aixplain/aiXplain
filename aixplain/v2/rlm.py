@@ -681,7 +681,7 @@ class RLM(BaseResource, ToolableMixin):
 
     Example::
 
-        from aixplain.v2 import Aixplain
+        from aixplain import Aixplain
 
         aix = Aixplain(api_key="...")
         rlm = aix.RLM(

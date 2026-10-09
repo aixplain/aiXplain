@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from dataclasses_json import dataclass_json
 
-from aixplain.v2.agent import Agent, AgentRunResult
+from aixplain import Agent, AgentRunResult
 
 
 BACKEND_URL = "https://platform-api.aixplain.com"

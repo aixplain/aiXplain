@@ -3,6 +3,9 @@ sidebar_label: core
 title: aixplain.v2.core
 ---
 
+`from aixplain import Aixplain`
+
+
 Core module for aiXplain v2 API.
 
 ### Aixplain Objects
@@ -27,7 +30,7 @@ def __init__(api_key: Optional[str] = None,
              model_url: Optional[str] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L100)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L109)
 
 Initialize the Aixplain class.
 
@@ -44,7 +47,7 @@ Initialize the Aixplain class.
 def init_client() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L135)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L148)
 
 Initialize the client.
 
@@ -54,10 +57,24 @@ Initialize the client.
 def init_resources() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L142)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L159)
 
 Initialize the resources.
 
-We&#x27;re dynamically creating the classes here to avoid potential race
+We're dynamically creating the classes here to avoid potential race
 conditions when using class level attributes
+
+#### Resource
+
+```python
+@property
+def Resource() -> FileResourceType
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/core.py#L188)
+
+Deprecated alias for `File`.
+
+Returns the exact same class as ``self.File`` (not a separate dynamic
+subclass), so ``aix.Resource is aix.File``.
 

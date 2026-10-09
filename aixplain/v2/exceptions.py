@@ -4,6 +4,7 @@ This module provides a comprehensive set of error types for consistent
 error handling across all v2 components.
 """
 
+import builtins
 from typing import Optional, Any, Dict, Union, List
 
 
@@ -83,8 +84,16 @@ class ValidationError(AixplainV2Error):
     pass
 
 
-class TimeoutError(AixplainV2Error):
-    """Raised when operations timeout."""
+class TimeoutError(AixplainV2Error, builtins.TimeoutError):
+    """Raised when operations timeout.
+
+    Also a :class:`builtins.TimeoutError`, which matters because this name is
+    re-exported from the package root: after ``from aixplain import *``, a plain
+    ``except TimeoutError:`` resolves to this class, and without the second base
+    it would silently stop catching socket and asyncio timeouts. Inheriting both
+    means the shadowing is harmless -- the name catches strictly more than it did
+    before, never less.
+    """
 
     pass
 
@@ -106,10 +115,24 @@ class UntrustedURLError(AixplainV2Error):
     pass
 
 
+def _structured_error(obj: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return an agent run's ``errorDetails`` ``{code, message}`` dict, if present."""
+    if not obj:
+        return None
+    for key in ("errorDetails", "error_details", "error"):
+        val = obj.get(key)
+        if isinstance(val, dict) and (val.get("code") or val.get("message")):
+            return val
+    return None
+
+
 def _extract_error_from_dict(obj: Dict[str, Any]) -> Optional[str]:
     """Extract first available error message from a dict (top-level or data)."""
     if not obj:
         return None
+    structured = _structured_error(obj)
+    if structured and structured.get("message") and str(structured["message"]).strip():
+        return str(structured["message"]).strip()
     for key in (
         "supplierError",
         "supplier_error",
@@ -119,7 +142,7 @@ def _extract_error_from_dict(obj: Dict[str, Any]) -> Optional[str]:
         "message",
     ):
         val = obj.get(key)
-        if val is not None and str(val).strip():
+        if val is not None and not isinstance(val, dict) and str(val).strip():
             return str(val).strip()
     return None
 
@@ -134,11 +157,13 @@ def create_operation_failed_error(response: Dict[str, Any]) -> APIError:
     from a connection failure and re-POSTed, billing the customer again for the
     same deterministic failure (BUG-1090).
     """
-    error_msg = _extract_error_from_dict(response)
-    if not error_msg and isinstance(response.get("data"), dict):
-        error_msg = _extract_error_from_dict(response["data"])
+    data = response.get("data") if isinstance(response.get("data"), dict) else {}
+    structured = _structured_error(response) or _structured_error(data) or {}
+    # ``errorDetails`` wins wherever it sits; the legacy string fields are the fallback.
+    structured_msg = str(structured.get("message") or "").strip()
+    error_msg = structured_msg or _extract_error_from_dict(response) or _extract_error_from_dict(data)
     if not error_msg:
-        error_msg = "Operation failed"
+        error_msg = structured.get("code") or "Operation failed"
 
     return APIError(
         f"Operation failed: {error_msg}",

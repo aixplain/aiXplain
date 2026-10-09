@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aixplain.v2.agent_evaluator import Metric
-from aixplain.v2.exceptions import ValidationError
+from aixplain import Metric
+from aixplain import ValidationError
 
 
 def test_metric_generate_prompt_template_numeric() -> None:

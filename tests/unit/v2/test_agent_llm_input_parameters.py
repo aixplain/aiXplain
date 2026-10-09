@@ -7,12 +7,13 @@ platform's ``NameValueInput`` shape — keeps the GraphQL schema agnostic to
 specific parameter names).
 """
 
+import json
 from typing import Any, List, Optional
 
 from unittest.mock import Mock
 
-from aixplain.v2.agent import Agent
-from aixplain.v2.model import Model, Parameter
+from aixplain import Agent
+from aixplain import Model, Parameter
 
 
 def _agent_for_save_payload(**kwargs: Any) -> Agent:
@@ -197,3 +198,167 @@ class TestAgentLlmInputParametersInSavePayload:
             "responseGeneratorId",
         ):
             assert legacy_key not in payload
+
+
+class TestAgentLlmInputParametersInRunPayload:
+    """Model input mutations must flow into ``build_run_payload()`` as run-time overrides.
+
+    The run shape is top-level ``modelParameters: {llm: [{name, value}]}``; the
+    backend applies it over the persisted agent. ``reasoning_effort`` is the
+    canonical parameter a caller sets at run time, so assert it lands on the
+    wire under the camelCase ``reasoningEffort`` key.
+    """
+
+    def test_reasoning_effort_is_emitted_in_run_payload(self):
+        llm = _reasoning_model()
+        llm.inputs.reasoning_effort = "low"
+
+        agent = _agent_for_save_payload(name="n", description="d", llm=llm)
+        payload = agent.build_run_payload(query="hi")
+
+        assert payload["modelParameters"] == {"llm": [{"name": "reasoningEffort", "value": "low"}]}
+
+    def test_no_model_parameters_key_when_no_inputs_set(self):
+        agent = _agent_for_save_payload(name="n", description="d", llm=_reasoning_model())
+
+        payload = agent.build_run_payload(query="hi")
+
+        assert "modelParameters" not in payload
+
+
+class TestRoleOverridesReachRunPayload:
+    """Role overrides must reach the run payload the Temporal worker consumes.
+
+    ``build_run_payload`` is the SDK half of the worker path in
+    ``aixplain-agents`` (its ``17_team_with_tools.json`` payload is the
+    equivalent shape): the saved agent supplies the role ids, and per-role
+    parameter overrides ride along as ``modelParameters``. If this class stops
+    passing, an override is silently dropped before the worker ever sees it.
+    """
+
+    @staticmethod
+    def _team_agent() -> Agent:
+        return _agent_for_save_payload(
+            name="team",
+            description="d",
+            id="team-1",
+            agents=["sub-1"],
+            llm={"id": "llm-1", "parameters": {"reasoning_effort": "high"}},
+            planner={"id": "planner-1", "parameters": {"temperature": "0.1"}},
+            supervisor={"id": "supervisor-1", "parameters": {"temperature": "0.2"}},
+            response_generator={"id": "responder-1", "parameters": {"temperature": "0.3"}},
+        )
+
+    def test_model_parameters_carry_every_role(self):
+        """Every role with parameters is emitted under its wire run key."""
+        payload = self._team_agent().build_run_payload(query="hi")
+
+        assert payload["modelParameters"] == {
+            "llm": [{"name": "reasoning_effort", "value": "high"}],
+            "planner": [{"name": "temperature", "value": "0.1"}],
+            "supervisor": [{"name": "temperature", "value": "0.2"}],
+            "responder": [{"name": "temperature", "value": "0.3"}],
+        }
+
+    def test_no_legacy_role_keys_on_the_run_payload(self):
+        """The run payload uses the nested shape, not the v1 top-level ids."""
+        payload = self._team_agent().build_run_payload(query="hi")
+
+        for legacy_key in ("llmId", "plannerId", "supervisorId", "responseGeneratorId"):
+            assert legacy_key not in payload
+
+    def test_role_without_parameters_is_omitted(self):
+        """A bare role id has nothing to override, so it stays out of the payload."""
+        agent = _agent_for_save_payload(name="t", description="d", planner="planner-1")
+        payload = agent.build_run_payload(query="hi")
+
+        assert "modelParameters" not in payload
+
+
+class TestRoleRefsSurviveToDict:
+    """``to_dict()`` must round-trip role refs, not silently drop them.
+
+    ``to_dict()`` is the public dump API (and what experiment / provenance
+    snapshots capture). The role fields are ``exclude=lambda x: True`` so the
+    *save* path can emit the nested ``AgentModelInput`` shape by hand — but that
+    marker also stripped them from every ``to_dict()``, so
+    ``Agent.from_dict(agent.to_dict())`` silently reset ``llm`` to
+    ``Agent.DEFAULT_LLM`` and the other three roles to ``None``.
+    """
+
+    def test_string_role_refs_round_trip_unchanged(self):
+        """All four roles survive a dump/load as the same string ids."""
+        agent = Agent(
+            name="n",
+            description="d",
+            llm="llm-id",
+            supervisor="sup-id",
+            planner="planner-id",
+            response_generator="rg-id",
+        )
+
+        restored = Agent.from_dict(agent.to_dict())
+
+        assert restored.llm == "llm-id"
+        assert restored.supervisor == "sup-id"
+        assert restored.planner == "planner-id"
+        assert restored.response_generator == "rg-id"
+
+    def test_dumped_llm_is_not_silently_replaced_by_the_sdk_default(self):
+        """The regression that motivated this: a chosen llm came back as the default."""
+        agent = Agent(name="n", description="d", llm="a-deliberately-chosen-llm")
+
+        dumped = agent.to_dict()
+
+        assert dumped["model"] == "a-deliberately-chosen-llm"
+        assert Agent.from_dict(dumped).llm != Agent.DEFAULT_LLM
+
+    def test_model_role_ref_is_serialized_not_recursed_into(self):
+        """A ``Model`` ref dumps as the id/parameters manifest (and stays JSON-safe)."""
+        llm = _reasoning_model("model-ref-1")
+        llm.inputs.reasoning_effort = "low"
+        agent = Agent(name="n", description="d", llm=llm)
+
+        dumped = agent.to_dict()
+
+        assert dumped["model"]["id"] == "model-ref-1"
+        assert _params_as_dict(dumped["model"]["parameters"]) == {"reasoningEffort": "low"}
+        # Parameters survive the round trip, flattened for in-Python access.
+        assert Agent.from_dict(dumped).llm == {
+            "id": "model-ref-1",
+            "parameters": {"reasoningEffort": "low"},
+        }
+
+    def test_unset_roles_are_omitted(self):
+        """Roles left unset stay out of the dump; only ``llm`` has a default."""
+        agent = Agent(name="n", description="d")
+
+        dumped = agent.to_dict()
+
+        assert dumped["model"] == Agent.DEFAULT_LLM
+        for absent in ("supervisor", "planner", "responder"):
+            assert absent not in dumped
+
+    def test_role_change_marks_the_agent_modified(self):
+        """``is_modified`` reads ``to_dict()``, so a swapped llm now registers.
+
+        It previously did not: on a draft agent that made ``before_run`` skip the
+        implicit save, so the run silently used the *old* model — the same class
+        of silent model loss as the dump/load bug above.
+        """
+        agent = Agent.from_dict({"id": "a1", "name": "n", "description": "d", "model": {"id": "llm-1"}})
+        agent._update_saved_state()
+        assert agent.is_modified is False
+
+        agent.llm = "llm-2"
+
+        assert agent.is_modified is True
+
+    def test_to_dict_is_json_serializable(self):
+        """A dump is only useful if it survives ``json.dumps`` (``Model`` refs included)."""
+        agent = Agent(name="n", description="d", llm=_reasoning_model("m-json"), supervisor="sup-id")
+
+        reloaded = json.loads(json.dumps(agent.to_dict()))
+
+        assert reloaded["model"]["id"] == "m-json"
+        assert reloaded["supervisor"] == "sup-id"

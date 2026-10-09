@@ -13,7 +13,7 @@ from unittest.mock import Mock, call
 import pytest
 
 from aixplain import Aixplain
-from aixplain.v2.exceptions import ResourceError, ValidationError
+from aixplain import ResourceError, ValidationError
 from aixplain.v2.resource import BaseResource
 
 
@@ -45,9 +45,7 @@ class TestListFiles:
 
     def test_returns_sorted_paths_from_tree(self, aix):
         skill = aix.Skill(id="skill-1", name="s")
-        skill._tree_index = Mock(
-            return_value={"resources/notes.txt": "f2", "SKILL.md": "f1", "resources": "d1"}
-        )
+        skill._tree_index = Mock(return_value={"resources/notes.txt": "f2", "SKILL.md": "f1", "resources": "d1"})
 
         assert skill.list_files() == ["SKILL.md", "resources", "resources/notes.txt"]
 
@@ -212,16 +210,12 @@ class TestSaveRefreshesFrontmatterMetadata:
     def test_second_save_picks_up_an_edited_description(self, aix, tmp_path, monkeypatch):
         skill_dir = tmp_path / "skill"
         skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text(
-            "---\nname: s\ndescription: v1 desc\n---\n\nv1 body\n", encoding="utf-8"
-        )
+        (skill_dir / "SKILL.md").write_text("---\nname: s\ndescription: v1 desc\n---\n\nv1 body\n", encoding="utf-8")
         skill = self._staged(aix, skill_dir, monkeypatch)
         skill.save()
         assert skill.description == "v1 desc"
 
-        (skill_dir / "SKILL.md").write_text(
-            "---\nname: s\ndescription: v2 desc\n---\n\nv2 body\n", encoding="utf-8"
-        )
+        (skill_dir / "SKILL.md").write_text("---\nname: s\ndescription: v2 desc\n---\n\nv2 body\n", encoding="utf-8")
         skill.save()
 
         assert skill.description == "v2 desc", "an edited frontmatter description must reach the asset"
@@ -399,9 +393,7 @@ class TestUpdatePersistsMetadata:
         skill.update(str(new_md))
 
         assert skill.description == "new desc"
-        asset_puts = [
-            c for c in aix.client.request.call_args_list if c.args == ("put", "sdk/skill/skill-1")
-        ]
+        asset_puts = [c for c in aix.client.request.call_args_list if c.args == ("put", "sdk/skill/skill-1")]
         assert len(asset_puts) == 1, "the parsed description must reach the asset, not just the file node"
         assert asset_puts[0].kwargs["json"]["description"] == "new desc"
 

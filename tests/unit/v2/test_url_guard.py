@@ -17,7 +17,7 @@ from aixplain.v2.client import (
     build_trusted_origins,
     normalize_origin,
 )
-from aixplain.v2.exceptions import UntrustedURLError
+from aixplain import UntrustedURLError
 
 
 class _RecordingAdapter(requests.adapters.HTTPAdapter):

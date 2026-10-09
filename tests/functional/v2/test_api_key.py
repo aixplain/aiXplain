@@ -2,7 +2,7 @@
 
 import pytest
 
-from aixplain.v2 import APIKey, APIKeyLimits, APIKeyUsageLimit, TokenType
+from aixplain import APIKey, APIKeyLimits, APIKeyUsageLimit, TokenType
 
 
 class TestAPIKeyBasicOperations:

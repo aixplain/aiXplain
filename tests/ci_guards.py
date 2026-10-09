@@ -9,14 +9,35 @@ state, reporting green for ~2,300 LOC that never ran.
 These helpers are kept out of `tests/conftest.py` so they can be unit-tested
 directly; the conftest only wires them into pytest's hooks. The module name
 matches neither `test_*.py` nor `*_test.py`, so pytest does not collect it.
+
+ENG-3684 extends the same idea one step further: "at least one test ran" is a
+floor so low that a leg skipping nearly all of its collected tests clears it.
+The ratio guard below holds a leg to a *proportion* of its collected tests, and
+the ledger records what was skipped and why so the summary names the fixtures to
+fix.
 """
 
 import os
+from collections import Counter
+from typing import NamedTuple, Optional
 
 #: Set this to a truthy value to make an all-skipped session a failure. It is
 #: opt-in so that `pytest -k ...`, single-file runs, and no-credential laptops
 #: behave exactly as they do today; only `.github/workflows/main.yaml` sets it.
 REQUIRE_EXECUTED_ENV = "AIXPLAIN_REQUIRE_EXECUTED_TESTS"
+
+#: Minimum share of *collected* tests a leg must actually execute, as a float in
+#: [0, 1]. Read only when `REQUIRE_EXECUTED_ENV` is on, so the two guards share
+#: one opt-in and laptops stay unaffected. `0` disables the ratio floor and
+#: leaves only the "nothing ran at all" check from ENG-3544.
+MIN_EXECUTED_RATIO_ENV = "AIXPLAIN_MIN_EXECUTED_RATIO"
+
+#: The floor when `MIN_EXECUTED_RATIO_ENV` is unset. The functional legs are one
+#: file of a handful of tests each and carry no conditional skips of their own; a
+#: missing credential skips the whole leg, which the zero-executed floor already
+#: fails. So any skip that trips this is a backend-dependent one hiding a missing
+#: fixture -- the shape ENG-3684 exists to catch.
+DEFAULT_MIN_EXECUTED_RATIO = 0.8
 
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
@@ -47,14 +68,69 @@ def is_non_executing_session(config) -> bool:
     return any(getattr(option, name, False) for name in NON_EXECUTING_OPTIONS)
 
 
+class SkippedTest(NamedTuple):
+    """One skipped test, as it will appear in the end-of-run summary."""
+
+    nodeid: str
+    reason: str
+
+
+def module_of(nodeid: str) -> str:
+    """The test file part of *nodeid* -- everything before the first `::`."""
+    return nodeid.split("::", 1)[0]
+
+
+def skip_reason(report) -> str:
+    """The human-readable reason attached to a skipped *report*.
+
+    pytest puts it in `longrepr` as a `(path, lineno, "Skipped: <reason>")`
+    triple for a plain skip. Anything else (a string, a full repr object) is
+    stringified, because a reason we cannot parse is still worth printing --
+    silently dropping it would leave the summary naming tests with no clue as to
+    which fixture went missing, which is the whole point of collecting them.
+    """
+    longrepr = getattr(report, "longrepr", None)
+    if isinstance(longrepr, tuple) and len(longrepr) == 3:
+        text = str(longrepr[2])
+    elif longrepr is None:
+        return "no reason given"
+    else:
+        text = str(longrepr)
+    prefix = "Skipped: "
+    return text[len(prefix) :].strip() if text.startswith(prefix) else text.strip()
+
+
 class ExecutionLedger:
-    """Counts test bodies that actually ran, as opposed to being skipped."""
+    """Counts test bodies that actually ran, as opposed to being skipped.
+
+    Beyond the session totals, it keeps per-module tallies and the id/reason of
+    every skip. A leg that fails the ratio floor needs to say *which* modules
+    went dark and why: a bare "N of M skipped" sends a reader grepping, whereas
+    "test_actions_inputs.py: 0/20 -- No tool with actions found" names the
+    fixture to fix.
+
+    Executed tests are tracked by nodeid, so a test whose body is reported more
+    than once -- a pytest-rerunfailures rerun after a *teardown* failure re-runs
+    a body that already passed -- is still one executed test.
+    """
 
     def __init__(self) -> None:
-        self.executed = 0
+        """Start with empty tallies."""
+        self.collected = 0
+        self.executed_by_module = Counter()
+        self.collected_by_module = Counter()
+        self.skipped = []
+        self._executed_nodeids = set()
+        self._unnamed_executed = 0
+        self._skipped_nodeids = set()
+
+    @property
+    def executed(self) -> int:
+        """Number of distinct tests whose body ran."""
+        return len(self._executed_nodeids) + self._unnamed_executed
 
     def reset(self) -> None:
-        """Clear the tally at the start of a session.
+        """Clear the tallies at the start of a session.
 
         The conftest holds one ledger for the life of the *process*, but pytest
         can run more than one session in a process (``pytest.main()`` called
@@ -62,22 +138,121 @@ class ExecutionLedger:
         forward would make the guard silently pass a session that ran nothing --
         a false negative in exactly the direction the guard exists to prevent.
         """
-        self.executed = 0
+        self.collected = 0
+        self.executed_by_module.clear()
+        self.collected_by_module.clear()
+        self.skipped = []
+        self._executed_nodeids = set()
+        self._unnamed_executed = 0
+        self._skipped_nodeids = set()
+
+    def record_collected(self, items) -> None:
+        """Tally the tests this session will attempt, per module.
+
+        Called with the final item list rather than `session.testscollected` so
+        the denominator matches the numerator: the conftest's `--sdk_version`
+        filters and `-k`/`-m` deselection have both already pruned it, so a
+        narrowed run is not measured against the items it deliberately dropped.
+        """
+        for item in items:
+            nodeid = getattr(item, "nodeid", None)
+            if not nodeid:  # pragma: no cover - defensive
+                continue
+            self.collected += 1
+            self.collected_by_module[module_of(nodeid)] += 1
 
     def record(self, report) -> None:
         """Count *report* if it represents a test body that ran.
 
-        Only the ``call`` phase counts: a plain skip (whether from a marker or
-        from ``pytest.skip()`` inside a fixture) is reported at ``setup`` and
-        never reaches ``call`` at all, so setup/teardown reports say nothing
-        about whether the body ran.
+        Only the ``call`` phase counts as executed: a plain skip (whether from a
+        marker or from ``pytest.skip()`` inside a fixture) is reported at
+        ``setup`` and never reaches ``call`` at all, so setup/teardown reports
+        say nothing about whether the body ran.
+
+        Skips are recorded from *any* phase, because the two shapes this task
+        targets land in different ones -- a fixture-level skip at ``setup``, an
+        inline ``pytest.skip()`` part-way through the body at ``call``.
         """
-        if getattr(report, "when", None) != "call":
-            return
+        when = getattr(report, "when", None)
+        outcome = getattr(report, "outcome", None)
         # An xfail arrives as `skipped` at call time, but the body *did* run, so
         # it counts as executed -- `wasxfail` is the marker pytest sets for it.
-        if report.outcome in ("passed", "failed") or hasattr(report, "wasxfail"):
-            self.executed += 1
+        was_xfail = hasattr(report, "wasxfail")
+
+        if outcome == "skipped" and not was_xfail and when in ("setup", "call"):
+            self._record_skip(report)
+
+        if when != "call":
+            return
+        if outcome in ("passed", "failed") or was_xfail:
+            nodeid = getattr(report, "nodeid", "")
+            if not nodeid:  # pragma: no cover - defensive; real reports carry one
+                self._unnamed_executed += 1
+            elif nodeid not in self._executed_nodeids:
+                self._executed_nodeids.add(nodeid)
+                self.executed_by_module[module_of(nodeid)] += 1
+
+    def _record_skip(self, report) -> None:
+        """Add *report* to the skip list, once per nodeid."""
+        nodeid = getattr(report, "nodeid", "")
+        if not nodeid:  # pragma: no cover - defensive
+            return
+        # A test skipped at setup emits exactly one skipped report, but a rerun
+        # (pytest-rerunfailures) or a repeated session can emit the same nodeid
+        # twice; the summary lists each test once.
+        if nodeid in self._skipped_nodeids:
+            return
+        self._skipped_nodeids.add(nodeid)
+        self.skipped.append(SkippedTest(nodeid, skip_reason(report)))
+
+    def module_table(self):
+        """`(module, executed, collected)` rows for the summary, module-sorted.
+
+        `collected_by_module` is the authoritative denominator, but it is only
+        filled by `record_collected`, which a pytest-xdist controller may never
+        reach and which a conftest re-exporting only the report hooks does not
+        wire at all. Falling back to "executed + skipped
+        reports seen for this module" keeps the table populated in those cases
+        instead of printing an empty section, which reads as "no modules" rather
+        than "no collection data".
+        """
+        seen = Counter(self.executed_by_module)
+        for entry in self.skipped:
+            seen[module_of(entry.nodeid)] += 1
+
+        modules = set(self.collected_by_module) | set(seen)
+        return [
+            (module, self.executed_by_module.get(module, 0), self.collected_by_module.get(module) or seen[module])
+            for module in sorted(modules)
+        ]
+
+
+def guards_enabled(env=None) -> bool:
+    """True if the session opted into the CI integrity guards."""
+    env = os.environ if env is None else env
+    return str(env.get(REQUIRE_EXECUTED_ENV, "")).lower() in _TRUTHY
+
+
+def min_executed_ratio(env=None) -> float:
+    """The configured execution floor, as a float in [0, 1].
+
+    Raises:
+        ValueError: If the variable is set to something that is not a number in
+            [0, 1]. A typo'd floor that silently fell back to the default would
+            leave the workflow claiming a threshold it does not enforce, which is
+            the same class of lie the guard exists to catch -- so it is loud.
+    """
+    env = os.environ if env is None else env
+    raw = env.get(MIN_EXECUTED_RATIO_ENV)
+    if raw is None or str(raw).strip() == "":
+        return DEFAULT_MIN_EXECUTED_RATIO
+    try:
+        ratio = float(str(raw).strip())
+    except (TypeError, ValueError):
+        raise ValueError(f"{MIN_EXECUTED_RATIO_ENV}={raw!r} is not a number; expected a value in [0, 1].")
+    if not 0.0 <= ratio <= 1.0:
+        raise ValueError(f"{MIN_EXECUTED_RATIO_ENV}={raw!r} is out of range; expected a value in [0, 1].")
+    return ratio
 
 
 def should_fail_for_no_executed_tests(executed: int, exitstatus: int, env=None) -> bool:
@@ -90,7 +265,7 @@ def should_fail_for_no_executed_tests(executed: int, exitstatus: int, env=None) 
             ``os.environ``.
     """
     env = os.environ if env is None else env
-    if str(env.get(REQUIRE_EXECUTED_ENV, "")).lower() not in _TRUTHY:
+    if not guards_enabled(env):
         return False
     # Sessions that are already failing are left alone: rewriting a real failure
     # as "executed nothing" would bury the actual error. 0 (all passed) and 5
@@ -110,3 +285,87 @@ def no_executed_tests_message(collected: int) -> str:
         f"(then the leg should be removed from the matrix). Set {REQUIRE_EXECUTED_ENV}=0 "
         "to disable this guard."
     )
+
+
+def breached_execution_floor(executed: int, collected: int, exitstatus: int, env=None) -> Optional[float]:
+    """The execution floor this session fell below, or None if it must not fail.
+
+    The ENG-3544 guard above only fires at *zero* executed, which
+    `tests/functional/v2` cleared while skipping most of its tests (ENG-3684).
+    This is the same check with a proportional floor. It returns the floor rather
+    than a bool so the caller can name it in the message without parsing the
+    environment a second time; a breached floor is always above 0, so the result
+    is truthy exactly when the session must fail.
+
+    Args:
+        executed: Number of test bodies that ran, per :class:`ExecutionLedger`.
+        collected: Number of tests collected, per :class:`ExecutionLedger`.
+        exitstatus: The exit status pytest is about to report.
+        env: Environment mapping to read the flags from; defaults to ``os.environ``.
+
+    Raises:
+        ValueError: If ``MIN_EXECUTED_RATIO_ENV`` holds an unusable value.
+    """
+    env = os.environ if env is None else env
+    if not guards_enabled(env):
+        return None
+    # Same reasoning as the zero-executed guard: a session that is already red
+    # keeps its own failure. Rewriting it as a ratio shortfall would bury the
+    # real error, and a leg full of failures has by definition executed bodies.
+    if exitstatus not in (0, EXIT_NO_TESTS_COLLECTED):
+        return None
+    # "Nothing collected" belongs to the ENG-3544 guard; 0/0 is not a shortfall.
+    if collected <= 0:
+        return None
+    ratio = min_executed_ratio(env)
+    if ratio <= 0:
+        return None
+    return ratio if (executed / collected) < ratio else None
+
+
+def low_execution_ratio_message(
+    ledger: "ExecutionLedger", ratio: float, max_listed: int = 40, collected: Optional[int] = None
+) -> str:
+    """The failure text shown when too few of the collected tests ran.
+
+    Lists the under-executing modules and then every skipped test with its
+    reason, because the fix is never "run more tests" -- it is "restore the
+    backend fixture named in this reason". Truncated at *max_listed* so a
+    thousand-skip session stays readable; the per-module table above it is
+    complete either way.
+
+    *collected* overrides ``ledger.collected`` as the denominator. The conftest
+    passes it under pytest-xdist, where the controller's ledger never saw the
+    collection and the total comes from the session instead.
+    """
+    executed = ledger.executed
+    collected = ledger.collected if collected is None else collected
+    lines = [
+        f"CI integrity failure (ENG-3684): {executed} of {collected} collected test(s) executed "
+        f"({executed / collected:.1%}), below the {ratio:.1%} floor. "
+        "A leg that skips most of its suite must not report success.",
+        "",
+        "Executed / collected per module:",
+    ]
+    for module, module_executed, module_collected in ledger.module_table():
+        marker = "  " if module_executed == module_collected else "! "
+        lines.append(f"  {marker}{module}: {module_executed}/{module_collected}")
+
+    if ledger.skipped:
+        lines.extend(["", f"Skipped ({len(ledger.skipped)}):"])
+        for entry in ledger.skipped[:max_listed]:
+            lines.append(f"  {entry.nodeid}: {entry.reason}")
+        remaining = len(ledger.skipped) - max_listed
+        if remaining > 0:
+            lines.append(f"  ... and {remaining} more")
+
+    lines.extend(
+        [
+            "",
+            "A skip that depends on backend state hides a missing test fixture. Pin the asset "
+            "the test needs and fail when it is absent, or gate the test on a credential in a "
+            f"conftest fixture. Set {MIN_EXECUTED_RATIO_ENV}=0 to disable this guard, or lower "
+            "the floor deliberately with a comment saying why.",
+        ]
+    )
+    return "\n".join(lines)

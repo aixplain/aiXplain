@@ -6,6 +6,36 @@ on:
       - main
       # any branch other than main, will use the test key
       - test
+  # ENG-3683: without this, the functional matrix never ran before a merge --
+  # the earliest a functional regression could surface was a push to `test`, and
+  # `release.yaml` gated a PyPI upload on the unit suite alone. The credential-free
+  # jobs (`unit-coverage`, `package-integrity`) run on every PR; the functional
+  # matrix is gated by the `functional-scope` job below, so a docs-only or fork PR
+  # does not burn the backend-hitting legs.
+  #
+  # `labeled` is in `types` on purpose: adding the `functional-tests` label has to
+  # start a run by itself, otherwise the label only takes effect on the next push
+  # and "add the label to run the suites" is false. Any other label starts a run
+  # too, and that run goes through the same path-based decision as a push would;
+  # it is not short-circuited to "skip", because a skipped run on the same SHA
+  # would then be the latest word on a PR whose previous run was red. The
+  # `concurrency:` block below is what bounds the cost of a label storm, and it
+  # does not let an unrelated label cancel a matrix that is already running.
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  # Nightly against the test backend. The functional legs are the only coverage
+  # of live-backend behaviour, and gating them on PR paths means a backend change
+  # under an untouched SDK is invisible until someone happens to touch
+  # `aixplain/**`. `nightly-report` posts to Slack when this run is not green.
+  #
+  # A scheduled run always executes on the default branch, which is `main`, so
+  # it tests `main`'s code -- and `github.ref_name == 'main'` is true for it. The
+  # `functional` job's IS_PROD therefore allow-lists events rather than refs;
+  # without that the nightly ran every leg against production with the
+  # production key (ENG-3683).
+  schedule:
+    # 03:17 UTC: off the hour, where GitHub's scheduler queues are shortest.
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 # Least privilege (ENG-3428): every job below only reads the repository --
@@ -16,6 +46,34 @@ on:
 # so `contents: read` covers the artifact uploads too.
 permissions:
   contents: read
+
+# One run per PR at a time (ENG-3683). A push, a label and a reopen each start
+# a run of every job, and the functional matrix is one leg per functional test
+# file against a shared test backend; without this a PR opened with three labels
+# starts four matrices at once, and a superseded push keeps burning backend time nobody will look at.
+# Only PR runs cancel each other: the newest event on a PR always re-decides
+# from the paths, so the run that survives says the same thing the cancelled
+# one would have.
+#
+# Every other event gets a group of its own (the run id). A shared group would
+# not cancel an in-progress push run, but GitHub keeps only one *pending* run
+# per group and cancels the rest, so three quick merges to `main` would leave
+# the middle commit with no completed run -- and `release.yaml`'s functional
+# gate refuses to release a commit like that.
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{ github.event_name == 'pull_request'
+    && format('pr-{0}', github.event.pull_request.number)
+    || format('run-{0}', github.run_id) }}
+  # An unrelated label (`bug`, `needs-review`) must not cancel a matrix that is
+  # already running: with plain cancel-in-progress, labelling a PR threw away up
+  # to ~25 legs of work and started them again. Such a run still joins the PR's
+  # group, so it waits as the one pending run and starts when the current one
+  # ends; a push or the `functional-tests` label in the meantime replaces it, and
+  # that run does cancel, because it is new code or an explicit request.
+  cancel-in-progress: >-
+    ${{ github.event_name == 'pull_request'
+    && (github.event.action != 'labeled' || github.event.label.name == 'functional-tests') }}
 
 env:
   # Coverage floor for the unit suite, enforced by the `unit-coverage` job.
@@ -28,6 +86,13 @@ env:
   # `pytest_sessionfinish` guard in tests/conftest.py fails any session in which
   # no test body ran.
   AIXPLAIN_REQUIRE_EXECUTED_TESTS: "1"
+  # ...and "at least one test ran" is a floor low enough that `v2` cleared it
+  # while skipping most of its collected tests (ENG-3684). Each leg must now
+  # execute at least this share of what it collected. The legs carry no
+  # conditional skips of their own, and a missing credential skips a whole leg,
+  # which the zero-executed floor already fails. Lower it here only with a
+  # comment saying which leg needs the slack and why.
+  AIXPLAIN_MIN_EXECUTED_RATIO: "0.8"
 
 jobs:
   # The unit suite is deliberately credential-free: no TEAM_API_KEY, no
@@ -127,13 +192,15 @@ jobs:
               p.relative_to(export).as_posix()
               for p in (export / "aixplain").rglob("*.py")
           }
-          assert len(expected) > 100, f"source scan found only {len(expected)} modules"
+          assert len(expected) > 30, f"source scan found only {len(expected)} modules"
 
-          # aixplain/v1/base/ and aixplain/v1/factories/cli/ have no __init__.py;
-          # they only ship while `namespaces = true` holds. Sharpest canaries.
+          # One module per shipped subpackage. A discovery bug drops whole
+          # directories, so these are the sharpest canaries left after v1.
           for canary in (
-              "aixplain/v1/base/parameters.py",
-              "aixplain/v1/factories/cli/model_factory_cli.py",
+              "aixplain/_compat.py",
+              "aixplain/v2/core.py",
+              "aixplain/utils/url_safety.py",
+              "aixplain/exceptions/types.py",
           ):
               assert canary in expected, f"canary vanished from the tree: {canary}"
 
@@ -183,23 +250,18 @@ jobs:
               f"imported the source tree, not the wheel: {aixplain.__file__}"
           )
 
-          # One entry per top-level subpackage, plus both legacy-redirect paths
-          # through the __init__-less namespace dirs. Deliberately not a
+          # One entry per top-level subpackage. Deliberately not a
           # walk_packages() sweep: modules behind optional extras (plotly,
           # docker, model-interfaces) would fail for reasons unrelated to
           # packaging and make the gate flaky.
           CANARIES = [
               "aixplain.v2.core",
               "aixplain.v2.agent",
-              "aixplain.v1.modules.model",
-              "aixplain.v1.factories.model_factory",
-              "aixplain.v1.processes.data_onboarding",
-              "aixplain.base.parameters",                   # -> v1/base/, no __init__.py
-              "aixplain.factories.cli.model_factory_cli",   # -> v1/factories/cli/, no __init__.py
-              "aixplain.enums",
+              "aixplain.v2.api_key",
               "aixplain.utils.config",
+              "aixplain.utils.url_safety",
               "aixplain.exceptions.types",
-              "aixplain.cli_groups",
+              "aixplain._compat",
           ]
           failed = []
           for m in CANARIES:
@@ -210,13 +272,20 @@ jobs:
           if failed:
               sys.exit("\n".join(["modules failed to import from the wheel:"] + failed))
           print(f"{len(CANARIES)} canary modules imported cleanly")
-          PY
 
-      - name: Check the console script is wired up
-        run: |
-          set -euo pipefail
-          cd "$RUNNER_TEMP"
-          "$RUNNER_TEMP/venv/bin/aixplain" --help
+          # v1 is gone: the legacy paths must fail, and with a message that
+          # names the v2 replacement rather than a bare "No module named".
+          for removed in ("aixplain.factories", "aixplain.modules", "aixplain.enums", "aixplain.v1"):
+              try:
+                  importlib.import_module(removed)
+              except ModuleNotFoundError as exc:
+                  assert "aix." in str(exc) or "aixplain.v2" in str(exc), (
+                      f"{removed} failed without naming a v2 equivalent: {exc}"
+                  )
+              else:
+                  sys.exit(f"{removed} still imports; v1 leaked back into the wheel")
+          print("removed v1 paths fail with actionable errors")
+          PY
 
       - name: Upload the built artifacts
         uses: actions/upload-artifact@v4
@@ -225,11 +294,140 @@ jobs:
           name: dist
           path: ${{ runner.temp }}/dist/*
 
-  setup-and-test:
+  # Decides whether the backend-hitting legs below run for this event
+  # (ENG-3683). A separate job rather than `on.pull_request.paths` because a path
+  # filter suppresses the *check itself*: a required context that never reports
+  # leaves the PR stuck on "Expected -- waiting for status to be reported", which
+  # is a merge deadlock, not a merge gate. A job skipped by `if:` still reports,
+  # and GitHub counts a skipped job as satisfying a required check.
+  functional-scope:
     runs-on: ubuntu-latest
-    timeout-minutes: 45  # Global timeout fallback
+    timeout-minutes: 5
+    outputs:
+      run-functional: ${{ steps.decide.outputs.run-functional }}
+      reason: ${{ steps.decide.outputs.reason }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # The diff below is base..head, so the shallow default is not enough.
+          fetch-depth: 0
+
+      - name: Decide whether the functional matrix runs
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          # Empty on every non-PR event; quoted through `toJSON` so a label
+          # containing a quote or a space cannot break out of the shell.
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          # Empty when the head repository has been deleted (`head.repo` is
+          # null), which the script treats as a fork.
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          decide () {
+            echo "run-functional=$1" >> "$GITHUB_OUTPUT"
+            echo "reason=$2" >> "$GITHUB_OUTPUT"
+            echo "functional matrix: $1 -- $2"
+            exit 0
+          }
+
+          # push / schedule / workflow_dispatch: always the full matrix. These are
+          # the events that feed `release.yaml`'s functional gate, so narrowing
+          # them would silently weaken the release check.
+          if [ "$EVENT" != "pull_request" ]; then
+            decide true "event '$EVENT' always runs the full matrix"
+          fi
+
+          # A `pull_request` run from a fork receives no secrets, so every leg
+          # would fail on a missing TEAM_API_KEY and the redness would say nothing
+          # about the contribution. `pull_request_target` is not an acceptable
+          # substitute -- it runs base-repo secrets against fork code. See
+          # docs/ci/required-checks.md.
+          #
+          # An empty HEAD_REPO counts as a fork: it is what a PR from a deleted
+          # fork reports, and "we cannot tell where this came from" has to fail
+          # closed rather than be read as "same repository".
+          if [ -z "$HEAD_REPO" ] || [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            decide false "fork PR from '${HEAD_REPO:-a deleted repository}': the legs would get no secrets"
+          fi
+
+          # The manual override, for a PR whose risk is not visible in the paths
+          # (a dependency bump, a CI change, a backend migration).
+          if printf '%s' "$LABELS" | jq -e 'index("functional-tests")' > /dev/null; then
+            decide true "PR carries the 'functional-tests' label"
+          fi
+
+          # What can change a functional result from inside this repository: the
+          # SDK itself, the suites, the dependency pins and test extras
+          # (pyproject.toml -- dependency bumps are the classic way functional
+          # behaviour breaks), the shared harness every leg loads, and this
+          # workflow, which builds the legs' environment.
+          #
+          # The harness is every module directly under tests/ (the root conftest,
+          # and the ci_guards / cleanup_guards modules it and `resource_tracker`
+          # import) plus pytest.ini, which carries `--strict-markers` and the
+          # marker registry. Naming only tests/conftest.py let a PR that touched
+          # just one of the others skip the matrix and pass `functional-result`
+          # green, although it could break every leg.
+          paths='^(aixplain/|tests/functional/|tests/[^/]+\.py$|pytest\.ini$|pyproject\.toml$|\.github/workflows/main\.yaml$)'
+
+          # Three dots: the merge base, so commits that landed on the base branch
+          # after the PR opened are not counted as the PR's own changes.
+          changed="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
+
+          # A here-string, never `printf ... | grep -q`: grep -q exits on the
+          # first match, and once the file list outgrows the pipe buffer the
+          # writer dies of SIGPIPE. Under `pipefail` that makes the whole `if`
+          # false, so the largest PRs -- mass reformats, removals -- skipped the
+          # matrix and showed green (ENG-3683).
+          if grep -Eq "$paths" <<< "$changed"; then
+            decide true "PR touches a path the functional suites depend on"
+          fi
+
+          decide false "no change to a path the functional suites depend on, and no 'functional-tests' label"
+
+  functional:
+    needs: functional-scope
+    # A job-level `if:` is evaluated before the matrix expands, so when this is
+    # false GitHub reports one skipped `functional` context, not a skipped
+    # `functional (<leg>)` one per leg. That is why the per-leg contexts are not the ones
+    # to require on `main`; `functional-result` below is (ENG-3683).
+    if: needs.functional-scope.outputs.run-functional == 'true'
+    runs-on: ubuntu-latest
+    # Global fallback. Kept above the longest per-leg `timeout` (45) so a hung leg
+    # is stopped by its step timeout, which still lets the job finish and report;
+    # a job timeout equal to the step timeout lands first and skips that.
+    timeout-minutes: 55
+    env:
+      # Production means a push to `main`, or a manual dispatch on `main` or a
+      # `v*` tag -- an allow-list of events, not just refs. A scheduled run
+      # executes on the default branch, so a ref-only test made the nightly a
+      # production run; a PR's ref is never `main`, but it is named here as not
+      # production rather than left to that coincidence.
+      #
+      # A tag counts as production alongside `main`: `release.yaml`'s functional
+      # gate reads the run on the tagged commit, and a release validated against
+      # the test backend would prove nothing about what the wheel is published
+      # for (ENG-3683). Job-level so that the `_PROD` secrets below can key on the
+      # same value instead of repeating the expression.
+      IS_PROD: >-
+        ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     strategy:
       fail-fast: false
+      # Every leg runs agents against the same test tenant, which caps concurrent
+      # agent runs per team (20 at the time of writing). With all legs at once --
+      # several of them at `-n 2` -- runs beyond the cap are refused with
+      # `429 err.agent_concurrency_limit_reached`, which fails tests that have
+      # nothing wrong with them (~40 in the first live run of this matrix). Four
+      # legs at a time keep one run under the cap. It does not bound runs of
+      # *other* PRs sharing the tenant; the per-PR `concurrency:` group above
+      # keeps that to one matrix per PR.
+      max-parallel: 4
       matrix:
         # 'unit' is absent on purpose: it runs in the credential-free
         # `unit-coverage` job above, so it is not executed twice.
@@ -242,52 +440,131 @@ jobs:
         # rather than silent dead code, while parking stays available as an
         # explicit, reviewed choice.
         #
-        # Deliberately NOT legs: benchmark, pipelines/designer_test.py,
-        # pipelines/create_test.py. 04dea96e dropped them because they were
-        # failing, and their green-ness against the test backend has not been
-        # re-established. They stay parked (ENG-3544) until someone runs them
-        # with a test-backend credential and proves them green; re-add the leg
-        # name and its include entry here in the same change that drops the
-        # PARKED_TARGETS entry.
-        test-suite: [
-          'file_asset',
-          'data_asset',
-          'model',
-          'pipeline_2.0_v1',
-          'general_assets',
-          'apikey',
+        # The v2 suite runs one leg per test file, so the legs run in parallel and a
+        # failure names the resource that broke instead of a single `v2` job. Adding
+        # a test file under tests/functional/v2/ means adding a leg here (both the
+        # name and its include entry); test_ci_matrix_coverage.py fails otherwise.
+        #
+        # The v1 legs (file_asset, model, general_assets, apikey, agent,
+        # team_agent, benchmark) were deleted with v1 in PROD-2918.
+        suite: [
+          'actions-inputs',
           'agent',
-          'team_agent',
-          'v2',
+          'agent-duplicate',
+          'agent-lifecycle',
+          'agent-llm-persistence',
+          'agent-progress',
+          'agent-run-params',
+          'api-key',
+          'arabic-agent',
+          'debugger',
+          'eval',
+          'file',
+          'integration',
+          'issue',
+          'model',
+          'resource',
+          'rlm',
+          'session',
+          'skill',
+          'snake-case-e2e',
+          'team-agent',
+          'tool',
+          'trigger',
+          'utility',
         ]
+        #
+        # Keys contributed only by `include` are not part of the job name, so the
+        # contexts stay `functional (agent)`. Besides `path` and `timeout`, two
+        # optional keys:
+        #
+        # - `slack: true` -- the leg runs a test that reads SLACK_TOKEN (the
+        #   `slack_token` fixture in tests/functional/v2/conftest.py); a test under
+        #   an unconditional `pytest.mark.skip` does not count. Only these legs are
+        #   handed the token; a same-repository PR runs unreviewed dependency
+        #   changes in every leg, and a leg that never uses the token should not
+        #   hold it.
+        # - `prod_safe: false` -- the leg has side effects production cannot undo,
+        #   so "Run Tests" skips it on production runs. See that step.
         include:
-          - test-suite: 'file_asset'
-            path: 'tests/functional/file_asset'
+          - suite: 'actions-inputs'
+            path: 'tests/functional/v2/test_actions_inputs.py'
+            timeout: 30
+          - suite: 'agent'
+            path: 'tests/functional/v2/test_agent.py -n 2'
             timeout: 45
-          - test-suite: 'data_asset'
-            path: 'tests/functional/data_asset'
+          - suite: 'agent-duplicate'
+            path: 'tests/functional/v2/test_agent_duplicate.py'
+            timeout: 30
+          - suite: 'agent-lifecycle'
+            path: 'tests/functional/v2/test_agent_lifecycle.py -n 2'
             timeout: 45
-          - test-suite: 'model'
-            path: 'tests/functional/model'
+            # No `slack: true`: its one Slack test is skipped for BUG-1098. Add the
+            # key back when that skip goes; the unit guard fails until you do.
+          - suite: 'agent-llm-persistence'
+            path: 'tests/functional/v2/test_agent_llm_persistence.py'
+            timeout: 30
+          - suite: 'agent-progress'
+            path: 'tests/functional/v2/test_agent_progress.py'
+            timeout: 30
+          - suite: 'agent-run-params'
+            path: 'tests/functional/v2/test_agent_run_params.py -n 2'
             timeout: 45
-          - test-suite: 'pipeline_2.0_v1'
-            path: 'tests/functional/pipelines/run_test.py --pipeline_version 2.0 --sdk_version v1 --sdk_version_param PipelineFactory'
+          - suite: 'api-key'
+            path: 'tests/functional/v2/test_api_key.py'
+            timeout: 30
+          - suite: 'arabic-agent'
+            path: 'tests/functional/v2/test_arabic_agent.py -n 2'
             timeout: 45
-          - test-suite: 'general_assets'
-            path: 'tests/functional/general_assets'
+          - suite: 'debugger'
+            path: 'tests/functional/v2/test_debugger.py'
+            timeout: 30
+          - suite: 'eval'
+            path: 'tests/functional/v2/test_eval.py'
             timeout: 45
-          - test-suite: 'apikey'
-            path: 'tests/functional/apikey'
+          - suite: 'file'
+            path: 'tests/functional/v2/test_file.py'
+            timeout: 30
+          - suite: 'integration'
+            path: 'tests/functional/v2/test_integration.py'
+            timeout: 30
+          - suite: 'issue'
+            path: 'tests/functional/v2/test_issue.py'
+            timeout: 30
+            # Every test files a real issue, and there is no API to delete one.
+            prod_safe: false
+          - suite: 'model'
+            path: 'tests/functional/v2/test_model.py'
+            timeout: 30
+            slack: true
+          - suite: 'resource'
+            path: 'tests/functional/v2/test_resource.py'
+            timeout: 30
+          - suite: 'rlm'
+            path: 'tests/functional/v2/test_rlm.py'
+            timeout: 30
+          - suite: 'session'
+            path: 'tests/functional/v2/test_session.py'
+            timeout: 30
+          - suite: 'skill'
+            path: 'tests/functional/v2/test_skill.py'
+            timeout: 30
+          - suite: 'snake-case-e2e'
+            path: 'tests/functional/v2/test_snake_case_e2e.py'
+            timeout: 30
+          - suite: 'team-agent'
+            path: 'tests/functional/v2/test_team_agent.py -n 2'
             timeout: 45
-          - test-suite: 'agent'
-            path: 'tests/functional/agent'
-            timeout: 45
-          - test-suite: 'team_agent'
-            path: 'tests/functional/team_agent'
-            timeout: 45
-          - test-suite: 'v2'
-            path: 'tests/functional/v2'
-            timeout: 45
+          - suite: 'tool'
+            path: 'tests/functional/v2/test_tool.py'
+            timeout: 30
+            slack: true
+          - suite: 'trigger'
+            path: 'tests/functional/v2/test_trigger.py'
+            timeout: 30
+          - suite: 'utility'
+            path: 'tests/functional/v2/test_utility.py'
+            timeout: 30
 
     steps:
       - name: Checkout repository
@@ -304,22 +581,203 @@ jobs:
           python -m pip install --upgrade pip
           pip install ".[test]"
 
+      # Secrets arrive through `env:` rather than being interpolated into the
+      # script body: `${{ }}` is textual substitution, so a value containing a
+      # quote or a newline would be pasted straight into the shell.
+      #
+      # The `_PROD` values expand only when IS_PROD is true and are the empty
+      # string otherwise. A same-repository PR runs `pip install ".[test]"` with
+      # whatever dependency changes it carries, unreviewed, in this job; a PR
+      # job that never holds the production key cannot leak it. SLACK_TOKEN is
+      # gated the same way on the leg's `slack` key.
       - name: Set environment variables
+        env:
+          TEAM_API_KEY_PROD: ${{ env.IS_PROD == 'true' && secrets.TEAM_API_KEY_PROD || '' }}
+          TEAM_API_KEY_TEST: ${{ secrets.TEAM_API_KEY }}
+          SLACK_TOKEN: ${{ matrix.slack && secrets.SLACK_TOKEN || '' }}
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY_PROD }}" >> $GITHUB_ENV
-            echo "BACKEND_URL=https://platform-api.aixplain.com" >> $GITHUB_ENV
-            echo "MODELS_RUN_URL=https://models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
-            echo "PIPELINES_RUN_URL=https://platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
-          else
-            echo "TEAM_API_KEY=${{ secrets.TEAM_API_KEY }}" >> $GITHUB_ENV
-            echo "BACKEND_URL=https://test-platform-api.aixplain.com" >> $GITHUB_ENV
-            echo "MODELS_RUN_URL=https://test-models.aixplain.com/api/v1/execute" >> $GITHUB_ENV
-            echo "PIPELINES_RUN_URL=https://test-platform-api.aixplain.com/assets/pipeline/execution/run" >> $GITHUB_ENV
-          fi
-          echo "SLACK_TOKEN=${{ secrets.SLACK_TOKEN }}" >> $GITHUB_ENV
-          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> $GITHUB_ENV
+          set -euo pipefail
 
+          if [ "$IS_PROD" = "true" ]; then
+            api_key="$TEAM_API_KEY_PROD"
+            backend="https://platform-api.aixplain.com"
+            models="https://models.aixplain.com"
+          else
+            # Everything that is not production -- a push to `test`, a PR, the
+            # nightly schedule, a dispatch on any other ref -- uses the test key
+            # and the test backend.
+            api_key="$TEAM_API_KEY_TEST"
+            backend="https://test-platform-api.aixplain.com"
+            models="https://test-models.aixplain.com"
+          fi
+
+          {
+            echo "TEAM_API_KEY=$api_key"
+            # The same value, deliberately. Every functional conftest accepts
+            # AIXPLAIN_API_KEY as the fallback for TEAM_API_KEY, and
+            # aixplain/utils/config.py raises when both are set and differ -- so
+            # this has to mirror TEAM_API_KEY rather than carry a second
+            # credential (ENG-3683).
+            echo "AIXPLAIN_API_KEY=$api_key"
+            echo "BACKEND_URL=$backend"
+            # v2 is the only model API the suites speak. tests/functional/v2/
+            # conftest.py takes only the host from this and builds the path
+            # itself, so a per-leg API version here would change nothing; the
+            # full URL is still exported for anything that reads the variable
+            # directly, and it is the URL the conftest would build anyway.
+            echo "MODELS_RUN_URL=$models/api/v2/execute"
+            echo "PIPELINES_RUN_URL=$backend/assets/pipeline/execution/run"
+            # Empty on every leg without `slack: true`, so nothing is written there.
+            if [ -n "$SLACK_TOKEN" ]; then
+              echo "SLACK_TOKEN=$SLACK_TOKEN"
+            fi
+          } >> "$GITHUB_ENV"
+
+      # A leg with `prod_safe: false` is skipped on production runs. The issue
+      # leg files real issues that cannot be deleted, so running it on every push
+      # to `main` would fill the production issue system with test reports; it
+      # still runs on PRs, `test` and the nightly, against the test backend.
+      #
+      # The skipped leg exits 0, so on a production run `functional (issue)`
+      # reports success without having run, and `release.yaml`'s functional gate
+      # counts it green. That is deliberate: no production run can exercise it
+      # without the side effect, and the gate would otherwise block every release.
+      #
+      # Matrix values arrive through `env:` like the secrets above. LEG_ARGS is
+      # expanded unquoted on purpose: some legs append `-n 2` to the path.
       - name: Run Tests
         timeout-minutes: ${{ matrix.timeout }}
-        run: python -m pytest ${{ matrix.path }}
+        env:
+          LEG_ARGS: ${{ matrix.path }}
+          PROD_SAFE: ${{ matrix.prod_safe }}
+        run: |
+          set -euo pipefail
+          if [ "$IS_PROD" = "true" ] && [ "$PROD_SAFE" = "false" ]; then
+            echo "::notice::Skipped on production: this leg files issues that cannot be deleted. It runs against the test backend on PRs, pushes to test and the nightly."
+            exit 0
+          fi
+          # shellcheck disable=SC2086
+          python -m pytest $LEG_ARGS
+
+  # Proof, inside the run, that it used the production backend (ENG-3683).
+  # `release.yaml`'s functional gate recognises a manual dispatch on a release
+  # tag by the run's `head_branch`, and that field holds a bare name: a dispatch
+  # on a *branch* called `v0.3.1` looks the same as one on the tag `v0.3.1`, but
+  # ran against the test backend. This job runs exactly when the `functional`
+  # job's IS_PROD is true -- the same expression, which a job-level `if:` has to
+  # repeat because it cannot read another job's `env:` -- and the gate counts a
+  # run only if this job succeeded in it. tests/unit/test_ci_pr_and_release_gates.py
+  # fails if the two expressions ever disagree.
+  production-backend:
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record that this run used the production backend
+        env:
+          REF: ${{ github.ref }}
+        run: echo "production run on $REF"
+
+  # The one context to require for the functional matrix (ENG-3683). The
+  # per-leg `functional (<leg>)` contexts cannot be required: when
+  # `functional-scope` says no, the matrix never expands and GitHub reports a
+  # single skipped `functional` context instead, so a required
+  # `functional (agent)` would wait forever on every docs-only or fork PR.
+  #
+  # Not a matrix, so it always reports under one name, and `always()` so it
+  # reports even when a dependency failed or was skipped -- without it, the
+  # default "all needs succeeded" condition would skip this job (which counts
+  # as passing) exactly when a leg is red. It fails when `functional-scope` did
+  # not succeed (nothing decided whether the legs had to run), and when the
+  # scope said run and the matrix is anything but `success` (a leg is red,
+  # cancelled, or never started). It passes when the scope said do not run.
+  functional-result:
+    needs: [functional-scope, functional]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require a green matrix whenever the scope job asked for one
+        env:
+          SCOPE: ${{ needs.functional-scope.result }}
+          RUN_FUNCTIONAL: ${{ needs.functional-scope.outputs.run-functional }}
+          REASON: ${{ needs.functional-scope.outputs.reason }}
+          FUNCTIONAL: ${{ needs.functional.result }}
+        run: |
+          set -euo pipefail
+
+          if [ "$SCOPE" != "success" ]; then
+            echo "::error::functional-scope finished as '$SCOPE', so nothing decided whether the legs had to run."
+            exit 1
+          fi
+
+          case "$RUN_FUNCTIONAL" in
+            true)
+              if [ "$FUNCTIONAL" != "success" ]; then
+                echo "::error::the functional matrix was in scope ($REASON) but finished as '$FUNCTIONAL'."
+                exit 1
+              fi
+              echo "functional matrix ran and every leg passed ($REASON)"
+              ;;
+            false)
+              echo "functional matrix not in scope: $REASON"
+              ;;
+            *)
+              # `decide` always writes true or false; anything else means the
+              # scope script changed shape, and guessing "skip" would fail open.
+              echo "::error::functional-scope published run-functional='$RUN_FUNCTIONAL'; expected true or false."
+              exit 1
+              ;;
+          esac
+
+  # The nightly run has no human watching it, so a failure that nobody is told
+  # about is the same as no nightly run at all (ENG-3683). Scoped to `schedule`:
+  # a push or PR failure is already in front of whoever caused it, and a Slack
+  # message per red PR is how a channel gets muted.
+  nightly-report:
+    if: always() && github.event_name == 'schedule'
+    # `functional-scope` and `functional-result` as well as the matrix: if the
+    # scope job fails, `functional` is *skipped*, which matches neither
+    # `failure` nor `cancelled` below, and the nightly would go unreported.
+    needs: [unit-coverage, package-integrity, functional-scope, functional, functional-result]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Notify Slack when the nightly run is not green
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        env:
+          # A plain incoming webhook and `curl`, rather than a third-party action:
+          # this job runs on a schedule with nobody reading the log, and an action
+          # pinned to a mutable ref is code that changes without a diff here.
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          UNIT: ${{ needs.unit-coverage.result }}
+          PACKAGING: ${{ needs.package-integrity.result }}
+          SCOPE: ${{ needs.functional-scope.result }}
+          FUNCTIONAL: ${{ needs.functional.result }}
+          RESULT: ${{ needs.functional-result.result }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            # Not a failure: the nightly itself is already red, and failing here
+            # too would only add a second red job saying the same thing. The
+            # warning is what makes an unconfigured webhook visible in the
+            # Actions summary instead of silently swallowing every alert.
+            echo "::warning::SLACK_NIGHTLY_WEBHOOK_URL is not set; no Slack alert was sent for $RUN_URL"
+            exit 0
+          fi
+
+          text="aiXplain SDK nightly is red on \`${GITHUB_REF_NAME}\`
+          unit-coverage: ${UNIT} | package-integrity: ${PACKAGING}
+          functional-scope: ${SCOPE} | functional matrix: ${FUNCTIONAL} | functional-result: ${RESULT}
+          ${RUN_URL}"
+
+          # --fail-with-body: a webhook that has been revoked answers 403 with an
+          # explanation, and without this curl would exit 0 on it.
+          jq -n --arg text "$text" '{text: $text}' \
+            | curl --silent --show-error --fail-with-body \
+                   --header 'Content-Type: application/json' \
+                   --data @- "$SLACK_WEBHOOK_URL"

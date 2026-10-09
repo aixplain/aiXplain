@@ -25,12 +25,14 @@ jobs:
           python-version: '3.x'
 
       - name: Install dependencies
+        # Pinned: the config relies on this version's renderer options.
         run: |
-          pip install pydoc-markdown
+          pip install 'pydoc-markdown==4.8.2'
 
       - name: Run pydoc-markdown
+        # PYTHONPATH=. lets the config import docs_rst_processor by dotted path.
         run: |
-          pydoc-markdown pydoc-markdown.yml
+          PYTHONPATH=. pydoc-markdown pydoc-markdown.yml
 
       - name: Create Pull Request if docs changed
         uses: peter-evans/create-pull-request@v7

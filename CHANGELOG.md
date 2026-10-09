@@ -1,0 +1,263 @@
+# Changelog
+
+## Unreleased
+
+### Added: versionless imports for the whole public surface
+
+`from aixplain import X` now works for every public name. `aixplain/__init__.py`
+already star-re-exports `aixplain.v2.__all__`; the commonly used classes that had
+been left out of that list were added:
+
+- `Model`, `Integration`, `ModelResult`, `ModelResponseStreamer`, `Usage`,
+  `StreamChunk`, `Message`, `Parameter`, `Pricing`, `VendorInfo`, `Version`,
+  `PromptTokensDetails`, `CompletionTokensDetails`, `Detail`
+- `AgentRunResult`, `AgentResponseData`, `RoleModelRef`, `ToolResult`
+- `ActionSpec`, `ActionInputSpec`, `IntegrationResult`, `ToolId`
+- `Result`, `DeleteResult`, `Node`
+- `ToolDict`, `ParameterInput`, `ParameterDefinition`, `APIKeyLimitsInput`
+- `AUTO_DEFAULT_MODEL_ID`
+
+The versioned path (`from aixplain.v2.<module> import X`) keeps working
+unchanged; this is a non-breaking addition.
+
+### Added: `from_row` on every gettable resource
+
+`aix.Model.from_row(row)` (and `aix.Tool`, `aix.Agent`, `aix.Integration`, ...)
+builds a resource from a raw backend row you already hold, exactly as `get`
+would, without a request: it lifts `assetInfo` into `path`, deserializes,
+binds the client and marks the instance saved. It replaces importing the
+private `aixplain.v2.resource._flatten_asset_info` and calling `from_dict`
+by hand.
+
+### Changed (breaking): `aixplain.exceptions` now aliases the v2 hierarchy
+
+`aixplain.exceptions.ValidationError` / `ResourceError` were v1-era classes that
+nothing in `aixplain.v2` raised, so `from aixplain.exceptions import ValidationError`
+silently caught nothing. They now resolve to the same objects as
+`aixplain.ValidationError` / `aixplain.ResourceError` -- the classes the SDK
+actually raises. `aixplain.exceptions` now exports only the v2 classes
+(`AixplainV2Error`, `APIError`, `AixplainIssueError`, `ValidationError`,
+`ResourceError`, `TimeoutError`, `FileUploadError`, `UntrustedURLError`).
+
+What changes for code that used the old classes through `aixplain.exceptions`:
+
+- The constructor is the v2 one, `(message, details=None)`. Passing v1 keywords
+  such as `status_code=` raises `TypeError`, and the v1 attributes
+  (`status_code`, `error_code`, `category`, ...) are gone.
+
+### Deprecated: v1 names in `aixplain.exceptions`
+
+`AixplainBaseException`, `AuthenticationError`, `AlreadyDeployedError`,
+`BillingError`, `SupplierError`, `NetworkError`, `ServiceError`, `InternalError`
+and `get_error_from_status_code` still import from `aixplain.exceptions`, but now
+emit a `DeprecationWarning` and will be removed from it in 0.4.0. Import them
+from `aixplain.exceptions.types`, where they stay. They are no longer in
+`aixplain.exceptions.__all__`, so a star-import does not pull them in.
+
+The v1 `ValidationError` / `ResourceError` (what `get_error_from_status_code`
+returns) now also subclass the v2 classes of the same name, so
+`except aixplain.ValidationError` catches them, and `except AixplainBaseException`
+still does too.
+
+See [MIGRATION.md](MIGRATION.md#import-paths) for the old -> new mapping. A
+follow-up in `aixplain-agents` switches its versioned imports to the root.
+
+## 0.3.0
+
+### Removed: SDK v1
+
+SDK v1 — the legacy factory API — is gone. `aixplain/v1/` no longer ships, and the
+`aixplain/_compat.py` redirects that made `aixplain.factories`, `aixplain.modules`,
+`aixplain.enums`, `aixplain.decorators`, `aixplain.base` and `aixplain.processes`
+resolve into it were removed with it. v2 is the only supported surface.
+
+Importing a legacy path now raises a `ModuleNotFoundError` naming its v2
+replacement, the release you can pin, and the guide — not a bare "No module named":
+
+```text
+'aixplain.factories' was part of aiXplain SDK v1, which was removed in 0.3.0.
+Construct a client and use its resources:
+    from aixplain import Aixplain
+    aix = Aixplain()
+  AgentFactory       -> aix.Agent
+  ModelFactory       -> aix.Model
+  ...
+The last release that shipped v1 is 0.2.48; pin it with "pip install 'aiXplain==0.2.48'" if you need more time.
+Migration guide: https://github.com/aixplain/aiXplain/blob/main/MIGRATION.md
+```
+
+**The last release that contained v1 is `0.2.48`.** It stays on PyPI and stays
+installable; code pinned to it keeps running unchanged.
+
+Eight v1 factories — `IndexFactory`, `PipelineFactory`, `BenchmarkFactory`,
+`CorpusFactory`, `DataFactory`, `DatasetFactory`, `FinetuneFactory`,
+`WalletFactory` — had no v2 equivalent and were removed without one. If you depend
+on any of them, stay on `0.2.48` and
+[open an issue](https://github.com/aixplain/aiXplain/issues) naming it.
+
+`aixplain._compat.AixplainV1DeprecationWarning` is kept as an importable name,
+although nothing emits it any more. `-W` options and `filterwarnings` entries
+that name it (for example `error::aixplain._compat.AixplainV1DeprecationWarning`)
+keep resolving instead of failing as an unknown warning category. It still
+subclasses `DeprecationWarning`.
+
+### Removed: `aix.Utility`
+
+Custom Python code is a `Tool` in v2, not a separate resource. `aix.Tool(code=...)`
+now accepts a function as well as a source string, so what `aix.Utility` was used
+for moves across unchanged:
+
+```python
+def add(a: int, b: int) -> int:
+    """Add two numbers."""
+    return a + b
+
+tool = aix.Tool(name="add", description="Add two numbers", code=add)
+```
+
+`ScriptFactory`, `AgentFactory.create_custom_python_code_tool` and
+`ModelFactory.create_utility_model` all map to `aix.Tool`. One capability does not
+come across: a v1 utility model was a standalone asset that appeared in model
+search and ran on its own, whereas a tool belongs to an agent. Onboarding a
+standalone utility-model asset has no v2 equivalent.
+
+`UtilityModelInput` and `UtilityModelInputDict` are still exported, but nothing in
+the SDK consumes them now that the resource is gone; whether they stay is tracked
+in ENG-3720.
+
+Also removed, because they existed only to serve v1:
+
+- The `aixplain` console script (`aixplain list`, `aixplain onboard`, …), which
+  wrapped the v1 model-onboarding factory. Use the web console.
+- `aixplain.utils.file_utils`, `request_utils`, `asset_cache`, `cache_utils`,
+  `llm_utils`, `evolve_utils`, `validation_utils` and `convert_datatype_utils`.
+  `aixplain.utils.config`, `url_safety` and `user_info_utils` stay.
+- `aixplain/v2/enums_include.py`, a re-export shim over the v1 enums that nothing
+  imported, and the `generate.py` code generator that rendered it.
+
+See [MIGRATION.md](MIGRATION.md) for the factory-by-factory map.
+
+### Added: API key limits as plain data
+
+`asset_limits` and `global_limits` take dicts on the user-facing field names, so
+configuring a key no longer depends on the SDK's module layout:
+
+```python
+key = aix.APIKey.get("Production")     # a key ID, a key value, or a name
+key.asset_limits = [{"model": "openai/gpt-5", "token_per_minute": 10_000, "token_type": "output"}]
+key.save()
+```
+
+The dict is typed as `APIKeyLimitsDict`, so a misspelled field is a type error;
+at runtime an unknown key raises and names the accepted fields, rather than
+being dropped (which used to mean "no limit"). `token_type` takes `"input"`,
+`"output"` or `"total"` as well as `TokenType`. Reading limits back still gives
+`APIKeyLimits` objects.
+
+`APIKeyLimits` and `TokenType` remain the internal representation, behave exactly
+as before, and now import from the package root:
+`from aixplain import APIKeyLimits, TokenType`.
+
+Two correctness fixes ride along:
+
+- **An unset limit is distinguishable from a zero — in memory.** Every dimension
+  defaults to `None` rather than `0`, `validate()` skips an unset one, and
+  `to_dict()` leaves it out. *On the wire nothing has changed yet:* the backend
+  rejects a partial limits payload with a 500, so all four dimensions are still
+  sent, with `0` standing in for one you never set. Sending only the dimensions
+  you set needs a backend change first and is tracked as follow-up work.
+- **Key values are matched in full.** `get_by_access_key()` compared only the
+  first and last four characters, so two keys sharing both resolved to whichever
+  the backend listed first, and limits were written to a key the caller never
+  named. Both it and `get()` now compare the whole value; if the backend returns
+  masked keys and more than one is consistent with the value, they raise instead
+  of guessing.
+
+`APIKey.get()` resolves a key ID, a key value or a name — v1's `APIKeyFactory.get`
+took a key value and v2's inherited `get` took an ID, so a renamed call used to
+fail with "not found". An argument matching none of the three now says so.
+
+### Added: plain data in place of imports, across v2
+
+Every v2 enum and non-resource dataclass was audited and classified as **input**,
+**output** or **internal**; the classification is recorded in
+[docs/v2-plain-data.md](docs/v2-plain-data.md) so the next person does not repeat
+it. Input types now accept plain data; output and internal types are unchanged
+and still return objects.
+
+Config structs take a dict on their user-facing field names, typed as a
+`TypedDict`, with an unknown key raising an error naming the accepted fields:
+
+```python
+session = aix.Session(
+    agent=agent,
+    execution_config={"execution_params": {"output_format": "json"}, "criteria": "be terse"},
+)
+agent.budget = {"max_cost": 0.5, "max_iterations": 10}
+agent.tasks = [{"name": "collect", "instructions": "...", "expected_output": "..."}]
+trigger.configuration = {"type": "recurring", "time": "09:00", "repeat": {"every": 2, "unit": "hour"}}
+```
+
+covering `ExecutionConfig`, `Budget`, `Task`, `TriggerConfiguration`,
+`TriggerRepeatRule` and `UtilityModelInput` (plus `APIKeyLimits`, above).
+
+Input enums accept their string values — `agent.context_overflow_strategy =
+"summarize"` — and each has a `Literal` alias (`ContextOverflowStrategyValue`,
+`PrivacyValue`, `SupplierValue`, …) so a type checker accepts the string and
+rejects a typo. These enums already subclassed `str`, so only the annotation was
+missing.
+
+**Everything importable is importable from `aixplain`, with no version segment.**
+`aixplain/__init__.py` re-exports the whole `aixplain.v2` surface, so
+`from aixplain import Budget, Privacy, ExecutionConfig` works. Existing imports
+from `aixplain.v2` are unchanged, and so is every class and enum behind them.
+
+Two fixes fall out of the audit:
+
+- `Agent(tasks=[Task(...)])` raised `AttributeError` — the constructor assumed
+  every task was a dict and called `Task.from_dict` on it.
+- A misspelled key in a `budget` or `execution_config` dict was silently dropped,
+  so `{"max_iteration": 10}` meant "no cap" rather than an error.
+
+### Fixed: `expected_output` is always sent as JSON text
+
+An agent's `expected_output` went over the wire in a different shape depending on
+how it was sent. A run that passed a Pydantic class, an instance or a dict in
+`execution_params` was refused with `400 executionParams.expectedOutput must be a
+string`, a list was sent unencoded on direct runs, and `save()` stored a Pydantic
+instance or a dict as an object, which the agent engine read back as a Python
+repr rather than JSON. `save()`, `run()` and session runs now share one encoder:
+a Pydantic class becomes its JSON schema, an instance its JSON, and any other
+non-string value (a dict, list, tuple, number or bool) is JSON-encoded with
+non-ASCII text left readable. Strings and `None` are sent unchanged, and a value
+JSON cannot encode raises `ValidationError` instead of reaching the backend. Saving
+a dict or Pydantic instance now changes what you read back; see the breaking
+change below.
+
+### Breaking, beyond the v1 removal
+
+- **A dict or Pydantic-instance `expected_output` reads back as a JSON string.**
+  It is now persisted as a string, the way a Pydantic class already was, so an
+  agent fetched with `aix.Agent.get(...)` carries the string, and so does the
+  agent you just called `save()` on, because a create re-reads the stored
+  agent. `agent.expected_output["color"]` now raises `TypeError`;
+  `json.loads(agent.expected_output)` gives you the object.
+- **`APIKeyLimits` defaults changed from `0` to `None`.** This is a *read*-path
+  break as well as a write one: `limits.token_per_minute > 0` now raises
+  `TypeError` on an unset dimension. Compare against `None` first, or use
+  `(limits.token_per_minute or 0)`.
+- **`aixplain.TimeoutError` now also subclasses `builtins.TimeoutError`.** It is
+  re-exported from the package root, so `from aixplain import *` rebinds the
+  name; inheriting both means the name catches strictly more than before, never
+  less. Code that distinguishes the two with `type(e) is TimeoutError` is
+  unaffected; code relying on `issubclass(aixplain.TimeoutError, OSError)` being
+  `False` is not.
+- **Agent results carry a structured error** (PROD-2521). `AgentRunResult.error`
+  and `AgentResponseData.error` are an `AgentError` (`code`, `message`) read from
+  the run's `errorDetails`. Nothing existing changes: `error_message` is still
+  filled with the run's error message (now taken from `errorDetails` when the
+  service no longer sends the plain `error` string), `supplier_error` is
+  unchanged, a failed run still raises `APIError` with the same message, and a
+  failed step in `result.data.steps` still reads `"ERROR: <message>"` in its
+  `output` (the raw response is left as sent). Steps also carry the new `error`
+  (`{code, message}`) key.

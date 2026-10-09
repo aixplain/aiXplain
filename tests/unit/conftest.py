@@ -1,7 +1,29 @@
 import socket
 from contextlib import closing
+from unittest import mock
 
 import pytest
+
+from aixplain.utils import user_info_utils
+
+#: Deterministic stand-in for the ``https://ipinfo.io/json`` lookup. Many unit
+#: tests build an agent run payload, and ``build_run_metadata`` reaches the real
+#: service once per process through ``_fetch_ipinfo``'s ``lru_cache``. Stubbing
+#: it keeps the credential-free unit suite off the network and the derived
+#: ``metaData`` stable.
+IPINFO_STUB = {
+    "ip": "203.0.113.7",
+    "country": "US",
+    "loc": "37.7749,-122.4194",
+    "timezone": "America/Los_Angeles",
+}
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _stub_ipinfo():
+    """Patch out the one external call a plain unit run would otherwise make."""
+    with mock.patch.object(user_info_utils, "_fetch_ipinfo", return_value=dict(IPINFO_STUB)):
+        yield
 
 
 @pytest.fixture

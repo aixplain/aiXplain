@@ -1,1 +1,0 @@
-Hello! Here is a robot emoji: 🤖 Response should contain this emoji.

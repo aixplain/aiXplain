@@ -24,7 +24,7 @@ from aixplain.v2.client import (
     DEFAULT_POOL_MAXSIZE,
     RETRY_ALLOWED_METHODS,
 )
-from aixplain.v2.exceptions import APIError
+from aixplain import APIError
 
 
 class TestRetrySessionConstants:
