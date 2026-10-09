@@ -33,8 +33,8 @@ from .agent import (
     Task,
     TaskDict,
 )
-from .tool import Tool, ToolResult
-from .skill import Skill
+from .tool import Tool, ToolBatch, ToolResult
+from .skill import Skill, SkillBatch
 from .actions import Input, Inputs, Action, Actions
 from .integration import (
     ActionInputSpec,
@@ -217,7 +217,9 @@ __all__ = [
     "TaskDict",
     "Tool",
     "ToolResult",
+    "ToolBatch",
     "Skill",
+    "SkillBatch",
     "File",
     "Page",
     "Result",
