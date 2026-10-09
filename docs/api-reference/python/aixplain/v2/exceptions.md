@@ -152,7 +152,7 @@ hand the team API key to a host a body asked it to talk to.
 def create_operation_failed_error(response: Dict[str, Any]) -> APIError
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L137)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L151)
 
 Create an operation failed error from API response.
 

@@ -24,7 +24,7 @@ Both modes use carriage return (\r) for in-place line updates.
 class ProgressFormat(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L132)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L142)
 
 Display format for agent progress.
 
@@ -46,7 +46,7 @@ No progress display
 class AgentProgressTracker()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L147)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L157)
 
 Tracks and displays agent execution progress.
 
@@ -81,7 +81,7 @@ def __init__(poll_func: Callable[[str], Any],
              force_display: Optional[bool] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L190)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L200)
 
 Initialize the progress tracker.
 
@@ -107,7 +107,7 @@ Initialize the progress tracker.
 def stop() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L272)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L282)
 
 Stop the display thread and wait for it to exit.
 
@@ -126,7 +126,7 @@ def start(format: ProgressFormat = ProgressFormat.STATUS,
           force_display: Optional[bool] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L926)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L936)
 
 Start progress tracking (call from before_run hook).
 
@@ -145,7 +145,7 @@ Start progress tracking (call from before_run hook).
 def update(response: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L1115)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L1125)
 
 Update progress with poll response (call from on_poll hook).
 
@@ -159,7 +159,7 @@ Update progress with poll response (call from on_poll hook).
 def finish(response: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L1143)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L1153)
 
 Finish progress tracking and print completion (call from after_run hook).
 
@@ -177,7 +177,7 @@ def stream_progress(url: str,
                     timeout: Optional[float] = DEFAULT_STREAM_TIMEOUT) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L1162)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L1172)
 
 Stream agent progress until completion (standalone polling mode).
 
