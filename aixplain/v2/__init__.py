@@ -364,7 +364,7 @@ __all__ = [
     "ActionInputSpec",
     "IntegrationResult",
     "ToolId",
-    # Plain-data input types
+    # Tool-description TypedDicts (the shape ``as_tool()`` returns)
     "ToolDict",
     "ParameterInput",
     "ParameterDefinition",

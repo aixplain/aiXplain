@@ -11,6 +11,7 @@ not an accident: the entry has to be written down here.
 """
 
 import ast
+import importlib
 import os
 import subprocess
 import sys
@@ -99,6 +100,12 @@ def test_public_class_is_exported_or_allowlisted(module, name):
         "Add it to aixplain/v2/__init__.py (import + __all__) if callers use it, "
         "or to the allowlist if it is internal."
     )
+    if name in aixplain.__all__:
+        defined = getattr(importlib.import_module(f"aixplain.v2.{module}"), name)
+        assert getattr(aixplain, name) is defined, (
+            f"aixplain.{name} is not the class defined in aixplain/v2/{module}.py; another module "
+            "exports the same name, so this class has no root path."
+        )
 
 
 def test_allowlist_has_no_stale_entries():

@@ -56,3 +56,38 @@ def test_from_row_on_an_unbound_class_names_the_fix():
 def test_from_row_rejects_a_non_dict(aix):
     with pytest.raises(ResourceError, match="expects a dict"):
         aix.Model.from_row([_row()])
+
+
+def test_from_row_deep_copies_so_instance_edits_never_reach_the_row(aix):
+    row = _row()
+    row["attributes"] = {"k": "v"}
+    row["params"] = [{"name": "q", "dataType": "text"}]
+    snapshot = {"attributes": {"k": "v"}, "params": [{"name": "q", "dataType": "text"}]}
+
+    model = aix.Model.from_row(row)
+    for value in vars(model).values():
+        if isinstance(value, dict):
+            value["edited"] = True
+        elif isinstance(value, list):
+            value.append("edited")
+
+    assert row["attributes"] == snapshot["attributes"]
+    assert row["params"] == snapshot["params"]
+
+
+def test_inspector_from_row_adapts_the_guard_model_like_get(aix):
+    pii_path = "aws/sensitive-information-guardrail/aws"
+    row = {
+        "id": "pii-id",
+        "name": "PII",
+        "assetInfo": {"instanceId": pii_path, "assetName": "sensitive-information-guardrail"},
+    }
+    aix.client.get = Mock(return_value=dict(row))
+
+    built = aix.Inspector.from_row(row)
+    fetched = aix.Inspector.get("pii-id")
+
+    assert built.to_dict() == fetched.to_dict()
+    assert built.to_dict()["action"] == {"type": "edit"}
+    assert built.path == pii_path
+    assert built.context is aix

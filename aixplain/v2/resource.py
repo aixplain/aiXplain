@@ -1457,10 +1457,11 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
     def from_row(cls: type, row: dict) -> ResourceT:
         """Build an instance from a raw backend row, without fetching it.
 
-        Does exactly what ``get`` does with the response: lifts ``assetInfo``
-        into ``path``, deserializes, binds the client and marks the instance as
-        saved. Use it for rows you already hold, such as a batch or cached
-        search response. The row itself is not modified.
+        Does exactly what ``get`` does with the response (for most resources:
+        lifts ``assetInfo`` into ``path``, deserializes, binds the client and
+        marks the instance as saved). Use it for rows you already hold, such as
+        a batch or cached search response. The row is deep-copied first, so
+        neither this call nor later edits to the instance change it.
 
         Example::
 
@@ -1484,7 +1485,7 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
             )
         if not isinstance(row, dict):
             raise ResourceError(f"{cls.__name__}.from_row expects a dict row, got {type(row).__name__}")
-        return cls._from_row(row, context, id=row.get("id"))
+        return cls._from_row(deepcopy(row), context, id=row.get("id"))
 
     @classmethod
     def _from_row(cls: type, row: Any, context: Any, id: Any = None) -> ResourceT:

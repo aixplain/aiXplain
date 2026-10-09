@@ -298,7 +298,7 @@ def search(cls,
            **kwargs: Any) -> Page["Inspector"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L481)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/inspector.py#L490)
 
 Search available guards, returning the standard paginated shape.
 

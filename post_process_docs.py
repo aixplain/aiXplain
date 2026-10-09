@@ -143,7 +143,7 @@ def _root_exported_names_by_module():
             names = sorted(a.name for a in node.names if a.name in exported)
             if names:
                 mapping.setdefault(node.module, []).extend(names)
-    return mapping
+    return {module: sorted(set(names)) for module, names in mapping.items()}
 
 
 def add_root_import(content, names):
