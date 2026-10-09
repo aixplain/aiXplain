@@ -10,7 +10,7 @@ module is named after the removed resource because ``MIGRATION.md``'s headline
 ``ScriptFactory`` / ``create_utility_model`` replacement had no end-to-end test.
 """
 
-import time
+from tests.functional._helpers import unique_name
 
 RAW_ADD = '''
 def add(a: int, b: int) -> int:
@@ -30,10 +30,6 @@ def multiply(a: int, b: int) -> int:
     return a * b
 
 
-def _unique_name(prefix: str) -> str:
-    return f"{prefix}-{int(time.time())}-{time.time_ns() % 100000}"
-
-
 def _returned_value(result) -> str:
     """The entrypoint's return value as text, unwrapped from the sandbox's result envelope."""
     data = result.data
@@ -48,7 +44,7 @@ def _returned_value(result) -> str:
 class TestCodeToolLifecycle:
     def test_create_from_raw_code_run_update_run_delete(self, client, resource_tracker):
         tool = client.Tool(
-            name=_unique_name("func-utility-raw"),
+            name=unique_name("func-utility-raw"),
             description="Add two integers.",
             code=RAW_ADD,
         )
@@ -73,7 +69,7 @@ class TestCodeToolLifecycle:
 
     def test_create_from_callable(self, client, resource_tracker):
         tool = client.Tool(
-            name=_unique_name("func-utility-callable"),
+            name=unique_name("func-utility-callable"),
             description="Multiply two integers.",
             code=multiply,
         )

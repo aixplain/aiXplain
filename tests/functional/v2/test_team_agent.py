@@ -61,8 +61,6 @@ test_multiple_teams_with_shared_deployed_agent
 
 import json
 import re
-import time
-import uuid
 from typing import List
 
 import pydantic
@@ -72,26 +70,10 @@ from pydantic import BaseModel
 from aixplain.v2 import AssetStatus
 from aixplain.v2.exceptions import ResourceError
 
+from tests.functional._helpers import unique_name, agent_ids
+
 #: Team instructions that make delegation mandatory, so a run's steps must name a subagent.
 DELEGATE = "Always delegate the user's request to one of your agents and never answer it yourself."
-
-
-def _name(prefix: str) -> str:
-    """A per-run unique name: xdist workers and reruns must not collide."""
-    return f"{prefix}-{int(time.time())}-{uuid.uuid4().hex[:6]}"
-
-
-def _agent_ids(agents) -> list:
-    """Ids of a team's ``agents``, which may hold id strings, dicts or ``Agent`` objects."""
-    ids = []
-    for agent in agents or []:
-        if isinstance(agent, str):
-            ids.append(agent)
-        elif isinstance(agent, dict):
-            ids.append(agent.get("id"))
-        else:
-            ids.append(getattr(agent, "id", None))
-    return [agent_id for agent_id in ids if agent_id]
 
 
 def _assert_success(response):
@@ -175,12 +157,12 @@ def _json_output(output):
 def test_team_agent_with_instructions(client, resource_tracker):
     """Team instructions persist and steer delegation to the named subagent only."""
     preferred = client.Agent(
-        name=_name("TA-pick"), description="Answers general questions.", instructions="Answer briefly."
+        name=unique_name("TA-pick"), description="Answers general questions.", instructions="Answer briefly."
     )
     preferred.save()
     resource_tracker.append(preferred)
     other = client.Agent(
-        name=_name("TA-skip"), description="Answers general questions.", instructions="Answer briefly."
+        name=unique_name("TA-skip"), description="Answers general questions.", instructions="Answer briefly."
     )
     other.save()
     resource_tracker.append(other)
@@ -189,13 +171,13 @@ def test_team_agent_with_instructions(client, resource_tracker):
         f"Delegate every request to the agent named '{preferred.name}' and to no other agent. "
         f"Never call '{other.name}'."
     )
-    team = client.Agent(name=_name("TA-team"), instructions=instructions, agents=[preferred, other])
+    team = client.Agent(name=unique_name("TA-team"), instructions=instructions, agents=[preferred, other])
     team.save()
     resource_tracker.append(team)
 
     fetched = client.Agent.get(team.id)
     assert fetched.instructions == instructions
-    assert set(_agent_ids(fetched.agents)) == {preferred.id, other.id}
+    assert set(agent_ids(fetched.agents)) == {preferred.id, other.id}
 
     response = fetched.run("What is the capital of France?")
     _assert_success(response)
@@ -208,7 +190,7 @@ def test_team_agent_tasks(client, resource_tracker):
     """Subagent task definitions persist, and a team run delegates to that subagent."""
     first = "Gather the facts"
     sub = client.Agent(
-        name=_name("TA-task-sub"),
+        name=unique_name("TA-task-sub"),
         description="Researches a topic and summarizes it.",
         instructions="Work the tasks in order.",
         tasks=[
@@ -223,7 +205,7 @@ def test_team_agent_tasks(client, resource_tracker):
     )
     sub.save()
     resource_tracker.append(sub)
-    team = client.Agent(name=_name("TA-task-team"), instructions=DELEGATE, agents=[sub])
+    team = client.Agent(name=unique_name("TA-task-team"), instructions=DELEGATE, agents=[sub])
     team.save()
     resource_tracker.append(team)
 
@@ -239,13 +221,13 @@ def test_team_agent_tasks(client, resource_tracker):
 
 def test_team_agent_llm_parameter_preservation(client, resource_tracker):
     """Supervisor and planner (the v1 "mentalist") parameters on a real team survive save/get."""
-    sub = client.Agent(name=_name("TA-llm-sub"), instructions="Answer briefly.")
+    sub = client.Agent(name=unique_name("TA-llm-sub"), instructions="Answer briefly.")
     sub.save()
     resource_tracker.append(sub)
 
     model_id = client.Agent.DEFAULT_LLM
     team = client.Agent(
-        name=_name("TA-llm-team"),
+        name=unique_name("TA-llm-team"),
         instructions="Coordinate.",
         agents=[sub],
         supervisor={"id": model_id, "parameters": {"temperature": "0.1"}},
@@ -255,7 +237,7 @@ def test_team_agent_llm_parameter_preservation(client, resource_tracker):
     resource_tracker.append(team)
 
     fetched = client.Agent.get(team.id)
-    assert _agent_ids(fetched.agents) == [sub.id]
+    assert agent_ids(fetched.agents) == [sub.id]
     _assert_role(fetched.supervisor, model_id, {"temperature": "0.1"})
     _assert_role(fetched.planner, model_id, {"temperature": "0.3"})
 
@@ -268,14 +250,14 @@ def test_role_llm_overrides_persisted_and_used(client, resource_tracker, assets)
     covered by ``TestRoleOverridesReachRunPayload`` in
     ``tests/unit/v2/test_agent_llm_input_parameters.py``.
     """
-    sub = client.Agent(name=_name("TA-roles-sub"), instructions="Answer briefly.")
+    sub = client.Agent(name=unique_name("TA-roles-sub"), instructions="Answer briefly.")
     sub.save()
     resource_tracker.append(sub)
     # Any non-default model proves the override; NON_DEFAULT_LLM is much cheaper than CLAUDE_LLM.
     model_id = assets.NON_DEFAULT_LLM
     assert model_id != client.Agent.DEFAULT_LLM, "NON_DEFAULT_LLM must differ from the SDK default LLM"
     team = client.Agent(
-        name=_name("TA-roles-team"),
+        name=unique_name("TA-roles-team"),
         instructions="Coordinate the subagents.",
         agents=[sub],
         planner={"id": model_id, "parameters": {"temperature": "0.1"}},
@@ -296,9 +278,11 @@ def test_role_llm_overrides_persisted_and_used(client, resource_tracker, assets)
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_nested_deployment_chain(client, resource_tracker):
     """Saving a team recursively onboards the whole chain, and a run reaches the subteam."""
-    leaf = client.Agent(name=_name("TA-leaf"), description="Answers questions.", instructions="Answer briefly.")
-    mid = client.Agent(name=_name("TA-mid"), description="Answers questions.", instructions=DELEGATE, agents=[leaf])
-    top = client.Agent(name=_name("TA-top"), instructions=DELEGATE, agents=[mid])
+    leaf = client.Agent(name=unique_name("TA-leaf"), description="Answers questions.", instructions="Answer briefly.")
+    mid = client.Agent(
+        name=unique_name("TA-mid"), description="Answers questions.", instructions=DELEGATE, agents=[leaf]
+    )
+    top = client.Agent(name=unique_name("TA-top"), instructions=DELEGATE, agents=[mid])
     try:
         top.save(save_subcomponents=True)
     finally:
@@ -326,17 +310,17 @@ def test_add_remove_agents_from_team_agent(client, resource_tracker):
     ``team.agents`` edit is dropped on save; see
     ``test_add_agent_via_public_agents_list``.
     """
-    first = client.Agent(name=_name("TA-keep"), instructions="Answer A.")
+    first = client.Agent(name=unique_name("TA-keep"), instructions="Answer A.")
     first.save()
     resource_tracker.append(first)
-    second = client.Agent(name=_name("TA-drop"), instructions="Answer B.")
+    second = client.Agent(name=unique_name("TA-drop"), instructions="Answer B.")
     second.save()
     resource_tracker.append(second)
-    added = client.Agent(name=_name("TA-added"), instructions="Answer C.")
+    added = client.Agent(name=unique_name("TA-added"), instructions="Answer C.")
     added.save()
     resource_tracker.append(added)
 
-    team = client.Agent(name=_name("TA-mutate-team"), instructions="Coordinate.", agents=[first, second])
+    team = client.Agent(name=unique_name("TA-mutate-team"), instructions="Coordinate.", agents=[first, second])
     team.save()
     resource_tracker.append(team)
 
@@ -345,13 +329,13 @@ def test_add_remove_agents_from_team_agent(client, resource_tracker):
     team._original_agents.append(added)
     team.agents.append(added.id)
     team.save()
-    assert set(_agent_ids(client.Agent.get(team.id).agents)) == {first.id, second.id, added.id}
+    assert set(agent_ids(client.Agent.get(team.id).agents)) == {first.id, second.id, added.id}
     _assert_success(team.run("Reply with exactly the word OK."))
 
     team._original_agents = [agent for agent in team._original_agents if agent is not second]
     team.agents = [agent_id for agent_id in team.agents if agent_id != second.id]
     team.save()
-    assert set(_agent_ids(client.Agent.get(team.id).agents)) == {first.id, added.id}
+    assert set(agent_ids(client.Agent.get(team.id).agents)) == {first.id, added.id}
 
 
 @pytest.mark.xfail(
@@ -364,33 +348,35 @@ def test_add_remove_agents_from_team_agent(client, resource_tracker):
 )
 def test_add_agent_via_public_agents_list(client, resource_tracker):
     """Appending to the public ``team.agents`` list, then saving, persists the new member."""
-    first = client.Agent(name=_name("TA-pub-keep"), instructions="Answer A.")
+    first = client.Agent(name=unique_name("TA-pub-keep"), instructions="Answer A.")
     first.save()
     resource_tracker.append(first)
-    added = client.Agent(name=_name("TA-pub-added"), instructions="Answer C.")
+    added = client.Agent(name=unique_name("TA-pub-added"), instructions="Answer C.")
     added.save()
     resource_tracker.append(added)
 
-    team = client.Agent(name=_name("TA-pub-team"), instructions="Coordinate.", agents=[first])
+    team = client.Agent(name=unique_name("TA-pub-team"), instructions="Coordinate.", agents=[first])
     team.save()
     resource_tracker.append(team)
 
     team.agents.append(added.id)
     team.save()
-    assert set(_agent_ids(client.Agent.get(team.id).agents)) == {first.id, added.id}
+    assert set(agent_ids(client.Agent.get(team.id).agents)) == {first.id, added.id}
 
 
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_multiple_teams_with_shared_deployed_agent(client, resource_tracker):
     """One onboarded agent can back two teams, and each team delegates to it."""
-    shared = client.Agent(name=_name("TA-shared"), description="Answers questions.", instructions="Answer briefly.")
+    shared = client.Agent(
+        name=unique_name("TA-shared"), description="Answers questions.", instructions="Answer briefly."
+    )
     shared.save()
     resource_tracker.append(shared)
 
-    team_1 = client.Agent(name=_name("TA-shared-1"), instructions=DELEGATE, agents=[shared])
+    team_1 = client.Agent(name=unique_name("TA-shared-1"), instructions=DELEGATE, agents=[shared])
     team_1.save()
     resource_tracker.append(team_1)
-    team_2 = client.Agent(name=_name("TA-shared-2"), instructions=DELEGATE, agents=[shared])
+    team_2 = client.Agent(name=unique_name("TA-shared-2"), instructions=DELEGATE, agents=[shared])
     team_2.save()
     resource_tracker.append(team_2)
 
@@ -437,14 +423,14 @@ def test_run_team_agent_with_expected_output(client, resource_tracker):
     """
     roster = "\n".join(f"- {name}: {age} years old" for name, age in _ROSTER.items())
     sub = client.Agent(
-        name=_name("TA-expected-sub"),
+        name=unique_name("TA-expected-sub"),
         description="Knows the ages of the people on the roster.",
         instructions=f"Answer questions using only this roster:\n{roster}",
     )
     sub.save()
     resource_tracker.append(sub)
     team = client.Agent(
-        name=_name("TA-expected-team"),
+        name=unique_name("TA-expected-team"),
         instructions=DELEGATE,
         agents=[sub],
         output_format="json",
@@ -466,10 +452,10 @@ def test_run_team_agent_with_expected_output(client, resource_tracker):
 
 def test_draft_team_agent_update(client, resource_tracker):
     """A draft team can be saved, updated in place, and re-saved as a draft."""
-    sub = client.Agent(name=_name("TA-draft-sub"), instructions="Answer briefly.")
+    sub = client.Agent(name=unique_name("TA-draft-sub"), instructions="Answer briefly.")
     sub.save()
     resource_tracker.append(sub)
-    team = client.Agent(name=_name("TA-draft-team"), instructions="First instructions.", agents=[sub])
+    team = client.Agent(name=unique_name("TA-draft-team"), instructions="First instructions.", agents=[sub])
     team.save(as_draft=True)
     resource_tracker.append(team)
     assert client.Agent.get(team.id).status == AssetStatus.DRAFT
@@ -484,13 +470,15 @@ def test_draft_team_agent_update(client, resource_tracker):
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test_end2end(client, resource_tracker):
     """Create subagents, form a team, onboard it, and get a run that delegates."""
-    first = client.Agent(name=_name("TA-e2e-1"), description="Answers questions.", instructions="Answer briefly.")
+    first = client.Agent(name=unique_name("TA-e2e-1"), description="Answers questions.", instructions="Answer briefly.")
     first.save()
     resource_tracker.append(first)
-    second = client.Agent(name=_name("TA-e2e-2"), description="Answers questions.", instructions="Answer briefly.")
+    second = client.Agent(
+        name=unique_name("TA-e2e-2"), description="Answers questions.", instructions="Answer briefly."
+    )
     second.save()
     resource_tracker.append(second)
-    team = client.Agent(name=_name("TA-e2e-team"), instructions=DELEGATE, agents=[first, second])
+    team = client.Agent(name=unique_name("TA-e2e-team"), instructions=DELEGATE, agents=[first, second])
     team.save()
     resource_tracker.append(team)
 
@@ -511,7 +499,7 @@ def test_fail_non_existent_llm(client, resource_tracker):
     ever accepts the id, so a regression cannot leak it.
     """
     team = client.Agent(
-        name=_name("TA-bad-llm"),
+        name=unique_name("TA-bad-llm"),
         instructions="Coordinate.",
         llm="non_existent_llm",
     )

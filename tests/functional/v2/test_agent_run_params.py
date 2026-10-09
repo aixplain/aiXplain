@@ -38,7 +38,6 @@ Not covered here:
 import base64
 import json
 import re
-import time
 import uuid
 from typing import Any, List, Optional
 
@@ -48,6 +47,8 @@ from aixplain.v2 import Inspector
 from aixplain.v2.agent import AgentResponseData
 from aixplain.v2.exceptions import APIError
 from aixplain.v2.exceptions import TimeoutError as SDKTimeoutError
+
+from tests.functional._helpers import unique_name
 
 # No module-wide ``flaky`` mark: tests/functional/conftest.py already reruns any
 # test whose run timed out. Only tests whose assertion depends on what the model
@@ -79,12 +80,8 @@ ENGINE_IGNORES_RUN_TIME_INPUTS = (
 VARIABLES_INSTRUCTIONS = "Reply with exactly this code and nothing else: {{code}}"
 
 
-def _unique(prefix: str) -> str:
-    return f"{prefix}-{int(time.time())}-{uuid.uuid4().hex[:6]}"
-
-
 def _make_agent(client, tracker, *, instructions="You are a helpful test agent. Reply briefly.", **kwargs):
-    agent = client.Agent(name=_unique("run-params"), instructions=instructions, **kwargs)
+    agent = client.Agent(name=unique_name("run-params"), instructions=instructions, **kwargs)
     agent.save()
     tracker.append(agent)
     return agent
@@ -355,7 +352,7 @@ def test_variables_are_substituted_into_instructions(variables_agent):
 def test_prompt_criteria_and_identifier_are_sent_top_level(run_agent):
     """``prompt``, ``criteria`` and ``identifier`` are top-level payload keys (the v1 contract)."""
     prompt = "Reply with exactly this code and nothing else: tok0123456789"
-    identifier = _unique("identifier")
+    identifier = unique_name("identifier")
 
     payload = run_agent.build_run_payload(
         query="Reply now.", prompt=prompt, criteria="The answer must be a single word.", identifier=identifier
@@ -383,7 +380,7 @@ def test_prompt_override_reaches_model(run_agent):
         "Reply now.",
         prompt=f"Reply with exactly this code and nothing else: {token}",
         criteria="The answer must be a single word.",
-        identifier=_unique("identifier"),
+        identifier=unique_name("identifier"),
     )
     if result.status != "SUCCESS":
         pytest.fail(f"the run itself failed with status {result.status}: {result.data!r}")
@@ -428,7 +425,7 @@ def test_run_time_inspector_accepted(run_agent, assets):
     is told to always pass, so the inspector cannot abort the run whatever its verdict.
     """
     inspector = Inspector(
-        name=_unique("RunTimeInspector"),
+        name=unique_name("RunTimeInspector"),
         targets=["input"],
         action="continue",
         metric={"asset_id": assets.DEFAULT_LLM, "prompt": "Always answer PASS, whatever the content."},
@@ -545,7 +542,7 @@ def test_session_recalls_and_stateless_forgets(client, module_resource_tracker):
     """
     codeword = f"PLUM-{uuid.uuid4().hex[:6].upper()}"
     agent = _make_agent(client, module_resource_tracker)
-    session = client.Session(agent=agent, name=_unique("memory"))
+    session = client.Session(agent=agent, name=unique_name("memory"))
     session.save()
     module_resource_tracker.append(session)
 

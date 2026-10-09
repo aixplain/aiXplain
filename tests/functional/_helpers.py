@@ -1,4 +1,4 @@
-"""Failure helpers that keep a missing functional-test fixture from turning into a skip (ENG-3684).
+"""Shared functional-test helpers: unique names, team agent ids, and failures for missing fixtures (ENG-3684).
 
 Why this module exists
 ----------------------
@@ -24,9 +24,29 @@ it, so there is no portable default to register, only the
 """
 
 import os
+import time
+import uuid
 from typing import Any, List, NoReturn, Optional, Tuple
 
 import pytest
+
+
+def unique_name(prefix: str) -> str:
+    """Return *prefix* made unique per run, so xdist workers and reruns never collide on a name."""
+    return f"{prefix}-{int(time.time())}-{uuid.uuid4().hex[:6]}"
+
+
+def agent_ids(agents: Any) -> List[str]:
+    """Ids of a team's ``agents``, which may hold id strings, dicts or ``Agent`` objects; entries without one drop."""
+    ids = []
+    for agent in agents or []:
+        if isinstance(agent, str):
+            ids.append(agent)
+        elif isinstance(agent, dict):
+            ids.append(agent.get("id"))
+        else:
+            ids.append(getattr(agent, "id", None))
+    return [agent_id for agent_id in ids if agent_id]
 
 
 def missing_fixture(what: str, detail: str = "", env_var: str = "") -> NoReturn:

@@ -29,8 +29,6 @@ v1 scenarios not ported here, and why:
 
 import json
 import re
-import time
-import uuid
 from typing import List, Optional
 
 import pytest
@@ -38,6 +36,8 @@ from pydantic import BaseModel
 
 from aixplain.v2 import AssetStatus
 from aixplain.v2.exceptions import ResourceError
+
+from tests.functional._helpers import unique_name, agent_ids
 
 #: Instructions used by the expected-output tests. The table makes a JSON answer
 #: the only useful shape, so the run exercises the schema end to end.
@@ -47,11 +47,6 @@ EXPECTED_OUTPUT_INSTRUCTIONS = (
     "| Ana | 31 | Lisbon |\n"
     "| Bob | 25 | Berlin |\n"
 )
-
-
-def _unique(prefix: str) -> str:
-    """Return a collision-resistant agent/tool name."""
-    return f"{prefix} {int(time.time())}-{uuid.uuid4().hex[:6]}"
 
 
 def _track_saved(tracker, *resources) -> None:
@@ -64,11 +59,6 @@ def _track_saved(tracker, *resources) -> None:
     for resource in resources:
         if getattr(resource, "id", None):
             tracker.append(resource)
-
-
-def _agent_ids(agents) -> List[Optional[str]]:
-    """Return the ids referenced by an agent's ``agents`` list, whichever shape it is."""
-    return [a if isinstance(a, str) else a.get("id") if isinstance(a, dict) else a.id for a in agents or []]
 
 
 def _parse_json(text: str) -> dict:
@@ -114,7 +104,7 @@ class PeopleNames(BaseModel):
 
 def test_agent_saved_as_draft_stays_draft(client, resource_tracker):
     """``save(as_draft=True)`` persists the agent with DRAFT status."""
-    agent = client.Agent(name=_unique("Draft Agent"), instructions="Answer briefly.")
+    agent = client.Agent(name=unique_name("Draft Agent"), instructions="Answer briefly.")
     agent.save(as_draft=True)
     resource_tracker.append(agent)
 
@@ -125,7 +115,7 @@ def test_agent_saved_as_draft_stays_draft(client, resource_tracker):
 
 def test_agent_saved_without_draft_is_onboarded(client, resource_tracker):
     """A plain ``save()`` onboards the agent."""
-    agent = client.Agent(name=_unique("Onboarded Agent"), instructions="Answer briefly.")
+    agent = client.Agent(name=unique_name("Onboarded Agent"), instructions="Answer briefly.")
     agent.save()
     resource_tracker.append(agent)
 
@@ -137,7 +127,7 @@ def test_agent_saved_without_draft_is_onboarded(client, resource_tracker):
 @pytest.mark.flaky(reruns=2)
 def test_draft_agent_auto_saves_before_run(client, resource_tracker):
     """A modified draft is saved implicitly on ``run()`` and stays a draft."""
-    agent = client.Agent(name=_unique("Auto Draft Agent"), instructions="Answer briefly.")
+    agent = client.Agent(name=unique_name("Auto Draft Agent"), instructions="Answer briefly.")
     agent.save(as_draft=True)
     resource_tracker.append(agent)
 
@@ -154,7 +144,7 @@ def test_draft_agent_auto_saves_before_run(client, resource_tracker):
 
 def test_onboarded_agent_rejects_mutation_without_save(client, resource_tracker):
     """An onboarded agent must be saved before a run sees its edits."""
-    agent = client.Agent(name=_unique("Frozen Agent"), instructions="Answer briefly.")
+    agent = client.Agent(name=unique_name("Frozen Agent"), instructions="Answer briefly.")
     agent.save()
     resource_tracker.append(agent)
 
@@ -170,7 +160,7 @@ def test_onboarded_agent_rejects_mutation_without_save(client, resource_tracker)
 def test_end2end_draft_then_onboard_run(client, assets, resource_tracker):
     """Create as draft, run, onboard, re-fetch and run again."""
     agent = client.Agent(
-        name=_unique("End2End Agent"),
+        name=unique_name("End2End Agent"),
         description="Runs before and after onboarding.",
         instructions="Answer briefly.",
         llm=assets.DEFAULT_LLM,
@@ -196,8 +186,8 @@ def test_end2end_draft_then_onboard_run(client, assets, resource_tracker):
 
 def test_save_subcomponents_persists_unsaved_subagent(client, resource_tracker):
     """``save(save_subcomponents=True)`` saves an unsaved subagent before the parent."""
-    sub = client.Agent(name=_unique("Sub Agent"), instructions="You are a subagent.")
-    parent = client.Agent(name=_unique("Parent Agent"), instructions="You orchestrate.", agents=[sub])
+    sub = client.Agent(name=unique_name("Sub Agent"), instructions="You are a subagent.")
+    parent = client.Agent(name=unique_name("Parent Agent"), instructions="You orchestrate.", agents=[sub])
 
     try:
         parent.save(save_subcomponents=True)
@@ -207,13 +197,13 @@ def test_save_subcomponents_persists_unsaved_subagent(client, resource_tracker):
 
     assert sub.id is not None
     assert parent.id is not None
-    assert sub.id in _agent_ids(client.Agent.get(parent.id).agents)
+    assert sub.id in agent_ids(client.Agent.get(parent.id).agents)
 
 
 def test_save_without_subcomponents_rejects_unsaved_subagent(client, resource_tracker):
     """A plain save refuses an unsaved subagent; recursive save then succeeds."""
-    sub = client.Agent(name=_unique("Unsaved Sub"), instructions="You are a subagent.")
-    parent = client.Agent(name=_unique("Strict Parent"), instructions="You orchestrate.", agents=[sub])
+    sub = client.Agent(name=unique_name("Unsaved Sub"), instructions="You are a subagent.")
+    parent = client.Agent(name=unique_name("Strict Parent"), instructions="You orchestrate.", agents=[sub])
 
     with pytest.raises(ValueError, match="must be saved before saving"):
         parent.save()
@@ -238,7 +228,7 @@ def test_save_without_subcomponents_rejects_unsaved_subagent(client, resource_tr
 def test_custom_code_tool(client, resource_tracker):
     """``Tool(code=...)`` runs deterministic custom Python inside an agent."""
     tool = client.Tool(
-        name=_unique("Concat Tool"),
+        name=unique_name("Concat Tool"),
         description="Concatenate two strings and return the result.",
         code="def concat(aaa: str, bbb: str) -> str:\n    return aaa + bbb",
     )
@@ -246,7 +236,7 @@ def test_custom_code_tool(client, resource_tracker):
     resource_tracker.append(tool)
 
     agent = client.Agent(
-        name=_unique("Concat Agent"),
+        name=unique_name("Concat Agent"),
         instructions="Always use the tool to answer.",
         tools=[tool],
     )
@@ -260,7 +250,7 @@ def test_custom_code_tool(client, resource_tracker):
 
 def test_add_and_remove_tool_round_trip(client, assets, resource_tracker):
     """Adding then removing a tool survives a fetch round-trip."""
-    agent = client.Agent(name=_unique("Tool Round Trip"), instructions="Use tools when asked.")
+    agent = client.Agent(name=unique_name("Tool Round Trip"), instructions="Use tools when asked.")
     agent.save(as_draft=True)
     resource_tracker.append(agent)
     assert agent.tools == []
@@ -287,7 +277,7 @@ def test_model_tool_parameter_survives_round_trip(client, assets, resource_track
     model.inputs["sourcelanguage"] = "pt"
 
     agent = client.Agent(
-        name=_unique("Translation Agent"),
+        name=unique_name("Translation Agent"),
         instructions="Translate using the attached model tool.",
         tools=[model],
     )
@@ -309,7 +299,7 @@ def test_llm_parameter_is_persisted_on_agent(client, assets, resource_tracker):
     model = client.Model.get(assets.NON_DEFAULT_LLM)
     model.inputs["temperature"] = 0.1
 
-    agent = client.Agent(name=_unique("LLM Param Agent"), instructions="Answer briefly.", llm=model)
+    agent = client.Agent(name=unique_name("LLM Param Agent"), instructions="Answer briefly.", llm=model)
     agent.save()
     resource_tracker.append(agent)
 
@@ -330,7 +320,7 @@ def test_agent_with_slack_action_tool(client, assets, slack_token, resource_trac
     """An agent runs a Slack action tool end to end."""
     integration = client.Integration.get(assets.SLACK_INTEGRATION)
     tool = client.Tool(
-        name=_unique("Slack tool"),
+        name=unique_name("Slack tool"),
         integration=integration,
         config={"token": slack_token},
         allowed_actions=["SLACK_SEND_MESSAGE"],
@@ -339,7 +329,7 @@ def test_agent_with_slack_action_tool(client, assets, slack_token, resource_trac
     resource_tracker.append(tool)
 
     agent = client.Agent(
-        name=_unique("Slack Agent"),
+        name=unique_name("Slack Agent"),
         description="Posts messages to Slack.",
         instructions="Always use the Slack tool to answer.",
         tools=[tool],
@@ -360,11 +350,11 @@ def test_agent_with_slack_action_tool(client, assets, slack_token, resource_trac
 
 def test_update_draft_agent_name_round_trip(client, resource_tracker):
     """Renaming a draft agent is persisted and visible after a fetch."""
-    agent = client.Agent(name=_unique("Rename Me"), instructions="Answer briefly.")
+    agent = client.Agent(name=unique_name("Rename Me"), instructions="Answer briefly.")
     agent.save(as_draft=True)
     resource_tracker.append(agent)
 
-    new_name = _unique("Renamed Agent")
+    new_name = unique_name("Renamed Agent")
     agent.name = new_name
     agent.save(as_draft=True)
 
@@ -376,7 +366,7 @@ def test_update_draft_agent_name_round_trip(client, resource_tracker):
 def test_agent_round_trips_execution_and_inspector_fields(client, resource_tracker):
     """Execution fields survive a save -> fetch round-trip; inspector fields reach the wire."""
     agent = client.Agent(
-        name=_unique("Fields Agent"),
+        name=unique_name("Fields Agent"),
         instructions=EXPECTED_OUTPUT_INSTRUCTIONS,
         max_inspectors=2,
         inspector_targets=["output"],
@@ -409,7 +399,7 @@ def test_agent_round_trips_execution_and_inspector_fields(client, resource_track
 def test_agent_expected_output_run_returns_json(client, resource_tracker):
     """A run with a JSON schema returns parseable JSON matching the schema."""
     agent = client.Agent(
-        name=_unique("JSON Agent"),
+        name=unique_name("JSON Agent"),
         instructions=EXPECTED_OUTPUT_INSTRUCTIONS,
         output_format="json",
         expected_output=PeopleNames,
@@ -435,7 +425,7 @@ def test_agent_persists_file_reference(client, tmp_path, resource_tracker):
     document.save()
     resource_tracker.append(document)
 
-    agent = client.Agent(name=_unique("Files Agent"), instructions="Use the reference.", files=[document])
+    agent = client.Agent(name=unique_name("Files Agent"), instructions="Use the reference.", files=[document])
     agent.save()
     resource_tracker.append(agent)
 
@@ -453,11 +443,11 @@ def test_agent_persists_file_reference(client, tmp_path, resource_tracker):
 
 def test_delete_agent_in_use_fails(client, resource_tracker):
     """A subagent referenced by a team agent cannot be deleted."""
-    sub = client.Agent(name=_unique("In-Use Sub"), instructions="You are a subagent.")
+    sub = client.Agent(name=unique_name("In-Use Sub"), instructions="You are a subagent.")
     sub.save()
     resource_tracker.append(sub)
 
-    team = client.Agent(name=_unique("In-Use Team"), instructions="You orchestrate.", agents=[sub])
+    team = client.Agent(name=unique_name("In-Use Team"), instructions="You orchestrate.", agents=[sub])
     team.save()
     resource_tracker.append(team)
 

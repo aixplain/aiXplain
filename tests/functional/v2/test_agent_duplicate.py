@@ -2,18 +2,7 @@ import pytest
 import time
 import uuid
 
-
-def _agent_ids(agents) -> list:
-    """Ids of a team's ``agents``, which may hold id strings, dicts or ``Agent`` objects."""
-    ids = []
-    for agent in agents or []:
-        if isinstance(agent, str):
-            ids.append(agent)
-        elif isinstance(agent, dict):
-            ids.append(agent.get("id"))
-        else:
-            ids.append(getattr(agent, "id", None))
-    return [agent_id for agent_id in ids if agent_id]
+from tests.functional._helpers import agent_ids
 
 
 @pytest.fixture(scope="module")
@@ -109,7 +98,7 @@ class TestAgentDuplicateWithSubagents:
 
         assert duplicated.id is not None
         assert duplicated.id != team.id
-        assert _agent_ids(duplicated.agents) == [sub.id], (
+        assert agent_ids(duplicated.agents) == [sub.id], (
             f"Expected the duplicate to reference the original subagent {sub.id}, got {duplicated.agents}"
         )
 
@@ -121,7 +110,7 @@ class TestAgentDuplicateWithSubagents:
 
         # The copies are new agents: register each *before* the team that uses
         # them, so newest-first teardown deletes the team first.
-        copied_ids = _agent_ids(duplicated.agents)
+        copied_ids = agent_ids(duplicated.agents)
         for copied_id in copied_ids:
             if copied_id != sub.id:
                 resource_tracker.insert(resource_tracker.index(duplicated), client.Agent.get(copied_id))
