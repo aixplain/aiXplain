@@ -21,6 +21,20 @@ overridable per run with ``AIXPLAIN_TEST_<NAME>``. The one id this module reads
 itself is the multi-action tool's: a connection belongs to the account that made
 it, so there is no portable default to register, only the
 ``AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID`` override.
+
+Copyright 2022 The aiXplain SDK authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 """
 
 import os
