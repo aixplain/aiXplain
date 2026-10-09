@@ -316,123 +316,10 @@ def test_agent_field_mappings(client, test_agent):
     assert agent.team_id is None or isinstance(agent.team_id, int)
 
 
-@pytest.mark.skip(
-    reason="Backend rejects the Slack send-message payload: 'Unsupported Slack send message field(s). "
-    "text: Use markdown_text for normal content, or fallback_text with blocks.'"
-)
-def test_slack_tool_integration_with_agent(client, slack_token, resource_tracker):
-    """Test Slack tool integration with agent creation and execution."""
-    # Get Slack integration
-    integration = client.Integration.get("686432941223092cb4294d3f")  # Slack integration ID
-
-    # Create Slack tool
-    slack_tool = client.Tool(
-        name=f"test-slack-tool-{int(time.time())}-{uuid.uuid4().hex[:6]}",
-        integration=integration,
-        config={"token": slack_token},
-        allowed_actions=["SLACK_SEND_MESSAGE"],
-    )
-
-    # Validate tool creation
-    assert slack_tool.name.startswith("test-slack-tool-")
-    assert slack_tool.integration.id == "686432941223092cb4294d3f"
-    assert "SLACK_SEND_MESSAGE" in slack_tool.allowed_actions
-
-    # Save tool before running
-    slack_tool.save()
-    resource_tracker.append(slack_tool)
-
-    # Test tool execution
-    test_message = "Hello from aixplain functional test!"
-    tool_response = slack_tool.run(
-        action="SLACK_SEND_MESSAGE",
-        data={"channel": "#integrations-test", "text": test_message},
-    )
-
-    # Validate tool response
-    assert tool_response is not None
-    assert hasattr(tool_response, "status")
-    assert hasattr(tool_response, "completed")
-    assert hasattr(tool_response, "data")
-
-    # Validate tool execution success - run() should already return completed result
-    assert tool_response.completed is True, f"Tool execution failed to complete. Status: {tool_response.status}"
-    assert tool_response.status == "SUCCESS", f"Tool execution failed with status: {tool_response.status}"
-
-    # Validate tool response data
-    assert tool_response.data is not None, "Tool response data is None"
-    if hasattr(tool_response.data, "output"):
-        assert tool_response.data.output is not None, "Tool response output is None"
-    elif isinstance(tool_response.data, str):
-        assert len(tool_response.data) > 0, "Tool response data is empty string"
-
-    # Create agent with the Slack tool
-    agent = client.Agent(
-        name=f"test-slack-agent-{int(time.time())}-{uuid.uuid4().hex[:6]}",
-        description="A test agent with Slack integration",
-        instructions="You are a test agent that can post messages to Slack",
-        tools=[slack_tool],
-    )
-
-    # Validate agent creation
-    assert agent.name.startswith("test-slack-agent-")
-    assert agent.description == "A test agent with Slack integration"
-    assert agent.instructions == "You are a test agent that can post messages to Slack"
-    assert len(agent.tools) == 1
-
-    # Save the agent to get an ID
-    agent.save()
-    resource_tracker.append(agent)
-
-    # Verify the agent now has an ID
-    assert agent.id is not None
-    assert isinstance(agent.id, str)
-
-    # Test agent execution with Slack tool
-    query = "post a test message to slack channel #integrations-test saying 'This is a functional test from pytest!'"
-    agent_response = agent.run(query)
-
-    # Validate agent response
-    assert agent_response is not None
-    assert hasattr(agent_response, "request_id")
-    assert hasattr(agent_response, "data")
-    assert hasattr(agent_response, "completed")
-    assert hasattr(agent_response, "status")
-
-    # Validate agent execution success - run() should already return completed result
-    assert agent_response.completed is True, f"Agent execution failed to complete. Status: {agent_response.status}"
-    assert agent_response.status == "SUCCESS", f"Agent execution failed with status: {agent_response.status}"
-
-    # Validate agent response data
-    assert agent_response.data is not None, "Agent response data is None"
-    if hasattr(agent_response.data, "output"):
-        assert agent_response.data.output is not None, "Agent response output is None"
-        assert len(agent_response.data.output) > 0, "Agent response output is empty"
-    elif isinstance(agent_response.data, str):
-        assert len(agent_response.data) > 0, "Agent response data is empty string"
-
-    # Validate that the agent used the Slack tool
-    # data can be AgentResponseData object, so we need to access the output field
-    if hasattr(agent_response.data, "output"):
-        response_text = agent_response.data.output
-    else:
-        response_text = str(agent_response.data)
-
-    # Check that the response contains expected content or indicates success
-    response_lower = response_text.lower()
-    assert (
-        "slack" in response_lower
-        or "message" in response_lower
-        or "success" in response_lower
-        or "functional test" in response_lower
-        or agent_response.status == "SUCCESS"
-    )
-
-
 # Platform tool helpers
 
-FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
-TAVILY_CONNECTION_ASSET_ID = "6931bdf462eb386b7158def3"
+#: A marketplace path rather than an id, so it is not in
+#: `tests/functional/_assets.py`: the same path resolves on every backend.
 WEB_SEARCH_TOOL_PATH = "scale-serp/google-search/Google"
 
 
@@ -462,15 +349,16 @@ def _run_platform_tool_agent(client, tracker, tools: list, prompt: str, test_suf
 # Firecrawl
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always choose to call the scrape action")
-def test_agent_firecrawl_scrape_tool(client, resource_tracker):
+# flaky: the LLM may not always choose to call the scrape action.
+@pytest.mark.flaky(reruns=2)
+def test_agent_firecrawl_scrape_tool(client, assets, resource_tracker):
     """
     Verifies:
     1. The agent can be created with the Firecrawl tool via the v2 SDK.
     2. Agent execution succeeds.
     3. The scraped page content is reflected in the final response.
     """
-    tool = client.Tool.get(FIRECRAWL_CONNECTION_ASSET_ID)
+    tool = client.Tool.get(assets.FIRECRAWL)
 
     response = _run_platform_tool_agent(
         client=client,
@@ -498,15 +386,16 @@ def test_agent_firecrawl_scrape_tool(client, resource_tracker):
 # Tavily
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always invoke Tavily")
-def test_agent_tavily_web_search_tool(client, resource_tracker):
+# flaky: the LLM may not always invoke Tavily.
+@pytest.mark.flaky(reruns=2)
+def test_agent_tavily_web_search_tool(client, assets, resource_tracker):
     """
     Verifies:
     1. The agent can be created with the Tavily search tool via the v2 SDK.
     2. Agent execution succeeds.
     3. The response contains information retrieved from the search.
     """
-    tool = client.Tool.get(TAVILY_CONNECTION_ASSET_ID)
+    tool = client.Tool.get(assets.TAVILY)
 
     response = _run_platform_tool_agent(
         client=client,
@@ -535,7 +424,8 @@ def test_agent_tavily_web_search_tool(client, resource_tracker):
 # Web Search Tool
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always invoke the Web Search tool")
+# flaky: the LLM may not always invoke the Web Search tool.
+@pytest.mark.flaky(reruns=2)
 def test_agent_web_search_tool(client, resource_tracker):
     """
     Verifies:

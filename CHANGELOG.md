@@ -95,6 +95,12 @@ Eight v1 factories — `IndexFactory`, `PipelineFactory`, `BenchmarkFactory`,
 on any of them, stay on `0.2.48` and
 [open an issue](https://github.com/aixplain/aiXplain/issues) naming it.
 
+`aixplain._compat.AixplainV1DeprecationWarning` is kept as an importable name,
+although nothing emits it any more. `-W` options and `filterwarnings` entries
+that name it (for example `error::aixplain._compat.AixplainV1DeprecationWarning`)
+keep resolving instead of failing as an unknown warning category. It still
+subclasses `DeprecationWarning`.
+
 ### Removed: `aix.Utility`
 
 Custom Python code is a `Tool` in v2, not a separate resource. `aix.Tool(code=...)`
@@ -213,8 +219,29 @@ Two fixes fall out of the audit:
 - A misspelled key in a `budget` or `execution_config` dict was silently dropped,
   so `{"max_iteration": 10}` meant "no cap" rather than an error.
 
+### Fixed: `expected_output` is always sent as JSON text
+
+An agent's `expected_output` went over the wire in a different shape depending on
+how it was sent. A run that passed a Pydantic class, an instance or a dict in
+`execution_params` was refused with `400 executionParams.expectedOutput must be a
+string`, a list was sent unencoded on direct runs, and `save()` stored a Pydantic
+instance or a dict as an object, which the agent engine read back as a Python
+repr rather than JSON. `save()`, `run()` and session runs now share one encoder:
+a Pydantic class becomes its JSON schema, an instance its JSON, and any other
+non-string value (a dict, list, tuple, number or bool) is JSON-encoded with
+non-ASCII text left readable. Strings and `None` are sent unchanged, and a value
+JSON cannot encode raises `ValidationError` instead of reaching the backend. Saving
+a dict or Pydantic instance now changes what you read back; see the breaking
+change below.
+
 ### Breaking, beyond the v1 removal
 
+- **A dict or Pydantic-instance `expected_output` reads back as a JSON string.**
+  It is now persisted as a string, the way a Pydantic class already was, so an
+  agent fetched with `aix.Agent.get(...)` carries the string, and so does the
+  agent you just called `save()` on, because a create re-reads the stored
+  agent. `agent.expected_output["color"]` now raises `TypeError`;
+  `json.loads(agent.expected_output)` gives you the object.
 - **`APIKeyLimits` defaults changed from `0` to `None`.** This is a *read*-path
   break as well as a write one: `limits.token_per_minute > 0` now raises
   `TypeError` on an unset dimension. Compare against `None` first, or use

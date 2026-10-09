@@ -1,15 +1,22 @@
 """Functional tests for v2 Triggers (aix.Trigger).
 
 Time-trigger tests run with only TEAM_API_KEY/AIXPLAIN_API_KEY set (a temporary
-agent is created and cleaned up). Event-trigger tests are gated on extra env vars:
+agent is created and cleaned up). Event-trigger tests need two more things, and
+neither is a secret:
 
-- TEST_COMPOSIO_INTEGRATION_ID : an integration id (e.g. composio/gmail resolved id)
-                                 used for `integration.triggers` discovery.
-- TEST_CONNECTION_ID           : a connected tool id used to activate a real event
-                                 trigger end-to-end.
+- the Composio Gmail integration, fetched by its marketplace path
+  (``COMPOSIO_GMAIL_PATH``, which resolves on every backend), for
+  ``integration.triggers`` discovery;
+- a connected tool that lists event-trigger types, found by
+  ``resolve_trigger_connection`` (pin one with AIXPLAIN_TEST_TRIGGER_CONNECTION_ID),
+  to activate a real event trigger end to end.
+
+Both used to come from TEST_COMPOSIO_INTEGRATION_ID / TEST_CONNECTION_ID, and
+skipped when unset, which meant the event-trigger half of this file had never
+run in CI and nobody could tell (ENG-3684). A missing integration or connection
+fails now: it is a broken environment, not a smaller test suite.
 """
 
-import os
 import time
 import uuid
 
@@ -18,9 +25,22 @@ import pytest
 from aixplain import Trigger, TriggerEventOption
 from aixplain import Page
 
+from tests.functional._helpers import resolve_trigger_connection
+
 
 # Far-future instant so a "once" trigger is valid/schedulable.
 FUTURE_RUN_AT = "2099-01-26T12:00:00Z"
+
+# Recurring triggers are created disabled. Teardown deletes them, but a PR run
+# cancelled by a newer push (`cancel-in-progress`) can skip teardown, and an
+# enabled recurring trigger left behind would keep running its agent on the
+# shared backend. The schedule mapping these tests check does not depend on it.
+RECURRING_ENABLED = False
+
+#: The Composio integration whose event triggers these tests use, by marketplace
+#: path: ``Integration.get`` resolves a path on every backend, so unlike an
+#: ObjectId it needs no per-environment entry in tests/functional/_assets.py.
+COMPOSIO_GMAIL_PATH = "composio/gmail"
 
 
 @pytest.fixture(scope="module")
@@ -37,21 +57,15 @@ def test_agent(client, module_resource_tracker):
 
 
 @pytest.fixture(scope="module")
-def composio_integration_id():
-    """Integration id for event-discovery tests (skips if not provided)."""
-    value = os.getenv("TEST_COMPOSIO_INTEGRATION_ID")
-    if not value:
-        pytest.skip("TEST_COMPOSIO_INTEGRATION_ID is required for event-discovery tests")
-    return value
+def composio_integration_id(client):
+    """The Composio Gmail integration's id on this backend, for event-discovery tests."""
+    return client.Integration.get(COMPOSIO_GMAIL_PATH).id
 
 
 @pytest.fixture(scope="module")
-def connection_id():
-    """Connected tool id for end-to-end event-trigger tests (skips if not provided)."""
-    value = os.getenv("TEST_CONNECTION_ID")
-    if not value:
-        pytest.skip("TEST_CONNECTION_ID is required for event-trigger activation tests")
-    return value
+def connection_id(client, composio_integration_id):
+    """A connected tool with event-trigger types, looked up once per module; fails the test when none exists."""
+    return resolve_trigger_connection(client, composio_integration_id).id
 
 
 # =============================================================================
@@ -86,6 +100,7 @@ class TestTimeTriggerLifecycle:
             at="09:00",
             timezone="Europe/London",
             notifications=True,
+            enabled=RECURRING_ENABLED,
         )
         t.save()
         resource_tracker.append(t)
@@ -102,10 +117,13 @@ class TestTimeTriggerLifecycle:
             input="Check the queue.",
             every="hour",
             interval=2,
+            enabled=RECURRING_ENABLED,
         )
         hourly.save()
         resource_tracker.append(hourly)
         assert hourly.schedule_type == "recurring"
+        # The most frequent schedule here: make sure the backend stored it disabled.
+        assert client.Trigger.get(hourly.id).enabled is False
 
         weekly = client.Trigger(
             name=f"weekly-{int(time.time())}-{uuid.uuid4().hex[:6]}",
@@ -114,6 +132,7 @@ class TestTimeTriggerLifecycle:
             every="week",
             on=["mon", "thu"],
             at="17:00",
+            enabled=RECURRING_ENABLED,
         )
         weekly.save()
         resource_tracker.append(weekly)
@@ -126,6 +145,7 @@ class TestTimeTriggerLifecycle:
             every="month",
             on=[1, 15],
             at="09:00",
+            enabled=RECURRING_ENABLED,
         )
         monthly.save()
         resource_tracker.append(monthly)
@@ -236,8 +256,12 @@ class TestEventTriggerLifecycle:
         tool = client.Tool.get(connection_id)
 
         slugs = list(tool.triggers)
-        if not slugs:
-            pytest.skip("Connected tool exposes no trigger types")
+        # The connection was chosen *because* it lists trigger types, so an
+        # empty `triggers` here disagrees with the `list_trigger_types` probe.
+        assert slugs, (
+            f"Connected tool {tool.id} listed trigger types when it was resolved but exposes none "
+            "through `tool.triggers`."
+        )
         option = tool.triggers[slugs[0]]
         assert option.connection_id == tool.id  # connected tool carries the connection
 

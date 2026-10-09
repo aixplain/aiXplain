@@ -11,6 +11,8 @@ import pytest
 
 from aixplain import Actions, Action, Inputs, Input
 
+from tests.functional._helpers import missing_fixture, resolve_multi_action_tool
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -18,32 +20,46 @@ from aixplain import Actions, Action, Inputs, Input
 
 
 @pytest.fixture(scope="module")
-def text_model_id():
-    return "69b7e5f1b2fe44704ab0e7d0"  # GPT-5.4
+def model(client, assets):
+    return client.Model.get(assets.DEFAULT_LLM)
 
 
 @pytest.fixture(scope="module")
-def slack_integration_id():
-    return "686432941223092cb4294d3f"
+def tool(client, assets):
+    """The connected, multi-action tool the TOOL sections below are written against.
+
+    This fixture used to search for any tool with actions and skip when it found
+    none. Being module-scoped, that one skip took every test in the TestTool*
+    classes below with it, and the leg still exited 0 (ENG-3684). A connected
+    tool is tenant-specific, so it cannot be pinned portably:
+    `resolve_multi_action_tool` uses AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID when set
+    and otherwise searches for a tool with two or more actions, Slack-backed ones
+    first, then any other connected tool. Not finding one is a failure: these tests cannot verify the Actions hierarchy
+    without such a tool, and pretending otherwise is what made the leg lie.
+    """
+    return resolve_multi_action_tool(client, assets.SLACK_INTEGRATION)
 
 
 @pytest.fixture(scope="module")
-def model(client, text_model_id):
-    return client.Model.get(text_model_id)
+def action_with_inputs(tool):
+    """Name of the first action on *tool* that declares inputs.
 
-
-@pytest.fixture(scope="module")
-def tool(client, slack_integration_id):
-    """Find a tool backed by the Slack integration that has actions."""
-    results = client.Tool.search(page_size=20).results
-    for t in results:
-        if t.actions_available and t.integration_id == slack_integration_id:
-            return t
-    # Fallback: just find any tool with actions
-    for t in results:
-        if t.actions_available:
-            return t
-    pytest.skip("No tool with actions found")
+    Ten tests below each re-ran this search and skipped individually when it came
+    up empty. Hoisting it into one fixture makes the search happen once and, more
+    importantly, makes "this tool exposes no action with inputs" a single loud
+    failure rather than ten quiet skips.
+    """
+    for name in tool.actions:
+        try:
+            if len(tool.actions[name].inputs) > 0:
+                return name
+        except Exception:
+            continue
+    missing_fixture(
+        f"an action with inputs on tool {tool.id}",
+        f"The tool exposes {list(tool.actions)!r}, none of which declare inputs.",
+        env_var="AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID",
+    )
 
 
 # =========================================================================
@@ -251,18 +267,6 @@ class TestToolActions:
         assert first_name in tool.actions
 
 
-def _find_action_with_inputs(tool):
-    """Find the first action on the tool that has inputs."""
-    for name in tool.actions:
-        try:
-            inputs = tool.actions[name].inputs
-            if len(inputs) > 0:
-                return name
-        except (ValueError, Exception):
-            continue
-    return None
-
-
 class TestToolAction:
     """tool.actions['name'] returns an Action with inputs."""
 
@@ -276,11 +280,8 @@ class TestToolAction:
         action = tool.actions[first_name]
         assert action.name == first_name
 
-    def test_action_has_inputs(self, tool):
-        action_name = _find_action_with_inputs(tool)
-        if not action_name:
-            pytest.skip("No action with inputs found")
-        action = tool.actions[action_name]
+    def test_action_has_inputs(self, tool, action_with_inputs):
+        action = tool.actions[action_with_inputs]
         assert isinstance(action.inputs, Inputs)
         assert len(action.inputs) > 0
 
@@ -293,53 +294,35 @@ class TestToolAction:
 class TestToolInputs:
     """tool.actions['name'].inputs is an Inputs collection."""
 
-    def test_inputs_type(self, tool):
-        action_name = _find_action_with_inputs(tool)
-        if not action_name:
-            pytest.skip("No action with inputs found")
-        inputs = tool.actions[action_name].inputs
+    def test_inputs_type(self, tool, action_with_inputs):
+        inputs = tool.actions[action_with_inputs].inputs
         assert isinstance(inputs, Inputs)
 
-    def test_inputs_keys(self, tool):
-        action_name = _find_action_with_inputs(tool)
-        if not action_name:
-            pytest.skip("No action with inputs found")
-        keys = tool.actions[action_name].inputs.keys()
+    def test_inputs_keys(self, tool, action_with_inputs):
+        keys = tool.actions[action_with_inputs].inputs.keys()
         assert isinstance(keys, list)
         assert len(keys) > 0
 
-    def test_inputs_required(self, tool):
-        action_name = _find_action_with_inputs(tool)
-        if not action_name:
-            pytest.skip("No action with inputs found")
-        required = tool.actions[action_name].inputs.required
+    def test_inputs_required(self, tool, action_with_inputs):
+        required = tool.actions[action_with_inputs].inputs.required
         assert isinstance(required, list)
 
-    def test_inputs_repr(self, tool):
-        action_name = _find_action_with_inputs(tool)
-        if not action_name:
-            pytest.skip("No action with inputs found")
-        r = repr(tool.actions[action_name].inputs)
+    def test_inputs_repr(self, tool, action_with_inputs):
+        r = repr(tool.actions[action_with_inputs].inputs)
         assert "Inputs" in r
 
 
 class TestToolInput:
     """tool.actions['name'].inputs['param'] returns an Input object."""
 
-    def test_input_type(self, tool):
-        action_name = _find_action_with_inputs(tool)
-        if not action_name:
-            pytest.skip("No action with inputs found")
-        inputs = tool.actions[action_name].inputs
+    def test_input_type(self, tool, action_with_inputs):
+        inputs = tool.actions[action_with_inputs].inputs
         first_input_name = inputs.keys()[0]
         inp = inputs[first_input_name]
         assert isinstance(inp, Input)
 
-    def test_input_properties(self, tool):
-        action_name = _find_action_with_inputs(tool)
-        if not action_name:
-            pytest.skip("No action with inputs found")
-        inputs = tool.actions[action_name].inputs
+    def test_input_properties(self, tool, action_with_inputs):
+        inputs = tool.actions[action_with_inputs].inputs
         first_input_name = inputs.keys()[0]
         inp = inputs[first_input_name]
         assert hasattr(inp, "name")
@@ -348,11 +331,8 @@ class TestToolInput:
         assert hasattr(inp, "value")
         assert hasattr(inp, "description")
 
-    def test_input_repr(self, tool):
-        action_name = _find_action_with_inputs(tool)
-        if not action_name:
-            pytest.skip("No action with inputs found")
-        inputs = tool.actions[action_name].inputs
+    def test_input_repr(self, tool, action_with_inputs):
+        inputs = tool.actions[action_with_inputs].inputs
         first_input_name = inputs.keys()[0]
         r = repr(inputs[first_input_name])
         assert "Input" in r
@@ -361,20 +341,14 @@ class TestToolInput:
 class TestToolInputSetValue:
     """Setting values on tool action inputs."""
 
-    def test_set_via_bracket(self, tool):
-        action_name = _find_action_with_inputs(tool)
-        if not action_name:
-            pytest.skip("No action with inputs found")
-        inputs = tool.actions[action_name].inputs
+    def test_set_via_bracket(self, tool, action_with_inputs):
+        inputs = tool.actions[action_with_inputs].inputs
         key = inputs.keys()[0]
         inputs[key] = "test_value"
         assert inputs[key].value == "test_value"
 
-    def test_set_via_dot(self, tool):
-        action_name = _find_action_with_inputs(tool)
-        if not action_name:
-            pytest.skip("No action with inputs found")
-        inputs = tool.actions[action_name].inputs
+    def test_set_via_dot(self, tool, action_with_inputs):
+        inputs = tool.actions[action_with_inputs].inputs
         key = inputs.keys()[0]
         setattr(inputs, key, "dot_value")
         assert getattr(inputs, key).value == "dot_value"

@@ -137,8 +137,12 @@ class TestBuildSavePayload:
 
     def test_notifications_and_enabled_passthrough(self):
         p = Trigger(
-            name="x", agent=FakeAgent(), input="q", run_at="2026-01-26T12:00:00Z",
-            notifications=True, enabled=False,
+            name="x",
+            agent=FakeAgent(),
+            input="q",
+            run_at="2026-01-26T12:00:00Z",
+            notifications=True,
+            enabled=False,
         ).build_save_payload()
         assert p["notifications"] is True and p["enabled"] is False
 
@@ -187,11 +191,22 @@ class TestBuildSavePayload:
 class TestRehydration:
     def _dto(self, **over):
         dto = {
-            "id": "trig1", "name": "Daily digest", "description": "d",
-            "triggerType": "time", "assetId": AGENT_ID, "assetType": "agent",
-            "type": "daily", "input": "Sum", "enabled": True, "notifications": False,
-            "nextRunAt": "2026-07-14T09:00:00Z", "lastRunAt": None, "failureCount": 0,
-            "enqueued": False, "createdAt": "2026-07-13T00:00:00Z", "updatedAt": "2026-07-13T00:00:00Z",
+            "id": "trig1",
+            "name": "Daily digest",
+            "description": "d",
+            "triggerType": "time",
+            "assetId": AGENT_ID,
+            "assetType": "agent",
+            "type": "daily",
+            "input": "Sum",
+            "enabled": True,
+            "notifications": False,
+            "nextRunAt": "2026-07-14T09:00:00Z",
+            "lastRunAt": None,
+            "failureCount": 0,
+            "enqueued": False,
+            "createdAt": "2026-07-13T00:00:00Z",
+            "updatedAt": "2026-07-13T00:00:00Z",
             "configuration": {"type": "daily", "time": "09:00", "timezone": "Europe/London", "repeat": None},
         }
         dto.update(over)
@@ -263,10 +278,20 @@ class TestSearch:
     def test_search_by_agent_sends_agentId_param(self):
         client = Mock()
         client.get.return_value = [
-            {"id": "t1", "name": "a", "triggerType": "time", "assetId": AGENT_ID,
-             "configuration": {"type": "once", "runAt": "2026-01-01T00:00:00Z"}},
-            {"id": "t2", "name": "b", "triggerType": "time", "assetId": AGENT_ID,
-             "configuration": {"type": "daily", "time": "09:00"}},
+            {
+                "id": "t1",
+                "name": "a",
+                "triggerType": "time",
+                "assetId": AGENT_ID,
+                "configuration": {"type": "once", "runAt": "2026-01-01T00:00:00Z"},
+            },
+            {
+                "id": "t2",
+                "name": "b",
+                "triggerType": "time",
+                "assetId": AGENT_ID,
+                "configuration": {"type": "daily", "time": "09:00"},
+            },
         ]
         cls = bound_trigger_class(make_context(client))
         page = cls.search(agent=FakeAgent())

@@ -15,6 +15,7 @@ from dataclasses_json import dataclass_json, config
 
 from pydantic import BaseModel
 
+from ._expected_output import expected_output_to_wire
 from .enums import AssetStatus, AssetStatusValue, ResponseStatus
 from .model import Model
 from .file import File
@@ -2530,14 +2531,11 @@ class Agent(
 
         # Persist expected_output server-side so fetched agents and runs that
         # don't pass executionParams.expectedOutput (the backend falls back to
-        # the stored value) keep the JSON contract.
+        # the stored value) keep the JSON contract. Encoded exactly as the run
+        # paths encode it: a Pydantic instance or a dict stored as an object came
+        # back to the engine as a Python repr rather than JSON.
         if "expectedOutput" in payload:
-            expected_output = payload["expectedOutput"]
-            if isinstance(expected_output, type) and issubclass(expected_output, BaseModel):
-                payload["expectedOutput"] = json.dumps(expected_output.model_json_schema())
-            elif isinstance(expected_output, BaseModel):
-                # Convert BaseModel instance to dict for save
-                payload["expectedOutput"] = expected_output.model_dump()
+            payload["expectedOutput"] = expected_output_to_wire(payload["expectedOutput"])
 
         return payload
 
@@ -2572,25 +2570,21 @@ class Agent(
         for k, v in defaults.items():
             execution_params.setdefault(k, v)
 
-        # Handle BaseModel conversion for expectedOutput (following legacy pattern)
         # Use agent's expected_output if none provided in execution_params
         if "expectedOutput" not in execution_params:
             execution_params["expectedOutput"] = self.expected_output
 
         expected_output = execution_params["expectedOutput"]
 
-        # For non-JSON formats, don't send empty string expected_output
+        # The backend rejects any non-string executionParams.expectedOutput with a 400
+        # ("executionParams.expectedOutput must be a string"), so everything but a
+        # string or None is JSON-encoded -- by the same helper ``build_save_payload``
+        # and session runs use, so the three paths cannot drift apart again.
         if execution_params.get("outputFormat") in ["text", "markdown"] and expected_output == "":
+            # For non-JSON formats, don't send empty string expected_output
             execution_params["expectedOutput"] = None
-        elif (
-            expected_output is not None and isinstance(expected_output, type) and issubclass(expected_output, BaseModel)
-        ):
-            execution_params["expectedOutput"] = expected_output.model_json_schema()
-        elif isinstance(expected_output, BaseModel):
-            execution_params["expectedOutput"] = expected_output.model_dump()
-        elif isinstance(expected_output, dict):
-            # Backend expects executionParams.expectedOutput as a string.
-            execution_params["expectedOutput"] = json.dumps(expected_output)
+        else:
+            execution_params["expectedOutput"] = expected_output_to_wire(expected_output)
 
         # Run-time budget: the agent's current ``budget`` state travels inside
         # ``executionParams.budget`` (the backend merges it field-by-field over the
