@@ -12,6 +12,7 @@ import pytest
 import ast
 from pathlib import Path
 
+from aixplain.v2.exceptions import APIError
 from tests.functional._assets import (
     ASSET_NAMES,
     ASSETS_BY_ENVIRONMENT,
@@ -202,25 +203,29 @@ def test_the_non_default_llm_is_not_the_default():
 class _FakeResource:
     """Stands in for `client.Model` and friends: records each `get` and fails for *missing* ids."""
 
-    def __init__(self, name, calls, missing):
+    def __init__(self, name, calls, missing, flaky):
         self._name = name
         self._calls = calls
         self._missing = missing
+        self._flaky = flaky
 
     def get(self, asset_id):
         self._calls.append((self._name, asset_id))
         if asset_id in self._missing:
-            raise RuntimeError(f"404 {asset_id} not found")
+            raise APIError(f"404 {asset_id} not found", status_code=404)
+        if self._flaky.get(asset_id):
+            raise self._flaky[asset_id].pop(0)
         return object()
 
 
 class _FakeClient:
     """An `Aixplain` client whose resources are `_FakeResource`s sharing one call log."""
 
-    def __init__(self, missing=()):
+    def __init__(self, missing=(), flaky=None):
         self.calls = []
+        flaky = {asset_id: list(errors) for asset_id, errors in (flaky or {}).items()}
         for resource in {spec.resource for spec in SPECS.values()}:
-            setattr(self, resource, _FakeResource(resource, self.calls, set(missing)))
+            setattr(self, resource, _FakeResource(resource, self.calls, set(missing), flaky))
 
 
 def _lazy(client, ids=DEV):
@@ -282,6 +287,41 @@ def test_a_failure_is_cached_so_a_rerun_does_not_repeat_the_request():
             assets.TAVILY
 
     assert client.calls == [("Tool", DEV.TAVILY)]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        APIError("503 service unavailable", status_code=503),
+        APIError("429 too many requests", status_code=429),
+        APIError("connection reset", status_code=0),
+        TimeoutError("read timed out"),
+        ConnectionError("connection aborted"),
+    ],
+    ids=["5xx", "429", "no-response", "timeout", "connection"],
+)
+def test_a_transient_failure_is_not_cached_so_the_next_read_asks_again(error):
+    """One blip on the first read must not fail every later test in the worker."""
+    client = _FakeClient(flaky={DEV.DEFAULT_LLM: [error]})
+    assets, _ = _lazy(client)
+
+    with pytest.raises(pytest.fail.Exception):
+        assets.DEFAULT_LLM
+    assert assets.DEFAULT_LLM == DEV.DEFAULT_LLM
+
+    assert client.calls == [("Model", DEV.DEFAULT_LLM), ("Model", DEV.DEFAULT_LLM)]
+
+
+def test_an_explicitly_non_retryable_error_is_cached():
+    """``retryable=False`` (a business FAILED body) wins over the status-code heuristic."""
+    client = _FakeClient(flaky={DEV.DEFAULT_LLM: [APIError("Operation failed", status_code=0, retryable=False)]})
+    assets, _ = _lazy(client)
+
+    for _ in range(2):
+        with pytest.raises(pytest.fail.Exception):
+            assets.DEFAULT_LLM
+
+    assert client.calls == [("Model", DEV.DEFAULT_LLM)]
 
 
 def test_one_missing_asset_does_not_fail_the_others():

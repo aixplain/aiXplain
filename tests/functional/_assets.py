@@ -321,10 +321,13 @@ class LazyAssets:
 
     Resolving per name rather than all up front keeps one retired asset from
     erroring every leg: only the tests that read it fail, and a leg that reads
-    no asset never touches the backend. Failures are cached as well as
-    successes, so a ``@flaky`` rerun reports the same failure again without
-    repeating the request. The cache lives on this object, and the session
-    fixture that builds it succeeds even when a name later fails, so
+    no asset never touches the backend. A success is cached, and so is a
+    failure that asking again cannot fix (see :func:`_is_permanent`), so a
+    ``@flaky`` rerun reports a retired id again without repeating the request.
+    Any other failure -- a 5xx, a 429, a timeout, a dropped connection -- is not
+    cached: the next read asks again, so one blip fails one test rather than
+    every later test in the worker. The cache lives on this object, and the
+    session fixture that builds it succeeds even when a name later fails, so
     pytest-rerunfailures (which only discards the cached results of fixtures
     that errored) keeps it across reruns.
     """
@@ -342,7 +345,7 @@ class LazyAssets:
         self._client: Any = None
         self._backend_url = backend_url
         self._environment = environment
-        #: Asset name -> None once resolved, or the failure message to repeat.
+        #: Asset name -> None once resolved, or the permanent failure message to repeat.
         self._outcomes: Dict[str, Optional[str]] = {}
 
     def __getattr__(self, name: str) -> str:
@@ -353,26 +356,60 @@ class LazyAssets:
 
     def resolve(self, name: str) -> str:
         """Return the id for asset *name*, or fail the current test if it does not resolve."""
-        if name not in self._outcomes:
-            self._outcomes[name] = self._attempt(name)
-        failure = self._outcomes[name]
+        if name in self._outcomes:
+            failure = self._outcomes[name]
+        else:
+            failure, permanent = self._attempt(name)
+            if failure is None or permanent:
+                self._outcomes[name] = failure
         if failure is not None:
             pytest.fail(failure, pytrace=False)
         return getattr(self._ids, name)
 
-    def _attempt(self, name: str) -> Optional[str]:
-        """Resolve *name* once; return None on success or the message to fail with."""
+    def _attempt(self, name: str) -> Tuple[Optional[str], bool]:
+        """Resolve *name* once; return ``(None, True)`` on success, else the message and whether it is permanent."""
         spec = SPECS[name]
         asset_id = getattr(self._ids, name)
         try:
             if self._client is None:
-                self._client = self._client_factory()
+                try:
+                    self._client = self._client_factory()
+                except Exception as error:  # noqa: BLE001 - a client that cannot be built will not build next time
+                    return self._failure(name, error), True
             getattr(self._client, spec.resource).get(asset_id)
         except Exception as error:  # noqa: BLE001 - any failure to resolve is the failure being reported
-            return (
-                f"functional-test asset {name} ({spec.description}) = {asset_id} did not resolve on "
-                f"{self._backend_url} (id space {self._environment!r}) via client.{spec.resource}.get: "
-                f"{error}\n\nFix the id in tests/functional/_assets.py, or point it elsewhere for this run "
-                f"with {ENV_PREFIX}{name}=<id>."
-            )
-        return None
+            return self._failure(name, error), _is_permanent(error)
+        return None, True
+
+    def _failure(self, name: str, error: BaseException) -> str:
+        """The message a test that reads *name* fails with."""
+        spec = SPECS[name]
+        return (
+            f"functional-test asset {name} ({spec.description}) = {getattr(self._ids, name)} did not resolve on "
+            f"{self._backend_url} (id space {self._environment!r}) via client.{spec.resource}.get: "
+            f"{error}\n\nFix the id in tests/functional/_assets.py, or point it elsewhere for this run "
+            f"with {ENV_PREFIX}{name}=<id>."
+        )
+
+
+#: 4xx statuses that are about load or timing rather than the request, so asking again can succeed.
+_TRANSIENT_CLIENT_STATUSES = frozenset({408, 409, 425, 429})
+
+
+def _is_permanent(error: BaseException) -> bool:
+    """Whether a failed ``client.<resource>.get`` would fail the same way if asked again.
+
+    Only a definite answer is cached: an API error with a 4xx status other than
+    the load and timing ones (a 404 for a retired id, a 403 for an asset the key
+    cannot see), or a response that came back but could not be deserialized. A
+    5xx, a 429, a timeout or a dropped connection is not, and neither is any
+    error this cannot classify -- retrying an unknown error costs one request,
+    while caching a transient one fails every later test in the worker.
+    """
+    from aixplain.v2.exceptions import APIError, ResourceError
+
+    if isinstance(error, APIError):
+        if error.retryable is not None:
+            return not error.retryable
+        return 400 <= error.status_code < 500 and error.status_code not in _TRANSIENT_CLIENT_STATUSES
+    return isinstance(error, ResourceError)
