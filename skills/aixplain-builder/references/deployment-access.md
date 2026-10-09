@@ -154,7 +154,7 @@ From Python the SDK wraps this: `FileUploader(api_key=...).upload(file_path, is_
 
 ## MCP server access
 
-Any marketplace **model or tool** is reachable as a hosted MCP server — one PAYG key covers every asset the key can reach. **Agents do not expose an MCP server**; models and tools do.
+Any marketplace **model, tool or agent** is reachable as a hosted MCP server — one PAYG key covers every asset the key can reach. Agents use their own route (see **Agents over MCP** below).
 
 **Endpoint:** `https://models-mcp.aixplain.com/mcp/<ASSET_ID_OR_ENCODED_PATH>`
 
@@ -176,6 +176,8 @@ Underscore-substituted paths (`openai_gpt-4o-mini_openai`) do **not** work. Auth
 ```
 
 Claude Code one-liner: `claude mcp add --transport http <name> <url> --header "Authorization: Bearer <key>"`.
+
+**Agents over MCP** — `https://models-mcp.aixplain.com/agent/mcp/<AGENT_ID>` (`/mcp/<AGENT_ID>` also resolves to the agent). Use the 24-character agent ID; path-style URLs fail for agents. Same two headers. `tools/list` returns one tool named after the agent's path, with inputs `query` (required) and `sessionId`. `tools/call` returns the answer in `structuredContent` (`{status, data, requestId}`) with `content` empty, so clients that only render `content` may show an empty result. Auth is the API key only (no OAuth).
 
 **Stdio bridge (`mcp-remote`)** — Claude Desktop and older Cursor read `claude_desktop_config.json`, which only accepts `command` servers, so they need a local proxy. Requires Node 18+:
 
