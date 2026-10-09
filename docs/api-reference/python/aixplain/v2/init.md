@@ -11,7 +11,7 @@ aiXplain SDK v2 - Modern Python SDK for the aiXplain platform.
 def __getattr__(name: str)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/__init__.py#L381)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/__init__.py#L383)
 
 PEP 562: warn on the deprecated ``Resource`` alias, matching ``Aixplain().Resource``.
 

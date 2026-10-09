@@ -126,10 +126,9 @@ def _root_exported_names_by_module():
     """
     import ast
 
-    init_path = os.path.join("aixplain", "v2", "__init__.py")
-    if not os.path.exists(init_path):
-        return {}
-
+    # Next to this script, not the cwd: a missing file must fail loudly rather
+    # than silently render every page without its import line.
+    init_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "aixplain", "v2", "__init__.py")
     with open(init_path) as f:
         tree = ast.parse(f.read())
 
@@ -151,15 +150,16 @@ def add_root_import(content, names):
     """Insert a ``from aixplain import ...`` line just below the frontmatter.
 
     An import line left by an earlier run is replaced rather than duplicated, so
-    the script can be re-run over pages it already processed.
+    the script can be re-run over pages it already processed. With no names, a
+    stale line is removed and nothing is added.
     """
-    if not names:
-        return content
-    line = "`from aixplain import " + ", ".join(names) + "`\n\n"
     match = re.match(r"\A(---\n.*?\n---\n)", content, re.DOTALL)
-    head, body = (match.group(1) + "\n", content[match.end() :]) if match else ("", content)
-    body = re.sub(r"\A\s*`from aixplain import [^`\n]*`\n\n", "", body)
-    return head + line + body
+    head, body = (match.group(1), content[match.end() :]) if match else ("", content)
+    stripped = re.sub(r"\A\s*`from aixplain import [^`\n]*`\n\n", "", body)
+    if not names:
+        return content if stripped == body else head + stripped
+    line = "`from aixplain import " + ", ".join(names) + "`\n\n"
+    return (head + "\n" if head else "") + line + stripped
 
 
 def rename_files(docs_dir="docs/api-reference/python"):

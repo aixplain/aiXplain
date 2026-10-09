@@ -38,10 +38,7 @@ _use_local_aixplain_repo()
 import pandas as pd
 import streamlit as st
 
-from aixplain import Aixplain
-from aixplain.v2.agent_evaluator import Eval, AgentEvaluationRun
-from aixplain.v2.eval_results_display import summarize_by_agent
-from aixplain.v2.exceptions import ValidationError
+from aixplain import AgentEvaluationRun, Aixplain, Eval, ValidationError, summarize_by_agent
 
 
 def _repo_root() -> Path:

@@ -22,6 +22,7 @@ Internal classes, on the guard allowlist:
 - `*SearchParams` / `*GetParams` / `*DeleteParams` / `*RunParams` TypedDicts.
 - `Base*` classes, `*Mixin` classes and `Has*` protocols (`resource.py`).
 - Upload helpers (`MimeTypeDetector`, `S3Uploader`, `RequestManager`, ...).
+- `ActionMixin` (`integration.py`), like the other mixins.
 
 The guard only inspects `class` statements. Module-level names that are not
 classes -- the retry/timeout constants in `client.py`, the core `*Type`
@@ -35,13 +36,10 @@ Code that needs an internal keeps the module path, e.g.
 ## Exceptions
 
 Exceptions have one non-versioned path: `from aixplain import APIError` and
-`from aixplain.exceptions import APIError` resolve to the same class. The v2
-classes the SDK raises, plus `create_operation_failed_error`, are also
-re-exported from `aixplain.exceptions`.
+`from aixplain.exceptions import APIError` resolve to the same class, and
+`aixplain.exceptions` exports nothing else. `create_operation_failed_error` is
+internal and stays at `aixplain.v2.exceptions`.
 
-The v1-only types (`AuthenticationError`, `BillingError`, ...), their base
-`AixplainBaseException` and `get_error_from_status_code` are defined in
-`aixplain.exceptions.types` and still re-exported from `aixplain.exceptions`.
-They are a separate hierarchy: the v2 `ValidationError` / `ResourceError` do not
-subclass `AixplainBaseException`, and `get_error_from_status_code` returns the v1
-classes, which `except aixplain.exceptions.ValidationError` does not catch.
+The v1 hierarchy (`AixplainBaseException`, `AuthenticationError`, `BillingError`,
+..., `get_error_from_status_code`) is not re-exported. Nothing in the SDK raises
+it; it is still defined in `aixplain.exceptions.types`.

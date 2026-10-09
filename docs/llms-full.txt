@@ -18,7 +18,7 @@ aiXplain SDK v2 - Modern Python SDK for the aiXplain platform.
 def __getattr__(name: str)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/__init__.py#L381)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/__init__.py#L383)
 
 PEP 562: warn on the deprecated ``Resource`` alias, matching ``Aixplain().Resource``.
 
@@ -2695,7 +2695,7 @@ Both modes use carriage return (\r) for in-place line updates.
 class ProgressFormat(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L88)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L132)
 
 Display format for agent progress.
 
@@ -2717,7 +2717,7 @@ No progress display
 class AgentProgressTracker()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L103)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L147)
 
 Tracks and displays agent execution progress.
 
@@ -2752,7 +2752,7 @@ def __init__(poll_func: Callable[[str], Any],
              force_display: Optional[bool] = None)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L146)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L190)
 
 Initialize the progress tracker.
 
@@ -2778,7 +2778,7 @@ Initialize the progress tracker.
 def stop() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L227)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L272)
 
 Stop the display thread and wait for it to exit.
 
@@ -2797,7 +2797,7 @@ def start(format: ProgressFormat = ProgressFormat.STATUS,
           force_display: Optional[bool] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L791)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L926)
 
 Start progress tracking (call from before_run hook).
 
@@ -2816,7 +2816,7 @@ Start progress tracking (call from before_run hook).
 def update(response: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L973)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L1115)
 
 Update progress with poll response (call from on_poll hook).
 
@@ -2830,7 +2830,7 @@ Update progress with poll response (call from on_poll hook).
 def finish(response: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L1001)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L1143)
 
 Finish progress tracking and print completion (call from after_run hook).
 
@@ -2848,7 +2848,7 @@ def stream_progress(url: str,
                     timeout: Optional[float] = DEFAULT_STREAM_TIMEOUT) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L1020)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent_progress.py#L1162)
 
 Stream agent progress until completion (standalone polling mode).
 
@@ -7663,7 +7663,7 @@ Resource management module for v2 API.
 def with_hooks(func: Callable) -> Callable
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L160)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L163)
 
 Generic decorator to add before/after hooks to resource operations.
 
@@ -7694,7 +7694,7 @@ def run(self, *args, **kwargs):
 def encode_resource_id(resource_id: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L217)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L220)
 
 URL encode a resource ID for use in API paths.
 
@@ -7714,7 +7714,7 @@ URL encode a resource ID for use in API paths.
 class HasContext(Protocol)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L261)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L264)
 
 Protocol for classes that have a context attribute.
 
@@ -7725,7 +7725,7 @@ Protocol for classes that have a context attribute.
 class HasResourcePath(Protocol)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L268)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L271)
 
 Protocol for classes that have a RESOURCE_PATH attribute.
 
@@ -7736,7 +7736,7 @@ Protocol for classes that have a RESOURCE_PATH attribute.
 class HasFromDict(Protocol)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L275)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L278)
 
 Protocol for classes that have a from_dict method.
 
@@ -7747,7 +7747,7 @@ Protocol for classes that have a from_dict method.
 def from_dict(cls: type, data: dict) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L279)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L282)
 
 Create an instance from a dictionary.
 
@@ -7758,7 +7758,7 @@ Create an instance from a dictionary.
 class HasToDict(Protocol)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L285)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L288)
 
 Protocol for classes that have a to_dict method.
 
@@ -7768,7 +7768,7 @@ Protocol for classes that have a to_dict method.
 def to_dict() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L288)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L291)
 
 Convert instance to dictionary.
 
@@ -7778,7 +7778,7 @@ Convert instance to dictionary.
 class BaseMixin()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L313)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L358)
 
 Base mixin with meta capabilities for resource operations.
 
@@ -7788,7 +7788,7 @@ Base mixin with meta capabilities for resource operations.
 def __init_subclass__(cls: type, **kwargs: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L316)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L361)
 
 Initialize subclass with validation.
 
@@ -7801,7 +7801,7 @@ Initialize subclass with validation.
 class BaseResource()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L327)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L372)
 
 Base class for all resources.
 
@@ -7825,7 +7825,7 @@ Full path e.g. "openai/whisper-large/groq"
 def is_modified() -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L429)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L474)
 
 Check if the resource has been modified since last save.
 
@@ -7840,7 +7840,7 @@ Check if the resource has been modified since last save.
 def is_deleted() -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L438)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L483)
 
 Check if the resource has been deleted.
 
@@ -7854,7 +7854,7 @@ Check if the resource has been deleted.
 def before_save(*args: Any, **kwargs: Any) -> Optional[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L493)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L538)
 
 Optional callback called before the resource is saved.
 
@@ -7879,7 +7879,7 @@ def after_save(result: Union[dict, Exception], *args: Any,
                **kwargs: Any) -> Optional[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L509)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L554)
 
 Optional callback called after the resource is saved.
 
@@ -7905,7 +7905,7 @@ Override this method to add custom logic after saving.
 def build_save_payload(**kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L527)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L572)
 
 Build the payload for the save action.
 
@@ -7916,7 +7916,7 @@ Build the payload for the save action.
 def save(*args: Any, **kwargs: Any) -> "BaseResource"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L594)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L639)
 
 Save the resource with attribute shortcuts.
 
@@ -7953,7 +7953,7 @@ This generic implementation provides consistent save behavior across all resourc
 def clone(**kwargs: Any) -> "BaseResource"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L646)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L691)
 
 Clone the resource and return a copy with id=None.
 
@@ -7980,7 +7980,7 @@ This generic implementation provides consistent clone behavior across all resour
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L715)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L760)
 
 Return a string representation using path > id priority.
 
@@ -7990,7 +7990,7 @@ Return a string representation using path > id priority.
 def __str__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L722)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L767)
 
 Return string representation of the resource.
 
@@ -8001,7 +8001,7 @@ Return string representation of the resource.
 def encoded_id() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L727)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L772)
 
 Get the URL-encoded version of the resource ID.
 
@@ -8015,7 +8015,7 @@ Get the URL-encoded version of the resource ID.
 class BaseParams(TypedDict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L749)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L794)
 
 Base class for parameters that include API key and resource path.
 
@@ -8038,7 +8038,7 @@ Base class for parameters that include API key and resource path.
 class BaseSearchParams(BaseParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L769)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L814)
 
 Base class for all search parameters.
 
@@ -8065,7 +8065,7 @@ Base class for all search parameters.
 class BaseGetParams(BaseParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L802)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L847)
 
 Base class for all get parameters.
 
@@ -8079,7 +8079,7 @@ Base class for all get parameters.
 class BaseDeleteParams(BaseParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L812)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L857)
 
 Base class for all delete parameters.
 
@@ -8089,7 +8089,7 @@ Base class for all delete parameters.
 class BaseRunParams(BaseParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L818)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L863)
 
 Base class for all run parameters.
 
@@ -8123,7 +8123,7 @@ Base class for all run parameters.
 class BaseResult()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L848)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L893)
 
 Abstract base class for running results.
 
@@ -8140,7 +8140,7 @@ fields and handling their specific data structures.
 class Result(BaseResult)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L863)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L908)
 
 Default implementation of running results with common fields.
 
@@ -8150,7 +8150,7 @@ Default implementation of running results with common fields.
 def __getattr__(name: str) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L875)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L920)
 
 Allow access to any field from the raw response data.
 
@@ -8160,7 +8160,7 @@ Allow access to any field from the raw response data.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L881)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L926)
 
 Return a formatted string representation with truncated data.
 
@@ -8173,7 +8173,7 @@ Return a formatted string representation with truncated data.
 class DeleteResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L943)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L988)
 
 Result for delete operations.
 
@@ -8183,7 +8183,7 @@ Result for delete operations.
 class Page(Generic[ResourceT])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L959)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1004)
 
 A paginated page of resources.
 
@@ -8208,7 +8208,7 @@ def __init__(results: List[ResourceT],
              skipped: int = 0)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L979)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1024)
 
 Initialize a Page instance.
 
@@ -8226,7 +8226,7 @@ Initialize a Page instance.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1002)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1047)
 
 Return JSON representation of the page.
 
@@ -8236,7 +8236,7 @@ Return JSON representation of the page.
 def __iter__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1008)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1053)
 
 Iterate over the results in this page.
 
@@ -8246,7 +8246,7 @@ Iterate over the results in this page.
 def __getitem__(key: str)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1012)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1057)
 
 Allow dictionary-like access to page attributes.
 
@@ -8256,7 +8256,7 @@ Allow dictionary-like access to page attributes.
 class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1017)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1062)
 
 Mixin for listing resources with pagination and search functionality.
 
@@ -8286,7 +8286,7 @@ Default to match backend
 def search(cls: type, **kwargs: Unpack[SearchParamsT]) -> Page[ResourceT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1154)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1199)
 
 Search resources across the first n pages with optional filtering.
 
@@ -8322,7 +8322,7 @@ indistinguishable from a search that genuinely matched nothing.
 class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1374)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1419)
 
 Mixin for getting a resource.
 
@@ -8336,7 +8336,7 @@ def get(cls: type,
         **kwargs: Unpack[GetParamsT]) -> ResourceT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1378)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1423)
 
 Retrieve a single resource by its ID (or other get parameters).
 
@@ -8362,7 +8362,7 @@ Retrieve a single resource by its ID (or other get parameters).
 class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1433)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1482)
 
 Mixin for deleting a resource.
 
@@ -8376,7 +8376,7 @@ Default response class
 def build_delete_payload(**kwargs: Unpack[DeleteParamsT]) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1438)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1487)
 
 Build the payload for the delete action.
 
@@ -8389,7 +8389,7 @@ construction for delete operations.
 def build_delete_url(**kwargs: Unpack[DeleteParamsT]) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1447)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1496)
 
 Build the URL for the delete action.
 
@@ -8408,7 +8408,7 @@ def handle_delete_response(response: Any,
                            **kwargs: Unpack[DeleteParamsT]) -> DeleteResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1464)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1513)
 
 Handle the response from a delete request.
 
@@ -8433,7 +8433,7 @@ def before_delete(*args: Any,
                   **kwargs: Unpack[DeleteParamsT]) -> Optional[DeleteResultT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1501)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1550)
 
 Optional callback called before the resource is deleted.
 
@@ -8458,7 +8458,7 @@ def after_delete(result: Union[DeleteResultT, Exception], *args: Any,
                  **kwargs: Unpack[DeleteParamsT]) -> Optional[DeleteResultT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1517)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1566)
 
 Optional callback called after the resource is deleted.
 
@@ -8485,7 +8485,7 @@ Override this method to add custom logic after deleting.
 def delete(*args: Any, **kwargs: Unpack[DeleteParamsT]) -> DeleteResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1541)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1590)
 
 Delete a resource.
 
@@ -8499,7 +8499,7 @@ Delete a resource.
 def mark_as_deleted() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1564)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1613)
 
 Mark the resource as deleted by clearing its ID and setting deletion flag.
 
@@ -8509,7 +8509,7 @@ Mark the resource as deleted by clearing its ID and setting deletion flag.
 class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1670)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1719)
 
 Mixin for runnable resources.
 
@@ -8523,7 +8523,7 @@ Default response class
 def build_run_payload(**kwargs: Unpack[RunParamsT]) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1879)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1928)
 
 Build the payload for the run action.
 
@@ -8536,7 +8536,7 @@ parameters are dataclasses with @dataclass_json decorator.
 def build_run_url(**kwargs: Unpack[RunParamsT]) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1888)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1937)
 
 Build the URL for the run action.
 
@@ -8555,7 +8555,7 @@ def handle_run_response(response: dict,
                         **kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1909)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1958)
 
 Handle the response from a run request.
 
@@ -8579,7 +8579,7 @@ in the 'data' field.
 def before_run(*args: Any, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1968)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2017)
 
 Optional callback called before the resource is run.
 
@@ -8604,7 +8604,7 @@ def after_run(result: Union[ResultT, BaseException], *args: Any,
               **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L1984)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2033)
 
 Optional callback called after the resource is run.
 
@@ -8634,7 +8634,7 @@ Override this method to add custom logic after running.
 def run(*args: Any, **kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2011)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2060)
 
 Run the resource synchronously with automatic polling.
 
@@ -8671,7 +8671,7 @@ Run the resource synchronously with automatic polling.
 def run_async(**kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2054)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2103)
 
 Run the resource asynchronously.
 
@@ -8693,7 +8693,7 @@ Run the resource asynchronously.
 def poll(poll_url: str, timeout: Optional[float] = None) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2076)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2125)
 
 Poll for the result of an asynchronous operation.
 
@@ -8726,7 +8726,7 @@ Poll for the result of an asynchronous operation.
 def on_poll(response: ResultT, **kwargs: Unpack[RunParamsT]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2203)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2252)
 
 Hook called after each successful poll with the poll response.
 
@@ -8744,7 +8744,7 @@ such as displaying progress updates or logging status changes.
 def sync_poll(poll_url: str, **kwargs: Unpack[RunParamsT]) -> ResultT
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2215)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/resource.py#L2264)
 
 Keep polling until an asynchronous operation is complete.
 
@@ -9539,7 +9539,7 @@ Only assistant messages can be reacted to.
 
 Source: `api-reference/python/aixplain/v2/skill`
 
-`from aixplain import Skill`
+`from aixplain import Skill, SkillBatch`
 
 
 Skill resource module.
@@ -9576,7 +9576,7 @@ skill.download(file_path="./pdf-filler.zip")   # ...or an explicit path
 class SkillSearchParams(BaseSearchParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L80)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L91)
 
 Search parameters for skills.
 
@@ -9585,6 +9585,17 @@ Search parameters for skills.
 - `tags` - Filter by tags.
 - `suppliers` - Filter by suppliers.
 - `saved` - Only return skills the caller has saved.
+
+### SkillBatch Objects
+
+```python
+@dataclass
+class SkillBatch()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L106)
+
+Result of `Skill.get_many`, keyed by the requested id or path.
 
 ### Skill Objects
 
@@ -9597,7 +9608,7 @@ class Skill(BaseResource, SearchResourceMixin[SkillSearchParams, "Skill"],
             DeleteResourceMixin[BaseDeleteParams, "Skill"], ToolableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L96)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L117)
 
 A Claude-style skill registered as an aiXplain asset.
 
@@ -9612,7 +9623,7 @@ uploaded internally on ``save()``. Attach to agents with
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L135)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L156)
 
 Load skill metadata from the local path when authoring a new skill.
 
@@ -9624,9 +9635,41 @@ def get(cls: type["Skill"], id: str,
         **kwargs: Unpack[BaseGetParams]) -> "Skill"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L221)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L242)
 
 Get a skill by path or id.
+
+#### get_many
+
+```python
+@classmethod
+def get_many(cls,
+             ids: List[str],
+             *,
+             timeout: Optional[TimeoutType] = None) -> SkillBatch
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L247)
+
+Fetch skills by id, asset path or instance id in batches of at most 100.
+
+**Arguments**:
+
+- `ids` - Skill keys. Duplicates are dropped, order is kept.
+- `timeout` - Per-request timeout; the client default applies when omitted.
+  
+
+**Returns**:
+
+- `SkillBatch` - Parsed skills and their raw backend rows, keyed by the
+  requested key, plus the keys the backend did not find or forbade.
+  A row that fails to deserialize is reported in ``not_found``.
+  
+
+**Raises**:
+
+- `APIError` - Unchanged from the client on a failed request, so a backend
+  without the batch route (404/405) can fall back to per-id ``get``.
 
 #### search
 
@@ -9637,7 +9680,7 @@ def search(cls: type["Skill"],
            **kwargs: Unpack[SkillSearchParams]) -> Page["Skill"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L226)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L293)
 
 Search skills with an optional free-text query and filters.
 
@@ -9647,7 +9690,7 @@ Search skills with an optional free-text query and filters.
 def save(*args: Any, **kwargs: Any) -> "Skill"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L251)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L318)
 
 Save the skill, uploading the bundle when authored from a local path.
 
@@ -9676,7 +9719,7 @@ deleted or renamed locally is *not* removed from the bundle.
 def refresh() -> "Skill"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L287)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L354)
 
 Reload the skill's metadata from the backend.
 
@@ -9686,7 +9729,7 @@ Reload the skill's metadata from the backend.
 def download(file_path: Optional[str] = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L294)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L361)
 
 Download the skill bundle to a local path. Returns the written path.
 
@@ -9700,7 +9743,7 @@ Download the skill bundle to a local path. Returns the written path.
 def list_files() -> List[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L308)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L375)
 
 List the relative paths of every file and folder in this skill's bundle.
 
@@ -9714,7 +9757,7 @@ e.g. ``"SKILL.md"``, ``"scripts/helper.py"``, ``"resources"``.
 def as_tool() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L317)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L384)
 
 Serialize this skill as a tool object for agent attachment.
 
@@ -9727,7 +9770,7 @@ ids), with ``type="skill"``.
 def update(path: str, name: Optional[str] = None) -> "Skill"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L424)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L491)
 
 Update (or add) a single file or folder within this skill's bundle.
 
@@ -9766,7 +9809,7 @@ also writes its frontmatter ``description`` to the asset.
 
 Source: `api-reference/python/aixplain/v2/tool`
 
-`from aixplain import Tool, ToolResult`
+`from aixplain import Tool, ToolBatch, ToolResult`
 
 
 Tool resource module for managing tools and their integrations.
@@ -9780,9 +9823,20 @@ Tool resource module for managing tools and their integrations.
 class ToolResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L54)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L61)
 
 Result for a tool.
+
+### ToolBatch Objects
+
+```python
+@dataclass
+class ToolBatch()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L68)
+
+Result of `Tool.get_many`, keyed by the requested id or path.
 
 ### Tool Objects
 
@@ -9794,7 +9848,7 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult],
            ActionMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L62)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L78)
 
 Resource for tools.
 
@@ -9813,7 +9867,7 @@ Python Sandbox (script) integration
 def integration_path() -> Optional[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L87)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L103)
 
 The path of the integration (e.g. ``"aixplain/python-sandbox"``).
 
@@ -9827,7 +9881,7 @@ Returns ``None`` when the integration has not been resolved yet.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L98)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L114)
 
 Initialize tool after dataclass creation.
 
@@ -9838,7 +9892,7 @@ Initialize tool after dataclass creation.
 def actions() -> Actions
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L177)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L193)
 
 Collection of actions available on this tool.
 
@@ -9849,7 +9903,7 @@ Collection of actions available on this tool.
 def inputs()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L182)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L198)
 
 Tools have multiple actions — use tool.actions['action_name'].inputs instead.
 
@@ -9860,9 +9914,40 @@ Tools have multiple actions — use tool.actions['action_name'].inputs instead.
 def inputs(value)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L187)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L203)
 
 Prevent setting inputs directly on tools.
+
+#### get_many
+
+```python
+@classmethod
+def get_many(cls,
+             ids: List[str],
+             *,
+             timeout: Optional[TimeoutType] = None) -> ToolBatch
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L208)
+
+Fetch tools by id or asset path in batches of at most 100.
+
+**Arguments**:
+
+- `ids` - Tool ids or asset paths. Duplicates are dropped, order is kept.
+- `timeout` - Per-request timeout; the client default applies when omitted.
+  
+
+**Returns**:
+
+- `ToolBatch` - Parsed tools and their raw backend rows, keyed by the
+  requested id or path, plus every requested key that was not served.
+  
+
+**Raises**:
+
+- `APIError` - Unchanged from the client on a failed request, so a backend
+  without the batch route (404/405) can fall back to per-id ``get``.
 
 #### list_actions
 
@@ -9870,7 +9955,7 @@ Prevent setting inputs directly on tools.
 def list_actions() -> List[ActionSpec]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L220)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L279)
 
 List available actions for the tool (with integration fallback).
 
@@ -9880,7 +9965,7 @@ List available actions for the tool (with integration fallback).
 def list_inputs(*actions: str) -> List[ActionSpec]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L252)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L311)
 
 List available inputs for specified actions.
 
@@ -9894,7 +9979,7 @@ List available inputs for specified actions.
 def validate_allowed_actions() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L423)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L482)
 
 Validate that all allowed actions are available for this tool.
 
@@ -9904,7 +9989,7 @@ Validate that all allowed actions are available for this tool.
 def get_parameters() -> List[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L463)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L522)
 
 Get parameters for the tool in the format expected by agent saving.
 
@@ -9914,7 +9999,7 @@ Get parameters for the tool in the format expected by agent saving.
 def as_tool() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L514)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L573)
 
 Serialize this tool for agent creation.
 
@@ -9924,7 +10009,7 @@ Serialize this tool for agent creation.
 def run(*args: Any, **kwargs: Unpack[ModelRunParams]) -> ToolResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L579)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/tool.py#L638)
 
 Run the tool.
 

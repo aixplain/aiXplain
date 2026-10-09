@@ -26,20 +26,20 @@ unchanged; this is a non-breaking addition.
 nothing in `aixplain.v2` raised, so `from aixplain.exceptions import ValidationError`
 silently caught nothing. They now resolve to the same objects as
 `aixplain.ValidationError` / `aixplain.ResourceError` -- the classes the SDK
-actually raises. `aixplain.exceptions.types` still exposes the v1-only types
-(`AuthenticationError`, `BillingError`, ...) for backward compatibility.
+actually raises. `aixplain.exceptions` now exports only the v2 classes
+(`AixplainV2Error`, `APIError`, `AixplainIssueError`, `ValidationError`,
+`ResourceError`, `TimeoutError`, `FileUploadError`, `UntrustedURLError`).
 
 What changes for code that used the old classes through `aixplain.exceptions`:
 
 - The constructor is the v2 one, `(message, details=None)`. Passing v1 keywords
   such as `status_code=` raises `TypeError`, and the v1 attributes
   (`status_code`, `error_code`, `category`, ...) are gone.
-- They no longer subclass `aixplain.exceptions.AixplainBaseException`, so
-  `except AixplainBaseException` stops catching them.
-- `aixplain.exceptions.get_error_from_status_code()` still returns the v1
-  classes from `aixplain.exceptions.types`. `except aixplain.exceptions.ValidationError`
-  does not catch what it returns; catch `AixplainBaseException` or the
-  `aixplain.exceptions.types` class instead.
+- The v1 hierarchy is no longer re-exported from `aixplain.exceptions`:
+  `AixplainBaseException`, `AuthenticationError`, `AlreadyDeployedError`,
+  `BillingError`, `SupplierError`, `NetworkError`, `ServiceError`,
+  `InternalError` and `get_error_from_status_code` now import only from
+  `aixplain.exceptions.types`. Nothing in the SDK raises them.
 
 See [MIGRATION.md](MIGRATION.md#import-paths) for the old -> new mapping. A
 follow-up in `aixplain-agents` switches its versioned imports to the root.

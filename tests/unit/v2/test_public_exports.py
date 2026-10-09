@@ -170,22 +170,20 @@ def test_bare_import_binds_the_exceptions_package():
     assert result.returncode == 0, result.stderr
 
 
-def test_status_code_helper_still_returns_the_v1_hierarchy():
-    """Pins the split documented in aixplain/exceptions/__init__.py and MIGRATION.md."""
-    from aixplain.exceptions import AixplainBaseException, ValidationError, get_error_from_status_code
-    from aixplain.exceptions import types
+def test_exceptions_package_exports_only_the_v2_hierarchy():
+    """Every name in ``aixplain.exceptions`` is the root object; no v1 look-alikes."""
+    import aixplain.exceptions as exceptions
 
-    error = get_error_from_status_code(400)
-
-    assert isinstance(error, types.ValidationError)
-    assert isinstance(error, AixplainBaseException)
-    assert not isinstance(error, ValidationError)
-    assert not issubclass(ValidationError, AixplainBaseException)
+    for name in exceptions.__all__:
+        assert getattr(exceptions, name) is getattr(aixplain, name), name
+    for v1_name in ("AixplainBaseException", "AuthenticationError", "get_error_from_status_code"):
+        assert not hasattr(exceptions, v1_name), v1_name
+    assert "create_operation_failed_error" not in exceptions.__all__
 
 
-def test_v1_only_exception_types_stay_importable():
-    """``aixplain.exceptions.types`` is unchanged for backward compatibility."""
-    from aixplain.exceptions.types import AuthenticationError, BillingError
+def test_v1_exception_types_stay_importable_from_types():
+    """The v1 hierarchy is still defined in ``aixplain.exceptions.types``."""
+    from aixplain.exceptions.types import AixplainBaseException, AuthenticationError, get_error_from_status_code
 
-    assert issubclass(AuthenticationError, Exception)
-    assert issubclass(BillingError, Exception)
+    assert issubclass(AuthenticationError, AixplainBaseException)
+    assert isinstance(get_error_from_status_code(401), AuthenticationError)

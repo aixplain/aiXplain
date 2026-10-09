@@ -91,7 +91,7 @@ Hooks run: trailing-whitespace, end-of-file-fixer, check-merge-conflict, check-a
 - **Docstrings**: Google style (enforced by ruff `pydocstyle`). Docstring rules are **not** enforced in `tests/`.
 - **Type hints**: Required on all public functions. Use `typing` (`Optional`, `Union`, `List`, `Dict`, `TypeVar`, generics).
 - **Naming**: `PascalCase` for classes, `snake_case` for functions and methods, `UPPER_SNAKE_CASE` for constants.
-- **Exceptions**: Use the custom hierarchy in `aixplain/exceptions/` (`AixplainBaseException` and subclasses). Never raise bare `Exception`. Preserve useful context in error messages and include status or response details when available.
+- **Exceptions**: Raise the v2 hierarchy in `aixplain/v2/exceptions.py` (`AixplainV2Error` and subclasses), which `aixplain` and `aixplain.exceptions` re-export. The v1 `AixplainBaseException` family in `aixplain/exceptions/types.py` is legacy; nothing raises it. Never raise bare `Exception`. Preserve useful context in error messages and include status or response details when available.
 - **Imports**: Use `from __future__ import annotations` or `TYPE_CHECKING` guards to break circular imports. Use conditional imports for optional dependencies. Do not add a new dependency unless it is necessary and justified by the repository's existing design.
 - **Validation**: Pydantic for runtime validation. `dataclasses-json` for JSON serialization.
 - **License header**: Include the Apache 2.0 license header at the top of every source file.
@@ -119,7 +119,7 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
 |---|---|
 | `aixplain/v2/` | The SDK surface. All new features and fixes go here. |
 | `aixplain/_compat.py` | Turns an import of a removed v1 path into an error naming its v2 replacement. Nothing is redirected. |
-| `aixplain/exceptions/` | Custom exception hierarchy with error codes and categories |
+| `aixplain/exceptions/` | Non-versioned path for the v2 exceptions (`aixplain.exceptions.APIError` is `aixplain.APIError`); `types.py` keeps the legacy v1 hierarchy |
 | `aixplain/utils/` | Shared helpers (config, URL safety policy, run metadata) |
 
 ### Key Design Patterns
@@ -152,6 +152,8 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
   [docs/v2-plain-data.md](docs/v2-plain-data.md); add a row there when you add one.
 - Everything importable is importable from `aixplain` directly. `aixplain/__init__.py` re-exports
   `aixplain.v2.__all__`, so a new public symbol needs only an entry in `aixplain/v2/__init__.py`.
+  `tests/unit/v2/test_public_exports.py` fails when a public class in `aixplain/v2/` is neither exported
+  nor on its internal allowlist; [docs/import-paths.md](docs/import-paths.md) has the rule.
 
 ---
 

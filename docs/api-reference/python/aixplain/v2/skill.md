@@ -3,7 +3,7 @@ sidebar_label: skill
 title: aixplain.v2.skill
 ---
 
-`from aixplain import Skill`
+`from aixplain import Skill, SkillBatch`
 
 
 Skill resource module.
@@ -40,7 +40,7 @@ skill.download(file_path="./pdf-filler.zip")   # ...or an explicit path
 class SkillSearchParams(BaseSearchParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L80)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L91)
 
 Search parameters for skills.
 
@@ -49,6 +49,17 @@ Search parameters for skills.
 - `tags` - Filter by tags.
 - `suppliers` - Filter by suppliers.
 - `saved` - Only return skills the caller has saved.
+
+### SkillBatch Objects
+
+```python
+@dataclass
+class SkillBatch()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L106)
+
+Result of `Skill.get_many`, keyed by the requested id or path.
 
 ### Skill Objects
 
@@ -61,7 +72,7 @@ class Skill(BaseResource, SearchResourceMixin[SkillSearchParams, "Skill"],
             DeleteResourceMixin[BaseDeleteParams, "Skill"], ToolableMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L96)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L117)
 
 A Claude-style skill registered as an aiXplain asset.
 
@@ -76,7 +87,7 @@ uploaded internally on ``save()``. Attach to agents with
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L135)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L156)
 
 Load skill metadata from the local path when authoring a new skill.
 
@@ -88,9 +99,41 @@ def get(cls: type["Skill"], id: str,
         **kwargs: Unpack[BaseGetParams]) -> "Skill"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L221)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L242)
 
 Get a skill by path or id.
+
+#### get\_many
+
+```python
+@classmethod
+def get_many(cls,
+             ids: List[str],
+             *,
+             timeout: Optional[TimeoutType] = None) -> SkillBatch
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L247)
+
+Fetch skills by id, asset path or instance id in batches of at most 100.
+
+**Arguments**:
+
+- `ids` - Skill keys. Duplicates are dropped, order is kept.
+- `timeout` - Per-request timeout; the client default applies when omitted.
+  
+
+**Returns**:
+
+- `SkillBatch` - Parsed skills and their raw backend rows, keyed by the
+  requested key, plus the keys the backend did not find or forbade.
+  A row that fails to deserialize is reported in ``not_found``.
+  
+
+**Raises**:
+
+- `APIError` - Unchanged from the client on a failed request, so a backend
+  without the batch route (404/405) can fall back to per-id ``get``.
 
 #### search
 
@@ -101,7 +144,7 @@ def search(cls: type["Skill"],
            **kwargs: Unpack[SkillSearchParams]) -> Page["Skill"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L226)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L293)
 
 Search skills with an optional free-text query and filters.
 
@@ -111,7 +154,7 @@ Search skills with an optional free-text query and filters.
 def save(*args: Any, **kwargs: Any) -> "Skill"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L251)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L318)
 
 Save the skill, uploading the bundle when authored from a local path.
 
@@ -140,7 +183,7 @@ deleted or renamed locally is *not* removed from the bundle.
 def refresh() -> "Skill"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L287)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L354)
 
 Reload the skill's metadata from the backend.
 
@@ -150,7 +193,7 @@ Reload the skill's metadata from the backend.
 def download(file_path: Optional[str] = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L294)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L361)
 
 Download the skill bundle to a local path. Returns the written path.
 
@@ -164,7 +207,7 @@ Download the skill bundle to a local path. Returns the written path.
 def list_files() -> List[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L308)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L375)
 
 List the relative paths of every file and folder in this skill's bundle.
 
@@ -178,7 +221,7 @@ e.g. ``"SKILL.md"``, ``"scripts/helper.py"``, ``"resources"``.
 def as_tool() -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L317)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L384)
 
 Serialize this skill as a tool object for agent attachment.
 
@@ -191,7 +234,7 @@ ids), with ``type="skill"``.
 def update(path: str, name: Optional[str] = None) -> "Skill"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L424)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/skill.py#L491)
 
 Update (or add) a single file or folder within this skill's bundle.
 

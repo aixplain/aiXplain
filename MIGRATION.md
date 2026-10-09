@@ -427,6 +427,7 @@ to the v2 classes the SDK raises, not the v1-era look-alikes:
 | `aixplain.exceptions.ValidationError` (v1 class; never raised by v2) | `aixplain.ValidationError` (same class the SDK raises) |
 | `aixplain.exceptions.ResourceError` (v1 class; never raised by v2) | `aixplain.ResourceError` (same class the SDK raises) |
 | `aixplain.exceptions.types.ValidationError` | unchanged (v1 types still importable) |
+| `from aixplain.exceptions import AixplainBaseException, AuthenticationError, BillingError, SupplierError, NetworkError, ServiceError, InternalError, AlreadyDeployedError, get_error_from_status_code` | `from aixplain.exceptions.types import ...` (no longer re-exported; nothing in the SDK raises them) |
 
 The v2 classes are a different hierarchy from the v1 ones, so code that built or
 inspected them as v1 objects needs a change:
@@ -436,7 +437,6 @@ inspected them as v1 objects needs a change:
 | `aixplain.exceptions.ValidationError("...", status_code=400)` | `TypeError`; the v2 signature is `(message, details=None)` |
 | `err.status_code`, `err.error_code`, `err.category` | not on the v2 classes |
 | `except AixplainBaseException` catches `ValidationError` / `ResourceError` | it does not; catch `aixplain.AixplainV2Error` for the v2 classes |
-| `except aixplain.exceptions.ValidationError` catches `get_error_from_status_code(400)` | it does not; the helper still returns `aixplain.exceptions.types.ValidationError` |
 
 ## Polling behaviour changes
 

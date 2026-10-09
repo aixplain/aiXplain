@@ -1,5 +1,4 @@
-from aixplain import Aixplain
-from aixplain.v2 import Dataset
+from aixplain import Aixplain, Dataset
 
 prompt = """You are evaluating the correctness of the Assistant's response.You are given a task and a candidate response. Is this a correct and accurate response to the task?
 
