@@ -90,9 +90,21 @@ class Person(BaseModel):
 
 
 class People(BaseModel):
-    """The expected-output schema for a run."""
+    """The expected-output schema for the save round-trip: nested, so it carries ``$defs``."""
 
     result: List[Person]
+
+
+class PeopleNames(BaseModel):
+    """The expected-output schema for a run: flat, so its JSON schema has no ``$defs``/``$ref``.
+
+    The agent engine does not resolve ``$ref``, so a nested model such as :class:`People`
+    reaches the model as ``list[Any]`` and the rows come back as free text (the strict
+    xfail in ``test_team_agent.py::test_run_team_agent_with_expected_output``). This
+    test covers the JSON output path, not that gap.
+    """
+
+    names: List[str]
 
 
 # ---------------------------------------------------------------------------
@@ -400,19 +412,19 @@ def test_agent_expected_output_run_returns_json(client, resource_tracker):
         name=_unique("JSON Agent"),
         instructions=EXPECTED_OUTPUT_INSTRUCTIONS,
         output_format="json",
-        expected_output=People,
+        expected_output=PeopleNames,
     )
     agent.save()
     resource_tracker.append(agent)
 
     response = agent.run(
-        "List every person in the table.",
-        execution_params={"output_format": "json", "expected_output": People},
+        "List the name of every person in the table.",
+        execution_params={"output_format": "json", "expected_output": PeopleNames},
     )
 
     assert response.status == "SUCCESS"
     payload = _parse_json(response.data.output)
-    assert {row["name"] for row in payload["result"]} == {"Ana", "Bob"}
+    assert set(payload["names"]) == {"Ana", "Bob"}, f"expected the two names, got {payload!r}"
 
 
 def test_agent_persists_file_reference(client, tmp_path, resource_tracker):

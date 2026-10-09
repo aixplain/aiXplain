@@ -516,13 +516,15 @@ def test_attachments_send_image_to_vision_model(vision_agent, tmp_path):
     assert re.search(r"\bred", _output(result), re.IGNORECASE), f"expected the image colour, got {result.data!r}"
 
 
-# The model has to read the code back from the file.
+# The model has to read the code back from the file. A plain-text file needs no
+# vision model, so this runs on the default LLM: tying it to VISION_LLM turned the
+# leg red whenever that model was unavailable, although the alias itself worked.
 @pytest.mark.flaky(reruns=2, reruns_delay=5)
-def test_deprecated_files_alias_uploads_and_reads(vision_agent, tmp_path):
+def test_deprecated_files_alias_uploads_and_reads(run_agent, tmp_path):
     token = f"CODE-{uuid.uuid4().hex[:8].upper()}"
     path = _write_temp(tmp_path, "note.txt", f"The magic code is {token}.".encode())
 
-    result = vision_agent.run("Read the attached file and reply with only the magic code.", files=[path])
+    result = run_agent.run("Read the attached file and reply with only the magic code.", files=[path])
 
     assert result.status == "SUCCESS"
     assert token.lower() in _output(result).lower(), f"expected {token} from the file, got {result.data!r}"
