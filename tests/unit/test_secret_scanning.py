@@ -61,6 +61,12 @@ _LEAKED_SHAPES = (
     f'headers = {{"Authorization": "Token {_FAKE_API_KEY}"}}',
     f'aix = Aixplain("{_FAKE_API_KEY}")',
     f'client = Aixplain(api_key="{_FAKE_API_KEY}")',
+    # Per-environment names: the text between the name and the key holds hex letters.
+    f'TEAM_API_KEY_PROD="{_FAKE_API_KEY}"',
+    f"AIXPLAIN_API_KEY_DEV={_FAKE_API_KEY}",
+    f'SECRET_KEY = "{_FAKE_API_KEY}"',
+    f"api_key_test: {_FAKE_API_KEY}",
+    f'headers = {{"x-aixplain-key": "{_FAKE_API_KEY}"}}',
 )
 
 #: A 64-hex platform API key, as a standalone token. Both leaked keys had this

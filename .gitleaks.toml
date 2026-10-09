@@ -24,12 +24,19 @@ useDefault = true
 # only saved notebook output tripped a default rule, so the same notebook saved
 # without outputs would have passed. These two rules close
 # that gap. tests/unit/test_secret_scanning.py checks both against those shapes.
+#
+# The text between the name and the key may hold hex letters (`_PROD`, `_DEV`,
+# `_KEY`), so the rule only asks for a non-hex character right before the key,
+# not for a separator free of a-f. A separator that had to avoid a-f missed
+# `TEAM_API_KEY_PROD="<key>"` and `{"x-aixplain-key": "<key>"}`. Every name
+# below ends in a non-hex letter, so a key written straight after one still has
+# a boundary on its left.
 [[rules]]
 id = "aixplain-platform-key"
 description = "aiXplain platform/team API key: 64 hex characters shortly after a credential name on the same line."
-regex = '''(?i)(?:api[_-]?key|team[_-]?key|access[_-]?key|token|secret|authorization)[^0-9a-f\n]{0,40}?([0-9a-f]{64})(?:[^0-9a-f]|$)'''
+regex = '''(?i)(?:api[_-]?key|team[_-]?key|access[_-]?key|aixplain[_-]?key|token|secret|authorization)(?:[^\n]{0,40}?[^0-9a-f\n])?([0-9a-f]{64})(?:[^0-9a-f]|$)'''
 secretGroup = 1
-keywords = ["api_key", "api-key", "apikey", "team_key", "access_key", "token", "secret", "authorization"]
+keywords = ["api_key", "api-key", "apikey", "team_key", "team-key", "access_key", "access-key", "aixplain_key", "aixplain-key", "token", "secret", "authorization"]
 
 [[rules]]
 id = "aixplain-client-positional-key"
