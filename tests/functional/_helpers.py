@@ -24,7 +24,7 @@ it, so there is no portable default to register, only the
 """
 
 import os
-from typing import Any, List, NoReturn, Tuple
+from typing import Any, List, NoReturn, Optional, Tuple
 
 import pytest
 
@@ -85,11 +85,27 @@ _MULTI_ACTION_TOOL_ENV = "AIXPLAIN_TEST_MULTI_ACTION_TOOL_ID"
 
 
 def _action_count(tool) -> int:
-    """How many actions *tool* lists, or 0 when listing them fails."""
+    """How many actions *tool* lists. A failed listing propagates."""
+    return len(tool.list_actions() or [])
+
+
+def _probed_action_count(tool) -> Optional[int]:
+    """`_action_count` for a search candidate, or ``None`` when the backend refuses *this* tool.
+
+    A candidate from ``Tool.search`` can be one the key may not list (403), whose
+    connection is gone (404) or whose credentials expired (4xx): that rules out
+    the tool, not the run. Anything else -- a 5xx, a timeout, an auth failure on
+    every call -- is the listing endpoint itself being broken, and propagates
+    instead of being reported as "connect Slack in this tenant".
+    """
+    from aixplain.v2.exceptions import APIError
+
     try:
-        return len(tool.list_actions() or [])
-    except Exception:
-        return 0
+        return _action_count(tool)
+    except APIError as error:
+        if 400 <= error.status_code < 500 and error.status_code not in (401, 408, 429):
+            return None
+        raise
 
 
 def _searched_tools(client) -> List[Any]:
@@ -146,10 +162,10 @@ def resolve_multi_action_tool(client, slack_integration_id: str):
 
     probed = []
     for tool in (slack_backed + other_backed + unbacked)[:_MAX_ACTION_PROBES]:
-        count = _action_count(tool)
-        if count >= 2:
+        count = _probed_action_count(tool)
+        if count is not None and count >= 2:
             return tool
-        probed.append(f"{tool.id}={count}")
+        probed.append(f"{tool.id}={'refused' if count is None else count}")
 
     missing_fixture(
         "a connected tool with two or more actions",

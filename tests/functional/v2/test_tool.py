@@ -18,9 +18,9 @@ def slack_integration_id(assets):
     return assets.SLACK_INTEGRATION
 
 
-@pytest.fixture
-def multi_action_tool(client, assets):
-    """A connected tool with two or more actions.
+@pytest.fixture(scope="module")
+def multi_action_tool_id(client, assets):
+    """The id of a connected tool with two or more actions, looked up once per module.
 
     Both tests below used to sweep `Tool.search()` for such a tool and skip when
     the sweep came up empty, so an environment with no Slack connection reported
@@ -29,10 +29,20 @@ def multi_action_tool(client, assets):
     override, or a bounded search that prefers a Slack-backed tool and falls back
     to any connected tool with two or more actions -- and its absence is a failure.
 
-    Function-scoped: both consumers mutate `allowed_actions`, so a shared
-    instance would leak one test's setting into the other's assertion.
+    Module-scoped: the search costs up to 5 `Tool.search` pages and 25
+    `list_actions` probes, and running it once per consumer tripled that.
     """
-    return resolve_multi_action_tool(client, assets.SLACK_INTEGRATION)
+    return resolve_multi_action_tool(client, assets.SLACK_INTEGRATION).id
+
+
+@pytest.fixture
+def multi_action_tool(client, multi_action_tool_id):
+    """A fresh instance of the multi-action tool for each test.
+
+    Function-scoped: the consumers mutate `allowed_actions`, so a shared
+    instance would leak one test's setting into another's assertion.
+    """
+    return client.Tool.get(multi_action_tool_id)
 
 
 @pytest.fixture(scope="module")
