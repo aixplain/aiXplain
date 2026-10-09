@@ -594,17 +594,6 @@ jobs:
         env:
           TEAM_API_KEY_PROD: ${{ env.IS_PROD == 'true' && secrets.TEAM_API_KEY_PROD || '' }}
           TEAM_API_KEY_TEST: ${{ secrets.TEAM_API_KEY }}
-          # Event-trigger fixtures for tests/functional/v2/test_trigger.py. These
-          # used to be absent, and the tests skipped themselves -- so the
-          # event-trigger half of that file had never run in CI (ENG-3684). They
-          # fail loudly now, which means these secrets have to exist. Both name
-          # backend-resident objects, so the ids differ per environment and each
-          # has a _PROD counterpart, gated on IS_PROD like TEAM_API_KEY_PROD; see
-          # docs/ci/required-checks.md.
-          COMPOSIO_INTEGRATION_ID_PROD: ${{ env.IS_PROD == 'true' && secrets.TEST_COMPOSIO_INTEGRATION_ID_PROD || '' }}
-          COMPOSIO_INTEGRATION_ID_TEST: ${{ secrets.TEST_COMPOSIO_INTEGRATION_ID }}
-          CONNECTION_ID_PROD: ${{ env.IS_PROD == 'true' && secrets.TEST_CONNECTION_ID_PROD || '' }}
-          CONNECTION_ID_TEST: ${{ secrets.TEST_CONNECTION_ID }}
           SLACK_TOKEN: ${{ matrix.slack && secrets.SLACK_TOKEN || '' }}
         run: |
           set -euo pipefail
@@ -613,8 +602,6 @@ jobs:
             api_key="$TEAM_API_KEY_PROD"
             backend="https://platform-api.aixplain.com"
             models="https://models.aixplain.com"
-            composio_integration_id="$COMPOSIO_INTEGRATION_ID_PROD"
-            connection_id="$CONNECTION_ID_PROD"
           else
             # Everything that is not production -- a push to `test`, a PR, the
             # nightly schedule, a dispatch on any other ref -- uses the test key
@@ -622,8 +609,6 @@ jobs:
             api_key="$TEAM_API_KEY_TEST"
             backend="https://test-platform-api.aixplain.com"
             models="https://test-models.aixplain.com"
-            composio_integration_id="$COMPOSIO_INTEGRATION_ID_TEST"
-            connection_id="$CONNECTION_ID_TEST"
           fi
 
           {
@@ -642,8 +627,6 @@ jobs:
             # directly, and it is the URL the conftest would build anyway.
             echo "MODELS_RUN_URL=$models/api/v2/execute"
             echo "PIPELINES_RUN_URL=$backend/assets/pipeline/execution/run"
-            echo "TEST_COMPOSIO_INTEGRATION_ID=$composio_integration_id"
-            echo "TEST_CONNECTION_ID=$connection_id"
             # Empty on every leg without `slack: true`, so nothing is written there.
             if [ -n "$SLACK_TOKEN" ]; then
               echo "SLACK_TOKEN=$SLACK_TOKEN"

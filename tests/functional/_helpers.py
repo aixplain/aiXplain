@@ -211,6 +211,81 @@ def resolve_multi_action_tool(client, slack_integration_id: str):
     )
 
 
+#: A *connected* tool that lists event-trigger types. Tenant-specific like the
+#: multi-action tool, so it has no default: unset, `resolve_trigger_connection`
+#: searches for one. Set it to pin an exact connection.
+_TRIGGER_CONNECTION_ENV = "AIXPLAIN_TEST_TRIGGER_CONNECTION_ID"
+
+
+def _probed_trigger_count(tool) -> Optional[int]:
+    """How many event-trigger types *tool* lists, or ``None`` when the backend refuses *this* tool.
+
+    Same rule as `_probed_action_count`: a 4xx rules out the candidate, anything
+    else is the listing endpoint being broken and propagates.
+    """
+    from aixplain.v2.exceptions import APIError
+
+    try:
+        return len(tool.list_trigger_types() or [])
+    except APIError as error:
+        if 400 <= error.status_code < 500 and error.status_code not in (401, 408, 429):
+            return None
+        raise
+
+
+def resolve_trigger_connection(client, preferred_integration_id: str):
+    """Return a connected tool that lists one or more event-trigger types.
+
+    Prefers the tool pinned by ``AIXPLAIN_TEST_TRIGGER_CONNECTION_ID``. Without
+    one, searches up to `_SEARCH_PAGES` pages of tools and probes them with
+    ``list_trigger_types()``: tools backed by *preferred_integration_id* first,
+    then tools backed by any other integration, stopping after
+    `_MAX_ACTION_PROBES` probes. A tool with no integration cannot carry a
+    connection and is not tried. Not finding one fails: the event-trigger
+    lifecycle test cannot run without a connection.
+
+    A connection belongs to the account that made it, so there is no id to pin
+    per backend; this replaced the ``TEST_CONNECTION_ID`` secrets, which were
+    never created and left the ``trigger`` leg red.
+
+    Args:
+        client: The ``Aixplain`` client for this run.
+        preferred_integration_id: The integration whose tools are tried first.
+            Callers pass the Composio Gmail integration's id.
+    """
+    pinned = (os.getenv(_TRIGGER_CONNECTION_ENV) or "").strip()
+    if pinned:
+        tool = client.Tool.get(pinned)
+        count = len(tool.list_trigger_types() or [])
+        if count < 1:
+            missing_fixture(
+                f"a connected tool with event-trigger types at {pinned}",
+                "The pinned tool lists none.",
+                env_var=_TRIGGER_CONNECTION_ENV,
+            )
+        return tool
+
+    tools = _searched_tools(client)
+    preferred = [tool for tool in tools if tool.integration_id == preferred_integration_id]
+    other = [tool for tool in tools if tool.integration_id and tool.integration_id != preferred_integration_id]
+
+    probed = []
+    for tool in (preferred + other)[:_MAX_ACTION_PROBES]:
+        count = _probed_trigger_count(tool)
+        if count:
+            return tool
+        probed.append(f"{tool.id}={'refused' if count is None else count}")
+
+    missing_fixture(
+        "a connected tool with event-trigger types",
+        f"Searched {len(tools)} tool(s) in up to {_SEARCH_PAGES} page(s) of {_SEARCH_PAGE_SIZE} "
+        f"({len(preferred)} backed by integration {preferred_integration_id}, {len(other)} by another "
+        f"integration) and probed {len(probed)} for trigger types (id=count): {', '.join(probed) or 'none'}. "
+        "Connect Composio Gmail, or any integration that exposes event triggers, in this tenant.",
+        env_var=_TRIGGER_CONNECTION_ENV,
+    )
+
+
 def resolve_action_source(client, integration_id: str) -> Tuple[Any, List[Any]]:
     """Return something that lists actions, and the actions it lists.
 

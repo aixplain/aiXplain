@@ -713,18 +713,18 @@ def test_the_functional_legs_set_the_canonical_api_key_alias_to_the_same_value()
 
 
 @pytest.mark.parametrize("variable", ["TEST_COMPOSIO_INTEGRATION_ID", "TEST_CONNECTION_ID"])
-def test_the_functional_legs_export_the_event_trigger_fixtures(variable: str):
-    """Their absence is invisible: the tests skip and the leg still reports green.
+def test_the_event_trigger_fixtures_do_not_depend_on_secrets(variable: str):
+    """The trigger tests find their integration and connection themselves.
 
-    `tests/functional/v2/test_trigger.py`'s TestEventTriggerDiscovery and
-    TestEventTriggerLifecycle gate on these two, so CI executed neither class
-    while `functional (trigger)` went green (ENG-3683).
+    They used to read these two from secrets that were never created, so the
+    `trigger` leg was red on every run and `release.yaml` could not release.
+    The integration is now fetched by its `composio/gmail` path and the connection
+    comes from `resolve_trigger_connection`; neither may drift back to a secret.
     """
-    script = _functional_env_step()["run"]
-    assert re.search(rf"{variable}=", script), (
-        f"{variable} is not exported by the functional legs, so the event-trigger tests in "
-        "tests/functional/v2/test_trigger.py skip in CI and the leg is green anyway."
-    )
+    assert f"secrets.{variable}" not in MAIN_WORKFLOW.read_text(), f"main.yaml reads the {variable} secret again"
+    assert f"{variable}=" not in _functional_env_step()["run"], f"the functional legs export {variable} again"
+    trigger_tests = REPO_ROOT / "tests" / "functional" / "v2" / "test_trigger.py"
+    assert f'"{variable}"' not in trigger_tests.read_text(), f"test_trigger.py reads {variable} again"
 
 
 def test_secrets_reach_the_env_step_through_env_and_not_string_interpolation():

@@ -1,17 +1,20 @@
 """Functional tests for v2 Triggers (aix.Trigger).
 
 Time-trigger tests run with only TEAM_API_KEY/AIXPLAIN_API_KEY set (a temporary
-agent is created and cleaned up). Event-trigger tests additionally need two ids
-that the workflow supplies in its `Set environment variables` step:
+agent is created and cleaned up). Event-trigger tests need two more things, and
+neither is a secret:
 
-- TEST_COMPOSIO_INTEGRATION_ID : an integration id (e.g. composio/gmail resolved id)
-                                 used for `integration.triggers` discovery.
-- TEST_CONNECTION_ID           : a connected tool id used to activate a real event
-                                 trigger end-to-end.
+- the Composio Gmail integration, fetched by its marketplace path
+  (``COMPOSIO_GMAIL_PATH``, which resolves on every backend), for
+  ``integration.triggers`` discovery;
+- a connected tool that lists event-trigger types, found by
+  ``resolve_trigger_connection`` (pin one with AIXPLAIN_TEST_TRIGGER_CONNECTION_ID),
+  to activate a real event trigger end to end.
 
-Both used to skip when unset, which meant the event-trigger half of this file had
-never run in CI and nobody could tell (ENG-3684). They fail now: a job that lost
-a secret is a broken job, not a smaller test suite.
+Both used to come from TEST_COMPOSIO_INTEGRATION_ID / TEST_CONNECTION_ID, and
+skipped when unset, which meant the event-trigger half of this file had never
+run in CI and nobody could tell (ENG-3684). A missing integration or connection
+fails now: it is a broken environment, not a smaller test suite.
 """
 
 import time
@@ -22,7 +25,7 @@ import pytest
 from aixplain import Trigger, TriggerEventOption
 from aixplain import Page
 
-from tests.functional._helpers import require_env
+from tests.functional._helpers import resolve_trigger_connection
 
 
 # Far-future instant so a "once" trigger is valid/schedulable.
@@ -33,6 +36,11 @@ FUTURE_RUN_AT = "2099-01-26T12:00:00Z"
 # enabled recurring trigger left behind would keep running its agent on the
 # shared backend. The schedule mapping these tests check does not depend on it.
 RECURRING_ENABLED = False
+
+#: The Composio integration whose event triggers these tests use, by marketplace
+#: path: ``Integration.get`` resolves a path on every backend, so unlike an
+#: ObjectId it needs no per-environment entry in tests/functional/_assets.py.
+COMPOSIO_GMAIL_PATH = "composio/gmail"
 
 
 @pytest.fixture(scope="module")
@@ -49,15 +57,15 @@ def test_agent(client, module_resource_tracker):
 
 
 @pytest.fixture(scope="module")
-def composio_integration_id():
-    """Integration id for event-discovery tests; fails the test when unset."""
-    return require_env("TEST_COMPOSIO_INTEGRATION_ID", "the event-discovery tests")
+def composio_integration_id(client):
+    """The Composio Gmail integration's id on this backend, for event-discovery tests."""
+    return client.Integration.get(COMPOSIO_GMAIL_PATH).id
 
 
 @pytest.fixture(scope="module")
-def connection_id():
-    """Connected tool id for end-to-end event-trigger tests; fails the test when unset."""
-    return require_env("TEST_CONNECTION_ID", "the event-trigger activation tests")
+def connection_id(client, composio_integration_id):
+    """A connected tool with event-trigger types, looked up once per module; fails the test when none exists."""
+    return resolve_trigger_connection(client, composio_integration_id).id
 
 
 # =============================================================================
@@ -248,11 +256,11 @@ class TestEventTriggerLifecycle:
         tool = client.Tool.get(connection_id)
 
         slugs = list(tool.triggers)
-        # TEST_CONNECTION_ID names a connected tool chosen *because* it exposes
-        # event triggers; an empty list means the wrong connection is pinned.
+        # The connection was chosen *because* it lists trigger types, so an
+        # empty `triggers` here disagrees with the `list_trigger_types` probe.
         assert slugs, (
-            f"Connected tool {tool.id} (TEST_CONNECTION_ID) exposes no trigger types, so an "
-            "event trigger cannot be created. Point TEST_CONNECTION_ID at a connection that has them."
+            f"Connected tool {tool.id} listed trigger types when it was resolved but exposes none "
+            "through `tool.triggers`."
         )
         option = tool.triggers[slugs[0]]
         assert option.connection_id == tool.id  # connected tool carries the connection

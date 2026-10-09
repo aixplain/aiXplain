@@ -173,8 +173,6 @@ dependency changes the PR carries — never holds the production key.
 | Secret | Used by | If unset |
 | ------ | ------- | -------- |
 | `TEAM_API_KEY` / `TEAM_API_KEY_PROD` | every functional leg | every leg fails |
-| `TEST_COMPOSIO_INTEGRATION_ID` / `TEST_COMPOSIO_INTEGRATION_ID_PROD` | the event-discovery tests (`TestEventTriggerDiscovery`) in `tests/functional/v2/test_trigger.py` | those tests fail, so the `trigger` leg is red |
-| `TEST_CONNECTION_ID` / `TEST_CONNECTION_ID_PROD` | the event-trigger lifecycle tests (`TestEventTriggerLifecycle`) in the same file | as above |
 | `SLACK_TOKEN` | the Slack tests in the `agent-lifecycle`, `model` and `tool` legs — the legs with `slack: true`; no other leg receives it | those tests skip |
 | `SLACK_NIGHTLY_WEBHOOK_URL` | `nightly-report` | no alert is sent; the job logs a warning |
 
