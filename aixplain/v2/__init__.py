@@ -19,6 +19,7 @@ from .model import (
 )
 from .agent import (
     Agent,
+    AgentError,
     AgentResponseData,
     AgentRunResult,
     Artifact,
@@ -202,6 +203,7 @@ __all__ = [
     "CompletionTokensDetails",
     "Detail",
     "Agent",
+    "AgentError",
     "AgentResponseData",
     "AgentRunResult",
     "RoleModelRef",
