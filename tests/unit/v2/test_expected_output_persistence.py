@@ -12,9 +12,10 @@ import json
 from unittest.mock import MagicMock
 from typing import Optional
 
+import pytest
 from pydantic import BaseModel
 
-from aixplain import Agent, ExecutionConfig
+from aixplain import Agent, ExecutionConfig, ValidationError
 
 
 class ChatReply(BaseModel):
@@ -177,3 +178,38 @@ class TestSessionExecutionConfigSendsExpectedOutputAsString:
 
         assert as_dict["executionParams"]["expectedOutput"] == '{"type": "object"}'
         assert as_str["executionParams"]["expectedOutput"] == "a list of names"
+
+
+class TestEveryNonStringValueIsEncoded:
+    """Anything other than a string or ``None`` goes out as JSON, on all three paths.
+
+    The encoder used to handle only Pydantic, dicts and lists and pass the rest through,
+    so ``expected_output=("name", "age")`` still drew the 400 this encoder exists to stop.
+    """
+
+    def test_tuples_and_scalars_are_json_encoded_on_run_save_and_session(self):
+        for value, wire in ((("name", "age"), '["name", "age"]'), (3, "3"), (True, "true"), (1.5, "1.5")):
+            on_save = _json_agent(expected_output=value).build_save_payload()
+            on_run = _json_agent().build_run_payload(query="hi", execution_params={"expected_output": value})
+            on_session = ExecutionConfig(execution_params={"expected_output": value}).to_api_dict()
+
+            assert on_save["expectedOutput"] == wire, value
+            assert on_run["executionParams"]["expectedOutput"] == wire, value
+            assert on_session["executionParams"]["expectedOutput"] == wire, value
+
+    def test_a_value_json_cannot_encode_is_a_validation_error(self):
+        with pytest.raises(ValidationError, match="object cannot be sent as JSON"):
+            ExecutionConfig(execution_params={"expected_output": object()}).to_api_dict()
+
+    def test_non_ascii_text_is_encoded_the_same_way_for_dicts_and_models(self):
+        """A dict used to be ``\\u``-escaped while the equivalent model kept UTF-8."""
+
+        class Reply(BaseModel):
+            name: str
+
+        as_dict = _json_agent(expected_output={"name": "علي"}).build_save_payload()["expectedOutput"]
+        as_model = _json_agent(expected_output=Reply(name="علي")).build_save_payload()["expectedOutput"]
+
+        assert as_dict == '{"name": "علي"}'
+        assert json.loads(as_dict) == json.loads(as_model) == {"name": "علي"}
+        assert "\\u" not in as_dict and "\\u" not in as_model

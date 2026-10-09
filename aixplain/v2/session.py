@@ -1,6 +1,5 @@
 """Session module for aiXplain v2 SDK."""
 
-import json
 import os
 import logging
 import mimetypes
@@ -14,8 +13,8 @@ from typing_extensions import TypedDict
 from pathlib import Path
 
 from dataclasses_json import dataclass_json, config
-from pydantic import BaseModel
 
+from ._expected_output import expected_output_to_wire
 from .enums import AttachmentType
 from .exceptions import APIError, ResourceError, ValidationError
 from .file import File
@@ -56,25 +55,6 @@ def _normalize_execution_params(params: Optional[Dict[str, Any]]) -> Optional[Di
     if not params:
         return params
     return {EXECUTION_PARAMS_MAP.get(k, k): v for k, v in params.items()}
-
-
-def _expected_output_to_wire(value: Any) -> Any:
-    """Return ``value`` as the string the backend requires for ``expectedOutput``.
-
-    The one encoder for every path that sends it: ``Agent.build_save_payload``,
-    ``Agent.build_run_payload`` and ``ExecutionConfig.to_api_dict``. The run endpoints
-    reject a non-string with ``400 executionParams.expectedOutput must be a string``, and
-    an object persisted on save reaches the engine as a Python repr rather than JSON. A
-    Pydantic class becomes its JSON schema, a Pydantic instance its JSON, and a dict or
-    list is JSON-encoded. Strings and ``None`` pass through unchanged.
-    """
-    if isinstance(value, type) and issubclass(value, BaseModel):
-        return json.dumps(value.model_json_schema())
-    if isinstance(value, BaseModel):
-        return value.model_dump_json()
-    if isinstance(value, (dict, list)):
-        return json.dumps(value)
-    return value
 
 
 def _is_hosted_url(value: str) -> bool:
@@ -503,7 +483,7 @@ class ExecutionConfig:
 
         normalized = _normalize_execution_params(self.execution_params) or {}
         if "expectedOutput" in normalized:
-            normalized["expectedOutput"] = _expected_output_to_wire(normalized["expectedOutput"])
+            normalized["expectedOutput"] = expected_output_to_wire(normalized["expectedOutput"])
         # Resolve the run-time budget first so the deprecated fold can defer to it.
         budget = self.budget
 

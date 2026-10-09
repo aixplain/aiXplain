@@ -227,16 +227,21 @@ how it was sent. A run that passed a Pydantic class, an instance or a dict in
 string`, a list was sent unencoded on direct runs, and `save()` stored a Pydantic
 instance or a dict as an object, which the agent engine read back as a Python
 repr rather than JSON. `save()`, `run()` and session runs now share one encoder:
-a Pydantic class becomes its JSON schema, an instance its JSON, and a dict or list
-is JSON-encoded. Strings and `None` are sent unchanged.
-
-A dict or Pydantic instance `expected_output` is now persisted as a JSON string,
-the way a Pydantic class already was, so an agent fetched with
-`aix.Agent.get(...)` carries it as that string. `json.loads` it if you need the
-object.
+a Pydantic class becomes its JSON schema, an instance its JSON, and any other
+non-string value (a dict, list, tuple, number or bool) is JSON-encoded with
+non-ASCII text left readable. Strings and `None` are sent unchanged, and a value
+JSON cannot encode raises `ValidationError` instead of reaching the backend. Saving
+a dict or Pydantic instance now changes what you read back; see the breaking
+change below.
 
 ### Breaking, beyond the v1 removal
 
+- **A dict or Pydantic-instance `expected_output` reads back as a JSON string.**
+  It is now persisted as a string, the way a Pydantic class already was, so an
+  agent fetched with `aix.Agent.get(...)` carries the string, and so does the
+  agent you just called `save()` on, because a create re-reads the stored
+  agent. `agent.expected_output["color"]` now raises `TypeError`;
+  `json.loads(agent.expected_output)` gives you the object.
 - **`APIKeyLimits` defaults changed from `0` to `None`.** This is a *read*-path
   break as well as a write one: `limits.token_per_minute > 0` now raises
   `TypeError` on an unset dimension. Compare against `None` first, or use

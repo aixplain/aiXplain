@@ -15,6 +15,7 @@ from dataclasses_json import dataclass_json, config
 
 from pydantic import BaseModel
 
+from ._expected_output import expected_output_to_wire
 from .enums import AssetStatus, AssetStatusValue, ResponseStatus
 from .model import Model
 from .file import File
@@ -2534,9 +2535,7 @@ class Agent(
         # paths encode it: a Pydantic instance or a dict stored as an object came
         # back to the engine as a Python repr rather than JSON.
         if "expectedOutput" in payload:
-            from .session import _expected_output_to_wire
-
-            payload["expectedOutput"] = _expected_output_to_wire(payload["expectedOutput"])
+            payload["expectedOutput"] = expected_output_to_wire(payload["expectedOutput"])
 
         return payload
 
@@ -2585,9 +2584,7 @@ class Agent(
             # For non-JSON formats, don't send empty string expected_output
             execution_params["expectedOutput"] = None
         else:
-            from .session import _expected_output_to_wire
-
-            execution_params["expectedOutput"] = _expected_output_to_wire(expected_output)
+            execution_params["expectedOutput"] = expected_output_to_wire(expected_output)
 
         # Run-time budget: the agent's current ``budget`` state travels inside
         # ``executionParams.budget`` (the backend merges it field-by-field over the
