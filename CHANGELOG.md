@@ -20,6 +20,15 @@ been left out of that list were added:
 The versioned path (`from aixplain.v2.<module> import X`) keeps working
 unchanged; this is a non-breaking addition.
 
+### Added: `from_row` on every gettable resource
+
+`aix.Model.from_row(row)` (and `aix.Tool`, `aix.Agent`, `aix.Integration`, ...)
+builds a resource from a raw backend row you already hold, exactly as `get`
+would, without a request: it lifts `assetInfo` into `path`, deserializes,
+binds the client and marks the instance saved. It replaces importing the
+private `aixplain.v2.resource._flatten_asset_info` and calling `from_dict`
+by hand.
+
 ### Changed (breaking): `aixplain.exceptions` now aliases the v2 hierarchy
 
 `aixplain.exceptions.ValidationError` / `ResourceError` were v1-era classes that
