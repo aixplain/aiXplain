@@ -1,221 +1,125 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/aixplain-logo-light.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/aixplain-logo-dark.svg">
-    <img src="docs/assets/aixplain-logo-dark.svg" alt="aixplain" width="420">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/aixplain-logo-on-dark.svg">
+    <img alt="aixplain" src="docs/assets/aixplain-logo.svg" width="240">
   </picture>
 </p>
 
-<h1 align="center">aixplain SDK</h1>
+<h1 align="center">aixplain Agents SDK</h1>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square" alt="License"></a>
-  <a href="https://app.aixplain.com/marketplace"><img src="https://img.shields.io/badge/Marketplace-900%2B%20models%20%26%20tools-0b74de?style=flat-square" alt="Marketplace size"></a>
   <a href="https://discord.gg/aixplain"><img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
-**Build, deploy, and run autonomous AI agents — governed by default, in a few lines of Python.**
-
-aixplain is the operating system for autonomous AI: multi-agent orchestration with **runtime governance on every action**, across cloud, on-prem, and local. The full lifecycle — build → evaluate → deploy → monitor → evolve — on one runtime, instead of stitching tools together.
-
-**On your terms** — **your data** in your perimeter, **your cost** free on local models and tools, pay as you go in the cloud, **your independence** across any model or infrastructure, no lock-in.
-
-Build any agent — knowledge (RAG), data, custom-logic, integration, and team — via **SDK, API, CLI, or MCP**, on a marketplace of **900+ models, tools, and integrations**.
-
-## Why aixplain
-
-Less to build, less to operate:
-
-- **Deploy with one call** — `agent.save()` promotes an agent to a persistent, versioned endpoint; no Dockerfiles, queues, or autoscaling to manage.
-- **No integration glue** — reach [900+ models, tools, and integrations](#marketplace) through one key; skip per-provider SDKs, auth, and rate-limit handling.
-- **Guardrails you don't have to build** — allow-lists, per-asset permissions, rate and usage limits, and access control enforced at runtime.
-- **Self-debugging** — step-level traces of every plan, tool call, and outcome.
-- **Run it anywhere** — the same definition runs in the cloud, on-prem, or locally.
-- **Works with your coding agent** — native [MCP support](#marketplace) for MCP-compatible IDEs and coding agents.
-
-## How it works
-
-The portable runtime behind aixplain agents: orchestration, governed asset serving, and observability across cloud, on-prem, and local. See the [documentation](https://docs.aixplain.com) for the full architecture.
-
 <p align="center">
-  <img src="docs/assets/aixplain-agentic-os-architecture.svg" alt="aixplain Agentic OS architecture — governed execution loop (Planner, Orchestrator, Inspector, Bodyguard) over the infrastructure services, deployable on cloud, on-prem, and local" width="100%">
+  <b>The fastest way to turn an AI agent into an API.</b><br>
+  Describe it in Python, call <code>.save()</code>, and it is live. You pay only when someone uses it.
 </p>
 
----
+<p align="center">
+  <a href="https://docs.aixplain.com/getting-started/quick-start/">Quickstart</a> ·
+  <a href="https://docs.aixplain.com">Docs</a> ·
+  <a href="https://docs.aixplain.com/api-reference/python/">API reference</a> ·
+  <a href="https://github.com/aixplain/koder">Koder</a>
+</p>
 
-## Quick start
-
-> **SDK v1 was removed in 0.3.0.** The legacy factory API (`aixplain.factories`, `aixplain.modules`, `aixplain.enums`, ...) no longer ships; v2 is the only supported surface. Those imports now fail with an error naming the v2 replacement. The last release that contained v1 is **0.2.48** and stays installable — see the [migration guide](MIGRATION.md).
+## Quickstart
 
 ```bash
 pip install aixplain
 ```
 
-Get your API key from your aixplain account, then expose it to the SDK:
-
-```bash
-export AIXPLAIN_API_KEY=<your-key>
-```
-
-### Create and run your first agent
+Get an API key at [app.aixplain.com](https://app.aixplain.com/team/settings?tab=api-keys), then deploy an agent:
 
 ```python
 from aixplain import Aixplain
 
-aix = Aixplain()  # reads AIXPLAIN_API_KEY from the environment
-
-search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
-search_tool.allowed_actions = ["search"]
+aix = Aixplain(api_key="YOUR_API_KEY")
 
 agent = aix.Agent(
     name="Research agent",
-    description="Answers questions with concise web-grounded findings.",
-    instructions="Use the search tool when needed and cite key findings.",
-    tools=[search_tool],
-)
-agent.save()
+    tools=[aix.Tool.get("tavily/tavily-web-search/tavily")],
+).save()
 
-result = agent.run(
-    query="Who is the CEO of OpenAI? Answer in one sentence.",
-)
+result = agent.run("What are the top AI papers this week?")
 print(result.data.output)
 ```
 
-> Runs return typed objects — read outputs with `result.data.output`, not dict indexing.
+The agent is now an API. Call it from any language with `agent.id`:
 
-### Build a multi-agent team
+```bash
+curl -X POST "https://platform-api.aixplain.com/v2/agents/YOUR_AGENT_ID/run" \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What are the top AI papers this week?"}'
+```
+
+The response holds a URL to poll for the answer. See the [REST API guide](https://docs.aixplain.com/getting-started/integration/).
+
+## What you get
+
+- **Any model.** 1,000+ models, tools and integrations, one API key.
+- **Any tool.** Web search, Slack, Gmail, MCP servers or your own Python.
+- **In control.** Budgets cap cost, time and steps. Inspectors check every step.
+- **See everything.** Every run's steps, cost and status, in code and in the dashboard.
+
+## Deploy
+
+`.save()` is the deployment. There is no server, container or queue to manage, and the agent keeps its endpoint as you update it.
+
+- **Cloud** is the default: aixplain hosts and scales the agent for you.
+- **On-prem** runs the same agent on your own infrastructure, including air-gapped.
+- **Local** runs it on your own machine.
+
+See [deployment](https://docs.aixplain.com/deployment/).
+
+## Control
+
+Set limits on the agent and every run respects them:
 
 ```python
-from aixplain import Aixplain, Inspector
+agent.budget.max_cost = 0.10            # credits per run
+agent.budget.max_duration_seconds = 60
+agent.budget.max_iterations = 10
+agent.save()
 
-aix = Aixplain()  # reads AIXPLAIN_API_KEY from the environment
-search_tool = aix.Tool.get("tavily/tavily-web-search/tavily")
-search_tool.allowed_actions = ["search"]
-
-def never_edit(text: str) -> bool:
-    return False
-
-def passthrough(text: str) -> str:
-    return text
-
-# Config is plain data — strings for action/targets/severity, and a Metric,
-# asset-id string, or callable for the `metric` (the universal judge).
-noop_inspector = Inspector(
-    name="noop-output-inspector",
-    severity="low",
-    targets=["output"],
-    action="edit",
-    metric=never_edit,
-    editor=passthrough,
-)
-
-researcher = aix.Agent(
-    name="Researcher",
-    instructions="Find and summarize reliable sources.",
-    tools=[search_tool],
-)
-
-team_agent = aix.Agent(
-    name="Research team",
-    instructions="Research the topic and return exactly 5 concise bullet points.",
-    subagents=[researcher],
-    inspectors=[noop_inspector],
-)
-team_agent.save(save_subcomponents=True)
-
-response = team_agent.run(
-    query="Compare OpenAI and Anthropic in exactly 5 concise bullet points.",
-)
-print(response.data.output)
+result = agent.run("Summarize this week's AI news in three bullets.")
+print(result.status, result.used_credits, len(result.data.steps))
 ```
 
-Execution order:
+- **Budgets** cap cost, time and steps per run.
+- **Inspectors** check inputs, intermediate steps and final answers, with your own rules or an LLM judge. See [inspectors](https://docs.aixplain.com/assets/agents/inspectors/).
+- **Every run** returns its steps, cost and status, and shows up in the [dashboard](https://app.aixplain.com/dashboard).
+
+## Let Koder build it
+
+[Koder](https://github.com/aixplain/koder) builds and deploys aixplain agents for you. Describe the agent; Koder writes, tests and deploys it with the agent builder skill, and you review every change.
+
+Using Claude Code? Install the aixplain plugin from this repo:
 
 ```text
-Human prompt: "Compare OpenAI and Anthropic in exactly 5 concise bullet points."
-
-Team agent
-├── Planner: breaks the goal into research and synthesis steps
-├── Orchestrator: routes work to the right subagent
-├── Researcher subagent
-│   └── Tavily search tool: finds and summarizes reliable sources
-├── Inspector: validates the output against a runtime policy
-└── Orchestrator: composes and returns the final answer
+/plugin marketplace add aixplain/aiXplain
+/plugin install aixplain@aixplain
 ```
 
-> **SDK v1 (legacy):** removed in 0.3.0; last shipped in 0.2.48 — see the [migration guide](MIGRATION.md) and the [SDK v1 docs](https://docs.aixplain.com/1.0/).
+It bundles the agent builder skill and marketplace search. See the [plugin guide](plugins/aixplain), or use the [agent builder skill](skills/aixplain-agent-builder) on its own.
 
----
+## Learn more
 
-## Marketplace
+- [Documentation](https://docs.aixplain.com)
+- [Example agents](https://github.com/aixplain/cookbook)
+- [Marketplace](https://app.aixplain.com/marketplace)
+- [Pricing](https://aixplain.com/pricing/) and [security](https://aixplain.com/security/)
+- [Run metadata](docs/run-metadata.md): each agent run sends a `metaData` object, including approximate location from one `ipinfo.io` lookup
+- [Migration guide](MIGRATION.md): upgrading older code to 0.3.0, where this API is the only one
 
-The [aixplain Marketplace](https://app.aixplain.com/marketplace) is a catalog of **900+ models, tools, and integrations**. Every asset is reachable through the same three outlets — **SDK, API, and MCP** — with a single API key 🔑.
+## Community and support
 
-For MCP-compatible clients and IDEs, assets (for example Opus 4.6, Kimi, Qwen, Airtable, Slack) are served through aixplain-hosted MCP endpoints. See the [Marketplace docs](https://docs.aixplain.com/api-reference/marketplace).
-
-```json
-{
-  "ms1": {
-    "url": "https://models-mcp.aixplain.com/mcp/<AIXPLAIN_ASSET_ID>",
-    "headers": {
-      "Authorization": "Bearer <AIXPLAIN_APIKEY>",
-      "Accept": "application/json, text/event-stream"
-    }
-  }
-}
-```
-
----
-
-## Data handling and deployment
-
-- **Your data stays yours** — never used to train foundation models; agent memory is opt-in. SOC 2 Type II; TLS 1.2+ in transit, encrypted at rest.
-- **Governed at runtime** — Inspector and Bodyguard enforce allow-lists, per-asset permissions, rate and usage limits, and access control on every execution.
-- **Deploy anywhere** — cloud, on-prem, or local; air-gapped and VPC available on-prem or local.
-- **Run metadata is sent with agent runs** — `userAgent`, plus `region`, `language`, `ipAddress`, `latitude`, `longitude` and `timezone` from a one-time `ipinfo.io` lookup. See [docs/run-metadata.md](docs/run-metadata.md).
-
-Learn more at aixplain [Security](https://aixplain.com/security/) and aixplain [pricing](https://aixplain.com/pricing/).
-
----
-
-## Run metadata
-
-Agent runs send a `metaData` object alongside your query. It carries `userAgent`
-and — derived from a one-time `https://ipinfo.io/json` lookup made from the machine
-running the SDK — `region`, `language`, `ipAddress`, `latitude`, `longitude`, and
-`timezone`. The platform uses `region`/`language`/`timezone` for locale-aware agent
-execution.
-
-- The lookup runs **once per process**, on your first agent run, with a 2-second timeout.
-- If it fails or is blocked, the run proceeds normally with those fields `null`.
-- It applies to direct agent runs. Runs routed through a session (`agent.run(query, session=...)`) and model runs do not send it.
-
-Full field-by-field disclosure: [docs/run-metadata.md](docs/run-metadata.md).
-
----
-
-## Pricing
-
-Start free, then scale with usage-based pricing.
-
-- **Pay as you go** — prepaid usage with no surprise overage bills.
-- **Subscription plans** — reduce effective consumption-based rates.
-- **Custom enterprise pricing** — available for advanced scale and deployment needs.
-
-Learn more at aixplain [pricing](https://aixplain.com/pricing/).
-
----
-
-## Community & support
-
-- **Documentation:** [docs.aixplain.com](https://docs.aixplain.com)
-- **Example agents**: [https://github.com/aixplain/cookbook](https://github.com/aixplain/cookbook)
-- **Learn how to build agents**: [https://academy.aixplain.com/student-registration/](https://academy.aixplain.com/student-registration/)
-- **Meet us in Discord:** [discord.gg/aixplain](https://discord.gg/aixplain)
-- **Talk with our team:** [care@aixplain.com](mailto:care@aixplain.com)
-
----
+- Ask questions on [Discord](https://discord.gg/aixplain)
+- Report bugs and request features in [GitHub issues](https://github.com/aixplain/aiXplain/issues)
+- Talk with the team at [care@aixplain.com](mailto:care@aixplain.com)
 
 ## License
 
-This project is licensed under the Apache License 2.0. See the [`LICENSE`](LICENSE) file for details.
+Apache License 2.0. See [LICENSE](LICENSE).
