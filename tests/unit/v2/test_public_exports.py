@@ -178,14 +178,83 @@ def test_bare_import_binds_the_exceptions_package():
 
 
 def test_exceptions_package_exports_only_the_v2_hierarchy():
-    """Every name in ``aixplain.exceptions`` is the root object; no v1 look-alikes."""
+    """Every name in ``aixplain.exceptions.__all__`` is the root object; no v1 look-alikes."""
     import aixplain.exceptions as exceptions
 
     for name in exceptions.__all__:
         assert getattr(exceptions, name) is getattr(aixplain, name), name
-    for v1_name in ("AixplainBaseException", "AuthenticationError", "get_error_from_status_code"):
-        assert not hasattr(exceptions, v1_name), v1_name
     assert "create_operation_failed_error" not in exceptions.__all__
+    assert not set(exceptions.__all__) & exceptions._DEPRECATED_V1_NAMES
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "AixplainBaseException",
+        "AlreadyDeployedError",
+        "AuthenticationError",
+        "BillingError",
+        "InternalError",
+        "NetworkError",
+        "ServiceError",
+        "SupplierError",
+        "get_error_from_status_code",
+    ],
+)
+def test_v1_names_still_resolve_with_a_deprecation_warning(name):
+    """One release of grace: the old import works, warns, and names the new path."""
+    from aixplain.exceptions import types
+
+    with pytest.warns(DeprecationWarning, match=r"removed in 0\.4\.0.*aixplain\.exceptions\.types"):
+        exec(f"from aixplain.exceptions import {name} as resolved", {})
+    with pytest.warns(DeprecationWarning):
+        import aixplain.exceptions as exceptions
+
+        assert getattr(exceptions, name) is getattr(types, name)
+
+
+def test_plain_import_and_star_import_do_not_warn():
+    """Only touching a deprecated name warns; importing the package does not."""
+    code = (
+        "import warnings; warnings.simplefilter('error', DeprecationWarning); "
+        "import aixplain, aixplain.exceptions; from aixplain.exceptions import *; "
+        "from aixplain.exceptions import ValidationError, APIError"
+    )
+    env = {**os.environ, "PYTHONPATH": str(V2_DIR.parent.parent)}
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env)
+    assert result.returncode == 0, result.stderr
+
+
+def test_unknown_name_still_raises_attribute_error():
+    import aixplain.exceptions as exceptions
+
+    with pytest.raises(AttributeError):
+        exceptions.NoSuchError  # noqa: B018
+
+
+@pytest.mark.parametrize("status,v2_name", [(400, "ValidationError"), (404, "ResourceError"), (465, "ResourceError")])
+def test_status_code_helper_errors_are_caught_by_the_v2_classes(status, v2_name):
+    """No catch gap: v1 errors from the helper match both hierarchies."""
+    from aixplain.exceptions.types import AixplainBaseException, get_error_from_status_code
+
+    error = get_error_from_status_code(status, "details")
+
+    assert isinstance(error, getattr(aixplain, v2_name))
+    assert isinstance(error, aixplain.AixplainV2Error)
+    assert isinstance(error, AixplainBaseException)
+    assert error.status_code == status
+
+
+def test_v1_error_keeps_its_v1_shape():
+    """Subclassing the v2 class must not break the v1 constructor or attributes."""
+    from aixplain.exceptions.types import ErrorCode, ValidationError
+
+    error = ValidationError("bad", status_code=400, details={"field": "x"})
+
+    assert error.message == "bad"
+    assert error.status_code == 400
+    assert error.details == {"field": "x"}
+    assert error.error_code == ErrorCode.AX_VAL_ERROR
 
 
 def test_v1_exception_types_stay_importable_from_types():

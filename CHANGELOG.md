@@ -44,11 +44,20 @@ What changes for code that used the old classes through `aixplain.exceptions`:
 - The constructor is the v2 one, `(message, details=None)`. Passing v1 keywords
   such as `status_code=` raises `TypeError`, and the v1 attributes
   (`status_code`, `error_code`, `category`, ...) are gone.
-- The v1 hierarchy is no longer re-exported from `aixplain.exceptions`:
-  `AixplainBaseException`, `AuthenticationError`, `AlreadyDeployedError`,
-  `BillingError`, `SupplierError`, `NetworkError`, `ServiceError`,
-  `InternalError` and `get_error_from_status_code` now import only from
-  `aixplain.exceptions.types`. Nothing in the SDK raises them.
+
+### Deprecated: v1 names in `aixplain.exceptions`
+
+`AixplainBaseException`, `AuthenticationError`, `AlreadyDeployedError`,
+`BillingError`, `SupplierError`, `NetworkError`, `ServiceError`, `InternalError`
+and `get_error_from_status_code` still import from `aixplain.exceptions`, but now
+emit a `DeprecationWarning` and will be removed from it in 0.4.0. Import them
+from `aixplain.exceptions.types`, where they stay. They are no longer in
+`aixplain.exceptions.__all__`, so a star-import does not pull them in.
+
+The v1 `ValidationError` / `ResourceError` (what `get_error_from_status_code`
+returns) now also subclass the v2 classes of the same name, so
+`except aixplain.ValidationError` catches them, and `except AixplainBaseException`
+still does too.
 
 See [MIGRATION.md](MIGRATION.md#import-paths) for the old -> new mapping. A
 follow-up in `aixplain-agents` switches its versioned imports to the root.

@@ -3,6 +3,8 @@
 from enum import Enum
 from typing import Optional, Dict, Any
 
+from aixplain.v2 import exceptions as _v2_exceptions
+
 
 class ErrorSeverity(str, Enum):
     """Enumeration of error severity levels in the aiXplain system.
@@ -134,6 +136,9 @@ class AixplainBaseException(Exception):
             retry_recommended: Whether retrying the operation might succeed.
             error_code: Standardized error code for the exception.
         """
+        # First, so a v2 base later in the MRO (see ValidationError) cannot
+        # reset ``details`` after it is set below.
+        super().__init__(message)
         self.message = message
         self.category = category
         self.severity = severity
@@ -141,7 +146,6 @@ class AixplainBaseException(Exception):
         self.details = details or {}
         self.retry_recommended = retry_recommended
         self.error_code = error_code
-        super().__init__(self.message)
 
     def __str__(self) -> str:
         """Return a string representation of the exception.
@@ -192,8 +196,12 @@ class AuthenticationError(AixplainBaseException):
         )
 
 
-class ValidationError(AixplainBaseException):
-    """Raised when input validation fails."""
+class ValidationError(AixplainBaseException, _v2_exceptions.ValidationError):
+    """Raised when input validation fails.
+
+    Also a v2 ``ValidationError``, so ``except aixplain.ValidationError`` catches
+    what :func:`get_error_from_status_code` returns.
+    """
 
     def __init__(self, message: str, **kwargs):
         """Initialize validation error.
@@ -230,8 +238,12 @@ class AlreadyDeployedError(AixplainBaseException):
         )
 
 
-class ResourceError(AixplainBaseException):
-    """Raised when a resource is unavailable."""
+class ResourceError(AixplainBaseException, _v2_exceptions.ResourceError):
+    """Raised when a resource is unavailable.
+
+    Also a v2 ``ResourceError``, so ``except aixplain.ResourceError`` catches
+    what :func:`get_error_from_status_code` returns.
+    """
 
     def __init__(self, message: str, **kwargs):
         """Initialize resource error.
@@ -374,10 +386,9 @@ def get_error_from_status_code(status_code: int, error_details: str = None) -> A
     """Map HTTP status codes to appropriate exception types.
 
     The result is one of the v1-era classes defined in this module (all
-    subclasses of :class:`AixplainBaseException`), not the v2 classes that
-    ``aixplain.exceptions`` re-exports under the same names. Catch it with
-    ``AixplainBaseException`` or ``aixplain.exceptions.types.ValidationError``;
-    ``aixplain.exceptions.ValidationError`` does not match it.
+    subclasses of :class:`AixplainBaseException`). Its ``ValidationError`` and
+    ``ResourceError`` also subclass the v2 classes of the same name, so
+    ``except aixplain.ValidationError`` catches them too.
 
     Args:
         status_code (int): The HTTP status code to map.

@@ -41,5 +41,8 @@ Exceptions have one non-versioned path: `from aixplain import APIError` and
 internal and stays at `aixplain.v2.exceptions`.
 
 The v1 hierarchy (`AixplainBaseException`, `AuthenticationError`, `BillingError`,
-..., `get_error_from_status_code`) is not re-exported. Nothing in the SDK raises
-it; it is still defined in `aixplain.exceptions.types`.
+..., `get_error_from_status_code`) is defined in `aixplain.exceptions.types`.
+Nothing in the SDK raises it. Its names still resolve from `aixplain.exceptions`
+with a `DeprecationWarning` until 0.4.0. Its `ValidationError` / `ResourceError`
+subclass the v2 classes, so `except aixplain.ValidationError` catches what
+`get_error_from_status_code` returns.
