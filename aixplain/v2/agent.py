@@ -486,23 +486,30 @@ class AgentError:
         return None
 
 
-def _restore_legacy_step_outputs(steps: Any) -> None:
+def _with_legacy_step_outputs(steps: Any) -> Any:
     """Give a failed step the ``ERROR: <message>`` output it carried before steps had an ``error`` field.
 
-    Mutates the step dicts in place so the decoded result and the raw response
-    that progress display reads stay the same.
+    Returns copies of the changed step dicts and leaves the raw response alone:
+    callers that forward the raw steps (the engine's remote subagent traces)
+    must keep the error in ``error`` only.
     """
     if not isinstance(steps, list):
-        return
+        return steps
+    restored = []
     for step in steps:
         if not isinstance(step, dict):
+            restored.append(step)
             continue
+        new_step = dict(step)
         error = step.get("error")
         if isinstance(error, dict) and step.get("output") in (None, ""):
             text = error.get("message") or error.get("code")
             if text:
-                step["output"] = f"ERROR: {text}"
-        _restore_legacy_step_outputs(step.get("steps"))
+                new_step["output"] = f"ERROR: {text}"
+        if isinstance(step.get("steps"), list):
+            new_step["steps"] = _with_legacy_step_outputs(step["steps"])
+        restored.append(new_step)
+    return restored
 
 
 @dataclass_json
@@ -548,7 +555,7 @@ class AgentResponseData:
         # cheap no-op, since ``Artifact`` instances pass straight through.
         self.artifacts = Artifact._coerce_list(self.artifacts)
         self.error = AgentError._coerce(self.error)
-        _restore_legacy_step_outputs(self.steps)
+        self.steps = _with_legacy_step_outputs(self.steps)
         if self.governance is None:
             self.governance = {
                 "status": self._governance_status,
@@ -1504,11 +1511,7 @@ class Agent(
         Returns:
             AgentRunResult with current execution status.
         """
-        result = super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
-        raw_data = (result._raw_data or {}).get("data")
-        if isinstance(raw_data, dict):
-            _restore_legacy_step_outputs(raw_data.get("steps"))
-        return result
+        return super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
 
     def sync_poll(self, poll_url: str, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Poll until an asynchronous agent execution completes.

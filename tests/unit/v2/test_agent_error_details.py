@@ -7,7 +7,7 @@ import pytest
 from dataclasses_json import dataclass_json
 
 from aixplain.v2.agent import Agent, AgentError, AgentResponseData, AgentRunResult
-from aixplain.v2.agent_progress import _step_error_text
+from aixplain.v2.agent_progress import _is_done, _step_error_text
 from aixplain.v2.exceptions import APIError, create_operation_failed_error
 
 POLL_URL = "https://platform-api.aixplain.com/sdk/agents/x/result"
@@ -150,19 +150,43 @@ class TestFailedStepsKeepTheirOutput:
 
         assert data.steps[0]["steps"][0]["output"] == "ERROR: m"
 
-    def test_poll_restores_the_raw_steps_progress_display_reads(self):
-        """Poll restores the raw steps progress display reads."""
+    def test_poll_leaves_the_raw_steps_unchanged(self):
+        """Poll leaves the raw steps unchanged, so callers forwarding them keep the error in ``error`` only."""
         agent = _create_agent(
             {
                 "status": "IN_PROGRESS",
                 "completed": False,
-                "data": {"steps": [{"step_id": "c1", "error": {"code": "TOOL_FAILED", "message": "m"}}]},
+                "data": {
+                    "steps": [
+                        {
+                            "step_id": "c1",
+                            "output": "done",
+                            "steps": [{"step_id": "child", "error": {"code": "TOOL_FAILED", "message": "m"}}],
+                        }
+                    ]
+                },
             }
         )
 
         result = agent.poll(POLL_URL)
 
-        assert result._raw_data["data"]["steps"][0]["output"] == "ERROR: m"
+        raw_child = result._raw_data["data"]["steps"][0]["steps"][0]
+        assert "output" not in raw_child
+        assert raw_child["error"] == {"code": "TOOL_FAILED", "message": "m"}
+
+    def test_decoding_does_not_mutate_the_input_steps(self):
+        """Decoding does not mutate the input steps."""
+        steps = [{"step_id": "c1", "error": {"code": "TOOL_FAILED", "message": "m"}}]
+
+        data = AgentResponseData.from_dict({"steps": steps})
+
+        assert data.steps[0]["output"] == "ERROR: m"
+        assert "output" not in steps[0]
+
+    def test_progress_treats_a_step_with_only_an_error_as_done(self):
+        """Progress treats a step with only an error as done."""
+        assert _is_done({"step_id": "c1", "error": {"code": "TOOL_FAILED", "message": "m"}})
+        assert not _is_done({"step_id": "c2"})
 
 
 class TestFailedRunRaises:

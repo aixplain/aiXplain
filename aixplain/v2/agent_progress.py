@@ -102,12 +102,13 @@ def _step_status(step: Dict) -> str:
 
 
 def _is_done(step: Dict) -> bool:
-    """Whether a step finished: it has output, or the engine marked it done.
+    """Whether a step finished: it has output or an error, or the engine marked it done.
 
     A model step that only issues tool calls has no output; its ``status`` is
-    the only sign it finished.
+    the only sign it finished. A failed step carries its error in ``error`` with
+    no output.
     """
-    return bool(step.get("output")) or _step_status(step) in _DONE_STATUSES
+    return bool(step.get("output") or _step_error_text(step)) or _step_status(step) in _DONE_STATUSES
 
 
 def _has_error(step: Dict) -> bool:
