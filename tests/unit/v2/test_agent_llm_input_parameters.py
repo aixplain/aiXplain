@@ -12,8 +12,8 @@ from typing import Any, List, Optional
 
 from unittest.mock import Mock
 
-from aixplain.v2.agent import Agent
-from aixplain.v2.model import Model, Parameter
+from aixplain import Agent
+from aixplain import Model, Parameter
 
 
 def _agent_for_save_payload(**kwargs: Any) -> Agent:

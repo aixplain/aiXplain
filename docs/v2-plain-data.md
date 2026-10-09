@@ -143,11 +143,11 @@ adding a field needs no second edit.
 
 `AgentError`, `AgentResponseData`, `AgentRunResult`, `AgentEvaluationResultsChatbot`,
 `AgentEvaluationRow`, `AgentEvaluationRun`, `APIKeyUsageLimit`, `Artifact`,
-`BaseResult`, `DebugResult`, `DeleteResult`, `Detail`, `Experiment`,
-`ExperimentRun`, `ExperimentRunDiff`, `ExperimentRunDiffCase`,
+`BaseResult`, `CompletionTokensDetails`, `DebugResult`, `DeleteResult`, `Detail`,
+`Experiment`, `ExperimentRun`, `ExperimentRunDiff`, `ExperimentRunDiffCase`,
 `IntegrationResult`, `Message`, `ModelResult`, `MetricResponse`, `Parameter`,
-`Pricing`, `Result`, `RLMResult`, `SessionMessage`, `StreamChunk`, `ToolResult`,
-`Usage`, `VendorInfo`, `Version`.
+`Pricing`, `PromptTokensDetails`, `Result`, `RLMResult`, `SessionMessage`,
+`StreamChunk`, `ToolResult`, `Usage`, `VendorInfo`, `Version`.
 
 `ActionInputSpec`, `ActionSpec`, `ToolId` and `TriggerTypeSpec` describe what an
 integration offers; they are read off a fetched `Integration`, never constructed.

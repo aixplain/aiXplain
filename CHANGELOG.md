@@ -1,5 +1,67 @@
 # Changelog
 
+## Unreleased
+
+### Added: versionless imports for the whole public surface
+
+`from aixplain import X` now works for every public name. `aixplain/__init__.py`
+already star-re-exports `aixplain.v2.__all__`; the commonly used classes that had
+been left out of that list were added:
+
+- `Model`, `Integration`, `ModelResult`, `ModelResponseStreamer`, `Usage`,
+  `StreamChunk`, `Message`, `Parameter`, `Pricing`, `VendorInfo`, `Version`,
+  `PromptTokensDetails`, `CompletionTokensDetails`, `Detail`
+- `AgentRunResult`, `AgentResponseData`, `RoleModelRef`, `ToolResult`
+- `ActionSpec`, `ActionInputSpec`, `IntegrationResult`, `ToolId`
+- `Result`, `DeleteResult`, `Node`
+- `ToolDict`, `ParameterInput`, `ParameterDefinition`, `APIKeyLimitsInput`
+- `AUTO_DEFAULT_MODEL_ID`
+
+The versioned path (`from aixplain.v2.<module> import X`) keeps working
+unchanged; this is a non-breaking addition.
+
+### Added: `from_row` on every gettable resource
+
+`aix.Model.from_row(row)` (and `aix.Tool`, `aix.Agent`, `aix.Integration`, ...)
+builds a resource from a raw backend row you already hold, exactly as `get`
+would, without a request: it lifts `assetInfo` into `path`, deserializes,
+binds the client and marks the instance saved. It replaces importing the
+private `aixplain.v2.resource._flatten_asset_info` and calling `from_dict`
+by hand.
+
+### Changed (breaking): `aixplain.exceptions` now aliases the v2 hierarchy
+
+`aixplain.exceptions.ValidationError` / `ResourceError` were v1-era classes that
+nothing in `aixplain.v2` raised, so `from aixplain.exceptions import ValidationError`
+silently caught nothing. They now resolve to the same objects as
+`aixplain.ValidationError` / `aixplain.ResourceError` -- the classes the SDK
+actually raises. `aixplain.exceptions` now exports only the v2 classes
+(`AixplainV2Error`, `APIError`, `AixplainIssueError`, `ValidationError`,
+`ResourceError`, `TimeoutError`, `FileUploadError`, `UntrustedURLError`).
+
+What changes for code that used the old classes through `aixplain.exceptions`:
+
+- The constructor is the v2 one, `(message, details=None)`. Passing v1 keywords
+  such as `status_code=` raises `TypeError`, and the v1 attributes
+  (`status_code`, `error_code`, `category`, ...) are gone.
+
+### Deprecated: v1 names in `aixplain.exceptions`
+
+`AixplainBaseException`, `AuthenticationError`, `AlreadyDeployedError`,
+`BillingError`, `SupplierError`, `NetworkError`, `ServiceError`, `InternalError`
+and `get_error_from_status_code` still import from `aixplain.exceptions`, but now
+emit a `DeprecationWarning` and will be removed from it in 0.4.0. Import them
+from `aixplain.exceptions.types`, where they stay. They are no longer in
+`aixplain.exceptions.__all__`, so a star-import does not pull them in.
+
+The v1 `ValidationError` / `ResourceError` (what `get_error_from_status_code`
+returns) now also subclass the v2 classes of the same name, so
+`except aixplain.ValidationError` catches them, and `except AixplainBaseException`
+still does too.
+
+See [MIGRATION.md](MIGRATION.md#import-paths) for the old -> new mapping. A
+follow-up in `aixplain-agents` switches its versioned imports to the root.
+
 ## 0.3.0
 
 ### Removed: SDK v1

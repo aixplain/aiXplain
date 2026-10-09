@@ -14,7 +14,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from aixplain.v2.agent import Agent
+from aixplain import Agent
 
 
 class ChatReply(BaseModel):

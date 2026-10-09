@@ -13,7 +13,7 @@ from unittest.mock import Mock, call
 import pytest
 
 from aixplain import Aixplain
-from aixplain.v2.exceptions import ResourceError, ValidationError
+from aixplain import ResourceError, ValidationError
 from aixplain.v2.resource import BaseResource
 
 

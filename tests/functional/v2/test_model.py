@@ -1,5 +1,5 @@
 import pytest
-from aixplain.v2 import SortBy, SortOrder
+from aixplain import SortBy, SortOrder
 
 
 @pytest.fixture(scope="module")
@@ -286,7 +286,7 @@ def test_run_model(client, text_model_id):
 
 def test_llm_capability_properties(client, stream_tool_call_model_id):
     """Validate capability properties under strict function-based LLM gating."""
-    from aixplain.v2.enums import Function
+    from aixplain import Function
 
     model = client.Model.get(stream_tool_call_model_id)
 

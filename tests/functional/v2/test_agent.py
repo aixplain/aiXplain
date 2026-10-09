@@ -3,8 +3,8 @@ import re
 import pytest
 import time
 import uuid
-from aixplain.v2 import AssetStatus, ResponseStatus
-from aixplain.v2.exceptions import APIError
+from aixplain import AssetStatus, ResponseStatus
+from aixplain import APIError
 
 
 @pytest.fixture(scope="module")
@@ -279,7 +279,7 @@ def test_agent_creation_and_deletion(client, resource_tracker):
     assert delete_result.status == "SUCCESS"
 
     # Verify the agent was actually deleted by trying to retrieve it
-    from aixplain.v2.exceptions import APIError
+    from aixplain import APIError
 
     with pytest.raises(APIError) as exc_info:
         client.Agent.get(deleted_agent_id)

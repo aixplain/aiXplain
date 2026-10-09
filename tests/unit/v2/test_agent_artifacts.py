@@ -16,7 +16,7 @@ the engine — so both must deserialize into the same object. These tests cover:
 
 import warnings
 
-from aixplain.v2.agent import AgentResponseData, AgentRunResult, Artifact
+from aixplain import AgentResponseData, AgentRunResult, Artifact
 
 # Captured from a live prod run: a Seedream image returned by a tool.
 SNAKE_IMAGE_ARTIFACT = {

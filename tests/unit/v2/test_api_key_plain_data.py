@@ -15,14 +15,9 @@ Four things had to change together, because they are the same few lines:
 import pytest
 from unittest.mock import Mock, patch
 
-from aixplain.v2.api_key import (
-    APIKey,
-    APIKeyLimits,
-    TokenType,
-    coerce_limits,
-    coerce_limits_list,
-)
-from aixplain.v2.exceptions import APIError, ResourceError, ValidationError
+from aixplain import APIKey, APIKeyLimits, TokenType
+from aixplain.v2.api_key import coerce_limits, coerce_limits_list
+from aixplain import APIError, ResourceError, ValidationError
 
 
 def _bound(listing, get_response=None, get_error=None):

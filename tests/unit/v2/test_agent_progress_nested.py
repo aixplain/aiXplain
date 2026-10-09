@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from aixplain.v2.agent_progress import AgentProgressTracker, ProgressFormat
+from aixplain import AgentProgressTracker, ProgressFormat
 
 
 def _tracker(fmt: ProgressFormat = ProgressFormat.LOGS, verbosity: int = 1) -> AgentProgressTracker:

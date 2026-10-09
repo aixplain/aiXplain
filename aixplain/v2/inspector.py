@@ -471,8 +471,17 @@ class Inspector(
         resource_path = kwargs.pop("resource_path", None) or getattr(cls, "RESOURCE_PATH", "")
         encoded_id = encode_resource_id(id)
         payload = context.client.get(f"{resource_path}/{encoded_id}", **kwargs)
+        return cls._from_row(payload, context, id=id)
 
-        inspector = cls.from_guard_model(payload, requested_path=str(id))
+    @classmethod
+    def _from_row(cls, row: Any, context: Any, id: Any = None) -> "Inspector":
+        """Build a configured Inspector from a guard-model row.
+
+        Overrides the generic hook so ``get`` and ``from_row`` both adapt the
+        guard model through :meth:`from_guard_model` instead of deserializing it
+        as an Inspector.
+        """
+        inspector = cls.from_guard_model(row, requested_path=None if id is None else str(id))
         setattr(inspector, "context", context)
         inspector._update_saved_state()
         return inspector

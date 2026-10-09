@@ -15,8 +15,8 @@ import uuid
 
 import pytest
 
-from aixplain.v2 import Trigger, TriggerEventOption
-from aixplain.v2.resource import Page
+from aixplain import Trigger, TriggerEventOption
+from aixplain import Page
 
 
 # Far-future instant so a "once" trigger is valid/schedulable.

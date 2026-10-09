@@ -1454,6 +1454,40 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         return cls._from_row(context.client.get(path, **kwargs), context, id=id)
 
     @classmethod
+    def from_row(cls: type, row: dict) -> ResourceT:
+        """Build an instance from a raw backend row, without fetching it.
+
+        Does exactly what ``get`` does with the response (for most resources:
+        lifts ``assetInfo`` into ``path``, deserializes, binds the client and
+        marks the instance as saved). Use it for rows you already hold, such as
+        a batch or cached search response. The row is deep-copied first, so
+        neither this call nor later edits to the instance change it.
+
+        Example::
+
+            model = aix.Model.from_row(row)
+
+        Args:
+            row: The resource as the backend returns it (camelCase keys).
+
+        Returns:
+            The resource instance, bound to the client the class came from.
+
+        Raises:
+            ResourceError: If the class is not bound to a client (use
+                ``aix.Model.from_row``, not ``Model.from_row``), or the row
+                cannot be deserialized.
+        """
+        context = getattr(cls, "context", None)
+        if context is None:
+            raise ResourceError(
+                f"{cls.__name__}.from_row needs a client; call it on the client's class, e.g. aix.{cls.__name__}"
+            )
+        if not isinstance(row, dict):
+            raise ResourceError(f"{cls.__name__}.from_row expects a dict row, got {type(row).__name__}")
+        return cls._from_row(deepcopy(row), context, id=row.get("id"))
+
+    @classmethod
     def _from_row(cls: type, row: Any, context: Any, id: Any = None) -> ResourceT:
         """Build an instance from a backend row, exactly as ``get`` returns it."""
         # Flatten assetInfo structure before deserialization; the shallow copy

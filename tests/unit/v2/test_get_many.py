@@ -5,11 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from aixplain import Aixplain
-from aixplain.v2 import SkillBatch, ToolBatch
-from aixplain.v2.exceptions import APIError
-from aixplain.v2.skill import Skill
-from aixplain.v2.tool import Tool
+from aixplain import Aixplain, APIError, Skill, SkillBatch, Tool, ToolBatch
 
 
 def _oid(n: int) -> str:

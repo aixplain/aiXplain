@@ -7,13 +7,8 @@ callable for ``metric`` (the universal judge). No enums or config classes.
 
 import pytest
 
-from aixplain.v2.inspector import (
-    Inspector,
-    _ActionConfig,
-    _Judge,
-    _guard_slugs,
-    _resolve_guard_defaults,
-)
+from aixplain import Inspector
+from aixplain.v2.inspector import _ActionConfig, _Judge, _guard_slugs, _resolve_guard_defaults
 
 
 class _FakeMetric:

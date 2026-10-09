@@ -3,6 +3,9 @@ sidebar_label: upload_utils
 title: aixplain.v2.upload_utils
 ---
 
+`from aixplain import FileUploader, upload_file, validate_file_for_upload`
+
+
 File upload utilities for v2 Resource system.
 
 This module provides comprehensive file upload functionality that ports the exact
@@ -14,7 +17,7 @@ logic from the legacy FileFactory while maintaining a clean, modular architectur
 class FileValidator()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L17)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L20)
 
 Handles file validation logic.
 
@@ -25,7 +28,7 @@ Handles file validation logic.
 def validate_file_exists(cls, file_path: str) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L31)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L34)
 
 Validate that the file exists.
 
@@ -36,7 +39,7 @@ Validate that the file exists.
 def validate_file_size(cls, file_path: str, file_type: str) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L37)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L40)
 
 Validate file size against type-specific limits.
 
@@ -47,7 +50,7 @@ Validate file size against type-specific limits.
 def get_file_size_mb(cls, file_path: str) -> float
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L48)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L51)
 
 Get file size in MB.
 
@@ -57,7 +60,7 @@ Get file size in MB.
 class MimeTypeDetector()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L53)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L56)
 
 Handles MIME type detection with fallback support.
 
@@ -68,7 +71,7 @@ Handles MIME type detection with fallback support.
 def detect_mime_type(cls, file_path: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L75)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L78)
 
 Detect MIME type with fallback support.
 
@@ -79,7 +82,7 @@ Detect MIME type with fallback support.
 def classify_file_type(cls, file_path: str, mime_type: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L92)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L95)
 
 Classify file type for size limit enforcement.
 
@@ -89,7 +92,7 @@ Classify file type for size limit enforcement.
 class RequestManager()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L108)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L111)
 
 Handles HTTP requests with retry logic.
 
@@ -100,9 +103,9 @@ Handles HTTP requests with retry logic.
 def create_session(cls) -> requests.Session
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L112)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L123)
 
-Create a requests session with retry configuration.
+Return the shared retry session, creating it on first use.
 
 #### request\_with\_retry
 
@@ -112,9 +115,17 @@ def request_with_retry(cls, method: str, url: str,
                        **kwargs) -> requests.Response
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L119)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L134)
 
 Make HTTP request with retry logic.
+
+A default ``(connect, read)`` timeout is applied when the caller doesn't
+pass one: without it ``requests`` waits forever, so a peer that accepts
+the connection and then goes silent pins the calling thread with no upper
+bound. The read timeout bounds the gap between bytes, not the total
+transfer, so large uploads are unaffected. Override per call with
+``timeout=`` or globally via ``AIXPLAIN_HTTP_CONNECT_TIMEOUT`` /
+``AIXPLAIN_HTTP_READ_TIMEOUT``.
 
 ### PresignedUrlManager Objects
 
@@ -122,7 +133,7 @@ Make HTTP request with retry logic.
 class PresignedUrlManager()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L125)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L152)
 
 Handles pre-signed URL requests to aiXplain backend.
 
@@ -133,7 +144,7 @@ Handles pre-signed URL requests to aiXplain backend.
 def get_temp_upload_url(cls, backend_url: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L129)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L156)
 
 Get temporary upload URL endpoint.
 
@@ -144,7 +155,7 @@ Get temporary upload URL endpoint.
 def get_perm_upload_url(cls, backend_url: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L134)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L161)
 
 Get permanent upload URL endpoint.
 
@@ -156,7 +167,7 @@ def build_temp_payload(cls, content_type: str,
                        file_name: str) -> Dict[str, str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L139)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L166)
 
 Build payload for temporary upload request.
 
@@ -168,7 +179,7 @@ def build_perm_payload(cls, content_type: str, file_path: str, tags: List[str],
                        license: str) -> Dict[str, str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L147)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L174)
 
 Build payload for permanent upload request.
 
@@ -180,7 +191,7 @@ def request_presigned_url(cls, url: str, payload: Dict[str, str],
                           api_key: str) -> Dict[str, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L157)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L184)
 
 Request pre-signed URL from backend.
 
@@ -190,7 +201,7 @@ Request pre-signed URL from backend.
 class S3Uploader()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L169)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L196)
 
 Handles S3 file uploads using pre-signed URLs.
 
@@ -202,9 +213,16 @@ def upload_file(cls, file_path: str, presigned_url: str,
                 content_type: str) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L173)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L200)
 
 Upload file to S3 using pre-signed URL.
+
+**Raises**:
+
+- `UnsafeURLError` - If ``presigned_url`` does not point at an allowed
+  upload host. The check sits *outside* the ``try`` below so the
+  generic ``FileUploadError`` wrapper cannot mask why the upload
+  was refused (BUG-939).
 
 #### construct\_s3\_url
 
@@ -213,7 +231,7 @@ Upload file to S3 using pre-signed URL.
 def construct_s3_url(cls, presigned_url: str, path: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L190)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L234)
 
 Construct S3 URL from pre-signed URL and path.
 
@@ -223,7 +241,7 @@ Construct S3 URL from pre-signed URL and path.
 class ConfigManager()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L202)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L246)
 
 Handles configuration and environment variables.
 
@@ -234,7 +252,7 @@ Handles configuration and environment variables.
 def get_backend_url(cls, custom_url: Optional[str] = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L206)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L250)
 
 Get backend URL from custom value or environment.
 
@@ -247,7 +265,7 @@ def get_api_key(cls,
                 required: bool = True) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L211)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L255)
 
 Get API key from custom value or environment.
 
@@ -257,7 +275,7 @@ Get API key from custom value or environment.
 class FileUploader()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L219)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L263)
 
 Main file upload orchestrator.
 
@@ -269,7 +287,7 @@ def __init__(backend_url: Optional[str] = None,
              require_api_key: bool = True)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L222)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L266)
 
 Initialize file uploader with configuration.
 
@@ -283,7 +301,7 @@ def upload(file_path: str,
            return_download_link: bool = False) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L232)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L276)
 
 Upload a file to S3 using the same logic as legacy FileFactory.
 
@@ -317,7 +335,7 @@ def upload_file(file_path: str,
                 api_key: Optional[str] = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L293)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L337)
 
 Convenience function to upload a file.
 
@@ -342,7 +360,7 @@ Convenience function to upload a file.
 def validate_file_for_upload(file_path: str) -> Dict[str, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L326)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/upload_utils.py#L370)
 
 Validate a file for upload without actually uploading.
 

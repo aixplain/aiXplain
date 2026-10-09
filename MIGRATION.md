@@ -395,6 +395,49 @@ Beyond the factories, four more legacy prefixes were removed:
 | `from aixplain.decorators import ...`, `aixplain.base` | Internal helpers with no public v2 counterpart |
 | `from aixplain.processes import ...` | v1 data onboarding; no v2 counterpart |
 
+## Import paths
+
+The version segment is not needed in any user-facing import. `from aixplain import X`
+is the canonical form for every public name; `from aixplain.v2.<module> import X`
+keeps working unchanged. The names below were previously only reachable through
+the versioned path. [docs/import-paths.md](docs/import-paths.md) has the rule for
+which names are exported.
+
+| Before | After |
+| --- | --- |
+| `from aixplain.v2 import Model` | `from aixplain import Model` |
+| `from aixplain.v2 import Integration` | `from aixplain import Integration` |
+| `from aixplain.v2.model import ModelResult, Usage, StreamChunk` | `from aixplain import ModelResult, Usage, StreamChunk` |
+| `from aixplain.v2.agent import AgentRunResult` | `from aixplain import AgentRunResult` |
+| `from aixplain.v2.tool import ToolResult` | `from aixplain import ToolResult` |
+| `from aixplain.v2.integration import ActionSpec, ActionInputSpec` | `from aixplain import ActionSpec, ActionInputSpec` |
+| `from aixplain.v2.resource import Result, DeleteResult` | `from aixplain import Result, DeleteResult` |
+| `from aixplain.v2.graph import Node` | `from aixplain import Node` |
+| `from aixplain.v2.mixins import ToolDict, ParameterInput, ParameterDefinition` | `from aixplain import ToolDict, ParameterInput, ParameterDefinition` |
+| `from aixplain.v2.api_key import APIKeyLimitsInput` | `from aixplain import APIKeyLimitsInput` |
+| `from aixplain.v2.inspector import AUTO_DEFAULT_MODEL_ID` | `from aixplain import AUTO_DEFAULT_MODEL_ID` |
+
+Exceptions get one non-versioned path: `from aixplain import APIError` and
+`from aixplain.exceptions import APIError` are the same object. The one behaviour
+change is that `aixplain.exceptions.ValidationError` / `ResourceError` now resolve
+to the v2 classes the SDK raises, not the v1-era look-alikes:
+
+| Before | After |
+| --- | --- |
+| `aixplain.exceptions.ValidationError` (v1 class; never raised by v2) | `aixplain.ValidationError` (same class the SDK raises) |
+| `aixplain.exceptions.ResourceError` (v1 class; never raised by v2) | `aixplain.ResourceError` (same class the SDK raises) |
+| `aixplain.exceptions.types.ValidationError` | unchanged (v1 types still importable) |
+| `from aixplain.exceptions import AixplainBaseException, AuthenticationError, BillingError, SupplierError, NetworkError, ServiceError, InternalError, AlreadyDeployedError, get_error_from_status_code` | `from aixplain.exceptions.types import ...` (the old path still works but warns, and is removed in 0.4.0) |
+
+The v2 classes are a different hierarchy from the v1 ones, so code that built or
+inspected them as v1 objects needs a change:
+
+| Before | After |
+| --- | --- |
+| `aixplain.exceptions.ValidationError("...", status_code=400)` | `TypeError`; the v2 signature is `(message, details=None)` |
+| `err.status_code`, `err.error_code`, `err.category` | not on the v2 classes |
+| `except AixplainBaseException` catches `ValidationError` / `ResourceError` | it does not; catch `aixplain.AixplainV2Error` for the v2 classes |
+
 ## Polling behaviour changes
 
 ### `AgentProgressTracker.stream_progress` is bounded and raises on expiry
