@@ -2179,7 +2179,12 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             # returns the same value and type as the synchronous path in
             # handle_run_response.
             data = {}
-        data_error = data.get("error") if isinstance(data, dict) else None
+        data_error = None
+        if isinstance(data, dict):
+            data_error_details = data.get("errorDetails")
+            data_error = data.get("error") or (
+                data_error_details.get("message") if isinstance(data_error_details, dict) else None
+            )
         error_message = response.get("errorMessage") or data_error
         filtered_response = {
             "status": response.get("status", "IN_PROGRESS"),
@@ -2196,6 +2201,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "usage": response.get("usage"),
             "asset": response.get("asset"),
         }
+        # An agent run's structured error; only forwarded when sent so the default stays None.
+        if response.get("errorDetails") is not None:
+            filtered_response["errorDetails"] = response["errorDetails"]
         status = response.get("status", "IN_PROGRESS")
 
         # Failure handling

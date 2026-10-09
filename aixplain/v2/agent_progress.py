@@ -56,6 +56,15 @@ def _stdout_is_tty() -> bool:
         return False
 
 
+def _step_error_text(step: Dict) -> Optional[str]:
+    """Render a step's ``error`` (``{code, message}`` or a legacy string) as display text."""
+    error = step.get("error") or step.get("error_message")
+    if isinstance(error, dict):
+        code, message = error.get("code"), error.get("message")
+        return ": ".join(str(part) for part in (code, message) if part) or None
+    return str(error) if error else None
+
+
 def _is_notebook_environment() -> bool:
     """Detect if running in a Jupyter/IPython notebook environment.
 
@@ -93,12 +102,13 @@ def _step_status(step: Dict) -> str:
 
 
 def _is_done(step: Dict) -> bool:
-    """Whether a step finished: it has output, or the engine marked it done.
+    """Whether a step finished: it has output or an error, or the engine marked it done.
 
     A model step that only issues tool calls has no output; its ``status`` is
-    the only sign it finished.
+    the only sign it finished. A failed step carries its error in ``error`` with
+    no output.
     """
-    return bool(step.get("output")) or _step_status(step) in _DONE_STATUSES
+    return bool(step.get("output") or _step_error_text(step)) or _step_status(step) in _DONE_STATUSES
 
 
 def _has_error(step: Dict) -> bool:
@@ -720,7 +730,7 @@ class AgentProgressTracker:
                 status_line += f" · ⚡ {action}"
 
         if self._verbosity >= 3:
-            error = active.get("error") or active.get("error_message")
+            error = _step_error_text(active)
             if error:
                 error_str = str(error).replace("\n", " ").strip()
                 if len(error_str) > 50:
@@ -821,7 +831,7 @@ class AgentProgressTracker:
 
     def _print_step_output(self, step: Dict, idx: int, indent: str) -> None:
         """Print a step's error or output block (verbosity 3)."""
-        error = step.get("error") or step.get("error_message")
+        error = _step_error_text(step)
         if error:
             print(f"{indent}→ Error ✗")
             print(f"{indent}  {self._format_multiline(str(error))}")

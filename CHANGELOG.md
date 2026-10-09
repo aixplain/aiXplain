@@ -163,3 +163,12 @@ Two fixes fall out of the audit:
   less. Code that distinguishes the two with `type(e) is TimeoutError` is
   unaffected; code relying on `issubclass(aixplain.TimeoutError, OSError)` being
   `False` is not.
+- **Agent results carry a structured error** (PROD-2521). `AgentRunResult.error`
+  and `AgentResponseData.error` are an `AgentError` (`code`, `message`) read from
+  the run's `errorDetails`. Nothing existing changes: `error_message` is still
+  filled with the run's error message (now taken from `errorDetails` when the
+  service no longer sends the plain `error` string), `supplier_error` is
+  unchanged, a failed run still raises `APIError` with the same message, and a
+  failed step in `result.data.steps` still reads `"ERROR: <message>"` in its
+  `output` (the raw response is left as sent). Steps also carry the new `error`
+  (`{code, message}`) key.
