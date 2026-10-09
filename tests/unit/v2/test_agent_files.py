@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from aixplain import Aixplain
-from aixplain.v2.file import File
+from aixplain import File
 
 
 @pytest.fixture

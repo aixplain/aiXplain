@@ -7,12 +7,12 @@ from dataclasses_json import dataclass_json
 
 import requests
 
-from aixplain.v2.actions import Action, Actions, Inputs
-from aixplain.v2.exceptions import APIError
-from aixplain.v2.integration import ActionInputSpec, ActionSpec
-from aixplain.v2.tool import Tool, ToolResult
-from aixplain.v2.integration import Integration
-from aixplain.v2.resource import ResourceError
+from aixplain import Action, Actions, Inputs
+from aixplain import APIError
+from aixplain import ActionInputSpec, ActionSpec
+from aixplain import Tool, ToolResult
+from aixplain import Integration
+from aixplain import ResourceError
 
 MOCK_BACKEND_RESPONSE = {
     "id": "69bbf9c19e1085b478304903",
@@ -473,6 +473,10 @@ class TestScriptToolDefaultIntegration:
     def test_code_without_any_function_raises(self):
         with pytest.raises(ValueError, match="No function"):
             Tool(name="Script Tool", description="desc", code="x = 1\n")
+
+    def test_code_with_a_syntax_error_raises(self):
+        with pytest.raises(ValueError, match="not valid Python"):
+            Tool(name="Script Tool", description="desc", code="def main(:\n    return 1\n")
 
     def test_code_accepts_a_callable(self):
         """``ScriptFactory`` migrates to ``Tool``, so a function must work as well

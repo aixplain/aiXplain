@@ -18,7 +18,7 @@ import sys
 import time
 import threading
 from enum import Enum
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional, Callable, Tuple
 from typing_extensions import Literal
 
 from ._backoff import next_wait, sleep_with_jitter
@@ -56,6 +56,15 @@ def _stdout_is_tty() -> bool:
         return False
 
 
+def _step_error_text(step: Dict) -> Optional[str]:
+    """Render a step's ``error`` (``{code, message}`` or a legacy string) as display text."""
+    error = step.get("error") or step.get("error_message")
+    if isinstance(error, dict):
+        code, message = error.get("code"), error.get("message")
+        return ": ".join(str(part) for part in (code, message) if part) or None
+    return str(error) if error else None
+
+
 def _is_notebook_environment() -> bool:
     """Detect if running in a Jupyter/IPython notebook environment.
 
@@ -83,6 +92,51 @@ def _is_notebook_environment() -> bool:
         return False
     except (ImportError, AttributeError):
         return False
+
+
+_DONE_STATUSES = ("completed", "failed")
+
+
+def _step_status(step: Dict) -> str:
+    return str(step.get("status") or "").lower()
+
+
+def _is_done(step: Dict) -> bool:
+    """Whether a step finished: it has output or an error, or the engine marked it done.
+
+    A model step that only issues tool calls has no output; its ``status`` is
+    the only sign it finished. A failed step carries its error in ``error`` with
+    no output.
+    """
+    return bool(step.get("output") or _step_error_text(step)) or _step_status(step) in _DONE_STATUSES
+
+
+def _has_error(step: Dict) -> bool:
+    return bool(step.get("error") or step.get("error_message")) or _step_status(step) == "failed"
+
+
+def _nested_steps(step: Dict) -> Optional[List[Dict]]:
+    """The subagent steps of a ``delegate_task`` step, or ``None`` for any other step."""
+    nested = step.get("steps")
+    return nested if isinstance(nested, list) else None
+
+
+def _is_delegation(step: Dict) -> bool:
+    """A ``delegate_task`` step, whether or not its subagent steps have arrived yet."""
+    unit = step.get("unit")
+    return _nested_steps(step) is not None or (isinstance(unit, dict) and unit.get("name") == "delegate_task")
+
+
+def _delegation_target(step: Dict) -> Optional[str]:
+    """The subagent a ``delegate_task`` step delegated to, from its input arguments."""
+    raw = step.get("input")
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return None
+    target = raw.get("agent_name") if isinstance(raw, dict) else None
+    return str(target) if target else None
 
 
 class ProgressFormat(str, Enum):
@@ -190,8 +244,9 @@ class AgentProgressTracker:
 
         # Display state
         self._printed_events: Dict[str, Dict] = {}
-        self._printed_thoughts: Dict[int, str] = {}
+        self._printed_thoughts: Dict[str, str] = {}  # step number ("3", "2.1") -> thought
         self._status_lines_count = 0
+        self._spinner_line_len = 0  # logs mode: width of the open spinner line, to blank it
         self._spinner_frames: Dict[str, int] = {}  # Per-step frame counter for sequential animation
 
         # Threading for smooth animation
@@ -306,14 +361,64 @@ class AgentProgressTracker:
         if not steps:
             return []
 
-        # Normalize steps with unique IDs
+        return self._normalize_steps(steps, parent_id=None)
+
+    def _normalize_steps(self, steps: List[Any], parent_id: Optional[str]) -> List[Dict]:
+        """Copy steps with a ``_progress_id`` each, recursing into delegations' subagent steps.
+
+        A nested id is scoped by its parent's: child ids are only unique within
+        one delegation, so two subagents that both report ``step-0`` must not
+        share display state.
+        """
         normalized = []
         for i, s in enumerate(steps):
-            step = dict(s) if isinstance(s, dict) else s
+            step = dict(s) if isinstance(s, dict) else {}
             sid = step.get("id") or step.get("step_id") or f"idx-{i}"
-            step["_progress_id"] = sid
+            step["_progress_id"] = sid if parent_id is None else f"{parent_id}/{sid}"
+            nested = _nested_steps(step)
+            if nested is not None:
+                step["steps"] = self._normalize_steps(nested, step["_progress_id"])
             normalized.append(step)
         return normalized
+
+    @staticmethod
+    def _walk_steps(steps: List[Dict], prefix: str = "", depth: int = 0) -> List[Tuple[Optional[str], int, int, Dict]]:
+        """Every step depth-first as ``(label, depth, index, step)``.
+
+        ``label`` is the nested step number (``"2.1"``), ``None`` for a top-level step.
+        """
+        walked: List[Tuple[Optional[str], int, int, Dict]] = []
+        for idx, step in enumerate(steps):
+            label = f"{prefix}{idx + 1}" if depth else None
+            walked.append((label, depth, idx, step))
+            nested = _nested_steps(step)
+            if nested:
+                walked.extend(AgentProgressTracker._walk_steps(nested, f"{label or idx + 1}.", depth + 1))
+        return walked
+
+    def _deepest_active(self, steps: List[Dict]) -> Tuple[Optional[str], int, int, Dict]:
+        """The step the live line should show, as ``(label, depth, index, step)``.
+
+        At each level the newest step still running wins (with parallel
+        delegations a later sibling may already be done), else the newest; a
+        running delegation is followed into its subagent's steps.
+        """
+        label: Optional[str] = None
+        depth = 0
+        level = steps
+        while True:
+            running = [i for i, s in enumerate(level) if not _is_done(s)]
+            index = running[-1] if running else len(level) - 1
+            step = level[index]
+            if depth:
+                label = f"{label}.{index + 1}" if label else str(index + 1)
+            nested = _nested_steps(step)
+            if _is_done(step) or not nested:
+                self._first_seen.setdefault(step["_progress_id"], self._now())
+                return label, depth, index, step
+            label = label or str(index + 1)
+            depth += 1
+            level = nested
 
     def _format_elapsed(self, seconds: Optional[float]) -> str:
         """Format elapsed time as MM:SS.cc."""
@@ -506,6 +611,8 @@ class AgentProgressTracker:
         step_elapsed: Optional[float] = None,
         show_timing: bool = True,
         is_complete: bool = False,
+        label: Optional[str] = None,
+        depth: int = 0,
     ) -> str:
         """Format the main step line with proper symbols and structure.
 
@@ -516,6 +623,9 @@ class AgentProgressTracker:
             step_elapsed: Elapsed time for this step
             show_timing: Whether to show timing information
             is_complete: Whether step is complete (affects time_ticks precision)
+            label: Step number to show for a nested step (``"2.1"``); top-level
+                steps are numbered from ``step_idx``
+            depth: Nesting level of the step, indented two spaces per level
         """
         agent_field = step.get("agent") or step.get("agent_name") or "Unknown"
         if isinstance(agent_field, dict):
@@ -533,6 +643,10 @@ class AgentProgressTracker:
             unit_name = step.get("action") or str(unit)
             unit_type = ""
 
+        target = _delegation_target(step) if _is_delegation(step) else None
+        if target:
+            unit_name = f"{unit_name} → {target}"
+
         if unit_type == "tool":
             agent_action_part = f"{agent_name} ⚒ {unit_name}"
         else:
@@ -541,7 +655,8 @@ class AgentProgressTracker:
             else:
                 agent_action_part = f"{agent_name} ⧈ {unit_name}"
 
-        step_line = f"{icon} Step {step_idx + 1:2d}"
+        number = label if label is not None else f"{step_idx + 1:2d}"
+        step_line = f"{'  ' * depth}{icon} Step {number}"
 
         if show_timing and step_elapsed is not None:
             if _USE_LEGACY_TIME_FORMAT:
@@ -590,12 +705,10 @@ class AgentProgressTracker:
 
     def _refresh_status_display(self, steps: List[Dict]) -> None:
         """Refresh status mode display (single updating line)."""
-        active = steps[-1]
-        step_num = len(steps) - 1
+        label, _depth, step_num, active = self._deepest_active(steps)
         step_elapsed = self._now() - self._first_seen.get(active.get("_progress_id"), self._now())
 
-        has_output = active.get("output")
-        is_complete = bool(has_output)
+        is_complete = _is_done(active)
         icon = "✓" if is_complete else self._get_spinner()
 
         status_line = self._format_step_line(
@@ -605,6 +718,7 @@ class AgentProgressTracker:
             step_elapsed,
             show_timing=True,
             is_complete=is_complete,
+            label=label,
         )
 
         if self._verbosity >= 2:
@@ -616,7 +730,7 @@ class AgentProgressTracker:
                 status_line += f" · ⚡ {action}"
 
         if self._verbosity >= 3:
-            error = active.get("error") or active.get("error_message")
+            error = _step_error_text(active)
             if error:
                 error_str = str(error).replace("\n", " ").strip()
                 if len(error_str) > 50:
@@ -637,82 +751,113 @@ class AgentProgressTracker:
         self._status_lines_count = current_len
 
     def _refresh_logs_display(self, steps: List[Dict]) -> None:
-        """Refresh logs mode display (update running step spinners)."""
-        for idx, step in enumerate(steps):
-            sid = step.get("_progress_id")
-            has_output = step.get("output")
+        """Refresh logs mode display (repaint the live spinner line)."""
+        self._draw_live_line(steps)
 
-            if not has_output and sid in self._printed_events:
-                step_elapsed = self._now() - self._first_seen.get(sid, self._now())
-                icon = self._get_spinner()
-                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True, is_complete=False)
-                print(f"\r{status_line}", end="", flush=True)
-                self._printed_events[sid]["status_line"] = status_line
+    def _draw_live_line(self, steps: List[Dict]) -> None:
+        """Repaint the one open line at the bottom: the step running right now.
 
-    def _print_step_details(self, step: Dict, idx: int) -> None:
+        Logs mode keeps exactly one in-place line. Parallel delegations run
+        several steps at once, and giving each its own in-place spinner made
+        them overwrite each other on the same terminal line.
+        """
+        if not steps:
+            return
+        label, depth, idx, step = self._deepest_active(steps)
+        if _is_done(step):
+            self._end_live_line()
+            return
+        sid = step["_progress_id"]
+        icon = self._get_spinner_for_step(sid) if self._is_notebook else self._get_spinner()
+        elapsed = self._now() - self._first_seen.get(sid, self._now())
+        line = self._format_step_line(
+            step, idx, icon, elapsed, show_timing=True, is_complete=False, label=label, depth=depth
+        )
+        pad = " " * max(self._spinner_line_len - len(line), 0)
+        print(f"\r{line}{pad}", end="", flush=True)
+        self._spinner_line_len = len(line)
+
+    def _end_live_line(self) -> None:
+        """Blank the open spinner line so the next full line starts clean."""
+        if self._spinner_line_len:
+            print(f"\r{' ' * self._spinner_line_len}\r", end="", flush=True)
+            self._spinner_line_len = 0
+
+    def _print_line(self, line: str) -> None:
+        """Print a finished line above the live spinner line."""
+        self._end_live_line()
+        print(line)
+
+    def _print_step_details(self, step: Dict, idx: int, label: Optional[str] = None, depth: int = 0) -> None:
         """Print step details for logs mode (verbosity 2+)."""
+        indent = "  " * (depth + 1)
+        number = label or str(idx + 1)
         if self._verbosity >= 2:
             task = step.get("task")
             if task:
-                print(f"  ➤ {task}")
+                print(f"{indent}➤ {task}")
 
             action = step.get("action")
             if action and action != "None":
-                print(f"  ⚡ {action}")
+                print(f"{indent}⚡ {action}")
 
             thought = step.get("thought") or step.get("reason") or ""
             if thought:
                 duplicate_step = None
-                for prev_idx, prev_thought in self._printed_thoughts.items():
+                for prev_number, prev_thought in self._printed_thoughts.items():
                     if prev_thought == thought:
-                        duplicate_step = prev_idx
+                        duplicate_step = prev_number
                         break
 
                 if duplicate_step is not None:
-                    print(f"  ∷ [see Step {duplicate_step + 1}]")
+                    print(f"{indent}∷ [see Step {duplicate_step}]")
                 else:
                     thought_formatted = self._format_multiline(thought, width=70)
                     thought_text = thought_formatted[2:] if thought_formatted.startswith("│ ") else thought_formatted
-                    print(f"  ∷ {thought_text}")
-                    self._printed_thoughts[idx] = thought
+                    print(f"{indent}∷ {thought_text}")
+                    self._printed_thoughts[number] = thought
 
         if self._verbosity >= 3:
             if step.get("input"):
-                input_label = self._get_label(step, "input", idx)
+                # Only the run's own first step carries the user's query.
+                input_label = self._get_label(step, "input", idx if depth == 0 else -1)
                 input_data = step.get("input")
-                print(f"  ← {input_label}")
+                print(f"{indent}← {input_label}")
                 if isinstance(input_data, dict) or (isinstance(input_data, str) and input_data.strip().startswith("{")):
-                    print(f"    {self._format_json(input_data)}")
+                    print(f"{indent}  {self._format_json(input_data)}")
                 else:
-                    print(f"    {self._format_multiline(str(input_data))}")
+                    print(f"{indent}  {self._format_multiline(str(input_data))}")
+            self._print_step_output(step, idx, indent)
 
-            error = step.get("error") or step.get("error_message")
-            if error:
-                print(f"  → Error ✗")
-                print(f"    {self._format_multiline(str(error))}")
-            elif step.get("output"):
-                output_label = self._get_label(step, "output", idx)
-                output_data = step.get("output")
-                print(f"  → {output_label}")
+    def _print_step_output(self, step: Dict, idx: int, indent: str) -> None:
+        """Print a step's error or output block (verbosity 3)."""
+        error = _step_error_text(step)
+        if error:
+            print(f"{indent}→ Error ✗")
+            print(f"{indent}  {self._format_multiline(str(error))}")
+        elif step.get("output"):
+            output_label = self._get_label(step, "output", idx)
+            output_data = step.get("output")
+            print(f"{indent}→ {output_label}")
 
-                agent_field = step.get("agent") or step.get("agent_name") or ""
-                if isinstance(agent_field, dict):
-                    agent_name = agent_field.get("name", "").lower()
-                else:
-                    agent_name = str(agent_field).lower()
+            agent_field = step.get("agent") or step.get("agent_name") or ""
+            if isinstance(agent_field, dict):
+                agent_name = agent_field.get("name", "").lower()
+            else:
+                agent_name = str(agent_field).lower()
 
-                formatted_plan = None
-                if "mentalist" in agent_name and output_label == "Plan":
-                    formatted_plan = self._format_mentalist_plan(output_data)
+            formatted_plan = None
+            if "mentalist" in agent_name and output_label == "Plan":
+                formatted_plan = self._format_mentalist_plan(output_data)
 
-                if formatted_plan:
-                    print(f"    {formatted_plan}")
-                elif isinstance(output_data, dict) or (
-                    isinstance(output_data, str) and output_data.strip().startswith("{")
-                ):
-                    print(f"    {self._format_json(output_data)}")
-                else:
-                    print(f"    {self._format_multiline(str(output_data))}")
+            if formatted_plan:
+                print(f"{indent}  {formatted_plan}")
+            elif isinstance(output_data, dict) or (
+                isinstance(output_data, str) and output_data.strip().startswith("{")
+            ):
+                print(f"{indent}  {self._format_json(output_data)}")
+            else:
+                print(f"{indent}  {self._format_multiline(str(output_data))}")
 
     def _print_token_usage(self, step: Dict) -> None:
         """Print token usage for a step if available."""
@@ -891,59 +1036,65 @@ class AgentProgressTracker:
                     pass
 
     def _display_logs_format(self, steps: List[Dict]) -> None:
-        """Handle display for LOGS format (event timeline)."""
-        for idx, step in enumerate(steps):
-            sid = step.get("_progress_id")
-            prev = self._printed_events.get(sid, {})
-            has_output = step.get("output")
-            prev_has_output = prev.get("has_output", False)
+        """Handle display for LOGS format (event timeline).
 
-            # First time seeing this step - show spinner
+        Finished steps print as full lines; a ``delegate_task`` step prints a
+        ``▸`` header when first seen, its subagent steps indented under it,
+        then its own completion line after them. The step running right now
+        is the one live spinner line at the bottom.
+        """
+        open_delegations: List[Tuple[Optional[str], int, int, Dict]] = []
+        for label, depth, idx, step in self._walk_steps(steps):
+            while open_delegations and open_delegations[-1][1] >= depth:
+                self._print_completion(*open_delegations.pop())
+            sid = step["_progress_id"]
+            self._first_seen.setdefault(sid, self._now())
             if sid not in self._printed_events:
-                step_elapsed = self._now() - self._first_seen.get(sid, self._now())
-                icon = self._get_spinner()
-                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True, is_complete=False)
-                print(f"\r{status_line}", end="", flush=True)
-                self._printed_events[sid] = {
-                    "has_output": False,
-                    "status_line": status_line,
-                }
+                self._printed_events[sid] = {"done": False, "output_shown": False}
+                if _is_delegation(step):
+                    header = self._format_step_line(step, idx, "▸", show_timing=False, label=label, depth=depth)
+                    execution_id = step.get("execution_id")
+                    if self._verbosity >= 2 and execution_id:
+                        header += f" · ↳ execution {execution_id}"
+                    self._print_line(header)
+            if _is_delegation(step):
+                open_delegations.append((label, depth, idx, step))
+            else:
+                self._print_completion(label, depth, idx, step)
+        while open_delegations:
+            self._print_completion(*open_delegations.pop())
+        self._draw_live_line(steps)
 
-            # In notebook mode, update spinner synchronously (no background thread)
-            # Use sequential spinner to prevent frame skipping from irregular poll intervals
-            elif not has_output and self._is_notebook:
-                step_elapsed = self._now() - self._first_seen.get(sid, self._now())
-                icon = self._get_spinner_for_step(sid)
-                status_line = self._format_step_line(step, idx, icon, step_elapsed, show_timing=True, is_complete=False)
-                print(f"\r{status_line}", end="", flush=True)
-
-            # Step completed - show completion icon
-            if has_output and not prev_has_output:
-                step_elapsed = self._now() - self._first_seen.get(sid, self._now())
-                has_error = step.get("error") or step.get("error_message")
-                completion_icon = "✗" if has_error else "✓"
-                completion_line = self._format_step_line(
-                    step,
-                    idx,
-                    completion_icon,
-                    step_elapsed,
-                    show_timing=True,
-                    is_complete=True,
+    def _print_completion(self, label: Optional[str], depth: int, idx: int, step: Dict) -> None:
+        """Print a step's completion line once it is done (and output that arrives later)."""
+        printed = self._printed_events[step["_progress_id"]]
+        if not _is_done(step):
+            return
+        if not printed["done"]:
+            elapsed = self._now() - self._first_seen.get(step["_progress_id"], self._now())
+            icon = "✗" if _has_error(step) else "✓"
+            self._print_line(
+                self._format_step_line(
+                    step, idx, icon, elapsed, show_timing=True, is_complete=True, label=label, depth=depth
                 )
-                print(f"\r{completion_line}")
-                self._print_step_details(step, idx)
-                self._printed_events[sid]["has_output"] = True
+            )
+            self._print_step_details(step, idx, label, depth)
+            printed["done"] = True
+            printed["output_shown"] = bool(step.get("output") or step.get("error") or step.get("error_message"))
+        elif not printed["output_shown"] and step.get("output") and self._verbosity >= 3:
+            # Marked done by its status before its output arrived.
+            self._end_live_line()
+            self._print_step_output(step, idx, "  " * (depth + 1))
+            printed["output_shown"] = True
 
     def _display_status_format_notebook(self, steps: List[Dict]) -> None:
         """Handle display for STATUS format in notebook mode (synchronous updates)."""
         if not steps:
             return
 
-        active = steps[-1]
+        label, _depth, step_num, active = self._deepest_active(steps)
         sid = active.get("_progress_id")
-        step_num = len(steps) - 1
-        has_output = active.get("output")
-        is_complete = bool(has_output)
+        is_complete = _is_done(active)
         step_elapsed = self._now() - self._first_seen.get(sid, self._now())
 
         # Use sequential spinner to prevent frame skipping from irregular poll intervals
@@ -955,6 +1106,7 @@ class AgentProgressTracker:
             step_elapsed,
             show_timing=True,
             is_complete=is_complete,
+            label=label,
         )
 
         # Pad to overwrite previous longer lines
@@ -966,9 +1118,9 @@ class AgentProgressTracker:
         self._status_lines_count = current_len
 
         if sid not in self._printed_events:
-            self._printed_events[sid] = {"has_output": False}
-        if has_output:
-            self._printed_events[sid]["has_output"] = True
+            self._printed_events[sid] = {"done": False}
+        if is_complete:
+            self._printed_events[sid]["done"] = True
 
     def update(self, response: Any) -> None:
         """Update progress with poll response (call from on_poll hook).

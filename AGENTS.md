@@ -79,7 +79,7 @@ ruff format .           # Format
 pre-commit install
 ```
 
-Hooks run: trailing-whitespace, end-of-file-fixer, check-merge-conflict, check-added-large-files, ruff (lint + format for `aixplain/v2/`), and unit tests with coverage.
+Hooks run: trailing-whitespace, end-of-file-fixer, check-merge-conflict, check-added-large-files, ruff (lint for `aixplain/v2/`; format for `aixplain/v2/` and `tests/` -- tests are format-checked only), and unit tests with coverage.
 
 ---
 
@@ -88,10 +88,10 @@ Hooks run: trailing-whitespace, end-of-file-fixer, check-merge-conflict, check-a
 - **Line length**: 120 characters.
 - **Indentation**: 4 spaces.
 - **Quotes**: Double quotes for strings.
-- **Docstrings**: Google style (enforced by ruff `pydocstyle`). Docstring rules are **not** enforced in `tests/`.
+- **Docstrings**: Google style (enforced by ruff `pydocstyle`). Docstring rules are **not** enforced in `tests/`; tests are format-checked only (no lint rules apply to them).
 - **Type hints**: Required on all public functions. Use `typing` (`Optional`, `Union`, `List`, `Dict`, `TypeVar`, generics).
 - **Naming**: `PascalCase` for classes, `snake_case` for functions and methods, `UPPER_SNAKE_CASE` for constants.
-- **Exceptions**: Use the custom hierarchy in `aixplain/exceptions/` (`AixplainBaseException` and subclasses). Never raise bare `Exception`. Preserve useful context in error messages and include status or response details when available.
+- **Exceptions**: Raise the v2 hierarchy in `aixplain/v2/exceptions.py` (`AixplainV2Error` and subclasses), which `aixplain` and `aixplain.exceptions` re-export. The v1 `AixplainBaseException` family in `aixplain/exceptions/types.py` is legacy; nothing raises it. Never raise bare `Exception`. Preserve useful context in error messages and include status or response details when available.
 - **Imports**: Use `from __future__ import annotations` or `TYPE_CHECKING` guards to break circular imports. Use conditional imports for optional dependencies. Do not add a new dependency unless it is necessary and justified by the repository's existing design.
 - **Validation**: Pydantic for runtime validation. `dataclasses-json` for JSON serialization.
 - **License header**: Include the Apache 2.0 license header at the top of every source file.
@@ -119,7 +119,7 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
 |---|---|
 | `aixplain/v2/` | The SDK surface. All new features and fixes go here. |
 | `aixplain/_compat.py` | Turns an import of a removed v1 path into an error naming its v2 replacement. Nothing is redirected. |
-| `aixplain/exceptions/` | Custom exception hierarchy with error codes and categories |
+| `aixplain/exceptions/` | Non-versioned path for the v2 exceptions (`aixplain.exceptions.APIError` is `aixplain.APIError`); `types.py` keeps the legacy v1 hierarchy |
 | `aixplain/utils/` | Shared helpers (config, URL safety policy, run metadata) |
 
 ### Key Design Patterns
@@ -152,6 +152,8 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
   [docs/v2-plain-data.md](docs/v2-plain-data.md); add a row there when you add one.
 - Everything importable is importable from `aixplain` directly. `aixplain/__init__.py` re-exports
   `aixplain.v2.__all__`, so a new public symbol needs only an entry in `aixplain/v2/__init__.py`.
+  `tests/unit/v2/test_public_exports.py` fails when a public class in `aixplain/v2/` is neither exported
+  nor on its internal allowlist; [docs/import-paths.md](docs/import-paths.md) has the rule.
 
 ---
 
@@ -160,9 +162,10 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
 - **Framework**: pytest (configured in `pytest.ini`, `testpaths = tests`).
 - **Unit tests**: `tests/unit/` -- fast, mocked, no network calls.
 - **Functional tests**: `tests/functional/` -- integration tests against real or staged services.
-- **Mock data**: `tests/mock_responses/` -- JSON fixtures for API responses.
-- **CI**: GitHub Actions runs the credential-free unit suite plus one functional leg per `tests/functional/v2/test_*.py` file (`agent`, `model`, ...) on Python 3.9 with a 30-minute timeout each. A new functional test file needs its own leg in `.github/workflows/main.yaml`; `tests/unit/test_ci_matrix_coverage.py` fails otherwise.
-- **Docstrings in tests**: Not enforced (ruff ignores `D` rules for `tests/**/*.py`).
+- **Mock data**: unit tests build API responses inline (plain dicts, `unittest.mock` stubs); there is no shared fixture directory.
+- **Backend asset ids**: never inline a 24-hex ObjectId in a functional test. `tests/functional/_assets.py` holds one named field per asset, per environment (`dev`/`test`/`prod`, selected by `BACKEND_URL`); read it through the `assets` fixture and override a single id for one run with `AIXPLAIN_TEST_<NAME>`. Each name is resolved against the backend the first time a test reads it (cached for the session), so a retired id fails only the tests that use it, by name; `tests/unit/test_functional_hygiene.py` fails if a bare literal reappears.
+- **CI**: GitHub Actions runs the credential-free unit suite plus one functional leg per `tests/functional/v2/test_*.py` file (`agent`, `model`, ...) on Python 3.9, each with its own step timeout (`timeout` in the leg's matrix entry: 30 or 45 minutes). A new functional test file needs its own leg in `.github/workflows/main.yaml`; `tests/unit/test_ci_matrix_coverage.py` fails otherwise.
+- **Docstrings in tests**: Not enforced (ruff ignores `D` rules for `tests/**/*.py`). Since `D` is the only selected rule set, `ruff check` reports nothing for tests; they are format-checked only.
 - Prefer targeted unit tests under `tests/unit/v2/`.
 
 ---

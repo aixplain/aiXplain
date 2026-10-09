@@ -18,12 +18,12 @@ from enum import Enum
 import pytest
 from unittest.mock import Mock
 
-from aixplain.v2.agent import Agent
-from aixplain.v2.enums import OwnershipType, SortBy, SortOrder, Supplier
-from aixplain.v2.integration import Integration
-from aixplain.v2.model import Model
-from aixplain.v2.skill import Skill
-from aixplain.v2.tool import Tool
+from aixplain import Agent
+from aixplain import OwnershipType, SortBy, SortOrder, Supplier
+from aixplain import Integration
+from aixplain import Model
+from aixplain import Skill
+from aixplain import Tool
 
 # Resources whose filters come straight from ``_populate_base_filters``, plus
 # the ones with overrides, so the fix is proven to be inherited rather than

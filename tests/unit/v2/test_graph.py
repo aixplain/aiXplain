@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aixplain.v2 import (
+from aixplain import (
     Agent,
     AgentNode,
     Action,

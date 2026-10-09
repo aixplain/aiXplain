@@ -14,6 +14,7 @@ from pathlib import Path
 
 from dataclasses_json import dataclass_json, config
 
+from ._expected_output import expected_output_to_wire
 from .enums import AttachmentType
 from .exceptions import APIError, ResourceError, ValidationError
 from .file import File
@@ -481,6 +482,8 @@ class ExecutionConfig:
         out: Dict[str, Any] = {}
 
         normalized = _normalize_execution_params(self.execution_params) or {}
+        if "expectedOutput" in normalized:
+            normalized["expectedOutput"] = expected_output_to_wire(normalized["expectedOutput"])
         # Resolve the run-time budget first so the deprecated fold can defer to it.
         budget = self.budget
 

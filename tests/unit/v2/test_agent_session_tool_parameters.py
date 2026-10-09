@@ -12,10 +12,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from aixplain.v2.agent import Agent
-from aixplain.v2.model import Model, Parameter
-from aixplain.v2.session import ExecutionConfig, Session, SessionMessage
-from aixplain.v2.tool import Tool
+from aixplain import Agent
+from aixplain import Model, Parameter
+from aixplain import ExecutionConfig, Session, SessionMessage
+from aixplain import Tool
 
 
 def _params_as_dict(parameters: List[dict]) -> Dict[str, Any]:

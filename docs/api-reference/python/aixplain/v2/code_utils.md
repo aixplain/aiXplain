@@ -3,10 +3,27 @@ sidebar_label: code_utils
 title: aixplain.v2.code_utils
 ---
 
+`from aixplain import UtilityModelInput, UtilityModelInputDict`
+
+
 Code parsing utilities for v2 utility models.
 
 Adapted from aixplain.modules.model.utils to avoid v1 import chain
 that triggers env var validation.
+
+### UtilityModelInputDict Objects
+
+```python
+class UtilityModelInputDict(TypedDict)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L31)
+
+The dict form of `UtilityModelInput`, on the same field names.
+
+``total=True``: ``name`` and ``description`` have no default on the struct,
+so marking them optional would let a dict type-check and then fail at
+runtime. Only ``type`` defaults.
 
 ### UtilityModelInput Objects
 
@@ -15,7 +32,7 @@ that triggers env var validation.
 class UtilityModelInput()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L26)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L45)
 
 Input parameter for a utility model.
 
@@ -23,7 +40,22 @@ Input parameter for a utility model.
 
 - `name` - The name of the input parameter.
 - `description` - A description of what this input parameter represents.
-- `type` - The data type of the input parameter.
+- `type` - The data type of the input parameter -- a `DataType` or its
+  string value (``"text"``, ``"boolean"``, ``"number"``).
+
+#### \_\_setattr\_\_
+
+```python
+def __setattr__(name: str, value: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L59)
+
+Coerce a string ``type`` into a `DataType` on every assignment.
+
+``to_dict`` reads ``self.type.value``, so a plain string left as-is would
+reach the wire as an ``AttributeError``. Coercing on assignment (not only
+in ``__post_init__``) keeps construction and later assignment identical.
 
 #### validate
 
@@ -31,7 +63,7 @@ Input parameter for a utility model.
 def validate()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L39)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L74)
 
 Validate that the input type is one of TEXT, BOOLEAN, or NUMBER.
 
@@ -41,7 +73,7 @@ Validate that the input type is one of TEXT, BOOLEAN, or NUMBER.
 def to_dict()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L44)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L79)
 
 Convert to dictionary representation.
 
@@ -54,7 +86,7 @@ def parse_code(
         backend_url: Optional[Text] = None) -> Tuple[Text, List, Text, Text]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L141)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L176)
 
 Parse and process code for utility model creation.
 
@@ -78,7 +110,7 @@ def parse_code_decorated(
         backend_url: Optional[Text] = None) -> Tuple[Text, List, Text, Text]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L207)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/code_utils.py#L242)
 
 Parse and process code that may be decorated with @utility_tool.
 

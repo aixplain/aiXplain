@@ -158,7 +158,7 @@ def test_v2_run_payload_carries_the_documented_metadata():
     """
     from unittest.mock import MagicMock
 
-    from aixplain.v2.agent import Agent
+    from aixplain import Agent
 
     agent = Agent.from_dict({"id": "agent-123", "name": "test-agent"})
     agent.context = MagicMock()
@@ -192,7 +192,7 @@ def test_v2_session_messages_carry_no_metadata():
     """
     from unittest.mock import MagicMock
 
-    from aixplain.v2.session import Session
+    from aixplain import Session
 
     session = Session.from_dict({"id": "session-123"})
     session.context = MagicMock()

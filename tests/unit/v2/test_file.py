@@ -8,8 +8,8 @@ import zipfile
 import pytest
 
 from aixplain import Aixplain
-from aixplain.v2 import File, FileType, Page, Privacy
-from aixplain.v2.exceptions import APIError, FileUploadError, ResourceError, ValidationError
+from aixplain import File, FileType, Page, Privacy
+from aixplain import APIError, FileUploadError, ResourceError, ValidationError
 
 
 @pytest.fixture
@@ -80,6 +80,12 @@ def test_constructor_rejects_invalid_source(aix, source):
     """Reject missing paths and unsupported URL schemes."""
     with pytest.raises(ValidationError):
         aix.File(source)
+
+
+def test_constructor_requires_a_source_name_or_id(aix):
+    """A File with nothing to upload and nothing to address is rejected before any request."""
+    with pytest.raises(ValidationError, match="requires a source, name, or backend ID"):
+        aix.File()
 
 
 def test_is_temp_is_not_a_constructor_parameter(tmp_path, aix):

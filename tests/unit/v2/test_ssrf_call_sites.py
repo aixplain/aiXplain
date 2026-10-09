@@ -58,7 +58,7 @@ def test_parse_code_decorated_refuses_a_private_url():
 
 def test_rlm_url_context_is_guarded():
     """``_resolve_url_context`` fetches a caller-supplied URL, so it is gated."""
-    from aixplain.v2.rlm import RLM
+    from aixplain import RLM
 
     with pytest.raises(UnsafeURLError):
         RLM._resolve_url_context(METADATA_URL)
@@ -71,7 +71,7 @@ def test_v2_file_source_url_is_guarded(tmp_path):
     is what would turn ``File("http://169.254.169.254/...")`` into an
     instance-credentials upload.
     """
-    from aixplain.v2.file import File
+    from aixplain import File
 
     file = File(source=METADATA_URL)
     file.context = SimpleNamespace(client=SimpleNamespace(timeout=(1, 1)))

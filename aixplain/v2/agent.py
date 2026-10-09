@@ -15,6 +15,7 @@ from dataclasses_json import dataclass_json, config
 
 from pydantic import BaseModel
 
+from ._expected_output import expected_output_to_wire
 from .enums import AssetStatus, AssetStatusValue, ResponseStatus
 from .model import Model
 from .file import File
@@ -465,6 +466,55 @@ class Artifact:
 
 @dataclass_json
 @dataclass
+class AgentError:
+    """Structured error of an agent run or step, sent on the wire as ``errorDetails`` ``{code, message}``."""
+
+    code: Optional[str] = None
+    message: Optional[str] = None
+
+    @classmethod
+    def _coerce(cls, value: Any) -> Optional["AgentError"]:
+        """Decode an ``errorDetails`` dict, or a legacy error string, without raising."""
+        if value is None or isinstance(value, cls):
+            return value
+        if isinstance(value, dict):
+            code, message = value.get("code"), value.get("message")
+            if code is None and message is None:
+                return None
+            return cls(code=code, message=message)
+        if isinstance(value, str) and value.strip():
+            return cls(message=value.strip())
+        return None
+
+
+def _with_legacy_step_outputs(steps: Any) -> Any:
+    """Give a failed step the ``ERROR: <message>`` output it carried before steps had an ``error`` field.
+
+    Returns copies of the changed step dicts and leaves the raw response alone:
+    callers that forward the raw steps (the engine's remote subagent traces)
+    must keep the error in ``error`` only.
+    """
+    if not isinstance(steps, list):
+        return steps
+    restored = []
+    for step in steps:
+        if not isinstance(step, dict):
+            restored.append(step)
+            continue
+        new_step = dict(step)
+        error = step.get("error")
+        if isinstance(error, dict) and step.get("output") in (None, ""):
+            text = error.get("message") or error.get("code")
+            if text:
+                new_step["output"] = f"ERROR: {text}"
+        if isinstance(step.get("steps"), list):
+            new_step["steps"] = _with_legacy_step_outputs(step["steps"])
+        restored.append(new_step)
+    return restored
+
+
+@dataclass_json
+@dataclass
 class AgentResponseData:
     """Data structure for agent response."""
 
@@ -474,6 +524,9 @@ class AgentResponseData:
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
+    error: Optional[AgentError] = field(
+        default=None, metadata=config(field_name="errorDetails", decoder=AgentError._coerce)
+    )
     critiques: Optional[str] = ""
     # Declared Optional only to keep dataclasses_json quiet: an explicit
     # ``"artifacts": null`` on a non-Optional field makes it emit a
@@ -502,6 +555,8 @@ class AgentResponseData:
         # ``[]`` rather than ``None``. Re-coercing an already-decoded list is a
         # cheap no-op, since ``Artifact`` instances pass straight through.
         self.artifacts = Artifact._coerce_list(self.artifacts)
+        self.error = AgentError._coerce(self.error)
+        self.steps = _with_legacy_step_outputs(self.steps)
         if self.governance is None:
             self.governance = {
                 "status": self._governance_status,
@@ -521,15 +576,27 @@ class AgentRunResult(Result):
     used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
     run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
+    error: Optional[AgentError] = field(
+        default=None, metadata=config(field_name="errorDetails", decoder=AgentError._coerce)
+    )
 
     def __post_init__(self) -> None:
-        """Promote diagnostic codes the backend nests under ``data``.
+        """Promote diagnostic codes and the structured error the backend nests under ``data``.
 
         The poll body carries them at ``data.diagnosticErrorCodes`` (or only
         inside ``executionStats`` on older builds), never top-level.
         """
         if not self.diagnostic_error_codes:
             self.diagnostic_error_codes = self._codes_from_data()
+        data = self.data
+        if isinstance(data, AgentResponseData):
+            data_error = data.error
+        elif isinstance(data, dict):
+            # ``data`` is a bare dict when the result was built by hand rather than decoded.
+            data_error = AgentError._coerce(data.get("errorDetails") or data.get("error_details"))
+        else:
+            data_error = None
+        self.error = AgentError._coerce(self.error) or data_error
 
     def _codes_from_data(self) -> List[str]:
         """Extract diagnostic codes from ``data`` or its execution stats."""
@@ -2464,14 +2531,11 @@ class Agent(
 
         # Persist expected_output server-side so fetched agents and runs that
         # don't pass executionParams.expectedOutput (the backend falls back to
-        # the stored value) keep the JSON contract.
+        # the stored value) keep the JSON contract. Encoded exactly as the run
+        # paths encode it: a Pydantic instance or a dict stored as an object came
+        # back to the engine as a Python repr rather than JSON.
         if "expectedOutput" in payload:
-            expected_output = payload["expectedOutput"]
-            if isinstance(expected_output, type) and issubclass(expected_output, BaseModel):
-                payload["expectedOutput"] = json.dumps(expected_output.model_json_schema())
-            elif isinstance(expected_output, BaseModel):
-                # Convert BaseModel instance to dict for save
-                payload["expectedOutput"] = expected_output.model_dump()
+            payload["expectedOutput"] = expected_output_to_wire(payload["expectedOutput"])
 
         return payload
 
@@ -2506,25 +2570,21 @@ class Agent(
         for k, v in defaults.items():
             execution_params.setdefault(k, v)
 
-        # Handle BaseModel conversion for expectedOutput (following legacy pattern)
         # Use agent's expected_output if none provided in execution_params
         if "expectedOutput" not in execution_params:
             execution_params["expectedOutput"] = self.expected_output
 
         expected_output = execution_params["expectedOutput"]
 
-        # For non-JSON formats, don't send empty string expected_output
+        # The backend rejects any non-string executionParams.expectedOutput with a 400
+        # ("executionParams.expectedOutput must be a string"), so everything but a
+        # string or None is JSON-encoded -- by the same helper ``build_save_payload``
+        # and session runs use, so the three paths cannot drift apart again.
         if execution_params.get("outputFormat") in ["text", "markdown"] and expected_output == "":
+            # For non-JSON formats, don't send empty string expected_output
             execution_params["expectedOutput"] = None
-        elif (
-            expected_output is not None and isinstance(expected_output, type) and issubclass(expected_output, BaseModel)
-        ):
-            execution_params["expectedOutput"] = expected_output.model_json_schema()
-        elif isinstance(expected_output, BaseModel):
-            execution_params["expectedOutput"] = expected_output.model_dump()
-        elif isinstance(expected_output, dict):
-            # Backend expects executionParams.expectedOutput as a string.
-            execution_params["expectedOutput"] = json.dumps(expected_output)
+        else:
+            execution_params["expectedOutput"] = expected_output_to_wire(expected_output)
 
         # Run-time budget: the agent's current ``budget`` state travels inside
         # ``executionParams.budget`` (the backend merges it field-by-field over the

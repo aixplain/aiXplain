@@ -14,25 +14,32 @@ Use `llms-full.txt` when you want the complete SDK v2 reference in one context w
 - [aixplain.v2](api-reference/python/aixplain/v2/init.md): aiXplain SDK v2 - Modern Python SDK for the aiXplain platform.
 - [aixplain.v2.actions](api-reference/python/aixplain/v2/actions.md): Unified Actions / Inputs hierarchy for models and tools.
 - [aixplain.v2.agent](api-reference/python/aixplain/v2/agent.md): Agent module for aiXplain v2 SDK.
+- [aixplain.v2.agent_evaluator](api-reference/python/aixplain/v2/agent_evaluator.md): Agent evaluation utilities for aiXplain v2 SDK.
 - [aixplain.v2.agent_progress](api-reference/python/aixplain/v2/agent_progress.md): Agent progress tracking and display module.
 - [aixplain.v2.api_key](api-reference/python/aixplain/v2/api_key.md): API Key management module for aiXplain v2 API.
 - [aixplain.v2.client](api-reference/python/aixplain/v2/client.md): Client module for making HTTP requests to the aiXplain API.
 - [aixplain.v2.code_utils](api-reference/python/aixplain/v2/code_utils.md): Code parsing utilities for v2 utility models.
 - [aixplain.v2.core](api-reference/python/aixplain/v2/core.md): Core module for aiXplain v2 API.
 - [aixplain.v2.enums](api-reference/python/aixplain/v2/enums.md): V2 enums module - self-contained to avoid legacy dependencies.
-- [aixplain.v2.enums_include](api-reference/python/aixplain/v2/enums_include.md): Compatibility imports for legacy enums in v2.
+- [aixplain.v2.eval_experiment](api-reference/python/aixplain/v2/eval_experiment.md): Experiment definitions and local filesystem cache for agent evaluations.
+- [aixplain.v2.eval_results_display](api-reference/python/aixplain/v2/eval_results_display.md): Display helpers for `AgentEvaluationRun` results.
 - [aixplain.v2.exceptions](api-reference/python/aixplain/v2/exceptions.md): Unified error hierarchy for v2 system.
-- [aixplain.v2.file](api-reference/python/aixplain/v2/file.md): Simple Resource class for file handling and S3 uploads.
+- [aixplain.v2.file](api-reference/python/aixplain/v2/file.md): Unified File asset resource for files and directories.
+- [aixplain.v2.graph](api-reference/python/aixplain/v2/graph.md): Portable static graph definitions for aiXplain v2 agents.
 - [aixplain.v2.inspector](api-reference/python/aixplain/v2/inspector.md): Inspector module for v2 API - Team agent inspection and validation.
 - [aixplain.v2.integration](api-reference/python/aixplain/v2/integration.md): Integration module for managing external service integrations.
+- [aixplain.v2.issue](api-reference/python/aixplain/v2/issue.md): Issue reporting helpers for the V2 SDK.
 - [aixplain.v2.meta_agents](api-reference/python/aixplain/v2/meta_agents.md): Meta agents module - Debugger and other meta-agent utilities.
 - [aixplain.v2.mixins](api-reference/python/aixplain/v2/mixins.md): Mixins for v2 API classes.
 - [aixplain.v2.model](api-reference/python/aixplain/v2/model.md): Model resource for v2 API.
+- [aixplain.v2.plain_data](api-reference/python/aixplain/v2/plain_data.md): Coercion of plain dicts into the v2 config structs (PROD-2921).
 - [aixplain.v2.resource](api-reference/python/aixplain/v2/resource.md): Resource management module for v2 API.
 - [aixplain.v2.rlm](api-reference/python/aixplain/v2/rlm.md): RLM (Recursive Language Model) for aiXplain SDK v2.
+- [aixplain.v2.session](api-reference/python/aixplain/v2/session.md): Session module for aiXplain v2 SDK.
+- [aixplain.v2.skill](api-reference/python/aixplain/v2/skill.md): Skill resource module.
 - [aixplain.v2.tool](api-reference/python/aixplain/v2/tool.md): Tool resource module for managing tools and their integrations.
+- [aixplain.v2.trigger](api-reference/python/aixplain/v2/trigger.md): Trigger management module for the aiXplain v2 API.
 - [aixplain.v2.upload_utils](api-reference/python/aixplain/v2/upload_utils.md): File upload utilities for v2 Resource system.
-- [aixplain.v2.utility](api-reference/python/aixplain/v2/utility.md): Utility resource module for managing custom Python code utilities.
 
 ## Regeneration
 

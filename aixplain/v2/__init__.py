@@ -2,8 +2,26 @@
 
 from .core import Aixplain
 from .rlm import RLM, RLMResult
+from .model import (
+    Model,
+    ModelResult,
+    ModelResponseStreamer,
+    Usage,
+    StreamChunk,
+    Message,
+    Parameter,
+    Pricing,
+    VendorInfo,
+    Version,
+    PromptTokensDetails,
+    CompletionTokensDetails,
+    Detail,
+)
 from .agent import (
     Agent,
+    AgentError,
+    AgentResponseData,
+    AgentRunResult,
     Artifact,
     Budget,
     BudgetDict,
@@ -12,13 +30,24 @@ from .agent import (
     ConversationMessage,
     OutputFormat,
     OutputFormatValue,
+    RoleModelRef,
     Task,
     TaskDict,
 )
-from .tool import Tool
-from .skill import Skill
+from .tool import Tool, ToolBatch, ToolResult
+from .skill import Skill, SkillBatch
 from .actions import Input, Inputs, Action, Actions
-from .integration import TriggerTypeSpec, TriggerEventOption, TriggerTypes
+from .integration import (
+    ActionInputSpec,
+    ActionSpec,
+    Integration,
+    IntegrationResult,
+    ToolId,
+    TriggerTypeSpec,
+    TriggerEventOption,
+    TriggerTypes,
+)
+from .mixins import ParameterDefinition, ParameterInput, ToolDict
 from .trigger import (
     Trigger,
     TriggerConfiguration,
@@ -38,6 +67,7 @@ from .graph import (
     GraphDict,
     InspectorNode,
     LLMNode,
+    Node,
     RawNode,
     RetryPolicy,
     RetryPolicyDict,
@@ -46,9 +76,9 @@ from .graph import (
     StaticGraphStrategyDict,
     ToolNode,
 )
-from .resource import Page
+from .resource import DeleteResult, Page, Result
 from .upload_utils import FileUploader, upload_file, validate_file_for_upload
-from .inspector import Inspector
+from .inspector import AUTO_DEFAULT_MODEL_ID, Inspector
 from .session import (
     ExecutionConfig,
     ExecutionConfigDict,
@@ -93,6 +123,7 @@ from .api_key import (
     APIKey,
     APIKeyLimits,
     APIKeyLimitsDict,
+    APIKeyLimitsInput,
     APIKeyUsageLimit,
     TokenType,
     TokenTypeValue,
@@ -158,7 +189,24 @@ __all__ = [
     "Aixplain",
     "RLM",
     "RLMResult",
+    "Model",
+    "ModelResult",
+    "ModelResponseStreamer",
+    "Usage",
+    "StreamChunk",
+    "Message",
+    "Parameter",
+    "Pricing",
+    "VendorInfo",
+    "Version",
+    "PromptTokensDetails",
+    "CompletionTokensDetails",
+    "Detail",
     "Agent",
+    "AgentError",
+    "AgentResponseData",
+    "AgentRunResult",
+    "RoleModelRef",
     "Artifact",
     "Budget",
     "BudgetDict",
@@ -170,9 +218,14 @@ __all__ = [
     "Task",
     "TaskDict",
     "Tool",
+    "ToolResult",
+    "ToolBatch",
     "Skill",
+    "SkillBatch",
     "File",
     "Page",
+    "Result",
+    "DeleteResult",
     "Graph",
     "GraphDict",
     "Edge",
@@ -184,6 +237,7 @@ __all__ = [
     "StaticGraphStrategy",
     "StaticGraphStrategyDict",
     "RawNode",
+    "Node",
     "LLMNode",
     "ToolNode",
     "AgentNode",
@@ -201,6 +255,7 @@ __all__ = [
     "ExecutionConfigDict",
     # Inspector
     "Inspector",
+    "AUTO_DEFAULT_MODEL_ID",
     # Meta-agents
     "Debugger",
     "DebugResult",
@@ -238,6 +293,7 @@ __all__ = [
     "APIKey",
     "APIKeyLimits",
     "APIKeyLimitsDict",
+    "APIKeyLimitsInput",
     "APIKeyUsageLimit",
     "TokenType",
     "TokenTypeValue",
@@ -304,6 +360,16 @@ __all__ = [
     "Inputs",
     "Action",
     "Actions",
+    # Integration
+    "Integration",
+    "ActionSpec",
+    "ActionInputSpec",
+    "IntegrationResult",
+    "ToolId",
+    # Tool-description TypedDicts (the shape ``as_tool()`` returns)
+    "ToolDict",
+    "ParameterInput",
+    "ParameterDefinition",
     # Triggers
     "Trigger",
     "TriggerConfiguration",

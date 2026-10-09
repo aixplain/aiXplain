@@ -10,25 +10,12 @@ from unittest.mock import Mock, patch, call
 
 import pytest
 
-from aixplain.v2.session import (
-    EXECUTION_PARAMS_MAP,
-    ExecutionConfig,
-    Session,
-    SessionMessage,
-    SessionMessageAttachment,
-    _mime_to_attachment_type,
-    _normalize_execution_params,
-)
-from aixplain.v2.enums import (
-    SessionStatus,
-    RunStatus,
-    MessageRole,
-    Reaction,
-    AttachmentType,
-)
-from aixplain.v2.agent import Agent, Budget
-from aixplain.v2.file import File
-from aixplain.v2.exceptions import ValidationError, APIError, ResourceError
+from aixplain import ExecutionConfig, Session, SessionMessage, SessionMessageAttachment
+from aixplain.v2.session import EXECUTION_PARAMS_MAP, _mime_to_attachment_type, _normalize_execution_params
+from aixplain import SessionStatus, RunStatus, MessageRole, Reaction, AttachmentType
+from aixplain import Agent, Budget
+from aixplain import File
+from aixplain import ValidationError, APIError, ResourceError
 
 
 # ---------------------------------------------------------------------------
@@ -1078,7 +1065,7 @@ class TestCoreSessionRegistration:
     """Tests that Session is properly registered in Aixplain."""
 
     def test_session_registered_on_init(self):
-        from aixplain.v2.core import Aixplain
+        from aixplain import Aixplain
 
         ax = Aixplain(api_key="test_key")
         assert ax.Session is not None
@@ -1086,7 +1073,7 @@ class TestCoreSessionRegistration:
         assert ax.Session.context is ax
 
     def test_session_unique_per_instance(self):
-        from aixplain.v2.core import Aixplain
+        from aixplain import Aixplain
 
         ax1 = Aixplain(api_key="key1")
         ax2 = Aixplain(api_key="key2")
@@ -1095,7 +1082,7 @@ class TestCoreSessionRegistration:
         assert ax2.Session.context is ax2
 
     def test_session_enums_on_aixplain_class(self):
-        from aixplain.v2.core import Aixplain
+        from aixplain import Aixplain
 
         assert Aixplain.SessionStatus is SessionStatus
         assert Aixplain.RunStatus is RunStatus
@@ -1210,16 +1197,12 @@ class TestExecutionConfigBudget:
 
     def test_budget_instance_serializes_into_execution_params(self):
         cfg = ExecutionConfig(budget=Budget(max_cost=0.5, max_iterations=10))
-        assert cfg.to_api_dict() == {
-            "executionParams": {"budget": {"maxCost": 0.5, "maxIterations": 10}}
-        }
+        assert cfg.to_api_dict() == {"executionParams": {"budget": {"maxCost": 0.5, "maxIterations": 10}}}
 
     def test_budget_accepts_dict(self):
         cfg = ExecutionConfig(budget={"max_duration_seconds": 120})
         assert isinstance(cfg.budget, Budget)
-        assert cfg.to_api_dict() == {
-            "executionParams": {"budget": {"maxDurationSeconds": 120}}
-        }
+        assert cfg.to_api_dict() == {"executionParams": {"budget": {"maxDurationSeconds": 120}}}
 
     def test_deprecated_max_iterations_warns_and_folds_into_budget(self):
         cfg = ExecutionConfig(execution_params={"max_iterations": 7})
@@ -1262,27 +1245,21 @@ class TestExecutionConfigBudget:
             cfg.to_api_dict()
         conflict = [w for w in caught if w.category is UserWarning and "precedence" in str(w.message)]
         assert conflict, "expected a budget-wins UserWarning"
-        assert conflict[0].filename == __file__, (
-            f"conflict warning resolved to {conflict[0].filename}, not the caller"
-        )
+        assert conflict[0].filename == __file__, f"conflict warning resolved to {conflict[0].filename}, not the caller"
 
     def test_budget_merges_with_other_execution_params(self):
         cfg = ExecutionConfig(
             execution_params={"max_tokens": 256},
             budget=Budget(max_cost=1.0),
         )
-        assert cfg.to_api_dict() == {
-            "executionParams": {"maxTokens": 256, "budget": {"maxCost": 1.0}}
-        }
+        assert cfg.to_api_dict() == {"executionParams": {"maxTokens": 256, "budget": {"maxCost": 1.0}}}
 
     def test_from_dict_legacy_max_iterations_folds_silently(self):
         # Backend payload with a legacy standalone maxIterations must NOT warn
         # on load, and must fold into budget.
         with warnings.catch_warnings():
             warnings.simplefilter("error", DeprecationWarning)
-            cfg = ExecutionConfig.from_dict(
-                {"executionParams": {"maxIterations": 4}}
-            )
+            cfg = ExecutionConfig.from_dict({"executionParams": {"maxIterations": 4}})
         # Round-trips to the budget shape with no standalone maxIterations.
         out = cfg.to_api_dict()
         assert out == {"executionParams": {"budget": {"maxIterations": 4}}}
@@ -1290,9 +1267,7 @@ class TestExecutionConfigBudget:
     def test_from_dict_legacy_max_iterations_defers_to_existing_budget(self):
         with warnings.catch_warnings():
             warnings.simplefilter("error", DeprecationWarning)
-            cfg = ExecutionConfig.from_dict(
-                {"executionParams": {"maxIterations": 4}, "budget": {"maxIterations": 9}}
-            )
+            cfg = ExecutionConfig.from_dict({"executionParams": {"maxIterations": 4}, "budget": {"maxIterations": 9}})
         assert cfg.to_api_dict()["executionParams"]["budget"]["maxIterations"] == 9
 
     def test_from_dict_lifts_nested_budget_out_of_execution_params(self):
@@ -1313,9 +1288,7 @@ class TestExecutionConfigBudget:
         assert cfg.to_api_dict() == sent  # round-trip is stable
 
     def test_from_dict_nested_budget_defers_to_an_explicit_top_level_one(self):
-        cfg = ExecutionConfig.from_dict(
-            {"executionParams": {"budget": {"maxCost": 5.0}}, "budget": {"maxCost": 1.0}}
-        )
+        cfg = ExecutionConfig.from_dict({"executionParams": {"budget": {"maxCost": 5.0}}, "budget": {"maxCost": 1.0}})
 
         assert cfg.budget == Budget(max_cost=1.0)
         assert cfg.to_api_dict() == {"executionParams": {"budget": {"maxCost": 1.0}}}

@@ -3,29 +3,37 @@ sidebar_label: meta_agents
 title: aixplain.v2.meta_agents
 ---
 
+`from aixplain import DebugResult, Debugger`
+
+
 Meta agents module - Debugger and other meta-agent utilities.
 
 This module provides meta-agents that operate on top of other agents,
 such as the Debugger for analyzing agent responses.
 
 Example usage:
-    from aixplain import Aixplain
 
-    # Initialize the client
-    aix = Aixplain(&quot;&lt;api_key&gt;&quot;)
+```python
+from aixplain import Aixplain
 
-    # Standalone usage
-    debugger = aix.Debugger()
-    result = debugger.run(&quot;Analyze this agent output: ...&quot;)
+# Initialize the client
+aix = Aixplain("<api_key>")
 
-    # Or with custom prompt
-    result = debugger.run(content=&quot;...&quot;, prompt=&quot;Focus on error handling&quot;)
+# Standalone usage
+debugger = aix.Debugger()
+result = debugger.run("Analyze this agent output: ...")
 
-    # From agent response (chained)
-    agent = aix.Agent.get(&quot;my_agent_id&quot;)
-    response = agent.run(&quot;Hello!&quot;)
-    debug_result = response.debug()  # Uses default prompt
-    debug_result = response.debug(&quot;Why did it take so long?&quot;)  # Custom prompt
+# Or with custom prompt
+result = debugger.run(content="...", prompt="Focus on error handling")
+
+# From agent response (chained)
+agent = aix.Agent.get("my_agent_id")
+response = agent.run("Hello!")
+debug_result = response.debug()  # Uses default prompt
+debug_result = response.debug("Why did it take so long?")  # Custom prompt
+```
+
+
 
 ### DebugResult Objects
 
@@ -84,16 +92,21 @@ agent runs, errors, and potential improvements.
 
 **Example**:
 
-  # Create a debugger through the client
-  aix = Aixplain(&quot;&lt;api_key&gt;&quot;)
-  debugger = aix.Debugger()
   
-  # Analyze content directly
-  result = debugger.run(&quot;Agent returned: &#x27;Error 500&#x27;&quot;)
+```python
+# Create a debugger through the client
+aix = Aixplain("<api_key>")
+debugger = aix.Debugger()
+
+# Analyze content directly
+result = debugger.run("Agent returned: 'Error 500'")
+
+# Debug an agent response
+agent_result = agent.run("Hello!")
+debug_result = debugger.debug_response(agent_result)
+```
   
-  # Debug an agent response
-  agent_result = agent.run(&quot;Hello!&quot;)
-  debug_result = debugger.debug_response(agent_result)
+  
 
 #### \_\_init\_\_
 
@@ -139,9 +152,14 @@ or agent output directly.
 
 **Example**:
 
-  debugger = aix.Debugger()
-  result = debugger.run(&quot;Agent returned: &#x27;Error 500&#x27;&quot;)
-  print(result.analysis)
+  
+```python
+debugger = aix.Debugger()
+result = debugger.run("Agent returned: 'Error 500'")
+print(result.analysis)
+```
+  
+  
 
 #### debug\_response
 
@@ -164,7 +182,7 @@ insights into what happened during the agent execution.
 - `response` - The AgentRunResult to analyze.
 - `prompt` - Optional custom prompt to guide the debugging analysis.
 - `execution_id` - Optional execution ID override. If not provided, will be
-  extracted from the response&#x27;s request_id or poll URL.
+  extracted from the response's request_id or poll URL.
   The execution_id allows the debugger to fetch additional
   information like logs from the backend.
 - `**kwargs` - Additional parameters to pass to the underlying agent.
@@ -177,9 +195,14 @@ insights into what happened during the agent execution.
 
 **Example**:
 
-  agent_result = agent.run(&quot;Hello!&quot;)
-  debug_result = debugger.debug_response(agent_result, prompt=&quot;Why is it slow?&quot;)
   
-  # Or with explicit execution ID
-  debug_result = debugger.debug_response(agent_result, execution_id=&quot;abc-123&quot;)
+```python
+agent_result = agent.run("Hello!")
+debug_result = debugger.debug_response(agent_result, prompt="Why is it slow?")
+
+# Or with explicit execution ID
+debug_result = debugger.debug_response(agent_result, execution_id="abc-123")
+```
+  
+  
 

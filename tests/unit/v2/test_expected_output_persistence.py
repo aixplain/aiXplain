@@ -12,9 +12,10 @@ import json
 from unittest.mock import MagicMock
 from typing import Optional
 
+import pytest
 from pydantic import BaseModel
 
-from aixplain.v2.agent import Agent
+from aixplain import Agent, ExecutionConfig, ValidationError
 
 
 class ChatReply(BaseModel):
@@ -60,11 +61,29 @@ class TestSavePayloadPersistsExpectedOutput:
         assert isinstance(sent, str), "BaseModel-class expected_output must be persisted as a JSON string"
         assert json.loads(sent) == ChatReply.model_json_schema()
 
-    def test_basemodel_instance_is_still_dumped_to_dict(self):
+    def test_basemodel_instance_is_persisted_as_json_string(self):
+        """An instance used to be saved as a dict, which the engine read back as a Python repr."""
         instance = ChatReply(content="hi", artifact=None)
         payload = _json_agent(expected_output=instance).build_save_payload()
 
-        assert payload.get("expectedOutput") == instance.model_dump()
+        sent = payload.get("expectedOutput")
+        assert isinstance(sent, str), "a BaseModel-instance expected_output must be persisted as a JSON string"
+        assert json.loads(sent) == instance.model_dump()
+
+    def test_dict_is_persisted_as_json_string_and_strings_pass_through(self):
+        schema = {"type": "object", "properties": {"name": {"type": "string"}}}
+
+        assert _json_agent(expected_output=schema).build_save_payload()["expectedOutput"] == json.dumps(schema)
+        assert _json_agent(expected_output='{"a": 1}').build_save_payload()["expectedOutput"] == '{"a": 1}'
+
+    def test_save_and_run_send_the_same_string(self):
+        """One encoder for both paths: a run falling back to the stored value sees what a run would send."""
+        for expected_output in (ChatReply, ChatReply(content="hi"), {"type": "object"}):
+            agent = _json_agent(expected_output=expected_output)
+
+            sent_on_run = agent.build_run_payload(query="hi")["executionParams"]["expectedOutput"]
+
+            assert sent_on_run == agent.build_save_payload()["expectedOutput"], expected_output
 
 
 class TestSaveDoesNotLoseExpectedOutput:
@@ -86,3 +105,111 @@ class TestSaveDoesNotLoseExpectedOutput:
         sent = run_payload["executionParams"]["expectedOutput"]
         assert sent is not None, "run() after save() must send the JSON contract to the backend"
         assert json.loads(sent) == ChatReply.model_json_schema()
+
+
+class TestRunPayloadSendsExpectedOutputAsString:
+    """``executionParams.expectedOutput`` is always a string on the wire.
+
+    The backend answers a non-string with ``400 executionParams.expectedOutput must
+    be a string``; the first live CI run of the agent-lifecycle leg hit exactly that
+    when a run passed ``execution_params={"expected_output": People}``.
+    """
+
+    def test_basemodel_class_in_execution_params_is_sent_as_schema_string(self):
+        payload = _json_agent().build_run_payload(
+            query="hi", execution_params={"output_format": "json", "expected_output": ChatReply}
+        )
+
+        sent = payload["executionParams"]["expectedOutput"]
+        assert isinstance(sent, str)
+        assert json.loads(sent) == ChatReply.model_json_schema()
+
+    def test_unsaved_agent_basemodel_class_is_sent_as_the_string_save_persists(self):
+        agent = _json_agent()
+
+        sent = agent.build_run_payload(query="hi")["executionParams"]["expectedOutput"]
+
+        assert sent == agent.build_save_payload()["expectedOutput"]
+
+    def test_basemodel_instance_is_sent_as_json_string(self):
+        instance = ChatReply(content="hi", artifact=None)
+        payload = _json_agent(expected_output=instance).build_run_payload(query="hi")
+
+        sent = payload["executionParams"]["expectedOutput"]
+        assert isinstance(sent, str)
+        assert json.loads(sent) == instance.model_dump()
+
+    def test_list_in_execution_params_is_sent_as_json_string(self):
+        """Session runs always encoded a list; the direct run path used to send it raw."""
+        names = ["Ana", "Bob"]
+        payload = _json_agent().build_run_payload(
+            query="hi", execution_params={"output_format": "json", "expected_output": names}
+        )
+
+        assert payload["executionParams"]["expectedOutput"] == json.dumps(names)
+
+    def test_empty_string_is_dropped_for_text_formats(self):
+        agent = _json_agent(output_format="text", expected_output="")
+
+        assert agent.build_run_payload(query="hi")["executionParams"]["expectedOutput"] is None
+
+
+class TestSessionExecutionConfigSendsExpectedOutputAsString:
+    """Session runs go through ``ExecutionConfig.to_api_dict``, not ``build_run_payload``.
+
+    The same ``400 executionParams.expectedOutput must be a string`` applies there, so
+    the session path encodes ``expected_output`` the way the direct run path does.
+    """
+
+    def test_basemodel_class_is_sent_as_schema_string(self):
+        sent = ExecutionConfig(execution_params={"expected_output": ChatReply}).to_api_dict()
+
+        assert json.loads(sent["executionParams"]["expectedOutput"]) == ChatReply.model_json_schema()
+
+    def test_basemodel_instance_is_sent_as_json_string(self):
+        instance = ChatReply(content="hi")
+        sent = ExecutionConfig(execution_params={"expectedOutput": instance}).to_api_dict()
+
+        assert json.loads(sent["executionParams"]["expectedOutput"]) == instance.model_dump()
+
+    def test_dict_is_sent_as_json_string_and_strings_pass_through(self):
+        as_dict = ExecutionConfig(execution_params={"expected_output": {"type": "object"}}).to_api_dict()
+        as_str = ExecutionConfig(execution_params={"expected_output": "a list of names"}).to_api_dict()
+
+        assert as_dict["executionParams"]["expectedOutput"] == '{"type": "object"}'
+        assert as_str["executionParams"]["expectedOutput"] == "a list of names"
+
+
+class TestEveryNonStringValueIsEncoded:
+    """Anything other than a string or ``None`` goes out as JSON, on all three paths.
+
+    The encoder used to handle only Pydantic, dicts and lists and pass the rest through,
+    so ``expected_output=("name", "age")`` still drew the 400 this encoder exists to stop.
+    """
+
+    def test_tuples_and_scalars_are_json_encoded_on_run_save_and_session(self):
+        for value, wire in ((("name", "age"), '["name", "age"]'), (3, "3"), (True, "true"), (1.5, "1.5")):
+            on_save = _json_agent(expected_output=value).build_save_payload()
+            on_run = _json_agent().build_run_payload(query="hi", execution_params={"expected_output": value})
+            on_session = ExecutionConfig(execution_params={"expected_output": value}).to_api_dict()
+
+            assert on_save["expectedOutput"] == wire, value
+            assert on_run["executionParams"]["expectedOutput"] == wire, value
+            assert on_session["executionParams"]["expectedOutput"] == wire, value
+
+    def test_a_value_json_cannot_encode_is_a_validation_error(self):
+        with pytest.raises(ValidationError, match="object cannot be sent as JSON"):
+            ExecutionConfig(execution_params={"expected_output": object()}).to_api_dict()
+
+    def test_non_ascii_text_is_encoded_the_same_way_for_dicts_and_models(self):
+        """A dict used to be ``\\u``-escaped while the equivalent model kept UTF-8."""
+
+        class Reply(BaseModel):
+            name: str
+
+        as_dict = _json_agent(expected_output={"name": "علي"}).build_save_payload()["expectedOutput"]
+        as_model = _json_agent(expected_output=Reply(name="علي")).build_save_payload()["expectedOutput"]
+
+        assert as_dict == '{"name": "علي"}'
+        assert json.loads(as_dict) == json.loads(as_model) == {"name": "علي"}
+        assert "\\u" not in as_dict and "\\u" not in as_model

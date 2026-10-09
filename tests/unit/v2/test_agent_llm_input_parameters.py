@@ -12,8 +12,8 @@ from typing import Any, List, Optional
 
 from unittest.mock import Mock
 
-from aixplain.v2.agent import Agent
-from aixplain.v2.model import Model, Parameter
+from aixplain import Agent
+from aixplain import Model, Parameter
 
 
 def _agent_for_save_payload(**kwargs: Any) -> Agent:
@@ -198,6 +198,81 @@ class TestAgentLlmInputParametersInSavePayload:
             "responseGeneratorId",
         ):
             assert legacy_key not in payload
+
+
+class TestAgentLlmInputParametersInRunPayload:
+    """Model input mutations must flow into ``build_run_payload()`` as run-time overrides.
+
+    The run shape is top-level ``modelParameters: {llm: [{name, value}]}``; the
+    backend applies it over the persisted agent. ``reasoning_effort`` is the
+    canonical parameter a caller sets at run time, so assert it lands on the
+    wire under the camelCase ``reasoningEffort`` key.
+    """
+
+    def test_reasoning_effort_is_emitted_in_run_payload(self):
+        llm = _reasoning_model()
+        llm.inputs.reasoning_effort = "low"
+
+        agent = _agent_for_save_payload(name="n", description="d", llm=llm)
+        payload = agent.build_run_payload(query="hi")
+
+        assert payload["modelParameters"] == {"llm": [{"name": "reasoningEffort", "value": "low"}]}
+
+    def test_no_model_parameters_key_when_no_inputs_set(self):
+        agent = _agent_for_save_payload(name="n", description="d", llm=_reasoning_model())
+
+        payload = agent.build_run_payload(query="hi")
+
+        assert "modelParameters" not in payload
+
+
+class TestRoleOverridesReachRunPayload:
+    """Role overrides must reach the run payload the Temporal worker consumes.
+
+    ``build_run_payload`` is the SDK half of the worker path in
+    ``aixplain-agents`` (its ``17_team_with_tools.json`` payload is the
+    equivalent shape): the saved agent supplies the role ids, and per-role
+    parameter overrides ride along as ``modelParameters``. If this class stops
+    passing, an override is silently dropped before the worker ever sees it.
+    """
+
+    @staticmethod
+    def _team_agent() -> Agent:
+        return _agent_for_save_payload(
+            name="team",
+            description="d",
+            id="team-1",
+            agents=["sub-1"],
+            llm={"id": "llm-1", "parameters": {"reasoning_effort": "high"}},
+            planner={"id": "planner-1", "parameters": {"temperature": "0.1"}},
+            supervisor={"id": "supervisor-1", "parameters": {"temperature": "0.2"}},
+            response_generator={"id": "responder-1", "parameters": {"temperature": "0.3"}},
+        )
+
+    def test_model_parameters_carry_every_role(self):
+        """Every role with parameters is emitted under its wire run key."""
+        payload = self._team_agent().build_run_payload(query="hi")
+
+        assert payload["modelParameters"] == {
+            "llm": [{"name": "reasoning_effort", "value": "high"}],
+            "planner": [{"name": "temperature", "value": "0.1"}],
+            "supervisor": [{"name": "temperature", "value": "0.2"}],
+            "responder": [{"name": "temperature", "value": "0.3"}],
+        }
+
+    def test_no_legacy_role_keys_on_the_run_payload(self):
+        """The run payload uses the nested shape, not the v1 top-level ids."""
+        payload = self._team_agent().build_run_payload(query="hi")
+
+        for legacy_key in ("llmId", "plannerId", "supervisorId", "responseGeneratorId"):
+            assert legacy_key not in payload
+
+    def test_role_without_parameters_is_omitted(self):
+        """A bare role id has nothing to override, so it stays out of the payload."""
+        agent = _agent_for_save_payload(name="t", description="d", planner="planner-1")
+        payload = agent.build_run_payload(query="hi")
+
+        assert "modelParameters" not in payload
 
 
 class TestRoleRefsSurviveToDict:

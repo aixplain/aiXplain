@@ -3,9 +3,12 @@ sidebar_label: trigger
 title: aixplain.v2.trigger
 ---
 
+`from aixplain import Trigger, TriggerConfiguration, TriggerConfigurationDict, TriggerRepeatRule, TriggerRepeatRuleDict`
+
+
 Trigger management module for the aiXplain v2 API.
 
-A :class:`Trigger` fires an agent with an ``input`` (the query) either on a time
+A `Trigger` fires an agent with an ``input`` (the query) either on a time
 schedule (once / daily / weekly / monthly / interval) or on an external event
 (e.g. a Composio integration event such as a new Gmail email).
 
@@ -14,6 +17,30 @@ triggers are orchestrated over the existing endpoints: the SDK activates the
 Composio trigger on a connected tool via the model-execute endpoint (the same
 mechanism used by ``integration.actions``), then persists the returned trigger id
 through ``/v1/triggers``.
+
+### TriggerRepeatRuleDict Objects
+
+```python
+class TriggerRepeatRuleDict(TypedDict)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L98)
+
+The dict form of `TriggerRepeatRule`, on the same field names.
+
+### TriggerConfigurationDict Objects
+
+```python
+class TriggerConfigurationDict(TypedDict)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L105)
+
+The dict form of `TriggerConfiguration`, on the same field names.
+
+``repeat`` takes a `TriggerRepeatRuleDict` or a
+`TriggerRepeatRule`; ``next_run_at`` is reported by the backend and
+never sent.
 
 ### TriggerRepeatRule Objects
 
@@ -24,7 +51,7 @@ through ``/v1/triggers``.
 class TriggerRepeatRule()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L98)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L126)
 
 Interval rule for a ``recurring`` schedule (e.g. every 2 hours).
 
@@ -37,9 +64,25 @@ Interval rule for a ``recurring`` schedule (e.g. every 2 hours).
 class TriggerConfiguration()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L107)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L135)
 
 Structured time-schedule configuration (mirrors the backend config).
+
+#### \_\_setattr\_\_
+
+```python
+def __setattr__(name: str, value: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L148)
+
+Coerce a dict ``repeat`` into a `TriggerRepeatRule`.
+
+On every assignment rather than in ``__post_init__`` alone: reading
+``configuration.repeat`` has to give an object with attributes whichever
+way it was set, or ``_hydrate_schedule_fields`` (``config.repeat.unit``)
+fails with ``AttributeError`` on a dict assigned after construction.
+Mirrors how `Trigger` coerces ``configuration``.
 
 ### TriggerSearchParams Objects
 
@@ -47,7 +90,7 @@ Structured time-schedule configuration (mirrors the backend config).
 class TriggerSearchParams(BaseSearchParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L120)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L173)
 
 Search parameters for triggers (filter by agent).
 
@@ -57,7 +100,7 @@ Search parameters for triggers (filter by agent).
 class TriggerGetParams(BaseGetParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L126)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L179)
 
 Get parameters for triggers.
 
@@ -67,7 +110,7 @@ Get parameters for triggers.
 class TriggerDeleteParams(BaseDeleteParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L132)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L185)
 
 Delete parameters for triggers.
 
@@ -83,40 +126,64 @@ class Trigger(BaseResource, SearchResourceMixin[TriggerSearchParams,
               DeleteResourceMixin[TriggerDeleteParams, DeleteResult])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L140)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L193)
 
 A schedule/event trigger that fires an agent with a fixed input.
 
-Time trigger examples::
+Time trigger examples:
 
-    aix.Trigger(name=&quot;Launch reminder&quot;, agent=agent, input=&quot;Remind the team.&quot;,
-                run_at=&quot;2026-01-26T12:00:00Z&quot;).save()                       # once
-    aix.Trigger(name=&quot;Daily digest&quot;, agent=agent, input=&quot;Summarise the news.&quot;,
-                every=&quot;day&quot;, at=&quot;09:00&quot;, timezone=&quot;Europe/London&quot;).save()   # daily
-    aix.Trigger(name=&quot;Hourly check&quot;, agent=agent, input=&quot;Check the queue.&quot;,
-                every=&quot;hour&quot;, interval=2).save()                            # every 2 hours
-    aix.Trigger(name=&quot;Weekly report&quot;, agent=agent, input=&quot;Compile the report.&quot;,
-                every=&quot;week&quot;, on=[&quot;mon&quot;, &quot;thu&quot;], at=&quot;17:00&quot;).save()         # weekly
-    aix.Trigger(name=&quot;Invoice run&quot;, agent=agent, input=&quot;Generate invoices.&quot;,
-                every=&quot;month&quot;, on=[1, 15], at=&quot;09:00&quot;).save()               # monthly
+```python
+aix.Trigger(name="Launch reminder", agent=agent, input="Remind the team.",
+            run_at="2026-01-26T12:00:00Z").save()                       # once
+aix.Trigger(name="Daily digest", agent=agent, input="Summarise the news.",
+            every="day", at="09:00", timezone="Europe/London").save()   # daily
+aix.Trigger(name="Hourly check", agent=agent, input="Check the queue.",
+            every="hour", interval=2).save()                            # every 2 hours
+aix.Trigger(name="Weekly report", agent=agent, input="Compile the report.",
+            every="week", on=["mon", "thu"], at="17:00").save()         # weekly
+aix.Trigger(name="Invoice run", agent=agent, input="Generate invoices.",
+            every="month", on=[1, 15], at="09:00").save()               # monthly
+```
 
-Event trigger example (requires a connected tool)::
 
-    gmail = aix.Integration.get(&quot;composio/gmail&quot;)
-    tool = gmail.connect(...)
-    aix.Trigger(name=&quot;Triage inbox&quot;, agent=agent, input=&quot;Triage this email.&quot;,
-                event=tool.triggers[&quot;NEW_EMAIL&quot;]).save()
+Event trigger example (requires a connected tool):
 
-Manage::
+```python
+gmail = aix.Integration.get("composio/gmail")
+tool = gmail.connect(...)
+aix.Trigger(name="Triage inbox", agent=agent, input="Triage this email.",
+            event=tool.triggers["NEW_EMAIL"]).save()
+```
 
-    t = aix.Trigger.get(&quot;&lt;id&gt;&quot;)
-    aix.Trigger.search(agent=agent)     # -&gt; Page
-    t.enabled = False; t.save()         # disable (re-enable with True)
-    t.delete()
+
+Manage:
+
+```python
+t = aix.Trigger.get("<id>")
+aix.Trigger.search(agent=agent)     # -> Page
+t.enabled = False; t.save()         # disable (re-enable with True)
+t.delete()
+```
+
+
 
 #### PAGINATE\_ITEMS\_KEY
 
 bare array response
+
+#### \_\_setattr\_\_
+
+```python
+def __setattr__(name: str, value: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L273)
+
+Coerce a dict ``configuration`` into a `TriggerConfiguration`.
+
+Here rather than in ``__post_init__`` so a later
+``trigger.configuration = {...}`` behaves the same as passing it to the
+constructor, and reading it back always gives an object with attributes.
 
 #### \_\_post\_init\_\_
 
@@ -124,12 +191,12 @@ bare array response
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L218)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L286)
 
 Translate friendly construction kwargs into backend-shaped fields.
 
-Skipped when rehydrating from the backend (``id`` already set), so that
-``from_dict`` in get/search/create is left untouched.
+When rehydrating from the backend (``id`` already set), populate the
+friendly schedule fields from ``configuration`` without rebuilding it.
 
 #### before\_save
 
@@ -137,7 +204,7 @@ Skipped when rehydrating from the backend (``id`` already set), so that
 def before_save(*args: Any, **kwargs: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L339)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L436)
 
 Activate the Composio trigger before persisting a new event trigger.
 
@@ -147,7 +214,7 @@ Activate the Composio trigger before persisting a new event trigger.
 def build_save_payload(**kwargs: Any) -> Dict[str, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L345)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L442)
 
 Build the whitelisted payload for ``POST``/``PUT`` /v1/triggers.
 
@@ -164,7 +231,7 @@ def search(cls,
            **kwargs: Any) -> Page["Trigger"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L386)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L488)
 
 List triggers for the team, optionally filtered by agent.
 
@@ -186,7 +253,7 @@ List triggers for the team, optionally filtered by agent.
 def list(cls, **kwargs: Any) -> List["Trigger"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L421)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L523)
 
 Convenience wrapper returning the results list directly.
 
@@ -196,7 +263,7 @@ Convenience wrapper returning the results list directly.
 def delete(*args: Any, **kwargs: Any) -> DeleteResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L429)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L531)
 
 Delete the trigger (deactivating the Composio trigger for events).
 
@@ -207,7 +274,7 @@ Delete the trigger (deactivating the Composio trigger for events).
 def schedule_type() -> Optional[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L502)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L604)
 
 The schedule type (once/daily/weekly/monthly/recurring), if a time trigger.
 
@@ -217,7 +284,7 @@ The schedule type (once/daily/weekly/monthly/recurring), if a time trigger.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L506)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L608)
 
 Return a concise representation.
 

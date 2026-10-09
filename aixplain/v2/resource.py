@@ -3,6 +3,7 @@
 import requests
 import inspect
 import logging
+import re
 import time
 import reprlib
 from datetime import datetime
@@ -22,6 +23,8 @@ from typing import (
     runtime_checkable,
     Union,
     Callable,
+    Iterable,
+    Iterator,
 )
 from typing_extensions import Unpack, NotRequired
 from functools import wraps
@@ -308,6 +311,48 @@ def _flatten_asset_info(data: dict) -> dict:
             elif "assetPath" in asset_info:
                 data["path"] = asset_info.get("assetPath")
     return data
+
+
+_OBJECT_ID = re.compile(r"[0-9a-fA-F]{24}")
+
+
+def _dedupe_ids(ids: Iterable[str]) -> List[str]:
+    """Drop repeated ids, keeping first-seen order."""
+    return list(dict.fromkeys(ids))
+
+
+def _split_blank_ids(ids: Union[str, Iterable[str]]) -> Tuple[List[str], List[Any]]:
+    """Dedupe ``ids`` and split off blank entries; a bare string counts as one id."""
+    keys = _dedupe_ids([ids] if isinstance(ids, str) else ids)
+    blank = [k for k in keys if not isinstance(k, str) or not k.strip()]
+    return [k for k in keys if k not in blank], blank
+
+
+def _chunked(items: List[str], size: int) -> Iterator[List[str]]:
+    """Yield consecutive slices of ``items`` of at most ``size`` elements."""
+    for i in range(0, len(items), size):
+        yield items[i : i + size]
+
+
+def _key_batch_results(requested: List[str], failed: Iterable[str], results: List[Any]) -> List[Tuple[str, dict]]:
+    """Pair each batch result row with the key it was requested under.
+
+    The backend returns results in request order with unserved keys removed, so
+    the served keys zip with ``results``. ObjectId keys are checked against the
+    row's ``id``; on any mismatch every row is keyed by its own ``id`` instead.
+    """
+    failed = set(failed)
+    served = [k for k in requested if k not in failed]
+    if len(served) == len(results) and all(
+        isinstance(r, dict) and (not _OBJECT_ID.fullmatch(k) or r.get("id") == k) for k, r in zip(served, results)
+    ):
+        return list(zip(served, results))
+    logger.warning(
+        "Batch results do not line up with the requested ids (%d served, %d returned); keying by row id",
+        len(served),
+        len(results),
+    )
+    return [(r["id"], r) for r in results if isinstance(r, dict) and r.get("id")]
 
 
 class BaseMixin:
@@ -1406,10 +1451,48 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
         # ``delete`` (BUG-1091).
         kwargs = {k: v for k, v in kwargs.items() if k not in _SDK_REQUEST_KEYS}
 
-        obj = context.client.get(path, **kwargs)
+        return cls._from_row(context.client.get(path, **kwargs), context, id=id)
 
-        # Flatten assetInfo structure before deserialization
-        obj = _flatten_asset_info(dict(obj)) if isinstance(obj, dict) else obj
+    @classmethod
+    def from_row(cls: type, row: dict) -> ResourceT:
+        """Build an instance from a raw backend row, without fetching it.
+
+        Does exactly what ``get`` does with the response (for most resources:
+        lifts ``assetInfo`` into ``path``, deserializes, binds the client and
+        marks the instance as saved). Use it for rows you already hold, such as
+        a batch or cached search response. The row is deep-copied first, so
+        neither this call nor later edits to the instance change it.
+
+        Example::
+
+            model = aix.Model.from_row(row)
+
+        Args:
+            row: The resource as the backend returns it (camelCase keys).
+
+        Returns:
+            The resource instance, bound to the client the class came from.
+
+        Raises:
+            ResourceError: If the class is not bound to a client (use
+                ``aix.Model.from_row``, not ``Model.from_row``), or the row
+                cannot be deserialized.
+        """
+        context = getattr(cls, "context", None)
+        if context is None:
+            raise ResourceError(
+                f"{cls.__name__}.from_row needs a client; call it on the client's class, e.g. aix.{cls.__name__}"
+            )
+        if not isinstance(row, dict):
+            raise ResourceError(f"{cls.__name__}.from_row expects a dict row, got {type(row).__name__}")
+        return cls._from_row(deepcopy(row), context, id=row.get("id"))
+
+    @classmethod
+    def _from_row(cls: type, row: Any, context: Any, id: Any = None) -> ResourceT:
+        """Build an instance from a backend row, exactly as ``get`` returns it."""
+        # Flatten assetInfo structure before deserialization; the shallow copy
+        # leaves the caller's raw row untouched.
+        obj = _flatten_asset_info(dict(row)) if isinstance(row, dict) else row
 
         if isinstance(cls, HasFromDict):
             try:
@@ -2130,7 +2213,12 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             # returns the same value and type as the synchronous path in
             # handle_run_response.
             data = {}
-        data_error = data.get("error") if isinstance(data, dict) else None
+        data_error = None
+        if isinstance(data, dict):
+            data_error_details = data.get("errorDetails")
+            data_error = data.get("error") or (
+                data_error_details.get("message") if isinstance(data_error_details, dict) else None
+            )
         error_message = response.get("errorMessage") or data_error
         filtered_response = {
             "status": response.get("status", "IN_PROGRESS"),
@@ -2147,6 +2235,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             "usage": response.get("usage"),
             "asset": response.get("asset"),
         }
+        # An agent run's structured error; only forwarded when sent so the default stays None.
+        if response.get("errorDetails") is not None:
+            filtered_response["errorDetails"] = response["errorDetails"]
         status = response.get("status", "IN_PROGRESS")
 
         # Failure handling

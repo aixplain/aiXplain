@@ -22,13 +22,17 @@ import uuid
 
 import pytest
 
-from aixplain.v2 import Inspector
+from aixplain import Inspector
 
 ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
 
+#: (display name, asset name in `tests/functional/_assets.py`). Parametrising
+#: on the asset *name* keeps collection backend-independent: the id is resolved
+#: from the `assets` fixture at setup, so the same parameter ids run against
+#: dev, test and prod. gpt-5.4 is the registry's ``DEFAULT_LLM``.
 MODELS = [
-    pytest.param("gpt-5.4", "69b7e5f1b2fe44704ab0e7d0", id="gpt-5.4"),
-    pytest.param("claude-opus-4.6", "698c87701239a117fd66b468", id="claude-opus-4.6"),
+    pytest.param("gpt-5.4", "DEFAULT_LLM", id="gpt-5.4"),
+    pytest.param("claude-opus-4.6", "CLAUDE_LLM", id="claude-opus-4.6"),
 ]
 
 ARABIC_QUERIES = {
@@ -83,36 +87,69 @@ def _extract_steps(response) -> list:
     return steps
 
 
-_NO_MODEL_OUTPUT_SKIP_REASON = (
-    "model returned no usable content on the test backend — a model/availability "
-    "condition, not an SDK defect (the other model in the matrix exercises the same "
-    "code paths). Skipped rather than failed so backend model outages don't turn CI red."
-)
+#: How many times a run is retried before an empty output is called a failure,
+#: and how long to wait between attempts. An empty body from a momentarily
+#: degraded model is transient, so it is worth retrying; an empty body on every
+#: attempt is a result this suite must report, not absorb.
+_OUTPUT_ATTEMPTS = 3
+_OUTPUT_RETRY_DELAY_SECONDS = 10
+
+#: Start of the `_run_until_output` exhaustion failure. The `flaky` markers below
+#: pass it as `rerun_except`, so pytest-rerunfailures does not rerun a test whose
+#: model already came back empty on every attempt: `_run_until_output` is the one
+#: retry layer for empty output, and the marker is only for timeouts and other
+#: transient failures. Stacking the two multiplied the billed runs per item.
+_NO_OUTPUT_FAILURE = "returned no usable content"
 
 
-def _skip_if_model_returned_no_output(output: str) -> None:
-    """Skip (never fail) when the backend model produced no usable content.
+def _has_usable_output(output: str) -> bool:
+    """True if the model produced content these tests can assert against.
 
-    A model that is degraded or unavailable on the test backend returns an empty
-    body, or — when it drives an inspector's evaluator — a ``content=None`` response
-    that the inspector surfaces as an unparseable verdict. Both are backend
-    availability conditions rather than SDK defects, so they must not fail CI; a
-    healthy model in the same matrix still covers the code. The condition is
-    output-shape based, not model-pinned, so it lifts automatically once the model
-    returns content again.
+    A degraded model returns an empty body, or — when it drives an inspector's
+    evaluator — a ``content=None`` response that the inspector surfaces as an
+    unparseable verdict. Both shapes are checked here.
     """
-    if not output.strip() or ("inspector_verdict_unparseable" in output and "content=None" in output):
-        pytest.skip(_NO_MODEL_OUTPUT_SKIP_REASON)
+    if not output.strip():
+        return False
+    return not ("inspector_verdict_unparseable" in output and "content=None" in output)
 
 
 def _assert_success_response(response) -> tuple[str, list]:
     assert response is not None
     assert getattr(response, "completed", None) is True
     assert getattr(response, "status", "").upper() == "SUCCESS"
-    output = _extract_output(response)
-    _skip_if_model_returned_no_output(output)
-    assert output.strip(), "Expected a non-empty response output"
-    return output, _extract_steps(response)
+    return _extract_output(response), _extract_steps(response)
+
+
+def _run_until_output(run, description: str) -> tuple[str, list]:
+    """Call *run* until it yields usable content; fail if it never does.
+
+    This replaces a skip on empty output (ENG-3684). That skip was added so a
+    backend model outage would not turn CI red, but it made an outage and a
+    genuine regression in the Arabic runtime path indistinguishable:
+    three tests across two LLMs could all go quiet and the leg still reported
+    success. Retrying absorbs the transient case that motivated the skip; a run
+    that comes back empty every time is reported as the failure it is.
+
+    Args:
+        run: Zero-argument callable that performs the agent run and returns the
+            response. Called again, from scratch, on each retry.
+        description: What is being run, for the failure message.
+    """
+    output = ""
+    for attempt in range(1, _OUTPUT_ATTEMPTS + 1):
+        output, steps = _assert_success_response(run())
+        if _has_usable_output(output):
+            return output, steps
+        if attempt < _OUTPUT_ATTEMPTS:
+            time.sleep(_OUTPUT_RETRY_DELAY_SECONDS)
+
+    pytest.fail(
+        f"{description} {_NO_OUTPUT_FAILURE} in {_OUTPUT_ATTEMPTS} consecutive runs, "
+        f"{_OUTPUT_RETRY_DELAY_SECONDS}s apart (last output: {output!r}). This failure is not "
+        "rerun. If the model is genuinely unavailable on this backend, drop it from MODELS "
+        "rather than letting the leg pass without it."
+    )
 
 
 def _assert_arabic_output(query_key: str, output: str) -> None:
@@ -230,26 +267,31 @@ def _make_output_inspector(llm_id: str, model_name: str):
     )
 
 
-@pytest.mark.flaky(reruns=1, reruns_delay=5)
-@pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
-def test_arabic_single_agent(client, resource_tracker, model_name, llm_id):
+@pytest.mark.flaky(reruns=1, reruns_delay=5, rerun_except=_NO_OUTPUT_FAILURE)
+@pytest.mark.parametrize(("model_name", "llm_asset"), MODELS)
+def test_arabic_single_agent(client, assets, resource_tracker, model_name, llm_asset):
     """An agent with diacritic Arabic instructions answers a mixed Arabic/English query in Arabic."""
-    agent = _make_single_agent(client, resource_tracker, llm_id, model_name)
+    agent = _make_single_agent(client, resource_tracker, getattr(assets, llm_asset), model_name)
 
-    response = agent.run(ARABIC_QUERIES["mixed_ar_en"])
-    output, _ = _assert_success_response(response)
+    output, _ = _run_until_output(
+        lambda: agent.run(ARABIC_QUERIES["mixed_ar_en"]),
+        f"Arabic single agent on {model_name}",
+    )
     _assert_arabic_output("mixed_ar_en", output)
 
 
-@pytest.mark.flaky(reruns=1, reruns_delay=5)
-@pytest.mark.parametrize(("model_name", "llm_id"), MODELS)
-def test_arabic_team_agent_with_inspector(client, resource_tracker, model_name, llm_id):
+@pytest.mark.flaky(reruns=1, reruns_delay=5, rerun_except=_NO_OUTPUT_FAILURE)
+@pytest.mark.parametrize(("model_name", "llm_asset"), MODELS)
+def test_arabic_team_agent_with_inspector(client, assets, resource_tracker, model_name, llm_asset):
     """One team run covers Arabic team serialization, delegation, and an Arabic-prompted inspector."""
+    llm_id = getattr(assets, llm_asset)
     inspector = _make_output_inspector(llm_id, model_name)
     team_agent = _make_team_agent(client, resource_tracker, llm_id, model_name, inspectors=[inspector])
 
-    response = team_agent.run(ARABIC_QUERIES["pure_arabic"])
-    output, steps = _assert_success_response(response)
+    output, steps = _run_until_output(
+        lambda: team_agent.run(ARABIC_QUERIES["pure_arabic"]),
+        f"Arabic team agent with inspector on {model_name}",
+    )
     assert steps, "Expected team-agent execution steps for the Arabic team flow"
     inspector_steps = [step for step in steps if _is_inspector_step(step, inspector.name)]
     assert inspector_steps, "Expected inspector step(s) in the run"
