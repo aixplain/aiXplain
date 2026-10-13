@@ -31,7 +31,7 @@ from .resource import (
     BaseGetParams,
     BaseDeleteParams,
 )
-from .exceptions import ResourceError
+from .exceptions import ResourceError, _extract_error_from_dict
 
 if TYPE_CHECKING:
     from .core import Aixplain
@@ -548,15 +548,18 @@ class Trigger(
     # Composio activation helpers (via the model-execute endpoint)
     # ------------------------------------------------------------------
 
-    def _execute_action(self, connection_id: str, action: str, data: Any) -> Any:
-        """POST a connector action to the model-execute endpoint and resolve data."""
+    def _post_action(self, connection_id: str, action: str, data: Any) -> Any:
+        """POST a connector action to the model-execute endpoint and return the raw response."""
         url = f"{self.context.model_url}/{connection_id}"
         payload: Dict[str, Any] = {"action": action, "data": data}
         if action == "activate_trigger":
             payload["enable"] = True
             payload["toolkit_versions"] = "latest"
-        response = self.context.client.request("post", url, json=payload)
-        return self._poll_for_data(response)
+        return self.context.client.request("post", url, json=payload)
+
+    def _execute_action(self, connection_id: str, action: str, data: Any) -> Any:
+        """POST a connector action to the model-execute endpoint and resolve data."""
+        return self._poll_for_data(self._post_action(connection_id, action, data))
 
     @staticmethod
     def _poll_for_data(response: dict) -> Any:
@@ -578,18 +581,25 @@ class Trigger(
                 "Event triggers require a connection. Create one via integration.connect() and use "
                 "tool.triggers[...], or pass connection=<tool> to Trigger(...)."
             )
-        data = self._execute_action(
+        response = self._post_action(
             self.connection_id,
             "activate_trigger",
             {"slug": self.trigger_slug, "config": self.event_config or {}},
         )
+        data = self._poll_for_data(response)
         trigger_id = None
         if isinstance(data, dict):
             trigger_id = data.get("trigger_id") or data.get("triggerId")
         if not trigger_id:
-            raise ResourceError(
+            message = (
                 f"Failed to activate event trigger for slug={self.trigger_slug!r} on connection {self.connection_id}."
             )
+            # A failed activation answers ``status: FAILED`` with the reason in ``supplierError``/``error``
+            # (e.g. Composio's "connected account is in EXPIRED state"); keep it instead of dropping it.
+            reason = _extract_error_from_dict(response) if isinstance(response, dict) else None
+            if reason:
+                message += f" Backend response: {reason}"
+            raise ResourceError(message)
         self.trigger_id = trigger_id
 
     def _deactivate_event(self) -> None:

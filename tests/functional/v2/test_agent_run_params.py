@@ -222,19 +222,13 @@ def test_budget_max_cost_zero_blocks_run(client, module_resource_tracker, assets
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=SDKTimeoutError,
-    reason="Backend: a run with budget maxDurationSeconds=0 hangs IN_PROGRESS instead of returning BLOCKED "
-    "(ticket to be filed)",
-)
 def test_budget_max_duration_zero_blocks_run(client, module_resource_tracker, assets):
     """A zero duration cap blocks the run.
 
     The payload is asserted before the run, so an SDK that stopped sending the cap
-    fails here with an ``AssertionError`` rather than counting as the expected
-    timeout. The run waits 60 seconds instead of the default 300: a blocked run
-    answers at once, and the expected hang should not hold the leg for five minutes.
+    fails on the payload rather than on the run. The run waits 60 seconds instead of
+    the default 300: a blocked run answers at once, and a regression back to the
+    old IN_PROGRESS hang should not hold the leg for five minutes.
     """
     query = "Search the web for the capital of France, then answer."
     agent = _make_tool_agent(client, module_resource_tracker, assets.TAVILY)

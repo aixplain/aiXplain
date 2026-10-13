@@ -226,6 +226,28 @@ class TestFailedRunRaises:
 
         assert error.error == "RUN_TIMEOUT"
 
+    def test_description_is_used_when_there_is_no_message(self):
+        """A run that fails before any step reports ``{code, description}``; the description is the message."""
+        description = "Tool 69add7259c25a6a80a2e084b is not available. Make sure it exists or you have access to it."
+        error = create_operation_failed_error(
+            {
+                "completed": True,
+                "status": "FAILED",
+                "data": {"output": "", "error": {"code": "AX-RES-1000", "description": description}},
+            }
+        )
+
+        assert error.error == description
+        assert str(error).startswith(f"Operation failed: {description}")
+
+    def test_message_wins_over_description(self):
+        """Message wins over description."""
+        error = create_operation_failed_error(
+            {"status": "FAILED", "errorDetails": {"code": "X", "message": "m", "description": "d"}}
+        )
+
+        assert error.error == "m"
+
     def test_legacy_string_still_used_without_error_details(self):
         """Legacy string still used without error details."""
         error = create_operation_failed_error({"status": "FAILED", "data": {"error": "old engine error"}})
