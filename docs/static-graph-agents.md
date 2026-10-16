@@ -122,9 +122,12 @@ All nodes read from and write to one shared state dict. The run input is availab
 
 ### The run's final answer
 
-The run returns the first non-empty of the `output`, `last_response` (the most recent `LLMNode` reply) and `result`
-state keys. If none is set, it returns what the last node wrote: its single value, or a JSON object when it wrote
-several keys. To control the answer exactly, have the last node write `output`:
+The run returns the first non-empty of the `output`, `last_response` and `result` state keys. `last_response` is set by
+every `LLMNode`, `ToolNode` and `AgentNode` to its latest result, so once any of those has run it takes precedence over
+whatever a later script writes under another key. If none of the three is set, the run returns what the last node
+wrote: its single value, or a JSON object when it wrote several keys.
+
+To control the answer exactly, have the last node write `output`:
 
 ```python
 publish = ScriptNode(name="Publish", node_id="publish", script="result = {'output': state['draft']}")
@@ -132,8 +135,9 @@ publish = ScriptNode(name="Publish", node_id="publish", script="result = {'outpu
 
 ### When a node fails
 
-A failing node fails the whole run. The error names the node, for example `Graph node 'prepare' failed.`, with the
-code `GRAPH_NODE_FAILED`.
+A failing node fails the whole run, and the error names the node. When the cause is known (for example no credits or a
+rate limit), the error keeps that cause's code and message: `Graph node 'answer' failed. Rate limit reached…`.
+Otherwise the code is `GRAPH_NODE_FAILED` with `Graph node 'prepare' failed.`
 
 ## Conditional routing
 
