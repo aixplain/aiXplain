@@ -135,9 +135,17 @@ publish = ScriptNode(name="Publish", node_id="publish", script="result = {'outpu
 
 ### When a node fails
 
-A failing node fails the whole run, and the error names the node. When the cause is known (for example no credits or a
-rate limit), the error keeps that cause's code and message: `Graph node 'answer' failed. Rate limit reached…`.
-Otherwise the code is `GRAPH_NODE_FAILED` with `Graph node 'prepare' failed.`
+A failing node fails the whole run. The error names the node, its type and the reason, both in the run's error and in
+that node's step:
+
+```text
+Graph node 'answer' (llm) failed: LLMNode 'answer': input_mapping['prompt'] references state key 'clean', which is not set
+Graph node 'prepare' (script) failed: ScriptNode 'prepare' script failed: KeyError: 'missing'
+Graph node 'answer' (llm) failed: Rate limit reached for model '...'. Retrying later may succeed.
+```
+
+Configuration, state and script errors use the code `GRAPH_NODE_FAILED`. Model and platform errors keep their own code
+(for example `RATE_LIMITED` or `NO_CREDITS`).
 
 ## Conditional routing
 
