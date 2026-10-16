@@ -140,7 +140,7 @@ that node's step:
 
 ```text
 Graph node 'answer' (llm) failed: LLMNode 'answer': input_mapping['prompt'] references state key 'clean', which is not set
-Graph node 'prepare' (script) failed: ScriptNode 'prepare' script failed: KeyError: 'missing'
+Graph node 'prepare' (script) failed: ScriptNode 'prepare' script failed: KeyError: missing
 Graph node 'answer' (llm) failed: Rate limit reached for model '...'. Retrying later may succeed.
 ```
 
