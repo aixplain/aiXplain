@@ -11,7 +11,7 @@ Set either `TEAM_API_KEY` or `AIXPLAIN_API_KEY`. You also need the platform mode
 The current platform contract supports these nodes:
 
 - `LLMNode`: make one model call.
-- `ToolNode`: invoke a tool registered on the Agent by its engine tool name.
+- `ToolNode`: invoke a tool or model attached to the Agent.
 - `AgentNode`: invoke a sub-agent registered on the Agent by its engine agent name.
 - `ScriptNode`: run inline Python in the sandbox.
 - `InspectorNode`: run a registered inspector.
@@ -19,6 +19,7 @@ The current platform contract supports these nodes:
 
 Values move through graph state using node-level `input_mapping`, `output_mapping`, `input_key`, `output_key`,
 `arg_mapping`, and `result_key`. Edges only define order and conditional routing; they do not need data mappings.
+See [How values move between nodes](#how-values-move-between-nodes) for the exact rules.
 
 ## Minimal save and run demo
 
@@ -97,6 +98,55 @@ agent.save()
 result = agent.run("  Explain deterministic workflows.  ")
 ```
 
+## How values move between nodes
+
+All nodes read from and write to one shared state dict. The run input is available as `input`.
+
+- **`input_key`** reads one state value as the node's input.
+- **`input_mapping`** builds the input from templates. Reference state keys as `{key}` or `{state[key]}`; both work.
+  For an `LLMNode`, the `prompt` entry becomes the user message:
+  `input_mapping={"prompt": "Summarize: {clean_input}"}`. A template that names a missing key fails the node.
+- **`output_key`** is the state key a node writes its result to. Without it, an `LLMNode` writes
+  `<node_id>_output`.
+- **`ScriptNode`** sets a variable named `result`. A dict is merged into state as-is, one entry per key. Any other value
+  is written to `output_key`, or to `<node_id>_result` when `output_key` is not set.
+- **`ToolNode`** passes state values to the tool with `arg_mapping={"tool_arg": "state_key"}` and writes the tool's
+  result to `result_key` (default `<node_id>_output`).
+
+### Naming the tool in a `ToolNode`
+
+`tool_name` can be:
+
+- the ID or name of a model or tool attached to the Agent, when that asset has a single action (for example a model);
+- the action name, for a tool with several actions (for example `"search"` on a web-search tool).
+
+### The run's final answer
+
+The run returns the first non-empty of the `output`, `last_response` and `result` state keys. `last_response` is set by
+every `LLMNode`, `ToolNode` and `AgentNode` to its latest result, so once any of those has run it takes precedence over
+whatever a later script writes under another key. If none of the three is set, the run returns what the last node
+wrote: its single value, or a JSON object when it wrote several keys.
+
+To control the answer exactly, have the last node write `output`:
+
+```python
+publish = ScriptNode(name="Publish", node_id="publish", script="result = {'output': state['draft']}")
+```
+
+### When a node fails
+
+A failing node fails the whole run. The error names the node, its type and the reason, both in the run's error and in
+that node's step:
+
+```text
+Graph node 'answer' (llm) failed: LLMNode 'answer': input_mapping['prompt'] references state key 'clean', which is not set
+Graph node 'prepare' (script) failed: ScriptNode 'prepare' script failed: KeyError: missing
+Graph node 'answer' (llm) failed: Rate limit reached for model '...'. Retrying later may succeed.
+```
+
+Configuration, state and script errors use the code `GRAPH_NODE_FAILED`. Model and platform errors keep their own code
+(for example `RATE_LIMITED` or `NO_CREDITS`).
+
 ## Conditional routing
 
 Conditional edges use a state key, an operator, and a scalar comparison value. They are evaluated in declaration
@@ -142,7 +192,7 @@ graph = Graph(
 ## Fetch and update
 
 Fetched graphs are reconstructed as typed SDK objects, so they can be inspected or changed and saved again. A node
-the SDK does not model (for example a `parallel` node) comes back as a `RawNode` and is saved back unchanged:
+type the SDK does not model comes back as a `RawNode` and is saved back unchanged:
 
 ```python
 agent = aix.Agent.get("saved-agent-id")

@@ -8,6 +8,7 @@ from aixplain import Trigger, TriggerConfiguration, TriggerRepeatRule
 from aixplain.v2.trigger import _normalize_weekdays, _normalize_monthdays, _strip_none
 from aixplain import TriggerTypeSpec, TriggerEventOption, TriggerTypes
 from aixplain import Page
+from aixplain.v2.exceptions import ResourceError
 
 
 AGENT_ID = "66a060000000000000000000"
@@ -350,6 +351,48 @@ class TestEventLifecycle:
         assert second.args[0] == "post" and second.args[1] == "v1/triggers"
         assert second.kwargs["json"]["triggerId"] == "ti_activated"
         assert t.trigger_id == "ti_activated" and t.id == "trigNew"
+
+    def test_failed_activation_reports_the_backend_reason(self):
+        client = Mock()
+        supplier_error = (
+            '410 {"error":{"message":"Connected account ca_x for toolkit \'GMAIL\' is in EXPIRED state",'
+            '"slug":"ActionExecute_ConnectedAccountExpired","status":410}}'
+        )
+        client.request.return_value = {
+            "status": "FAILED",
+            "completed": True,
+            "error": "err.supplier_error",
+            "supplierError": supplier_error,
+        }
+        t = Trigger(
+            name="Triage",
+            agent=FakeAgent(),
+            input="Triage",
+            event=TriggerEventOption(slug="GMAIL_NEW_GMAIL_MESSAGE", connection_id="conn1"),
+        )
+        t.context = make_context(client)
+
+        with pytest.raises(ResourceError, match="EXPIRED state") as exc_info:
+            t.save()
+
+        assert "slug='GMAIL_NEW_GMAIL_MESSAGE' on connection conn1" in str(exc_info.value)
+        assert client.request.call_count == 1  # nothing was persisted on /v1/triggers
+
+    def test_activation_without_trigger_id_or_reason_keeps_the_plain_message(self):
+        client = Mock()
+        client.request.return_value = {"completed": True, "data": {}}
+        t = Trigger(
+            name="Triage",
+            agent=FakeAgent(),
+            input="Triage",
+            event=TriggerEventOption(slug="NEW_EMAIL", connection_id="conn1"),
+        )
+        t.context = make_context(client)
+
+        with pytest.raises(ResourceError) as exc_info:
+            t.save()
+
+        assert str(exc_info.value) == "Failed to activate event trigger for slug='NEW_EMAIL' on connection conn1."
 
     def test_activation_without_connection_raises(self):
         opt = TriggerEventOption(slug="NEW_EMAIL")  # no connection_id
