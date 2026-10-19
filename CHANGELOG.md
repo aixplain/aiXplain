@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed: `agent.budget.max_duration_seconds` was ignored on every run
+
+`agent.run()` always sent `executionParams.maxTime: 300`, and the backend ranks
+`maxTime` above `budget.maxDurationSeconds`, so the agent's, the session's and
+the run's duration cap were all replaced by 300 seconds. The SDK no longer sends
+a `maxTime` default; the backend resolves the cap from the budget and falls back
+to its own default (600 seconds). An explicit `execution_params={"max_time": ...}`
+is still sent unchanged.
+
 ### Added: versionless imports for the whole public surface
 
 `from aixplain import X` now works for every public name. `aixplain/__init__.py`
