@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 
 # Debugger agent ID - pre-configured aiXplain agent for debugging
-DEBUGGER_AGENT_ID = "696fdccad63e898317c097a0"
+DEBUGGER_AGENT_ID = "6a83989b20d5ce8082cdc775"
 
 
 @dataclass_json
