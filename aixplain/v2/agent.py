@@ -2560,10 +2560,13 @@ class Agent(
         # Set default values for execution_params if not provided.
         # No ``maxIterations`` default: the iteration cap now travels inside
         # ``executionParams.budget`` and the backend supplies its own default.
+        # No ``maxTime`` default either: the backend ranks ``maxTime`` above
+        # ``budget.maxDurationSeconds``, so a default here silently replaced the
+        # agent's, the session's and the run's duration cap. Left out, the
+        # backend resolves it from those and falls back to its own default.
         defaults = {
             "outputFormat": self.output_format,
             "maxTokens": getattr(self, "max_tokens", 2048),
-            "maxTime": 300,
             "contextOverflowStrategy": getattr(self, "context_overflow_strategy", None),
         }
 
