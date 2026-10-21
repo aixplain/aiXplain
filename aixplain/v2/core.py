@@ -2,7 +2,7 @@
 
 import os
 import warnings
-from typing import Optional, TypeVar
+from typing import Optional, Type
 
 from aixplain.utils.url_safety import validate_config_url
 
@@ -24,20 +24,21 @@ from .issue import IssueReporter
 from . import enums
 
 
-ModelType = TypeVar("ModelType", bound=Model)
-AgentType = TypeVar("AgentType", bound=Agent)
-ToolType = TypeVar("ToolType", bound=Tool)
-SkillType = TypeVar("SkillType", bound=Skill)
-MetricType = TypeVar("MetricType", bound=MetricBase)
-IntegrationType = TypeVar("IntegrationType", bound=Integration)
-TriggerType = TypeVar("TriggerType", bound=Trigger)
-FileResourceType = TypeVar("FileResourceType", bound=File)
-InspectorType = TypeVar("InspectorType", bound=Inspector)
-DebuggerType = TypeVar("DebuggerType", bound=Debugger)
-APIKeyType = TypeVar("APIKeyType", bound=APIKey)
-SessionType = TypeVar("SessionType", bound=Session)
-RLMType = TypeVar("RLMType", bound=RLM)
-IssueReporterType = TypeVar("IssueReporterType", bound=IssueReporter)
+# Each bound resource is a class (``aix.Agent(...)``), so the attributes are typed as ``Type[...]``.
+ModelType = Type[Model]
+AgentType = Type[Agent]
+ToolType = Type[Tool]
+SkillType = Type[Skill]
+MetricType = Type[MetricBase]
+IntegrationType = Type[Integration]
+TriggerType = Type[Trigger]
+FileResourceType = Type[File]
+InspectorType = Type[Inspector]
+DebuggerType = Type[Debugger]
+APIKeyType = Type[APIKey]
+SessionType = Type[Session]
+RLMType = Type[RLM]
+IssueReporterType = IssueReporter
 
 
 class Aixplain:

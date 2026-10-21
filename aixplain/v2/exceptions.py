@@ -78,8 +78,8 @@ class AixplainIssueError(APIError):
     pass
 
 
-class ValidationError(AixplainV2Error):
-    """Raised when validation fails."""
+class ValidationError(AixplainV2Error, ValueError):
+    """Raised when validation fails; also a ``ValueError``, so existing ``except ValueError`` handlers still catch it."""
 
     pass
 

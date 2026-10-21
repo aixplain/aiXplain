@@ -14,11 +14,13 @@ Silently dropping an unknown key is the failure mode being removed: a misspelled
 """
 
 from dataclasses import MISSING, fields as dataclass_fields
+from enum import Enum
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Type, TypeVar
 
 from .exceptions import ValidationError
 
 T = TypeVar("T")
+E = TypeVar("E", bound=Enum)
 
 
 def struct_fields(cls: type) -> Tuple[str, ...]:
@@ -131,3 +133,23 @@ def coerce_struct_list(
         raise ValidationError(f"{label} must be a list of {cls.__name__}, got {type(value).__name__}.")
     coerced = [coerce_struct(entry, cls, label=label, aliases=aliases) for entry in value]
     return [entry for entry in coerced if entry is not None]
+
+
+class WireValue(str):
+    """An enum string decoded from a backend response, which input validation passes through."""
+
+
+def wire_value(value: Any) -> Any:
+    """Mark a decoded backend string as a :class:`WireValue`; use as a ``dataclasses_json`` field decoder."""
+    return WireValue(value) if isinstance(value, str) and not isinstance(value, Enum) else value
+
+
+def coerce_enum(value: Any, enum_cls: Type[E], *, label: str) -> E:
+    """Coerce a member or its string value into ``enum_cls``, raising ``ValidationError`` naming the accepted values."""
+    if isinstance(value, enum_cls):
+        return value
+    try:
+        return enum_cls(value)
+    except ValueError:
+        accepted = ", ".join(repr(member.value) for member in enum_cls)
+        raise ValidationError(f"Unknown {label} {value!r}. Accepted values: {accepted}.") from None
