@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added: SDK type information
+
+The package now ships `py.typed`. Type checkers such as mypy will check SDK
+usage against its annotations. Downstream projects using `ignore_missing_imports`
+for `aixplain.*` may see new diagnostics after upgrading; review those diagnostics
+when updating the SDK.
+
+
 ### Removed: Python 3.9 support
 
 `requires-python` is now `>=3.10, <4`, and CI runs on 3.10. Python 3.9 reached

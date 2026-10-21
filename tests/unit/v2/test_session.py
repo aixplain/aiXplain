@@ -1176,6 +1176,7 @@ class TestExecutionConfig:
         assert _normalize_execution_params({}) == {}
         # All known snake_case keys in the map should normalize
         snake = {k: i for i, k in enumerate(EXECUTION_PARAMS_MAP)}
+        snake.update(output_format="text", context_overflow_strategy="none")
         normalized = _normalize_execution_params(snake)
         assert set(normalized) == set(EXECUTION_PARAMS_MAP.values())
 

@@ -24,6 +24,7 @@ from .resource import (
     BaseDeleteParams,
 )
 from .exceptions import APIError, ResourceError, ValidationError
+from .plain_data import coerce_enum
 
 if TYPE_CHECKING:
     from .core import Aixplain
@@ -89,13 +90,7 @@ def _coerce_token_type(value: Any) -> TokenType:
             ``TokenType(value)`` on its own raises a bare ``ValueError`` whose
             message does not say what is accepted.
     """
-    if isinstance(value, TokenType):
-        return value
-    try:
-        return TokenType(value)
-    except ValueError:
-        accepted = ", ".join(repr(member.value) for member in TokenType)
-        raise ValidationError(f"Unknown token_type {value!r}. Accepted values: {accepted}.") from None
+    return coerce_enum(value, TokenType, label="token_type")
 
 
 #: The string form of :class:`TokenType`, accepted anywhere the enum is. Spelled

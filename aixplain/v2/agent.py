@@ -25,7 +25,7 @@ from .graph import Graph, GraphDict, InspectorNode, StaticGraphStrategy, StaticG
 from .exceptions import AgentRunFailedError, ResourceError, ValidationError, _structured_error, _structured_message
 from .exceptions import create_operation_failed_error
 from .mixins import ToolableMixin
-from .plain_data import coerce_struct_list, struct_fields
+from .plain_data import WireValue, coerce_enum, coerce_struct_list, struct_fields, wire_value
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
@@ -56,7 +56,7 @@ OutputFormatValue = Literal["markdown", "text", "json"]
 
 #: The string form of :class:`ContextOverflowStrategy`, accepted anywhere the
 #: enum is -- ``agent.context_overflow_strategy = "summarize"``.
-ContextOverflowStrategyValue = Literal["truncate", "summarize"]
+ContextOverflowStrategyValue = Literal["truncate", "summarize", "none"]
 
 #: The string form of :class:`~aixplain.v2.agent_progress.ProgressFormat`. Defined
 #: here rather than imported: ``agent_progress`` imports from this module, so the
@@ -160,6 +160,7 @@ class ContextOverflowStrategy(str, Enum):
         SUMMARIZE: Summarize older context into a shorter form the model can still
             use. Retains more of the conversation's meaning than truncation, but
             adds latency and model cost.
+        NONE: Opt out of context condensation.
 
     Notes:
         Available in SDK 0.2.46+ (use the current 0.2.47). Set it as the agent's
@@ -171,6 +172,7 @@ class ContextOverflowStrategy(str, Enum):
 
     TRUNCATE = "truncate"
     SUMMARIZE = "summarize"
+    NONE = "none"
 
 
 class BudgetDict(TypedDict, total=False):
@@ -299,6 +301,13 @@ _ROLES: List[_RoleSpec] = [
 # Attributes that hold a role ref, for the explicit-assignment tracking in
 # ``Agent.__setattr__``.
 _ROLE_ATTRS = frozenset(spec.attr for spec in _ROLES)
+
+# Enum fields a caller sets on an agent, and the ``executionParams`` key each overrides per run.
+_ENUM_FIELDS: Dict[str, type] = {"output_format": OutputFormat, "context_overflow_strategy": ContextOverflowStrategy}
+_ENUM_EXEC_PARAMS: Dict[str, str] = {
+    "outputFormat": "output_format",
+    "contextOverflowStrategy": "context_overflow_strategy",
+}
 
 
 class AgentRunParams(BaseRunParams):
@@ -931,7 +940,7 @@ class Agent(
 
     # Output and execution fields
     output_format: Optional[Union[OutputFormatValue, OutputFormat]] = field(
-        default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
+        default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat", decoder=wire_value)
     )
     expected_output: Optional[Union[str, dict, BaseModel]] = field(
         default=None, metadata=config(field_name="expectedOutput")
@@ -965,7 +974,7 @@ class Agent(
     max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
     context_overflow_strategy: Optional[Union[ContextOverflowStrategyValue, ContextOverflowStrategy]] = field(
         default=None,
-        metadata=config(field_name="contextOverflowStrategy"),
+        metadata=config(field_name="contextOverflowStrategy", decoder=wire_value),
     )
 
     def __post_init__(self) -> None:
@@ -1181,6 +1190,9 @@ class Agent(
                 super().__setattr__("graph_version", None)
         elif name == "strategy":
             value = StaticGraphStrategy.from_dict(value) if value is not None else None
+        elif name in _ENUM_FIELDS and value is not None and not isinstance(value, WireValue):
+            # A backend-decoded string passes through, so a value this SDK predates cannot break reads.
+            value = coerce_enum(value, _ENUM_FIELDS[name], label=name).value
         if name in _ROLE_ATTRS:
             explicit = getattr(self, "_explicit_roles", None)
             if explicit is not None:
@@ -1727,6 +1739,7 @@ class Agent(
 
         Raises:
             ResourceError: If the agent has been deleted.
+            ValidationError: If an enum attribute shortcut has an unknown value.
             ValueError: If child components are not saved and save_subcomponents is False
         """
         # Guard before any child component is saved and before before_save()
@@ -1734,6 +1747,10 @@ class Agent(
         # backend at all (BUG-1093).
         if self.id or self.is_deleted:
             self._ensure_saveable()
+
+        for attr, enum_cls in _ENUM_FIELDS.items():
+            if kwargs.get(attr) is not None and not isinstance(kwargs[attr], WireValue):
+                coerce_enum(kwargs[attr], enum_cls, label=attr)
 
         save_subcomponents = kwargs.pop("save_subcomponents", False)
 
@@ -2711,6 +2728,9 @@ class Agent(
 
         # Normalize snake_case keys to camelCase for the API
         execution_params = {self._EXEC_PARAMS_MAP.get(k, k): v for k, v in execution_params.items()}
+        for key, attr in _ENUM_EXEC_PARAMS.items():
+            if execution_params.get(key) is not None and not isinstance(execution_params[key], WireValue):
+                execution_params[key] = coerce_enum(execution_params[key], _ENUM_FIELDS[attr], label=attr).value
 
         # Set default values for execution_params if not provided.
         # No ``maxIterations`` default: the iteration cap now travels inside
@@ -3143,6 +3163,11 @@ def _decode_strategy(value: Any) -> Optional[StaticGraphStrategy]:
 
 
 def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
+    if isinstance(kvs, dict):
+        kvs = dict(kvs)
+        for attr, enum_cls in _ENUM_FIELDS.items():
+            if kvs.get(attr) is not None and not isinstance(kvs[attr], WireValue):
+                kvs[attr] = coerce_enum(kvs[attr], enum_cls, label=attr).value
     kvs = cls._fold_legacy_max_iterations(kvs)
     if isinstance(kvs, dict) and not kvs.get("graph") and ("strategy" in kvs or "graphVersion" in kvs):
         # A non-graph agent may still report a strategy or graphVersion; neither applies without a graph.
