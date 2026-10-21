@@ -35,6 +35,7 @@ INTERNAL_ALLOWLIST = frozenset(
         "BaseParams",
         "BaseResource",
         "BaseResult",
+        "WireValue",
         # Mixins and protocols.
         "ActionMixin",
         "BaseMixin",
