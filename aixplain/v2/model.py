@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import numbers
 import re
 from collections.abc import Mapping
 from itertools import chain
@@ -781,6 +782,29 @@ class ModelRunParams(BaseRunParams):
     agent_name: NotRequired[Optional[str]]
 
 
+def _validate_tool_timeout(value: Any) -> float:
+    """Return a tool ``timeout`` as float seconds.
+
+    Args:
+        value: The caller's per-call time limit for a tool, in seconds.
+
+    Returns:
+        float: The value as seconds.
+
+    Raises:
+        ValidationError: If ``value`` is not a positive, finite real number (bools included).
+    """
+    seconds = None
+    if isinstance(value, numbers.Real) and not isinstance(value, bool):
+        try:
+            seconds = float(value)
+        except OverflowError:
+            seconds = None
+    if seconds is None or not math.isfinite(seconds) or seconds <= 0:
+        raise ValidationError(f"Tool timeout must be a positive number of seconds, got {value!r}.")
+    return seconds
+
+
 @dataclass_json
 @dataclass(repr=False)
 class Model(
@@ -833,9 +857,10 @@ class Model(
     attributes: Optional[Dict[str, Any]] = None
 
     # Per-call time limit in seconds when an agent calls this asset as a tool.
-    # Sent only through ``as_tool()``; ``None`` leaves the model/integration
-    # definition's default (or the agent runtime's 300s) in charge.
-    timeout: Optional[float] = field(default=None, metadata=config(exclude=lambda x: True))
+    # Only the caller sets it: it is never decoded from a backend record (a
+    # platform default there must not come back as a saved override) and is
+    # sent only through ``as_tool()``. ``None`` leaves the platform default.
+    timeout: Optional[float] = field(default=None, metadata=config(decoder=lambda _: None, exclude=lambda x: True))
 
     def __post_init__(self):
         """Initialize dynamic attributes based on backend parameters."""
@@ -1410,15 +1435,8 @@ class Model(
             "asset_id": self.id,
         }
         if self.timeout is not None:
-            tool_dict["timeout"] = self._validated_timeout()
+            tool_dict["timeout"] = _validate_tool_timeout(self.timeout)
         return tool_dict
-
-    def _validated_timeout(self) -> float:
-        """Return ``self.timeout`` as float seconds, rejecting values that can't be a time limit."""
-        value = self.timeout
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
-            raise ValidationError(f"Tool timeout must be a positive number of seconds, got {value!r}.")
-        return float(value)
 
     def get_parameters(self) -> List[dict]:
         """Get current parameter values for this model.

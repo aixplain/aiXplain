@@ -14,11 +14,18 @@ agent = aix.Agent(name="my-agent", tools=[tool])
 agent.save()
 ```
 
-It is saved with the agent's tool entry and survives `Agent.get()` and re-save.
-Unset, the model/integration definition's default applies (e.g. 10 seconds for
-AiR), else the agent runtime's 300 seconds. A value that is not a positive
-number raises `ValidationError` on save. It does not change `Model.run(timeout=...)`,
-which still bounds how long a direct call waits for its result.
+It is sent on the agent's tool entry when the agent is saved; unset, the
+platform's default for that tool applies. Applying the value depends on
+platform-backend storing it and passing it to the agent runtime (ENG-3817).
+
+- A value that is not a positive number raises `ValidationError` when the tool is
+  serialized, whether it is set on the object or in a plain tool dict.
+- Changing it on a saved agent marks the agent modified, so it takes effect only
+  after `agent.save()`; unlike input values there is no per-run override.
+- A `timeout` key in a model or tool record returned by the backend is ignored, so
+  a platform default is never saved back as the user's override.
+- `Model.run(timeout=...)` is unchanged: it still bounds how long a direct call
+  waits for its result.
 
 ### Fixed: `agent.budget.max_duration_seconds` was ignored on every run
 
