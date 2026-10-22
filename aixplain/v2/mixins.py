@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Literal
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 
 class ParameterInput(TypedDict):
@@ -51,6 +51,7 @@ class ToolDict(TypedDict):
     type: Literal["model", "pipeline", "utility", "sql", "script", "tool", "integration"]
     version: str
     asset_id: str
+    timeout: NotRequired[float]
 
 
 class ToolableMixin(ABC):
@@ -78,6 +79,7 @@ class ToolableMixin(ABC):
                 - type: The tool type (e.g., "model")
                 - version: The tool's version as a string
                 - asset_id: The tool's asset ID (usually same as id)
+                - timeout: Optional per-call time limit in seconds
 
         Raises:
             NotImplementedError: If the subclass doesn't implement this method

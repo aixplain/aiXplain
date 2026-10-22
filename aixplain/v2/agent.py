@@ -2117,6 +2117,7 @@ class Agent(
             name=entry.get("name"),
             description=entry.get("description"),
             params=params or None,
+            timeout=entry.get("timeout"),
         )
         model.context = context
         return model
@@ -2136,6 +2137,7 @@ class Agent(
             id=entry.get("id"),
             name=entry.get("name"),
             description=entry.get("description"),
+            timeout=entry.get("timeout"),
         )
         tool.context = context
 
