@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### Added: per-tool `timeout` for agent tool calls
+
+Set `timeout` (seconds) on a `Model`, `Tool` or `Integration` before attaching it
+to an agent to cap how long the agent waits for each call to that tool:
+
+```python
+tool = aix.Tool.get("...")
+tool.timeout = 30
+agent = aix.Agent(name="my-agent", tools=[tool])
+agent.save()
+```
+
+It is sent on the agent's tool entry when the agent is saved; unset, the
+platform's default for that tool applies. Applying the value depends on
+platform-backend storing it and passing it to the agent runtime (ENG-3817).
+
+- A value that is not a positive number raises `ValidationError` when the tool is
+  serialized, whether it is set on the object or in a plain tool dict.
+- Changing it on a saved agent marks the agent modified, so it takes effect only
+  after `agent.save()`; unlike input values there is no per-run override.
+- A `timeout` key in a model or tool record returned by the backend is ignored, so
+  a platform default is never saved back as the user's override.
+- `Model.run(timeout=...)` is unchanged: it still bounds how long a direct call
+  waits for its result.
+
 ### Fixed: `agent.budget.max_duration_seconds` was ignored on every run
 
 `agent.run()` always sent `executionParams.maxTime: 300`, and the backend ranks

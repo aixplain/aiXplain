@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from ._expected_output import expected_output_to_wire
 from .enums import AssetStatus, AssetStatusValue, ResponseStatus
-from .model import Model
+from .model import Model, _validate_tool_timeout
 from .file import File
 from .skill import Skill
 from .graph import Graph, GraphDict, StaticGraphStrategy, StaticGraphStrategyDict
@@ -1147,12 +1147,20 @@ class Agent(
 
     @staticmethod
     def _tool_identity(tool: Any) -> dict:
-        """Return a stable id/type signature for a tool entry (no param values)."""
+        """Return a stable id/type/timeout signature for a tool entry (no param values).
+
+        ``timeout`` is included because, unlike input values, it has no run-time
+        override: a change only takes effect once saved, so it must count as one.
+        """
         if isinstance(tool, str):
             return {"id": tool}
         if isinstance(tool, dict):
-            return {"id": tool.get("id"), "type": tool.get("type")}
-        return {"id": getattr(tool, "id", None), "type": getattr(tool, "type", None)}
+            return {"id": tool.get("id"), "type": tool.get("type"), "timeout": tool.get("timeout")}
+        return {
+            "id": getattr(tool, "id", None),
+            "type": getattr(tool, "type", None),
+            "timeout": getattr(tool, "timeout", None),
+        }
 
     @staticmethod
     def _file_identity(file: Any) -> dict:
@@ -2089,6 +2097,23 @@ class Agent(
             return entry
 
     @staticmethod
+    def _stored_tool_timeout(entry: dict) -> Optional[float]:
+        """Read a saved tool entry's ``timeout``, dropping a value ``as_tool()`` would reject.
+
+        A stored value is not the caller's input, so a bad one is logged and
+        dropped instead of failing the agent's next save. A numeric string is
+        accepted, as the agent runtime accepts it.
+        """
+        raw = entry.get("timeout")
+        if raw is None:
+            return None
+        try:
+            return _validate_tool_timeout(float(raw) if isinstance(raw, str) else raw)
+        except (ValidationError, ValueError):
+            logger.warning("Ignoring invalid stored timeout %r on tool %r.", raw, entry.get("id"))
+            return None
+
+    @staticmethod
     def _build_model_tool(entry: dict, context: Any, parameters: Any) -> Any:
         """Build a bound ``Model`` from a tool dict, seeding inputs from ``parameters``.
 
@@ -2117,6 +2142,7 @@ class Agent(
             name=entry.get("name"),
             description=entry.get("description"),
             params=params or None,
+            timeout=Agent._stored_tool_timeout(entry),
         )
         model.context = context
         return model
@@ -2136,6 +2162,7 @@ class Agent(
             id=entry.get("id"),
             name=entry.get("name"),
             description=entry.get("description"),
+            timeout=Agent._stored_tool_timeout(entry),
         )
         tool.context = context
 
@@ -2184,6 +2211,9 @@ class Agent(
                 # definitions (current input values included); normalize each
                 # definition's keys to camelCase.
                 result[api_key] = [Agent._normalize_parameter_for_api(p) for p in v]
+            elif api_key == "timeout" and v is not None:
+                # A plain dict entry skips ``as_tool()``, so validate it here too.
+                result[api_key] = _validate_tool_timeout(v)
             else:
                 result[api_key] = v
         return result

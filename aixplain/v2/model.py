@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
+import math
+import numbers
 import re
 from collections.abc import Mapping
 from itertools import chain
@@ -780,6 +782,29 @@ class ModelRunParams(BaseRunParams):
     agent_name: NotRequired[Optional[str]]
 
 
+def _validate_tool_timeout(value: Any) -> float:
+    """Return a tool ``timeout`` as float seconds.
+
+    Args:
+        value: The caller's per-call time limit for a tool, in seconds.
+
+    Returns:
+        float: The value as seconds.
+
+    Raises:
+        ValidationError: If ``value`` is not a positive, finite real number (bools included).
+    """
+    seconds = None
+    if isinstance(value, numbers.Real) and not isinstance(value, bool):
+        try:
+            seconds = float(value)
+        except OverflowError:
+            seconds = None
+    if seconds is None or not math.isfinite(seconds) or seconds <= 0:
+        raise ValidationError(f"Tool timeout must be a positive number of seconds, got {value!r}.")
+    return seconds
+
+
 @dataclass_json
 @dataclass(repr=False)
 class Model(
@@ -830,6 +855,12 @@ class Model(
     # The backend returns attributes as a plain key/value map.
     params: Optional[List[Parameter]] = None
     attributes: Optional[Dict[str, Any]] = None
+
+    # Per-call time limit in seconds when an agent calls this asset as a tool.
+    # Only the caller sets it: it is never decoded from a backend record (a
+    # platform default there must not come back as a saved override) and is
+    # sent only through ``as_tool()``. ``None`` leaves the platform default.
+    timeout: Optional[float] = field(default=None, metadata=config(decoder=lambda _: None, exclude=lambda x: True))
 
     def __post_init__(self):
         """Initialize dynamic attributes based on backend parameters."""
@@ -1359,9 +1390,14 @@ class Model(
                 - type: Always "model"
                 - version: The model's version
                 - asset_id: The model's ID (same as id)
+                - timeout: Per-call time limit in seconds, only when ``self.timeout`` is set
+
+        Raises:
+            ValidationError: If ``self.timeout`` is not a positive number of seconds.
 
         Example:
             >>> model = aix.Model.get("some-model-id")
+            >>> model.timeout = 10
             >>> agent = aix.Agent(..., tools=[model.as_tool()])
         """
         # Get current parameter values using get_parameters()
@@ -1387,7 +1423,7 @@ class Model(
             elif isinstance(self.version, str):
                 version = self.version
 
-        return {
+        tool_dict: ToolDict = {
             "id": self.id,
             "name": self.name,
             "description": self.description or "",
@@ -1398,6 +1434,9 @@ class Model(
             "version": version,
             "asset_id": self.id,
         }
+        if self.timeout is not None:
+            tool_dict["timeout"] = _validate_tool_timeout(self.timeout)
+        return tool_dict
 
     def get_parameters(self) -> List[dict]:
         """Get current parameter values for this model.
