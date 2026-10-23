@@ -35,14 +35,14 @@ jobs:
       actions: read
     steps:
       - name: Checkout the tagged commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Require a green functional run on the tagged commit
         env:
@@ -159,18 +159,18 @@ jobs:
       contents: read
     steps:
       - name: Checkout the tagged commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Matches docs.yaml: leave no git credential in the workspace for the
           # build steps below to pick up.
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
           # The floor of `requires-python`; build where the oldest supported
           # interpreter can.
-          python-version: "3.9"
+          python-version: "3.10"
           cache: 'pip'
 
       # PyPI filenames are immutable: a wheel uploaded as 0.2.47 when the tag
@@ -286,7 +286,7 @@ jobs:
           PY
 
       - name: Upload the distribution for the publish job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/*
@@ -311,7 +311,7 @@ jobs:
       id-token: write
     steps:
       - name: Download the distribution
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist
