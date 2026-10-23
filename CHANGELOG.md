@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Breaking: Python 3.9 is no longer supported
+
+`requires-python` is now `>=3.10, <4`. Python 3.9 reached end of life in October
+2025, and GitHub's `ubuntu-latest` runner (Ubuntu 26.04) no longer ships a 3.9
+build, so CI could no longer test it. On Python 3.9, pip keeps resolving the last
+release that supported it.
+
 ### Fixed: `agent.budget.max_duration_seconds` was ignored on every run
 
 `agent.run()` always sent `executionParams.maxTime: 300`, and the backend ranks
