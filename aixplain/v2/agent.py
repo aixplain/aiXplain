@@ -1300,6 +1300,55 @@ class Agent(
         "Both 'max_iterations' and budget.max_iterations are set; budget.max_iterations takes precedence."
     )
 
+    # Run duration the backend applies when nothing sets one (platform-backend
+    # ``DEFAULT_MAX_DURATION_SECONDS``).
+    _SERVER_DEFAULT_MAX_DURATION_SECONDS: ClassVar[float] = 600
+    # Waited on top of the run's duration: queueing, setup and result delivery.
+    _POLL_TIMEOUT_ALLOWANCE_SECONDS: ClassVar[float] = 120
+
+    def _run_duration_seconds(
+        self,
+        execution_params: Optional[Dict[str, Any]] = None,
+        session_config: Optional[Any] = None,
+    ) -> float:
+        """The run duration the backend will resolve, in the same precedence order.
+
+        A direct run sends the agent's ``budget`` as the run budget, so it ranks
+        it above the run's ``max_time``. A session run is driven by the session's
+        config (run overrides are already applied to it), which ranks above the
+        agent's stored budget. Either way the backend's default comes last.
+        """
+        agent_duration = self._normalize_budget(getattr(self, "budget", None) or Budget()).get("maxDurationSeconds")
+        if session_config is None:
+            params = {self._EXEC_PARAMS_MAP.get(k, k): v for k, v in (execution_params or {}).items()}
+            candidates: List[Any] = [agent_duration, params.get("maxTime")]
+        else:
+            if isinstance(session_config, dict):
+                session_budget = session_config.get("budget")
+                session_params = session_config.get("execution_params") or session_config.get("executionParams")
+            else:
+                session_budget = getattr(session_config, "budget", None)
+                session_params = getattr(session_config, "execution_params", None)
+            session_params = {self._EXEC_PARAMS_MAP.get(k, k): v for k, v in (session_params or {}).items()}
+            candidates = [
+                self._normalize_budget(session_budget or {}).get("maxDurationSeconds"),
+                self._normalize_budget(session_params.get("budget") or {}).get("maxDurationSeconds"),
+                session_params.get("maxTime"),
+                agent_duration,
+            ]
+        for value in candidates:
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+                return float(value)
+        return float(self._SERVER_DEFAULT_MAX_DURATION_SECONDS)
+
+    def _default_poll_timeout(self, kwargs: Dict[str, Any], session_config: Optional[Any] = None) -> float:
+        """The caller's ``timeout``, else the run's duration plus the poll allowance."""
+        timeout = kwargs.get("timeout")
+        if timeout is not None:
+            return timeout
+        duration = self._run_duration_seconds(kwargs.get("execution_params"), session_config)
+        return duration + self._POLL_TIMEOUT_ALLOWANCE_SECONDS
+
     @classmethod
     def _normalize_budget(cls, budget: Union[Dict, "Budget"]) -> dict:
         """Normalize a Budget instance or dict to the camelCase wire shape.
@@ -1532,6 +1581,7 @@ class Agent(
             AgentRunResult with final execution status.
         """
         poll_url = self._resolve_poll_url(poll_url)
+        kwargs["timeout"] = self._default_poll_timeout(kwargs)
         if self._PROGRESS_TRACKER_KWARG in kwargs:
             # An enclosing run() owns the display (or chose not to have one);
             # it feeds, finishes and stops the tracker.
@@ -2943,7 +2993,7 @@ class Agent(
         try:
             result = self.sync_poll(
                 user_msg.request_id,
-                timeout=kwargs.get("timeout", 300),
+                timeout=self._default_poll_timeout(kwargs, getattr(session, "execution_config", None)),
                 wait_time=kwargs.get("wait_time", 0.5),
                 _progress_tracker=tracker,
             )

@@ -508,3 +508,27 @@ class TestDefaultPathUnchanged:
         assert result.status == "SUCCESS"
         assert result.data.output == "direct reply"
         assert result.used_credits == 0.5
+
+
+class TestSessionRunPollTimeout:
+    def test_poll_waits_for_the_session_budget(self):
+        ctx = _make_mock_context()
+
+        class BoundSession(Session):
+            context = ctx
+
+        BoundSession.add_message = lambda self, role, content, **kw: _user_message(request_id="req_t")
+        ctx.Session = BoundSession
+
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A")
+        agent._update_saved_state()
+
+        session = BoundSession(agent=agent, name="thread")
+        session.id = "sess_t"
+        session.execution_config = ExecutionConfig(budget={"max_duration_seconds": 1500})
+
+        with patch.object(Agent, "sync_poll", return_value=AgentRunResult.from_dict(_success_result())) as poll:
+            agent.run("hi", session=session)
+
+        assert poll.call_args.kwargs["timeout"] == 1500 + Agent._POLL_TIMEOUT_ALLOWANCE_SECONDS
