@@ -12,7 +12,7 @@ to do something, a plugin also hands it the tools.
 
 | Plugin | Description |
 |--------|-------------|
-| [aixplain](./aixplain) | Search the aixplain marketplace through a bundled MCP, inspect real asset schemas, and build, verify, debug, update, or export production aixplain agents with SDK v2. |
+| [aixplain](./aixplain) | Search the aixplain marketplace through a bundled MCP, inspect real asset schemas, choose the right model for a project, and build, verify, debug, update, or export production aixplain agents with SDK v2. |
 
 ---
 
