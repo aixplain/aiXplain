@@ -10,7 +10,7 @@
     {
       "name": "aixplain",
       "displayName": "aixplain",
-      "description": "Search the aixplain marketplace and build, run, and deploy agents, models, knowledge bases, and tools with the aixplain-builder skill, from one plugin.",
+      "description": "Search the aixplain marketplace, choose the right model for a project, and build, run, and deploy agents, models, knowledge bases, and tools with the aixplain-builder skill, from one plugin.",
       "source": "./plugins/aixplain",
       "category": "development",
       "author": {

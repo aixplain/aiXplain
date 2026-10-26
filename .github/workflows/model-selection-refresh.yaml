@@ -1,0 +1,46 @@
+name: Refresh model-selection skill
+
+# Weekly: snapshot every LLM on the marketplace and open a PR listing what the
+# skill's tiers.json needs (new models, removed models, price and ZDR changes).
+on:
+  schedule:
+    # Mondays 04:23 UTC: off the hour, where GitHub's scheduler queues are shortest.
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Snapshot the marketplace
+        # The marketplace is PROD, so this uses the PROD key.
+        env:
+          AIXPLAIN_API_KEY: ${{ secrets.TEAM_API_KEY_PROD }}
+        run: |
+          python skills/model-selection/tooling/refresh.py --report "$RUNNER_TEMP/report.md"
+
+      - name: Create Pull Request if the catalog changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/model-selection-refresh
+          commit-message: "chore(skills): refresh model-selection catalog"
+          title: "chore(skills): refresh model-selection catalog"
+          body-path: ${{ runner.temp }}/report.md
+          add-paths: |
+            skills/model-selection/references/catalog.json
+          delete-branch: true

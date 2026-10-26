@@ -1,0 +1,32 @@
+{
+  "updated": "2026-10-26",
+  "about": "Reviewed tiers for LLMs on the aixplain marketplace, keyed by asset id. tier: frontier | balanced | fast. good_for tags: agents, coding, reasoning, chat, extraction, long-context, vision, multilingual, arabic, high-volume. source says what the judgment rests on; reviewed is the date a person checked it, or null while it rests on the vendor description alone. The weekly refresh PR lists models to add or remove.",
+  "models": {
+    "6a9ab295d8e48e4051bb79be": {"path": "openai/gpt-6-astra/openai", "tier": "frontier", "good_for": ["agents", "coding", "reasoning"], "source": "marketplace description", "reviewed": null},
+    "6abd16edb7dcf25391f3c3b7": {"path": "anthropic/claude-opus-5-5/openrouter", "tier": "frontier", "good_for": ["agents", "coding", "reasoning", "vision"], "source": "marketplace description", "reviewed": null},
+    "6a2939507c91dd000d0ec9a3": {"path": "anthropic/claude-fable-5/aws", "tier": "frontier", "good_for": ["agents", "coding", "reasoning", "long-context"], "source": "marketplace description", "reviewed": null},
+    "6adc8d691f0d9ffb50398f0d": {"path": "moonshotai/kimi-k3.1-pro/openrouter", "tier": "frontier", "good_for": ["agents", "coding", "long-context", "vision"], "source": "marketplace description", "reviewed": null},
+    "6a9b042fd8e48e4051bb79d1": {"path": "alibaba-cloud/qwen3-8-max/alibaba-cloud", "tier": "frontier", "good_for": ["agents", "coding", "reasoning"], "source": "marketplace description", "reviewed": null},
+    "6a610d0e7dd3d37964ce4c28": {"path": "openai/gpt-5.6-sol/openai", "tier": "frontier", "good_for": ["agents", "coding", "reasoning"], "source": "marketplace description", "reviewed": null},
+
+    "6ab3e2f8301e7b05c00adc38": {"path": "openai/gpt-6-sol/openai", "tier": "balanced", "good_for": ["agents", "coding"], "source": "marketplace description", "reviewed": null},
+    "6a9abf68d8e48e4051bb79c8": {"path": "google/gemini-3-8-flash/openrouter", "tier": "balanced", "good_for": ["agents", "coding", "reasoning"], "source": "marketplace description", "reviewed": null},
+    "6a2846169a0a2598b61e13a8": {"path": "anthropic/claude-sonnet-4-6/openrouter", "tier": "balanced", "good_for": ["agents", "coding", "chat"], "source": "marketplace description", "reviewed": null},
+    "6a610d8f7dd3d37964ce4c2e": {"path": "openai/gpt-5.6-terra/openai", "tier": "balanced", "good_for": ["agents", "chat"], "source": "marketplace description", "reviewed": null},
+    "6a9086726ffe573a6d61822b": {"path": "z-ai/glm-5-3/openrouter", "tier": "balanced", "good_for": ["agents", "coding", "long-context"], "source": "marketplace description", "reviewed": null},
+    "6ab53b69c0af3c6875cdaec4": {"path": "ifm/k2-horizon-375b-a23b/featherless", "tier": "balanced", "good_for": ["agents", "coding"], "source": "marketplace description", "reviewed": null},
+    "6a33c208e0f338c7912d89a7": {"path": "z-ai/glm-5-2/openrouter", "tier": "balanced", "good_for": ["agents", "coding", "long-context"], "source": "marketplace description; listed ZDR true", "reviewed": null},
+    "6a28461b9a0a2598b61e13e4": {"path": "writer/palmyra-x5/openrouter", "tier": "balanced", "good_for": ["agents", "long-context"], "source": "marketplace description; listed ZDR true", "reviewed": null},
+
+    "6ab3e31c301e7b05c00adc39": {"path": "openai/gpt-6-luna/openai", "tier": "fast", "good_for": ["extraction", "high-volume", "chat"], "source": "marketplace description", "reviewed": null},
+    "6ab29dadf8fb29691054f128": {"path": "deepseek/deepseek-v4.1-flash/aixplain", "tier": "fast", "good_for": ["high-volume", "long-context", "vision"], "source": "marketplace description", "reviewed": null},
+    "6a9afe35d8e48e4051bb79cd": {"path": "alibaba-cloud/qwen3-8-flash/alibaba-cloud", "tier": "fast", "good_for": ["high-volume", "long-context", "vision"], "source": "marketplace description", "reviewed": null},
+    "6a9087a36ffe573a6d61822d": {"path": "z-ai/glm-5-3-flash/openrouter", "tier": "fast", "good_for": ["coding", "high-volume"], "source": "marketplace description", "reviewed": null},
+    "6a2846299a0a2598b61e1489": {"path": "anthropic/claude-haiku-4-5/openrouter", "tier": "fast", "good_for": ["agents", "chat", "high-volume"], "source": "marketplace description", "reviewed": null},
+    "6a28463c9a0a2598b61e155b": {"path": "google/gemini-2-5-flash-lite/openrouter", "tier": "fast", "good_for": ["extraction", "high-volume"], "source": "marketplace description", "reviewed": null},
+    "6a28461c9a0a2598b61e13e9": {"path": "z-ai/glm-4-7-flash/openrouter", "tier": "fast", "good_for": ["coding", "high-volume"], "source": "marketplace description; listed ZDR true", "reviewed": null}
+  },
+  "excluded": {
+    "6ace75ca2b8ec02145afd761": {"path": "dealignai/glm-5.3-cybersecurity-fp8/aixplain", "reason": "Refusal-reduced cybersecurity variant; only when the user asks for it by name."}
+  }
+}

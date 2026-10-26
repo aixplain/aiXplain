@@ -1,8 +1,9 @@
 # aixplain plugin
 
-One Claude Code plugin for two connected jobs:
+One Claude Code plugin for three connected jobs:
 
 - **Discover:** search the live aixplain marketplace through the bundled Marketplace Search MCP, inspect real schemas, and generate runnable SDK, REST, or MCP code.
+- **Choose:** pick the right model for a project with the model-selection skill: hard limits first, a reviewed shortlist from the live catalog, then a side-by-side test on your own examples.
 - **Build:** build, run, and deploy agents, models, knowledge bases, tools, and inspectors with the bundled aixplain-builder skill.
 
 Install it once, then use either skill as the task requires:
@@ -109,7 +110,7 @@ Verified against PROD on 2026-08-18:
 | Read an asset's real input schema | yes |
 | Emit SDK / REST / MCP / agent-attach code from that schema | yes |
 | Run and test an asset via generated SDK code | yes |
-| Sort results (cheapest, newest) | no — no sort parameter; sort locally after paging |
+| Sort results (cheapest, newest) | yes — `sort: price_asc / price_desc / newest` (checked 2026-10-26) |
 | Run an asset via the MCP `run_*` actions | no — broken, use generated code instead |
 
 ## Beyond search
@@ -130,6 +131,7 @@ plugins/aixplain/
   .claude-plugin/plugin.json    manifest
   .mcp.json                     Marketplace Search MCP, ${AIXPLAIN_API_KEY}
   skills/marketplace-search/    marketplace discovery and runnable-code guidance
+  skills/model-selection/       choose a model: live shortlist, reviewed tiers, test on your examples
   skills/aixplain-builder/      build, run, and deploy anything the SDK supports
 ```
 
@@ -143,6 +145,18 @@ The skill is usable on its own: copy `skills/marketplace-search/SKILL.md` to
   `output_price`). The skill reports whichever applies.
 - The search MCP tool ID (`6960f934f316da19e5f22494`) is stable across environments.
 
+
+## model-selection
+
+Ask "which model should I use for X?" and the `model-selection` skill answers from the live catalog,
+never from memory. It applies your hard limits first (zero data retention, input type, context,
+budget, speed), shortlists 2–3 models with a reviewed tier (`frontier`, `balanced`, `fast`) and a cost
+estimate, then offers to run the shortlist on your own examples so you can compare output, time and
+credits side by side.
+
+It stays current on its own: a weekly workflow (`.github/workflows/model-selection-refresh.yaml`)
+snapshots every LLM on the marketplace and opens a PR listing new models to tier, removed ones, and
+price or ZDR changes. A reviewer updates `skills/model-selection/references/tiers.json` in that PR.
 
 ## aixplain-builder
 
