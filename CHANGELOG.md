@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added: structured warnings on agent runs, and on a failed run's exception
+
+`AgentRunResult.warnings` and `AgentResponseData.warnings` list the run's
+non-fatal issues as `AgentWarning(code, message)`. They can be present on a
+`SUCCESS` run; a warning never means the run failed.
+
+A `FAILED` agent run now raises `AgentRunFailedError`, a subclass of `APIError`
+(so existing `except APIError` handlers still catch it), with
+`error_details` (`AgentError(code, message)`, the single fatal error) and
+`warnings` attached instead of only a message string.
+
+`diagnostic_error_codes` is deprecated: it mixes fatal and non-fatal codes.
+Use `error.code` and `warnings[].code` instead.
+
 ### Fixed: `agent.budget.max_duration_seconds` was ignored on every run
 
 `agent.run()` always sent `executionParams.maxTime: 300`, and the backend ranks
