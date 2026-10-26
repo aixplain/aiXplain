@@ -5,9 +5,10 @@ import logging
 import re
 import warnings
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
+from urllib.parse import parse_qs, quote, urlparse
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
@@ -396,6 +397,22 @@ class Budget:
 _BUDGET_FIELDS = struct_fields(Budget)
 
 
+def _presigned_expiry(url: str) -> Optional[str]:
+    """Expiry of a SigV4 (``X-Amz-Date`` + ``X-Amz-Expires``) or legacy ``Expires`` presigned URL."""
+    try:
+        params = parse_qs(urlparse(url).query)
+        if "X-Amz-Date" in params and "X-Amz-Expires" in params:
+            start = datetime.strptime(params["X-Amz-Date"][0], "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+            expires = start + timedelta(seconds=int(params["X-Amz-Expires"][0]))
+        elif "Expires" in params:
+            expires = datetime.fromtimestamp(int(params["Expires"][0]), tz=timezone.utc)
+        else:
+            return None
+    except (ValueError, OverflowError, OSError):
+        return None
+    return expires.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 @dataclass_json
 @dataclass
 class Artifact:
@@ -410,6 +427,12 @@ class Artifact:
       skipped by the engine; there is no uploader yet).
 
     Exactly one of ``url`` / ``content`` is populated.
+
+    When the engine re-hosts a deliverable on aiXplain storage, ``url`` is an
+    aiXplain signed URL, ``file_id`` is the stored file's id and ``source_url``
+    is the link the tool originally returned. Call :meth:`refresh_url` to get a
+    fresh signed URL once ``url_expires_at`` has passed. ``step_id`` is the
+    ``step_id`` of the step (tool call) in ``result.data.steps`` that produced it.
 
     .. warning::
        ``url_expires_at`` is when the **presigned URL** dies, not the artifact.
@@ -434,13 +457,41 @@ class Artifact:
     category: str = "other"
     source: str = ""
     tool_name: Optional[str] = field(default=None, metadata=config(field_name="toolName"))
+    step_id: Optional[str] = field(default=None, metadata=config(field_name="stepId"))
     url: Optional[str] = None
     url_expires_at: Optional[str] = field(default=None, metadata=config(field_name="urlExpiresAt"))
+    file_id: Optional[str] = field(default=None, metadata=config(field_name="fileId"))
+    source_url: Optional[str] = field(default=None, metadata=config(field_name="sourceUrl"))
     content: Optional[str] = None
     sha256: Optional[str] = None
     byte_size: Optional[int] = field(default=None, metadata=config(field_name="byteSize"))
     mentioned_in_answer: bool = field(default=False, metadata=config(field_name="mentionedInAnswer"))
     created_at: str = field(default="", metadata=config(field_name="createdAt"))
+    _context: Optional[Any] = field(
+        default=None,
+        repr=False,
+        compare=False,
+        metadata=config(exclude=lambda x: True),
+        init=False,
+    )
+
+    def refresh_url(self, expires_in: Optional[int] = None, client: Optional[Any] = None) -> str:
+        """Re-sign ``url`` (``expires_in`` seconds, backend default 1h, max 7 days) and return it."""
+        if not self.file_id:
+            raise ValidationError(f"Artifact '{self.name}' has no file_id: it was not re-hosted on aiXplain")
+        context = client or self._context
+        if context is None:
+            raise ValidationError("No client to refresh with: pass refresh_url(client=aix) or read result.artifacts")
+        # A re-hosted artifact is its own root file asset, so it addresses itself as both root and file.
+        file_id = quote(self.file_id, safe="")
+        kwargs: Dict[str, Any] = {"params": {"expiresIn": expires_in}} if expires_in is not None else {}
+        response = context.client.get(f"sdk/file-asset/{file_id}/file/{file_id}/url", **kwargs)
+        url = response.get("url") if isinstance(response, dict) else None
+        if not url:
+            raise ValidationError(f"Backend returned no signed url for file {self.file_id}: {response!r}")
+        self.url = url
+        self.url_expires_at = _presigned_expiry(url)
+        return url
 
     @classmethod
     def _coerce_list(cls, value: Any) -> List["Artifact"]:
@@ -673,12 +724,18 @@ class AgentRunResult(Result):
         """
         data = self.data
         if isinstance(data, AgentResponseData):
-            return data.artifacts or []
-        if isinstance(data, dict):
+            artifacts = data.artifacts or []
+        elif isinstance(data, dict):
             # ``data`` is a bare dict when the result was built by hand rather
             # than decoded through ``from_dict``.
-            return Artifact._coerce_list(data.get("artifacts"))
-        return []
+            artifacts = Artifact._coerce_list(data.get("artifacts"))
+        else:
+            return []
+        # Bound here so ``artifact.refresh_url()`` reaches the client that ran the agent.
+        for artifact in artifacts:
+            if artifact._context is None:
+                artifact._context = self._context
+        return artifacts
 
     @property
     def execution_id(self) -> Optional[str]:
