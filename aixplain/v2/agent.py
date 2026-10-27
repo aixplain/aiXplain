@@ -25,7 +25,6 @@ from .exceptions import AgentRunFailedError, ValidationError, _structured_error,
 from .exceptions import create_operation_failed_error
 from .mixins import ToolableMixin
 from .plain_data import coerce_struct_list, struct_fields
-from .exceptions import ValidationError
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (

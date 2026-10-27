@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed: Python 3.9 support
+
+`requires-python` is now `>=3.10, <4`, and CI runs on 3.10. Python 3.9 reached
+end of life in October 2025 and GitHub's `ubuntu-latest` runner no longer ships
+a 3.9 build. On Python 3.9, pip keeps resolving the last release that supported
+it.
+
 ### Added: structured warnings on agent runs, and on a failed run's exception
 
 `AgentRunResult.warnings` and `AgentResponseData.warnings` list the run's
