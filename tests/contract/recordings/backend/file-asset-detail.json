@@ -1,0 +1,47 @@
+{
+  "contract": "A file asset (FileAssetDto).",
+  "endpoint": {
+    "method": "GET",
+    "host": "backend",
+    "path": "/sdk/file-asset/{id}"
+  },
+  "request": {},
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "id": "file-contract-1",
+      "name": "guide.pdf",
+      "assetInfo": null,
+      "description": "Style guide",
+      "team": 199,
+      "user": 42,
+      "tags": [],
+      "assetType": "File",
+      "fileType": "file",
+      "ext": "pdf",
+      "size": 52011,
+      "privacy": "Private",
+      "isSystemAsset": false,
+      "whitelist": [],
+      "status": "onboarded",
+      "createdAt": "2026-09-01T10:00:00.000Z",
+      "updatedAt": "2026-09-01T10:00:00.000Z",
+      "timeToLive": null,
+      "children": []
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "platform-backend@91ed4d7bf src/file-asset/dto/file-asset.dto.ts:78-99",
+      "platform-backend@91ed4d7bf src/file-asset/controllers/file-asset.sdk.controller.ts:186-200",
+      "platform-backend@91ed4d7bf src/file/enums/file-type.enum.ts (fileType is file | folder; the extension is ext)"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording."
+  }
+}

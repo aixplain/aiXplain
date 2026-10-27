@@ -1,0 +1,30 @@
+{
+  "contract": "Run refused by the workspace per-asset rate limit; an object body with no statusCode key.",
+  "endpoint": {
+    "method": "POST",
+    "host": "models",
+    "path": "/{id}"
+  },
+  "request": {},
+  "response": {
+    "status": 429,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "message": "err.workspace.rpm_exceeded",
+      "assetId": "{id}",
+      "limit": 60,
+      "window": "1m"
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "platform-backend@91ed4d7bf src/model/services/asset-access.service.ts:309-324"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording via scripts/contract_record.py. Shared with aixplain-agents tests/contract/recordings (same platform endpoint)."
+  }
+}

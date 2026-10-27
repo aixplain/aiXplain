@@ -1,0 +1,45 @@
+{
+  "contract": "SSE comment lines (keepalives) between chunks; the SSE spec says to ignore them.",
+  "family": "openai",
+  "request": {
+    "tools": [],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream"
+    },
+    "sse": [
+      ": keepalive",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gpt-4o-mini-2024-07-18\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Hi\"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      ": keepalive",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gpt-4o-mini-2024-07-18\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ]
+  },
+  "expected": {
+    "status": "SUCCESS",
+    "content": "Hi",
+    "reasoning": "",
+    "finish_reason": "stop",
+    "tool_call_names": []
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 aixplain/v2/model.py ModelResponseStreamer.__next__ 476-635",
+      "WHATWG SSE: lines starting with ':' are comments",
+      "agents #272/#251 (SSE keepalive)"
+    ],
+    "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/edge/keepalive-comments; the expected block is what the SDK's streamer should yield for it, written by hand."
+  },
+  "known_failure": "ENG-3782 finding: ModelResponseStreamer strips only 'data:'; an SSE comment line (': keepalive') is buffered as JSON, fails to parse, and is yielded as chunk content."
+}

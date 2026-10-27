@@ -1,0 +1,102 @@
+{
+  "contract": "Agent definition (AgentDtoV2): the LLM is model.id, there is no llmId.",
+  "endpoint": {
+    "method": "GET",
+    "host": "backend",
+    "path": "/v2/agents/{id}"
+  },
+  "request": {},
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "id": "agent-contract-1",
+      "type": "standard",
+      "name": "Contract Agent",
+      "teamId": 199,
+      "description": "Answers geography questions.",
+      "host": "aixplain",
+      "role": "You answer geography questions.",
+      "instructions": "You answer geography questions.",
+      "status": "onboarded",
+      "assetInfo": null,
+      "maxIterations": 5,
+      "budget": null,
+      "maxTokens": 2000,
+      "contextOverflowStrategy": null,
+      "outputFormat": "text",
+      "expectedOutput": null,
+      "developer": {
+        "id": 199,
+        "name": "contract-team",
+        "displayName": "Contract Team"
+      },
+      "tools": [
+        {
+          "id": "66f423426eb563fa213a3531",
+          "type": "model",
+          "name": "Google Search",
+          "displayName": null,
+          "description": "Search the web.",
+          "actions": [],
+          "parameters": []
+        }
+      ],
+      "skills": [],
+      "files": [
+        {
+          "id": "file-contract-1",
+          "name": "guide.pdf",
+          "description": "Style guide",
+          "fileType": "file"
+        }
+      ],
+      "modalities": [],
+      "builtinTools": [],
+      "tasks": [],
+      "graphVersion": null,
+      "graph": null,
+      "strategy": null,
+      "inspectors": [],
+      "assignedTasks": [],
+      "model": {
+        "id": "6646261c6eb563165658bbb1",
+        "name": null,
+        "parameters": []
+      },
+      "supervisor": null,
+      "planner": null,
+      "responder": null,
+      "inspector": null,
+      "clonedFromId": null,
+      "isDefaultClone": false,
+      "createdAt": "2026-09-01T10:00:00.000Z",
+      "updatedAt": "2026-10-01T10:00:00.000Z",
+      "isSystemAsset": false,
+      "assets": [
+        {
+          "id": "66f423426eb563fa213a3531",
+          "type": "model",
+          "name": "Google Search",
+          "displayName": null,
+          "description": "Search the web.",
+          "actions": [],
+          "parameters": []
+        }
+      ]
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "platform-backend@91ed4d7bf src/agent/dto/agent.v2.dto.ts:266-339",
+      "platform-backend@91ed4d7bf src/agent/controllers/agent.controller.ts:151-155",
+      "platform-backend@91ed4d7bf src/file/enums/file-type.enum.ts (fileType is file | folder; the extension is ext)"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording."
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "contract": "Tool-call arguments cut at the max_tokens cap but labelled tool_calls (agents #307).",
+  "family": "openai",
+  "request": {
+    "tools": [
+      "get_weather"
+    ],
+    "max_tokens": 64
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream"
+    },
+    "sse": [
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gpt-4o-mini-2024-07-18\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call_a\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"arguments\":\"{\\\"city\\\": \\\"Par\"},\"index\":0}]},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gpt-4o-mini-2024-07-18\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"tool_calls\"}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gpt-4o-mini-2024-07-18\",\"system_fingerprint\":\"fp_replay\",\"choices\":[],\"usage\":{\"prompt_tokens\":30,\"completion_tokens\":64,\"total_tokens\":94}}",
+      "",
+      "data: [DONE]",
+      ""
+    ]
+  },
+  "expected": {
+    "status": "SUCCESS",
+    "content": "",
+    "reasoning": "",
+    "finish_reason": "tool_calls",
+    "usage": {
+      "prompt_tokens": 30,
+      "completion_tokens": 64
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 aixplain/v2/model.py ModelResponseStreamer.__next__ 476-635",
+      "agents #307 (bcbc8f11)"
+    ],
+    "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/edge/truncated-tool-arguments; the expected block is what the SDK's streamer should yield for it, written by hand."
+  }
+}
