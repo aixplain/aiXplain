@@ -1,0 +1,96 @@
+name: Fix-PR revert check
+
+# ENG-3782, layer 6. For a fix PR, run the PR's new and changed tests against
+# the code with the PR's source files reverted, and report whether at least
+# one of them fails on an assertion. ENG-3761 found fixes whose test asserted
+# the bug, and fixes whose test caught the bug only through an ImportError of
+# a name the fix added; .github/tools/fix_revert_check.py automates that check.
+#
+# Which PRs: a title that starts with `fix` (conventional commits: `fix:`,
+# `fix(v2):`) or a `bug` / `fix` label. `edited` is in `types` so retitling a
+# PR to `fix(...)` runs the check without a new push.
+#
+# Non-blocking on purpose: the script exits 0 whatever the verdict, and the
+# verdict is posted as a sticky PR comment and on the run page. Set the repo
+# variable REVERT_CHECK_ENFORCE=true to make DOES_NOT_CATCH /
+# CATCHES_ONLY_VIA_IMPORT / BASELINE_RED fail the job, once the false-positive
+# rate on real fix PRs is known (track it on ENG-3782).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  revert-check:
+    if: >
+      startsWith(github.event.pull_request.title, 'fix') ||
+      contains(github.event.pull_request.labels.*.name, 'bug') ||
+      contains(github.event.pull_request.labels.*.name, 'fix')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # The default checkout is the PR merge ref, whose first parent is the
+      # base branch tip, so HEAD^1..HEAD is exactly the PR's change.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # Same interpreter as `unit-coverage` in main.yaml.
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[test]"
+
+      # No backend credential: the PR's tests run hermetically or skip, and a
+      # skipped test counts as not catching the bug.
+      - name: Revert the fix and re-run its tests
+        env:
+          ENFORCE: ${{ vars.REVERT_CHECK_ENFORCE == 'true' && '--enforce' || '' }}
+        run: |
+          python .github/tools/fix_revert_check.py \
+            --base HEAD^1 --head HEAD \
+            --source-dir aixplain --tests-dir tests --package aixplain \
+            --python "$(command -v python)" \
+            --json revert-check.json --markdown revert-check.md \
+            $ENFORCE
+
+      - name: Publish the verdict
+        if: always()
+        run: |
+          if [[ -f revert-check.md ]]; then
+            cat revert-check.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Post sticky PR comment
+        # A fork PR's token cannot comment; the verdict is still on the run page.
+        if: always() && hashFiles('revert-check.md') != ''
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: fix-revert-check
+          path: revert-check.md
+
+      - name: Upload the verdict
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: revert-check
+          path: revert-check.json
+          if-no-files-found: ignore
