@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.support.platform_replay import RECORDINGS_DIR
+from tests.support.platform_replay import RECORDINGS_DIR, PlatformStub, StubResponse
 
 NAMES = sorted(p.relative_to(RECORDINGS_DIR).with_suffix("").as_posix() for p in RECORDINGS_DIR.rglob("*.json"))
 TEST_SOURCES = "\n".join(p.read_text(encoding="utf-8") for p in Path(__file__).parent.glob("test_*.py"))
@@ -36,3 +36,15 @@ def test_recording_is_scrubbed_and_says_where_it_came_from(name: str) -> None:
 @pytest.mark.parametrize("name", NAMES)
 def test_recording_is_replayed_by_a_test(name: str) -> None:
     assert '"%s"' % name in TEST_SOURCES
+
+
+def test_a_route_an_earlier_one_shadows_is_refused() -> None:
+    # The first matching route answers. A later route for the same endpoint
+    # would never be served, and the test using it would pass vacuously.
+    stub = PlatformStub().serve("models/poll-in-progress")
+    with pytest.raises(ValueError, match="never be served"):
+        stub.route("GET", "models_root", "/api/v1/data/{request_id}", StubResponse(status=500))
+    # A conditional earlier route leaves room for a later one.
+    PlatformStub().serve("models/poll-in-progress", where={"request_id": "a"}).route(
+        "GET", "models_root", "/api/v1/data/{request_id}", StubResponse(status=500)
+    )

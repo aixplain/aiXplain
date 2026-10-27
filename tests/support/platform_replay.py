@@ -154,7 +154,7 @@ class PlatformStub:
                 responders.append(lambda _r, _p, item=item: item)
             else:
                 responders.append(lambda _r, p, item=item: _filled(recording_response(item), p))
-        self._routes.append(
+        return self._add(
             _Route(
                 endpoint["method"].upper(),
                 endpoint["host"],
@@ -164,11 +164,23 @@ class PlatformStub:
                 match,
             )
         )
-        return self
 
     def route(self, method: str, host: str, path: str, responder: Any) -> "PlatformStub":
         fn: Responder = responder if callable(responder) else (lambda _r, _p: responder)
-        self._routes.append(_Route(method.upper(), host, _path_regex(path), [fn], {}, None))
+        return self._add(_Route(method.upper(), host, _path_regex(path), [fn], {}, None))
+
+    def _add(self, route: _Route) -> "PlatformStub":
+        # The first matching route answers, so a route registered after an
+        # unconditional one for the same endpoint would never be served and
+        # its test would pass without exercising it.
+        for earlier in self._routes:
+            if (earlier.method, earlier.host, earlier.regex.pattern) == (route.method, route.host, route.regex.pattern):
+                if not earlier.where and earlier.match is None:
+                    raise ValueError(
+                        "%s %s %s is already answered by an earlier route; this one would never be served"
+                        % (route.method, route.host, route.regex.pattern)
+                    )
+        self._routes.append(route)
         return self
 
     def answer(self, request: RecordedRequest) -> StubResponse:
