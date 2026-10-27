@@ -141,7 +141,7 @@ adding a field needs no second edit.
 
 ### Output — returned, never passed
 
-`AgentError`, `AgentResponseData`, `AgentRunResult`, `AgentEvaluationResultsChatbot`,
+`AgentError`, `AgentResponseData`, `AgentRunResult`, `AgentWarning`, `AgentEvaluationResultsChatbot`,
 `AgentEvaluationRow`, `AgentEvaluationRun`, `APIKeyUsageLimit`, `Artifact`,
 `BaseResult`, `CompletionTokensDetails`, `DebugResult`, `DeleteResult`, `Detail`,
 `Experiment`, `ExperimentRun`, `ExperimentRunDiff`, `ExperimentRunDiffCase`,

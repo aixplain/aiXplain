@@ -24,7 +24,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.10"
           cache: 'pip'
 
       # The `gitleaks` pre-commit hook only sees the staged diff, so under

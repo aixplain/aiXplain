@@ -40,7 +40,7 @@ def _normalize(name: str) -> str:
 def _declared_distributions() -> set:
     """Distribution names declared in pyproject's dependency arrays.
 
-    Hand-rolled rather than tomllib-based: the SDK supports Python 3.9, where
+    Hand-rolled rather than tomllib-based: the SDK supports Python 3.10, where
     ``tomllib`` does not exist, and pulling in a TOML parser just for this check
     is not worth a new dependency.
     """
