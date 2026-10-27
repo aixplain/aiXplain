@@ -29,7 +29,7 @@ name = "aiXplain"
 version = "0.3.0"
 description = "aiXplain SDK adds AI functions to software."
 readme = "README.md"
-requires-python = ">=3.9, <4"
+requires-python = ">=3.10, <4"
 license = { text = "Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0" }
 authors = [
   {email = "ahmet@aixplain.com"},
@@ -84,7 +84,7 @@ model-builder = [
 test = [
     "pytest>=6.1.0",
     # tests/unit/test_packaging_config.py parses pyproject.toml; `tomllib` is
-    # 3.11+, and CI runs 3.9.
+    # 3.11+, and CI runs 3.10.
     "tomli>=2.0.1; python_version < '3.11'",
     "docker>=6.1.3",
     "requests-mock>=1.11.0",
