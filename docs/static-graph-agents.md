@@ -14,7 +14,8 @@ The current platform contract supports these nodes:
 - `ToolNode`: invoke a tool or model attached to the Agent.
 - `AgentNode`: invoke a sub-agent registered on the Agent by its engine agent name.
 - `ScriptNode`: run inline Python in the sandbox.
-- `InspectorNode`: run a registered inspector.
+- `InspectorNode`: run a registered inspector. The Agent must declare that inspector (the node names it with
+  `inspector_type`); an undeclared name fails the node and the error lists the inspectors that are registered.
 - `ConditionalNode`: evaluate a sandboxed expression and store its result.
 
 Values move through graph state using node-level `input_mapping`, `output_mapping`, `input_key`, `output_key`,
@@ -112,6 +113,9 @@ All nodes read from and write to one shared state dict. The run input is availab
   is written to `output_key`, or to `<node_id>_result` when `output_key` is not set.
 - **`ToolNode`** passes state values to the tool with `arg_mapping={"tool_arg": "state_key"}` and writes the tool's
   result to `result_key` (default `<node_id>_output`).
+- **`ConditionalNode`** writes its boolean result to `output_key` (default `<node_id>_result`), and to every
+  `output_mapping` target, exactly like the other nodes, so an edge or a loop-back condition can route on the key you
+  named. It also always writes `last_condition_result` and `last_condition_bool`.
 
 ### Naming the tool in a `ToolNode`
 
@@ -172,6 +176,11 @@ The supported helpers are `equals`, `not_equals`, `greater_than`, `greater_than_
 `less_than_or_equal`, `is_true`, and `is_false`. Comparison values must be strings, finite numbers, booleans, or
 `None`; ordering comparisons accept only strings or numbers.
 
+A `ConditionalNode`'s own `condition` is a single Python expression evaluated against the state. Every state key is
+bound by name, so `score >= 0.5 and status == "ready"` works next to the `state["score"]` form; a key that is not a
+valid identifier (for example `"class"`) is reachable only as `state["class"]`. The `state` name always refers to the
+state dict itself, even if a key is also named `state`. Statements, imports and dunder access are rejected.
+
 ## Cycles
 
 Cycles are rejected by default. To create a bounded loop, opt in and specify its maximum iterations:
@@ -226,3 +235,7 @@ agent.strategy = {"max_iterations": 5}
 
 Set a cost or duration cap in either `agent.budget` or `agent.strategy.budget`, not both. The SDK sends both and warns
 when both are set.
+
+Caps are checked before each node starts, and again once a node has finished, so a node that takes the run over a cost
+or duration cap stops the graph there instead of being reported as a completed run. An iteration cap only limits which
+nodes may start: a run that finishes on its own exactly at the cap is a success.
