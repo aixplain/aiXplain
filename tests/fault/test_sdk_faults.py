@@ -109,7 +109,8 @@ def test_poll_that_stops_answering_ends_within_the_run_budget(faulty: Faulty, mo
     _llm(faulty)
     model = faulty.new_client().Model.get(LLM_ID)
     faulty.stub.serve("models/run-in-progress")
-    faulty.stub.serve("models/poll-in-progress")
+    # Every poll stalls. (Serving models/poll-in-progress here as well would
+    # shadow this route: the stub answers from the first route that matches.)
     calls = []
     faulty.stub.route(
         "GET",
@@ -122,6 +123,7 @@ def test_poll_that_stops_answering_ends_within_the_run_budget(faulty: Faulty, mo
     with pytest.raises(Exception):  # noqa: B017
         model.run(text="hi", timeout=5)
 
+    assert calls, "the stalled poll was never served"
     assert time.monotonic() - started < 5 + GRACE_S
     assert len(faulty.stub.sent("POST", LLM_ID)) == 1
 
