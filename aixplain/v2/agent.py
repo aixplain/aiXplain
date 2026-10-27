@@ -20,7 +20,7 @@ from .enums import AssetStatus, AssetStatusValue, ResponseStatus
 from .model import Model
 from .file import File
 from .skill import Skill
-from .graph import Graph, GraphDict, StaticGraphStrategy, StaticGraphStrategyDict
+from .graph import Graph, GraphDict, InspectorNode, StaticGraphStrategy, StaticGraphStrategyDict
 from .exceptions import AgentRunFailedError, ValidationError, _structured_error, _structured_message
 from .exceptions import create_operation_failed_error
 from .mixins import ToolableMixin
@@ -2413,6 +2413,30 @@ class Agent(
         for k in self._LEGACY_ROLE_KEYS:
             payload.pop(k, None)
 
+    def _validate_graph_inspectors(self) -> None:
+        """Reject an ``InspectorNode`` whose ``inspector_type`` names no inspector declared on this Agent.
+
+        The engine resolves the node by that name among ``agent.inspectors`` at run time, so an undeclared name
+        would otherwise fail every run that reaches the node.
+        """
+        declared = set()
+        for inspector in self.inspectors or []:
+            if isinstance(inspector, str):
+                declared.add(inspector)
+            elif isinstance(inspector, dict):
+                declared.add(inspector.get("name") or inspector.get("presetId") or inspector.get("preset_id"))
+            else:
+                declared.add(getattr(inspector, "name", None))
+        declared.discard(None)
+        for node in self.graph.nodes:
+            if isinstance(node, InspectorNode) and node.inspector_type not in declared:
+                listed = ", ".join(sorted(declared)) if declared else "none"
+                raise ValidationError(
+                    f"InspectorNode '{node.id}' names inspector '{node.inspector_type}', which is not declared on "
+                    f"this Agent (declared: {listed}). Add an Inspector named '{node.inspector_type}' to "
+                    "agent.inspectors; give it targets=[] to run it only at this node."
+                )
+
     def _apply_llm_fields_to_payload(self, payload: Dict[str, Any]) -> None:
         """Back-compat shim — preserves the old ``build_save_payload`` call site."""
         self._apply_llm_fields_to_save_payload(payload)
@@ -2505,6 +2529,7 @@ class Agent(
             strategy = self.strategy or StaticGraphStrategy()
             payload["graphVersion"] = self.graph_version or "1"
             payload["graph"] = self.graph.to_dict()
+            self._validate_graph_inspectors()
             payload["strategy"] = strategy.to_dict()
             if strategy.budget and payload.get("budget"):
                 warnings.warn(
