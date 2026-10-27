@@ -9,7 +9,7 @@ into a failure instead of a skip.
 import os
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Iterator, List
+from typing import Any, Dict, Iterator, List
 from unittest import mock
 
 import pytest
@@ -60,16 +60,25 @@ class Faulty:
     models: str
     client: Any = None
     servers: List[PlatformHTTPServer] = field(default_factory=list)
+    origins: Dict[str, str] = field(default_factory=dict)
 
     def toxic(self, which: str, kind: str, **attributes: Any) -> None:
         self.proxy.toxic(getattr(self, which), kind, **attributes)
+
+    def new_client(self) -> Any:
+        """Another client on the same proxied hosts; it reads the HTTP timeout env vars as they are now."""
+        from aixplain import Aixplain
+
+        return Aixplain(
+            api_key="fault-key-" + self.backend.rsplit("-", 1)[1],
+            backend_url=self.origins[BACKEND_URL],
+            model_url=self.origins[MODELS_ROOT_URL] + "/api/v2/execute",
+        )
 
 
 @pytest.fixture
 def faulty(fault_proxy: FaultProxy, monkeypatch: pytest.MonkeyPatch) -> Iterator[Faulty]:
     """A real SDK client whose backend and models hosts are stub servers behind a fault proxy."""
-    from aixplain import Aixplain
-
     for name in _ENV:
         monkeypatch.setenv(name, "unset-by-fault-fixture")
         monkeypatch.delenv(name)
@@ -83,12 +92,10 @@ def faulty(fault_proxy: FaultProxy, monkeypatch: pytest.MonkeyPatch) -> Iterator
     origins = {BACKEND_URL: "http://127.0.0.1:%d" % backend_port, MODELS_ROOT_URL: "http://127.0.0.1:%d" % models_port}
     for server in servers:
         server.public_origins = origins
-    faulty = Faulty(stub, fault_proxy, "sdk-backend-" + suffix, "sdk-models-" + suffix, servers=servers)
-    faulty.client = Aixplain(
-        api_key="fault-key-" + suffix,
-        backend_url=origins[BACKEND_URL],
-        model_url=origins[MODELS_ROOT_URL] + "/api/v2/execute",
+    faulty = Faulty(
+        stub, fault_proxy, "sdk-backend-" + suffix, "sdk-models-" + suffix, servers=servers, origins=origins
     )
+    faulty.client = faulty.new_client()
     yield faulty
     for name in (faulty.backend, faulty.models):
         fault_proxy.clear(name)

@@ -65,6 +65,17 @@ def test_successful_run_is_polled_to_its_answer(aix, platform: PlatformStub) -> 
     assert len(platform.sent("POST", "/run")) == 1
 
 
+def test_truncated_run_reports_its_diagnostic_code(aix, platform: PlatformStub) -> None:
+    # #983: the agents service nests non-fatal codes under data (and its
+    # executionStats), never at the top level of the poll body.
+    _serve_run(platform, "backend/agent-poll-success-truncated")
+
+    result = aix.Agent.get(AGENT_ID).run("What is the capital of France?", show_progress=False)
+
+    assert result.status == "SUCCESS"
+    assert result.diagnostic_error_codes == ["MAX_TOKENS_REACHED"]
+
+
 def test_successful_run_exposes_its_session_and_steps(aix, platform: PlatformStub) -> None:
     _serve_run(platform, "backend/agent-poll-success")
 

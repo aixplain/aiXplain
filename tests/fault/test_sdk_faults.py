@@ -7,6 +7,7 @@ Retry-After), #1041. Their tests patch ``session.request``; these put a real
 server behind a proxy that stalls, drops or slows the connection.
 """
 
+import json
 import time
 
 import pytest
@@ -101,11 +102,12 @@ def test_retry_after_on_a_rate_limited_read_is_honoured(faulty: Faulty) -> None:
     assert len(calls) == 2 and calls[1] - calls[0] >= 1.9
 
 
-def test_poll_that_stops_answering_ends_within_the_run_budget(faulty: Faulty) -> None:
+def test_poll_that_stops_answering_ends_within_the_run_budget(faulty: Faulty, monkeypatch: pytest.MonkeyPatch) -> None:
     # BUG-1097: each poll read is bounded by the time the run has left, not by
-    # the 300 s default read timeout.
+    # the client's read timeout (300 s by default; 30 s here, longer than the run).
+    monkeypatch.setenv("AIXPLAIN_HTTP_READ_TIMEOUT", "30")
     _llm(faulty)
-    model = faulty.client.Model.get(LLM_ID)
+    model = faulty.new_client().Model.get(LLM_ID)
     faulty.stub.serve("models/run-in-progress")
     faulty.stub.serve("models/poll-in-progress")
     calls = []
@@ -120,18 +122,23 @@ def test_poll_that_stops_answering_ends_within_the_run_budget(faulty: Faulty) ->
     with pytest.raises(Exception):  # noqa: B017
         model.run(text="hi", timeout=5)
 
-    assert time.monotonic() - started < 5 + READ_TIMEOUT_S + GRACE_S
+    assert time.monotonic() - started < 5 + GRACE_S
     assert len(faulty.stub.sent("POST", LLM_ID)) == 1
 
 
 def test_slow_body_is_waited_for(faulty: Faulty) -> None:
+    # A body that takes longer in total than the read timeout is still read to
+    # the end: the read timeout bounds a silence, not the whole transfer.
     _llm(faulty)
     model = faulty.client.Model.get(LLM_ID)
-    faulty.stub.serve("models/llm-run-success")
+    # Trailing whitespace keeps the JSON valid and makes the body ~3 KB, so
+    # at 1 KB/s it takes longer than READ_TIMEOUT_S to arrive.
+    body = json.dumps(load_recording("models/llm-run-success")["response"]["json"]) + " " * 2048
+    faulty.stub.route("POST", "models", "/{id}", StubResponse(body=body.encode("utf-8")))
     faulty.toxic("models", "bandwidth", rate=1)
 
     started = time.monotonic()
     result = model.run(text="hi")
 
     assert result.data == "Paris is the capital of France."
-    assert time.monotonic() - started > 1.0
+    assert time.monotonic() - started > READ_TIMEOUT_S
