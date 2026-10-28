@@ -19,7 +19,7 @@ Usage::
 
 The worktree's source is put first on ``PYTHONPATH`` so an installed or
 editable copy of the checkout cannot shadow the mutated code. Python
-3.9-safe, like the rest of the SDK.
+3.10-safe, like the rest of the SDK.
 """
 
 from __future__ import annotations

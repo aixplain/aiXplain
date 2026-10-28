@@ -30,7 +30,7 @@ right answer only when nothing on this list applies.
 All four new layers are hermetic. Every host is a `*.test` name that never
 resolves, or a server on 127.0.0.1, so a request that escapes the stub fails
 on DNS and never reaches a real backend. They need no credential and run on
-Python 3.9 like the unit suite.
+Python 3.10 like the unit suite.
 
 ## Contract (`tests/contract/`)
 

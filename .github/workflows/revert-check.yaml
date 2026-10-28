@@ -33,7 +33,7 @@ jobs:
       startsWith(github.event.pull_request.title, 'fix') ||
       contains(github.event.pull_request.labels.*.name, 'bug') ||
       contains(github.event.pull_request.labels.*.name, 'fix')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
@@ -50,7 +50,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.10"
           cache: 'pip'
 
       - name: Install dependencies
