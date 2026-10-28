@@ -33,7 +33,7 @@ jobs:
       startsWith(github.event.pull_request.title, 'fix') ||
       contains(github.event.pull_request.labels.*.name, 'bug') ||
       contains(github.event.pull_request.labels.*.name, 'fix')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: read

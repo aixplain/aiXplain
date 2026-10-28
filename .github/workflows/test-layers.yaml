@@ -34,7 +34,7 @@ permissions:
 
 jobs:
   contract:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -52,7 +52,7 @@ jobs:
         run: python -m pytest tests/contract
 
   stream-replay:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -70,7 +70,7 @@ jobs:
         run: python -m pytest tests/stream_replay
 
   security:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -93,7 +93,7 @@ jobs:
     # so it can reach the servers the tests bind on 127.0.0.1.
     # FAULT_INJECTION_REQUIRE turns a missing toxiproxy into a failure instead
     # of a silently green run on the in-process fallback proxy.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       FAULT_INJECTION_REQUIRE: "1"
