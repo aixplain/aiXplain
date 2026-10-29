@@ -8,21 +8,18 @@ After deploy, point the user to the app (everything moved from `console.`/`studi
 - Dashboard — usage, latency, cost, run traces: `https://app.aixplain.com/dashboard`
 - Marketplace: `https://app.aixplain.com/marketplace`
 - Visual builder: `https://app.aixplain.com/studio` · Analytics: `https://app.aixplain.com/dashboard`
-  (aiXplain consolidated onto `app.aixplain.com`: as of docs `f5c016a` there are **zero** `studio.aixplain.com` / `console.aixplain.com` references left, and no per-agent deep link such as `/build/<ID>/schema` is documented. Hand the user the agent **ID** with the link.)
+  (aiXplain consolidated onto `app.aixplain.com`: as of docs `04d8c08` there are still **zero** `studio.aixplain.com` / `console.aixplain.com` references, and no per-agent deep link such as `/build/<ID>/schema` is documented. Hand the user the agent **ID** with the link.)
 
-### Three deployment modes
+### Two deployment modes
 
-The agent definition and its governance are identical in all three; choose on data and infrastructure needs.
+The agent definition and its governance are identical in both; choose on data and infrastructure needs.
 
 | Mode | Where it runs | Choose it for |
 |---|---|---|
-| **Web (serverless)** | aiXplain-managed cloud — the default | Fastest path to production, autoscaling handled for you |
+| **Cloud (serverless)** | aiXplain-managed cloud — the default | Fastest path to production, autoscaling handled for you |
 | **On-prem** | Your own infrastructure, including air-gapped | Data sovereignty, regulatory compliance, zero outbound connectivity |
-| **Desktop** | The user's own machine, via aiXplain Desktop | Local or cloud models/tools with work kept on-device |
 
-"Edge" is no longer a documented mode — **Desktop** replaced it.
-
-**Desktop** has **no SDK surface at all**: no flag, no class, nothing in `dir(Aixplain)`. Point users to the guide at `https://app.aixplain.com/guide/desktop`; do not invent an SDK API for it.
+Named **Cloud** as of docs `04d8c08` (previously "Web"). "Edge" has not been a mode for some time, and **Desktop is no longer listed as a deployment mode** either — the deployment page is now Cloud/on-prem only. The desktop app still exists as a no-code *authoring* surface (`https://app.aixplain.com/guide/desktop`), with **no SDK surface at all**: no flag, no class, nothing in `dir(Aixplain)`. Don't invent an SDK API for it, and don't offer it as a place to deploy an agent.
 
 **On-prem** runs the whole platform inside the customer network — install, updates, license validation and runtime are self-contained, and aiXplain staff have no access to the environment. It is arranged via aiXplain, **not toggled by an SDK flag**, and there is no documented per-deployment SDK config (e.g. custom backend URL).
 
@@ -30,12 +27,12 @@ The agent definition and its governance are identical in all three; choose on da
 - Air-gapped install ships as **signed offline bundles**; updates are signed patch bundles verified by **SHA-256** checksums; **perpetual licenses validate locally with no call-home**.
 - Data, models, logs and telemetry stay in-network. Inference runs **in memory with nothing written to disk by default**, and prompts/responses are never used for training. The only opt-in exceptions that persist are **RAG embeddings** and **configured agent/session memory**, governed by RBAC and model-scoped keys.
 - Supports data-residency / access-governance regimes (e.g. SDAIA, NCA, GCC data protection).
-- **Not all services are available on-prem** — scope the deployment with aiXplain (`https://aixplain.com/enterprise-ai/`).
+- **Not all services are available on-prem** — scope the deployment with aiXplain (`https://www.aixplain.com/contact`).
 
-### Before going live (serverless)
+### Before going live (cloud)
 
 - Validate on representative **and adversarial** inputs, using the run traces.
-- Add Inspectors for safety/quality/compliance checks.
+- Add Inspectors for safety/quality/compliance checks, and cap each run with `agent.budget` (`references/agents.md`).
 - Set access and quotas via API keys and rate limits (below).
 - Keep retries and a **primary/secondary fallback chain** for model and tool failures, and set clear **termination criteria** so the loop can't run away.
 - **Capture `requestId` on every call** so platform runs correlate with your own logs.
@@ -48,7 +45,9 @@ The agent definition and its governance are identical in all three; choose on da
 |---|---|
 | Model/agent execution, polling, discovery (everything below except uploads) | `x-api-key: YOUR_API_KEY` |
 | File upload only (`/sdk/file/upload/temp-url`, `/sdk/file/upload-url`) | `Authorization: token YOUR_API_KEY` |
-| MCP endpoints (`models-mcp.aixplain.com`) | `Authorization: Bearer YOUR_API_KEY` |
+| MCP endpoints (`models-mcp.aixplain.com`) | `Authorization: Bearer YOUR_API_KEY` (agent MCP also accepts `x-api-key`) |
+
+> ⚠️ **Docs/SDK conflict on the upload header.** The REST page now shows `x-api-key` on `/sdk/file/upload/temp-url`; the installed SDK sends `Authorization: token <key>` (`aixplain/v2/upload_utils.py`, verified). `token` is the form that is known to work — use it, and treat `x-api-key` there as unconfirmed.
 
 Requests with a body also need `Content-Type: application/json`. The key is the **workspace (team)** key — keep it server-side.
 
@@ -69,8 +68,13 @@ curl -X GET 'https://platform-api.aixplain.com/sdk/agents/<REQUEST_ID>/result' \
 
 - `query` must be **top-level** (`{"data":{"query":...}}` fails with `query should not be empty`).
 - Optional top-level run params: `maxTokens`, `maxIterations`, `outputFormat` (`text`|`markdown`|`json`).
-- Multi-turn: either omit `sessionId` on the first call and echo back `data.session_id` on later calls, **or** send a `history` array of `{"role","content"}` turns.
-- Answer is in `data.output`. Poll while `status == "IN_PROGRESS"`; stop on `SUCCESS`/`FAILED`.
+- Answer is in `data.output`, every model/tool call in `data.steps`. Poll while `status == "IN_PROGRESS"`; stop on `SUCCESS`/`FAILED`.
+
+**Multi-turn, three ways:**
+
+1. **Server-managed sessions (the REST form of `aix.Session`).** `POST /v1/sessions` with `{"agentId", "name"}` → the response's `id` is the session id. Then `POST /v1/sessions/<SESSION_ID>/messages` with `{"role": "user", "content": "..."}`, which returns a `requestId` you poll at `/sdk/agents/<REQUEST_ID>/result` as above. `GET /v1/sessions/<ID>/messages` returns the transcript; `DELETE /v1/sessions/<ID>` removes it. Base host is `platform-api.aixplain.com` — note the `/v1` prefix, not `/v2`.
+2. **`sessionId` on the run body** — still accepted (it is also the one optional input on the agent MCP tool).
+3. **Client-side `history`** — send an array of `{"role","content"}` turns on each run and keep no server state.
 
 Python (requests) polling loop:
 
@@ -94,14 +98,15 @@ Equivalently, build the poll URL from `requestId` — `f"https://platform-api.ai
 One execute endpoint for all modalities. Base `https://models.aixplain.com`.
 
 ```bash
-curl -X POST 'https://models.aixplain.com/api/v2/execute/<MODEL_ID>' \
+# the path segment is an asset ID or a URL-ENCODED asset path — both work
+curl -X POST 'https://models.aixplain.com/api/v2/execute/openai%2Fgpt-4o-mini%2Fopenai' \
   -H 'x-api-key: YOUR_API_KEY' -H 'Content-Type: application/json' \
   -d '{"text": "What is 2 + 2?"}'
 ```
 
-If the response has `"completed": true`, the result is in `data`. If `data` is a URL, poll that exact URL (host/version can vary per service) until completed. Other inputs: LLM gen params (`max_tokens`, `temperature`); chat `text` as a `[{role,content}]` array; vision via a `content` array with `image_url.url` parts (public URL or `data:` base64); TTS `text`; ASR `language` + `source_audio` URL; SSE streaming with `"stream": true` (ends with `data: [DONE]`); provider-raw via `"options": {"includeRawData": true}`.
+If the response has `"completed": true`, the result is in `data`. If `data` is a URL, poll that exact URL (host/version can vary per service) until completed. A successful call also returns `details` (the provider's message objects), `usage`, `usedCredits`, `runTime` and `asset` (`{assetId, id}`). Other inputs: LLM gen params as **top-level** fields next to `text` (`max_tokens`, `temperature`); chat `text` as a `[{role,content}]` array; vision via a `content` array with `image_url.url` parts (public URL or `data:` base64); TTS `text`; ASR `language` + `source_audio` URL (the response adds `confidence` and `details.segments`); SSE streaming with `"stream": true` (ends with `data: [DONE]`); provider-raw via `"options": {"includeRawData": true}` (read the **top-level** `rawData`).
 
-Discover a model's parameters: `GET https://platform-api.aixplain.com/sdk/models/<MODEL_ID>` (returns a `params` array with name/required/dataType/availableOptions/defaultValues). This is the source of truth for what a model accepts — check it before assuming a field exists.
+Discover a model's parameters: `GET https://platform-api.aixplain.com/v2/models/<MODEL_ID>` (returns a `params` array with name/required/dataType/availableOptions/defaultValues). This is the source of truth for what a model accepts — check it before assuming a field exists. (It was `/sdk/models/<ID>` in earlier docs; `/v2/models/<ID>` is what the current page documents.)
 
 ### SSE streaming (LLMs)
 
@@ -132,31 +137,56 @@ Use an aiXplain agent or model as a drop-in OpenAI client.
 
 ```python
 from openai import OpenAI
-client = OpenAI(api_key="YOUR_AIXPLAIN_API_KEY", base_url="https://api.aixplain.com/v1")
+client = OpenAI(api_key="YOUR_AIXPLAIN_API_KEY", base_url="https://models.aixplain.com/api/v1")
 r = client.chat.completions.create(
-    model="<AGENT_OR_MODEL_ASSET_ID>",
+    model="openai/gpt-4o-mini/openai",      # the asset PATH; an asset ID also works
     messages=[{"role": "user", "content": "How do I create an agent?"}],
 )
 print(r.choices[0].message.content)
 ```
 
-> The docs show base URL `https://api.aixplain.com/v1` with a bare asset ID as `model`. Other materials reference `https://models.aixplain.com/api/v1/` and an `agent-<id>` model form. If one form 404s, try the other and confirm against the asset card in `https://app.aixplain.com`.
+> **Changed.** The docs now settle on base URL `https://models.aixplain.com/api/v1` with an **asset path** as `model`; the older `https://api.aixplain.com/v1` + bare-ID form is gone from the docs. If a call 404s, try the other form and confirm against the asset card in `https://app.aixplain.com`. The documented examples are **LLMs**; an agent via this endpoint is not shown — use the agent REST or MCP routes below.
 
 ## Upload a local file (REST)
 
 The execute endpoints take URLs, not file bytes. Upload first (note: file-upload endpoints use `Authorization: token YOUR_API_KEY`, **not** `x-api-key`):
 
-1. `POST https://platform-api.aixplain.com/sdk/file/upload/temp-url` with `{contentType, originalName}` → `{key, uploadUrl, downloadUrl}`
-2. `PUT` the file bytes to `uploadUrl`
+1. `POST https://platform-api.aixplain.com/sdk/file/upload/temp-url`, **form-encoded** (`Content-Type: application/x-www-form-urlencoded`, body `contentType=audio/wav&originalName=greeting.wav`) → `{name, key, uploadUrl, downloadUrl, headers}`
+2. `PUT` the file bytes to `uploadUrl` with the same `Content-Type` you declared (the SDK sends this with redirects disabled)
 3. Pass `downloadUrl` to the model/agent.
 
-From Python the SDK wraps this: `FileUploader(api_key=...).upload(file_path, is_temp=True, return_download_link=True)` (use `return_download_link=True` to get a browser-clickable URL, not a raw `s3://` path). Size limits: audio 50 MB, image/documents 25 MB, video/database 300 MB.
+```python
+import requests
+UP = {"Authorization": f"token {API_KEY}"}          # upload only — NOT x-api-key (see the flag above)
+u = requests.post("https://platform-api.aixplain.com/sdk/file/upload/temp-url", headers=UP,
+                  data={"contentType": "audio/wav", "originalName": "greeting.wav"},  # form-encoded
+                  timeout=30).json()                # -> {name, key, uploadUrl, downloadUrl, headers}
+with open("greeting.wav", "rb") as f:
+    requests.put(u["uploadUrl"], headers={"Content-Type": "audio/wav"},   # same type you declared
+                 data=f.read(), allow_redirects=False, timeout=120).raise_for_status()
+r = requests.post("https://models.aixplain.com/api/v2/execute/<ASR_MODEL_ID>",
+                  headers={"x-api-key": API_KEY, "Content-Type": "application/json"},
+                  json={"language": "en", "source_audio": u["downloadUrl"]}, timeout=120).json()
+```
+
+From Python the SDK wraps this: `FileUploader(api_key=aix.api_key).upload(file_path, is_temp=True, return_download_link=True)` (use `return_download_link=True` to get a browser-clickable URL, not a raw `s3://` path).
+
+| File type | Limit |
+|---|---|
+| Audio | 50 MB |
+| Image | 25 MB |
+| Documents (`application/*`) | 25 MB |
+| Video | 300 MB |
+| Database (`.db`, `.sqlite`, `.sqlite3`) | 300 MB |
+| Anything else | 50 MB |
+
+A model can impose tighter format/length limits of its own — check its marketplace card.
 
 ## MCP server access
 
-Any marketplace **model, tool or agent** is reachable as a hosted MCP server — one PAYG key covers every asset the key can reach. Agents use their own route (see **Agents over MCP** below).
+Any marketplace **model or tool** is reachable as a hosted MCP server — one PAYG key covers every asset the key can reach. **Agents now have one too**, on a different path (see *Agents over MCP* below). Earlier notes here said agents had no MCP server; that is no longer true.
 
-**Endpoint:** `https://models-mcp.aixplain.com/mcp/<ASSET_ID_OR_ENCODED_PATH>`
+**Endpoint (models & tools):** `https://models-mcp.aixplain.com/mcp/<ASSET_ID_OR_ENCODED_PATH>`
 
 | Form | Example |
 |---|---|
@@ -176,8 +206,6 @@ Underscore-substituted paths (`openai_gpt-4o-mini_openai`) do **not** work. Auth
 ```
 
 Claude Code one-liner: `claude mcp add --transport http <name> <url> --header "Authorization: Bearer <key>"`.
-
-**Agents over MCP** — `https://models-mcp.aixplain.com/agent/mcp/<AGENT_ID>` (`/mcp/<AGENT_ID>` also resolves to the agent). Use the 24-character agent ID; path-style URLs fail for agents. Same two headers. `tools/list` returns one tool named after the agent's path, with inputs `query` (required) and `sessionId`. `tools/call` returns the answer in `structuredContent` (`{status, data, requestId}`) with `content` empty, so clients that only render `content` may show an empty result. Auth is the API key only (no OAuth).
 
 **Stdio bridge (`mcp-remote`)** — Claude Desktop and older Cursor read `claude_desktop_config.json`, which only accepts `command` servers, so they need a local proxy. Requires Node 18+:
 
@@ -199,6 +227,22 @@ Building your own client: the endpoint returns **SSE-formatted** JSON-RPC respon
 
 aiXplain's own **Marketplace Search** tool (`6960f934f316da19e5f22494`) is itself MCP-exposed, so a client can discover assets conversationally and then wire up whatever it finds.
 
+### Agents over MCP
+
+Every deployed agent is served as its own MCP server with **exactly one tool**. Different path from models/tools — note the `/agent/` segment:
+
+```json
+{"mcpServers": {"my_agent": {
+  "url": "https://models-mcp.aixplain.com/agent/mcp/<AGENT_ID>",
+  "headers": {"Authorization": "Bearer <AIXPLAIN_APIKEY>",
+              "Accept": "application/json, text/event-stream"}}}}
+```
+
+- **The 24-character agent ID only.** `supplier/agent-name` path identifiers work for models and tools but are rejected for agents.
+- `x-api-key: <KEY>` works in place of `Authorization`; the `Accept` header is **mandatory** — omit it and the server returns **406**.
+- `tools/list` returns one tool named after the agent's path (e.g. `aixplain/copywriter/aixplain`), taking `query` (required) and `sessionId` (optional, continues a server-managed session).
+- The server blocks until the run finishes, then answers with `content: []` and the result in `structuredContent` → `{"status", "data", "requestId"}`. **The answer is `structuredContent.data`** — clients that render only `content` will show an empty tool result.
+
 ## API keys & least-privilege
 
 Keys come from Team settings → API keys (`https://app.aixplain.com/team/settings?tab=api-keys`); the full key is shown once. Max 10 per workspace; keys are workspace-specific and cannot be moved between workspaces.
@@ -207,56 +251,80 @@ Keys come from Team settings → API keys (`https://app.aixplain.com/team/settin
 
 ```python
 from datetime import datetime
+from aixplain.v2 import APIKey, APIKeyLimits, TokenType   # also: from aixplain.v2.api_key import ...
 
 # Admin key: create a member key with per-asset + global limits, a budget and an expiry
 new_key = aix_admin.APIKey(
     name="member-key-prod",
-    asset_limits=[{
-        "model": "6646261c6eb563165658bbb1",       # asset ID or path
-        "token_per_minute": 300_000,
-        "token_per_day": 144_000_000,
-        "request_per_minute": 60,
-        "request_per_day": 28_800,
-        "token_type": "output",                    # "input" | "output" | "total"; omit = input+output
-    }],
-    global_limits={
-        "token_per_minute": 100, "token_per_day": 1000,
-        "request_per_minute": 100, "request_per_day": 1000,
-    },
+    asset_limits=[APIKeyLimits(
+        model="6646261c6eb563165658bbb1",          # asset ID or path
+        token_per_minute=300_000, token_per_day=144_000_000,
+        request_per_minute=60, request_per_day=28_800,
+        token_type=TokenType.OUTPUT,               # INPUT | OUTPUT | TOTAL; omit = input+output
+    )],
+    global_limits=APIKeyLimits(token_per_minute=100, token_per_day=1000,
+                               request_per_minute=100, request_per_day=1000),
     budget=1000,                                   # total credits; raise the value to top up
     expires_at=datetime(2030, 1, 1),               # omit for a non-expiring key
 ).save()
 
-# Edit an existing key — get() takes a key ID, the key value itself, or the key's name
-key = aix_admin.APIKey.get("your-api-key-id")
+# Edit an existing key — by ID, or by the key string itself
+key = APIKey.get("your-api-key-id")
 key = aix_admin.APIKey.get_by_access_key("TARGET_MEMBER_API_KEY")   # when you hold the secret, not the ID
 print(key.id, key.name, key.is_admin, key.global_limits, key.asset_limits)
-key.asset_limits = [{"model": "669a63646eb56306647e1091", "request_per_minute": 2}]
+key.asset_limits = [APIKeyLimits(model="669a63646eb56306647e1091", request_per_minute=2)]
 key.save()
 
 aix_admin.APIKey.search()          # list every key in the workspace — admin only
 ```
 
-Limits are plain dicts on the field names above; an unknown key raises and names the accepted fields. All four dimensions are sent on every write — the backend rejects a partial payload — so a dimension you leave out goes as `0`; set every one you care about. Reading them back gives `APIKeyLimits` objects (`key.asset_limits[0].token_per_minute`), and `APIKeyLimits(...)`/`TokenType.OUTPUT` still work if you prefer them: `from aixplain import APIKeyLimits, TokenType`.
-
 Global and per-asset limits are **both** enforced — whichever is stricter bites first; global does not override per-model. Enforcement lives in the **Access layer inside AgenticOS** and covers every invocation path (REST, SDK, an agent's backbone LLM including team agents, and multi-agent pipelines), so capping a model caps it workspace-wide. Over-limit requests are **rejected immediately, not queued**, and limit changes take effect at the **start of the next timeframe** (next minute / next day).
 
 Monitor usage: `aix.APIKey.get_usage_limits()` or `get_usage_limits(model=MODEL_ID)` (use IDs, not paths) → `APIKeyUsageLimit` rows with `daily_request_count/limit`, `daily_token_count/limit`, `model`. The row with `model=None` is the **global scope**; all-`None` counts just mean no global cap is configured — ignore it unless you set one.
 
-Rate-limit errors surface as HTTP **497** (aiXplain per-minute) or **429**. Other REST errors: 401 bad key, 492 unfetchable input URL, 400 malformed/empty `query`. Error-string triage: `Invalid API key` = deleted/expired/mistyped or wrong workspace; `Rate limit exceeded` = admin-key limits or too much concurrency (back off); `Insufficient credits` = top up the workspace.
+| HTTP | Meaning |
+|---|---|
+| `400` | Malformed body or missing field — e.g. `query` nested under `data` → `{"message":["query should not be empty"],…}` |
+| `401` | Bad/missing key on a **model** call → `{"error":"Invalid api key. Please generate a new api key and try again."}` |
+| `403` | Bad/missing key on an **agent** call → `{"message":"Forbidden resource",…}` (different code from the model path — don't match on 401 alone) |
+| `406` | Agent MCP call without the `Accept: application/json, text/event-stream` header |
+| `429` / `497` / `498` | A request, token or credit limit on the key was reached (`497` is aiXplain's per-minute cap). Back off, or have an Admin raise the key's limits. |
+| `492` | The input URL could not be downloaded → `{"error":"err.invalid_input_data_or_input_url"}` |
+
+⚠️ **A `2xx` does not mean success.** A model call can return HTTP **201** with `"status": "FAILED"` when the provider rejects the input, and an async run can finish `FAILED` long after a clean submit. Always check the final `status`, never just the HTTP code.
+
+Error-string triage: `Invalid API key` = deleted/expired/mistyped or wrong workspace; `Rate limit exceeded` = admin-key limits or too much concurrency (back off); `err.not_enough_balance` (previously surfaced as `Insufficient credits`) = top up the workspace; `Forbidden` on `aix.APIKey.search()` = you are using a member key, not an admin key.
 
 ## Credits & billing
 
-1 credit = $1 USD. Models/tools/integrations bill at vendor rates (0% margin). Deployed **agents** add a 20% markup over the sum of model + tool calls (covers orchestration, the planner/orchestrator/inspector micro-agents, memory, validation). Track spend via `response.used_credits` or the transaction history at `https://app.aixplain.com/team/settings?tab=usage`.
+1 credit = $1 USD. Models/tools/integrations bill at vendor rates (0% margin). Deployed **agents** add a 20% markup over the sum of model + tool calls (covers orchestration, the planner/orchestrator/inspector micro-agents, memory, validation). So 0.50 credits of LLM calls + 0.10 of tool calls = 0.72 charged. Track spend via `response.used_credits` or the transaction history at `https://app.aixplain.com/team/settings?tab=usage`; top up at `?tab=billing`. An empty balance refuses runs with `err.not_enough_balance`.
 
-## What the SDK does NOT cover
+## What the v2 SDK does NOT cover (legacy v1 only)
 
-The unified `aix.*` client (`from aixplain import Aixplain`) is agent/model/tool-centric. **Pipelines, fine-tuning, benchmarking, and datasets/corpora have no Python API.** They existed only in the v1 factories, which were removed in SDK 0.3.0 and have no v2 replacement.
+The unified `aix.*` client (`from aixplain import Aixplain`) is agent/model/tool-centric. **Pipelines, fine-tuning, benchmarking, and datasets/corpora have no v2 API.** They exist only in the legacy v1 factories — which now carry a **hard removal date of 2027-02-01** (`aixplain._compat.V1_REMOVAL_DATE`, verified in the installed package). Importing v1 code emits an `AixplainV1DeprecationWarning` once per process; silence it with `AIXPLAIN_SUPPRESS_V1_DEPRECATION=1`. The porting map is **MIGRATION.md** (`https://github.com/aixplain/aiXplain/blob/main/MIGRATION.md`) — it is not shipped inside the wheel, so an installed copy has no local file. The docs site's own migration guide is now marked `unlisted`, i.e. still reachable by URL but removed from the sidebar, so link MIGRATION.md on GitHub rather than the docs page. The removal date is contingent on closing the eight factory gaps MIGRATION.md lists, but plan for it rather than against it.
 
-Reach them through aiXplain Studio or the REST endpoints at `https://platform-api.aixplain.com`. A project that cannot move off them can pin `aiXplain==0.2.48`, the last release that contained v1 — but that release gets no further updates, so treat it as a hold.
+```python
+# Legacy v1 — only if the user explicitly needs these capabilities
+from aixplain.factories import PipelineFactory, FinetuneFactory, BenchmarkFactory, DatasetFactory, CorpusFactory
+pipeline = PipelineFactory.get("<pipeline_id>")
+result = pipeline.run("input")
+```
 
-For **pipelines**, build visually in aiXplain Studio and run by ID (Studio or the REST pipeline endpoints). The Python SDK has no pipeline builder. If a user asks to "build a pipeline" in Python, tell them this and offer either Studio or the equivalent as a **team agent** (which is the SDK-native way to compose multi-step workflows).
+For **pipelines**, prefer building visually in aiXplain Studio and then running by ID (Studio, REST `https://platform-api.aixplain.com` pipeline endpoints, or the v1 `PipelineFactory`). The current Python v2 SDK has no pipeline builder. If a user asks to "build a pipeline" in Python, tell them this and offer either Studio or the equivalent as a **team agent** (which is the v2-native way to compose multi-step workflows).
 
 ## v1 → v2 migration
 
-Use `from aixplain import Aixplain; aix = Aixplain(api_key=...)` then `aix.Agent` / `aix.Model` / `aix.Tool`. The v1 `aixplain.factories.*` imports (`AgentFactory`, `ModelFactory`, …) no longer resolve; importing one raises an error naming its `aix.*` replacement. If you see old factory code, port it.
+Use `from aixplain import Aixplain; aix = Aixplain(api_key=...)` then `aix.Agent` / `aix.Model` / `aix.Tool`. Avoid the deprecated v1 `aixplain.factories.*` (`AgentFactory`, `ModelFactory`, …) for anything the v2 client covers. If you see old factory code, port it to the `aix.*` equivalents.
+
+```python
+# BEFORE — v1 factories, removed 2027-02-01 (aixplain._compat.V1_REMOVAL_DATE)
+from aixplain.factories import AgentFactory, ModelFactory
+llm   = ModelFactory.get("669a63646eb56306647e1091")
+agent = AgentFactory.create(name="Researcher", description="Finds facts", llm=llm)
+
+# AFTER — v2 client
+from aixplain import Aixplain
+aix   = Aixplain(api_key="YOUR_API_KEY")
+agent = aix.Agent(name="Researcher", description="Finds facts",
+                  llm=aix.Model.get("669a63646eb56306647e1091")).save()
+```
