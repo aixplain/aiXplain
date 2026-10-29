@@ -6,7 +6,7 @@ Run any of aiXplain's 170+ LLMs and 900+ assets (speech, vision, translation, em
 
 ```python
 # Keyword search — returns a Page object (not a dict)
-page = aix.Model.search("llama")
+page = aix.Model.search("llama", page_size=5)   # also: page_number, sort_by, sort_order, status, ownership
 page.results        # list[Model]   (page["results"] also works — __getitem__ is just getattr)
 page.total          # matches across all pages
 page.page_number    # current page, 0-indexed
@@ -16,28 +16,30 @@ for m in page: ...  # the Page iterates over .results directly; there is no len(
 
 # Filter by host / developer / vendor
 openai_models    = aix.Model.search("", host="openai").results
-meta_models      = aix.Model.search("", developer="meta").results
+meta_models      = aix.Model.search("", developer="Meta").results      # ⚠️ case-sensitive
 anthropic_models = aix.Model.search("", vendors="anthropic").results   # plural: `vendor=` is not a declared filter
 
 for m in openai_models[:5]:
-    print(m.name, m.id, m.host)
+    print(m.name, m.path, m.host)
 
 # Get a specific model by path or ID (both work)
-model = aix.Model.get("openai/gpt-4o")
-model = aix.Model.get("6646261c6eb563165658bbb1")
+model = aix.Model.get("openai/gpt-4o-mini/openai")
+model = aix.Model.get("669a63646eb56306647e1091")
 ```
+
+The canonical asset path is three segments — `<developer>/<slug>/<host>` — and it is what `m.path` returns and what the docs now use everywhere. Full declared search filters: `query host developer vendors functions source_languages target_languages is_finetunable saved status ownership sort_by sort_order page_number page_size`.
 
 ## Run
 
 ```python
-model = aix.Model.get("openai/gpt-4o")
+model = aix.Model.get("openai/gpt-4o-mini/openai")
 r = model.run(text="Explain quantum computing simply")
 print(r.data)      # normalized output
 print(r.status)    # "SUCCESS"
 print(r.usage.completion_tokens)   # token usage when available
 print(r.details)   # provider-native payload (e.g. raw message objects, ASR segments)
 print(r.run_time, r.used_credits)  # seconds, credits charged
-print(r.asset)     # {"assetId": ..., "id": "openai/gpt-4o/openai"}
+print(r.asset)     # {"assetId": "669a63646eb56306647e1091", "id": "openai/gpt-4o-mini/openai"}
 ```
 
 Full `ModelResult`: `status completed error_message url result supplier_error data _raw_data details run_time used_credits usage asset`. Alongside the model's own inputs, `run`/`run_async`/`run_stream` accept `timeout`, `wait_time`, `run_retries`, `run_retry_wait`, `api_key`, `resource_path`, `stream`, and — new in 0.2.48 — `session_id` / `agent_name` on a plain model run.
@@ -65,7 +67,7 @@ if model.supports_streaming:                       # check first — raises Vali
 # equivalently: for chunk in model.run(text="...", stream=True): ...
 ```
 
-`StreamChunk` fields: `status data reasoning_content tool_calls usage finish_reason error_message` — reasoning traces and tool calls are exposed per chunk, not just the text delta.
+`StreamChunk` fields: `status data reasoning_content tool_calls usage finish_reason error_message` — reasoning traces and tool calls are exposed per chunk, not just the text delta. The **last** chunk carries empty `data` and the run's `usage` totals, so don't stop at the first empty delta.
 
 Over REST the same thing is `{"stream": true}` → SSE, each `data:` line an OpenAI-style `chat.completion.chunk` (read `choices[0].delta.content`; the last non-`[DONE]` event carries `usage`). Endpoint/header detail in `references/deployment-access.md`.
 
@@ -95,8 +97,8 @@ model.inputs.update(temperature=0.2, max_tokens=1200)   # bulk
 model.inputs.keys()                       # all parameter names
 model.inputs.required                     # PROPERTY, not a call -> ['text']
 dict(model.inputs.items())                # current values as a plain {name: value} dict
-model.inputs.reset("temperature")         # unset one
-model.inputs.reset()                      # unset all
+model.inputs.reset("temperature")         # restore one to the model's declared default
+model.inputs.reset()                      # restore all
 model.inputs.validate()                   # -> list of missing-required errors ([] means valid)
 ```
 
@@ -105,7 +107,8 @@ model.inputs.validate()                   # -> list of missing-required errors (
 Two more traps:
 
 - **Reading returns the `Input` object, not the value.** `model.inputs.temperature` → `Input(name='temperature', required=False, type='number', value=0.3)`. For the raw value use `.value`, or `dict(model.inputs.items())["temperature"]`. Writing still sets the value, so `inputs.temperature = 0.3` is unchanged.
-- **Undeclared inputs are rejected, not created.** `model.inputs.foo = 1` → `AttributeError`; `model.inputs['foo'] = 1` → `KeyError`. `reset()` clears to `None` (an `Input` carries no stored default, so "reset" means "unset"), and whole-attribute assignment `model.inputs = {"temperature": 0.2}` is intercepted and does an `update`, not a replace.
+- **Undeclared inputs are rejected, not created.** `model.inputs.foo = 1` → `AttributeError: Input 'foo' not found`; `model.inputs['foo'] = 1` → `KeyError`. Whole-attribute assignment `model.inputs = {"temperature": 0.2}` is intercepted and does an `update`, not a replace.
+- **`reset()` restores the model's declared default, it does not blank the field.** Each `Input` caches `defaultValues[0]` from the asset definition at build time, and `reset()` writes that back — so a `temperature` the asset declares as `0` resets to `'0'`, not `None`. Only a parameter with no declared default resets to `None`. (A previous note here said "reset means unset" — that was wrong; corrected against `aixplain/v2/actions.py`.) Values come back as the asset declared them, so often as **strings**.
 
 Still fine: `inputs.keys()`, `inputs.values()`, `len(inputs)`, `"text" in inputs`, iteration over names.
 
@@ -144,7 +147,7 @@ For a **local** audio file, upload it first (see `references/deployment-access.m
 > ```python
 > from aixplain.v2 import FileUploader, upload_file   # NOT aixplain.v2.file — that raises ImportError
 > # (aixplain.v2.upload_utils re-exports the same two objects)
-> url = FileUploader(api_key=API_KEY).upload("audio.mp3", is_temp=True, return_download_link=True)
+> url = FileUploader(api_key=aix.api_key).upload("audio.mp3", is_temp=True, return_download_link=True)
 > url = upload_file("audio.mp3", is_temp=True, return_download_link=True)   # module-level one-shot, no class needed
 > ```
 
@@ -197,19 +200,18 @@ New in 0.2.48: a registered backend asset (`sdk/file-asset`), distinct from the 
 
 ```python
 f = aix.File(source="/path/audio.mp3", name="audio")   # source may be a local path, a local DIR, or an http(s) URL
-f.save()                                               # uploads, registers, populates f.id
-print(f.id, f.size, f.extension, f.status)
-f.get_signed_url()                                     # short-lived download URL (responses carry no stable .url)
+f.save()                                               # uploads, registers, populates f.id / f.url
+print(f.url, f.id, f.size, f.extension, f.status)
 
-aix.File.get("<id-or-encoded-path>", recursive=True)   # the constructor is the only way to build one (no create_from_file)
+aix.File.create_from_file("/path/audio.mp3")           # classmethod alias for the constructor
+aix.File.get("<id-or-encoded-path>", recursive=True)
 aix.File.search(query=None, page_number=0, page_size=20)   # -> Page[File]
-f.download()                                           # defaults to ./<name>; folders come down as a single ZIP
-f.delete()
+f.download("/local/dest")                              # folders come down as a single ZIP
 ```
 
-Other fields: `description path source file_type children parent_id tags privacy whitelist created_at updated_at`; properties `is_dir`, `encoded_id`, `is_deleted`, `is_modified`. `FileType` is `FILE | FOLDER`; `privacy` defaults to private. There is no `.url`/`.relative_path`/`.file_path`, and `is_temp` is not a constructor argument.
+Other fields: `description path source file_type is_temp children parent_id relative_path tags privacy whitelist created_at updated_at`; properties `file_path` (alias of `source`), `is_dir`, `encoded_id`, `is_deleted`, `is_modified`. `FileType` is `FILE | FOLDER`; `privacy` defaults to private.
 
-> ⚠️ `File(..., is_temp=True)` raises `TypeError`: `save()` always uploads through the temp-url endpoint and registers a permanent `file-asset` record, so there is no temp-vs-permanent switch to honor. For a genuinely throwaway URL use `FileUploader.upload(..., is_temp=True, return_download_link=True)`. An `http(s)` `source` is re-hosted through an SSRF-guarded fetch (every redirect target re-validated, presigned `PUT` with redirects disabled) — a supported way to re-host a remote file.
+> ⚠️ `File(..., is_temp=True)` does **not** keep the asset temporary: `save()` always uploads through the temp-url endpoint, registers a permanent `file-asset` record, then forces `is_temp = False`. For a genuinely throwaway URL use `FileUploader.upload(..., is_temp=True, return_download_link=True)`. An `http(s)` `source` is re-hosted through an SSRF-guarded fetch (every redirect target re-validated, presigned `PUT` with redirects disabled) — a supported way to re-host a remote file.
 
 ## RLM — long-context analysis (`aix.RLM`)
 
@@ -235,7 +237,7 @@ Recursive runs hold two sandbox sessions; they are torn down in a `finally`, but
 ## Use a model inside an agent
 
 ```python
-llm = aix.Model.get("openai/gpt-4o")
+llm = aix.Model.get("openai/gpt-4o-mini/openai")
 llm.inputs.temperature = 0.7
 agent = aix.Agent(name="Assistant", description="...", llm=llm)   # as the reasoning LLM
 # or attach as a callable tool:
@@ -246,8 +248,10 @@ agent = aix.Agent(name="Assistant", description="...", tools=[llm.as_tool()])
 
 ## Troubleshooting
 
-- **Model not found** → verify path/ID with `aix.Model.search()`; confirm your key has access.
-- **Invalid parameters** → not all models accept all params; check the model's Studio page or `model.inputs.keys()`.
+- **`APIError: Not Found` on `Model.get()`** → the path/ID doesn't exist or the model was retired; find the current path with `aix.Model.search()`, and confirm your key has access.
+- **`AttributeError: Input '<name>' not found`** → that model doesn't declare the parameter; list them with `model.inputs.keys()`.
+- **`err.validation_error: Invalid value for ...`** → the value is outside the model's range (this fails at run time, not on assignment — the local validator only checks the *type*). Use a value the model's marketplace card allows.
+- **`ValueError: Required parameter '...' is missing`** → a second input is mandatory (e.g. `sourcelanguage`); check `model.inputs.required`.
 - **`AttributeError: Input 'get_all_parameters' not found`** (or `get_required_parameters` / `reset_parameter` / `reset_all_parameters`) → pre-0.2.48 code; see the renames under *Configure parameters*.
 - **`ImportError: cannot import name 'FileUploader' from 'aixplain.v2.file'`** → import from `aixplain.v2` (or `aixplain.v2.upload_utils`); `aixplain.v2.file` now holds the `File` resource.
 - **Async timing out** → increase the poll interval; check the dashboard that the task is still running.
