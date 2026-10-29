@@ -61,10 +61,9 @@ search(query: "", asset_type: "model", categories: "LLM", page_size: 1)   → st
 
 Filter by `hosts` or `developers` the same way to narrow a count ("how many hosted by OpenAI").
 
-There is **no sort parameter** — `search` orders by relevance only. To answer "cheapest", "newest", or
-"most expensive" you must page through the filtered set and sort locally, which for a big category
-(LLM alone is 177) means several calls. Say that is what you are doing rather than presenting a
-single page's minimum as the catalog's minimum.
+To answer "cheapest", "newest", or "most expensive", pass `sort`: `price_asc`, `price_desc` or
+`newest` (default `relevance`). Price sorts do not apply to agents. To help someone choose between
+models rather than look one up, use the model-selection skill.
 Do not count with `search_models` / `search_tools` / `search_agents` / `search_integrations` — those cap
 results and carry no reliable total. Use them only to list examples.
 
