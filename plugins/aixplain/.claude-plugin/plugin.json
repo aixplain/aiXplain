@@ -2,7 +2,6 @@
   "name": "aixplain",
   "displayName": "aixplain",
   "description": "Discover aixplain marketplace assets and build, run, and deploy anything on aixplain with the SDK: agents, models, knowledge bases, tools, and inspectors.",
-  "version": "1.1.0",
   "author": {
     "name": "aixplain",
     "url": "https://aixplain.com"
