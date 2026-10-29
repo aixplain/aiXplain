@@ -120,7 +120,7 @@ print(agent.run(query="Write unit tests and a docstring for this function.",
 ## 10. Speech-to-text (Whisper)
 Direct model call — no agent. Full detail in `references/models.md`.
 ```python
-from aixplain.v2.upload_utils import FileUploader
+from aixplain.v2 import FileUploader          # NOT aixplain.v2.file — that raises ImportError
 url = FileUploader(api_key=API_KEY).upload(file_path="meeting.mp3", is_temp=True, return_download_link=True)
 model = aix.Model.get("66311fda6eb563279c574b71")
 r = model.run(source_audio=url, sourcelanguage="en", options={"includeRawData": True})

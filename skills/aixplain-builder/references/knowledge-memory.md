@@ -75,14 +75,14 @@ r = index.run(action="search", data={"query": "yellow fruit"})
 for rec in r.data:
     print(rec["id"], rec["text"], rec.get("score"))
 
-# With top_k + metadata filters
+# Limit the result count + metadata filters — use num_results, NOT top_k
 r = index.run(action="search", data={
-    "query": "headphones", "top_k": 5,
+    "query": "headphones", "num_results": 5,
     "filters": [{"field": "category", "operator": "==", "value": "electronics"}],
 })
 ```
 
-> **Result-count key — `top_k` vs `num_results`.** The current docs' filter example passes `num_results`, but the SDK's own first-party caller (`aixplain/v2/rlm.py`) builds index queries with `top_k`. Both are pass-through `data` keys to the aiR service. Keep using `top_k`; if a query ignores it, try `num_results` before assuming the limit is unsupported.
+> **Result-count key — use `num_results`. ⚠️ Field-verified.** `num_results` is the key the aiR service actually honours. `top_k` is **silently ignored**: the request succeeds and comes back `200`, the limit simply isn't applied, so you get the service default rather than an error telling you the key was wrong. This was established by probing a live index, and it contradicts both sources you'd normally trust — the docs' own filter example passes `top_k` (it was changed *from* `num_results` to `top_k`), and the SDK's first-party caller `aixplain/v2/rlm.py` builds its RAG queries with `{"query": …, "top_k": …}`. Treat that as a docs/SDK-vs-reality conflict, not something provable from the source: both keys are untyped pass-throughs in the `data` payload, so nothing in the SDK validates either one. Write `num_results`, and if you inherit code using `top_k`, check the returned record count before assuming the limit took effect.
 
 Filter operators: `==`, `!=`, `>`, `<`, `>=`, `<=`, `in`, `not in`.
 

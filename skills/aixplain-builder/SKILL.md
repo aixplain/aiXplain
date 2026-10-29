@@ -49,6 +49,7 @@ If `AIXPLAIN_API_KEY` isn't set, ask the user for it (or to add it to a `.env`) 
 | Multi-turn conversation state | **Session** | `references/agents.md` |
 | Package reusable instructions, or fire an agent on a schedule/event | **Skill / Trigger** | `references/agents.md` |
 | Measure or score agent quality offline | **Eval + Metric** | `references/evaluation.md` |
+| Analyze a very long document / oversized context | **RLM** | `references/models.md` |
 | A ready-made recipe to adapt | — | `references/patterns.md` |
 
 Read the relevant reference file before writing code for that domain — they hold the exact signatures, IDs, and gotchas.
@@ -56,10 +57,17 @@ Read the relevant reference file before writing code for that domain — they ho
 > ### ⚠️ Moved or removed in SDK 0.2.48 — do not write these
 > Pre-0.2.48 code (and some still-published docs) use forms that now fail — two of them **silently**:
 > - `from aixplain.v2.inspector import InspectorAction, EvaluatorConfig, …` → **removed from v2**. Build guardrails as `aix.Inspector(action="abort", metric={...})` with plain strings/dicts. See `references/governance.md`.
-> - `from aixplain.v2.file import FileUploader` → moved to **`aixplain.v2.upload_utils`**.
+> - `from aixplain.v2.file import FileUploader` → **dead**. Canonical is now `from aixplain.v2 import FileUploader` (also re-exported from `aixplain.v2.upload_utils`); `aixplain.v2.file` hosts the `File` resource instead.
 > - `model.inputs.get_required_parameters() / get_all_parameters() / reset_parameter() / reset_all_parameters()` → renamed to `.required`, `dict(.items())`, `.reset(k)`, `.reset()`.
 > - 🔇 `agent.max_iterations = N` after construction is a **no-op** — set `agent.budget.max_iterations = N`.
 > - 🔇 `generate_session_id()` / `create_session()` are **gone**, and `session_id=` passed to `run()` is **silently stripped** (you get a stateless run, no error). Use `aix.Session` — see `references/agents.md`.
+
+> ### 🔬 Field-verified runtime gotchas (silent — not in the docs, not visible in signatures)
+> Observed in live runs. The SDK accepts all of these without error, so only behaviour reveals them:
+> - `agent.save()` **resets `agent.llm` to the platform default** — re-assert the model *after* saving and verify it stuck, or your model choice silently reverts.
+> - `Budget(max_cost=…)` is accepted and persisted but **not enforced**; only `max_duration_seconds` / `max_iterations` actually bound a run.
+> - aiR index search: pass **`num_results`**. `top_k` is shown in the docs (and emitted by the SDK's own `rlm.py`) but is **silently ignored**, so your result limit won't apply.
+> - `model.as_tool()` **breaks video input** (the payload gets wrapped in a list) — call the model directly for video instead of attaching it to an agent.
 
 > **Not in the v2 SDK:** pipelines, fine-tuning, benchmarking, and datasets/corpora. These are legacy-v1 only or Studio-only. See `references/deployment-access.md § What the v2 SDK does NOT cover`. For multi-step workflows in v2, use a **team agent**.
 
@@ -88,7 +96,7 @@ Read the relevant reference file before writing code for that domain — they ho
 Models/agents/tools take **URLs**, not local paths. Upload first and pass the returned URL:
 
 ```python
-from aixplain.v2.upload_utils import FileUploader
+from aixplain.v2 import FileUploader
 url = FileUploader(api_key=os.environ["AIXPLAIN_API_KEY"]).upload(
     "/path/to/file.mp3", is_temp=True, return_download_link=True)   # download link, not raw s3://
 ```

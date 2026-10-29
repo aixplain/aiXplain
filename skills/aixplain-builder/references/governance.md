@@ -32,7 +32,7 @@ inspector = aix.Inspector(
 | Action | Behaviour |
 |---|---|
 | `abort` | Hard stop — halts the run. `response.data.output` is `None`; check `response.status` first. |
-| `rerun` | Re-runs the target with the evaluator's critique injected, then falls back to `on_exhaust`. |
+| `rerun` | Re-runs the target with the evaluator's critique injected, retrying up to `max_retries`, then falls back to `on_exhaust`. Both live **inside** the `action` dict. |
 | `edit` | Rewrites content inline before passing it downstream. Requires `editor`. |
 | `continue` | Shadow / log-only — records the critique, changes nothing. |
 
@@ -55,7 +55,7 @@ print(r.data.output if r.status == "SUCCESS" else f"Run halted: {r.status}")
 
 ### RERUN — self-correct with retries
 
-`max_retries` / `on_exhaust` go **inside the action dict**. Passing them as top-level keyword arguments raises `TypeError` on 0.2.48 (the published docs show that form — it is wrong).
+`max_retries` / `on_exhaust` are part of the retry policy, so they go **inside the action dict**. They are not top-level `Inspector` arguments: passing them as keywords raises `TypeError`. Only `rerun` needs the dict form — every other action takes a plain string.
 
 ```python
 guard = aix.Inspector(name="customer-name-enforcer", severity="medium", targets=["output"],
