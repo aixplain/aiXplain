@@ -2,10 +2,12 @@
 
 Canonical, copy-pasteable recipes. All assume the setup in SKILL.md (`aix = Aixplain(api_key=...)`). Pick the closest pattern, then adapt. Always scope `allowed_actions`, and prefer searching the marketplace over hardcoding IDs.
 
+> Integrations are identified by their three-segment **asset path** (`<developer>/<slug>/<host>`) throughout — that is what the docs now use everywhere. The hex asset IDs still resolve, so old code keeps working.
+
 ## 1. Web research agent
 Answer questions with current information.
 ```python
-search = aix.Tool.get("tavily/tavily-search-api")
+search = aix.Tool.get("tavily/tavily-web-search/tavily")
 agent = aix.Agent(name="Research Agent", description="Answers questions using web search",
     instructions="Use web search when needed. Always cite your sources.", tools=[search])
 agent.save()
@@ -17,28 +19,34 @@ Answer from private documents. Full detail in `references/knowledge-memory.md`.
 ```python
 import time
 index = aix.Tool(name=f"KB {int(time.time())}", description="Product docs index",
-                 integration="6904bcf672a6e36b68bb72fb")
+                 integration="aixplain/air-knowledge-base/aixplain")
 index.save()
-index.run(action="upsert", data={"records": [{"id": "1", "text": "..."}]})
+index.run(action="upsert", data={"records": [{"id": "1", "text": "...", "metadata": {"category": "pricing"}}]})
 index.allowed_actions = ["search", "get"]
 agent = aix.Agent(name="Docs Assistant", description="Answers from product docs",
     instructions="Search the index to answer. Cite the document id.", tools=[index])
 agent.save()
 ```
+For **long-form** documents (papers, PDFs), chunk on upsert so retrieval stays precise — same recipe, one extra key:
+```python
+index.run(action="upsert", data={"records": documents,
+    "chunking": {"split_by": "sentence", "split_length": 3, "split_overlap": 1}})
+```
 
 ## 3. SQL data agent
 Natural-language queries over a database.
 ```python
-import time
-resource = aix.File(source="sales.db", name=f"DB {int(time.time())}"); resource.save()
+from aixplain.v2 import FileUploader
+db_url = FileUploader(api_key=aix.api_key).upload("sales.db", return_download_link=True)
 db = aix.Tool(name="Sales DB", description="Sales database",
-              integration="689e06ed3ce71f58d73cc999", config={"url": resource.get_signed_url()})
-db.allowed_actions = ["query", "schema"]; db.save()
+              integration="aixplain/sqlite/aixplain", config={"url": db_url})
+db.save(); db.allowed_actions = ["query", "schema"]
 agent = aix.Agent(name="Data Analyst", description="Answers questions about sales data",
-    instructions="Inspect the schema, then query. Read-only — never modify data.", tools=[db])
+    instructions=("Table orders(id INTEGER, product TEXT, quantity INTEGER, revenue REAL). "
+                  "Inspect the schema, then query. Read-only — never modify data."), tools=[db])
 agent.save()
 ```
-For a live database use PostgreSQL (`integration="aixplain/postgresql"`, `config={"url": "postgresql://..."}`).
+Put the table schema in `instructions`: it keeps the generated SQL on real columns. For a live database use PostgreSQL (`integration="aixplain/postgresql/aixplain"`, `config={"url": "postgresql://..."}`).
 
 ## 4. Custom business logic agent
 Wrap a Python function as a sandboxed tool. Full constraints in `references/tools-integrations.md`.
@@ -47,7 +55,8 @@ import inspect, time
 def shipping_cost(weight_kg: float, distance_km: float) -> dict:
     """Compute shipping cost."""
     return {"cost": round(2.5 + 0.1 * weight_kg + 0.05 * distance_km, 2)}
-tool = aix.Tool(name=f"Shipping {int(time.time())}", integration="688779d8bfb8e46c273982ca",
+tool = aix.Tool(name=f"Shipping {int(time.time())}", description="Computes shipping cost.",
+                integration="aixplain/python-sandbox/aixplain",
                 config={"code": inspect.getsource(shipping_cost), "function_name": "shipping_cost"})
 tool.save()
 agent = aix.Agent(name="Logistics Agent", description="Quotes shipping costs", tools=[tool])
@@ -68,7 +77,7 @@ print(team.run("Research and summarize quantum computing").data.output)
 ## 6. Governed agent
 Enforce a policy before delivery. Full detail in `references/governance.md`.
 ```python
-llm_id = aix.Model.get("openai/gpt-4o").id
+llm_id = aix.Model.get("openai/gpt-4o-mini/openai").id
 guard = aix.Inspector(name="safety", description="Block unsafe output",
     severity="critical", targets=["output"],
     action={"type": "rerun", "max_retries": 2, "on_exhaust": "abort"},
@@ -94,12 +103,12 @@ agent = aix.Agent(name="Fetcher", description="Fetches and summarizes web pages"
 agent.save()
 ```
 
-## 8. Commercial integration agent
-Act in Slack/Gmail/Salesforce/etc. OAuth flow in `references/tools-integrations.md`.
+## 8. Integration agent
+(Canonically renamed from "Commercial integration agent".) Act in Slack/Gmail/Salesforce/etc. OAuth flow in `references/tools-integrations.md`.
 ```python
 slack = aix.Tool(name="Slack Notifier", description="Sends Slack messages",
-                 integration="composio/slack", config={"token": "YOUR_SLACK_TOKEN"})
-slack.allowed_actions = ["SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"]; slack.save()
+                 integration="composio/slack/composio", config={"token": "YOUR_SLACK_TOKEN"})
+slack.allowed_actions = ["SLACK_SEND_MESSAGE"]; slack.save()
 agent = aix.Agent(name="Notifier", description="Searches and posts updates to Slack",
                   tools=[search, slack])
 agent.save()
@@ -121,7 +130,7 @@ print(agent.run(query="Write unit tests and a docstring for this function.",
 Direct model call — no agent. Full detail in `references/models.md`.
 ```python
 from aixplain.v2 import FileUploader          # NOT aixplain.v2.file — that raises ImportError
-url = FileUploader(api_key=API_KEY).upload(file_path="meeting.mp3", is_temp=True, return_download_link=True)
+url = FileUploader(api_key=aix.api_key).upload(file_path="meeting.mp3", is_temp=True, return_download_link=True)
 model = aix.Model.get("66311fda6eb563279c574b71")
 r = model.run(source_audio=url, sourcelanguage="en", options={"includeRawData": True})
 print(r.data)                                  # transcript
@@ -132,3 +141,19 @@ print(r._raw_data["rawData"]["language"])      # auto-detected language
 
 ## 11. Travel / multi-source planner
 Combine a marketplace search tool with a custom planning function tool (patterns #1 + #4), `output_format="markdown"`, and clear step-by-step instructions in the agent.
+```python
+import inspect, time
+search = aix.Tool.get("tavily/tavily-web-search/tavily")
+def trip_budget(nights: int, nightly_rate: float, flight: float) -> dict:
+    """Total a trip's cost."""
+    return {"total": round(nights * nightly_rate + flight, 2), "per_night": nightly_rate}
+budget = aix.Tool(name=f"Trip Budget {int(time.time())}", description="Totals a trip's cost.",
+                  integration="aixplain/python-sandbox/aixplain",
+                  config={"code": inspect.getsource(trip_budget), "function_name": "trip_budget"})
+budget.save()
+agent = aix.Agent(name="Travel Planner", description="Plans trips and budgets them",
+    instructions=("1) search flights, stays and things to do; 2) call the budget tool with the "
+                  "numbers you found; 3) return a day-by-day itinerary plus a cost table. Cite sources."),
+    tools=[search, budget], output_format="markdown")
+agent.save()
+```
