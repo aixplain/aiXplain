@@ -5,7 +5,10 @@ error handling across all v2 components.
 """
 
 import builtins
-from typing import Optional, Any, Dict, Union, List
+from typing import TYPE_CHECKING, Optional, Any, Dict, Union, List
+
+if TYPE_CHECKING:
+    from .agent import AgentError, AgentWarning
 
 
 class AixplainV2Error(Exception):
@@ -70,6 +73,25 @@ class APIError(AixplainV2Error):
                 "retryable": retryable,
             },
         )
+
+
+class AgentRunFailedError(APIError):
+    """Raised when an agent run ends ``FAILED``; carries the run's ``error_details`` and non-fatal ``warnings``."""
+
+    def __init__(
+        self,
+        message: Union[str, List[str]],
+        status_code: int = 0,
+        response_data: Optional[Dict[str, Any]] = None,
+        error: Optional[str] = None,
+        retryable: Optional[bool] = None,
+        error_details: Optional["AgentError"] = None,
+        warnings: Optional[List["AgentWarning"]] = None,
+    ) -> None:
+        """Initialize with the APIError fields plus the run's structured error and warnings."""
+        super().__init__(message, status_code, response_data, error, retryable)
+        self.error_details = error_details
+        self.warnings = list(warnings or [])
 
 
 class AixplainIssueError(APIError):
