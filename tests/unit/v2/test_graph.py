@@ -117,6 +117,14 @@ def test_static_graph_agent_builds_backend_contract() -> None:
 def test_graph_round_trip_preserves_typed_nodes_and_strategy() -> None:
     response = {
         "name": "Fetched graph",
+        "inspectors": [
+            {
+                "name": "toxicity",
+                "targets": [],
+                "action": {"type": "abort"},
+                "evaluator": {"type": "asset", "assetId": "llm-1", "prompt": "Is it toxic?"},
+            }
+        ],
         "graphVersion": "1",
         "strategy": {"type": "static_graph", "max_iterations": 8},
         "graph": {
@@ -748,3 +756,28 @@ def test_duplicate_conditions_compare_by_json_value() -> None:
 def test_graph_structure_rules(graph: Graph, message: str) -> None:
     with pytest.raises(ValidationError, match=message):
         graph.validate()
+
+
+_FRAUD_METRIC = {"asset_id": "llm-1", "prompt": "Flag a claim that looks fraudulent."}
+
+
+def _inspector_graph() -> Graph:
+    gate = InspectorNode(name="Fraud gate", node_id="gate", inspector_type="fraud", content_key="claim")
+    return Graph(entry_point=gate, nodes=[gate])
+
+
+def test_inspector_node_requires_a_declared_inspector() -> None:
+    pii = Inspector(name="pii", targets=["input"], action="abort", metric=_FRAUD_METRIC)
+    agent = Agent(name="Claims", graph=_inspector_graph(), inspectors=[pii])
+
+    with pytest.raises(ValidationError, match=r"InspectorNode 'gate' names inspector 'fraud'.*declared: pii"):
+        agent.build_save_payload()
+
+
+def test_inspector_node_resolves_a_graph_only_inspector() -> None:
+    fraud = Inspector(name="fraud", targets=[], action="abort", metric=_FRAUD_METRIC)
+    payload = Agent(name="Claims", graph=_inspector_graph(), inspectors=[fraud]).build_save_payload()
+
+    assert payload["graph"]["nodes"]["gate"]["inspector_type"] == "fraud"
+    assert payload["inspectors"][0]["name"] == "fraud"
+    assert payload["inspectors"][0]["targets"] == []

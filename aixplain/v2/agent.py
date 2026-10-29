@@ -20,11 +20,11 @@ from .enums import AssetStatus, AssetStatusValue, ResponseStatus
 from .model import Model
 from .file import File
 from .skill import Skill
-from .graph import Graph, GraphDict, StaticGraphStrategy, StaticGraphStrategyDict
-from .exceptions import ValidationError
+from .graph import Graph, GraphDict, InspectorNode, StaticGraphStrategy, StaticGraphStrategyDict
+from .exceptions import AgentRunFailedError, ValidationError, _structured_error, _structured_message
+from .exceptions import create_operation_failed_error
 from .mixins import ToolableMixin
 from .plain_data import coerce_struct_list, struct_fields
-from .exceptions import ValidationError
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
@@ -487,6 +487,28 @@ class AgentError:
         return None
 
 
+@dataclass_json
+@dataclass
+class AgentWarning:
+    """Non-fatal issue recorded on an agent run, sent on the wire as a ``warnings`` entry ``{code, message}``."""
+
+    code: Optional[str] = None
+    message: Optional[str] = None
+
+    @classmethod
+    def _coerce_list(cls, value: Any) -> List["AgentWarning"]:
+        """Decode a ``warnings`` list, skipping entries that carry neither a code nor a message."""
+        if not isinstance(value, list):
+            return []
+        decoded: List["AgentWarning"] = []
+        for item in value:
+            if isinstance(item, cls):
+                decoded.append(item)
+            elif isinstance(item, dict) and (item.get("code") or item.get("message")):
+                decoded.append(cls(code=item.get("code"), message=item.get("message")))
+        return decoded
+
+
 def _with_legacy_step_outputs(steps: Any) -> Any:
     """Give a failed step the ``ERROR: <message>`` output it carried before steps had an ``error`` field.
 
@@ -523,9 +545,14 @@ class AgentResponseData:
     steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
+    # Deprecated: mixes fatal and non-fatal codes. Use ``error.code`` and ``warnings[].code`` instead.
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
     error: Optional[AgentError] = field(
         default=None, metadata=config(field_name="errorDetails", decoder=AgentError._coerce)
+    )
+    # Optional for the same null-decoding reason as ``artifacts``; ``__post_init__`` normalizes.
+    warnings: Optional[List[AgentWarning]] = field(
+        default_factory=list, metadata=config(decoder=AgentWarning._coerce_list)
     )
     critiques: Optional[str] = ""
     # Declared Optional only to keep dataclasses_json quiet: an explicit
@@ -556,6 +583,7 @@ class AgentResponseData:
         # cheap no-op, since ``Artifact`` instances pass straight through.
         self.artifacts = Artifact._coerce_list(self.artifacts)
         self.error = AgentError._coerce(self.error)
+        self.warnings = AgentWarning._coerce_list(self.warnings)
         self.steps = _with_legacy_step_outputs(self.steps)
         if self.governance is None:
             self.governance = {
@@ -575,15 +603,20 @@ class AgentRunResult(Result):
     request_id: Optional[Text] = field(default=None, metadata=config(field_name="requestId"))
     used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
     run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
+    # Deprecated: mixes fatal and non-fatal codes. Use ``error.code`` and ``warnings[].code`` instead.
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
     error: Optional[AgentError] = field(
         default=None, metadata=config(field_name="errorDetails", decoder=AgentError._coerce)
     )
+    # Optional for the same null-decoding reason as ``artifacts``; ``__post_init__`` normalizes.
+    warnings: Optional[List[AgentWarning]] = field(
+        default_factory=list, metadata=config(decoder=AgentWarning._coerce_list)
+    )
 
     def __post_init__(self) -> None:
-        """Promote diagnostic codes and the structured error the backend nests under ``data``.
+        """Promote diagnostic codes, the structured error and warnings the backend nests under ``data``.
 
-        The poll body carries them at ``data.diagnosticErrorCodes`` (or only
+        The poll body carries the codes at ``data.diagnosticErrorCodes`` (or only
         inside ``executionStats`` on older builds), never top-level.
         """
         if not self.diagnostic_error_codes:
@@ -591,12 +624,16 @@ class AgentRunResult(Result):
         data = self.data
         if isinstance(data, AgentResponseData):
             data_error = data.error
+            data_warnings = data.warnings
         elif isinstance(data, dict):
             # ``data`` is a bare dict when the result was built by hand rather than decoded.
             data_error = AgentError._coerce(data.get("errorDetails") or data.get("error_details"))
+            data_warnings = AgentWarning._coerce_list(data.get("warnings"))
         else:
             data_error = None
+            data_warnings = []
         self.error = AgentError._coerce(self.error) or data_error
+        self.warnings = AgentWarning._coerce_list(self.warnings) or list(data_warnings or [])
 
     def _codes_from_data(self) -> List[str]:
         """Extract diagnostic codes from ``data`` or its execution stats."""
@@ -1514,6 +1551,25 @@ class Agent(
         """
         return super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
 
+    def _operation_failed_error(self, response: Dict[str, Any]) -> AgentRunFailedError:
+        """Build the error for a ``FAILED`` agent run, keeping its structured error and warnings."""
+        base = create_operation_failed_error(response)
+        data = response.get("data") if isinstance(response.get("data"), dict) else {}
+        structured = _structured_error(response) or _structured_error(data)
+        error_details = None
+        if structured:
+            error_details = AgentError(code=structured.get("code"), message=_structured_message(structured) or None)
+        return AgentRunFailedError(
+            base.message,
+            status_code=base.status_code,
+            response_data=base.response_data,
+            error=base.error,
+            retryable=base.retryable,
+            error_details=error_details,
+            warnings=AgentWarning._coerce_list(response.get("warnings"))
+            or AgentWarning._coerce_list(data.get("warnings")),
+        )
+
     def sync_poll(self, poll_url: str, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Poll until an asynchronous agent execution completes.
 
@@ -2357,6 +2413,30 @@ class Agent(
         for k in self._LEGACY_ROLE_KEYS:
             payload.pop(k, None)
 
+    def _validate_graph_inspectors(self) -> None:
+        """Reject an ``InspectorNode`` whose ``inspector_type`` names no inspector declared on this Agent.
+
+        The engine resolves the node by that name among ``agent.inspectors`` at run time, so an undeclared name
+        would otherwise fail every run that reaches the node.
+        """
+        declared = set()
+        for inspector in self.inspectors or []:
+            if isinstance(inspector, str):
+                declared.add(inspector)
+            elif isinstance(inspector, dict):
+                declared.add(inspector.get("name") or inspector.get("presetId") or inspector.get("preset_id"))
+            else:
+                declared.add(getattr(inspector, "name", None))
+        declared.discard(None)
+        for node in self.graph.nodes:
+            if isinstance(node, InspectorNode) and node.inspector_type not in declared:
+                listed = ", ".join(sorted(declared)) if declared else "none"
+                raise ValidationError(
+                    f"InspectorNode '{node.id}' names inspector '{node.inspector_type}', which is not declared on "
+                    f"this Agent (declared: {listed}). Add an Inspector named '{node.inspector_type}' to "
+                    "agent.inspectors; give it targets=[] to run it only at this node."
+                )
+
     def _apply_llm_fields_to_payload(self, payload: Dict[str, Any]) -> None:
         """Back-compat shim — preserves the old ``build_save_payload`` call site."""
         self._apply_llm_fields_to_save_payload(payload)
@@ -2449,6 +2529,7 @@ class Agent(
             strategy = self.strategy or StaticGraphStrategy()
             payload["graphVersion"] = self.graph_version or "1"
             payload["graph"] = self.graph.to_dict()
+            self._validate_graph_inspectors()
             payload["strategy"] = strategy.to_dict()
             if strategy.budget and payload.get("budget"):
                 warnings.warn(
@@ -2560,10 +2641,13 @@ class Agent(
         # Set default values for execution_params if not provided.
         # No ``maxIterations`` default: the iteration cap now travels inside
         # ``executionParams.budget`` and the backend supplies its own default.
+        # No ``maxTime`` default either: the backend ranks ``maxTime`` above
+        # ``budget.maxDurationSeconds``, so a default here silently replaced the
+        # agent's, the session's and the run's duration cap. Left out, the
+        # backend resolves it from those and falls back to its own default.
         defaults = {
             "outputFormat": self.output_format,
             "maxTokens": getattr(self, "max_tokens", 2048),
-            "maxTime": 300,
             "contextOverflowStrategy": getattr(self, "context_overflow_strategy", None),
         }
 

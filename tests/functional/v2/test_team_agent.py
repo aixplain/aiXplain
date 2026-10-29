@@ -114,15 +114,33 @@ def _normalize(value) -> str:
     return re.sub(r"[^0-9a-z]", "", str(value).lower())
 
 
+def _delegation_target(step: dict):
+    """The subagent a ``delegate_task`` step names in its ``input`` (a JSON string or a dict), or None."""
+    raw = step.get("input")
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return None
+    return raw.get("agent_name") if isinstance(raw, dict) else None
+
+
 def _step_identifiers(response) -> List[str]:
     """Every agent/unit name and id the run's steps mention, normalized.
 
     A step names its acting agent under ``agent`` (a ``{id, name}`` dict or a
     plain string) and the asset it invoked under ``unit``. Both are collected
     because a supervisor's call into a subagent can surface either way.
+
+    A team's call into a subagent is a ``delegate_task`` tool step: the target is
+    ``input.agent_name``, and the subagent's own steps are nested under the step's
+    ``steps``. Both are read, at any depth, so a nested team's subteam is seen too;
+    the top level alone holds only the team, its LLM and ``delegate_task``.
     """
     identifiers = []
-    for step in _steps(response):
+    pending = list(_steps(response))
+    while pending:
+        step = pending.pop()
         if not isinstance(step, dict):
             continue
         for key in ("agent", "agent_name", "unit"):
@@ -131,6 +149,9 @@ def _step_identifiers(response) -> List[str]:
                 identifiers.extend(ref.get(field) for field in ("id", "name", "agent_name"))
             else:
                 identifiers.append(ref)
+        identifiers.append(_delegation_target(step))
+        if isinstance(step.get("steps"), list):
+            pending.extend(step["steps"])
     return [_normalize(identifier) for identifier in identifiers if identifier]
 
 

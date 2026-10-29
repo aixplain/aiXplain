@@ -11,12 +11,11 @@ A skill is a folder of instructions and reference material that teaches an AI co
 Each skill is a self-contained folder:
 
 ```
-aixplain-agent-builder/
 ├── SKILL.md            # the entry point the agent loads
 └── references/         # deeper guides loaded on demand
-    ├── agent-patterns.md
-    ├── integration-playbooks.md
-    └── inspectors.md
+    ├── agents.md
+    ├── models.md
+    └── tools-integrations.md
 ```
 
 The agent reads `SKILL.md` first and pulls in the reference files only when it needs them. Every code path is verified against a specific aiXplain SDK version (noted at the top of each `SKILL.md`).
@@ -28,7 +27,7 @@ The agent reads `SKILL.md` first and pulls in the reference files only when it n
 | Skill | Description |
 |-------|-------------|
 | [aixplain-builder](./aixplain-builder) | Build, run, and deploy anything on aiXplain across the full v2 SDK — direct model inference (LLMs, Whisper/speech, translation, vision, embeddings), single & team agents, knowledge bases/RAG, tools & integrations (Slack, Gmail, databases, MCP, custom Python), runtime governance/inspectors, memory, and REST/JS/OpenAI-compatible access. Ships a self-update pipeline (`tooling/`) that re-syncs the skill with the docs + SDK. |
-| [aixplain-agent-builder](./aixplain-agent-builder) | Design, deploy, run, debug, and export production agents on aiXplain — single agents, team agents, tools, OAuth integrations, and inspectors. |
+| [aixplain-skill-builder](./aixplain-skill-builder) | Create, test, and publish skills — local Koder skills (`SKILL.md` folders Koder's coding agent loads) or aiXplain platform skills that agents use, optionally bundling their own tools. Guides the description that makes a skill route, and ships `scripts/skill_tool.py` to scaffold and validate a skill. |
 
 > More skills coming soon. See [Contributing](#contributing) to add one.
 
@@ -63,7 +62,7 @@ git clone https://github.com/aixplain/aiXplain.git
 
 **Or download just the skill folder:**
 
-1. Copy the skill folder URL from this GitHub repo (e.g. the `aixplain-agent-builder` folder).
+1. Copy the skill folder URL from this GitHub repo (e.g. the `aixplain-builder` folder).
 2. Go to [download-directory.github.io](https://download-directory.github.io).
 3. Paste the URL and press Enter to download the ZIP, then unzip it.
 
@@ -74,10 +73,10 @@ git clone https://github.com/aixplain/aiXplain.git
 **Claude Code (recommended).** Copy the skill folder into your Claude Code skills directory:
 
 ```bash
-cp -r aiXplain/skills/aixplain-agent-builder ~/.claude/skills/
+cp -r aiXplain/skills/aixplain-builder ~/.claude/skills/
 ```
 
-The skill is now available in any Claude Code session. Trigger it explicitly with `/aixplain-agent-builder`, or just describe your task ("build an aiXplain agent that…") and the agent loads it automatically. To scope a skill to a single project instead of globally, copy it into that project's `.claude/skills/` directory.
+The skill is now available in any Claude Code session. Trigger it explicitly with `/aixplain-builder`, or just describe your task ("build an aixplain agent that…") and the agent loads it automatically. To scope a skill to a single project instead of globally, copy it into that project's `.claude/skills/` directory.
 
 **Claude Desktop.** Open **Settings → Capabilities → Skills**, then drag and drop the skill folder (or its `.zip`) to upload it.
 
@@ -98,7 +97,7 @@ Pull the latest and re-copy:
 
 ```bash
 cd aiXplain && git pull
-cp -r skills/aixplain-agent-builder ~/.claude/skills/
+cp -r skills/aixplain-builder ~/.claude/skills/
 ```
 
 ---

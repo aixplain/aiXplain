@@ -137,6 +137,25 @@ class TestBudgetInRunPayload:
         payload = agent.build_run_payload(query="q")
         assert payload["executionParams"]["budget"] == {"maxCost": 0.0}
 
+    def test_no_max_time_default_in_payload(self):
+        # The backend ranks ``maxTime`` above ``budget.maxDurationSeconds``; a
+        # default would replace the duration cap on every run.
+        agent = _create_agent()
+        payload = agent.build_run_payload(query="q")
+        assert "maxTime" not in payload["executionParams"]
+
+    def test_duration_budget_is_not_overridden_by_max_time(self):
+        agent = _create_agent()
+        agent.budget.max_duration_seconds = 0
+        execution_params = agent.build_run_payload(query="q")["executionParams"]
+        assert execution_params["budget"] == {"maxDurationSeconds": 0}
+        assert "maxTime" not in execution_params
+
+    def test_explicit_max_time_is_still_sent(self):
+        agent = _create_agent()
+        payload = agent.build_run_payload(query="q", execution_params={"max_time": 120})
+        assert payload["executionParams"]["maxTime"] == 120
+
     def test_dict_with_none_value_drops_key(self):
         agent = _create_agent()
         agent.budget = {"max_cost": 1.0, "max_iterations": None}

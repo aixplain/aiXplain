@@ -94,7 +94,7 @@ print(result.status, result.used_credits, len(result.data.steps))
 
 ## Let Koder build it
 
-[Koder](https://github.com/aixplain/koder) builds and deploys aixplain agents for you. Describe the agent; Koder writes, tests and deploys it with the agent builder skill, and you review every change.
+[Koder](https://github.com/aixplain/koder) builds and deploys aixplain agents for you. Describe the agent; Koder writes, tests and deploys it with the SDK, and you review every change.
 
 Using Claude Code? Install the aixplain plugin from this repo:
 
@@ -103,7 +103,7 @@ Using Claude Code? Install the aixplain plugin from this repo:
 /plugin install aixplain@aixplain
 ```
 
-It bundles the agent builder skill and marketplace search. See the [plugin guide](plugins/aixplain), or use the [agent builder skill](skills/aixplain-agent-builder) on its own.
+It bundles the aixplain-builder skill and marketplace search. See the [plugin guide](plugins/aixplain), or use the [aixplain-builder skill](skills/aixplain-builder) on its own.
 
 ## Learn more
 

@@ -5,7 +5,10 @@ error handling across all v2 components.
 """
 
 import builtins
-from typing import Optional, Any, Dict, Union, List
+from typing import TYPE_CHECKING, Optional, Any, Dict, Union, List
+
+if TYPE_CHECKING:
+    from .agent import AgentError, AgentWarning
 
 
 class AixplainV2Error(Exception):
@@ -72,6 +75,25 @@ class APIError(AixplainV2Error):
         )
 
 
+class AgentRunFailedError(APIError):
+    """Raised when an agent run ends ``FAILED``; carries the run's ``error_details`` and non-fatal ``warnings``."""
+
+    def __init__(
+        self,
+        message: Union[str, List[str]],
+        status_code: int = 0,
+        response_data: Optional[Dict[str, Any]] = None,
+        error: Optional[str] = None,
+        retryable: Optional[bool] = None,
+        error_details: Optional["AgentError"] = None,
+        warnings: Optional[List["AgentWarning"]] = None,
+    ) -> None:
+        """Initialize with the APIError fields plus the run's structured error and warnings."""
+        super().__init__(message, status_code, response_data, error, retryable)
+        self.error_details = error_details
+        self.warnings = list(warnings or [])
+
+
 class AixplainIssueError(APIError):
     """Raised when SDK issue reporting fails."""
 
@@ -126,13 +148,25 @@ def _structured_error(obj: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _structured_message(structured: Optional[Dict[str, Any]]) -> str:
+    """Return a structured error's text: ``message``, else ``description``.
+
+    A run that fails before any step (e.g. an agent whose tool no longer
+    exists) reports ``{code, description}`` rather than ``{code, message}``;
+    without the fallback the error read only as its code, ``AX-RES-1000``.
+    """
+    if not structured:
+        return ""
+    return str(structured.get("message") or structured.get("description") or "").strip()
+
+
 def _extract_error_from_dict(obj: Dict[str, Any]) -> Optional[str]:
     """Extract first available error message from a dict (top-level or data)."""
     if not obj:
         return None
-    structured = _structured_error(obj)
-    if structured and structured.get("message") and str(structured["message"]).strip():
-        return str(structured["message"]).strip()
+    structured_msg = _structured_message(_structured_error(obj))
+    if structured_msg:
+        return structured_msg
     for key in (
         "supplierError",
         "supplier_error",
@@ -160,7 +194,7 @@ def create_operation_failed_error(response: Dict[str, Any]) -> APIError:
     data = response.get("data") if isinstance(response.get("data"), dict) else {}
     structured = _structured_error(response) or _structured_error(data) or {}
     # ``errorDetails`` wins wherever it sits; the legacy string fields are the fallback.
-    structured_msg = str(structured.get("message") or "").strip()
+    structured_msg = _structured_message(structured)
     error_msg = structured_msg or _extract_error_from_dict(response) or _extract_error_from_dict(data)
     if not error_msg:
         error_msg = structured.get("code") or "Operation failed"
