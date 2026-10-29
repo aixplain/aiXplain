@@ -72,7 +72,7 @@ Read the relevant reference file before writing code for that domain — they ho
 > - aiR index search: pass **`num_results`**. `top_k` is shown in the docs (and emitted by the SDK's own `rlm.py`) but is **silently ignored**, so your result limit won't apply.
 > - `model.as_tool()` **breaks video input** (the payload gets wrapped in a list) — call the model directly for video instead of attaching it to an agent.
 
-> **Not in the v2 SDK:** pipelines, fine-tuning, benchmarking, and datasets/corpora. These are legacy-v1 only or Studio-only. See `references/deployment-access.md § What the v2 SDK does NOT cover`. For multi-step workflows in v2, use a **team agent**.
+> **Not in the v2 SDK:** pipelines, fine-tuning, benchmarking, and datasets/corpora. The old v1 factory route is **gone** — v1 is removed in SDK `0.3.0` (`0.2.48` is the last release shipping it), so never hand a user `aixplain.factories` code. Use Studio, or a **team agent** for multi-step work. See `references/deployment-access.md § What the v2 SDK does NOT cover`.
 
 ## Workflow for building an agent
 

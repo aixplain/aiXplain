@@ -20,6 +20,10 @@ Upstream split the agents documentation into focused pages (`budgets`, `files`, 
 - SQL: rewritten from `databases.md` — PostgreSQL has **no `commit`** (writes go through `query`) and is **not yet supported inside agents**.
 - Usage examples for previously example-free sections (marketplace search, Web Search, Marketplace Search, Code Execution, the travel/multi-source pattern, REST upload, v1→v2 migration, inspector validation, dashboard lookup).
 
+### Fixed — v1 is gone sooner than this skill said
+- **v1 is removed in SDK `0.3.0`**; `0.2.48` is the last release that ships it. The skill previously quoted a 2027-02-01 sunset and handed out `aixplain.factories` snippets for pipelines / fine-tuning / benchmarking — that code cannot run on 0.3.0+. Those sections now route to Studio or a team agent instead, and the migration guide shows the v1 call shapes without un-runnable imports.
+- The refresh pipeline now enforces the same rule the aiXplain repo enforces in CI: shipped markdown may not import a removed v1 path.
+
 ### Fixed — three things this skill had wrong
 - **An `abort` inspector does not null the output.** The run still returns `SUCCESS` and `data.output` holds the inspector's **critique**; the block is reported in `data.governance["status"]`. Check governance, not `output`.
 - **Agents do expose an MCP endpoint** (`/agent/mcp/<id>`) — the previous "agents have no MCP server" note was wrong.

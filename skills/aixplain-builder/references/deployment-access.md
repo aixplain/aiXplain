@@ -299,28 +299,28 @@ Error-string triage: `Invalid API key` = deleted/expired/mistyped or wrong works
 
 1 credit = $1 USD. Models/tools/integrations bill at vendor rates (0% margin). Deployed **agents** add a 20% markup over the sum of model + tool calls (covers orchestration, the planner/orchestrator/inspector micro-agents, memory, validation). So 0.50 credits of LLM calls + 0.10 of tool calls = 0.72 charged. Track spend via `response.used_credits` or the transaction history at `https://app.aixplain.com/team/settings?tab=usage`; top up at `?tab=billing`. An empty balance refuses runs with `err.not_enough_balance`.
 
-## What the v2 SDK does NOT cover (legacy v1 only)
+## What the v2 SDK does NOT cover
 
-The unified `aix.*` client (`from aixplain import Aixplain`) is agent/model/tool-centric. **Pipelines, fine-tuning, benchmarking, and datasets/corpora have no v2 API.** They exist only in the legacy v1 factories — which now carry a **hard removal date of 2027-02-01** (`aixplain._compat.V1_REMOVAL_DATE`, verified in the installed package). Importing v1 code emits an `AixplainV1DeprecationWarning` once per process; silence it with `AIXPLAIN_SUPPRESS_V1_DEPRECATION=1`. The porting map is **MIGRATION.md** (`https://github.com/aixplain/aiXplain/blob/main/MIGRATION.md`) — it is not shipped inside the wheel, so an installed copy has no local file. The docs site's own migration guide is now marked `unlisted`, i.e. still reachable by URL but removed from the sidebar, so link MIGRATION.md on GitHub rather than the docs page. The removal date is contingent on closing the eight factory gaps MIGRATION.md lists, but plan for it rather than against it.
+The unified `aix.*` client (`from aixplain import Aixplain`) is agent/model/tool-centric. **Pipelines, fine-tuning, benchmarking, and datasets/corpora have no v2 API.**
 
-```python
-# Legacy v1 — only if the user explicitly needs these capabilities
-from aixplain.factories import PipelineFactory, FinetuneFactory, BenchmarkFactory, DatasetFactory, CorpusFactory
-pipeline = PipelineFactory.get("<pipeline_id>")
-result = pipeline.run("input")
-```
+They used to be reachable through the legacy v1 factories, but **v1 is removed in SDK `0.3.0`** — `0.2.48` is the last release that ships it (`aixplain._compat.LAST_V1_RELEASE` / `V1_REMOVED_IN`). After 0.3.0 those import paths (`aixplain.v1`, `.factories`, `.modules`, `.enums`, `.decorators`, `.base`, `.processes`) raise an error naming the v2 replacement rather than a bare `ModuleNotFoundError`. Do **not** hand a user v1 factory code: on 0.3.0+ it cannot run, and on 0.2.48 it only buys time. If they genuinely need the old behaviour today, the honest answer is to pin `pip install 'aiXplain==0.2.48'` and plan the port — the map is **MIGRATION.md** (`https://github.com/aixplain/aiXplain/blob/main/MIGRATION.md`), which is not shipped inside the wheel.
 
-For **pipelines**, prefer building visually in aiXplain Studio and then running by ID (Studio, REST `https://platform-api.aixplain.com` pipeline endpoints, or the v1 `PipelineFactory`). The current Python v2 SDK has no pipeline builder. If a user asks to "build a pipeline" in Python, tell them this and offer either Studio or the equivalent as a **team agent** (which is the v2-native way to compose multi-step workflows).
+So for these four capabilities, route the user to a surface that still exists:
+
+| Want | Do this instead |
+|---|---|
+| **Pipelines** | Build visually in Studio (`https://app.aixplain.com/studio`) and run by ID, or compose the steps as a **team agent** — the v2-native way to do multi-step work. |
+| **Fine-tuning / benchmarking** | Studio / platform UI; there is no v2 SDK surface. |
+| **Datasets / corpora** | Upload as `aix.File` assets or index the content into a knowledge base (`references/knowledge-memory.md`). |
 
 ## v1 → v2 migration
 
-Use `from aixplain import Aixplain; aix = Aixplain(api_key=...)` then `aix.Agent` / `aix.Model` / `aix.Tool`. Avoid the deprecated v1 `aixplain.factories.*` (`AgentFactory`, `ModelFactory`, …) for anything the v2 client covers. If you see old factory code, port it to the `aix.*` equivalents.
+Use `from aixplain import Aixplain; aix = Aixplain(api_key=...)`, then `aix.Agent` / `aix.Model` / `aix.Tool`. Anything written against the v1 factories has to move before `0.3.0`.
 
 ```python
-# BEFORE — v1 factories, removed 2027-02-01 (aixplain._compat.V1_REMOVAL_DATE)
-from aixplain.factories import AgentFactory, ModelFactory
-llm   = ModelFactory.get("669a63646eb56306647e1091")
-agent = AgentFactory.create(name="Researcher", description="Finds facts", llm=llm)
+# BEFORE (v1, removed in 0.3.0) — the old factory calls, for recognition only:
+#     ModelFactory.get("669a63646eb56306647e1091")
+#     AgentFactory.create(name="Researcher", description="Finds facts", llm=llm)
 
 # AFTER — v2 client
 from aixplain import Aixplain
@@ -328,3 +328,7 @@ aix   = Aixplain(api_key="YOUR_API_KEY")
 agent = aix.Agent(name="Researcher", description="Finds facts",
                   llm=aix.Model.get("669a63646eb56306647e1091")).save()
 ```
+
+Rough map: `AgentFactory.create` → `aix.Agent(...).save()` · `ModelFactory.get` → `aix.Model.get` · `PipelineFactory` → no replacement (see the table above). MIGRATION.md has the full list.
+
+> The repo enforces this in CI: a guard test rejects any shipped markdown whose snippet imports a removed v1 path, on the grounds that *"a snippet nobody can run is worse than no snippet."* Keep v1 import lines out of skill content.
