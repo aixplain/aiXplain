@@ -26,7 +26,7 @@ Release that drops the deprecated v1 names from this module.
 def __getattr__(name: str) -> object
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/__init__.py#L55)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/__init__.py#L57)
 
 Resolve a deprecated v1 name from ``aixplain.exceptions.types``, with a warning.
 
