@@ -251,7 +251,7 @@ Keys come from Team settings → API keys (`https://app.aixplain.com/team/settin
 
 ```python
 from datetime import datetime
-from aixplain.v2 import APIKey, APIKeyLimits, TokenType   # also: from aixplain.v2.api_key import ...
+from aixplain import APIKey, APIKeyLimits, TokenType
 
 # Admin key: create a member key with per-asset + global limits, a budget and an expiry
 new_key = aix_admin.APIKey(
