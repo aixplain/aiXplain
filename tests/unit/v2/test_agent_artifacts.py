@@ -14,9 +14,17 @@ the engine — so both must deserialize into the same object. These tests cover:
   when ``data`` is a plain string or missing entirely.
 """
 
+import json
+import pickle
 import warnings
+from dataclasses import asdict, fields
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
+from unittest.mock import MagicMock
 
-from aixplain import AgentResponseData, AgentRunResult, Artifact
+import pytest
+
+from aixplain import AgentResponseData, AgentRunResult, Artifact, ResourceError, ValidationError
 
 # Captured from a live prod run: a Seedream image returned by a tool.
 SNAKE_IMAGE_ARTIFACT = {
@@ -27,8 +35,11 @@ SNAKE_IMAGE_ARTIFACT = {
     "category": "image",
     "source": "tool_output",
     "tool_name": "actions_run",
+    "step_id": "call_7f3a",
     "url": "https://ark-content-generation-v2-ap-southeast-1.tos-ap-southeast-1.volces.com/seedream-4-0/x.jpeg?X-Tos-Expires=86400",
     "url_expires_at": "2026-08-08T08:48:42Z",
+    "file_id": None,
+    "source_url": None,
     "content": None,
     "sha256": None,
     "byte_size": None,
@@ -56,7 +67,10 @@ SNAKE_WORKSPACE_ARTIFACT = {
 _CAMEL_KEYS = {
     "mime_type": "mimeType",
     "tool_name": "toolName",
+    "step_id": "stepId",
     "url_expires_at": "urlExpiresAt",
+    "file_id": "fileId",
+    "source_url": "sourceUrl",
     "byte_size": "byteSize",
     "mentioned_in_answer": "mentionedInAnswer",
     "created_at": "createdAt",
@@ -78,7 +92,7 @@ def _artifacts(payload):
 
 
 def test_snake_case_payload_populates_every_field():
-    """The poll path (snake_case) lands on all 14 attributes."""
+    """The poll path (snake_case) lands on all 17 attributes."""
     (artifact,) = _artifacts([SNAKE_IMAGE_ARTIFACT])
 
     assert artifact.id == "6c968445-161c-48b3-acfc-6a1ddcaa6d25"
@@ -88,8 +102,11 @@ def test_snake_case_payload_populates_every_field():
     assert artifact.category == "image"
     assert artifact.source == "tool_output"
     assert artifact.tool_name == "actions_run"
+    assert artifact.step_id == "call_7f3a"
     assert artifact.url == SNAKE_IMAGE_ARTIFACT["url"]
     assert artifact.url_expires_at == "2026-08-08T08:48:42Z"
+    assert artifact.file_id is None
+    assert artifact.source_url is None
     assert artifact.content is None
     assert artifact.sha256 is None
     assert artifact.byte_size is None
@@ -189,8 +206,10 @@ def test_response_data_to_dict_includes_artifacts():
     """``AgentResponseData.to_dict()`` carries the serialized artifacts."""
     data = AgentResponseData.from_dict({"artifacts": [SNAKE_WORKSPACE_ARTIFACT]})
 
-    # The live workspace payload omits ``title``; serialization fills the default.
-    assert data.to_dict()["artifacts"] == [dict(CAMEL_WORKSPACE_ARTIFACT, title=None)]
+    # The live workspace payload omits these; serialization fills the defaults.
+    assert data.to_dict()["artifacts"] == [
+        dict(CAMEL_WORKSPACE_ARTIFACT, title=None, stepId=None, fileId=None, sourceUrl=None)
+    ]
 
 
 def test_direct_construction_types_raw_dicts():
@@ -245,3 +264,185 @@ def test_run_result_artifacts_property_is_empty_without_structured_data():
 
     assert text_result.artifacts == []
     assert empty_result.artifacts == []
+
+
+# A Seedream image re-hosted by the engine on the aiXplain assets bucket.
+REHOSTED_IMAGE_ARTIFACT = dict(
+    SNAKE_IMAGE_ARTIFACT,
+    url="https://aixplain-platform-assets-dev.s3.amazonaws.com/files/42/6a1f.jpeg?Expires=1792494522&Signature=x",
+    url_expires_at="2026-10-19T09:08:42Z",
+    file_id="6a1f00000000000000000001",
+    source_url=SNAKE_IMAGE_ARTIFACT["url"],
+)
+
+FRESH_URL = (
+    "https://aixplain-platform-assets-dev.s3.amazonaws.com/files/42/6a1f.jpeg"
+    "?X-Amz-Date=20261026T100000Z&X-Amz-Expires=3600&X-Amz-Signature=y"
+)
+
+
+def _client(response):
+    context = MagicMock()
+    context.client.get.return_value = response
+    return context
+
+
+def test_rehosted_artifact_exposes_file_id_and_source_url():
+    """A re-hosted artifact keeps the aiXplain file id and the tool's original URL."""
+    (artifact,) = _artifacts([_camelize(REHOSTED_IMAGE_ARTIFACT)])
+
+    assert artifact.file_id == "6a1f00000000000000000001"
+    assert artifact.source_url == SNAKE_IMAGE_ARTIFACT["url"]
+    assert artifact.url.startswith("https://aixplain-platform-assets-dev")
+
+
+def test_step_id_matches_the_producing_step():
+    """``step_id`` is the ``step_id`` of the tool step in ``data.steps``."""
+    result = AgentRunResult.from_dict(
+        {
+            "status": "completed",
+            "completed": True,
+            "data": {
+                "steps": [{"step_id": "call_7f3a", "unit": {"name": "Seedream"}}],
+                "artifacts": [SNAKE_IMAGE_ARTIFACT],
+            },
+        }
+    )
+
+    (artifact,) = result.artifacts
+    assert artifact.step_id == "call_7f3a"
+    assert [s for s in result.data.steps if s["step_id"] == artifact.step_id][0]["unit"]["name"] == "Seedream"
+
+
+def test_refresh_url_resigns_through_the_file_asset_endpoint():
+    """``refresh_url`` fetches a new signed URL and updates ``url`` and ``url_expires_at``."""
+    (artifact,) = _artifacts([REHOSTED_IMAGE_ARTIFACT])
+    context = _client({"url": FRESH_URL})
+
+    assert artifact.refresh_url(client=context) == FRESH_URL
+    context.client.get.assert_called_once_with(
+        "sdk/file-asset/6a1f00000000000000000001/file/6a1f00000000000000000001/url"
+    )
+    assert artifact.url == FRESH_URL
+    assert artifact.url_expires_at == "2026-10-26T11:00:00Z"
+
+
+def test_refresh_url_uses_the_run_client_bound_through_result_artifacts():
+    """Artifacts read off ``result.artifacts`` refresh through the client that ran the agent."""
+    result = AgentRunResult.from_dict(
+        {"status": "completed", "completed": True, "data": {"artifacts": [REHOSTED_IMAGE_ARTIFACT]}}
+    )
+    result._context = _client({"url": FRESH_URL})
+
+    (artifact,) = result.artifacts
+    assert artifact.refresh_url() == FRESH_URL
+
+
+def test_bound_artifacts_and_response_data_remain_serializable():
+    result = AgentRunResult.from_dict(
+        {"status": "completed", "completed": True, "data": {"artifacts": [REHOSTED_IMAGE_ARTIFACT]}}
+    )
+    result._context = _client({"url": FRESH_URL})
+
+    (artifact,) = result.artifacts
+    assert "_context" not in {f.name for f in fields(artifact)}
+    assert pickle.loads(pickle.dumps(result.artifacts)) == result.artifacts
+    assert pickle.loads(pickle.dumps(result.data)) == result.data
+    assert json.loads(json.dumps(asdict(artifact)))["file_id"] == artifact.file_id
+    assert artifact.refresh_url() == FRESH_URL
+    with pytest.raises(ValidationError, match="No client"):
+        pickle.loads(pickle.dumps(artifact)).refresh_url()
+
+
+def test_refresh_url_explicit_client_overrides_bound_client():
+    (artifact,) = _artifacts([REHOSTED_IMAGE_ARTIFACT])
+    bound = _client({"url": "https://bound.example/file"})
+    explicit = _client({"url": FRESH_URL})
+    artifact._context = bound
+
+    assert artifact.refresh_url(client=explicit) == FRESH_URL
+    bound.client.get.assert_not_called()
+    explicit.client.get.assert_called_once()
+
+
+def test_result_artifacts_keeps_existing_client_binding():
+    result = AgentRunResult.from_dict(
+        {"status": "completed", "completed": True, "data": {"artifacts": [REHOSTED_IMAGE_ARTIFACT]}}
+    )
+    existing = _client({"url": FRESH_URL})
+    result.data.artifacts[0]._context = existing
+    result._context = _client({"url": "https://wrong.example/file"})
+
+    assert result.artifacts[0].refresh_url() == FRESH_URL
+    result._context.client.get.assert_not_called()
+
+
+def test_refresh_url_parses_legacy_expires_parameter():
+    (artifact,) = _artifacts([REHOSTED_IMAGE_ARTIFACT])
+    url = "https://assets.example/file?Expires=1792494522&Signature=x"
+
+    artifact.refresh_url(client=_client({"url": url}))
+    assert artifact.url_expires_at == datetime.fromtimestamp(1792494522, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def test_refresh_url_falls_back_to_requested_lifetime():
+    (artifact,) = _artifacts([REHOSTED_IMAGE_ARTIFACT])
+    now = datetime(2026, 10, 26, 10, 0, tzinfo=timezone.utc)
+    with patch("aixplain.v2.agent.datetime") as clock:
+        clock.now.return_value = now
+        artifact.refresh_url(client=_client({"url": "https://assets.example/file?X-Goog-Date=other"}), expires_in=120)
+    assert artifact.url_expires_at == (now + timedelta(seconds=120)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+@pytest.mark.parametrize("expires_in, expected", [(None, 3600), (0, 3600), (8 * 24 * 3600, 7 * 24 * 3600)])
+def test_refresh_url_fallback_uses_backend_expiry_bounds(expires_in, expected):
+    (artifact,) = _artifacts([REHOSTED_IMAGE_ARTIFACT])
+    now = datetime(2026, 10, 26, 10, 0, tzinfo=timezone.utc)
+    with patch("aixplain.v2.agent.datetime") as clock:
+        clock.now.return_value = now
+        artifact.refresh_url(client=_client({"url": "https://assets.example/file"}), expires_in=expires_in)
+    assert artifact.url_expires_at == (now + timedelta(seconds=expected)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def test_refresh_url_requires_a_file_id():
+    """An artifact that was never re-hosted has nothing to re-sign."""
+    (artifact,) = _artifacts([SNAKE_IMAGE_ARTIFACT])
+
+    with pytest.raises(ValidationError, match="no file_id"):
+        artifact.refresh_url(client=_client({}))
+
+
+def test_refresh_url_requires_a_client():
+    """A standalone artifact needs an explicit client."""
+    (artifact,) = _artifacts([REHOSTED_IMAGE_ARTIFACT])
+
+    with pytest.raises(ValidationError, match="No client"):
+        artifact.refresh_url()
+
+
+def test_refresh_url_passes_expires_in():
+    """``expires_in`` is sent as the ``expiresIn`` query parameter."""
+    (artifact,) = _artifacts([REHOSTED_IMAGE_ARTIFACT])
+    context = _client({"url": FRESH_URL})
+
+    artifact.refresh_url(expires_in=86400, client=context)
+    assert context.client.get.call_args.kwargs == {"params": {"expiresIn": 86400}}
+
+
+def test_refresh_url_rejects_a_response_without_a_url():
+    """A backend response with no ``url`` raises and leaves ``url`` as it was."""
+    (artifact,) = _artifacts([REHOSTED_IMAGE_ARTIFACT])
+
+    with pytest.raises(ResourceError, match="no signed url"):
+        artifact.refresh_url(client=_client({"id": artifact.file_id}))
+    assert artifact.url == REHOSTED_IMAGE_ARTIFACT["url"]
+
+
+def test_context_is_not_serialized_or_compared():
+    """The bound client never reaches ``to_dict`` and does not affect equality."""
+    (artifact,) = _artifacts([REHOSTED_IMAGE_ARTIFACT])
+    (bound,) = _artifacts([REHOSTED_IMAGE_ARTIFACT])
+    bound._context = _client({})
+
+    assert "_context" not in bound.to_dict()
+    assert bound == artifact
