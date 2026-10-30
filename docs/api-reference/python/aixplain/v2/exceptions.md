@@ -3,7 +3,7 @@ sidebar_label: exceptions
 title: aixplain.v2.exceptions
 ---
 
-`from aixplain import APIError, AixplainIssueError, AixplainV2Error, FileUploadError, ResourceError, TimeoutError, UntrustedURLError, ValidationError`
+`from aixplain import APIError, AgentRunFailedError, AixplainIssueError, AixplainV2Error, FileUploadError, ResourceError, TimeoutError, UntrustedURLError, ValidationError`
 
 
 Unified error hierarchy for v2 system.
@@ -17,7 +17,7 @@ error handling across all v2 components.
 class AixplainV2Error(Exception)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L11)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L14)
 
 Base exception for all v2 errors.
 
@@ -28,7 +28,7 @@ def __init__(message: Union[str, List[str]],
              details: Optional[Dict[str, Any]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L14)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L17)
 
 Initialize the exception with a message and optional details.
 
@@ -43,7 +43,7 @@ Initialize the exception with a message and optional details.
 class ResourceError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L28)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L31)
 
 Raised when resource operations fail.
 
@@ -53,7 +53,7 @@ Raised when resource operations fail.
 class APIError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L34)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L37)
 
 Raised when API calls fail.
 
@@ -67,7 +67,7 @@ def __init__(message: Union[str, List[str]],
              retryable: Optional[bool] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L37)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L40)
 
 Initialize APIError with HTTP status and response details.
 
@@ -85,13 +85,39 @@ Initialize APIError with HTTP status and response details.
   case, because its usually-absent ``statusCode`` collapses onto
   that same ``0`` transport sentinel.
 
+### AgentRunFailedError Objects
+
+```python
+class AgentRunFailedError(APIError)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L78)
+
+Raised when an agent run ends ``FAILED``; carries the run's ``error_details`` and non-fatal ``warnings``.
+
+#### \_\_init\_\_
+
+```python
+def __init__(message: Union[str, List[str]],
+             status_code: int = 0,
+             response_data: Optional[Dict[str, Any]] = None,
+             error: Optional[str] = None,
+             retryable: Optional[bool] = None,
+             error_details: Optional["AgentError"] = None,
+             warnings: Optional[List["AgentWarning"]] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L81)
+
+Initialize with the APIError fields plus the run's structured error and warnings.
+
 ### AixplainIssueError Objects
 
 ```python
 class AixplainIssueError(APIError)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L75)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L97)
 
 Raised when SDK issue reporting fails.
 
@@ -101,7 +127,7 @@ Raised when SDK issue reporting fails.
 class ValidationError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L81)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L103)
 
 Raised when validation fails.
 
@@ -111,7 +137,7 @@ Raised when validation fails.
 class TimeoutError(AixplainV2Error, builtins.TimeoutError)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L87)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L109)
 
 Raised when operations timeout.
 
@@ -128,7 +154,7 @@ before, never less.
 class FileUploadError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L101)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L123)
 
 Raised when file upload operations fail.
 
@@ -138,7 +164,7 @@ Raised when file upload operations fail.
 class UntrustedURLError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L107)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L129)
 
 Raised when a credentialed request targets a host outside the trusted set.
 
@@ -152,7 +178,7 @@ hand the team API key to a host a body asked it to talk to.
 def create_operation_failed_error(response: Dict[str, Any]) -> APIError
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L137)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L185)
 
 Create an operation failed error from API response.
 

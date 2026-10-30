@@ -274,7 +274,7 @@ Delete the trigger (deactivating the Composio trigger for events).
 def schedule_type() -> Optional[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L604)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L614)
 
 The schedule type (once/daily/weekly/monthly/recurring), if a time trigger.
 
@@ -284,7 +284,7 @@ The schedule type (once/daily/weekly/monthly/recurring), if a time trigger.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L608)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L618)
 
 Return a concise representation.
 
