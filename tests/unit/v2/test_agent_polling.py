@@ -14,8 +14,9 @@ from dataclasses_json import dataclass_json
 
 from aixplain import Agent, AgentRunResult
 
-
 BACKEND_URL = "https://platform-api.aixplain.com"
+FRESH_URL = "https://assets.example/file?Expires=1792494522"
+REHOSTED_IMAGE_ARTIFACT = {"name": "image.jpeg", "file_id": "6a1f00000000000000000001"}
 
 
 def _create_agent():
@@ -268,6 +269,18 @@ class TestAgentPollWithExecutionId:
         assert "/sdk/runs/" not in actual_url
         assert "/sdk/agents/" in actual_url
 
+    def test_poll_binds_artifact_refresh_client(self):
+        agent = _create_agent()
+        agent.context.client.get = Mock(
+            side_effect=[
+                {"status": "SUCCESS", "completed": True, "data": {"artifacts": [REHOSTED_IMAGE_ARTIFACT]}},
+                {"url": FRESH_URL},
+            ]
+        )
+
+        result = agent.poll("exec-id-1")
+        assert result.artifacts[0].refresh_url() == FRESH_URL
+
 
 class TestAgentRunRequestId:
     """Tests for request ID preservation across sync run polling."""
@@ -372,6 +385,18 @@ class TestAgentSyncPollWithExecutionId:
         actual_url = agent.context.client.get.call_args[0][0]
         assert "/sdk/runs/" not in actual_url
         assert "/sdk/agents/" in actual_url
+
+    def test_sync_poll_binds_artifact_refresh_client(self):
+        agent = _create_agent()
+        agent.context.client.get = Mock(
+            side_effect=[
+                {"status": "SUCCESS", "completed": True, "data": {"artifacts": [REHOSTED_IMAGE_ARTIFACT]}},
+                {"url": FRESH_URL},
+            ]
+        )
+
+        result = agent.sync_poll("exec-id-1")
+        assert result.artifacts[0].refresh_url() == FRESH_URL
 
 
 class TestAgentPollUrlTemplate:

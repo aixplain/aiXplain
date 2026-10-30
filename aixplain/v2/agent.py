@@ -8,7 +8,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from urllib.parse import parse_qs, quote, urlparse
+from urllib.parse import parse_qs, urlparse
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
@@ -22,7 +22,7 @@ from .model import Model
 from .file import File
 from .skill import Skill
 from .graph import Graph, GraphDict, InspectorNode, StaticGraphStrategy, StaticGraphStrategyDict
-from .exceptions import AgentRunFailedError, ValidationError, _structured_error, _structured_message
+from .exceptions import AgentRunFailedError, ResourceError, ValidationError, _structured_error, _structured_message
 from .exceptions import create_operation_failed_error
 from .mixins import ToolableMixin
 from .plain_data import coerce_struct_list, struct_fields
@@ -44,6 +44,7 @@ from .resource import (
 )
 
 if TYPE_CHECKING:
+    from .core import Aixplain
     from .session import ExecutionConfig, Session
 
 
@@ -467,30 +468,43 @@ class Artifact:
     byte_size: Optional[int] = field(default=None, metadata=config(field_name="byteSize"))
     mentioned_in_answer: bool = field(default=False, metadata=config(field_name="mentionedInAnswer"))
     created_at: str = field(default="", metadata=config(field_name="createdAt"))
-    _context: Optional[Any] = field(
-        default=None,
-        repr=False,
-        compare=False,
-        metadata=config(exclude=lambda x: True),
-        init=False,
-    )
 
-    def refresh_url(self, expires_in: Optional[int] = None, client: Optional[Any] = None) -> str:
-        """Re-sign ``url`` (``expires_in`` seconds, backend default 1h, max 7 days) and return it."""
+    def __getstate__(self) -> Dict[str, Any]:
+        """Keep the live client out of serialized artifact state."""
+        state = self.__dict__.copy()
+        state.pop("_context", None)
+        return state
+
+    def refresh_url(self, expires_in: Optional[int] = None, client: Optional["Aixplain"] = None) -> str:
+        """Request a new signed URL for a re-hosted artifact.
+
+        Args:
+            expires_in: URL lifetime in seconds (backend default 1 hour, max 7 days).
+            client: Aixplain client to use instead of the one bound by the run.
+
+        Returns:
+            The refreshed signed URL, also stored on this artifact.
+
+        Raises:
+            ValidationError: If the artifact has no file id or no client is available.
+            ResourceError: If the backend returns no signed URL.
+        """
         if not self.file_id:
             raise ValidationError(f"Artifact '{self.name}' has no file_id: it was not re-hosted on aiXplain")
-        context = client or self._context
+        context = client if client is not None else getattr(self, "_context", None)
         if context is None:
-            raise ValidationError("No client to refresh with: pass refresh_url(client=aix) or read result.artifacts")
-        # A re-hosted artifact is its own root file asset, so it addresses itself as both root and file.
-        file_id = quote(self.file_id, safe="")
-        kwargs: Dict[str, Any] = {"params": {"expiresIn": expires_in}} if expires_in is not None else {}
-        response = context.client.get(f"sdk/file-asset/{file_id}/file/{file_id}/url", **kwargs)
+            raise ValidationError("No client to refresh with: pass refresh_url(client=aix)")
+        # The engine currently sends only file_id; this assumes it is also the root asset id.
+        # Re-hosted child files require the engine to expose their root asset id separately.
+        response = File._request_signed_url(context, self.file_id, self.file_id, expires_in)
         url = response.get("url") if isinstance(response, dict) else None
         if not url:
-            raise ValidationError(f"Backend returned no signed url for file {self.file_id}: {response!r}")
+            raise ResourceError(f"Backend returned no signed url for file {self.file_id}: {response!r}")
         self.url = url
-        self.url_expires_at = _presigned_expiry(url)
+        self.url_expires_at = _presigned_expiry(url) or (
+            datetime.now(timezone.utc)
+            + timedelta(seconds=min(expires_in, 7 * 24 * 3600) if expires_in is not None and expires_in > 0 else 3600)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
         return url
 
     @classmethod
@@ -733,7 +747,7 @@ class AgentRunResult(Result):
             return []
         # Bound here so ``artifact.refresh_url()`` reaches the client that ran the agent.
         for artifact in artifacts:
-            if artifact._context is None:
+            if getattr(artifact, "_context", None) is None:
                 artifact._context = self._context
         return artifacts
 
@@ -1606,7 +1620,9 @@ class Agent(
         Returns:
             AgentRunResult with current execution status.
         """
-        return super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
+        result = super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
+        result._context = self.context
+        return result
 
     def _operation_failed_error(self, response: Dict[str, Any]) -> AgentRunFailedError:
         """Build the error for a ``FAILED`` agent run, keeping its structured error and warnings."""

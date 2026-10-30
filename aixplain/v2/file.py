@@ -459,11 +459,16 @@ class File(
             raise ValidationError("File must be saved before a signed url can be requested")
         if self.is_dir:
             raise ValidationError("Folders have no single signed url; use .download() instead")
-        kwargs: Dict[str, Any] = {"params": {"expiresIn": expires_in}} if expires_in is not None else {}
-        encoded_root = quote(self._root_id or self.id, safe="")
-        encoded_id = quote(self.id, safe="")
-        response = self.context.client.get(f"{self.RESOURCE_PATH}/{encoded_root}/file/{encoded_id}/url", **kwargs)
+        response = self._request_signed_url(self.context, self._root_id or self.id, self.id, expires_in)
         return response["url"]
+
+    @staticmethod
+    def _request_signed_url(context: Any, root_id: str, file_id: str, expires_in: Optional[int]) -> Any:
+        """Request a signed URL for a file addressed through its root asset."""
+        kwargs: Dict[str, Any] = {"params": {"expiresIn": expires_in}} if expires_in is not None else {}
+        encoded_root = quote(root_id, safe="")
+        encoded_id = quote(file_id, safe="")
+        return context.client.get(f"{File.RESOURCE_PATH}/{encoded_root}/file/{encoded_id}/url", **kwargs)
 
     def build_delete_url(self, **kwargs: Any) -> str:
         """Refuse to delete a non-root child node; there is no documented endpoint for one.
