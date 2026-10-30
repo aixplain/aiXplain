@@ -443,9 +443,10 @@ class File(
         The backend's file-asset responses (create/get/paginate) never carry a
         stable ``url`` — it must be requested on demand through the same
         signed-URL endpoint the platform UI uses to render media inline. The
-        endpoint is ``{rootAssetId}/file/{fileId}/url``: a standalone root file
-        addresses itself both ways, but a child (from ``folder.children``)
-        must address its parent folder's asset id, tracked in ``_root_id``.
+        endpoint is ``{assetId}/file/{fileId}/url``. This SDK uses the containing
+        root asset id tracked in ``_root_id`` when available. The backend also
+        accepts the file's own id in both positions, including for nested files,
+        subject to the requesting team's file access.
 
         Args:
             expires_in: Signed URL lifetime in seconds (backend default: 1
@@ -464,7 +465,7 @@ class File(
 
     @staticmethod
     def _request_signed_url(context: Any, root_id: str, file_id: str, expires_in: Optional[int]) -> Any:
-        """Request a signed URL for a file addressed through its root asset."""
+        """Request a signed URL using a containing asset id or the file's own id."""
         kwargs: Dict[str, Any] = {"params": {"expiresIn": expires_in}} if expires_in is not None else {}
         encoded_root = quote(root_id, safe="")
         encoded_id = quote(file_id, safe="")
@@ -515,10 +516,9 @@ class File(
         built = {}
         for node in nodes:
             item = cls._from_data(node)
-            # Every node in a recursive-children response lives under this
-            # folder's own asset id (BUG: get_signed_url()/delete() used to
-            # address a child by its own id twice, which the backend only
-            # accepts for a root file).
+            # Retain the containing asset id for tree operations and signed-URL
+            # requests. The signed-URL endpoint also accepts a nested file's own
+            # id in both positions; retaining root_id does not imply it is required.
             item._root_id = root_id
             built[str(node.get("id"))] = item
         roots: List[File] = []

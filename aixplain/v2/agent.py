@@ -494,8 +494,9 @@ class Artifact:
         context = client if client is not None else getattr(self, "_context", None)
         if context is None:
             raise ValidationError("No client to refresh with: pass refresh_url(client=aix)")
-        # The engine currently sends only file_id; this assumes it is also the root asset id.
-        # Re-hosted child files require the engine to expose their root asset id separately.
+        # The backend accepts a file's own id in both URL positions, including
+        # nested re-hosted files; file_id need not equal the root asset id.
+        # Refresh still requires file access for the requesting client's team.
         response = File._request_signed_url(context, self.file_id, self.file_id, expires_in)
         url = response.get("url") if isinstance(response, dict) else None
         if not url:
