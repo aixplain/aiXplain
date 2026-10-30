@@ -1,0 +1,34 @@
+{
+  "contract": "The supplier fails mid-generation: finish_reason=error after partial output (agents #402).",
+  "family": "openai",
+  "request": {
+    "tools": [],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream"
+    },
+    "sse": [
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gpt-4o-mini-2024-07-18\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"The answer is\"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gpt-4o-mini-2024-07-18\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"error\"}]}",
+      ""
+    ]
+  },
+  "expected": {
+    "status": "FAILED",
+    "error_message_contains": "error"
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 aixplain/v2/model.py ModelResponseStreamer.__next__ 476-635",
+      "agents #402 (835bfd11) _raise_on_supplier_finish_error"
+    ],
+    "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/edge/supplier-error-after-partial-text; the expected block is what the SDK's streamer should yield for it, written by hand."
+  }
+}

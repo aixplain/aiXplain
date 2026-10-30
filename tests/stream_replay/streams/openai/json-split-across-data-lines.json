@@ -1,0 +1,42 @@
+{
+  "contract": "One chunk's JSON split over consecutive data: lines (observed with options.raw=true).",
+  "family": "openai",
+  "request": {
+    "tools": [],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream"
+    },
+    "sse": [
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gpt-4o-mini-2024-07-18\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{",
+      "data: \"content\":\"hello\"},\"finish_reason\":null}],\"obfuscation\":\"abc\"}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gpt-4o-mini-2024-07-18\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ]
+  },
+  "expected": {
+    "status": "SUCCESS",
+    "content": "hello",
+    "reasoning": "",
+    "finish_reason": "stop",
+    "tool_call_names": []
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 aixplain/v2/model.py ModelResponseStreamer.__next__ 476-635",
+      "docs/guides/aixplain-sdk-integration-gaps.md Gap 3 (captured chunk fragments: obfuscation field, final usage chunk with choices [], JSON split across data: lines)"
+    ],
+    "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/openai/json-split-across-data-lines; the expected block is what the SDK's streamer should yield for it, written by hand."
+  }
+}

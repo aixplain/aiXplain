@@ -91,6 +91,9 @@ test = [
     "pytest-mock>=3.10.0",
     "pytest-rerunfailures>=16.0",
     "pytest-xdist",
+    # Bounds the hangs the fault-injection layer provokes and the reverted code
+    # .github/tools/fix_revert_check.py runs (ENG-3782).
+    "pytest-timeout>=2.1.0",
     # Exercised by the agent_evaluator / eval_experiment plotting tests, which
     # used to `pytest.importorskip("plotly")` and therefore never ran (ENG-3431).
     "plotly>=5.18.0",

@@ -30,6 +30,11 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | 1 | `unit-coverage` | `main.yaml` | Yes | None — requireable as soon as it is green |
 | 1 | `package-integrity` | `main.yaml` | Yes | None — requireable as soon as it is green |
 | 1 | `functional-scope` | `main.yaml` | Yes | None — it is a decision, not a test; seconds long, no secrets |
+| 1 | `contract` | `test-layers.yaml` | Yes | None — hermetic recorded-platform replay (ENG-3782) |
+| 1 | `stream-replay` | `test-layers.yaml` | Yes | None — hermetic recorded-SSE replay (ENG-3782) |
+| 1 | `security` | `test-layers.yaml` | Yes | None — canary key and recording scan, no secrets (ENG-3782) |
+| 1 | `fault-injection` | `test-layers.yaml` | Yes | None — toxiproxy and local servers, no secrets (ENG-3782) |
+| — | `revert-check` | `revert-check.yaml` | Fix PRs only | **Do not require** — skipped on non-fix PRs; a report until `REVERT_CHECK_ENFORCE=true` (ENG-3782) |
 | 2 | `functional-result` | `main.yaml` | Yes, always | Every leg consistently green |
 | — | `production-backend` | `main.yaml` | No — production runs only | **Do not require** — skipped on every PR; it exists for the release gate |
 | — | `functional (actions-inputs)` | `main.yaml` | Yes, when in scope | **Do not require** — informational, see below |

@@ -1,0 +1,28 @@
+{
+  "contract": "Team has no credits left.",
+  "endpoint": {
+    "method": "POST",
+    "host": "backend",
+    "path": "/v2/agents/{id}/run"
+  },
+  "request": {},
+  "response": {
+    "status": 471,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "statusCode": 471,
+      "message": "err.not_enough_balance"
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "platform-backend@91ed4d7bf src/billing/exceptions/not-enough-balance.exception.ts:6"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording."
+  }
+}

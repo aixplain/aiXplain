@@ -1,0 +1,56 @@
+{
+  "contract": "Claude on Bedrock: text, then a tool_use streamed as a tool call.",
+  "family": "bedrock",
+  "request": {
+    "tools": [
+      "get_weather"
+    ],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream"
+    },
+    "sse": [
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"anthropic.claude-sonnet-4\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Let me check. \"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"anthropic.claude-sonnet-4\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"id\":\"toolu_01\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"arguments\":\"\"},\"index\":0}]},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"anthropic.claude-sonnet-4\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"function\":{\"arguments\":\"{\\\"city\\\":\"},\"index\":0}]},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"anthropic.claude-sonnet-4\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"function\":{\"arguments\":\" \\\"Paris\\\"}\"},\"index\":0}]},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"anthropic.claude-sonnet-4\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"tool_calls\"}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"anthropic.claude-sonnet-4\",\"system_fingerprint\":\"fp_replay\",\"choices\":[],\"usage\":{\"prompt_tokens\":50,\"completion_tokens\":25,\"total_tokens\":75}}",
+      "",
+      "data: [DONE]",
+      ""
+    ]
+  },
+  "expected": {
+    "status": "SUCCESS",
+    "content": "Let me check. ",
+    "reasoning": "",
+    "finish_reason": "tool_calls",
+    "usage": {
+      "prompt_tokens": 50,
+      "completion_tokens": 25
+    },
+    "tool_call_names": [
+      "get_weather"
+    ]
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 aixplain/v2/model.py ModelResponseStreamer.__next__ 476-635",
+      "OpenAI chat.completion.chunk stream format (delta.content / delta.tool_calls[index] / finish_reason / usage chunk with include_usage)",
+      "LiteLLM Bedrock converse stream -> OpenAI chunk mapping"
+    ],
+    "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/bedrock/text-then-tool-use; the expected block is what the SDK's streamer should yield for it, written by hand."
+  }
+}

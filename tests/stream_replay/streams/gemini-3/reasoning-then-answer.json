@@ -1,0 +1,49 @@
+{
+  "contract": "A reasoning model streams its thoughts in reasoning_content, then the answer (agents #223/#360).",
+  "family": "gemini-3",
+  "request": {
+    "tools": [],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream"
+    },
+    "sse": [
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gemini-3.1-pro\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\"The user asks for a capital. \"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gemini-3.1-pro\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"France's capital is Paris.\"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gemini-3.1-pro\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Paris.\"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gemini-3.1-pro\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gemini-3.1-pro\",\"system_fingerprint\":\"fp_replay\",\"choices\":[],\"usage\":{\"prompt_tokens\":20,\"completion_tokens\":40,\"total_tokens\":60}}",
+      "",
+      "data: [DONE]",
+      ""
+    ]
+  },
+  "expected": {
+    "status": "SUCCESS",
+    "content": "Paris.",
+    "reasoning": "The user asks for a capital. France's capital is Paris.",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 20,
+      "completion_tokens": 40
+    },
+    "tool_call_names": []
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 aixplain/v2/model.py ModelResponseStreamer.__next__ 476-635",
+      "agents #360 (0e0de6b4), #223 (ec0169e8)"
+    ],
+    "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/gemini-3/reasoning-then-answer; the expected block is what the SDK's streamer should yield for it, written by hand."
+  }
+}
