@@ -78,7 +78,7 @@ class TestLimitsFromDicts:
         payload = key.build_save_payload()
 
         assert payload["assetsLimits"] == [
-            {"tpm": 10000, "tpd": 0, "rpm": 0, "rpd": 0, "tokenType": "output", "assetId": "model1"}
+            {"tpm": 10000, "tpd": -1, "rpm": -1, "rpd": -1, "tokenType": "output", "assetId": "model1"}
         ]
 
     def test_global_limits_assignment_from_dict(self):
@@ -184,21 +184,10 @@ class TestTokenTypeStrings:
 
 
 class TestUnsetIsNotZeroInMemory:
-    """An unset dimension stays ``None`` in memory, but is sent as ``0``.
+    """Unset dimensions use the unrestricted sentinel; explicit zero blocks."""
 
-    PROD-2917 asked for an unset dimension to be distinguishable from a
-    deliberate ``0``. In memory it is: the field defaults to ``None``,
-    ``validate()`` skips it, and ``to_dict()`` leaves it out.
-
-    On the wire it is not, yet. The backend rejects a partial limits payload
-    with a 500, so ``_limits_to_api_dict`` fills every dimension the caller did
-    not set with ``0`` -- exactly the payload shipped before 0.3.0. Sending a
-    partial payload is what the follow-up covers, and it needs a backend change
-    first; the SDK cannot deliver it alone.
-    """
-
-    def test_every_dimension_is_sent_even_when_unset(self):
-        """A partial payload 500s, so the wire carries all four dimensions."""
+    def test_unset_dimensions_are_sent_as_unrestricted(self):
+        """The full payload remains compatible without blocking unset dimensions."""
         key = APIKey(id="k", name="Test Key")
         key.asset_limits = [{"model": "m1", "token_per_minute": 10000}]
 
@@ -206,9 +195,9 @@ class TestUnsetIsNotZeroInMemory:
 
         assert sent == {
             "tpm": 10000,
-            "tpd": 0,
-            "rpm": 0,
-            "rpd": 0,
+            "tpd": -1,
+            "rpm": -1,
+            "rpd": -1,
             "tokenType": None,
             "assetId": "m1",
         }
@@ -224,10 +213,10 @@ class TestUnsetIsNotZeroInMemory:
         key = APIKey(id="k", name="Test Key", global_limits={"request_per_minute": 60})
 
         assert key.build_save_payload()["globalLimits"] == {
-            "tpm": 0,
-            "tpd": 0,
+            "tpm": -1,
+            "tpd": -1,
             "rpm": 60,
-            "rpd": 0,
+            "rpd": -1,
             "tokenType": None,
         }
 
@@ -281,7 +270,7 @@ class TestGetResolution:
         bound = _bound(LISTING)
 
         with pytest.raises(ResourceError) as excinfo:
-            bound.get("nothing-like-this")
+            bound.get("000000000000000000000000")
 
         message = str(excinfo.value)
         assert "key ID" in message and "key value" in message and "key name" in message
@@ -320,22 +309,14 @@ class TestGetResolution:
 
 
 class TestGetDoesNotMisreportAnUnrelatedFailure:
-    """A by-ID fetch that failed for its own reasons is not "no key matches".
-
-    An expired credential or a 5xx says nothing about whether the argument was an
-    ID, so reporting "No API key matches ..." sends the caller hunting for a key
-    that is still there. The lookup still *runs* -- which status a backend picks
-    for a non-ObjectId path segment is its business, and gating on that would
-    break ``get()`` by name the day it changed -- but the real error wins once
-    nothing has matched.
-    """
+    """Preserve by-ID errors; unknown secrets never reach that endpoint."""
 
     @pytest.mark.parametrize("status", [401, 403, 500, 502, 503])
     def test_an_unrelated_failure_wins_over_no_key_matches(self, status):
         bound = _bound(LISTING, get_error=APIError("backend said no", status_code=status))
 
         with pytest.raises(APIError) as excinfo:
-            bound.get("nothing-like-this")
+            bound.get("000000000000000000000000")
 
         assert excinfo.value.status_code == status
         assert "No API key matches" not in str(excinfo.value)
@@ -358,7 +339,7 @@ class TestGetDoesNotMisreportAnUnrelatedFailure:
         bound = _bound(LISTING, get_error=APIError("nope", status_code=status))
 
         with pytest.raises(ResourceError) as excinfo:
-            bound.get("nothing-like-this")
+            bound.get("000000000000000000000000")
 
         assert "key ID" in str(excinfo.value) and "key name" in str(excinfo.value)
 
@@ -372,7 +353,7 @@ class TestGetDoesNotMisreportAnUnrelatedFailure:
             bound = _bound(LISTING, get_error=error)
 
             with pytest.raises(ResourceError, match="accepts a key ID"):
-                bound.get("nothing-like-this")
+                bound.get("000000000000000000000000")
 
     def test_a_surfaced_backend_error_cannot_echo_the_argument(self):
         """Why re-raising is safe: the client builds its message from the body.
@@ -383,7 +364,7 @@ class TestGetDoesNotMisreportAnUnrelatedFailure:
         """
         bound = _bound(LISTING, get_error=APIError("upstream timeout", status_code=504))
 
-        with pytest.raises(APIError) as excinfo:
+        with pytest.raises(ResourceError) as excinfo:
             bound.get("SUPER-SECRET-KEY-VALUE")
 
         assert "SUPER-SECRET-KEY-VALUE" not in str(excinfo.value)
@@ -488,8 +469,7 @@ class TestGetKeepsSecretsOutOfRequestUrls:
     ``get()`` invites a key value by contract, and the by-ID endpoint puts its
     argument in the path -- where access logs, proxies and error-tracking
     breadcrumbs record it. So only an ID-shaped argument is sent there; anything
-    else is resolved from a listing, and reaches the by-ID endpoint only once the
-    listing has established it is not a key on this account.
+    else is resolved from a listing and never reaches the by-ID endpoint.
     """
 
     @staticmethod
@@ -545,14 +525,14 @@ class TestGetKeepsSecretsOutOfRequestUrls:
         assert bound.get(KEY1).id == KEY1
         assert paths == [] or paths == [f"{APIKey.RESOURCE_PATH}/{KEY1}"]
 
-    def test_a_non_id_argument_absent_from_the_listing_still_tries_by_id(self):
-        """A key the listing omits must remain reachable by its id."""
+    def test_a_non_id_argument_absent_from_the_listing_never_reaches_by_id(self):
+        """Unknown values may be secrets belonging to another account."""
         bound, paths = self._recording_bound([])
 
         with pytest.raises(ResourceError, match="accepts a key ID"):
             bound.get("not-a-key")
 
-        assert f"{APIKey.RESOURCE_PATH}/not-a-key" in paths
+        assert paths == [APIKey.RESOURCE_PATH]
 
 
 class TestGetResolutionOrder:
@@ -592,3 +572,64 @@ class TestGetResolutionOrder:
             bound.get("Staging", api_key="scoped")
 
         assert listed.call_args.kwargs.get("api_key") == "scoped"
+
+
+@pytest.mark.parametrize("value", ["100", 1.5, True, [], {}])
+def test_invalid_limit_types_raise_validation_error(value):
+    with pytest.raises(ValidationError, match="integer"):
+        APIKey(name="Test", global_limits={"token_per_minute": value})
+
+
+def test_global_model_is_rejected_on_assignment_and_after_mutation():
+    with pytest.raises(ValidationError, match="use asset_limits"):
+        APIKey(name="Test", global_limits={"model": "some-model", "token_per_minute": 10})
+    key = APIKey(name="Test", global_limits={"token_per_minute": 10})
+    key.global_limits.model = "some-model"
+    with pytest.raises(ValidationError, match="use asset_limits"):
+        key.build_save_payload()
+
+
+def test_backend_unrestricted_limits_round_trip():
+    key = APIKey.from_dict({"name": "Test", "globalLimits": {"tpm": 10, "tpd": -1, "rpm": -1, "rpd": -1}})
+    assert key.global_limits.token_per_day is None
+    assert key.build_save_payload()["globalLimits"]["tpd"] == -1
+
+
+def test_non_string_lookup_never_makes_a_request():
+    bound = _bound([])
+    with pytest.raises(ValidationError):
+        bound.get(["secret"])
+    bound.context.client.get.assert_not_called()
+    bound.context.client.request.assert_not_called()
+
+
+def _path_key(context):
+    key = APIKey(name="Test", asset_limits=[{"model": "provider/model/supplier", "token_per_minute": 10}])
+    key.context = context
+    return key
+
+
+def test_model_path_requires_fully_qualified_path():
+    context = Mock()
+    key = _path_key(context)
+    key.asset_limits[0].model = "provider/model"
+    with pytest.raises(ValidationError, match="exact model path"):
+        key.build_save_payload()
+    context.Model.get.assert_not_called()
+
+
+def test_model_path_rejects_inexact_resolution():
+    context = Mock()
+    context.Model.get.return_value = Mock(id="one", path="provider/model/supplier-extra")
+    with pytest.raises(ValidationError, match="match exactly"):
+        _path_key(context).build_save_payload()
+
+
+def test_model_path_cache_is_shared_only_within_client_context():
+    first, second = Mock(), Mock()
+    for context, model_id in [(first, "one"), (second, "two")]:
+        context.Model.get.return_value = Mock(id=model_id, path="provider/model/supplier")
+    assert _path_key(first).build_save_payload()["assetsLimits"][0]["assetId"] == "one"
+    assert _path_key(first).build_save_payload()["assetsLimits"][0]["assetId"] == "one"
+    assert _path_key(second).build_save_payload()["assetsLimits"][0]["assetId"] == "two"
+    first.Model.get.assert_called_once_with("provider/model/supplier")
