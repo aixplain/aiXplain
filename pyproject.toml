@@ -24,6 +24,9 @@ exclude = ["*.__pycache__", "*.__pycache__.*"]
 # were reached through the legacy import redirector; both went with v1.
 namespaces = false
 
+[tool.setuptools.package-data]
+aixplain = ["py.typed"]
+
 [project]
 name = "aiXplain"
 version = "0.3.0"

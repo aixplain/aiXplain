@@ -176,3 +176,8 @@ def test_main_workflow_still_gates_the_built_artifact():
         ("-m venv", "install it into a clean venv"),
     ):
         assert move in script, f"package-integrity no longer seems to {what} ({move!r} is gone)"
+
+
+def test_pep561_marker_is_packaged(pyproject):
+    assert (REPO_ROOT / "aixplain" / "py.typed").is_file()
+    assert "py.typed" in pyproject["tool"]["setuptools"]["package-data"]["aixplain"]
