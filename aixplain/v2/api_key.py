@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config as dj_config
 from datetime import datetime
 from enum import Enum
+from numbers import Integral
 from typing import Dict, Iterable, List, Optional, Union, Any, TYPE_CHECKING
 from typing_extensions import Literal, TypedDict
 
@@ -59,12 +60,9 @@ class TokenType(Enum):
 #: Authentication and server failures are preserved if the listing also has no match.
 _NOT_AN_ID_STATUSES = frozenset({400, 404, 422})
 
-#: What a resource ID looks like: a 24-character hex ObjectId, as every ``id`` the
-#: backend issues is. Used to keep anything that is *not* one out of a request URL
-#: -- ``get()`` accepts a key value, and a key value in a path segment lands in
-#: access logs, proxies and error-tracking breadcrumbs. A non-matching argument is
-#: resolved from the listing and never sent to the by-ID endpoint.
-_RESOURCE_ID = re.compile(r"[0-9a-fA-F]{24}")
+#: API keys use integer IDs; retain ObjectId routing for compatibility.
+#: Other arguments resolve from the listing to keep key values out of URLs.
+_RESOURCE_ID = re.compile(r"(?:[0-9]+|[0-9a-fA-F]{24})")
 
 
 def _mask(value: str) -> str:
@@ -109,7 +107,7 @@ class APIKeyLimitsDict(TypedDict, total=False):
 
 
 #: What ``global_limits`` and every element of ``asset_limits`` accept.
-APIKeyLimitsInput = Union["APIKeyLimits", APIKeyLimitsDict]
+APIKeyLimitsInput = Union["APIKeyLimits", APIKeyLimitsDict, Dict[str, Any]]
 
 #: The user-facing field names, in declaration order. Named in the error raised
 #: for an unknown key, so the message teaches the shape rather than only
@@ -202,7 +200,7 @@ class APIKeyLimits:
         """Validate that every *set* rate limit is non-negative."""
         for field_name in ("token_per_minute", "token_per_day", "request_per_minute", "request_per_day"):
             value = getattr(self, field_name)
-            if value is not None and (not isinstance(value, int) or isinstance(value, bool)):
+            if value is not None and (not isinstance(value, Integral) or isinstance(value, bool)):
                 raise ValidationError(f"{field_name} must be an integer")
             if value is not None and value < 0:
                 raise ValidationError(f"{field_name.replace('_', ' ').capitalize()} must be >= 0")
@@ -243,9 +241,6 @@ def coerce_limits(data: Optional[APIKeyLimitsInput]) -> Optional[APIKeyLimits]:
         if field_name is None:
             unknown.append(key)
             continue
-        # Backend responses use -1 for unrestricted dimensions.
-        if key in ("tpm", "tpd", "rpm", "rpd") and value == -1:
-            value = None
         kwargs[field_name] = value
     if unknown:
         raise ValidationError(
@@ -310,9 +305,15 @@ class APIKeyUsageLimit:
     """
 
     daily_request_count: Optional[int] = field(default=None, metadata=dj_config(field_name="requestCount"))
-    daily_request_limit: Optional[int] = field(default=None, metadata=dj_config(field_name="requestCountLimit"))
+    daily_request_limit: Optional[int] = field(
+        default=None,
+        metadata=dj_config(field_name="requestCountLimit", decoder=lambda value: None if value == -1 else value),
+    )
     daily_token_count: Optional[int] = field(default=None, metadata=dj_config(field_name="tokenCount"))
-    daily_token_limit: Optional[int] = field(default=None, metadata=dj_config(field_name="tokenCountLimit"))
+    daily_token_limit: Optional[int] = field(
+        default=None,
+        metadata=dj_config(field_name="tokenCountLimit", decoder=lambda value: None if value == -1 else value),
+    )
     model: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
 
 
@@ -387,11 +388,19 @@ class APIKey(
     # exclude=lambda x: True prevents to_dict() from including these (we build payload manually)
     global_limits: Optional[APIKeyLimitsInput] = field(
         default=None,
-        metadata=dj_config(field_name="globalLimits", exclude=lambda x: True),
+        metadata=dj_config(
+            field_name="globalLimits",
+            exclude=lambda x: True,
+            decoder=lambda value: APIKeyLimits.from_dict(value) if value is not None else None,
+        ),
     )
     asset_limits: List[APIKeyLimitsInput] = field(
         default_factory=list,
-        metadata=dj_config(field_name="assetsLimits", exclude=lambda x: True),
+        metadata=dj_config(
+            field_name="assetsLimits",
+            exclude=lambda x: True,
+            decoder=lambda value: [APIKeyLimits.from_dict(entry) for entry in value or []],
+        ),
     )
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -406,8 +415,6 @@ class APIKey(
         """
         if name == "global_limits":
             value = coerce_limits(value)
-            if value is not None and value.model is not None:
-                raise ValidationError("global_limits cannot specify a model; use asset_limits instead")
         elif name == "asset_limits":
             value = coerce_limits_list(value)
         super().__setattr__(name, value)
@@ -547,21 +554,24 @@ class APIKey(
         raise without a by-ID request.
 
         Args:
-            id: A key ID, a full key value, or a key name.
+            id: A key ID (string or integer), a full key value, or a key name.
             **kwargs: Forwarded to the underlying request.
 
         Returns:
             APIKey: The matching key.
 
         Raises:
+            ValidationError: If the argument is neither a string nor an integer ID.
             ResourceError: If nothing matches, or if a name or masked key value
                 matches more than one key.
             Exception: Whatever the by-ID fetch raised, if that failure was not a
                 verdict on the argument (an expired credential, a 5xx) and no
                 key matched the other two forms.
         """
+        if isinstance(id, Integral) and not isinstance(id, bool):
+            id = str(id)
         if not isinstance(id, str):
-            raise ValidationError("API key lookup requires a string ID, key value, or name")
+            raise ValidationError("API key lookup requires a string ID, key value, or name, or an integer ID")
         if _RESOURCE_ID.fullmatch(id):
             try:
                 return super().get(id, **kwargs)
@@ -873,17 +883,15 @@ class APIKey(
                 if len(asset_id.split("/")) != 3 or not all(asset_id.split("/")):
                     raise ValidationError("Use an exact model path (developer/model/host) or a model ID")
                 resolved = self.context.Model.get(asset_id)
-                if resolved.path != asset_id:
+                if not isinstance(resolved.path, str) or resolved.path.casefold() != asset_id.casefold():
                     raise ValidationError("Model path did not match exactly; use a model ID instead")
                 cache[asset_id] = resolved.id
                 self._id_to_path[resolved.id] = asset_id
                 self._get_path_cache()[resolved.id] = asset_id
                 asset_limit["assetId"] = resolved.id
-            except ValidationError:
-                raise
             except Exception as exc:
                 raise ValidationError(
-                    f"Could not resolve model path '{asset_id}'. "
+                    f"Could not resolve model path '{asset_id}': {exc}. "
                     "Use a valid model path (e.g. 'openai/gpt-4o-mini/openai') or a model ID."
                 ) from exc
 
@@ -960,7 +968,7 @@ class APIKey(
             ("rpd", "request_per_day"),
         ):
             value = getattr(limits, field_name)
-            result[wire_name] = -1 if value is None else value
+            result[wire_name] = -1 if value is None else int(value)
         result["tokenType"] = limits.token_type.value if limits.token_type else None
         if include_asset and limits.model:
             result["assetId"] = limits.model

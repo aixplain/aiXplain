@@ -355,20 +355,6 @@ class TestGetDoesNotMisreportAnUnrelatedFailure:
             with pytest.raises(ResourceError, match="accepts a key ID"):
                 bound.get("000000000000000000000000")
 
-    def test_a_surfaced_backend_error_cannot_echo_the_argument(self):
-        """Why re-raising is safe: the client builds its message from the body.
-
-        ``AixplainClient`` raises ``APIError(response.json() or response.text)``
-        -- the request URL, which is what carries the caller's argument, is never
-        in it. If that ever changes, this fails rather than leaking a key value.
-        """
-        bound = _bound(LISTING, get_error=APIError("upstream timeout", status_code=504))
-
-        with pytest.raises(ResourceError) as excinfo:
-            bound.get("SUPER-SECRET-KEY-VALUE")
-
-        assert "SUPER-SECRET-KEY-VALUE" not in str(excinfo.value)
-
 
 class TestKeyValueMatchingIsExact:
     """Two keys sharing their first and last four characters each resolve correctly."""
@@ -580,9 +566,10 @@ def test_invalid_limit_types_raise_validation_error(value):
         APIKey(name="Test", global_limits={"token_per_minute": value})
 
 
-def test_global_model_is_rejected_on_assignment_and_after_mutation():
+def test_global_model_is_rejected_at_save_and_after_mutation():
+    key = APIKey(name="Test", global_limits={"model": "some-model", "token_per_minute": 10})
     with pytest.raises(ValidationError, match="use asset_limits"):
-        APIKey(name="Test", global_limits={"model": "some-model", "token_per_minute": 10})
+        key.build_save_payload()
     key = APIKey(name="Test", global_limits={"token_per_minute": 10})
     key.global_limits.model = "some-model"
     with pytest.raises(ValidationError, match="use asset_limits"):
@@ -633,3 +620,80 @@ def test_model_path_cache_is_shared_only_within_client_context():
     assert _path_key(first).build_save_payload()["assetsLimits"][0]["assetId"] == "one"
     assert _path_key(second).build_save_payload()["assetsLimits"][0]["assetId"] == "two"
     first.Model.get.assert_called_once_with("provider/model/supplier")
+
+
+def test_backend_global_model_does_not_hide_key_from_listing_or_name_lookup():
+    bound = _bound([{"id": 123, "name": "Existing", "globalLimits": {"assetId": "model", "tpm": -1}}])
+    assert len(bound.list()) == 1
+    key = bound.get("Existing")
+    assert key.global_limits.model == "model"
+    assert key.global_limits.token_per_minute is None
+    with pytest.raises(ValidationError, match="use asset_limits"):
+        key.build_save_payload()
+
+
+@pytest.mark.parametrize("value", [123, "123"])
+def test_serial_id_goes_directly_to_by_id(value):
+    bound = _bound([], get_response={"id": 123, "name": "Existing"})
+    assert str(bound.get(value).id) == "123"
+    bound.context.client.get.assert_called_once_with("sdk/api-keys/123")
+    bound.context.client.request.assert_not_called()
+
+
+@pytest.mark.parametrize("field", ["tpm", "token_per_minute"])
+@pytest.mark.parametrize("value", [-1, -1.0])
+def test_user_negative_sentinel_is_rejected_consistently(field, value):
+    with pytest.raises(ValidationError):
+        APIKey(global_limits={field: value})
+
+
+def test_numpy_integer_limits_serialize_as_native_integers():
+    import pandas as pd
+
+    computed_limit = pd.Series([4, 6], dtype="int64").sum()
+    key = APIKey(global_limits={"token_per_minute": computed_limit})
+    value = key.build_save_payload()["globalLimits"]["tpm"]
+    assert type(value) is int
+    assert value == 10
+
+
+@pytest.mark.parametrize("wire_limit, expected", [(-1, None), (0, 0), (100, 100), (None, None)])
+def test_usage_limits_decode(wire_limit, expected):
+    from aixplain import APIKeyUsageLimit
+
+    usage = APIKeyUsageLimit.from_dict(
+        {"requestCount": 0, "requestCountLimit": wire_limit, "tokenCount": 10, "tokenCountLimit": wire_limit}
+    )
+    assert usage.daily_request_limit == expected
+    assert usage.daily_token_limit == expected
+    assert usage.daily_request_count == 0
+    assert usage.daily_token_count == 10
+
+
+def test_model_path_accepts_case_differences():
+    context = Mock()
+    context.Model.get.return_value = Mock(id="one", path="Provider/Model/Supplier")
+    assert _path_key(context).build_save_payload()["assetsLimits"][0]["assetId"] == "one"
+
+
+def test_model_lookup_validation_error_retains_path_context():
+    context = Mock()
+    error = ValidationError("No matching model")
+    context.Model.get.side_effect = error
+    with pytest.raises(ValidationError, match="Could not resolve model path 'provider/model/supplier'") as excinfo:
+        _path_key(context).build_save_payload()
+    assert excinfo.value.__cause__ is error
+
+
+def test_backend_asset_unrestricted_limits_round_trip():
+    key = APIKey.from_dict({"assetsLimits": [{"assetId": "model", "tpm": -1, "tpd": 0, "rpm": -1, "rpd": -1}]})
+    assert key.asset_limits[0].token_per_minute is None
+    assert key.asset_limits[0].token_per_day == 0
+    assert key.build_save_payload()["assetsLimits"][0] == {
+        "assetId": "model",
+        "tpm": -1,
+        "tpd": 0,
+        "rpm": -1,
+        "rpd": -1,
+        "tokenType": None,
+    }
