@@ -1,0 +1,32 @@
+{
+  "contract": "The stream request itself is refused: HTTP 400 with supplierError (SDK #1032 fixed only the non-stream path).",
+  "family": "openai",
+  "request": {
+    "tools": [],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "error": "err.supplier_error",
+      "supplierError": "Model context length exceeded",
+      "statusCode": 400
+    }
+  },
+  "expected": {
+    "raises_with": "Model context length exceeded"
+  },
+  "known_failure": "ENG-3782 finding (ENG-3761 BUG item 4): client.request_stream builds its APIError from message/error only and ignores supplierError, so a streamed call reports 'err.supplier_error' instead of the supplier's reason.",
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain/v2/client.py request_stream error path vs request_raw (#1032)"
+    ],
+    "note": "Reconstructed; the expected block is what the stream means, written by hand."
+  }
+}

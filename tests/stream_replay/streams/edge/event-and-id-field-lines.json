@@ -1,0 +1,42 @@
+{
+  "contract": "An SSE stream that names its events and ids (event:, id: lines before each data: line).",
+  "family": "openai",
+  "request": {
+    "tools": [],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream"
+    },
+    "sse": [
+      "event: message",
+      "id: 1",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Hi\"},\"finish_reason\":null}]}",
+      "",
+      "event: message",
+      "id: 2",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ]
+  },
+  "expected": {
+    "status": "SUCCESS",
+    "content": "Hi",
+    "reasoning": "",
+    "finish_reason": "stop"
+  },
+  "known_failure": "ENG-3782 finding: ModelResponseStreamer treats 'event:'/'id:' lines as JSON payload, buffers them in front of the next data: line and yields raw text such as 'event: message{\"id\":...}' as content.",
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "WHATWG Server-Sent Events: event:, id: and retry: are field lines a client must not treat as data"
+    ],
+    "note": "Reconstructed; the expected block is what the stream means, written by hand."
+  }
+}

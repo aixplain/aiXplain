@@ -1,0 +1,216 @@
+{
+  "contract": "Model detail for an aiXplain text-generation LLM (the agent's llmId).",
+  "endpoint": {
+    "method": "GET",
+    "host": "backend",
+    "path": "/v2/models/{id}"
+  },
+  "request": {},
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "id": "6646261c6eb563165658bbb1",
+      "name": "GPT-4o Mini",
+      "serviceName": "gpt-4o-mini",
+      "status": "onboarded",
+      "host": "openai",
+      "developer": "OpenAI",
+      "description": "GPT-4o mini chat completion model.",
+      "descriptionShort": null,
+      "subscriptions": [],
+      "assetInfo": {
+        "assetPath": "openai/gpt-4o-mini/openai"
+      },
+      "vendor": {
+        "id": 1,
+        "name": "OpenAI",
+        "code": "openai"
+      },
+      "supplier": {
+        "id": 1,
+        "name": "OpenAI",
+        "code": "openai"
+      },
+      "connectionType": [
+        "synchronous"
+      ],
+      "function": {
+        "id": "text-generation",
+        "name": "Text Generation"
+      },
+      "pricing": {
+        "price": 0.15,
+        "unitType": "TOKEN",
+        "unitTypeScale": "1000000"
+      },
+      "version": {
+        "name": "gpt-4o-mini",
+        "id": "gpt-4o-mini"
+      },
+      "functionType": "ai",
+      "type": "model",
+      "onboardingStatusMessage": null,
+      "createdAt": "2024-05-16T12:00:00.000Z",
+      "updatedAt": "2026-09-30T08:00:00.000Z",
+      "isSystemAsset": false,
+      "supportsStreaming": true,
+      "supportsBYOC": false,
+      "dataRetention": {
+        "mode": "unknown"
+      },
+      "attributes": {
+        "max_context_length": "128000"
+      },
+      "parentModelId": null,
+      "params": [
+        {
+          "name": "text",
+          "required": true,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [],
+          "availableOptions": [],
+          "dataType": "text",
+          "dataSubType": "text",
+          "multipleValues": false
+        },
+        {
+          "name": "context",
+          "required": false,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [],
+          "availableOptions": [],
+          "dataType": "text",
+          "dataSubType": "text",
+          "multipleValues": false
+        },
+        {
+          "name": "prompt",
+          "required": false,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [],
+          "availableOptions": [],
+          "dataType": "text",
+          "dataSubType": "text",
+          "multipleValues": false
+        },
+        {
+          "name": "history",
+          "required": false,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [],
+          "availableOptions": [],
+          "dataType": "text",
+          "dataSubType": "json",
+          "multipleValues": false
+        },
+        {
+          "name": "temperature",
+          "required": false,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [
+            {
+              "value": 1,
+              "label": "1"
+            }
+          ],
+          "availableOptions": [],
+          "dataType": "number",
+          "dataSubType": "number",
+          "multipleValues": false,
+          "allowedRange": {
+            "from": 0,
+            "to": 2
+          }
+        },
+        {
+          "name": "max_tokens",
+          "required": false,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [
+            {
+              "value": 4096,
+              "label": "4096"
+            }
+          ],
+          "availableOptions": [],
+          "dataType": "number",
+          "dataSubType": "number",
+          "multipleValues": false,
+          "allowedRange": {
+            "from": 1,
+            "to": 16384
+          }
+        },
+        {
+          "name": "top_p",
+          "required": false,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [
+            {
+              "value": 1,
+              "label": "1"
+            }
+          ],
+          "availableOptions": [],
+          "dataType": "number",
+          "dataSubType": "number",
+          "multipleValues": false
+        },
+        {
+          "name": "tools",
+          "required": false,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [],
+          "availableOptions": [],
+          "dataType": "text",
+          "dataSubType": "json",
+          "multipleValues": false
+        },
+        {
+          "name": "tool_choice",
+          "required": false,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [],
+          "availableOptions": [],
+          "dataType": "text",
+          "dataSubType": "json",
+          "multipleValues": false
+        },
+        {
+          "name": "response_format",
+          "required": false,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [],
+          "availableOptions": [],
+          "dataType": "text",
+          "dataSubType": "json",
+          "multipleValues": false
+        }
+      ]
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "platform-backend@91ed4d7bf src/model/services/model.service.ts:2593-2720 transformModelForSDKV2",
+      "platform-backend@91ed4d7bf src/model/controllers/model.v2.controller.ts:153-160",
+      "aixplain SDK 0.3.0 (uv.lock 4c6dec6) aixplain/v2/model.py Model fields 798-832"
+    ],
+    "note": "Field set and nesting from transformModelForSDKV2; values illustrative. pricing.unitTypeScale spelled as a numeric string, which is what AiXplainLLM._pricing_capabilities parses; confirm on the first live recording. Structured inputs (tools, tool_choice, response_format, history) are dataType text / dataSubType json: the SDK's _validate_param_type special-cases exactly that pair to accept lists and dicts, and with plain text it rejects every tool-calling stream. Shared with aixplain-agents tests/contract/recordings (same platform endpoint)."
+  }
+}

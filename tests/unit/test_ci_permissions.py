@@ -48,6 +48,9 @@ ALLOWED_WRITE = {
     # PyPI upload token (Trusted Publishing). Job-scoped; see the tests below,
     # which additionally assert it never lands on a job that runs repo code.
     ("release.yaml", "id-token"): "release.yaml publish job: PyPI Trusted Publishing",
+    # revert-check.yaml posts its verdict as a sticky PR comment (ENG-3782).
+    # Job-scoped; the workflow default stays `contents: read`.
+    ("revert-check.yaml", "pull-requests"): "revert-check.yaml comments the fix-PR revert verdict",
 }
 
 #: Inputs to `pypa/gh-action-pypi-publish` that would mean a stored credential

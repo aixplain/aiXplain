@@ -1,0 +1,31 @@
+{
+  "contract": "An asynchronous run: the body carries a poll URL on the models host.",
+  "endpoint": {
+    "method": "POST",
+    "host": "models",
+    "path": "/{id}"
+  },
+  "request": {},
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "status": "IN_PROGRESS",
+      "completed": false,
+      "data": "{models_root}/api/v1/data/req-contract-async-1",
+      "requestId": "req-contract-async-1"
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 (uv.lock 4c6dec6) aixplain/v2/resource.py handle_run_response IN_PROGRESS branch",
+      "aixplain SDK 0.3.0 (uv.lock 4c6dec6) aixplain/v2/model.py _MODEL_POLL_PATH_RE (api/v1/data/<id>)"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording via scripts/contract_record.py. Shared with aixplain-agents tests/contract/recordings (same platform endpoint)."
+  }
+}
