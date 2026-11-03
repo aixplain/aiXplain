@@ -1802,6 +1802,7 @@ class Agent(
         self.tools = pre_save_tools
         self._hydrate_tools()
         self._original_tools = list(self.tools) if self.tools else []
+        self._mark_tool_timeouts_stored()
 
         # Re-baseline the saved state against the restored tool objects. The
         # parent save() captured it mid-flow from the response dicts; without
@@ -1811,6 +1812,17 @@ class Agent(
 
         self._warn_for_unconnected_integrations(unconnected_integration_names)
         return saved_agent
+
+    def _mark_tool_timeouts_stored(self) -> None:
+        """Record each tool's just-saved ``timeout`` as the platform's value.
+
+        Only then does unsetting it later send the explicit ``None`` that
+        clears it (see ``Model.as_tool``) rather than an omitted key the
+        platform would keep the old value for.
+        """
+        for tool in self.tools or []:
+            if hasattr(tool, "_platform_timeout"):
+                tool._platform_timeout = tool.timeout
 
     @staticmethod
     def _warn_for_dropped_tool_timeouts(sent_tools: List[Any], stored_tools: List[Any]) -> None:
@@ -2327,7 +2339,7 @@ class Agent(
             description=entry.get("description"),
             params=params or None,
         )
-        model.timeout = entry.get("timeout")
+        model.timeout = model._platform_timeout = entry.get("timeout")
         model.context = context
         return model
 
@@ -2347,7 +2359,7 @@ class Agent(
             name=entry.get("name"),
             description=entry.get("description"),
         )
-        tool.timeout = entry.get("timeout")
+        tool.timeout = tool._platform_timeout = entry.get("timeout")
         tool.context = context
 
         actions_map: Dict[str, Action] = {}

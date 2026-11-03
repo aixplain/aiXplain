@@ -186,6 +186,41 @@ class TestAgentSave:
         assert agent.tools[0].timeout == 5
 
 
+class TestClearingAStoredTimeout:
+    # The platform keeps a stored timeout when a save omits the key (so a client
+    # that does not know the field cannot erase it), so unsetting one the
+    # platform stored has to be sent as an explicit None.
+
+    @pytest.mark.parametrize("tool_type", ["model", "tool"])
+    def test_unsetting_a_fetched_timeout_sends_none(self, tool_type):
+        agent = _fetched_agent({"id": "x1", "type": tool_type, "name": "air", "timeout": 10})
+        agent.tools[0].timeout = None
+        saved = _saved_tools(agent)[0]
+        assert "timeout" in saved
+        assert saved["timeout"] is None
+
+    def test_unsetting_a_timeout_saved_on_create_sends_none(self):
+        agent = _create_agent_with(_model(5), {"id": "m1", "type": "model", "name": "translate", "timeout": 5})
+        agent.tools[0].timeout = None
+        saved = _saved_tools(agent)[0]
+        assert "timeout" in saved
+        assert saved["timeout"] is None
+
+    def test_a_tool_the_platform_never_stored_a_timeout_for_omits_the_key(self):
+        agent = _fetched_agent({"id": "x1", "type": "model", "name": "air"})
+        assert "timeout" not in _saved_tools(agent)[0]
+
+    def test_a_dict_entry_without_a_timeout_omits_the_key(self):
+        # An omitted key keeps whatever the platform stored for that tool.
+        agent = Agent(name="n", description="d", tools=[{"id": "m1", "type": "model"}])
+        assert "timeout" not in _saved_tools(agent)[0]
+
+    def test_clearing_marks_the_agent_modified(self):
+        agent = _fetched_agent({"id": "x1", "type": "model", "name": "air", "timeout": 10})
+        agent.tools[0].timeout = None
+        assert agent.is_modified is True
+
+
 class TestIsModified:
     def test_timeout_change_marks_agent_modified(self):
         # Unlike input values there is no run-time override for it, so an

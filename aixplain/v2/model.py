@@ -876,6 +876,12 @@ class Model(
     # keeps ``from_dict`` from decoding it; a ``decoder`` would instead make
     # ``_create`` treat it as server-owned and wipe it on ``save()``.
     timeout: Optional[float] = field(default=None, init=False, metadata=config(exclude=lambda x: True))
+    # The timeout the platform last stored for this tool on an agent. A save
+    # that omits ``timeout`` keeps the stored value, so once one is stored an
+    # unset ``timeout`` has to be sent as an explicit ``None`` to clear it.
+    _platform_timeout: Optional[float] = field(
+        default=None, init=False, repr=False, compare=False, metadata=config(exclude=lambda x: True)
+    )
 
     def __post_init__(self):
         """Initialize dynamic attributes based on backend parameters."""
@@ -1408,6 +1414,8 @@ class Model(
                 - timeout: Per-call time limit in seconds, only when ``self.timeout`` is set.
                   It limits each call the agent makes to this tool; it is not
                   ``run(timeout=...)``, which bounds a direct call's wait, nor ``RLM.timeout``.
+                  ``None`` when ``self.timeout`` was unset after the platform stored
+                  one, which clears the stored value.
 
         Raises:
             ValidationError: If ``self.timeout`` is not a positive number of seconds.
@@ -1453,6 +1461,9 @@ class Model(
         }
         if self.timeout is not None:
             tool_dict["timeout"] = _validate_tool_timeout(self.timeout)
+        elif self._platform_timeout is not None:
+            # Omitting the key would keep the stored value; None clears it.
+            tool_dict["timeout"] = None
         return tool_dict
 
     def get_parameters(self) -> List[dict]:
