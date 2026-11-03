@@ -7,6 +7,7 @@ import logging
 import math
 import numbers
 import re
+import warnings
 from collections.abc import Mapping
 from itertools import chain
 from typing import Dict, Union, List, Optional, Any, TYPE_CHECKING, Iterator
@@ -782,6 +783,10 @@ class ModelRunParams(BaseRunParams):
     agent_name: NotRequired[Optional[str]]
 
 
+# The agent runtime's default RUN_TIMEOUT_SECONDS; a longer tool timeout is clamped to it there.
+_TOOL_TIMEOUT_CEILING_SECONDS = 3600.0
+
+
 def _validate_tool_timeout(value: Any) -> float:
     """Return a tool ``timeout`` as float seconds.
 
@@ -802,6 +807,13 @@ def _validate_tool_timeout(value: Any) -> float:
             seconds = None
     if seconds is None or not math.isfinite(seconds) or seconds <= 0:
         raise ValidationError(f"Tool timeout must be a positive number of seconds, got {value!r}.")
+    if seconds > _TOOL_TIMEOUT_CEILING_SECONDS:
+        warnings.warn(
+            f"Tool timeout {seconds:g}s is above the agent runtime's default run ceiling "
+            f"({_TOOL_TIMEOUT_CEILING_SECONDS:g}s); the runtime cuts it down to that ceiling.",
+            UserWarning,
+            stacklevel=3,
+        )
     return seconds
 
 
@@ -857,10 +869,13 @@ class Model(
     attributes: Optional[Dict[str, Any]] = None
 
     # Per-call time limit in seconds when an agent calls this asset as a tool.
-    # Only the caller sets it: it is never decoded from a backend record (a
-    # platform default there must not come back as a saved override) and is
-    # sent only through ``as_tool()``. ``None`` leaves the platform default.
-    timeout: Optional[float] = field(default=None, metadata=config(decoder=lambda _: None, exclude=lambda x: True))
+    # Not ``Model.run(timeout=...)``, which bounds a direct call's wait for its
+    # result, and not ``RLM.timeout``. Only the caller sets it: it is sent only
+    # through ``as_tool()`` and never read back from a backend record, so a
+    # platform default there can't return as a saved override. ``init=False``
+    # keeps ``from_dict`` from decoding it; a ``decoder`` would instead make
+    # ``_create`` treat it as server-owned and wipe it on ``save()``.
+    timeout: Optional[float] = field(default=None, init=False, metadata=config(exclude=lambda x: True))
 
     def __post_init__(self):
         """Initialize dynamic attributes based on backend parameters."""
@@ -1390,7 +1405,9 @@ class Model(
                 - type: Always "model"
                 - version: The model's version
                 - asset_id: The model's ID (same as id)
-                - timeout: Per-call time limit in seconds, only when ``self.timeout`` is set
+                - timeout: Per-call time limit in seconds, only when ``self.timeout`` is set.
+                  It limits each call the agent makes to this tool; it is not
+                  ``run(timeout=...)``, which bounds a direct call's wait, nor ``RLM.timeout``.
 
         Raises:
             ValidationError: If ``self.timeout`` is not a positive number of seconds.

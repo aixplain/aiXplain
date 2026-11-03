@@ -10,6 +10,7 @@ per tool by setting ``timeout`` on the tool object before attaching it::
     agent.save()                                  # persists timeout=30
 """
 
+import warnings
 from fractions import Fraction
 from unittest.mock import Mock
 
@@ -33,6 +34,15 @@ def _bound_agent(ctx: Mock):
     return BoundAgent
 
 
+def _with_timeout(obj, timeout):
+    obj.timeout = timeout
+    return obj
+
+
+def _model(timeout=None) -> Model:
+    return _with_timeout(Model(id="m1", name="translate"), timeout)
+
+
 def _saved_tools(agent: Agent) -> list:
     agent.context = agent.context or Mock()
     return agent.build_save_payload()["tools"]
@@ -47,25 +57,39 @@ def _fetched_agent(tool_dict: dict) -> Agent:
     return agent
 
 
+def _create_agent_with(tool, response_tool: dict) -> Agent:
+    """Create a bound agent whose POST response echoes *response_tool* as its only tool."""
+    ctx = _ctx()
+    ctx.client.request.side_effect = lambda method, path, **kw: (
+        {"id": "agent-1", "name": "a", "description": "d", "status": "onboarded", "tools": [response_tool]}
+        if method == "post"
+        else {}
+    )
+    ctx.client.get.side_effect = lambda *a, **k: {}
+    agent = _bound_agent(ctx)(name="a", description="d", tools=[tool])
+    agent.save()
+    return agent
+
+
 class TestAsTool:
     def test_unset_timeout_is_omitted(self):
-        assert "timeout" not in Model(id="m1", name="translate").as_tool()
+        assert "timeout" not in _model().as_tool()
 
     def test_model_timeout_serialized_as_float_seconds(self):
-        timeout = Model(id="m1", name="translate", timeout=10).as_tool()["timeout"]
+        timeout = _model(10).as_tool()["timeout"]
         assert timeout == 10.0
         assert isinstance(timeout, float)
 
     def test_tool_inherits_timeout(self):
-        tool = Tool(id="t1", name="air", timeout=2.5)
+        tool = _with_timeout(Tool(id="t1", name="air"), 2.5)
         tool.context = Mock()
         assert tool.as_tool()["timeout"] == 2.5
 
     def test_integration_inherits_timeout(self):
-        assert Integration(id="i1", name="air", timeout=10).as_tool()["timeout"] == 10.0
+        assert _with_timeout(Integration(id="i1", name="air"), 10).as_tool()["timeout"] == 10.0
 
     def test_any_real_number_accepted(self):
-        assert Model(id="m1", name="translate", timeout=Fraction(5, 2)).as_tool()["timeout"] == 2.5
+        assert _model(Fraction(5, 2)).as_tool()["timeout"] == 2.5
 
     @pytest.mark.parametrize(
         "value",
@@ -74,11 +98,20 @@ class TestAsTool:
     )
     def test_invalid_timeout_raises(self, value):
         with pytest.raises(ValidationError, match="positive number of seconds"):
-            Model(id="m1", name="translate", timeout=value).as_tool()
+            _model(value).as_tool()
+
+    def test_timeout_above_the_runtime_ceiling_warns(self):
+        with pytest.warns(UserWarning, match="run ceiling"):
+            assert _model(7200).as_tool()["timeout"] == 7200.0
+
+    def test_timeout_at_the_runtime_ceiling_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert _model(3600).as_tool()["timeout"] == 3600.0
 
     def test_timeout_not_sent_when_saving_the_model_itself(self):
         # Only the agent's tool entry carries it, not the asset's own payload.
-        assert "timeout" not in Model(id="m1", name="translate", timeout=10).to_dict()
+        assert "timeout" not in _model(10).to_dict()
 
 
 class TestBackendRecords:
@@ -90,19 +123,31 @@ class TestBackendRecords:
         assert model.timeout is None
         assert "timeout" not in model.as_tool()
 
+    def test_create_response_keeps_the_callers_timeout(self):
+        # The create response never carries it, so it must stay authoritative locally.
+        model = _model(5)
+        model.context = Mock()
+        model.context.client.request.return_value = {"id": "new-1", "name": "translate", "timeout": 99}
+        model._create("v2/models", {"name": "translate"})
+        assert model.id == "new-1"
+        assert model.timeout == 5
+
 
 class TestAgentSave:
     def test_save_payload_carries_tool_timeout(self):
-        model = Model(id="m1", name="translate", timeout=10)
-        agent = Agent(name="n", description="d", tools=[model])
+        agent = Agent(name="n", description="d", tools=[_model(10)])
         assert _saved_tools(agent)[0]["timeout"] == 10.0
 
     def test_save_payload_omits_unset_timeout(self):
-        agent = Agent(name="n", description="d", tools=[Model(id="m1", name="translate")])
+        agent = Agent(name="n", description="d", tools=[_model()])
         assert "timeout" not in _saved_tools(agent)[0]
 
-    def test_dict_tool_entry_is_validated(self):
-        agent = Agent(name="n", description="d", tools=[{"id": "m1", "type": "model", "timeout": -5}])
+    @pytest.mark.parametrize("bound", [False, True], ids=["plain-agent", "client-agent"])
+    @pytest.mark.parametrize("value", [-5, "10", "soon"], ids=["negative", "numeric-str", "text"])
+    def test_caller_dict_tool_entry_is_validated(self, bound, value):
+        # Caller input is strict on every path; only backend records are lenient.
+        cls = _bound_agent(_ctx()) if bound else Agent
+        agent = cls(name="n", description="d", tools=[{"id": "m1", "type": "model", "timeout": value}])
         with pytest.raises(ValidationError, match="positive number of seconds"):
             _saved_tools(agent)
 
@@ -127,6 +172,18 @@ class TestAgentSave:
         agent = _fetched_agent({"id": "x1", "type": "model", "name": "air", "timeout": raw})
         assert agent.tools[0].timeout is None
         assert "timeout" not in _saved_tools(agent)[0]
+
+    def test_create_warns_when_the_platform_drops_the_timeout(self):
+        with pytest.warns(UserWarning, match="did not store the timeout set on tool 'm1'"):
+            agent = _create_agent_with(_model(5), {"id": "m1", "type": "model", "name": "translate"})
+        # The caller's object, and its value, are kept.
+        assert agent.tools[0].timeout == 5
+
+    def test_create_does_not_warn_when_the_platform_stores_the_timeout(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            agent = _create_agent_with(_model(5), {"id": "m1", "type": "model", "name": "translate", "timeout": 5})
+        assert agent.tools[0].timeout == 5
 
 
 class TestIsModified:
