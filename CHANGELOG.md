@@ -9,6 +9,19 @@ usage against its annotations. Downstream projects using `ignore_missing_imports
 for `aixplain.*` may see new diagnostics after upgrading; review those diagnostics
 when updating the SDK.
 
+### Fixed: unrestricted API key limits
+
+Unset API key rate-limit dimensions now save as `-1` (unrestricted); explicit
+`0` still blocks requests. Existing keys saved with unintended zeros are not
+automatically repaired: fetch each affected key, set only the dimensions that
+should be unrestricted to `None` in `global_limits` and `asset_limits`, then
+call `save()`. Re-saving without resetting those zeros preserves them because
+the SDK cannot distinguish intentional blocking from an old unset value.
+
+Backend unrestricted rate and usage limits decode to `None`. User-supplied
+limits must be non-negative integers or `None`, including when using wire-name
+aliases such as `tpm`. Plain `Dict[str, Any]` limit variables remain accepted
+alongside `APIKeyLimitsDict` and `APIKeyLimits`.
 
 ### Removed: Python 3.9 support
 

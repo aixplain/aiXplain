@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config as dj_config
 from datetime import datetime
 from enum import Enum
+from numbers import Integral
 from typing import Dict, Iterable, List, Optional, Union, Any, TYPE_CHECKING
 from typing_extensions import Literal, TypedDict
 
@@ -55,24 +56,13 @@ class TokenType(Enum):
     TOTAL = "total"
 
 
-#: HTTP statuses on the by-ID fetch that mean "this argument is not a key ID".
-#: Anything else -- 401, 403, a 5xx, a dropped connection -- is a failure of the
-#: request and says nothing about the argument.
-#:
-#: Used only to choose which error to report once nothing has matched, never to
-#: decide whether to look. The fallback runs unconditionally: which status a
-#: backend returns for a non-ObjectId path segment is its business (a 500 would
-#: be unsurprising), and gating the lookup on this set would silently break
-#: ``get()`` by name the day that changed.
+#: By-ID statuses that indicate an unknown or invalid resource ID.
+#: Authentication and server failures are preserved if the listing also has no match.
 _NOT_AN_ID_STATUSES = frozenset({400, 404, 422})
 
-#: What a resource ID looks like: a 24-character hex ObjectId, as every ``id`` the
-#: backend issues is. Used to keep anything that is *not* one out of a request URL
-#: -- ``get()`` accepts a key value, and a key value in a path segment lands in
-#: access logs, proxies and error-tracking breadcrumbs. A non-matching argument is
-#: resolved from the listing first, and only reaches the by-ID endpoint once the
-#: listing has proved it is not a key on this account.
-_RESOURCE_ID = re.compile(r"[0-9a-fA-F]{24}")
+#: API keys use integer IDs; retain ObjectId routing for compatibility.
+#: Other arguments resolve from the listing to keep key values out of URLs.
+_RESOURCE_ID = re.compile(r"(?:[0-9]+|[0-9a-fA-F]{24})")
 
 
 def _mask(value: str) -> str:
@@ -150,9 +140,9 @@ _WIRE_ALIASES = {
 class APIKeyLimits:
     """Rate limits configuration for an API key.
 
-    Each dimension defaults to ``None``, meaning *unset*: it is left out of the
-    save payload entirely, so setting one dimension cannot disturb the other
-    three. A deliberate ``0`` is a distinct value and is sent as ``0``.
+    Each dimension defaults to ``None``, meaning *unset*: it is sent in the
+    save payload as the unrestricted sentinel ``-1``. A deliberate ``0`` is a
+    distinct value and is sent as ``0``.
 
     This is the internal representation, and stays usable directly --
     ``APIKeyLimits(token_per_minute=10_000)``. Callers who would rather not
@@ -169,10 +159,18 @@ class APIKeyLimits:
             ``"input"``, ``"output"``, ``"total"``.
     """
 
-    token_per_minute: Optional[int] = field(default=None, metadata=dj_config(field_name="tpm"))
-    token_per_day: Optional[int] = field(default=None, metadata=dj_config(field_name="tpd"))
-    request_per_minute: Optional[int] = field(default=None, metadata=dj_config(field_name="rpm"))
-    request_per_day: Optional[int] = field(default=None, metadata=dj_config(field_name="rpd"))
+    token_per_minute: Optional[int] = field(
+        default=None, metadata=dj_config(field_name="tpm", decoder=lambda value: None if value == -1 else value)
+    )
+    token_per_day: Optional[int] = field(
+        default=None, metadata=dj_config(field_name="tpd", decoder=lambda value: None if value == -1 else value)
+    )
+    request_per_minute: Optional[int] = field(
+        default=None, metadata=dj_config(field_name="rpm", decoder=lambda value: None if value == -1 else value)
+    )
+    request_per_day: Optional[int] = field(
+        default=None, metadata=dj_config(field_name="rpd", decoder=lambda value: None if value == -1 else value)
+    )
     model: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
     token_type: Optional[TokenType] = field(
         default=None,
@@ -202,6 +200,8 @@ class APIKeyLimits:
         """Validate that every *set* rate limit is non-negative."""
         for field_name in ("token_per_minute", "token_per_day", "request_per_minute", "request_per_day"):
             value = getattr(self, field_name)
+            if value is not None and (not isinstance(value, Integral) or isinstance(value, bool)):
+                raise ValidationError(f"{field_name} must be an integer")
             if value is not None and value < 0:
                 raise ValidationError(f"{field_name.replace('_', ' ').capitalize()} must be >= 0")
 
@@ -305,9 +305,15 @@ class APIKeyUsageLimit:
     """
 
     daily_request_count: Optional[int] = field(default=None, metadata=dj_config(field_name="requestCount"))
-    daily_request_limit: Optional[int] = field(default=None, metadata=dj_config(field_name="requestCountLimit"))
+    daily_request_limit: Optional[int] = field(
+        default=None,
+        metadata=dj_config(field_name="requestCountLimit", decoder=lambda value: None if value == -1 else value),
+    )
     daily_token_count: Optional[int] = field(default=None, metadata=dj_config(field_name="tokenCount"))
-    daily_token_limit: Optional[int] = field(default=None, metadata=dj_config(field_name="tokenCountLimit"))
+    daily_token_limit: Optional[int] = field(
+        default=None,
+        metadata=dj_config(field_name="tokenCountLimit", decoder=lambda value: None if value == -1 else value),
+    )
     model: Optional[str] = field(default=None, metadata=dj_config(field_name="assetId"))
 
 
@@ -382,11 +388,19 @@ class APIKey(
     # exclude=lambda x: True prevents to_dict() from including these (we build payload manually)
     global_limits: Optional[APIKeyLimitsInput] = field(
         default=None,
-        metadata=dj_config(field_name="globalLimits", exclude=lambda x: True),
+        metadata=dj_config(
+            field_name="globalLimits",
+            exclude=lambda x: True,
+            decoder=lambda value: APIKeyLimits.from_dict(value) if value is not None else None,
+        ),
     )
     asset_limits: List[APIKeyLimitsInput] = field(
         default_factory=list,
-        metadata=dj_config(field_name="assetsLimits", exclude=lambda x: True),
+        metadata=dj_config(
+            field_name="assetsLimits",
+            exclude=lambda x: True,
+            decoder=lambda value: [APIKeyLimits.from_dict(entry) for entry in value or []],
+        ),
     )
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -536,30 +550,32 @@ class APIKey(
         the cheapest path and the one that yields a fully hydrated resource. A
         name or a key value is resolved from a single listing *first*, so it
         never becomes a URL path segment -- a key value there would be recorded
-        by every access log and proxy on the way. Such an argument only reaches
-        the by-ID endpoint as a last resort, once the listing has established it
-        is not a key on this account.
+        by every access log and proxy on the way. Unknown names and key values
+        raise without a by-ID request.
 
         Args:
-            id: A key ID, a full key value, or a key name.
+            id: A key ID (string or integer), a full key value, or a key name.
             **kwargs: Forwarded to the underlying request.
 
         Returns:
             APIKey: The matching key.
 
         Raises:
+            ValidationError: If the argument is neither a string nor an integer ID.
             ResourceError: If nothing matches, or if a name or masked key value
                 matches more than one key.
             Exception: Whatever the by-ID fetch raised, if that failure was not a
                 verdict on the argument (an expired credential, a 5xx) and no
                 key matched the other two forms.
         """
-        if not isinstance(id, str) or _RESOURCE_ID.fullmatch(id):
+        if isinstance(id, Integral) and not isinstance(id, bool):
+            id = str(id)
+        if not isinstance(id, str):
+            raise ValidationError("API key lookup requires a string ID, key value, or name, or an integer ID")
+        if _RESOURCE_ID.fullmatch(id):
             try:
                 return super().get(id, **kwargs)
             except Exception as by_id_error:
-                if not isinstance(id, str):
-                    raise
                 # ``except ... as`` unbinds the name when the block ends, so keep
                 # a reference for the decision made after the fallback.
                 id_lookup_error = by_id_error
@@ -576,15 +592,6 @@ class APIKey(
         found = cls._resolve_from_listing(id, candidates)
         if found is not None:
             return found
-
-        if id_lookup_error is None:
-            # Not ID-shaped and absent from the listing, so it is not a live key
-            # of this account -- the by-ID endpoint is now safe to try, and is
-            # the only thing that would still find a key the listing omitted.
-            try:
-                return super().get(id, **kwargs)
-            except Exception as late_error:
-                id_lookup_error = late_error
 
         # Nothing matched. If the by-ID fetch failed for its own reasons rather
         # than because the argument was not an ID, that failure is the answer:
@@ -864,7 +871,7 @@ class APIKey(
         fetched later via ``list()`` / ``get()`` can restore readable paths.
         """
         self._id_to_path: Dict[str, str] = {}
-        cache: Dict[str, str] = {}
+        cache = {path: model_id for model_id, path in self._get_path_cache().items()}
         for asset_limit in payload.get("assetsLimits", []):
             asset_id = asset_limit.get("assetId", "")
             if not asset_id or "/" not in str(asset_id):
@@ -873,16 +880,20 @@ class APIKey(
                 asset_limit["assetId"] = cache[asset_id]
                 continue
             try:
+                if len(asset_id.split("/")) != 3 or not all(asset_id.split("/")):
+                    raise ValidationError("Use an exact model path (developer/model/host) or a model ID")
                 resolved = self.context.Model.get(asset_id)
+                if not isinstance(resolved.path, str) or resolved.path.casefold() != asset_id.casefold():
+                    raise ValidationError("Model path did not match exactly; use a model ID instead")
                 cache[asset_id] = resolved.id
                 self._id_to_path[resolved.id] = asset_id
                 self._get_path_cache()[resolved.id] = asset_id
                 asset_limit["assetId"] = resolved.id
-            except Exception:
+            except Exception as exc:
                 raise ValidationError(
-                    f"Could not resolve model path '{asset_id}'. "
+                    f"Could not resolve model path '{asset_id}': {exc}. "
                     "Use a valid model path (e.g. 'openai/gpt-4o-mini/openai') or a model ID."
-                )
+                ) from exc
 
     def _restore_model_paths(self) -> None:
         """Replace resolved model IDs with the original user-provided paths.
@@ -920,6 +931,8 @@ class APIKey(
         if self.budget is not None and self.budget < 0:
             raise ValidationError("Budget must be >= 0")
         if self.global_limits:
+            if self.global_limits.model is not None:
+                raise ValidationError("global_limits cannot specify a model; use asset_limits instead")
             self.global_limits.validate()
         for limit in self.asset_limits:
             if limit.model is None:
@@ -944,19 +957,8 @@ class APIKey(
     def _limits_to_api_dict(limits: APIKeyLimits, include_asset: bool = False) -> Dict:
         """Convert APIKeyLimits to a camelCase dictionary for API requests.
 
-        Every dimension is sent, with ``0`` standing in for one the caller never
-        set. That is the payload shape shipped before 0.3.0, and the backend
-        rejects anything less with a 500, so a partial write is not available to
-        send even though the SDK can now express one.
-
-        The in-memory distinction PROD-2917 asked for is unaffected: an unset
-        dimension is still ``None`` on :class:`APIKeyLimits`, ``validate()``
-        still skips it, and ``to_dict()`` still leaves it out. Only this
-        encoding fills the gaps.
-
-        **This is the one place to change** once the backend accepts a partial
-        limits payload -- and what ``0`` means to it is still unconfirmed, which
-        is why nothing here depends on the answer today.
+        Unset dimensions use the backend's unrestricted sentinel, ``-1``.
+        Explicit zero remains a blocking limit.
         """
         result: Dict[str, Any] = {}
         for wire_name, field_name in (
@@ -966,7 +968,7 @@ class APIKey(
             ("rpd", "request_per_day"),
         ):
             value = getattr(limits, field_name)
-            result[wire_name] = 0 if value is None else value
+            result[wire_name] = -1 if value is None else int(value)
         result["tokenType"] = limits.token_type.value if limits.token_type else None
         if include_asset and limits.model:
             result["assetId"] = limits.model
