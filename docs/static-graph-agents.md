@@ -13,8 +13,11 @@ The current platform contract supports these nodes:
 - `LLMNode`: make one model call.
 - `ToolNode`: invoke a tool or model attached to the Agent.
 - `AgentNode`: invoke a sub-agent registered on the Agent by its engine agent name.
-- `ScriptNode`: run inline Python in the sandbox.
-- `InspectorNode`: run a registered inspector.
+- `ScriptNode`: run inline Python in the sandbox. See [Script sandbox](#script-sandbox) for what it can import.
+- `InspectorNode`: run an inspector declared on the Agent. `inspector_type` is the name of an `Inspector` in
+  `agent.inspectors`; `save()` raises `ValidationError` when no declared inspector has that name. An inspector
+  declared with `targets=[]` runs only at the nodes that name it; give it targets (`"input"`, `"steps"`, `"output"`)
+  to also run it across the whole Agent run.
 - `ConditionalNode`: evaluate a sandboxed expression and store its result.
 
 Values move through graph state using node-level `input_mapping`, `output_mapping`, `input_key`, `output_key`,
@@ -112,6 +115,10 @@ All nodes read from and write to one shared state dict. The run input is availab
   is written to `output_key`, or to `<node_id>_result` when `output_key` is not set.
 - **`ToolNode`** passes state values to the tool with `arg_mapping={"tool_arg": "state_key"}` and writes the tool's
   result to `result_key` (default `<node_id>_output`).
+- **`ConditionalNode`** writes its boolean result to `output_key` (default `<node_id>_result`), and to every
+  `output_mapping` target, exactly like the other nodes, so an edge or a loop-back condition can route on the key you
+  named. It also always writes `<node_id>_result`, `last_condition_result` and `last_condition_bool`, so a graph that
+  routes on `<node_id>_result` keeps working when you add an `output_key`.
 
 ### Naming the tool in a `ToolNode`
 
@@ -172,9 +179,17 @@ The supported helpers are `equals`, `not_equals`, `greater_than`, `greater_than_
 `less_than_or_equal`, `is_true`, and `is_false`. Comparison values must be strings, finite numbers, booleans, or
 `None`; ordering comparisons accept only strings or numbers.
 
+A `ConditionalNode`'s own `condition` is a single Python expression evaluated against the state. A state key the
+expression names is bound by name, so `amount > 5000 and status == "ready"` works next to the `state["amount"]` form.
+A name the expression calls stays the builtin even if the state has a key of that name, so `sum(scores) > 5` works
+when the state also holds `sum`. A key that is not a valid identifier (for example `"class"`) is reachable only as
+`state["class"]`, and `state` always refers to the state dict itself. A name that is not in the state fails the node,
+and the error lists the state keys. Statements, imports and dunder access are rejected.
+
 ## Cycles
 
-Cycles are rejected by default. To create a bounded loop, opt in and specify its maximum iterations:
+Cycles are rejected by default. To create a bounded loop, opt in and set `max_loop_iterations`, the most times any
+one node may run:
 
 ```python
 graph = Graph(
@@ -188,6 +203,11 @@ graph = Graph(
     max_loop_iterations=3,
 )
 ```
+
+Here `first_node` and `retry_node` each run at most three times. If the loop has not reached a node with no outgoing
+edges by then, the run stops instead of starting the node a fourth time. The step names the node that hit the bound,
+`limit_reached` reports an iterations limit, and the answer is a summary of the work completed so far. Unless you set
+`strategy.max_iterations`, the cap on total node runs is large enough for every node to run `max_loop_iterations` times.
 
 ## Fetch and update
 
@@ -226,3 +246,23 @@ agent.strategy = {"max_iterations": 5}
 
 Set a cost or duration cap in either `agent.budget` or `agent.strategy.budget`, not both. The SDK sends both and warns
 when both are set.
+
+Caps are checked before each node starts. When a node takes the run over a cost or duration cap, the next node does
+not start, and the run returns a summary of the work done so far. A node that is already running is never cut short,
+so a single model call can still go over the cap. When the last node goes over, its answer is kept: the run returns
+it without making another model call, and `limit_reached` reports the cost or duration limit. An iteration cap only
+limits which nodes may start, so a run that finishes on its own exactly at the cap succeeds.
+
+## Script sandbox
+
+`ScriptNode` scripts and `ConditionalNode` conditions run in a sandboxed interpreter. It supports `json`, `math`,
+`re` and `datetime`, but not `random`, `time`, `difflib`, or file and network access. To test retries and timeouts,
+simulate the failure without those modules:
+
+```python
+# Fails every attempt, so the node's retry_policy runs and then the node fails.
+flaky = ScriptNode(name="Flaky", node_id="flaky", script="raise RuntimeError('simulated failure')")
+
+# Never finishes, so the node's timeout (in seconds) expires.
+slow = ScriptNode(name="Slow", node_id="slow", script="while True:\n    pass", timeout=2)
+```

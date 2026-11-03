@@ -2034,7 +2034,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             # Direct response case - pass the entire response to let dataclass_json handle field mapping
             # Check for failed status and raise appropriate error
             if status == "FAILED":
-                raise create_operation_failed_error(response)
+                raise self._operation_failed_error(response)
 
             response_class = getattr(self, "RESPONSE_CLASS", Result)
             resp_for_parse = dict(response)
@@ -2046,6 +2046,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             result = response_class.from_dict(resp_for_parse)
             result._raw_data = response
             return result
+
+    def _operation_failed_error(self, response: dict) -> APIError:
+        """Build the error raised for a ``FAILED`` run response."""
+        return create_operation_failed_error(response)
 
     # Optional hook methods - only implement what you need
     def before_run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
@@ -2238,11 +2242,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         # An agent run's structured error; only forwarded when sent so the default stays None.
         if response.get("errorDetails") is not None:
             filtered_response["errorDetails"] = response["errorDetails"]
+        if response.get("warnings") is not None:
+            filtered_response["warnings"] = response["warnings"]
         status = response.get("status", "IN_PROGRESS")
 
         # Failure handling
         if status == "FAILED":
-            raise create_operation_failed_error(response)
+            raise self._operation_failed_error(response)
 
         response_class = getattr(self, "RESPONSE_CLASS", Result)
 
