@@ -36,6 +36,7 @@ from aixplain.utils.url_safety import safe_get, validate_upload_url
 
 from .enums import FileType, FileTypeValue, Privacy, PrivacyValue, SortBy
 from .exceptions import APIError, FileUploadError, ResourceError, ValidationError
+from .plain_data import coerce_enum
 from .resource import (
     BaseDeleteParams,
     BaseResource,
@@ -173,12 +174,12 @@ class File(
         """Normalize a backend structural file type."""
         if isinstance(value, FileType):
             return value
-        return FileType(str(value or "file").lower())
+        return coerce_enum(str(value or "file").lower(), FileType, label="file_type")
 
     @staticmethod
     def _coerce_privacy(value: Any) -> Privacy:
         """Normalize a backend privacy value."""
-        return value if isinstance(value, Privacy) else Privacy(value or Privacy.PRIVATE.value)
+        return coerce_enum(value or Privacy.PRIVATE.value, Privacy, label="privacy")
 
     def _validate_and_infer_source(self, explicit_name: Optional[str]) -> None:
         parsed = urlparse(self.source or "")

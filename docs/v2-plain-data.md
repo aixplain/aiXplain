@@ -56,6 +56,11 @@ points that know they hold caller input (`Agent.__setattr__`,
 `TokenType` is a plain `Enum`; every other enum in `v2` subclasses `str`, so the
 string form already worked at runtime and only the *annotation* was missing.
 
+A string outside the enum raises `ValidationError` naming the accepted values
+(`plain_data.coerce_enum`). It is never stored and sent. A value decoded from a
+backend response is exempt: it arrives as a `WireValue`, so a value added on the
+backend after this SDK was released cannot break reading an agent.
+
 An alias only earns its place by being **attached** to something: the runtime
 already accepted the string, so the annotation is the entire point. Five have no
 annotation site yet, because the SDK exports the enum but never takes it as a
@@ -72,7 +77,7 @@ an oversight, and the rest are guarded by
 | `AssetStatus` | input + output | `agent.status`, and a search filter. `AssetStatusValue`. |
 | `AttachmentType` | input | Session message attachments. `AttachmentTypeValue`. |
 | `AuthenticationScheme` | input | Integration connect. `AuthenticationSchemeValue`. |
-| `ContextOverflowStrategy` | input | `agent.context_overflow_strategy`. `ContextOverflowStrategyValue`. |
+| `ContextOverflowStrategy` | input | `agent.context_overflow_strategy`; `none` opts out of condensation. `ContextOverflowStrategyValue`. |
 | `DataType` | input | `UtilityModelInput.type`. `DataTypeValue`. |
 | `FileType` | input | `File.file_type`. `FileTypeValue`. |
 | `Function` | input | Model/tool search filter. `FunctionValue`. |
@@ -149,6 +154,8 @@ adding a field needs no second edit.
 `Pricing`, `PromptTokensDetails`, `Result`, `RLMResult`, `SessionMessage`,
 `StreamChunk`, `ToolResult`, `Usage`, `VendorInfo`, `Version`.
 
+`SkillBatch` and `ToolBatch` are what `Skill.get_many` and `Tool.get_many` return.
+
 `ActionInputSpec`, `ActionSpec`, `ToolId` and `TriggerTypeSpec` describe what an
 integration offers; they are read off a fetched `Integration`, never constructed.
 
@@ -162,7 +169,7 @@ So are the inspector structs (`_ActionConfig`, `_Judge`) and `Inspector` itself.
 
 ### Internal
 
-`_RoleSpec`, `AgentResponseDataFields`, `ActionMixin`, `BaseResource`.
+`_RoleSpec`, `AgentResponseDataFields`, `ActionMixin`, `BaseResource`, and `Node`, the base class the input node classes share; it is never constructed itself.
 
 ### Resources
 
@@ -182,6 +189,8 @@ They are constructed through the client and are out of scope for this rule.
   describes, so the type checker and the runtime cannot disagree;
 - `aixplain.__all__` matches `aixplain.v2.__all__`, and every name in it
   resolves;
+- every non-resource dataclass and enum in `aixplain/v2` is named in this
+  document, so a new one cannot go unclassified;
 - each `Literal` alias is referenced by an annotation, not merely exported;
 - `TimeoutError` is the only exported name that shadows a builtin, and it
   subclasses the builtin it shadows, so `except TimeoutError:` after
