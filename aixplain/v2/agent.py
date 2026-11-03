@@ -5,9 +5,10 @@ import logging
 import re
 import warnings
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
@@ -21,7 +22,7 @@ from .model import Model
 from .file import File
 from .skill import Skill
 from .graph import Graph, GraphDict, InspectorNode, StaticGraphStrategy, StaticGraphStrategyDict
-from .exceptions import AgentRunFailedError, ValidationError, _structured_error, _structured_message
+from .exceptions import AgentRunFailedError, ResourceError, ValidationError, _structured_error, _structured_message
 from .exceptions import create_operation_failed_error
 from .mixins import ToolableMixin
 from .plain_data import coerce_struct_list, struct_fields
@@ -43,6 +44,7 @@ from .resource import (
 )
 
 if TYPE_CHECKING:
+    from .core import Aixplain
     from .session import ExecutionConfig, Session
 
 
@@ -396,6 +398,22 @@ class Budget:
 _BUDGET_FIELDS = struct_fields(Budget)
 
 
+def _presigned_expiry(url: str) -> Optional[str]:
+    """Expiry of a SigV4 (``X-Amz-Date`` + ``X-Amz-Expires``) or legacy ``Expires`` presigned URL."""
+    try:
+        params = parse_qs(urlparse(url).query)
+        if "X-Amz-Date" in params and "X-Amz-Expires" in params:
+            start = datetime.strptime(params["X-Amz-Date"][0], "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+            expires = start + timedelta(seconds=int(params["X-Amz-Expires"][0]))
+        elif "Expires" in params:
+            expires = datetime.fromtimestamp(int(params["Expires"][0]), tz=timezone.utc)
+        else:
+            return None
+    except (ValueError, OverflowError, OSError):
+        return None
+    return expires.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 @dataclass_json
 @dataclass
 class Artifact:
@@ -410,6 +428,12 @@ class Artifact:
       skipped by the engine; there is no uploader yet).
 
     Exactly one of ``url`` / ``content`` is populated.
+
+    When the engine re-hosts a deliverable on aiXplain storage, ``url`` is an
+    aiXplain signed URL, ``file_id`` is the stored file's id and ``source_url``
+    is the link the tool originally returned. Call :meth:`refresh_url` to get a
+    fresh signed URL once ``url_expires_at`` has passed. ``step_id`` is the
+    ``step_id`` of the step (tool call) in ``result.data.steps`` that produced it.
 
     .. warning::
        ``url_expires_at`` is when the **presigned URL** dies, not the artifact.
@@ -434,13 +458,55 @@ class Artifact:
     category: str = "other"
     source: str = ""
     tool_name: Optional[str] = field(default=None, metadata=config(field_name="toolName"))
+    step_id: Optional[str] = field(default=None, metadata=config(field_name="stepId"))
     url: Optional[str] = None
     url_expires_at: Optional[str] = field(default=None, metadata=config(field_name="urlExpiresAt"))
+    file_id: Optional[str] = field(default=None, metadata=config(field_name="fileId"))
+    source_url: Optional[str] = field(default=None, metadata=config(field_name="sourceUrl"))
     content: Optional[str] = None
     sha256: Optional[str] = None
     byte_size: Optional[int] = field(default=None, metadata=config(field_name="byteSize"))
     mentioned_in_answer: bool = field(default=False, metadata=config(field_name="mentionedInAnswer"))
     created_at: str = field(default="", metadata=config(field_name="createdAt"))
+
+    def __getstate__(self) -> Dict[str, Any]:
+        """Keep the live client out of serialized artifact state."""
+        state = self.__dict__.copy()
+        state.pop("_context", None)
+        return state
+
+    def refresh_url(self, expires_in: Optional[int] = None, client: Optional["Aixplain"] = None) -> str:
+        """Request a new signed URL for a re-hosted artifact.
+
+        Args:
+            expires_in: URL lifetime in seconds (backend default 1 hour, max 7 days).
+            client: Aixplain client to use instead of the one bound by the run.
+
+        Returns:
+            The refreshed signed URL, also stored on this artifact.
+
+        Raises:
+            ValidationError: If the artifact has no file id or no client is available.
+            ResourceError: If the backend returns no signed URL.
+        """
+        if not self.file_id:
+            raise ValidationError(f"Artifact '{self.name}' has no file_id: it was not re-hosted on aiXplain")
+        context = client if client is not None else getattr(self, "_context", None)
+        if context is None:
+            raise ValidationError("No client to refresh with: pass refresh_url(client=aix)")
+        # The backend accepts a file's own id in both URL positions, including
+        # nested re-hosted files; file_id need not equal the root asset id.
+        # Refresh still requires file access for the requesting client's team.
+        response = File._request_signed_url(context, self.file_id, self.file_id, expires_in)
+        url = response.get("url") if isinstance(response, dict) else None
+        if not url:
+            raise ResourceError(f"Backend returned no signed url for file {self.file_id}: {response!r}")
+        self.url = url
+        self.url_expires_at = _presigned_expiry(url) or (
+            datetime.now(timezone.utc)
+            + timedelta(seconds=min(expires_in, 7 * 24 * 3600) if expires_in is not None and expires_in > 0 else 3600)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return url
 
     @classmethod
     def _coerce_list(cls, value: Any) -> List["Artifact"]:
@@ -673,12 +739,18 @@ class AgentRunResult(Result):
         """
         data = self.data
         if isinstance(data, AgentResponseData):
-            return data.artifacts or []
-        if isinstance(data, dict):
+            artifacts = data.artifacts or []
+        elif isinstance(data, dict):
             # ``data`` is a bare dict when the result was built by hand rather
             # than decoded through ``from_dict``.
-            return Artifact._coerce_list(data.get("artifacts"))
-        return []
+            artifacts = Artifact._coerce_list(data.get("artifacts"))
+        else:
+            return []
+        # Bound here so ``artifact.refresh_url()`` reaches the client that ran the agent.
+        for artifact in artifacts:
+            if getattr(artifact, "_context", None) is None:
+                artifact._context = self._context
+        return artifacts
 
     @property
     def execution_id(self) -> Optional[str]:
@@ -1549,7 +1621,9 @@ class Agent(
         Returns:
             AgentRunResult with current execution status.
         """
-        return super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
+        result = super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
+        result._context = self.context
+        return result
 
     def _operation_failed_error(self, response: Dict[str, Any]) -> AgentRunFailedError:
         """Build the error for a ``FAILED`` agent run, keeping its structured error and warnings."""
