@@ -7,9 +7,10 @@ neither is a secret:
 - the Composio Gmail integration, fetched by its marketplace path
   (``COMPOSIO_GMAIL_PATH``, which resolves on every backend), for
   ``integration.triggers`` discovery;
-- a connected tool that lists event-trigger types, found by
-  ``resolve_trigger_connection`` (pin one with AIXPLAIN_TEST_TRIGGER_CONNECTION_ID),
-  to activate a real event trigger end to end.
+- a connected tool that lists event-trigger types, to activate a real event
+  trigger end to end: a fresh Slack connection made with ``SLACK_TOKEN`` first,
+  then the tenant's own connections from ``trigger_connection_candidates`` (pin
+  one with AIXPLAIN_TEST_TRIGGER_CONNECTION_ID).
 
 Both used to come from TEST_COMPOSIO_INTEGRATION_ID / TEST_CONNECTION_ID, and
 skipped when unset, which meant the event-trigger half of this file had never
@@ -25,7 +26,9 @@ import pytest
 from aixplain import Trigger, TriggerEventOption
 from aixplain import Page
 
-from tests.functional._helpers import resolve_trigger_connection
+from aixplain import ResourceError
+
+from tests.functional._helpers import is_inactive_connection_error, trigger_connection_candidates
 
 
 # Far-future instant so a "once" trigger is valid/schedulable.
@@ -62,10 +65,22 @@ def composio_integration_id(client):
     return client.Integration.get(COMPOSIO_GMAIL_PATH).id
 
 
-@pytest.fixture(scope="module")
-def connection_id(client, composio_integration_id):
-    """A connected tool with event-trigger types, looked up once per module; fails the test when none exists."""
-    return resolve_trigger_connection(client, composio_integration_id).id
+def _slack_token_connection(client, assets, slack_token, resource_tracker):
+    """A fresh Slack connection authenticated with the bot token, or ``None`` if it lists no trigger types.
+
+    Token auth makes it ACTIVE as soon as it exists. The tenant's OAuth
+    connections are not: their grants expire, and some were started and never
+    completed, so on its own the search found only connections whose
+    activation Composio refuses (ENG-3684 follow-up).
+    """
+    tool = client.Tool(
+        name=f"trigger-slack-{int(time.time())}-{uuid.uuid4().hex[:6]}",
+        integration=client.Integration.get(assets.SLACK_INTEGRATION),
+        config={"token": slack_token},
+    )
+    tool.save()
+    resource_tracker.append(tool)
+    return tool if tool.list_trigger_types() else None
 
 
 # =============================================================================
@@ -251,27 +266,61 @@ class TestEventTriggerDiscovery:
 
 
 class TestEventTriggerLifecycle:
-    def test_create_and_delete_event_trigger(self, client, test_agent, connection_id, resource_tracker):
-        """Create a real Composio event trigger from a connected tool and delete it."""
-        tool = client.Tool.get(connection_id)
+    def test_create_and_delete_event_trigger(
+        self, client, assets, test_agent, composio_integration_id, slack_token, resource_tracker
+    ):
+        """Create a real Composio event trigger from a connected tool and delete it.
 
-        slugs = list(tool.triggers)
-        # The connection was chosen *because* it lists trigger types, so an
-        # empty `triggers` here disagrees with the `list_trigger_types` probe.
-        assert slugs, (
-            f"Connected tool {tool.id} listed trigger types when it was resolved but exposes none "
-            "through `tool.triggers`."
-        )
-        option = tool.triggers[slugs[0]]
-        assert option.connection_id == tool.id  # connected tool carries the connection
+        Candidates are tried in order -- a fresh token-authenticated Slack
+        connection, then the tenant's own connections -- and one whose activation
+        is refused because its account is not active is passed over. Any other
+        activation failure fails the test, and so does running out of candidates.
+        """
 
-        t = client.Trigger(
-            name=f"event-{int(time.time())}-{uuid.uuid4().hex[:6]}",
-            agent=test_agent,
-            input="Handle this event.",
-            event=option,
-        )
-        t.save()
+        def candidates():
+            fresh = _slack_token_connection(client, assets, slack_token, resource_tracker)
+            if fresh is not None:
+                yield fresh, True
+            for tool in trigger_connection_candidates(client, composio_integration_id):
+                yield tool, False
+
+        refused = []
+        for tool, is_fresh in candidates():
+            slugs = list(tool.triggers)
+            # The connection was chosen *because* it lists trigger types, so an
+            # empty `triggers` here disagrees with the `list_trigger_types` probe.
+            assert slugs, (
+                f"Connected tool {tool.id} listed trigger types when it was resolved but exposes none "
+                "through `tool.triggers`."
+            )
+            option = tool.triggers[slugs[0]]
+            assert option.connection_id == tool.id  # connected tool carries the connection
+
+            t = client.Trigger(
+                name=f"event-{int(time.time())}-{uuid.uuid4().hex[:6]}",
+                agent=test_agent,
+                input="Handle this event.",
+                event=option,
+            )
+            try:
+                t.save()
+            except ResourceError as error:
+                # The fresh token connection is a convenience, not the code under
+                # test: whether Composio activates triggers on token auth is up to
+                # Composio, so any refusal there falls through to the tenant's
+                # connections, with its reason kept for the failure message.
+                if not (is_fresh or is_inactive_connection_error(error)):
+                    raise
+                # Activation runs in ``before_save``, so a refusal leaves no record behind.
+                refused.append(f"{tool.id} ({slugs[0]}): {str(error)[:300]}")
+                continue
+            break
+        else:
+            pytest.fail(
+                "No connected tool could activate an event trigger. Refused: "
+                f"{'; '.join(refused) or 'no candidates found'}. Reconnect one in this tenant, or check SLACK_TOKEN."
+            )
+
         resource_tracker.append(t)
         assert t.id is not None
         assert t.trigger_type == "external"

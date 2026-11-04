@@ -137,10 +137,12 @@ class RequestManager:
         A default ``(connect, read)`` timeout is applied when the caller doesn't
         pass one: without it ``requests`` waits forever, so a peer that accepts
         the connection and then goes silent pins the calling thread with no upper
-        bound. The read timeout bounds the gap between bytes, not the total
-        transfer, so large uploads are unaffected. Override per call with
+        bound. The read timeout only starts once the request body has been sent;
+        while it is being sent the socket is held to the *connect* timeout, so
+        an upload passes its own ``timeout=upload_timeout()`` (see
+        :func:`aixplain.v2.client.upload_timeout`). Override per call with
         ``timeout=`` or globally via ``AIXPLAIN_HTTP_CONNECT_TIMEOUT`` /
-        ``AIXPLAIN_HTTP_READ_TIMEOUT``.
+        ``AIXPLAIN_HTTP_READ_TIMEOUT`` / ``AIXPLAIN_HTTP_UPLOAD_TIMEOUT``.
         """
         from .client import default_timeout
 
@@ -211,18 +213,28 @@ class S3Uploader:
         # reported success.
         validate_upload_url(presigned_url)
 
+        from .client import upload_timeout
+
         headers = {"Content-Type": content_type}
 
         try:
+            # Stream the open handle rather than one ``bytes`` body, and send it
+            # with the upload timeout: a single ``bytes`` body went out in one
+            # ``sendall`` bounded by the 10-second connect timeout, so any file
+            # that took longer than that to transfer failed. ``requests`` still
+            # sets ``Content-Length`` from the file size, which S3 requires.
             with open(file_path, "rb") as f:
-                file_data = f.read()
-
-            # A presigned S3 PUT never legitimately redirects; following a 307
-            # would re-send the bytes to a host ``validate_upload_url`` never
-            # saw (BUG-939).
-            response = RequestManager.request_with_retry(
-                "put", presigned_url, headers=headers, data=file_data, allow_redirects=False
-            )
+                # A presigned S3 PUT never legitimately redirects; following a
+                # 307 would re-send the bytes to a host ``validate_upload_url``
+                # never saw (BUG-939).
+                response = RequestManager.request_with_retry(
+                    "put",
+                    presigned_url,
+                    headers=headers,
+                    data=f,
+                    allow_redirects=False,
+                    timeout=upload_timeout(),
+                )
 
             if response.status_code != 200:
                 raise FileUploadError("File Uploading Error: Failure on Uploading to S3.")

@@ -316,8 +316,9 @@ class AgentRunParams(BaseRunParams):
     Attributes:
         session: Conversation thread to run within. A
             :class:`~aixplain.v2.session.Session` instance or a session id
-            string. Omit for a one-shot, stateless run. Replaces the removed
-            ``via_session`` flag and id-only ``session_id``.
+            string. Omitted, the SDK creates a new session for the run (see
+            :meth:`Agent.run`). Replaces the removed ``via_session`` flag and
+            id-only ``session_id``.
         query: The query to run
         variables: Variables to replace {{variable}} placeholders in instructions and description.
             The backend performs the actual substitution.
@@ -1417,6 +1418,11 @@ class Agent(
     # Emitted (as a UserWarning) when a deprecated ``max_iterations`` and an
     # explicit ``budget.max_iterations`` are both set; Budget wins. Shared by the
     # constructor, the run path, and the session path so the text never drifts.
+    _ITER_DEPRECATION_MSG: ClassVar[str] = (
+        "Execution param 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
+        "It will be removed in a future release."
+    )
+
     _BUDGET_ITER_CONFLICT_MSG: ClassVar[str] = (
         "Both 'max_iterations' and budget.max_iterations are set; budget.max_iterations takes precedence."
     )
@@ -1512,14 +1518,18 @@ class Agent(
             query: The query to run
             session: Run within a conversation thread. Accepts a
                 :class:`~aixplain.v2.session.Session` instance or a session id
-                string. When supplied, the run routes through the session path:
-                the user message is posted to
-                ``POST /v1/sessions/{id}/messages`` (carrying the session's
-                ``executionConfig`` plus any per-run execution overrides) and the
-                triggered agent run is awaited. Omit ``session`` for a one-shot,
-                stateless run over ``POST /v2/agents/{id}/run``. There is no
-                ``via_session`` flag and no id-only ``session_id`` — manage
-                threads through ``aix.Session`` and pass them here.
+                string. Every run goes through a session: the user message is
+                posted to ``POST /v1/sessions/{id}/messages`` (carrying the
+                session's ``executionConfig`` plus any per-run execution
+                overrides) and the triggered agent run is awaited. Omit
+                ``session`` and the SDK creates a new session for this run, so
+                the run is recorded as a platform session, and its id is on
+                ``result.session_id``. Pass that id back as ``session=`` to
+                continue the conversation. The only runs that still use
+                ``POST /v2/agents/{id}/run`` without a session are those the
+                session endpoint cannot carry: a non-string ``query``, or any of
+                ``tasks`` / ``prompt`` / ``inspectors`` / ``history`` /
+                ``variables`` with no ``session``.
             progress_format: Display format - "status" or "logs". If None (default),
                            progress tracking is disabled.
             progress_verbosity: Detail level 1-3 (default: 1)
@@ -1534,7 +1544,7 @@ class Agent(
             args = args[1:]
 
         session = kwargs.pop("session", None)
-        if session is not None:
+        if session is not None or self._sessionless_run_reason(kwargs) is None:
             return self._run_with_session(session, **kwargs)
 
         # This frame owns the progress display for the whole run: the tracker
@@ -1559,6 +1569,8 @@ class Agent(
         Args:
             *args: Positional arguments (first arg is treated as query)
             query: The query to run
+            session: Conversation thread to run within, as for :meth:`run`.
+                Omitted, the SDK creates a new session for this run.
             **kwargs: Additional run parameters
 
         Returns:
@@ -1566,7 +1578,8 @@ class Agent(
                 to poll for completion via ``sync_poll(result.url)`` or
                 ``client.get(result.url)``. Do not construct
                 ``/sdk/runs/{execution_id}`` — that endpoint is not supported
-                for agent runs.
+                for agent runs. ``result.session_id`` is the session the run
+                belongs to.
 
         Note:
             ``progress_format`` is ignored here and logged as a warning: this
@@ -1581,17 +1594,29 @@ class Agent(
             kwargs["query"] = args[0]
             args = args[1:]
 
-        if kwargs.pop("session", None) is not None:
-            raise NotImplementedError(
-                "session=… runs are sync-only for now; use agent.run(...) or "
-                "session.add_message() + session.messages() directly."
-            )
+        session = kwargs.pop("session", None)
 
         if kwargs.get("progress_format") is not None:
             logger.warning(
                 "run_async() ignores progress_format: it returns once the run is submitted, so there is "
                 "nothing to display. Pass it to the poll instead: sync_poll(result.url, progress_format=...)."
             )
+
+        if session is not None or self._sessionless_run_reason(kwargs) is None:
+            # Frames up to the user: Agent.run_async -> caller.
+            submitted = self._submit_session_message(session, kwargs, caller_depth=2)
+            if isinstance(submitted, AgentRunResult):
+                return submitted
+            session, user_msg = submitted
+            result = AgentRunResult(
+                status="IN_PROGRESS",
+                completed=False,
+                url=self._resolve_poll_url(user_msg.request_id),
+                session_id=session.id,
+                request_id=user_msg.request_id,
+            )
+            result._context = self.context
+            return result
 
         return super().run_async(**kwargs)
 
@@ -2791,12 +2816,7 @@ class Agent(
             # frame, so it shares the stacklevel. ``_submit_with_retries`` is the
             # POST-only retry boundary added for BUG-1090; it sits on both the
             # run and run_async paths, so both stay at this depth.
-            warnings.warn(
-                "Execution param 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
-                "It will be removed in a future release.",
-                DeprecationWarning,
-                stacklevel=6,
-            )
+            warnings.warn(self._ITER_DEPRECATION_MSG, DeprecationWarning, stacklevel=6)
             normalized_budget, conflicted = self._fold_iter_into_budget(budget, deprecated_iterations)
             if conflicted:
                 warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=6)
@@ -3053,27 +3073,82 @@ class Agent(
             return self.context.Session.get(session)
         raise TypeError(f"session must be a Session instance or a session id string, got {type(session).__name__}")
 
-    def _run_with_session(self, session: Any, **kwargs: Any) -> AgentRunResult:
-        """Run the agent within a session, awaiting the triggered run.
+    def _sessionless_run_reason(self, kwargs: Dict[str, Any]) -> Optional[str]:
+        """Why a run with no ``session`` cannot go through a session, or ``None`` when it can.
 
-        Flow:
-        1. Resolve ``session`` (a Session object or id) to a bound Session and
-           merge any per-run execution overrides onto its ``executionConfig``.
-        2. POST a ``role="user"`` message via ``session.add_message`` — this
-           triggers the agent run on the backend with the session's
-           ``executionConfig``. Any ``attachments`` / ``files`` passed to
-           ``run`` are forwarded onto the user message so the agent receives
-           them (uploaded and attached by ``add_message``).
-        3. Pull the agent run's ``requestId`` off the user message and hand it to
-           ``self.sync_poll`` (the ``/sdk/agents/{request_id}/result`` endpoint),
-           which returns a fully populated ``AgentRunResult`` including
-           ``data.steps``, ``execution_stats``, ``used_credits``, and ``run_time``.
-
-        We don't poll session messages for the assistant reply — the run result
-        endpoint is fully populated for the run the user message triggered.
+        ``POST /v1/sessions/{id}/messages`` carries a text query, attachments and
+        the ``executionConfig`` fields, nothing else. A run that passes one of the
+        :attr:`_LEGACY_ONLY_RUN_KWARGS` or a non-string query keeps the direct
+        ``POST /v2/agents/{id}/run`` path, where those still work, rather than
+        failing a call that worked before every run went through a session.
         """
-        self._validate_run_dependencies()
+        legacy = [key for key in self._LEGACY_ONLY_RUN_KWARGS if kwargs.get(key) is not None]
+        if legacy:
+            return f"run kwargs the session endpoint does not carry: {legacy}"
+        query = kwargs.get("query")
+        if query is not None and not isinstance(query, str):
+            return f"a {type(query).__name__} query (the session endpoint takes a string)"
+        return None
 
+    def _create_run_session(self, kwargs: Dict[str, Any], stacklevel: int) -> "Session":
+        """Create the session for a run that was not given one.
+
+        The session is created with the run's execution overrides and the
+        agent's budget already in its ``executionConfig``, so the run behaves as
+        the direct path did: no follow-up save, and no warning about mutating a
+        stored config the caller never saw.
+
+        A deprecated ``execution_params["max_iterations"]`` is folded here
+        rather than in ``ExecutionConfig.to_api_dict``, with the direct path's
+        rule (the agent's budget wins on conflict) and its warnings, emitted at
+        *stacklevel* so they point at the caller's ``run()`` line.
+        """
+        from .session import ExecutionConfig
+
+        if not self.id:
+            raise ValueError("The agent must be saved before it can run: a session needs the agent's id.")
+
+        provided = {key: kwargs[key] for key in self._SESSION_EXECUTION_OVERRIDES if kwargs.get(key) is not None}
+        execution_params = provided.pop("execution_params", None)
+        if execution_params:
+            execution_params = dict(execution_params)
+            deprecated_iterations = execution_params.pop("maxIterations", None)
+            if deprecated_iterations is None:
+                deprecated_iterations = execution_params.pop("max_iterations", None)
+            if deprecated_iterations is not None:
+                warnings.warn(self._ITER_DEPRECATION_MSG, DeprecationWarning, stacklevel=stacklevel)
+                folded, conflicted = self._fold_iter_into_budget(getattr(self, "budget", None), deprecated_iterations)
+                if conflicted:
+                    warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=stacklevel)
+                provided["budget"] = folded
+            if execution_params:
+                provided["execution_params"] = execution_params
+        execution_config = ExecutionConfig(**provided) if provided else None
+        budget = self._budget_for_session(execution_config.budget if execution_config is not None else None)
+        if budget is not None:
+            if execution_config is None:
+                execution_config = ExecutionConfig(budget=budget)
+            else:
+                execution_config = replace(execution_config, budget=budget)
+
+        session = self.context.Session(agent=self.id, execution_config=execution_config)
+        session.save()
+        return session
+
+    def _submit_session_message(
+        self, session: Any, kwargs: Dict[str, Any], caller_depth: int
+    ) -> Union[AgentRunResult, Tuple["Session", Any]]:
+        """Post the run's user message to a session; return ``(session, user_message)``.
+
+        Steps 1 and 2 of :meth:`_run_with_session`, shared with
+        :meth:`run_async`. When *session* is ``None`` a new one is created for
+        this run (:meth:`_create_run_session`). Returns the early result instead
+        when a ``before_run`` hook supplies one.
+
+        *caller_depth* is the number of frames between this one and the user's
+        ``run()`` / ``run_async()`` call, so warnings raised while building the
+        session point at that call.
+        """
         offending = [k for k in self._LEGACY_ONLY_RUN_KWARGS if kwargs.get(k) is not None]
         if offending:
             raise ValueError(
@@ -3091,8 +3166,18 @@ class Agent(
             raise ValueError("session=… only supports string queries.")
         query = query or ""
 
-        session = self._resolve_session(session)
-        self._apply_run_overrides_to_session(session, kwargs)
+        # The same hook the direct path runs first: it checks child components
+        # are saved and saves a new or modified draft agent, which a session
+        # needs because it is bound to the agent's id.
+        early = self._begin_run(**kwargs)
+        if early is not None:
+            return early
+
+        if session is None:
+            session = self._create_run_session(kwargs, stacklevel=caller_depth + 2)
+        else:
+            session = self._resolve_session(session)
+            self._apply_run_overrides_to_session(session, kwargs)
 
         # The agent's current per-tool parameter state (set by mutating
         # ``agent.tools[i].actions[...].inputs[...]``) becomes the per-message
@@ -3111,20 +3196,55 @@ class Agent(
                 f"Backend did not return a requestId on the user message for "
                 f"session '{session.id}'; cannot poll the agent run result."
             )
+        return session, user_msg
 
-        # Same progress-display ownership as the direct path: sync_poll calls
-        # self.on_poll(...) on every iteration, which forwards to the tracker.
-        tracker = self._start_progress_tracker(kwargs)
+    def _run_with_session(self, session: Any, **kwargs: Any) -> AgentRunResult:
+        """Run the agent within a session, awaiting the triggered run.
+
+        Flow:
+        1. Resolve ``session`` (a Session object or id) to a bound Session and
+           merge any per-run execution overrides onto its ``executionConfig``.
+           With ``session=None`` a new session is created for the run instead,
+           with those overrides already in its ``executionConfig``.
+        2. POST a ``role="user"`` message via ``session.add_message`` — this
+           triggers the agent run on the backend with the session's
+           ``executionConfig``. Any ``attachments`` / ``files`` passed to
+           ``run`` are forwarded onto the user message so the agent receives
+           them (uploaded and attached by ``add_message``).
+        3. Pull the agent run's ``requestId`` off the user message and hand it to
+           ``self.sync_poll`` (the ``/sdk/agents/{request_id}/result`` endpoint),
+           which returns a fully populated ``AgentRunResult`` including
+           ``data.steps``, ``execution_stats``, ``used_credits``, and ``run_time``.
+
+        We don't poll session messages for the assistant reply — the run result
+        endpoint is fully populated for the run the user message triggered.
+        """
+        # ``after_run`` keeps the contract it has on the direct path
+        # (``RunnableResourceMixin.run``): called once on every exit, allowed to
+        # substitute a successful result, never to turn a raise into a return.
         try:
-            result = self.sync_poll(
-                user_msg.request_id,
-                timeout=kwargs.get("timeout", 300),
-                wait_time=kwargs.get("wait_time", 0.5),
-                _progress_tracker=tracker,
-            )
-        except BaseException:
-            if tracker is not None:
-                tracker.stop()
+            # Frames up to the user: _run_with_session -> Agent.run -> caller.
+            submitted = self._submit_session_message(session, kwargs, caller_depth=3)
+            if isinstance(submitted, AgentRunResult):
+                return self._apply_after_run(submitted, **kwargs)
+            session, user_msg = submitted
+
+            # Same progress-display ownership as the direct path: sync_poll calls
+            # self.on_poll(...) on every iteration, which forwards to the tracker.
+            tracker = self._start_progress_tracker(kwargs)
+            try:
+                result = self.sync_poll(
+                    user_msg.request_id,
+                    timeout=kwargs.get("timeout", 300),
+                    wait_time=kwargs.get("wait_time", 0.5),
+                    _progress_tracker=tracker,
+                )
+            except BaseException:
+                if tracker is not None:
+                    tracker.stop()
+                raise
+        except BaseException as exc:
+            self._apply_after_run_failure(exc, **kwargs)
             raise
         self._finish_progress_tracker(tracker, result)
 
@@ -3138,7 +3258,7 @@ class Agent(
         if not result.request_id:
             result.request_id = user_msg.request_id
         result._context = self.context
-        return result
+        return self._apply_after_run(result, **kwargs)
 
 
 # ``@dataclass_json`` injects its own ``from_dict`` onto the class, which would

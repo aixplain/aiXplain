@@ -146,6 +146,9 @@ def _runnable_agent(submit_result=None):
     agent.status = None
     result = submit_result if submit_result is not None else _FakeResult(url="http://poll/1", completed=False)
     agent.handle_run_response = lambda response, **kwargs: result
+    # Every run goes through a session unless the session endpoint cannot carry it;
+    # this helper is for the direct ``/v2/agents/{id}/run`` path, so force it.
+    agent._sessionless_run_reason = lambda kwargs: "direct path under test"
     return agent
 
 

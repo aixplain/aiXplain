@@ -10,6 +10,7 @@ import pytest
 from aixplain import Aixplain
 from aixplain import File, FileType, Page, Privacy
 from aixplain import APIError, FileUploadError, ResourceError, ValidationError
+from aixplain.v2.client import upload_timeout
 
 
 @pytest.fixture
@@ -117,7 +118,7 @@ def test_save_local_file_promotes_upload_to_asset(tmp_path, aix):
 
     assert document.id == "file-1"
     assert document.is_temp is False
-    assert upload.call_args.kwargs["timeout"] == aix.client.timeout
+    assert upload.call_args.kwargs["timeout"] == upload_timeout(aix.client.timeout)
     assert aix.client.post.call_args_list[0] == call(
         "sdk/file/upload/temp-url",
         json={"contentType": "text/csv", "originalName": "data.csv"},

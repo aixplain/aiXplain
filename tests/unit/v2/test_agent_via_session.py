@@ -7,6 +7,11 @@ stamps on the user message. That preserves the full `AgentRunResult` shape
 (steps, execution_stats, used_credits, run_time) while routing the trigger
 through sessions. There is no `via_session` flag and no id-only `session_id=`;
 threads are managed through `aix.Session` and passed here.
+
+Without `session=` the SDK creates a new Session for the run and goes through
+the same path, so every run is a session run. Only kwargs the session endpoint
+cannot carry (`tasks`/`prompt`/`inspectors`/`history`/`variables`, or a
+non-string query) keep the direct `/v2/agents/{id}/run` path.
 """
 
 from unittest.mock import Mock, patch
@@ -450,61 +455,221 @@ class TestRunWithSessionRejectsLegacyKwargs:
 
 
 # ---------------------------------------------------------------------------
-# 7. run_async with session= is not implemented
+# 7. run_async with a session submits the message and returns a pollable result
 # ---------------------------------------------------------------------------
 
 
-class TestRunAsyncWithSessionNotImplemented:
-    def test_run_async_with_session_not_implemented(self):
-        ctx = _make_mock_context()
-        ctx.Session = Mock()
-        BoundAgent = _bound_agent(ctx)
-        agent = BoundAgent(id="agent_99", name="A")
-        agent._update_saved_state()
+class _AutoSessionHarness:
+    """A context whose ``Session`` records what the SDK creates for a sessionless run."""
 
-        with pytest.raises(NotImplementedError, match="session"):
-            agent.run_async("hi", session="sess_x")
+    def __init__(self):
+        self.ctx = _make_mock_context()
+        self.created = []
+        self.posted = []
+        harness = self
+
+        class BoundSession(Session):
+            context = self.ctx
+
+            def save(self, *args, **kwargs):
+                self.id = "sess_auto"
+                harness.created.append(self)
+                return self
+
+            def add_message(self, role, content, **kw):
+                harness.posted.append({"session": self.id, "role": role, "content": content, **kw})
+                return _user_message()
+
+        self.ctx.Session = BoundSession
+        self.agent = _bound_agent(self.ctx)(id="agent_99", name="A")
+        self.agent._update_saved_state()
+
+
+class TestRunAsyncWithSession:
+    def test_run_async_with_a_session_returns_the_poll_url(self):
+        harness = _AutoSessionHarness()
+        session = harness.ctx.Session(agent_id="agent_99")
+        session.id = "sess_given"
+
+        result = harness.agent.run_async("hi", session=session)
+
+        assert harness.created == []  # the given session is used, not a new one
+        assert harness.posted[0]["session"] == "sess_given"
+        assert result.completed is False
+        assert result.url == "https://platform-api.aixplain.com/sdk/agents/req_abc/result"
+        assert result.request_id == "req_abc"
+        assert result.session_id == "sess_given"
+        harness.ctx.client.request.assert_not_called()  # no direct /v2/agents/{id}/run
+
+    def test_run_async_without_a_session_creates_one(self):
+        harness = _AutoSessionHarness()
+
+        result = harness.agent.run_async("hi")
+
+        assert [s.agent_id for s in harness.created] == ["agent_99"]
+        assert harness.posted[0]["session"] == "sess_auto"
+        assert result.session_id == "sess_auto"
+        assert result.url.endswith("/sdk/agents/req_abc/result")
+        harness.ctx.client.request.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
-# 8. Default path (no session) still hits /v2/agents/{id}/run
+# 8. No session: the SDK creates one and runs through it
 # ---------------------------------------------------------------------------
 
 
-class TestDefaultPathUnchanged:
-    def test_run_default_path_hits_direct_endpoint(self):
-        ctx = _make_mock_context()
-        # Direct run: POST returns a polling URL, then GET resolves to a SUCCESS.
-        ctx.client.request.return_value = {
-            "status": "IN_PROGRESS",
-            "data": "https://platform-api.aixplain.com/sdk/agents/exec_42/result",
-        }
-        ctx.client.get.return_value = {
-            "status": "SUCCESS",
-            "completed": True,
-            "data": {"output": "direct reply", "session_id": None, "steps": []},
-            "sessionId": None,
-            "requestId": "req_direct",
-            "usedCredits": 0.5,
-            "runTime": 1.2,
-        }
+class TestRunWithoutSessionCreatesOne:
+    def test_run_creates_a_session_and_posts_through_it(self):
+        harness = _AutoSessionHarness()
+        harness.agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result(session_id=None)))
 
-        BoundAgent = _bound_agent(ctx)
-        agent = BoundAgent(id="agent_99", name="A")
-        agent._update_saved_state()
+        result = harness.agent.run("hi")
 
-        with patch("time.sleep"):
-            result = agent.run("hi")
+        assert len(harness.created) == 1
+        assert harness.created[0].agent_id == "agent_99"
+        assert harness.posted == [
+            {"session": "sess_auto", "role": "user", "content": "hi", "attachments": None, "files": None, "tools": None}
+        ]
+        assert harness.agent.sync_poll.call_args.args == ("req_abc",)
+        # No direct POST /v2/agents/{id}/run.
+        harness.ctx.client.request.assert_not_called()
+        assert result.session_id == "sess_auto"
+        assert result.data.session_id == "sess_auto"
+        assert result.request_id == "req_abc"
 
-        # Direct POST went to v2/agents/{id}/run.
-        post_call = ctx.client.request.call_args_list[0]
-        assert post_call[0][0] == "post"
-        assert "v2/agents/agent_99/run" in post_call[0][1]
+    def test_each_run_gets_its_own_session(self):
+        harness = _AutoSessionHarness()
+        harness.agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result()))
 
-        # Direct poll URL was used.
-        get_call = ctx.client.get.call_args_list[0]
-        assert "/sdk/agents/exec_42/result" in get_call[0][0]
+        harness.agent.run("one")
+        harness.agent.run("two")
 
-        assert result.status == "SUCCESS"
-        assert result.data.output == "direct reply"
-        assert result.used_credits == 0.5
+        assert len(harness.created) == 2
+        assert harness.created[0] is not harness.created[1]
+
+    def test_overrides_go_into_the_new_sessions_config_without_a_warning(self):
+        import warnings
+
+        harness = _AutoSessionHarness()
+        harness.agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result()))
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # the "updating the stored executionConfig" warning must not fire
+            harness.agent.run("hi", execution_params={"output_format": "markdown"}, criteria="be brief")
+
+        config = harness.created[0].execution_config
+        assert isinstance(config, ExecutionConfig)
+        assert config.criteria == "be brief"
+        assert config.to_api_dict()["executionParams"]["outputFormat"] == "markdown"
+
+    def test_agent_budget_seeds_the_new_session(self):
+        from aixplain import Budget
+
+        harness = _AutoSessionHarness()
+        harness.agent.budget = Budget(max_cost=1.5)
+        harness.agent._update_saved_state()
+        harness.agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result()))
+
+        harness.agent.run("hi")
+
+        assert harness.created[0].execution_config.budget.max_cost == 1.5
+
+    def test_deprecated_max_iterations_folds_like_the_direct_path(self):
+        from aixplain import Budget
+
+        harness = _AutoSessionHarness()
+        harness.agent.budget = Budget(max_iterations=9)
+        harness.agent._update_saved_state()
+        harness.agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result()))
+
+        with pytest.warns(DeprecationWarning, match="max_iterations"), pytest.warns(UserWarning, match="precedence"):
+            harness.agent.run("hi", execution_params={"max_iterations": 3, "max_tokens": 100})
+
+        wire = harness.created[0].execution_config.to_api_dict()["executionParams"]
+        assert wire["budget"]["maxIterations"] == 9  # the agent's budget wins, as on the direct path
+        assert "maxIterations" not in wire and "max_iterations" not in wire
+        assert wire["maxTokens"] == 100
+
+    def test_identifier_reaches_the_new_sessions_config(self):
+        harness = _AutoSessionHarness()
+        harness.agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result()))
+
+        harness.agent.run("hi", identifier="end-user-1")
+
+        assert harness.created[0].execution_config.identifier == "end-user-1"
+
+    def test_a_new_draft_agent_is_saved_before_its_session_is_created(self):
+        harness = _AutoSessionHarness()
+        agent = _bound_agent(harness.ctx)(name="Draft")
+        order = []
+
+        def fake_save(*args, **kwargs):
+            order.append("agent.save")
+            agent.id = "agent_new"
+
+        agent.save = fake_save
+        agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result()))
+        harness.ctx.Session.save = lambda self, *a, **k: (order.append("session.save"), setattr(self, "id", "s"))[0]
+        harness.ctx.Session.add_message = lambda self, role, content, **kw: _user_message()
+
+        agent.run("hi")
+
+        assert order == ["agent.save", "session.save"]
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"variables": {"persona": "x"}},
+            {"history": [{"role": "user", "content": "earlier"}]},
+            {"tasks": ["t"]},
+            {"prompt": "p"},
+            {"inspectors": []},
+        ],
+        ids=["variables", "history", "tasks", "prompt", "inspectors"],
+    )
+    def test_kwargs_the_session_endpoint_cannot_carry_keep_the_direct_path(self, kwargs):
+        harness = _AutoSessionHarness()
+        harness.ctx.client.request.return_value = {"status": "SUCCESS", "completed": True, "data": {"output": "ok"}}
+
+        harness.agent.run("hi", **kwargs)
+
+        assert harness.created == []
+        post_call = harness.ctx.client.request.call_args_list[0]
+        assert post_call.args[0] == "post"
+        assert "v2/agents/agent_99/run" in post_call.args[1]
+
+    def test_a_dict_query_keeps_the_direct_path(self):
+        harness = _AutoSessionHarness()
+        harness.ctx.client.request.return_value = {"status": "SUCCESS", "completed": True, "data": {"output": "ok"}}
+
+        harness.agent.run({"input": "hi"})
+
+        assert harness.created == []
+        assert "v2/agents/agent_99/run" in harness.ctx.client.request.call_args_list[0].args[1]
+
+
+class TestSessionPathRunsTheAfterRunHook:
+    """``after_run`` keeps its direct-path contract now that every run goes through a session."""
+
+    def test_after_run_may_substitute_a_successful_result(self):
+        harness = _AutoSessionHarness()
+        harness.agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result()))
+        substitute = AgentRunResult.from_dict(_success_result())
+        harness.agent.after_run = lambda result, *a, **k: substitute
+
+        assert harness.agent.run("hi") is substitute
+
+    def test_after_run_sees_a_failure_but_cannot_swallow_it(self):
+        harness = _AutoSessionHarness()
+        harness.agent.sync_poll = Mock(side_effect=RuntimeError("boom"))
+        seen = []
+
+        def after_run(result, *a, **k):
+            seen.append(result)
+            return AgentRunResult.from_dict(_success_result())
+
+        harness.agent.after_run = after_run
+
+        with pytest.raises(RuntimeError, match="boom"):
+            harness.agent.run("hi")
+        assert len(seen) == 1 and isinstance(seen[0], RuntimeError)

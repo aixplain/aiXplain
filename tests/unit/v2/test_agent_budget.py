@@ -442,8 +442,13 @@ class TestRunPathWarningStacklevel:
     not SDK internals.
     """
 
+    @pytest.fixture(params=["session", "direct"])
+    def path(self, request):
+        """Both run paths: the default (a new session per run) and the direct one legacy kwargs keep."""
+        return request.param
+
     @staticmethod
-    def _runnable_agent():
+    def _runnable_agent(path="direct"):
         agent = Agent.from_dict({"id": "a1", "name": "t"})
         agent.context = MagicMock()
         agent.status = None
@@ -453,10 +458,17 @@ class TestRunPathWarningStacklevel:
         agent.handle_run_response = lambda response, **kw: fake_result
         agent.before_run = lambda *a, **k: None
         agent.after_run = lambda result, *a, **k: None
+        if path == "direct":
+            agent._sessionless_run_reason = lambda kwargs: "direct path under test"
+        else:
+            # The session the SDK creates for the run is a MagicMock here; it only
+            # has to hand back a user message carrying a request id.
+            agent.context.Session.return_value.add_message.return_value = MagicMock(request_id="req_1")
+            agent.sync_poll = MagicMock(return_value=MagicMock(session_id="s", request_id="req_1"))
         return agent
 
-    def test_run_deprecation_warning_points_at_call_site(self):
-        agent = self._runnable_agent()
+    def test_run_deprecation_warning_points_at_call_site(self, path):
+        agent = self._runnable_agent(path)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             agent.run(query="hi", execution_params={"max_iterations": 7})
@@ -465,14 +477,15 @@ class TestRunPathWarningStacklevel:
         # The warning must resolve to THIS test file (the user call site), not agent.py.
         assert dep[0].filename == __file__, dep[0].filename
 
-    def test_run_async_deprecation_warning_points_at_call_site(self):
+    def test_run_async_deprecation_warning_points_at_call_site(self, path):
         """run_async shares build_run_payload's stacklevel, so it must agree with run().
 
-        Both paths reach the warning through ``_submit_with_retries`` ->
-        ``_post_and_handle_run``; a depth change on one silently mislocates the
-        other.
+        On the direct path both reach the warning through ``_submit_with_retries``
+        -> ``_post_and_handle_run``; on the session path through
+        ``_submit_session_message`` -> ``_create_run_session``. A depth change on
+        one silently mislocates the other.
         """
-        agent = self._runnable_agent()
+        agent = self._runnable_agent(path)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             agent.run_async(query="hi", execution_params={"max_iterations": 7})
@@ -480,8 +493,8 @@ class TestRunPathWarningStacklevel:
         assert dep, "expected a run_async-path DeprecationWarning"
         assert dep[0].filename == __file__, dep[0].filename
 
-    def test_run_conflict_warning_points_at_call_site(self):
-        agent = self._runnable_agent()
+    def test_run_conflict_warning_points_at_call_site(self, path):
+        agent = self._runnable_agent(path)
         agent.budget = Budget(max_iterations=99)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
