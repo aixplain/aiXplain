@@ -77,7 +77,6 @@ import json
 import re
 from typing import List
 
-import pydantic
 import pytest
 from pydantic import BaseModel
 
@@ -435,14 +434,6 @@ class _People(BaseModel):
 _ROSTER = {"Ana": 19, "Bruno": 34, "Carla": 45, "Davi": 28}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=pydantic.ValidationError,
-    reason=(
-        "Backend: the agent engine does not resolve $ref/$defs in expected_output schemas, "
-        "so nested models lose their types (ticket to be filed)"
-    ),
-)
 def test_run_team_agent_with_expected_output(client, resource_tracker):
     """A team saved with a JSON ``expected_output`` model answers in that structure.
 
@@ -451,10 +442,13 @@ def test_run_team_agent_with_expected_output(client, resource_tracker):
     ``executionParams.expectedOutput``. They are not run kwargs.
 
     ``_People`` nests ``_Person``, so its schema reaches ``_Person`` through
-    ``$defs``; the engine degrades that to a list of anything, and the model
-    answered ``{"result": ["Bruno: 34 ..."]}``. Only the validation of that
-    structure is expected to fail: the persistence checks, a failed run and a
-    missing delegation are ``AssertionError``s, which the xfail does not accept.
+    ``$defs``. This was a strict xfail while runs went to ``/v2/agents/{id}/run``:
+    the engine does not resolve ``$defs`` in a per-run
+    ``executionParams.expectedOutput``, and the model answered
+    ``{"result": ["Bruno: 34 ..."]}``. A run now goes through a session, where
+    the engine reads the agent's saved ``expected_output`` and the nested model
+    keeps its types (ENG-3907). The direct path, still used by runs that pass
+    ``tasks``/``history``/``variables``/..., keeps the backend defect.
     """
     roster = "\n".join(f"- {name}: {age} years old" for name, age in _ROSTER.items())
     sub = client.Agent(

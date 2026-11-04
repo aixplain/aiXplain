@@ -562,10 +562,6 @@ jobs:
           - suite: 'trigger'
             path: 'tests/functional/v2/test_trigger.py'
             timeout: 30
-            # The event-trigger test connects Slack with the bot token: the
-            # tenant's OAuth connections expire, and an expired one cannot
-            # activate a trigger.
-            slack: true
           - suite: 'utility'
             path: 'tests/functional/v2/test_utility.py'
             timeout: 30

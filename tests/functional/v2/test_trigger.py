@@ -8,9 +8,11 @@ neither is a secret:
   (``COMPOSIO_GMAIL_PATH``, which resolves on every backend), for
   ``integration.triggers`` discovery;
 - a connected tool that lists event-trigger types, to activate a real event
-  trigger end to end: a fresh Slack connection made with ``SLACK_TOKEN`` first,
-  then the tenant's own connections from ``trigger_connection_candidates`` (pin
-  one with AIXPLAIN_TEST_TRIGGER_CONNECTION_ID).
+  trigger end to end: the tenant's connections from
+  ``trigger_connection_candidates`` (pin one with
+  AIXPLAIN_TEST_TRIGGER_CONNECTION_ID). Only an OAuth connection can: a Slack
+  connection made from a bot token is refused for lack of a webhook
+  verification token.
 
 Both used to come from TEST_COMPOSIO_INTEGRATION_ID / TEST_CONNECTION_ID, and
 skipped when unset, which meant the event-trigger half of this file had never
@@ -63,24 +65,6 @@ def test_agent(client, module_resource_tracker):
 def composio_integration_id(client):
     """The Composio Gmail integration's id on this backend, for event-discovery tests."""
     return client.Integration.get(COMPOSIO_GMAIL_PATH).id
-
-
-def _slack_token_connection(client, assets, slack_token, resource_tracker):
-    """A fresh Slack connection authenticated with the bot token, or ``None`` if it lists no trigger types.
-
-    Token auth makes it ACTIVE as soon as it exists. The tenant's OAuth
-    connections are not: their grants expire, and some were started and never
-    completed, so on its own the search found only connections whose
-    activation Composio refuses (ENG-3684 follow-up).
-    """
-    tool = client.Tool(
-        name=f"trigger-slack-{int(time.time())}-{uuid.uuid4().hex[:6]}",
-        integration=client.Integration.get(assets.SLACK_INTEGRATION),
-        config={"token": slack_token},
-    )
-    tool.save()
-    resource_tracker.append(tool)
-    return tool if tool.list_trigger_types() else None
 
 
 # =============================================================================
@@ -266,26 +250,18 @@ class TestEventTriggerDiscovery:
 
 
 class TestEventTriggerLifecycle:
-    def test_create_and_delete_event_trigger(
-        self, client, assets, test_agent, composio_integration_id, slack_token, resource_tracker
-    ):
+    def test_create_and_delete_event_trigger(self, client, test_agent, composio_integration_id, resource_tracker):
         """Create a real Composio event trigger from a connected tool and delete it.
 
-        Candidates are tried in order -- a fresh token-authenticated Slack
-        connection, then the tenant's own connections -- and one whose activation
-        is refused because its account is not active is passed over. Any other
+        The tenant's connections are tried in order, and one Composio refuses
+        because the connection cannot carry a trigger -- its account expired or
+        never finished OAuth, or it lacks the webhook verification token a
+        token-authenticated Slack connection has -- is passed over. Any other
         activation failure fails the test, and so does running out of candidates.
         """
 
-        def candidates():
-            fresh = _slack_token_connection(client, assets, slack_token, resource_tracker)
-            if fresh is not None:
-                yield fresh, True
-            for tool in trigger_connection_candidates(client, composio_integration_id):
-                yield tool, False
-
         refused = []
-        for tool, is_fresh in candidates():
+        for tool in trigger_connection_candidates(client, composio_integration_id):
             slugs = list(tool.triggers)
             # The connection was chosen *because* it lists trigger types, so an
             # empty `triggers` here disagrees with the `list_trigger_types` probe.
@@ -305,11 +281,7 @@ class TestEventTriggerLifecycle:
             try:
                 t.save()
             except ResourceError as error:
-                # The fresh token connection is a convenience, not the code under
-                # test: whether Composio activates triggers on token auth is up to
-                # Composio, so any refusal there falls through to the tenant's
-                # connections, with its reason kept for the failure message.
-                if not (is_fresh or is_inactive_connection_error(error)):
+                if not is_inactive_connection_error(error):
                     raise
                 # Activation runs in ``before_save``, so a refusal leaves no record behind.
                 refused.append(f"{tool.id} ({slugs[0]}): {str(error)[:300]}")
@@ -318,7 +290,8 @@ class TestEventTriggerLifecycle:
         else:
             pytest.fail(
                 "No connected tool could activate an event trigger. Refused: "
-                f"{'; '.join(refused) or 'no candidates found'}. Reconnect one in this tenant, or check SLACK_TOKEN."
+                f"{'; '.join(refused) or 'no candidates found'}. Reconnect an integration with event "
+                "triggers (Composio Gmail) through OAuth in this tenant."
             )
 
         resource_tracker.append(t)

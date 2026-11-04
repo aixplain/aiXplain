@@ -233,18 +233,21 @@ def _probed_trigger_count(tool) -> Optional[int]:
         raise
 
 
-#: Fragments of a Composio activation refusal meaning "this connection's account
-#: cannot authorize anything": an OAuth grant that expired (410
-#: ``ActionExecute_ConnectedAccountExpired``) or a connection whose OAuth flow was
+#: Fragments of a Composio activation refusal meaning "this connection cannot
+#: carry a trigger": an OAuth grant that expired (410
+#: ``ActionExecute_ConnectedAccountExpired``), a connection whose OAuth flow was
 #: started and never finished (422 ``TOOL_AUTH_BadConnectedAccountState``,
-#: status ``INITIATED``). Listing trigger types works on such a connection, which
-#: is why the probe in `trigger_connection_candidates` cannot rule it out; only
-#: activating a trigger does.
+#: status ``INITIATED``), or a webhook trigger on a connection with no
+#: verification token, which is every Slack connection made from a bot token
+#: (400 ``TriggerInstance_WebhookConfigInvalid``). Listing trigger types works on
+#: all of them, which is why the probe in `trigger_connection_candidates` cannot
+#: rule them out; only activating a trigger does.
 _INACTIVE_ACCOUNT_MARKERS = (
     "ConnectedAccountExpired",
     "BadConnectedAccountState",
     "not in an ACTIVE state",
     "in EXPIRED state",
+    "TriggerInstance_WebhookConfigInvalid",
 )
 
 
