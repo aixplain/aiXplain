@@ -264,6 +264,7 @@ class File(
         # the file bytes leave the machine (BUG-939).
         validate_upload_url(upload_url)
         from .client import upload_timeout
+        from .upload_utils import upload_body
 
         with open(local_path, "rb") as handle:
             # A presigned S3 PUT never legitimately redirects, and following one
@@ -271,7 +272,9 @@ class File(
             # ``validate_upload_url`` (BUG-939).
             upload_response = requests.put(
                 upload_url,
-                data=handle,
+                # An empty file goes as ``b""`` so it is sent with
+                # ``Content-Length: 0`` rather than chunked (see ``upload_body``).
+                data=upload_body(handle),
                 headers={"Content-Type": content_type},
                 # The client's 10-second connect timeout also bounds each block
                 # of the body while it is sent; ``upload_timeout`` raises it so a

@@ -8,7 +8,7 @@ import os
 import re
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any
+from typing import BinaryIO, Dict, List, Optional, Union, Any
 from urllib.parse import urljoin
 import requests
 
@@ -195,6 +195,23 @@ class PresignedUrlManager:
             raise FileUploadError(f"File Upload Error: Failed to get pre-signed URL: {e}")
 
 
+def upload_body(handle: BinaryIO) -> Union[BinaryIO, bytes]:
+    """Return what to send as the body of a presigned upload PUT for *handle*.
+
+    The open handle itself, so the file is streamed, except for an empty file:
+    ``requests`` cannot take a length from an empty handle and falls back to
+    ``Transfer-Encoding: chunked``, which a presigned S3 PUT rejects. An empty
+    ``bytes`` body is sent with ``Content-Length: 0`` instead.
+
+    Args:
+        handle: The file, opened in binary mode and positioned at its start.
+
+    Returns:
+        *handle*, or ``b""`` when the file is empty.
+    """
+    return handle if os.fstat(handle.fileno()).st_size else b""
+
+
 class S3Uploader:
     """Handles S3 file uploads using pre-signed URLs."""
 
@@ -222,7 +239,8 @@ class S3Uploader:
             # with the upload timeout: a single ``bytes`` body went out in one
             # ``sendall`` bounded by the 10-second connect timeout, so any file
             # that took longer than that to transfer failed. ``requests`` still
-            # sets ``Content-Length`` from the file size, which S3 requires.
+            # sets ``Content-Length`` from the file size, which S3 requires; an
+            # empty file is sent as ``b""`` for the same reason (``upload_body``).
             with open(file_path, "rb") as f:
                 # A presigned S3 PUT never legitimately redirects; following a
                 # 307 would re-send the bytes to a host ``validate_upload_url``
@@ -231,7 +249,7 @@ class S3Uploader:
                     "put",
                     presigned_url,
                     headers=headers,
-                    data=f,
+                    data=upload_body(f),
                     allow_redirects=False,
                     timeout=upload_timeout(),
                 )

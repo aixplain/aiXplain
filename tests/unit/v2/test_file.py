@@ -137,6 +137,24 @@ def test_save_local_file_promotes_upload_to_asset(tmp_path, aix):
     )
 
 
+def test_save_puts_an_empty_file_as_empty_bytes(tmp_path, aix):
+    """An empty handle would be sent chunked, which a presigned S3 PUT rejects."""
+    local_file = tmp_path / "empty.txt"
+    local_file.write_bytes(b"")
+    aix.client.get = Mock(return_value={"allowed": True})
+    aix.client.post = Mock(
+        side_effect=[
+            {"uploadUrl": "https://bucket.s3.amazonaws.com/upload", "downloadUrl": "s3://bucket/temp/empty.txt"},
+            _asset("file-1", "empty.txt"),
+        ]
+    )
+
+    with patch("aixplain.v2.file.requests.put", return_value=Mock(ok=True)) as upload:
+        aix.File(local_file).save()
+
+    assert upload.call_args.kwargs["data"] == b""
+
+
 def test_save_local_file_sends_description_tags_and_privacy(tmp_path, aix):
     """Metadata set before save() must reach the backend, not just structural fields."""
     local_file = tmp_path / "report.pdf"

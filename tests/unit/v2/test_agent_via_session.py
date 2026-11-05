@@ -673,3 +673,194 @@ class TestSessionPathRunsTheAfterRunHook:
         with pytest.raises(RuntimeError, match="boom"):
             harness.agent.run("hi")
         assert len(seen) == 1 and isinstance(seen[0], RuntimeError)
+
+
+# ---------------------------------------------------------------------------
+# 9. On the wire: the end user as x-user-id, and run_retries on both POSTs
+# ---------------------------------------------------------------------------
+
+
+class _WireHarness:
+    """A real Session over a recording ``client.request``, so headers and retries are visible.
+
+    ``fail`` queues exceptions per POST: ``{"sessions": [...], "messages": [...]}``.
+    Each queued exception is raised once, in order, before that POST succeeds.
+    """
+
+    def __init__(self, fail=None):
+        from aixplain import AgentRunResult
+
+        self.ctx = _make_mock_context()
+        self.calls = []
+        self.fail = {key: list(errors) for key, errors in (fail or {}).items()}
+
+        class BoundSession(Session):
+            context = self.ctx
+
+        def request(method, path, **kwargs):
+            self.calls.append((method, path, kwargs))
+            key = "messages" if path.endswith("/messages") else "sessions"
+            queued = self.fail.get(key)
+            if method == "post" and queued:
+                raise queued.pop(0)
+            if key == "messages":
+                return {
+                    "id": "msg_user",
+                    "sessionId": "sess_wire",
+                    "userId": "u1",
+                    "agentId": "agent_99",
+                    "role": "user",
+                    "content": "hi",
+                    "sequence": 1,
+                    "requestId": "req_abc",
+                    "createdAt": "2025-06-01T10:01:00Z",
+                }
+            return {"id": "sess_wire", "agentId": "agent_99", "status": "active"}
+
+        self.ctx.client.request.side_effect = request
+        self.ctx.Session = BoundSession
+        self.agent = _bound_agent(self.ctx)(id="agent_99", name="A")
+        self.agent._update_saved_state()
+        self.agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result(session_id="sess_wire")))
+
+    def posts(self, kind):
+        """The POSTs to ``v1/sessions`` (``kind="sessions"``) or to ``.../messages``."""
+        return [
+            (path, kwargs)
+            for method, path, kwargs in self.calls
+            if method == "post" and path.endswith("/messages") == (kind == "messages")
+        ]
+
+
+class TestEndUserIsSentAsXUserId:
+    """The backend scopes a session to the end user only through ``x-user-id`` on create.
+
+    Without it the session is visible to every caller on the team. The direct
+    path sent ``identifier`` as ``x-user-id`` on the run; the session path sends it
+    on the session create and on the message (per-user rate limits).
+    """
+
+    def test_identifier_is_sent_on_the_create_and_the_message(self):
+        harness = _WireHarness()
+
+        harness.agent.run("hi", identifier="end-user-1")
+
+        ((create_path, create_kwargs),) = harness.posts("sessions")
+        ((_, message_kwargs),) = harness.posts("messages")
+        assert create_path == "v1/sessions"
+        assert create_kwargs["headers"] == {"x-user-id": "end-user-1"}
+        assert create_kwargs["json"]["executionConfig"]["identifier"] == "end-user-1"
+        assert message_kwargs["headers"] == {"x-user-id": "end-user-1"}
+
+    def test_without_identifier_no_header_is_sent(self):
+        harness = _WireHarness()
+
+        harness.agent.run("hi")
+
+        ((_, create_kwargs),) = harness.posts("sessions")
+        ((_, message_kwargs),) = harness.posts("messages")
+        assert "headers" not in create_kwargs
+        assert "headers" not in message_kwargs
+
+    def test_run_async_sends_it_too(self):
+        harness = _WireHarness()
+
+        harness.agent.run_async("hi", identifier="end-user-1")
+
+        assert harness.posts("sessions")[0][1]["headers"] == {"x-user-id": "end-user-1"}
+        assert harness.posts("messages")[0][1]["headers"] == {"x-user-id": "end-user-1"}
+
+    def test_a_given_session_gets_it_on_the_message_and_is_left_unbound(self):
+        harness = _WireHarness()
+        session = harness.ctx.Session(agent_id="agent_99")
+        session.id = "sess_given"
+        session._update_saved_state()
+
+        harness.agent.run("hi", session=session, identifier="end-user-1")
+
+        assert harness.posts("sessions") == []  # the given session is used
+        assert harness.posts("messages")[0][1]["headers"] == {"x-user-id": "end-user-1"}
+        # The executionConfig update is not scoped by the header: the given
+        # session may have been created without one, and a scoped PUT would miss it.
+        puts = [kwargs for method, _, kwargs in harness.calls if method == "put"]
+        assert puts and all("headers" not in kwargs for kwargs in puts)
+        assert session._end_user_id is None  # the caller's object is not changed
+
+    def test_a_non_ascii_identifier_raises_before_anything_is_sent(self):
+        harness = _WireHarness()
+
+        with pytest.raises(ValueError, match="x-user-id"):
+            harness.agent.run("hi", identifier="Ürün")
+
+        assert harness.calls == []
+
+
+class TestRunRetriesOnTheSessionPath:
+    """``run_retries`` covers the session create and the message POST, as it covers the direct run POST."""
+
+    @staticmethod
+    def _unavailable():
+        from aixplain import APIError
+
+        return APIError("busy", status_code=503)
+
+    def test_a_failed_session_create_is_retried(self):
+        harness = _WireHarness(fail={"sessions": [self._unavailable()]})
+
+        with patch("aixplain.v2.agent.sleep_with_jitter") as sleep:
+            result = harness.agent.run("hi", run_retries=2, run_retry_wait=0)
+
+        assert len(harness.posts("sessions")) == 2
+        assert len(harness.posts("messages")) == 1
+        assert sleep.call_count == 1
+        assert result.session_id == "sess_wire"
+
+    def test_a_failed_message_post_is_retried(self):
+        harness = _WireHarness(fail={"messages": [self._unavailable()]})
+
+        with patch("aixplain.v2.agent.sleep_with_jitter"):
+            harness.agent.run("hi", run_retries=1, run_retry_wait=0)
+
+        assert len(harness.posts("sessions")) == 1
+        assert len(harness.posts("messages")) == 2
+
+    def test_run_async_retries_too(self):
+        harness = _WireHarness(fail={"messages": [self._unavailable()]})
+
+        with patch("aixplain.v2.agent.sleep_with_jitter"):
+            result = harness.agent.run_async("hi", run_retries=1, run_retry_wait=0)
+
+        assert len(harness.posts("messages")) == 2
+        assert result.request_id == "req_abc"
+
+    def test_without_run_retries_nothing_is_resent(self):
+        from aixplain import APIError
+
+        harness = _WireHarness(fail={"messages": [self._unavailable()]})
+
+        with pytest.raises(APIError):
+            harness.agent.run("hi")
+
+        assert len(harness.posts("messages")) == 1
+
+    def test_a_non_retryable_error_is_not_retried(self):
+        from aixplain import APIError
+
+        harness = _WireHarness(fail={"messages": [APIError("bad request", status_code=400)]})
+
+        with patch("aixplain.v2.agent.sleep_with_jitter") as sleep, pytest.raises(APIError):
+            harness.agent.run("hi", run_retries=3, run_retry_wait=0)
+
+        assert len(harness.posts("messages")) == 1
+        sleep.assert_not_called()
+
+    def test_retries_stop_at_the_limit(self):
+        from aixplain import ResourceError
+
+        harness = _WireHarness(fail={"sessions": [self._unavailable() for _ in range(5)]})
+
+        with patch("aixplain.v2.agent.sleep_with_jitter"), pytest.raises(ResourceError):
+            harness.agent.run("hi", run_retries=2, run_retry_wait=0)
+
+        assert len(harness.posts("sessions")) == 3  # 1 + run_retries
+        assert harness.posts("messages") == []

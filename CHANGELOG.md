@@ -15,8 +15,13 @@ The run's `execution_params`, `criteria`, `evolve`, `identifier` and
 Runs that pass `tasks`, `prompt`, `inspectors`, `history` or `variables`, or a
 non-string `query`, still use `POST /v2/agents/{id}/run` with no session, because the
 session endpoint does not carry those. Session runs do not send `metaData` (see
-[docs/run-metadata.md](docs/run-metadata.md)) or the `x-user-id` header; `identifier`
-travels in the session's `executionConfig` instead.
+[docs/run-metadata.md](docs/run-metadata.md)). A run's `identifier` is stored in the
+session's `executionConfig` and is also sent as the `x-user-id` header on the session
+create and on the message, as the direct path sends it on the run: the backend makes
+the session owned by that end user (without the header a session is visible to every
+caller on the team) and applies per-user rate limits. `run_retries` / `run_retry_wait`
+retry the session create and the message POST on a 429, a 5xx or no response, as they
+retry the direct run POST.
 
 `run_async(session=...)` is now supported and returns a result whose `url` polls the
 triggered run; it used to raise `NotImplementedError`. Session runs now call the
@@ -30,7 +35,9 @@ The S3 PUT behind `FileUploader`, agent attachments and `File.save()` was held t
 timeout: urllib3 keeps the socket at the connect timeout while it sends the request,
 and the file was sent as one block. Uploads now stream the file and use an upload
 timeout of at least 120 seconds per block (`AIXPLAIN_HTTP_UPLOAD_TIMEOUT`), so only a
-stalled transfer times out.
+stalled transfer times out. An empty file is sent as an empty body with
+`Content-Length: 0`, since a streamed empty file would go out chunked, which a
+presigned S3 PUT rejects.
 
 ### Fixed: the Debugger pointed at an agent that no longer exists
 

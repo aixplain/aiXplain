@@ -230,6 +230,56 @@ class TestS3PutStreamsTheFile:
         assert content == b"a,b\n1,2\n"
 
 
+class TestEmptyFileUpload:
+    """An empty file goes as ``b""`` with ``Content-Length: 0``, never chunked.
+
+    ``requests`` cannot size an empty handle and falls back to
+    ``Transfer-Encoding: chunked``, which a presigned S3 PUT rejects.
+    """
+
+    @staticmethod
+    def _wire_headers(body):
+        prepared = requests.Request("PUT", "https://bucket.s3.amazonaws.com/x", data=body).prepare()
+        return {k: v for k, v in prepared.headers.items() if k in ("Content-Length", "Transfer-Encoding")}
+
+    def test_an_empty_handle_is_why(self, tmp_path):
+        """The failure the fix avoids: an empty handle is sent chunked."""
+        file_path = tmp_path / "empty.txt"
+        file_path.write_bytes(b"")
+        with open(file_path, "rb") as handle:
+            assert self._wire_headers(handle) == {"Transfer-Encoding": "chunked"}
+
+    def test_upload_body_sends_an_empty_file_as_empty_bytes(self, tmp_path):
+        from aixplain.v2.upload_utils import upload_body
+
+        empty = tmp_path / "empty.txt"
+        empty.write_bytes(b"")
+        full = tmp_path / "full.txt"
+        full.write_bytes(b"data")
+
+        with open(empty, "rb") as handle:
+            assert upload_body(handle) == b""
+            assert self._wire_headers(upload_body(handle)) == {"Content-Length": "0"}
+        with open(full, "rb") as handle:
+            assert upload_body(handle) is handle
+            assert self._wire_headers(upload_body(handle)) == {"Content-Length": "4"}
+
+    def test_s3_uploader_puts_an_empty_file_with_content_length_zero(self, tmp_path):
+        file_path = tmp_path / "__init__.py"
+        file_path.write_bytes(b"")
+        bodies = []
+
+        def capture(method, url, **kwargs):
+            bodies.append(kwargs["data"])
+            return _ok_response()
+
+        with patch.object(RequestManager, "request_with_retry", side_effect=capture):
+            S3Uploader.upload_file(str(file_path), "https://bucket.s3.amazonaws.com/x", "text/x-python")
+
+        assert bodies == [b""]
+        assert self._wire_headers(bodies[0]) == {"Content-Length": "0"}
+
+
 @pytest.fixture
 def slow_sink_url():
     """An HTTP listener that drains a request body slowly, then answers 200.

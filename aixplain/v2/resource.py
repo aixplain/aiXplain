@@ -575,9 +575,18 @@ class BaseResource:
             return self.to_dict()
         return {}
 
-    def _create(self, resource_path: str, payload: dict) -> None:
-        """Create the resource."""
-        result = self.context.client.request("post", f"{resource_path}", json=payload)
+    def _create(self, resource_path: str, payload: dict, headers: Optional[dict] = None) -> None:
+        """Create the resource.
+
+        Args:
+            resource_path: Collection path to POST to.
+            payload: The create body.
+            headers: Extra request headers for this create, if any.
+        """
+        request_kwargs: dict = {"json": payload}
+        if headers:
+            request_kwargs["headers"] = headers
+        result = self.context.client.request("post", f"{resource_path}", **request_kwargs)
         # Flatten assetInfo structure before deserialization
         result = _flatten_asset_info(dict(result)) if isinstance(result, dict) else result
 
