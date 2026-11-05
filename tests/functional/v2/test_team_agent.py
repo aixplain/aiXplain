@@ -436,11 +436,13 @@ _ROSTER = {"Ana": 19, "Bruno": 34, "Carla": 45, "Davi": 28}
 
 
 @pytest.mark.xfail(
-    strict=True,
+    # Not strict: through a session the engine sometimes answers with the nested
+    # types intact (one CI run passed, the next did not), so an XPASS is not news.
+    strict=False,
     raises=pydantic.ValidationError,
     reason=(
         "Backend: the agent engine does not resolve $ref/$defs in expected_output schemas, "
-        "so nested models lose their types (ticket to be filed)"
+        "so nested models usually lose their types (ticket to be filed)"
     ),
 )
 def test_run_team_agent_with_expected_output(client, resource_tracker):
@@ -455,6 +457,10 @@ def test_run_team_agent_with_expected_output(client, resource_tracker):
     answered ``{"result": ["Bruno: 34 ..."]}``. Only the validation of that
     structure is expected to fail: the persistence checks, a failed run and a
     missing delegation are ``AssertionError``s, which the xfail does not accept.
+
+    Strict while every run went to ``/v2/agents/{id}/run``. Since runs go through
+    a session (ENG-3907) the model sometimes keeps the nested types anyway, so
+    the xfail is no longer strict; it stays until the engine resolves ``$defs``.
     """
     roster = "\n".join(f"- {name}: {age} years old" for name, age in _ROSTER.items())
     sub = client.Agent(

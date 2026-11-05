@@ -595,6 +595,11 @@ jobs:
           TEAM_API_KEY_PROD: ${{ env.IS_PROD == 'true' && secrets.TEAM_API_KEY_PROD || '' }}
           TEAM_API_KEY_TEST: ${{ secrets.TEAM_API_KEY }}
           SLACK_TOKEN: ${{ matrix.slack && secrets.SLACK_TOKEN || '' }}
+          # Not secrets: the id of the Debugger meta-agent on each backend, for
+          # when it differs from the SDK default. Repository variables, so they
+          # can follow a redeploy without a commit; the branch below picks one.
+          DEBUGGER_ID_ON_PROD_BACKEND: ${{ vars.PROD_DEBUGGER_AGENT_ID }}
+          DEBUGGER_ID_ON_TEST_BACKEND: ${{ vars.TEST_DEBUGGER_AGENT_ID }}
         run: |
           set -euo pipefail
 
@@ -602,6 +607,7 @@ jobs:
             api_key="$TEAM_API_KEY_PROD"
             backend="https://platform-api.aixplain.com"
             models="https://models.aixplain.com"
+            debugger_agent_id="$DEBUGGER_ID_ON_PROD_BACKEND"
           else
             # Everything that is not production -- a push to `test`, a PR, the
             # nightly schedule, a dispatch on any other ref -- uses the test key
@@ -609,6 +615,7 @@ jobs:
             api_key="$TEAM_API_KEY_TEST"
             backend="https://test-platform-api.aixplain.com"
             models="https://test-models.aixplain.com"
+            debugger_agent_id="$DEBUGGER_ID_ON_TEST_BACKEND"
           fi
 
           {
@@ -627,6 +634,10 @@ jobs:
             # directly, and it is the URL the conftest would build anyway.
             echo "MODELS_RUN_URL=$models/api/v2/execute"
             echo "PIPELINES_RUN_URL=$backend/assets/pipeline/execution/run"
+            # Unset unless the repository variable is, so the SDK default applies.
+            if [ -n "$debugger_agent_id" ]; then
+              echo "AIXPLAIN_DEBUGGER_AGENT_ID=$debugger_agent_id"
+            fi
             # Empty on every leg without `slack: true`, so nothing is written there.
             if [ -n "$SLACK_TOKEN" ]; then
               echo "SLACK_TOKEN=$SLACK_TOKEN"

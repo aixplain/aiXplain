@@ -1,10 +1,11 @@
 # Run metadata
 
-Agent runs issued by the aiXplain SDK send a `metaData` object alongside your query.
-This page is the complete disclosure of what that object contains, why it is collected,
-where it goes, and what happens when the lookup behind it fails. [Which calls send
-it](#which-calls-send-it) below is the exact list — notably, v2 runs routed through a
-session do not carry it.
+Direct agent runs issued by the aiXplain SDK send a `metaData` object alongside your
+query. This page is the complete disclosure of what that object contains, why it is
+collected, where it goes, and what happens when the lookup behind it fails. [Which calls
+send it](#which-calls-send-it) below is the exact list — notably, runs routed through a
+session do not carry it, and every agent run goes through a session unless it passes a
+kwarg the session endpoint cannot carry.
 
 `metaData` is built by
 [`aixplain.utils.user_info_utils.build_run_metadata()`](../aixplain/utils/user_info_utils.py).
@@ -104,19 +105,20 @@ If you see `latitude: null` in a trace, this is why.
 
 | Surface | Call site | When |
 |---|---|---|
-| `Agent.build_run_payload` | `aixplain/v2/agent.py` | every direct agent run (`agent.run` / `agent.run_async`) |
+| `Agent.build_run_payload` | `aixplain/v2/agent.py` | every direct agent run (`agent.run` / `agent.run_async` with no `session=` that pass `tasks`, `prompt`, `inspectors`, `history` or `variables`, or a non-string `query`) |
 
 The four v1 call sites (`Agent.run_async`, `Agent.generate_session_id`,
 `TeamAgent.run_async`, `TeamAgent.generate_session_id`) went with v1 in 0.3.0.
 
 Direct agent runs reach the single call site through
-`RunnableResourceMixin._post_and_handle_run`, which calls `build_run_payload`. A v2 run
-routed through a session (`agent.run(query, session=…)`) does not go through
-`build_run_payload` at all — see below.
+`RunnableResourceMixin._post_and_handle_run`, which calls `build_run_payload`. A run
+routed through a session does not go through `build_run_payload` at all — see below.
+That is every other agent run: with no `session=`, the SDK creates a session for the run
+and posts the query to it.
 
 **These do _not_ send `metaData`:**
 
-- Session messages — `agent.run(query, session=...)` posts to
+- Session messages — `agent.run(query)` and `agent.run(query, session=...)` post to
   `/v1/sessions/{id}/messages` with `role`, `content`, `requestId`, `attachments` and
   `tools` only.
 - Model runs.

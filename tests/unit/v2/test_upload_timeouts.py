@@ -7,16 +7,20 @@ accepts the connection and then goes silent pins the calling thread with no
 upper bound.
 """
 
+import re
+import socket
+import threading
 import time
+from contextlib import closing
 from unittest.mock import Mock, patch
 
 import pytest
 import requests
 
-from aixplain.v2.client import DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ
+from aixplain.v2.client import DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ, DEFAULT_UPLOAD_TIMEOUT, upload_timeout
 from aixplain import FileUploadError
 from aixplain import FileUploader
-from aixplain.v2.upload_utils import RequestManager
+from aixplain.v2.upload_utils import RequestManager, S3Uploader
 
 # ``blackhole_url`` comes from tests/unit/conftest.py.
 
@@ -87,8 +91,10 @@ class TestUploadLegsUseTheDispatcher:
             uploader.upload(str(file_path))
 
         assert mock_request.call_count == 2
-        for call in mock_request.call_args_list:
-            assert call.kwargs["timeout"] == (DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ)
+        post, put = mock_request.call_args_list
+        assert post.kwargs["timeout"] == (DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ)
+        # The PUT carries the upload timeout: its first slot also bounds the body send.
+        assert put.kwargs["timeout"] == (DEFAULT_UPLOAD_TIMEOUT, DEFAULT_TIMEOUT_READ)
 
 
 class TestBlackholeFailsFast:
@@ -177,3 +183,162 @@ class TestUploadSessionReuse:
             thread.join()
 
         assert len({id(session) for session in results}) == 1
+
+
+class TestUploadTimeout:
+    """``upload_timeout`` raises the connect/send slot without touching the read slot."""
+
+    def test_defaults(self):
+        assert upload_timeout() == (DEFAULT_UPLOAD_TIMEOUT, DEFAULT_TIMEOUT_READ)
+
+    def test_keeps_the_callers_read_timeout(self):
+        assert upload_timeout((5, 42)) == (DEFAULT_UPLOAD_TIMEOUT, 42.0)
+
+    def test_a_single_number_applies_to_both_slots(self):
+        assert upload_timeout(30) == (DEFAULT_UPLOAD_TIMEOUT, 30.0)
+
+    def test_a_larger_connect_timeout_is_never_lowered(self):
+        assert upload_timeout((600, 42)) == (600.0, 42.0)
+
+    def test_env_override(self, monkeypatch):
+        monkeypatch.setenv("AIXPLAIN_HTTP_UPLOAD_TIMEOUT", "900")
+        assert upload_timeout((10, 300)) == (900.0, 300.0)
+
+    @pytest.mark.parametrize("bad", ["abc", "0", "-5", ""])
+    def test_unusable_env_values_fall_back_to_the_default(self, bad, monkeypatch):
+        monkeypatch.setenv("AIXPLAIN_HTTP_UPLOAD_TIMEOUT", bad)
+        assert upload_timeout((10, 300)) == (DEFAULT_UPLOAD_TIMEOUT, 300.0)
+
+
+class TestS3PutStreamsTheFile:
+    def test_put_body_is_the_open_file_not_its_bytes(self, tmp_path):
+        """A ``bytes`` body is sent in one ``sendall`` bounded by the connect timeout as a whole."""
+        file_path = tmp_path / "sample.csv"
+        file_path.write_text("a,b\n1,2\n")
+
+        bodies = []
+
+        def capture(method, url, **kwargs):
+            bodies.append((kwargs["data"], kwargs["data"].read()))
+            return _ok_response()
+
+        with patch.object(RequestManager, "request_with_retry", side_effect=capture):
+            S3Uploader.upload_file(str(file_path), "https://bucket.s3.amazonaws.com/x", "text/csv")
+
+        ((body, content),) = bodies
+        assert not isinstance(body, (bytes, bytearray))
+        assert content == b"a,b\n1,2\n"
+
+
+class TestEmptyFileUpload:
+    """An empty file goes as ``b""`` with ``Content-Length: 0``, never chunked.
+
+    ``requests`` cannot size an empty handle and falls back to
+    ``Transfer-Encoding: chunked``, which a presigned S3 PUT rejects.
+    """
+
+    @staticmethod
+    def _wire_headers(body):
+        prepared = requests.Request("PUT", "https://bucket.s3.amazonaws.com/x", data=body).prepare()
+        return {k: v for k, v in prepared.headers.items() if k in ("Content-Length", "Transfer-Encoding")}
+
+    def test_an_empty_handle_is_why(self, tmp_path):
+        """The failure the fix avoids: an empty handle is sent chunked."""
+        file_path = tmp_path / "empty.txt"
+        file_path.write_bytes(b"")
+        with open(file_path, "rb") as handle:
+            assert self._wire_headers(handle) == {"Transfer-Encoding": "chunked"}
+
+    def test_upload_body_sends_an_empty_file_as_empty_bytes(self, tmp_path):
+        from aixplain.v2.upload_utils import upload_body
+
+        empty = tmp_path / "empty.txt"
+        empty.write_bytes(b"")
+        full = tmp_path / "full.txt"
+        full.write_bytes(b"data")
+
+        with open(empty, "rb") as handle:
+            assert upload_body(handle) == b""
+            assert self._wire_headers(upload_body(handle)) == {"Content-Length": "0"}
+        with open(full, "rb") as handle:
+            assert upload_body(handle) is handle
+            assert self._wire_headers(upload_body(handle)) == {"Content-Length": "4"}
+
+    def test_s3_uploader_puts_an_empty_file_with_content_length_zero(self, tmp_path):
+        file_path = tmp_path / "__init__.py"
+        file_path.write_bytes(b"")
+        bodies = []
+
+        def capture(method, url, **kwargs):
+            bodies.append(kwargs["data"])
+            return _ok_response()
+
+        with patch.object(RequestManager, "request_with_retry", side_effect=capture):
+            S3Uploader.upload_file(str(file_path), "https://bucket.s3.amazonaws.com/x", "text/x-python")
+
+        assert bodies == [b""]
+        assert self._wire_headers(bodies[0]) == {"Content-Length": "0"}
+
+
+@pytest.fixture
+def slow_sink_url():
+    """An HTTP listener that drains a request body slowly, then answers 200.
+
+    A small receive buffer and a throttled ``recv`` make the client's send block
+    for well over a second in total, while no single 16 KiB block waits long.
+    """
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+    except OSError as e:
+        listener.close()
+        pytest.skip(f"cannot open a loopback listener in this environment: {e}")
+
+    def serve():
+        try:
+            conn, _ = listener.accept()
+        except OSError:
+            return
+        with closing(conn):
+            data = b""
+            while b"\r\n\r\n" not in data:
+                data += conn.recv(4096)
+            head, _, body = data.partition(b"\r\n\r\n")
+            length = int(re.search(rb"content-length:\s*(\d+)", head, re.I).group(1))
+            received = len(body)
+            while received < length:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    return
+                received += len(chunk)
+                time.sleep(0.002)
+            conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{listener.getsockname()[1]}/upload"
+    listener.close()
+    thread.join(timeout=5)
+
+
+class TestSlowLinkUpload:
+    """The reported bug: a large file on a slow link failed once the connect timeout elapsed."""
+
+    def test_an_upload_longer_than_the_timeout_succeeds(self, slow_sink_url, tmp_path, monkeypatch):
+        # Both slots well under the transfer time. Before the fix the file went
+        # out as one ``bytes`` body in a single ``sendall`` whose deadline was
+        # the connect timeout, so this failed at 0.5s. Streamed, the bound
+        # applies to each block, so only a stalled block can trip it.
+        monkeypatch.setenv("AIXPLAIN_HTTP_CONNECT_TIMEOUT", "0.5")
+        monkeypatch.setenv("AIXPLAIN_HTTP_UPLOAD_TIMEOUT", "0.5")
+        file_path = tmp_path / "large.bin"
+        file_path.write_bytes(b"\0" * (8 * 1024 * 1024))
+
+        started = time.monotonic()
+        with patch("aixplain.v2.upload_utils.validate_upload_url"):
+            S3Uploader.upload_file(str(file_path), slow_sink_url, "application/octet-stream")
+        elapsed = time.monotonic() - started
+
+        assert elapsed > 1.0, f"took {elapsed:.2f}s; the sink did not throttle, so this proves nothing"

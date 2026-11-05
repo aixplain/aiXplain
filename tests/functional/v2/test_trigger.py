@@ -7,9 +7,12 @@ neither is a secret:
 - the Composio Gmail integration, fetched by its marketplace path
   (``COMPOSIO_GMAIL_PATH``, which resolves on every backend), for
   ``integration.triggers`` discovery;
-- a connected tool that lists event-trigger types, found by
-  ``resolve_trigger_connection`` (pin one with AIXPLAIN_TEST_TRIGGER_CONNECTION_ID),
-  to activate a real event trigger end to end.
+- a connected tool that lists event-trigger types, to activate a real event
+  trigger end to end: the tenant's connections from
+  ``trigger_connection_candidates`` (pin one with
+  AIXPLAIN_TEST_TRIGGER_CONNECTION_ID). Only an OAuth connection can: a Slack
+  connection made from a bot token is refused for lack of a webhook
+  verification token.
 
 Both used to come from TEST_COMPOSIO_INTEGRATION_ID / TEST_CONNECTION_ID, and
 skipped when unset, which meant the event-trigger half of this file had never
@@ -25,7 +28,9 @@ import pytest
 from aixplain import Trigger, TriggerEventOption
 from aixplain import Page
 
-from tests.functional._helpers import resolve_trigger_connection
+from aixplain import ResourceError
+
+from tests.functional._helpers import is_inactive_connection_error, trigger_connection_candidates
 
 
 # Far-future instant so a "once" trigger is valid/schedulable.
@@ -60,12 +65,6 @@ def test_agent(client, module_resource_tracker):
 def composio_integration_id(client):
     """The Composio Gmail integration's id on this backend, for event-discovery tests."""
     return client.Integration.get(COMPOSIO_GMAIL_PATH).id
-
-
-@pytest.fixture(scope="module")
-def connection_id(client, composio_integration_id):
-    """A connected tool with event-trigger types, looked up once per module; fails the test when none exists."""
-    return resolve_trigger_connection(client, composio_integration_id).id
 
 
 # =============================================================================
@@ -251,27 +250,50 @@ class TestEventTriggerDiscovery:
 
 
 class TestEventTriggerLifecycle:
-    def test_create_and_delete_event_trigger(self, client, test_agent, connection_id, resource_tracker):
-        """Create a real Composio event trigger from a connected tool and delete it."""
-        tool = client.Tool.get(connection_id)
+    def test_create_and_delete_event_trigger(self, client, test_agent, composio_integration_id, resource_tracker):
+        """Create a real Composio event trigger from a connected tool and delete it.
 
-        slugs = list(tool.triggers)
-        # The connection was chosen *because* it lists trigger types, so an
-        # empty `triggers` here disagrees with the `list_trigger_types` probe.
-        assert slugs, (
-            f"Connected tool {tool.id} listed trigger types when it was resolved but exposes none "
-            "through `tool.triggers`."
-        )
-        option = tool.triggers[slugs[0]]
-        assert option.connection_id == tool.id  # connected tool carries the connection
+        The tenant's connections are tried in order, and one Composio refuses
+        because the connection cannot carry a trigger -- its account expired or
+        never finished OAuth, or it lacks the webhook verification token a
+        token-authenticated Slack connection has -- is passed over. Any other
+        activation failure fails the test, and so does running out of candidates.
+        """
 
-        t = client.Trigger(
-            name=f"event-{int(time.time())}-{uuid.uuid4().hex[:6]}",
-            agent=test_agent,
-            input="Handle this event.",
-            event=option,
-        )
-        t.save()
+        refused = []
+        for tool in trigger_connection_candidates(client, composio_integration_id):
+            slugs = list(tool.triggers)
+            # The connection was chosen *because* it lists trigger types, so an
+            # empty `triggers` here disagrees with the `list_trigger_types` probe.
+            assert slugs, (
+                f"Connected tool {tool.id} listed trigger types when it was resolved but exposes none "
+                "through `tool.triggers`."
+            )
+            option = tool.triggers[slugs[0]]
+            assert option.connection_id == tool.id  # connected tool carries the connection
+
+            t = client.Trigger(
+                name=f"event-{int(time.time())}-{uuid.uuid4().hex[:6]}",
+                agent=test_agent,
+                input="Handle this event.",
+                event=option,
+            )
+            try:
+                t.save()
+            except ResourceError as error:
+                if not is_inactive_connection_error(error):
+                    raise
+                # Activation runs in ``before_save``, so a refusal leaves no record behind.
+                refused.append(f"{tool.id} ({slugs[0]}): {str(error)[:300]}")
+                continue
+            break
+        else:
+            pytest.fail(
+                "No connected tool could activate an event trigger. Refused: "
+                f"{'; '.join(refused) or 'no candidates found'}. Reconnect an integration with event "
+                "triggers (Composio Gmail) through OAuth in this tenant."
+            )
+
         resource_tracker.append(t)
         assert t.id is not None
         assert t.trigger_type == "external"

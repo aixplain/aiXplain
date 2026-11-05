@@ -2,8 +2,10 @@
 
 The debugger is a pre-configured backend agent, so this is the one path that
 actually exercises ``Debugger.run`` / ``AgentRunResult.debug`` end to end. It
-needs ``meta_agents.DEBUGGER_AGENT_ID`` to exist on whichever backend the leg
-runs against.
+needs the debugger agent to exist on whichever backend the leg runs against:
+``meta_agents.DEBUGGER_AGENT_ID``, or ``AIXPLAIN_DEBUGGER_AGENT_ID`` when set
+(CI sets it from the ``TEST_DEBUGGER_AGENT_ID`` / ``PROD_DEBUGGER_AGENT_ID``
+repository variables).
 
 Copyright 2022 The aiXplain SDK authors
 

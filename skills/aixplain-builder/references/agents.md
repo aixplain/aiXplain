@@ -145,7 +145,9 @@ agent.run("My name is Adam.", session=session)
 agent.run("What is my name?", session=session)     # remembers; or session=session.id
 ```
 
-`session=` accepts a `Session` object or an id string — anything else raises `TypeError`. Sessions live on the server and are bound to one agent, so a fresh client (`aix.Agent.get(id)`) resumes the same conversation from `session.id` alone. Save payload is `{'agentId', 'name', 'status'}` (+ `executionConfig` if set); statuses are `active | completed | failed | archived`. Sessions are **never auto-deleted** — call `session.delete()` when done.
+**Every run is a session run.** Omit `session=` and the SDK creates a new session for that run (with the run's `execution_params`/`criteria`/`identifier` and the agent's budget in its `executionConfig`) and returns its id on `result.session_id` — pass it back as `session=` to continue the thread. `run_async` does the same. Only runs passing `tasks`/`prompt`/`inspectors`/`history`/`variables` or a non-string query still use the direct `/v2/agents/{id}/run` endpoint, with no session.
+
+`session=` accepts a `Session` object or an id string — anything else raises `TypeError`. Sessions live on the server and are bound to one agent, so a fresh client (`aix.Agent.get(id)`) resumes the same conversation from `session.id` alone. Save payload is `{'agentId', 'name', 'status'}` (+ `executionConfig` if set); statuses are `active | completed | failed | archived`. Sessions are **never auto-deleted** — call `session.delete()` when done (this includes the one the SDK creates for each sessionless run).
 
 For one run's worth of prior turns *without* a stored session, pass `history=[{"role","content"}, …]` instead; nothing is persisted, and it cannot be combined with `session=`.
 

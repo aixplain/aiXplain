@@ -2,6 +2,52 @@
 
 ## Unreleased
 
+### Changed: every agent run goes through a session
+
+`agent.run(query)` and `agent.run_async(query)` without `session=` now create a new
+session for the run and post the query to it (`POST /v1/sessions/{id}/messages`),
+the same path `session=` takes. The run is recorded as a platform session and its id
+is on `result.session_id`; pass it back as `session=` to continue the conversation.
+The run's `execution_params`, `criteria`, `evolve`, `identifier` and
+`run_response_generation`, and the agent's budget, are stored in that session's
+`executionConfig`. Sessions are not deleted automatically.
+
+Runs that pass `tasks`, `prompt`, `inspectors`, `history` or `variables`, or a
+non-string `query`, still use `POST /v2/agents/{id}/run` with no session, because the
+session endpoint does not carry those. Session runs do not send `metaData` (see
+[docs/run-metadata.md](docs/run-metadata.md)). A run's `identifier` is stored in the
+session's `executionConfig` and is also sent as the `x-user-id` header on the session
+create and on the message, as the direct path sends it on the run: the backend makes
+the session owned by that end user (without the header a session is visible to every
+caller on the team) and applies per-user rate limits. `run_retries` / `run_retry_wait`
+retry the session create and the message POST on a 429, a 5xx or no response, as they
+retry the direct run POST.
+
+`run_async(session=...)` is now supported and returns a result whose `url` polls the
+triggered run; it used to raise `NotImplementedError`. Session runs now call the
+agent's `before_run` hook (which saves a new or modified draft agent) and `after_run`
+hook, as direct runs do.
+
+### Fixed: large uploads failing after 10 seconds on slow connections
+
+The S3 PUT behind `FileUploader`, agent attachments and `File.save()` was held to the
+10-second connect timeout for the whole body, regardless of the 300-second read
+timeout: urllib3 keeps the socket at the connect timeout while it sends the request,
+and the file was sent as one block. Uploads now stream the file and use an upload
+timeout of at least 120 seconds per block (`AIXPLAIN_HTTP_UPLOAD_TIMEOUT`), so only a
+stalled transfer times out. An empty file is sent as an empty body with
+`Content-Length: 0`, since a streamed empty file would go out chunked, which a
+presigned S3 PUT rejects.
+
+### Fixed: the Debugger pointed at an agent that no longer exists
+
+`aix.Debugger()` and `result.debug()` looked up agent `696fdccad63e898317c097a0`,
+which does not exist on the test or production backends and points at a retired
+tool on dev. The default is now `6a83989b20d5ce8082cdc775` (aiXplain Debugger Agent
+c3). `AIXPLAIN_DEBUGGER_AGENT_ID` overrides it for a backend that deploys the
+debugger under another id, and a missing debugger agent now raises a `ResourceError`
+naming the id, the backend and that variable instead of a bare `APIError: Not Found`.
+
 ### Added: SDK type information
 
 The package now ships `py.typed`. Type checkers such as mypy will check SDK

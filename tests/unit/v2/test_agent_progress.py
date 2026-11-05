@@ -87,6 +87,9 @@ class TestProgressKwargsStayOffTheWire:
         fake_result.url = None
         fake_result.completed = True
         agent.handle_run_response = lambda response, **kw: fake_result
+        # The direct ``/v2/agents/{id}/run`` body is under test; a run with no
+        # session otherwise goes through a session.
+        agent._sessionless_run_reason = lambda kwargs: "direct path under test"
         return agent
 
     def test_progress_kwargs_absent_from_build_run_payload(self):

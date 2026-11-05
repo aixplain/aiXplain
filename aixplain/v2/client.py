@@ -78,6 +78,16 @@ DEFAULT_TIMEOUT_CONNECT = 10.0
 DEFAULT_TIMEOUT_READ = 300.0
 TimeoutType = Union[float, Tuple[float, float]]
 
+# Upload PUTs need their own first slot. urllib3 keeps the socket at the
+# *connect* timeout while it writes the request body and only switches to the
+# read timeout once the body is out, and since Python 3.5 ``sendall`` treats
+# that value as a deadline for the whole call. A file sent as one ``bytes``
+# body therefore had 10 seconds to cross the wire, whatever the read timeout
+# said, so a large file on a slow link always failed at the 10-second mark.
+# Uploads stream the file in 16 KiB blocks, so this bounds a stalled block
+# (and the connect), not the whole transfer.
+DEFAULT_UPLOAD_TIMEOUT = 120.0
+
 
 def _timeout_from_env(name: str, default: float) -> float:
     """Read a positive float timeout from ``name``, falling back to ``default``.
@@ -109,6 +119,30 @@ def default_timeout() -> Tuple[float, float]:
         _timeout_from_env("AIXPLAIN_HTTP_CONNECT_TIMEOUT", DEFAULT_TIMEOUT_CONNECT),
         _timeout_from_env("AIXPLAIN_HTTP_READ_TIMEOUT", DEFAULT_TIMEOUT_READ),
     )
+
+
+def upload_timeout(base: Optional[TimeoutType] = None) -> Tuple[float, float]:
+    """Resolve the ``(connect/send, read)`` timeout for a presigned upload PUT.
+
+    The first slot also bounds each block of the request body (see
+    :data:`DEFAULT_UPLOAD_TIMEOUT`), so it is raised to at least
+    ``AIXPLAIN_HTTP_UPLOAD_TIMEOUT`` (seconds, default 120). The read slot
+    comes from *base*, the caller's configured timeout, or from
+    :func:`default_timeout` when *base* is ``None``. A larger first slot in
+    *base* wins, so a caller who raised the connect timeout is never lowered.
+
+    Args:
+        base: The timeout configured for the client, as a single number or a
+            ``(connect, read)`` pair. ``None`` uses the defaults.
+
+    Returns:
+        A ``(connect/send, read)`` pair to pass as ``timeout=``.
+    """
+    if base is None:
+        base = default_timeout()
+    connect, read = base if isinstance(base, tuple) else (base, base)
+    send = _timeout_from_env("AIXPLAIN_HTTP_UPLOAD_TIMEOUT", DEFAULT_UPLOAD_TIMEOUT)
+    return (max(float(connect), send), float(read))
 
 
 # Hosts the SDK is willing to send ``TEAM_API_KEY`` to, on top of whatever the

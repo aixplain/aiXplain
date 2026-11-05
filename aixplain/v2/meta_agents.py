@@ -23,18 +23,32 @@ Example usage:
     debug_result = response.debug("Why did it take so long?")  # Custom prompt
 """
 
+import os
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union, TYPE_CHECKING
 from dataclasses_json import dataclass_json, config
 
+from .exceptions import APIError, ResourceError
 from .resource import Result
 
 if TYPE_CHECKING:
     from .agent import AgentRunResult
 
 
-# Debugger agent ID - pre-configured aiXplain agent for debugging
-DEBUGGER_AGENT_ID = "696fdccad63e898317c097a0"
+# Debugger agent ID - pre-configured aiXplain agent for debugging ("aiXplain
+# Debugger Agent c3"). The previous id, ``696fdccad63e898317c097a0``, does not
+# exist on the test or production backends and points at a retired tool on dev.
+DEBUGGER_AGENT_ID = "6a83989b20d5ce8082cdc775"
+
+#: Overrides :data:`DEBUGGER_AGENT_ID`, read on every lookup. The debugger is a
+#: backend agent deployed per environment, so a backend that carries it under a
+#: different id (or a team running its own debugger) points the SDK at it here.
+DEBUGGER_AGENT_ID_ENV = "AIXPLAIN_DEBUGGER_AGENT_ID"
+
+
+def debugger_agent_id() -> str:
+    """The debugger agent id to use: ``AIXPLAIN_DEBUGGER_AGENT_ID`` when set, else :data:`DEBUGGER_AGENT_ID`."""
+    return (os.getenv(DEBUGGER_AGENT_ID_ENV) or "").strip() or DEBUGGER_AGENT_ID
 
 
 @dataclass_json
@@ -120,12 +134,27 @@ class Debugger:
 
         Returns:
             The debugger Agent instance.
+
+        Raises:
+            ResourceError: If the debugger agent does not exist on this backend.
+                A bare ``APIError: Not Found`` named neither the agent nor how to
+                point the SDK at another one.
         """
         from .agent import Agent
 
+        agent_id = debugger_agent_id()
         # Create a dynamically bound Agent class with our context
         BoundAgent = type("Agent", (Agent,), {"context": self.context})
-        return BoundAgent.get(DEBUGGER_AGENT_ID)
+        try:
+            return BoundAgent.get(agent_id)
+        except APIError as error:
+            if error.status_code != 404:
+                raise
+            backend = getattr(self.context, "backend_url", None) or "this backend"
+            raise ResourceError(
+                f"The Debugger agent {agent_id} is not available on {backend}. Set "
+                f"{DEBUGGER_AGENT_ID_ENV} to the id of the debugger agent deployed there."
+            ) from error
 
     def run(
         self,

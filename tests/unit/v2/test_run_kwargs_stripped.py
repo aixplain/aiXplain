@@ -72,6 +72,10 @@ def _agent():
     fake_result.url = None
     fake_result.completed = True
     agent.handle_run_response = lambda response, **kw: fake_result
+    # These tests pin the direct ``POST /v2/agents/{id}/run`` body, which every
+    # legacy-kwarg run still uses. A plain run now goes through a session, where
+    # the last ``client.request`` call would be the draft-save PUT instead.
+    agent._sessionless_run_reason = lambda kwargs: "direct path under test"
     return agent
 
 
