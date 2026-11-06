@@ -11,12 +11,14 @@ per tool by setting ``timeout`` on the tool object before attaching it::
 """
 
 import warnings
+from decimal import Decimal
 from fractions import Fraction
 from unittest.mock import Mock
 
 import pytest
 
 from aixplain import Agent, Integration, Model, Tool, ValidationError
+from aixplain.v2.exceptions import ResourceError
 
 
 def _ctx() -> Mock:
@@ -71,6 +73,29 @@ def _create_agent_with(tool, response_tool: dict) -> Agent:
     return agent
 
 
+def _saved_agent(tool_dict: dict, put_response_tools=None):
+    """A fetched, onboarded agent whose PUT echoes *put_response_tools* (omitted when None)."""
+    ctx = _ctx()
+    sent = []
+
+    def request(method, path, **kw):
+        if method == "put":
+            sent.append(kw["json"])
+            response = {"id": "agent-1", "name": "n", "description": "d", "status": "onboarded"}
+            if put_response_tools is not None:
+                response["tools"] = put_response_tools
+            return response
+        return {}
+
+    ctx.client.request.side_effect = request
+    ctx.client.get.side_effect = lambda *a, **k: {}
+    agent = _bound_agent(ctx).from_dict(
+        {"id": "agent-1", "name": "n", "description": "d", "tools": [tool_dict], "status": "onboarded"}
+    )
+    agent._update_saved_state()
+    return agent, sent
+
+
 class TestAsTool:
     def test_unset_timeout_is_omitted(self):
         assert "timeout" not in _model().as_tool()
@@ -97,6 +122,14 @@ class TestAsTool:
         ids=["zero", "negative", "bool", "str", "inf", "nan", "overflow"],
     )
     def test_invalid_timeout_raises(self, value):
+        with pytest.raises(ValidationError, match="positive number of seconds"):
+            _model(value).as_tool()
+
+    def test_decimal_accepted(self):
+        assert _model(Decimal("2.5")).as_tool()["timeout"] == 2.5
+
+    @pytest.mark.parametrize("value", [Decimal("NaN"), Decimal("sNaN"), Decimal("-1")], ids=["nan", "snan", "neg"])
+    def test_invalid_decimal_raises(self, value):
         with pytest.raises(ValidationError, match="positive number of seconds"):
             _model(value).as_tool()
 
@@ -215,10 +248,107 @@ class TestClearingAStoredTimeout:
         agent = Agent(name="n", description="d", tools=[{"id": "m1", "type": "model"}])
         assert "timeout" not in _saved_tools(agent)[0]
 
+    @pytest.mark.parametrize("tool_type", ["model", "tool"])
+    @pytest.mark.parametrize("bound", [False, True], ids=["plain-agent", "client-agent"])
+    def test_a_dict_entry_with_timeout_none_sends_none(self, bound, tool_type):
+        # Both agent types send the clear the caller asked for.
+        cls = _bound_agent(_ctx()) if bound else Agent
+        agent = cls(name="n", description="d", tools=[{"id": "m1", "type": tool_type, "timeout": None}])
+        saved = _saved_tools(agent)[0]
+        assert "timeout" in saved
+        assert saved["timeout"] is None
+
+    def test_a_stored_null_is_not_taken_for_a_clear(self, caplog):
+        # The backend returns null for a tool with no timeout; that is unset,
+        # not an invalid value to warn about.
+        with caplog.at_level("WARNING"):
+            agent = _fetched_agent({"id": "x1", "type": "model", "name": "air", "timeout": None})
+        assert "timeout" not in _saved_tools(agent)[0]
+        assert "Ignoring invalid stored timeout" not in caplog.text
+
     def test_clearing_marks_the_agent_modified(self):
         agent = _fetched_agent({"id": "x1", "type": "model", "name": "air", "timeout": 10})
         agent.tools[0].timeout = None
         assert agent.is_modified is True
+
+
+class TestSaveRaisesValidationError:
+    # save() runs inside with_hooks, which turns other exceptions into a
+    # ResourceError; the timeout check has to run before it.
+
+    @pytest.mark.parametrize("value", [0, -1, True, "10", float("nan")], ids=["zero", "neg", "bool", "str", "nan"])
+    def test_tool_object(self, value):
+        agent, sent = _saved_agent({"id": "x1", "type": "model", "name": "air"})
+        agent.tools[0].timeout = value
+        with pytest.raises(ValidationError, match="positive number of seconds") as raised:
+            agent.save()
+        assert not isinstance(raised.value, ResourceError)
+        assert sent == []
+
+    @pytest.mark.parametrize("bound", [False, True], ids=["plain-agent", "client-agent"])
+    def test_dict_tool(self, bound):
+        cls = _bound_agent(_ctx()) if bound else Agent
+        agent = cls(name="n", description="d", tools=[{"id": "m1", "type": "model", "timeout": -5}])
+        with pytest.raises(ValidationError, match="positive number of seconds"):
+            agent.save()
+
+
+class TestUpdateResponse:
+    # The PUT response carries the platform's copy of the tools, the same as
+    # a create's, so an update is checked too.
+
+    def test_update_warns_when_the_platform_drops_the_timeout(self):
+        agent, sent = _saved_agent(
+            {"id": "x1", "type": "model", "name": "air"},
+            put_response_tools=[{"id": "x1", "type": "model", "name": "air", "timeout": None}],
+        )
+        agent.tools[0].timeout = 5
+        with pytest.warns(UserWarning, match="did not store the timeout set on tool 'x1'"):
+            agent.save()
+        assert sent[0]["tools"][0]["timeout"] == 5.0
+        assert agent.tools[0].timeout == 5
+
+    def test_update_does_not_warn_when_the_platform_stores_it(self):
+        agent, _ = _saved_agent(
+            {"id": "x1", "type": "model", "name": "air"},
+            put_response_tools=[{"id": "x1", "type": "model", "name": "air", "timeout": 5}],
+        )
+        agent.tools[0].timeout = 5
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            agent.save()
+        assert agent.tools[0]._platform_timeout == 5
+
+    def test_a_value_the_platform_dropped_is_not_recorded_as_stored(self):
+        agent, _ = _saved_agent(
+            {"id": "x1", "type": "model", "name": "air"},
+            put_response_tools=[{"id": "x1", "type": "model", "name": "air"}],
+        )
+        agent.tools[0].timeout = 5
+        with pytest.warns(UserWarning):
+            agent.save()
+        # Nothing was stored, so there is nothing to clear.
+        agent.tools[0].timeout = None
+        assert "timeout" not in _saved_tools(agent)[0]
+
+    def test_a_stored_value_is_recorded_so_unsetting_it_clears_it(self):
+        agent, _ = _saved_agent(
+            {"id": "x1", "type": "model", "name": "air"},
+            put_response_tools=[{"id": "x1", "type": "model", "name": "air", "timeout": 5}],
+        )
+        agent.tools[0].timeout = 5
+        agent.save()
+        agent.tools[0].timeout = None
+        assert _saved_tools(agent)[0]["timeout"] is None
+
+    def test_a_response_without_tools_records_the_sent_value(self):
+        agent, _ = _saved_agent({"id": "x1", "type": "model", "name": "air"})
+        agent.tools[0].timeout = 5
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            agent.save()
+        agent.tools[0].timeout = None
+        assert _saved_tools(agent)[0]["timeout"] is None
 
 
 class TestIsModified:
@@ -228,4 +358,11 @@ class TestIsModified:
         agent = _fetched_agent({"id": "x1", "type": "model", "name": "air", "timeout": 10})
         assert agent.is_modified is False
         agent.tools[0].timeout = 30
+        assert agent.is_modified is True
+
+    def test_timeout_change_on_a_dict_tool_marks_agent_modified(self):
+        agent = Agent(name="n", description="d", tools=[{"id": "m1", "type": "model", "timeout": 10}])
+        agent._update_saved_state()
+        assert agent.is_modified is False
+        agent.tools[0]["timeout"] = 30
         assert agent.is_modified is True

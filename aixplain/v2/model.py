@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import decimal
 import math
 import numbers
 import re
@@ -787,11 +788,13 @@ class ModelRunParams(BaseRunParams):
 _TOOL_TIMEOUT_CEILING_SECONDS = 3600.0
 
 
-def _validate_tool_timeout(value: Any) -> float:
+def _validate_tool_timeout(value: Any, warn: bool = True) -> float:
     """Return a tool ``timeout`` as float seconds.
 
     Args:
-        value: The caller's per-call time limit for a tool, in seconds.
+        value: The caller's per-call time limit for a tool, in seconds: any
+            real number (``int``, ``float``, ``Fraction``, ``Decimal``, ...).
+        warn: Whether to warn about a value above the runtime's run ceiling.
 
     Returns:
         float: The value as seconds.
@@ -800,14 +803,14 @@ def _validate_tool_timeout(value: Any) -> float:
         ValidationError: If ``value`` is not a positive, finite real number (bools included).
     """
     seconds = None
-    if isinstance(value, numbers.Real) and not isinstance(value, bool):
+    if isinstance(value, (numbers.Real, decimal.Decimal)) and not isinstance(value, bool):
         try:
             seconds = float(value)
-        except OverflowError:
+        except (OverflowError, ValueError):  # ValueError: a signalling Decimal NaN
             seconds = None
     if seconds is None or not math.isfinite(seconds) or seconds <= 0:
         raise ValidationError(f"Tool timeout must be a positive number of seconds, got {value!r}.")
-    if seconds > _TOOL_TIMEOUT_CEILING_SECONDS:
+    if warn and seconds > _TOOL_TIMEOUT_CEILING_SECONDS:
         warnings.warn(
             f"Tool timeout {seconds:g}s is above the agent runtime's default run ceiling "
             f"({_TOOL_TIMEOUT_CEILING_SECONDS:g}s); the runtime cuts it down to that ceiling.",
@@ -881,6 +884,12 @@ class Model(
     # unset ``timeout`` has to be sent as an explicit ``None`` to clear it.
     _platform_timeout: Optional[float] = field(
         default=None, init=False, repr=False, compare=False, metadata=config(exclude=lambda x: True)
+    )
+    # Set when the tool was built from a caller's tool dict that gave
+    # ``"timeout": None``, so the clear it asked for is sent even when the
+    # platform's stored value is not known yet.
+    _clear_timeout: bool = field(
+        default=False, init=False, repr=False, compare=False, metadata=config(exclude=lambda x: True)
     )
 
     def __post_init__(self):
@@ -1461,7 +1470,7 @@ class Model(
         }
         if self.timeout is not None:
             tool_dict["timeout"] = _validate_tool_timeout(self.timeout)
-        elif self._platform_timeout is not None:
+        elif self._platform_timeout is not None or self._clear_timeout:
             # Omitting the key would keep the stored value; None clears it.
             tool_dict["timeout"] = None
         return tool_dict

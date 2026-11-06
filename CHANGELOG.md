@@ -17,18 +17,21 @@ agent.save()
 It is sent on the agent's tool entry when the agent is saved; unset, the
 platform's default for that tool applies. Applying the value depends on
 platform-backend storing it and passing it to the agent runtime (ENG-3903).
-Until it does, creating the agent warns that the platform did not store the timeout
-(an update's response carries no tools, so it cannot be checked there).
+Until it does, saving the agent (create or update) warns that the platform did not
+store the timeout.
 
-- A value that is not a positive number raises `ValidationError` when the agent is
-  saved, whether it is set on a tool object or in a plain tool dict, on a plain
-  `Agent(...)` or on `client.Agent(...)`. A value above 3600 seconds warns: the
-  agent runtime cuts it down to its run ceiling (3600 seconds by default).
+- Any real number of seconds is accepted (`int`, `float`, `Fraction`, `Decimal`).
+  A value that is not a positive, finite number raises `ValidationError` from
+  `agent.save()` (not the `ResourceError` other save failures raise), whether it
+  is set on a tool object or in a plain tool dict, on a plain `Agent(...)` or on
+  `client.Agent(...)`. A value above 3600 seconds warns: the agent runtime cuts
+  it down to its run ceiling (3600 seconds by default).
 - Changing it on a saved agent marks the agent modified, so it takes effect only
   after `agent.save()`; unlike input values there is no per-run override.
 - Setting it back to `None` on a tool the platform stored a timeout for clears
-  it on the next save. A tool entry that leaves the key out (a plain dict or a
-  tool id) keeps the stored value.
+  it on the next save, as does a tool dict with `"timeout": None`. A tool entry
+  that leaves the key out (a plain dict or a tool id) keeps the stored value.
+  What counts as stored is read from the save response, not assumed.
 - A `timeout` key in a model or tool record returned by the backend is ignored, so
   a platform default is never saved back as the user's override. In an agent
   record, an invalid stored value is dropped with a warning instead of making the
