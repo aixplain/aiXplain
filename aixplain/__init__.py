@@ -101,7 +101,7 @@ def __getattr__(name: str):
     ``AttributeError: 'NoneType' object has no attribute 'Agent'`` instead of the
     actionable message ``Aixplain()`` already raises (BUG-946). Deferring the
     construction to first access keeps ``import aixplain`` working without a key
-    -- which ``aixplain --help`` and unit-test collection rely on -- while
+    -- which unit-test collection and tools that only inspect the package rely on -- while
     letting the real error reach whoever actually asks for the client.
 
     Args:

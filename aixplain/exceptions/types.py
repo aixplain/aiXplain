@@ -372,6 +372,7 @@ class AlreadyDeployedError(AixplainBaseException):
     """Raised when an asset is already deployed."""
 
     def __init__(self, message: str, **kwargs):
+        """Initialize AlreadyDeployedError with a message and optional overrides."""
         super().__init__(
             message=message,
             category=ErrorCategory.INTERNAL,
