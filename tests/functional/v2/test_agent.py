@@ -2,27 +2,24 @@ import re
 
 import pytest
 import time
-from aixplain.enums import AssetStatus, ResponseStatus
-from aixplain.v2.exceptions import APIError
+import uuid
+from aixplain import AssetStatus, ResponseStatus
+from aixplain import APIError
 
 
 @pytest.fixture(scope="module")
-def test_agent(client):
+def test_agent(client, module_resource_tracker):
     """Create a test agent dynamically for testing and clean up after tests complete."""
+    # Each xdist worker builds its own copy of this module fixture, so the name
+    # needs more than a timestamp to stay unique.
     agent = client.Agent(
-        name=f"Functional Test Agent {int(time.time())}",
+        name=f"Functional Test Agent {int(time.time())}-{uuid.uuid4().hex[:6]}",
         description="A temporary agent for functional testing",
         instructions="You are a helpful test agent. Respond briefly to questions.",
     )
     agent.save()
-
-    yield agent
-
-    # Cleanup after all tests in module complete
-    try:
-        agent.delete()
-    except Exception:
-        pass  # Ignore cleanup errors
+    module_resource_tracker.append(agent)
+    return agent
 
 
 def validate_agent_structure(agent):
@@ -239,11 +236,11 @@ def _get_steps(response):
     return steps
 
 
-def test_agent_creation_and_deletion(client):
+def test_agent_creation_and_deletion(client, resource_tracker):
     """Test agent creation and deletion workflow."""
     # Create a test agent
     agent = client.Agent(
-        name=f"Test Agent for Deletion {int(time.time())}",
+        name=f"Test Agent for Deletion {int(time.time())}-{uuid.uuid4().hex[:6]}",
         description="A temporary agent for testing creation and deletion",
         instructions="You are a test agent for testing purposes only",
     )
@@ -255,6 +252,7 @@ def test_agent_creation_and_deletion(client):
 
     # Save the agent to get an ID
     agent.save()
+    resource_tracker.append(agent)
 
     # Verify the agent now has an ID
     assert agent.id is not None
@@ -273,6 +271,7 @@ def test_agent_creation_and_deletion(client):
 
     # Clean up - delete the agent
     delete_result = agent.delete()
+    resource_tracker.mark_cleaned(agent)
 
     # Verify deletion was successful
     assert delete_result is not None
@@ -280,7 +279,7 @@ def test_agent_creation_and_deletion(client):
     assert delete_result.status == "SUCCESS"
 
     # Verify the agent was actually deleted by trying to retrieve it
-    from aixplain.v2.exceptions import APIError
+    from aixplain import APIError
 
     with pytest.raises(APIError) as exc_info:
         client.Agent.get(deleted_agent_id)
@@ -317,126 +316,10 @@ def test_agent_field_mappings(client, test_agent):
     assert agent.team_id is None or isinstance(agent.team_id, int)
 
 
-@pytest.mark.skip(
-    reason="Backend rejects the Slack send-message payload: 'Unsupported Slack send message field(s). "
-    "text: Use markdown_text for normal content, or fallback_text with blocks.'"
-)
-def test_slack_tool_integration_with_agent(client, slack_token):
-    """Test Slack tool integration with agent creation and execution."""
-    # Get Slack integration
-    integration = client.Integration.get("686432941223092cb4294d3f")  # Slack integration ID
-
-    # Create Slack tool
-    slack_tool = client.Tool(
-        name=f"test-slack-tool-{int(time.time())}",
-        integration=integration,
-        config={"token": slack_token},
-        allowed_actions=["SLACK_SEND_MESSAGE"],
-    )
-
-    # Validate tool creation
-    assert slack_tool.name.startswith("test-slack-tool-")
-    assert slack_tool.integration.id == "686432941223092cb4294d3f"
-    assert "SLACK_SEND_MESSAGE" in slack_tool.allowed_actions
-
-    # Save tool before running
-    slack_tool.save()
-
-    # Test tool execution
-    test_message = "Hello from aixplain functional test!"
-    tool_response = slack_tool.run(
-        action="SLACK_SEND_MESSAGE",
-        data={"channel": "#integrations-test", "text": test_message},
-    )
-
-    # Validate tool response
-    assert tool_response is not None
-    assert hasattr(tool_response, "status")
-    assert hasattr(tool_response, "completed")
-    assert hasattr(tool_response, "data")
-
-    # Validate tool execution success - run() should already return completed result
-    assert tool_response.completed is True, f"Tool execution failed to complete. Status: {tool_response.status}"
-    assert tool_response.status == "SUCCESS", f"Tool execution failed with status: {tool_response.status}"
-
-    # Validate tool response data
-    assert tool_response.data is not None, "Tool response data is None"
-    if hasattr(tool_response.data, "output"):
-        assert tool_response.data.output is not None, "Tool response output is None"
-    elif isinstance(tool_response.data, str):
-        assert len(tool_response.data) > 0, "Tool response data is empty string"
-
-    # Create agent with the Slack tool
-    agent = client.Agent(
-        name=f"test-slack-agent-{int(time.time())}",
-        description="A test agent with Slack integration",
-        instructions="You are a test agent that can post messages to Slack",
-        tools=[slack_tool],
-    )
-
-    # Validate agent creation
-    assert agent.name.startswith("test-slack-agent-")
-    assert agent.description == "A test agent with Slack integration"
-    assert agent.instructions == "You are a test agent that can post messages to Slack"
-    assert len(agent.tools) == 1
-
-    # Save the agent to get an ID
-    agent.save()
-
-    # Verify the agent now has an ID
-    assert agent.id is not None
-    assert isinstance(agent.id, str)
-
-    # Test agent execution with Slack tool
-    query = "post a test message to slack channel #integrations-test saying 'This is a functional test from pytest!'"
-    agent_response = agent.run(query)
-
-    # Validate agent response
-    assert agent_response is not None
-    assert hasattr(agent_response, "request_id")
-    assert hasattr(agent_response, "data")
-    assert hasattr(agent_response, "completed")
-    assert hasattr(agent_response, "status")
-
-    # Validate agent execution success - run() should already return completed result
-    assert agent_response.completed is True, f"Agent execution failed to complete. Status: {agent_response.status}"
-    assert agent_response.status == "SUCCESS", f"Agent execution failed with status: {agent_response.status}"
-
-    # Validate agent response data
-    assert agent_response.data is not None, "Agent response data is None"
-    if hasattr(agent_response.data, "output"):
-        assert agent_response.data.output is not None, "Agent response output is None"
-        assert len(agent_response.data.output) > 0, "Agent response output is empty"
-    elif isinstance(agent_response.data, str):
-        assert len(agent_response.data) > 0, "Agent response data is empty string"
-
-    # Validate that the agent used the Slack tool
-    # data can be AgentResponseData object, so we need to access the output field
-    if hasattr(agent_response.data, "output"):
-        response_text = agent_response.data.output
-    else:
-        response_text = str(agent_response.data)
-
-    # Check that the response contains expected content or indicates success
-    response_lower = response_text.lower()
-    assert (
-        "slack" in response_lower
-        or "message" in response_lower
-        or "success" in response_lower
-        or "functional test" in response_lower
-        or agent_response.status == "SUCCESS"
-    )
-
-    # Clean up - delete the agent and tool
-    agent.delete()
-    # Note: Tool deletion may not be implemented yet, but agent deletion should work
-
-
 # Platform tool helpers
 
-FIRECRAWL_CONNECTION_ASSET_ID = "69442021f2e6cb73e286ff0f"
-TAVILY_CONNECTION_ASSET_ID = "6931bdf462eb386b7158def3"
-GOOGLE_SEARCH_UTILITY_MODEL_ID = "65c51c556eb563350f6e1bb1"
+#: A marketplace path rather than an id, so it is not in
+#: `tests/functional/_assets.py`: the same path resolves on every backend.
 WEB_SEARCH_TOOL_PATH = "scale-serp/google-search/Google"
 
 
@@ -450,42 +333,36 @@ def _get_output_text(response) -> str:
     return ""
 
 
-def _run_platform_tool_agent(client, tools: list, prompt: str, test_suffix: str):
-    """Create a temporary agent with the given tools, run it, and clean up."""
+def _run_platform_tool_agent(client, tracker, tools: list, prompt: str, test_suffix: str):
+    """Create a temporary agent with the given tools, register it with ``tracker``, and run it."""
     agent = client.Agent(
-        name=f"platform-tool-test-{test_suffix}-{int(time.time())}",
+        name=f"platform-tool-test-{test_suffix}-{int(time.time())}-{uuid.uuid4().hex[:6]}",
         description="Temporary agent for platform tool functional testing",
         instructions="You are a helpful test agent. Always use the tool provided to answer questions.",
         tools=tools,
     )
     agent.save()
-
-    try:
-        response = agent.run(prompt)
-    finally:
-        try:
-            agent.delete()
-        except Exception:
-            pass
-
-    return response
+    tracker.append(agent)
+    return agent.run(prompt)
 
 
 # Firecrawl
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always choose to call the scrape action")
-def test_agent_firecrawl_scrape_tool(client):
+# flaky: the LLM may not always choose to call the scrape action.
+@pytest.mark.flaky(reruns=2)
+def test_agent_firecrawl_scrape_tool(client, assets, resource_tracker):
     """
     Verifies:
     1. The agent can be created with the Firecrawl tool via the v2 SDK.
     2. Agent execution succeeds.
     3. The scraped page content is reflected in the final response.
     """
-    tool = client.Tool.get(FIRECRAWL_CONNECTION_ASSET_ID)
+    tool = client.Tool.get(assets.FIRECRAWL)
 
     response = _run_platform_tool_agent(
         client=client,
+        tracker=resource_tracker,
         tools=[tool],
         prompt=(
             "You must use the Firecrawl scrape tool to scrape https://aixplain.com/. "
@@ -509,18 +386,20 @@ def test_agent_firecrawl_scrape_tool(client):
 # Tavily
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always invoke Tavily")
-def test_agent_tavily_web_search_tool(client):
+# flaky: the LLM may not always invoke Tavily.
+@pytest.mark.flaky(reruns=2)
+def test_agent_tavily_web_search_tool(client, assets, resource_tracker):
     """
     Verifies:
     1. The agent can be created with the Tavily search tool via the v2 SDK.
     2. Agent execution succeeds.
     3. The response contains information retrieved from the search.
     """
-    tool = client.Tool.get(TAVILY_CONNECTION_ASSET_ID)
+    tool = client.Tool.get(assets.TAVILY)
 
     response = _run_platform_tool_agent(
         client=client,
+        tracker=resource_tracker,
         tools=[tool],
         prompt=(
             "You must use the Tavily web search tool to look up who won "
@@ -542,47 +421,12 @@ def test_agent_tavily_web_search_tool(client):
     )
 
 
-# Google Search / SerpApi
-
-
-@pytest.mark.flaky(reruns=2, reason="LLM may not always call the Google Search utility")
-def test_agent_google_search_serpapi_tool(client):
-    """
-    Verifies:
-    1. The agent can be created with the Google Search utility model via the v2 SDK.
-    2. Agent execution succeeds.
-    3. The response contains the expected search results.
-    """
-    tool = client.Tool.get(GOOGLE_SEARCH_UTILITY_MODEL_ID)
-
-    response = _run_platform_tool_agent(
-        client=client,
-        tools=[tool],
-        prompt=(
-            "You must use the Google Search tool to find the top three teams "
-            "in the Brazilian Serie A football championship in 2024. "
-            "Answer with only the three team names."
-        ),
-        test_suffix="google-serpapi",
-    )
-
-    assert response.status == "SUCCESS", f"Agent execution failed: {response.status}"
-
-    output = _get_output_text(response)
-    assert output, "Expected non-empty output from the agent"
-
-    output_lower = output.lower()
-    expected_teams = ["botafogo", "palmeiras", "flamengo"]
-
-    for team in expected_teams:
-        assert team in output_lower, f"Expected {team!r} in the response. Output: {output[:500]!r}"
-
-
 # Web Search Tool
 
 
-@pytest.mark.flaky(reruns=2, reason="LLM may not always invoke the Web Search tool")
-def test_agent_web_search_tool(client):
+# flaky: the LLM may not always invoke the Web Search tool.
+@pytest.mark.flaky(reruns=2)
+def test_agent_web_search_tool(client, resource_tracker):
     """
     Verifies:
     1. The agent can be created with the Web Search tool via the v2 SDK.
@@ -593,6 +437,7 @@ def test_agent_web_search_tool(client):
 
     response = _run_platform_tool_agent(
         client=client,
+        tracker=resource_tracker,
         tools=[tool],
         prompt=(
             "You must use the Web Search tool to look up who won the "

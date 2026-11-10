@@ -10,7 +10,7 @@ header dicts the HTTP layer actually received.
 import pytest
 from unittest.mock import Mock, patch
 
-from aixplain.v2.upload_utils import FileUploader
+from aixplain import FileUploader
 
 API_KEY = "test-team-key"
 PRESIGNED_URL = "https://test-bucket.s3.amazonaws.com/upload?signature=xyz"

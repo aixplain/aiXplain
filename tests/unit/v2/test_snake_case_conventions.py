@@ -13,9 +13,10 @@ from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
-from aixplain.v2.integration import ActionInputSpec, ActionSpec, ToolId
-from aixplain.v2.agent import Agent, AgentRunParams
-from aixplain.v2.mixins import ParameterInput, ToolDict
+from aixplain import ActionInputSpec, ActionSpec, ToolId
+from aixplain import Agent
+from aixplain.v2.agent import AgentRunParams
+from aixplain import ParameterInput, ToolDict
 
 
 # =============================================================================

@@ -3,7 +3,7 @@
 One Claude Code plugin for two connected jobs:
 
 - **Discover:** search the live aixplain marketplace through the bundled Marketplace Search MCP, inspect real schemas, and generate runnable SDK, REST, or MCP code.
-- **Build:** create, verify, debug, update, and export production aixplain agents with the bundled Agent Builder skill.
+- **Build:** build, run, and deploy agents, models, knowledge bases, tools, and inspectors with the bundled aixplain-builder skill.
 
 Install it once, then use either skill as the task requires:
 
@@ -12,7 +12,7 @@ Install it once, then use either skill as the task requires:
 /plugin install aixplain@aixplain
 ```
 
-**Prefer a visual walkthrough?** Open the interactive [Install & Use aixplain guide](./install-guide.html) for copyable commands, first-use examples, and a standalone Agent Builder fallback.
+**Prefer a visual walkthrough?** Open the interactive [Install & Use aixplain guide](./install-guide.html) for copyable commands, first-use examples, and a standalone aixplain-builder fallback.
 
 
 Driven by the first-party Marketplace Search tool (`6960f934f316da19e5f22494`). A hosted equivalent —
@@ -130,7 +130,7 @@ plugins/aixplain/
   .claude-plugin/plugin.json    manifest
   .mcp.json                     Marketplace Search MCP, ${AIXPLAIN_API_KEY}
   skills/marketplace-search/    marketplace discovery and runnable-code guidance
-  skills/aixplain-agent-builder/ agent build, verification, update, and export guidance
+  skills/aixplain-builder/      build, run, and deploy anything the SDK supports
 ```
 
 The skill is usable on its own: copy `skills/marketplace-search/SKILL.md` to
@@ -144,8 +144,8 @@ The skill is usable on its own: copy `skills/marketplace-search/SKILL.md` to
 - The search MCP tool ID (`6960f934f316da19e5f22494`) is stable across environments.
 
 
-## Agent Builder
+## aixplain-builder
 
-Use the bundled `aixplain-agent-builder` skill to build, run, verify, debug, update, or export aixplain agents with SDK v2. It uses the same `AIXPLAIN_API_KEY` and can use Marketplace Search to discover an asset before attaching it to an agent.
+Use the bundled `aixplain-builder` skill to build, run, and deploy anything the SDK supports: agents and subagents, direct model calls, knowledge bases, tools and integrations, inspectors, memory, and the REST API. It uses the same `AIXPLAIN_API_KEY` and can use Marketplace Search to discover an asset before attaching it to an agent.
 
-The skill validates generated export code before presenting it, keeps iteration limits in `agent.budget`, requires explicit consent before external connections, and verifies real runs before reporting success.
+The skill plans first and asks before anything that spends credits, scopes each tool to the actions it needs, and runs the result before reporting success.

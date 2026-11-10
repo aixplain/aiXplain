@@ -23,7 +23,7 @@ GUARDED_FILES = [
     "aixplain/v2/client.py",
     "aixplain/v2/upload_utils.py",
     "aixplain/v2/code_utils.py",
-    "aixplain/utils/file_utils.py",
+    "aixplain/utils/url_safety.py",
 ]
 
 # ``requests``/``Session`` methods that actually put bytes on a socket.

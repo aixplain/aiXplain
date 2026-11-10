@@ -13,12 +13,12 @@ from unittest.mock import Mock, patch
 
 from dataclasses_json import dataclass_json
 
-from aixplain.v2.agent import Agent
+from aixplain import Agent
 from aixplain.v2.client import AixplainClient
-from aixplain.v2.exceptions import UntrustedURLError
-from aixplain.v2.model import Model
-from aixplain.v2.resource import BaseResource, Result, RunnableResourceMixin
-from aixplain.v2.utility import Utility
+from aixplain import UntrustedURLError
+from aixplain import Model
+from aixplain import Result
+from aixplain.v2.resource import BaseResource, RunnableResourceMixin
 
 
 BACKEND_URL = "https://platform-api.aixplain.com"
@@ -81,10 +81,9 @@ def no_transport():
     [
         lambda: _bind(Model, id="model-1", name="m"),
         lambda: _bind(Agent, id="agent-1", name="a"),
-        lambda: _bind(Utility, id="utility-1", name="u"),
         lambda: _bind(_PlainRunnable, id="plain-1", name="p"),
     ],
-    ids=["model", "agent", "utility", "plain-runnable"],
+    ids=["model", "agent", "plain-runnable"],
 )
 @pytest.mark.parametrize("poll_url", FOREIGN_POLL_URLS)
 class TestForeignPollURLsAreRefused:

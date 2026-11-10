@@ -3,6 +3,8 @@
 from enum import Enum
 from typing import Optional, Dict, Any
 
+from aixplain.v2 import exceptions as _v2_exceptions
+
 
 class ErrorSeverity(str, Enum):
     """Enumeration of error severity levels in the aiXplain system.
@@ -134,6 +136,9 @@ class AixplainBaseException(Exception):
             retry_recommended: Whether retrying the operation might succeed.
             error_code: Standardized error code for the exception.
         """
+        # First, so a v2 base later in the MRO (see ValidationError) cannot
+        # reset ``details`` after it is set below.
+        super().__init__(message)
         self.message = message
         self.category = category
         self.severity = severity
@@ -141,7 +146,6 @@ class AixplainBaseException(Exception):
         self.details = details or {}
         self.retry_recommended = retry_recommended
         self.error_code = error_code
-        super().__init__(self.message)
 
     def __str__(self) -> str:
         """Return a string representation of the exception.
@@ -192,8 +196,12 @@ class AuthenticationError(AixplainBaseException):
         )
 
 
-class ValidationError(AixplainBaseException):
-    """Raised when input validation fails."""
+class ValidationError(AixplainBaseException, _v2_exceptions.ValidationError):
+    """Raised when input validation fails.
+
+    Also a v2 ``ValidationError``, so ``except aixplain.ValidationError`` catches
+    what :func:`get_error_from_status_code` returns.
+    """
 
     def __init__(self, message: str, **kwargs):
         """Initialize validation error.
@@ -230,8 +238,12 @@ class AlreadyDeployedError(AixplainBaseException):
         )
 
 
-class ResourceError(AixplainBaseException):
-    """Raised when a resource is unavailable."""
+class ResourceError(AixplainBaseException, _v2_exceptions.ResourceError):
+    """Raised when a resource is unavailable.
+
+    Also a v2 ``ResourceError``, so ``except aixplain.ResourceError`` catches
+    what :func:`get_error_from_status_code` returns.
+    """
 
     def __init__(self, message: str, **kwargs):
         """Initialize resource error.
@@ -367,4 +379,107 @@ class AlreadyDeployedError(AixplainBaseException):
             retry_recommended=kwargs.pop("retry_recommended", False),
             error_code=ErrorCode.AX_INT_ERROR,
             **kwargs,
+        )
+
+
+def get_error_from_status_code(status_code: int, error_details: str = None) -> AixplainBaseException:
+    """Map HTTP status codes to appropriate exception types.
+
+    The result is one of the v1-era classes defined in this module (all
+    subclasses of :class:`AixplainBaseException`). Its ``ValidationError`` and
+    ``ResourceError`` also subclass the v2 classes of the same name, so
+    ``except aixplain.ValidationError`` catches them too.
+
+    Args:
+        status_code (int): The HTTP status code to map.
+        error_details (str, optional): Additional error details to include in the message.
+
+    Returns:
+        AixplainBaseException: An exception of the appropriate type.
+    """
+    try:
+        if isinstance(status_code, str):
+            status_code = int(status_code)
+    except Exception as e:
+        raise InternalError(f"Failed to get status code from {status_code}: {e}") from e
+
+    error_details = f"Details: {error_details}" if error_details else ""
+    if status_code == 400:
+        return ValidationError(
+            message=f"Bad request: Please verify the request payload and ensure it is correct. {error_details}".strip(),
+            status_code=status_code,
+        )
+    elif status_code == 401:
+        return AuthenticationError(
+            message=f"Unauthorized API key: Please verify the spelling of the API key and its current validity. {error_details}".strip(),
+            status_code=status_code,
+        )
+    elif status_code == 402:
+        return BillingError(
+            message=f"Payment required: Please ensure you have enough credits to run this asset. {error_details}".strip(),
+            status_code=status_code,
+        )
+    elif status_code == 403:
+        # 403 could be auth or resource, using ResourceError as a general 'forbidden'
+        return ResourceError(
+            message=f"Forbidden access: Please verify the API key and its current validity. {error_details}".strip(),
+            status_code=status_code,
+        )
+    elif status_code == 404:
+        # Added 404 mapping
+        return ResourceError(
+            message=f"Resource not found: Please verify the spelling of the resource and its current availability. {error_details}".strip(),
+            status_code=status_code,
+        )
+    elif status_code == 429:
+        # Using SupplierError for rate limiting as per your original function
+        return SupplierError(
+            message=f"Rate limit exceeded: Please try again later. {error_details}".strip(),
+            status_code=status_code,
+            retry_recommended=True,
+        )
+    elif status_code == 500:
+        return InternalError(
+            message=f"Internal server error: Please try again later. {error_details}".strip(),
+            status_code=status_code,
+            retry_recommended=True,
+        )
+    elif status_code == 503:
+        return ServiceError(
+            message=f"Service unavailable: Please try again later. {error_details}".strip(),
+            status_code=status_code,
+            retry_recommended=True,
+        )
+    elif status_code == 504:
+        return NetworkError(
+            message=f"Gateway timeout: Please try again later. {error_details}".strip(),
+            status_code=status_code,
+            retry_recommended=True,
+        )
+    elif 460 <= status_code < 470:
+        return ResourceError(
+            message=f"Subscription-related error: Please ensure that your subscription is active and has not expired. {error_details}".strip(),
+            status_code=status_code,
+        )
+    elif 470 <= status_code < 480:
+        return BillingError(
+            message=f"Billing-related error: Please ensure you have enough credits to run this asset. {error_details}".strip(),
+            status_code=status_code,
+        )
+    elif 480 <= status_code < 490:
+        return SupplierError(
+            message=f"Supplier-related error: Please ensure that the selected supplier provides the asset you are trying to access. {error_details}".strip(),
+            status_code=status_code,
+        )
+    elif 490 <= status_code < 500:
+        return ValidationError(
+            message=f"Validation-related error: Please verify the request payload and ensure it is correct. {error_details}".strip(),
+            status_code=status_code,
+        )
+    else:
+        # Catch-all for other client/server errors
+        category = "Client" if 400 <= status_code < 500 else "Server"
+        return InternalError(
+            message=f"Unspecified {category} Error (Status {status_code}) {error_details}".strip(),
+            status_code=status_code,
         )

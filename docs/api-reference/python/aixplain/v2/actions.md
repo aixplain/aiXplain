@@ -3,16 +3,22 @@ sidebar_label: actions
 title: aixplain.v2.actions
 ---
 
+`from aixplain import Action, Actions, Input, Inputs`
+
+
 Unified Actions / Inputs hierarchy for models and tools.
 
-Object Hierarchy::
+Object Hierarchy:
 
-    Actions                    — collection of Action objects
-      Action                   — metadata + owns its inputs
-        Inputs                 — collection of Input objects
-          Input                — individual input with schema + current value
+```text
+Actions                    — collection of Action objects
+  Action                   — metadata + owns its inputs
+    Inputs                 — collection of Input objects
+      Input                — individual input with schema + current value
+```
 
-Models have a single implicit &quot;run&quot; action. The ``model.inputs`` shorthand
+
+Models have a single implicit "run" action. The ``model.inputs`` shorthand
 skips the actions layer since there is nothing to disambiguate.
 
 Tools have multiple actions, so the full path is always used.
@@ -31,9 +37,9 @@ Individual input with schema and current value.
 
 - `name` - The input parameter name.
 - `required` - Whether this input is required.
-- `type` - The data type (e.g. ``&quot;text&quot;``, ``&quot;number&quot;``, ``&quot;string&quot;``).
+- `type` - The data type (e.g. ``"text"``, ``"number"``, ``"string"``).
 - `value` - The current value (mutable).
-- `required`0 - Human-readable description.
+- `description` - Human-readable description.
 
 #### \_\_init\_\_
 
@@ -83,7 +89,7 @@ def type() -> Optional[str]
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L67)
 
-The data type string (e.g. ``&quot;text&quot;``, ``&quot;number&quot;``).
+The data type string (e.g. ``"text"``, ``"number"``).
 
 #### value
 
@@ -136,7 +142,7 @@ def __eq__(other: object) -> bool
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L95)
 
-Compare by value so ``inputs[&#x27;temperature&#x27;] == 0.7`` works.
+Compare by value so ``inputs['temperature'] == 0.7`` works.
 
 #### \_\_hash\_\_
 
@@ -188,13 +194,13 @@ class Inputs()
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L215)
 
-Ordered collection of :class:`Input` objects.
+Ordered collection of `Input` objects.
 
-Supports dict-like access (``inputs[&quot;key&quot;]``, ``inputs[&quot;key&quot;] = val``)
+Supports dict-like access (``inputs["key"]``, ``inputs["key"] = val``)
 and dot-notation (``inputs.key``, ``inputs.key = val``).
 
 Iterating, ``.keys()``, ``.values()``, and ``.items()`` operate on
-*raw values* so that ``dict(inputs.items())`` gives a plain ``\{name: value}``
+*raw values* so that ``dict(inputs.items())`` gives a plain ``{name: value}``
 mapping suitable for API payloads.
 
 #### \_\_init\_\_
@@ -205,7 +211,7 @@ def __init__(inputs: Optional[Dict[str, Input]] = None) -> None
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L226)
 
-Initialize from an optional ordered dict of :class:`Input` objects.
+Initialize from an optional ordered dict of `Input` objects.
 
 #### \_\_getitem\_\_
 
@@ -215,7 +221,7 @@ def __getitem__(key: str) -> Input
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L234)
 
-Return the :class:`Input` for *key*.
+Return the `Input` for *key*.
 
 #### \_\_setitem\_\_
 
@@ -225,7 +231,7 @@ def __setitem__(key: str, value: Any) -> None
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L241)
 
-Set the *value* on the :class:`Input` identified by *key*.
+Set the *value* on the `Input` identified by *key*.
 
 #### \_\_contains\_\_
 
@@ -315,7 +321,7 @@ def get(key: str, default: Any = None) -> Optional[Input]
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L305)
 
-Return the :class:`Input` for *key*, or *default*.
+Return the `Input` for *key*, or *default*.
 
 #### update
 
@@ -345,7 +351,7 @@ def copy() -> Dict[str, Any]
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L331)
 
-Return a shallow copy of ``\{name: value}``.
+Return a shallow copy of ``{name: value}``.
 
 #### validate
 
@@ -378,7 +384,7 @@ def __repr__() -> str
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L364)
 
-Return ``Inputs(\{&#x27;key&#x27;: value, ...})``.
+Return ``Inputs({'key': value, ...})``.
 
 #### from\_parameters
 
@@ -410,10 +416,10 @@ class Action()
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L397)
 
-Metadata for a single action, owning its :class:`Inputs`.
+Metadata for a single action, owning its `Inputs`.
 
-For models the single action is always ``&quot;run&quot;``.
-For tools there may be many (e.g. ``&quot;search_agents&quot;``, ``&quot;search_models&quot;``).
+For models the single action is always ``"run"``.
+For tools there may be many (e.g. ``"search_agents"``, ``"search_models"``).
 
 #### \_\_init\_\_
 
@@ -460,7 +466,7 @@ def inputs() -> Inputs
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L430)
 
-The action&#x27;s :class:`Inputs` (lazily loaded for tool actions).
+The action's `Inputs` (lazily loaded for tool actions).
 
 #### \_\_repr\_\_
 
@@ -480,9 +486,9 @@ class Actions()
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L470)
 
-Ordered collection of :class:`Action` objects.
+Ordered collection of `Action` objects.
 
-For models this contains a single ``&quot;run&quot;`` action.
+For models this contains a single ``"run"`` action.
 For tools it lazily discovers actions from the backend.
 
 #### \_\_init\_\_
@@ -509,7 +515,7 @@ def __getitem__(key: str) -> Action
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L511)
 
-Return the :class:`Action` for *key* (case-insensitive).
+Return the `Action` for *key* (case-insensitive).
 
 #### \_\_getattr\_\_
 
@@ -563,7 +569,7 @@ def __repr__() -> str
 
 [[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/actions.py#L563)
 
-Return ``Actions([&#x27;action1&#x27;, &#x27;action2&#x27;, ...])``.
+Return ``Actions(['action1', 'action2', ...])``.
 
 #### refresh
 

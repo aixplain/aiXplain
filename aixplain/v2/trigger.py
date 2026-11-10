@@ -16,8 +16,10 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config as dj_config
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing_extensions import TypedDict
 
+from .plain_data import coerce_struct
 from .resource import (
     BaseResource,
     SearchResourceMixin,
@@ -29,7 +31,7 @@ from .resource import (
     BaseGetParams,
     BaseDeleteParams,
 )
-from .exceptions import ResourceError
+from .exceptions import ResourceError, _extract_error_from_dict
 
 if TYPE_CHECKING:
     from .core import Aixplain
@@ -93,6 +95,32 @@ def _normalize_monthdays(value: Any) -> List[int]:
     return days
 
 
+class TriggerRepeatRuleDict(TypedDict, total=False):
+    """The dict form of :class:`TriggerRepeatRule`, on the same field names."""
+
+    every: int
+    unit: str
+
+
+class TriggerConfigurationDict(TypedDict, total=False):
+    """The dict form of :class:`TriggerConfiguration`, on the same field names.
+
+    ``repeat`` takes a :class:`TriggerRepeatRuleDict` or a
+    :class:`TriggerRepeatRule`; ``next_run_at`` is reported by the backend and
+    never sent.
+    """
+
+    type: str
+    time: str
+    timezone: str
+    days_of_week: List[str]
+    days_of_month: List[int]
+    run_at: str
+    start_at: str
+    next_run_at: str
+    repeat: Union[TriggerRepeatRuleDict, "TriggerRepeatRule"]
+
+
 @dataclass_json
 @dataclass
 class TriggerRepeatRule:
@@ -115,7 +143,31 @@ class TriggerConfiguration:
     run_at: Optional[str] = field(default=None, metadata=dj_config(field_name="runAt"))
     start_at: Optional[str] = field(default=None, metadata=dj_config(field_name="startAt"))
     next_run_at: Optional[str] = field(default=None, metadata=dj_config(field_name="nextRunAt", exclude=lambda x: True))
-    repeat: Optional[TriggerRepeatRule] = None
+    repeat: Optional[Union[TriggerRepeatRule, TriggerRepeatRuleDict]] = None
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Coerce a dict ``repeat`` into a :class:`TriggerRepeatRule`.
+
+        On every assignment rather than in ``__post_init__`` alone: reading
+        ``configuration.repeat`` has to give an object with attributes whichever
+        way it was set, or ``_hydrate_schedule_fields`` (``config.repeat.unit``)
+        fails with ``AttributeError`` on a dict assigned after construction.
+        Mirrors how :class:`Trigger` coerces ``configuration``.
+        """
+        if name == "repeat":
+            value = coerce_struct(value, TriggerRepeatRule, label="repeat")
+        super().__setattr__(name, value)
+
+
+#: Wire spellings accepted alongside the field names, so the same entry point
+#: takes what a caller writes and what the backend sends back.
+_CONFIGURATION_WIRE_ALIASES = {
+    "daysOfWeek": "days_of_week",
+    "daysOfMonth": "days_of_month",
+    "runAt": "run_at",
+    "startAt": "start_at",
+    "nextRunAt": "next_run_at",
+}
 
 
 class TriggerSearchParams(BaseSearchParams):
@@ -187,7 +239,9 @@ class Trigger(
     asset_type: Optional[str] = field(default="agent", metadata=dj_config(field_name="assetType"))
     trigger_type: Optional[str] = field(default=None, metadata=dj_config(field_name="triggerType"))
     trigger_id: Optional[str] = field(default=None, metadata=dj_config(field_name="triggerId"))
-    configuration: Optional[TriggerConfiguration] = None
+    # A dict on the ``TriggerConfigurationDict`` field names works as well as a
+    # ``TriggerConfiguration``; ``__setattr__`` coerces either.
+    configuration: Optional[Union[TriggerConfiguration, TriggerConfigurationDict]] = None
     enabled: Optional[bool] = None
     notifications: Optional[bool] = None
     retry_count: Optional[int] = field(default=None, metadata=dj_config(field_name="retryCount"))
@@ -215,6 +269,19 @@ class Trigger(
     event: Optional[Any] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     event_config: Optional[Dict[str, Any]] = field(default=None, metadata=dj_config(exclude=lambda x: True))
     connection: Optional[Any] = field(default=None, metadata=dj_config(exclude=lambda x: True))
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Coerce a dict ``configuration`` into a :class:`TriggerConfiguration`.
+
+        Here rather than in ``__post_init__`` so a later
+        ``trigger.configuration = {...}`` behaves the same as passing it to the
+        constructor, and reading it back always gives an object with attributes.
+        """
+        if name == "configuration":
+            value = coerce_struct(
+                value, TriggerConfiguration, label="configuration", aliases=_CONFIGURATION_WIRE_ALIASES
+            )
+        super().__setattr__(name, value)
 
     def __post_init__(self) -> None:
         """Translate friendly construction kwargs into backend-shaped fields.
@@ -481,15 +548,18 @@ class Trigger(
     # Composio activation helpers (via the model-execute endpoint)
     # ------------------------------------------------------------------
 
-    def _execute_action(self, connection_id: str, action: str, data: Any) -> Any:
-        """POST a connector action to the model-execute endpoint and resolve data."""
+    def _post_action(self, connection_id: str, action: str, data: Any) -> Any:
+        """POST a connector action to the model-execute endpoint and return the raw response."""
         url = f"{self.context.model_url}/{connection_id}"
         payload: Dict[str, Any] = {"action": action, "data": data}
         if action == "activate_trigger":
             payload["enable"] = True
             payload["toolkit_versions"] = "latest"
-        response = self.context.client.request("post", url, json=payload)
-        return self._poll_for_data(response)
+        return self.context.client.request("post", url, json=payload)
+
+    def _execute_action(self, connection_id: str, action: str, data: Any) -> Any:
+        """POST a connector action to the model-execute endpoint and resolve data."""
+        return self._poll_for_data(self._post_action(connection_id, action, data))
 
     @staticmethod
     def _poll_for_data(response: dict) -> Any:
@@ -511,18 +581,25 @@ class Trigger(
                 "Event triggers require a connection. Create one via integration.connect() and use "
                 "tool.triggers[...], or pass connection=<tool> to Trigger(...)."
             )
-        data = self._execute_action(
+        response = self._post_action(
             self.connection_id,
             "activate_trigger",
             {"slug": self.trigger_slug, "config": self.event_config or {}},
         )
+        data = self._poll_for_data(response)
         trigger_id = None
         if isinstance(data, dict):
             trigger_id = data.get("trigger_id") or data.get("triggerId")
         if not trigger_id:
-            raise ResourceError(
+            message = (
                 f"Failed to activate event trigger for slug={self.trigger_slug!r} on connection {self.connection_id}."
             )
+            # A failed activation answers ``status: FAILED`` with the reason in ``supplierError``/``error``
+            # (e.g. Composio's "connected account is in EXPIRED state"); keep it instead of dropping it.
+            reason = _extract_error_from_dict(response) if isinstance(response, dict) else None
+            if reason:
+                message += f" Backend response: {reason}"
+            raise ResourceError(message)
         self.trigger_id = trigger_id
 
     def _deactivate_event(self) -> None:

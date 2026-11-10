@@ -119,5 +119,4 @@ def test_a_gated_toolkit_is_dropped_with_a_warning_on_the_run_result(client, res
     response = agent.run("Reply with the single word: ok")
 
     assert response.status == "SUCCESS", f"Agent execution failed: {response.status}"
-    # ``response.warnings`` covers both placements; ``data.warnings`` alone misses a top-level key.
-    assert any(BASH_GATED_WARNING in warning for warning in response.warnings), response.warnings
+    assert any(BASH_GATED_WARNING in (warning.message or "") for warning in response.warnings), response.warnings

@@ -3,6 +3,9 @@ sidebar_label: integration
 title: aixplain.v2.integration
 ---
 
+`from aixplain import ActionInputSpec, ActionSpec, Integration, IntegrationResult, ToolId, TriggerEventOption, TriggerTypeSpec, TriggerTypes`
+
+
 Integration module for managing external service integrations.
 
 ### ActionInputSpec Objects
@@ -14,7 +17,7 @@ Integration module for managing external service integrations.
 class ActionInputSpec()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L20)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L22)
 
 Backend input-parameter specification for an action (deserialization only).
 
@@ -27,7 +30,7 @@ Backend input-parameter specification for an action (deserialization only).
 class ActionSpec()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L38)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L40)
 
 Backend action specification (deserialization only).
 
@@ -37,7 +40,7 @@ Backend action specification (deserialization only).
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L56)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L58)
 
 Return a concise representation of the action spec.
 
@@ -50,7 +53,7 @@ Return a concise representation of the action spec.
 class ToolId()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L69)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L71)
 
 Result for tool operations.
 
@@ -63,7 +66,7 @@ Result for tool operations.
 class IntegrationResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L78)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L80)
 
 Result for connection operations.
 
@@ -75,7 +78,7 @@ The backend returns the connection ID in data.id.
 class IntegrationSearchParams(BaseSearchParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L87)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L89)
 
 Parameters for listing integrations.
 
@@ -88,7 +91,7 @@ Parameters for listing integrations.
 class TriggerTypeSpec()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L95)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L97)
 
 Backend spec for an available external trigger type (deserialization only).
 
@@ -98,9 +101,9 @@ Backend spec for an available external trigger type (deserialization only).
 class TriggerEventOption()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L106)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L108)
 
-A selectable external event option (e.g. ``gmail.triggers[&quot;NEW_EMAIL&quot;]``).
+A selectable external event option (e.g. ``gmail.triggers["NEW_EMAIL"]``).
 
 Carries the event ``slug`` and its config schema. When sourced from a
 *connected* tool it also carries ``connection_id`` (the tool id), which is
@@ -116,7 +119,7 @@ def __init__(slug: str,
              connection_id: Optional[str] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L114)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L116)
 
 Initialize an event option.
 
@@ -126,7 +129,7 @@ Initialize an event option.
 def configure(**values: Any) -> "TriggerEventOption"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L130)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L132)
 
 Set config values passed to the trigger on activation.
 
@@ -136,7 +139,7 @@ Set config values passed to the trigger on activation.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L135)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L137)
 
 Return a concise representation.
 
@@ -146,11 +149,11 @@ Return a concise representation.
 class TriggerTypes()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L141)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L143)
 
-Browsable collection of :class:`TriggerEventOption` for an integration/tool.
+Browsable collection of `TriggerEventOption` for an integration/tool.
 
-Supports ``integration.triggers[&quot;NEW_EMAIL&quot;]`` (case-insensitive), iteration,
+Supports ``integration.triggers["NEW_EMAIL"]`` (case-insensitive), iteration,
 ``in``, and ``len``.
 
 #### \_\_init\_\_
@@ -160,7 +163,7 @@ def __init__(specs: List[TriggerTypeSpec],
              connection_id: Optional[str] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L148)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L150)
 
 Initialize from backend specs and an optional connection id.
 
@@ -170,9 +173,9 @@ Initialize from backend specs and an optional connection id.
 def __getitem__(key: str) -> TriggerEventOption
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L164)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L166)
 
-Return the :class:`TriggerEventOption` for *key* (case-insensitive).
+Return the `TriggerEventOption` for *key* (case-insensitive).
 
 #### \_\_contains\_\_
 
@@ -180,7 +183,7 @@ Return the :class:`TriggerEventOption` for *key* (case-insensitive).
 def __contains__(key: object) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L178)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L180)
 
 Return whether *key* matches an available trigger event.
 
@@ -190,7 +193,7 @@ Return whether *key* matches an available trigger event.
 def __iter__()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L182)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L184)
 
 Iterate over available trigger event slugs.
 
@@ -200,7 +203,7 @@ Iterate over available trigger event slugs.
 def __len__() -> int
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L186)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L188)
 
 Return the number of available trigger events.
 
@@ -210,9 +213,9 @@ Return the number of available trigger events.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L190)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L192)
 
-Return ``TriggerTypes([&#x27;SLUG&#x27;, ...])``.
+Return ``TriggerTypes(['SLUG', ...])``.
 
 ### ActionMixin Objects
 
@@ -221,7 +224,7 @@ Return ``TriggerTypes([&#x27;SLUG&#x27;, ...])``.
 class ActionMixin()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L196)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L198)
 
 Mixin class providing action-related functionality for integrations and tools.
 
@@ -231,13 +234,13 @@ Mixin class providing action-related functionality for integrations and tools.
 def list_actions() -> List[ActionSpec]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L218)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L224)
 
 List available actions for the integration.
 
 **Returns**:
 
-  List of :class:`ActionSpec` objects from the backend.
+  List of `ActionSpec` objects from the backend.
 
 #### list\_inputs
 
@@ -245,13 +248,13 @@ List available actions for the integration.
 def list_inputs(*actions: str) -> List[ActionSpec]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L270)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L276)
 
 List available inputs for the integration.
 
-.. deprecated::
-    Use ``tool.actions[&#x27;action_name&#x27;].inputs`` to discover and configure
-    action inputs instead.
+**Deprecated:** Use ``tool.actions['action_name'].inputs`` to discover and configure action inputs instead.
+
+
 
 #### actions
 
@@ -260,14 +263,14 @@ List available inputs for the integration.
 def actions() -> Actions
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L286)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L292)
 
 Collection of actions with their inputs.
 
 **Returns**:
 
-  :class:`Actions` collection.  Access individual actions via
-  ``tool.actions[&#x27;ACTION_NAME&#x27;]`` which returns an :class:`Action`
+  `Actions` collection.  Access individual actions via
+  ``tool.actions['ACTION_NAME']`` which returns an `Action`
   whose ``.inputs`` property lazily fetches input specs.
 
 #### list\_trigger\_types
@@ -276,15 +279,15 @@ Collection of actions with their inputs.
 def list_trigger_types() -> List[TriggerTypeSpec]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L325)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L331)
 
 List available external event trigger types for the integration/tool.
 
-Uses the same model-execute mechanism as :meth:`list_actions`.
+Uses the same model-execute mechanism as `list_actions`.
 
 **Returns**:
 
-  List of :class:`TriggerTypeSpec` objects from the backend.
+  List of `TriggerTypeSpec` objects from the backend.
 
 #### triggers
 
@@ -293,9 +296,9 @@ Uses the same model-execute mechanism as :meth:`list_actions`.
 def triggers() -> TriggerTypes
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L350)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L356)
 
-Browsable collection of external event options (like :attr:`actions`).
+Browsable collection of external event options (like `actions`).
 
 Pick an option and pass it to ``aix.Trigger(event=...)``. When accessed on
 a *connected* tool, each option carries the connection id needed to
@@ -303,7 +306,7 @@ activate the trigger; on an unconnected integration it is discovery-only.
 
 **Returns**:
 
-  :class:`TriggerTypes` collection (e.g. ``gmail.triggers[&quot;NEW_EMAIL&quot;]``).
+  `TriggerTypes` collection (e.g. ``gmail.triggers["NEW_EMAIL"]``).
 
 #### set\_inputs
 
@@ -311,13 +314,13 @@ activate the trigger; on an unconnected integration it is discovery-only.
 def set_inputs(inputs_dict: Dict[str, Dict[str, Any]]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L366)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L372)
 
 Set multiple action inputs in bulk using a dictionary tree structure.
 
 **Arguments**:
 
-- `inputs_dict` - ``\{&quot;ACTION_NAME&quot;: \{&quot;input_param&quot;: &quot;value&quot;, ...}, ...}``
+- `inputs_dict` - ``{"ACTION_NAME": {"input_param": "value", ...}, ...}``
   
 
 **Raises**:
@@ -334,7 +337,7 @@ Set multiple action inputs in bulk using a dictionary tree structure.
 class Integration(Model, ActionMixin)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L400)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L406)
 
 Resource for integrations.
 
@@ -347,7 +350,7 @@ All connection logic is centralized here.
 def run(**kwargs: Any) -> IntegrationResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L425)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L431)
 
 Run the integration with validation.
 
@@ -357,7 +360,7 @@ Run the integration with validation.
 def connect(**kwargs: Any) -> "Tool"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L429)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L435)
 
 Connect the integration.
 
@@ -380,7 +383,7 @@ that the user must visit to complete authentication before using the tool.
 def handle_run_response(response: dict, **kwargs: Any) -> IntegrationResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L456)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/integration.py#L462)
 
 Handle the response from the integration.
 

@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aixplain.v2.agent import Agent
-from aixplain.v2.inspector import Inspector
+from aixplain import Agent
+from aixplain import Inspector
 
 
 def _agent_from_dict(**overrides):

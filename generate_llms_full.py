@@ -98,6 +98,10 @@ def _extract_summary(body: str) -> str:
     for paragraph in paragraphs:
         if paragraph.startswith("#") or paragraph.startswith("```") or paragraph.startswith("[[view_source]]"):
             continue
+        # post_process_docs.py puts a ``from aixplain import ...`` line above the
+        # module docstring; it is an import, not a summary of the module.
+        if paragraph.startswith("`from aixplain import "):
+            continue
 
         summary = " ".join(line.strip() for line in paragraph.splitlines()).strip()
         if summary:

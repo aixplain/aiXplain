@@ -38,10 +38,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from aixplain.v2 import agent_progress
-from aixplain.v2.agent import Agent
-from aixplain.v2.agent_progress import AgentProgressTracker, ProgressFormat
-from aixplain.v2.exceptions import TimeoutError as AixplainTimeoutError
-from aixplain.v2.session import Session, SessionMessage
+from aixplain import Agent
+from aixplain import AgentProgressTracker, ProgressFormat
+from aixplain import TimeoutError as AixplainTimeoutError
+from aixplain import Session, SessionMessage
 
 JOIN_TIMEOUT = 2.0
 PROGRESS_KWARGS = {"progress_format": "status"}

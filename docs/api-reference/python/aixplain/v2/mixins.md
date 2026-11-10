@@ -3,6 +3,9 @@ sidebar_label: mixins
 title: aixplain.v2.mixins
 ---
 
+`from aixplain import ParameterDefinition, ParameterInput, ToolDict`
+
+
 Mixins for v2 API classes.
 
 ### ParameterInput Objects
@@ -67,18 +70,18 @@ as a tool when creating agents. The format is strictly typed using ToolDict.
 **Returns**:
 
 - `ToolDict` - A typed dictionary representing this object as a tool with:
-  - id: The tool&#x27;s unique identifier
-  - name: The tool&#x27;s display name
-  - description: The tool&#x27;s description
-  - supplier: The supplier code (e.g., &quot;aixplain&quot;)
+  - id: The tool's unique identifier
+  - name: The tool's display name
+  - description: The tool's description
+  - supplier: The supplier code (e.g., "aixplain")
   - parameters: Optional list of parameter configurations
-  - function: The tool&#x27;s function type (e.g., &quot;utilities&quot;)
-  - type: The tool type (e.g., &quot;model&quot;)
-  - version: The tool&#x27;s version as a string
-  - asset_id: The tool&#x27;s asset ID (usually same as id)
+  - function: The tool's function type (e.g., "utilities")
+  - type: The tool type (e.g., "model")
+  - version: The tool's version as a string
+  - asset_id: The tool's asset ID (usually same as id)
   
 
 **Raises**:
 
-- `NotImplementedError` - If the subclass doesn&#x27;t implement this method
+- `NotImplementedError` - If the subclass doesn't implement this method
 

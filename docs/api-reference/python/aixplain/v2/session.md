@@ -3,35 +3,42 @@ sidebar_label: session
 title: aixplain.v2.session
 ---
 
+`from aixplain import ExecutionConfig, ExecutionConfigDict, Session, SessionMessage, SessionMessageAttachment`
+
+
 Session module for aiXplain v2 SDK.
 
 #### resolve\_attachments
 
 ```python
 def resolve_attachments(context: Any,
-                        attachments: Optional[List[Union[str, Path,
-                                                         Dict[str, Any]]]],
+                        attachments: Optional[List[Union[str, Path, Dict[str,
+                                                                         Any],
+                                                         File]]],
                         files: Optional[List[Union[str, Path]]],
                         *,
                         error_label: str = "") -> List[Dict[str, Any]]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L147)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L155)
 
 Normalize the unified ``attachments`` (plus deprecated ``files``) for the API.
 
-Each entry becomes a ``\{url, name, type, mimeType}`` dict. URL entries (``http(s)://``
+Each entry becomes a ``{url, name, type, mimeType}`` dict. URL entries (``http(s)://``
 / ``s3://`` strings, or dicts carrying a ``url``) pass through unchanged; local paths
 (plain strings, or dicts carrying a ``path``) are uploaded to aiXplain storage and the
-resulting download link is attached. The ``FileUploader`` is created lazily, only when
+resulting download link is attached. A saved ``File`` is attached by a short-lived
+signed url fetched on demand (`File.get_signed_url`) — file-asset responses
+never carry a stable url; an unsaved ``File`` or a folder raises, rather than
+silently re-uploading or guessing. The ``FileUploader`` is created lazily, only when
 an upload is actually needed. Shared by ``Session.add_message`` and ``Agent`` runs.
 
 **Arguments**:
 
-- ``0 - An object exposing ``backend_url`` and ``api_key`` (the SDK context).
-- ``5 - The unified attachments list.
-- ``6 - Deprecated local-path list (merged in, with a warning).
-- ``7 - Optional context for upload-error messages (e.g. ``&quot;session &#x27;s1&#x27;&quot;``).
+- `context` - An object exposing ``backend_url`` and ``api_key`` (the SDK context).
+- `attachments` - The unified attachments list.
+- `files` - Deprecated local-path list (merged in, with a warning).
+- `error_label` - Optional context for upload-error messages (e.g. ``"session 's1'"``).
 
 ### SessionMessageAttachment Objects
 
@@ -42,7 +49,7 @@ an upload is actually needed. Shared by ``Session.add_message`` and ``Agent`` ru
 class SessionMessageAttachment()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L294)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L337)
 
 Attachment on a session message.
 
@@ -55,9 +62,23 @@ Attachment on a session message.
 class SessionMessage()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L308)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L351)
 
 A message within a session (not a resource — all ops go through Session).
+
+### ExecutionConfigDict Objects
+
+```python
+class ExecutionConfigDict(TypedDict)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L391)
+
+The dict form of `ExecutionConfig`, on the same field names.
+
+Every key is optional, so a partial update leaves the rest of the session's
+configuration alone. Declared as a ``TypedDict`` so a plain dict still gets
+autocomplete and a type error on a misspelled key, with nothing to import.
 
 ### ExecutionConfig Objects
 
@@ -68,7 +89,7 @@ A message within a session (not a resource — all ops go through Session).
 class ExecutionConfig()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L326)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L409)
 
 Per-session execution configuration.
 
@@ -93,18 +114,32 @@ messages trigger agent runs.
 - `budget` - Per-session run budget (cost / duration / iterations). Accepts a
   ``Budget`` instance or a snake_case/camelCase dict. Serialized into
   ``executionParams.budget`` so messages posted to the session run the
-  agent with this budget — the session-scoped equivalent of the agent&#x27;s
+  agent with this budget — the session-scoped equivalent of the agent's
   own ``agent.budget``.
 
-#### \_\_post\_init\_\_
+#### \_\_setattr\_\_
 
 ```python
-def __post_init__() -> None
+def __setattr__(name: str, value: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L363)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L446)
 
-Coerce a dict/Budget ``budget`` into a ``Budget`` instance.
+Coerce a dict ``budget`` into a ``Budget``, rejecting unknown keys.
+
+Here rather than in ``__post_init__`` so that ``config.budget = {...}``
+behaves the same as passing it to the constructor: reading it back gives
+an object with attributes, and a misspelled key raises instead of
+silently meaning "no cap". The generated ``__init__`` assigns through
+this too, so ``ExecutionConfig(budget={...})`` is covered by the same
+check. Mirrors how ``Agent.__setattr__`` coerces ``budget``.
+
+Strict everywhere except inside `_decoding_wire_payload`, which the
+two ``from_dict`` entry points set. ``budget`` is typed ``Any``, so
+``dataclasses_json`` hands over the raw wire dict instead of decoding it
+the way it does for every other input struct -- and a field the backend
+adds to the budget object is not a caller's typo, so it must not break
+every ``Session.get()``.
 
 #### to\_api\_dict
 
@@ -112,13 +147,13 @@ Coerce a dict/Budget ``budget`` into a ``Budget`` instance.
 def to_api_dict() -> Dict[str, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L369)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L469)
 
 Build the camelCase API payload, normalizing nested params.
 
 Only fields the caller set are included so the backend keeps
 existing values on partial updates. The deprecated
-``execution_params[&#x27;max_iterations&#x27;]`` is folded into
+``execution_params['max_iterations']`` is folded into
 ``executionParams.budget.maxIterations`` (Budget wins on conflict) and a
 standalone ``executionParams.maxIterations`` is never emitted — mirroring
 the agent run path so sessions and direct runs behave identically.
@@ -130,9 +165,18 @@ the agent run path so sessions and direct runs behave identically.
 def coerce(cls, value: Any) -> Optional["ExecutionConfig"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L458)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L591)
 
 Accept an ExecutionConfig, dict, or None and return a config or None.
+
+An unknown key raises rather than being dropped: ``from_dict`` ignores
+what it does not recognise, so a misspelled ``critera`` used to produce a
+session configured with no criteria at all and no indication why.
+
+**Raises**:
+
+- `ValidationError` - If *value* is a dict carrying an unrecognised key.
+- `TypeError` - If *value* is neither ``None``, a config, nor a dict.
 
 ### Session Objects
 
@@ -145,7 +189,7 @@ class Session(BaseResource, GetResourceMixin[BaseGetParams, "Session"],
               SearchResourceMixin[BaseSearchParams, "Session"])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L488)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L656)
 
 Session resource for managing agent conversation sessions.
 
@@ -154,15 +198,34 @@ Sessions are the single entry point for conversation threads: create with
 and drive with ``agent.run(query, session=…)``. Each session is bound to one
 agent (``agent_id``).
 
+#### \_\_setattr\_\_
+
+```python
+def __setattr__(name: str, value: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L699)
+
+Coerce a dict ``execution_config`` into an `ExecutionConfig`.
+
+On every assignment rather than in ``__post_init__`` alone: a dict
+assigned afterwards stayed a dict, so ``build_save_payload`` died with
+``AttributeError: 'dict' object has no attribute 'to_api_dict'`` and an
+unknown key went unvalidated. Mirrors how `Trigger` coerces
+``configuration``.
+
 #### \_\_post\_init\_\_
 
 ```python
 def __post_init__(agent: Optional[Any] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L527)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L712)
 
-Resolve the ``agent`` convenience arg and coerce ``execution_config``.
+Resolve the ``agent`` convenience arg.
+
+``execution_config`` is coerced by ``__setattr__``, which the generated
+``__init__`` routes through, so there is nothing left to do here.
 
 #### build\_save\_payload
 
@@ -170,7 +233,7 @@ Resolve the ``agent`` convenience arg and coerce ``execution_config``.
 def build_save_payload(**kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L560)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L747)
 
 Build payload with only mutable fields.
 
@@ -190,7 +253,7 @@ def search(cls,
            **kwargs: Any) -> Page["Session"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L574)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L761)
 
 Search sessions with optional filters, returning a paginated ``Page``.
 
@@ -201,33 +264,33 @@ with query-param filters) and wraps the result in a ``Page``.
 
 **Arguments**:
 
-- ``2 - Filter by agent — an :class:``3 instance
+- `agent` - Filter by agent — an `Agent` instance
   or an agent id string.
-- ``4 - Filter by session status (e.g. ``&quot;active&quot;``).
-- ``7 - Filter by owning user id.
-- ``8 - Lower bound on the session&#x27;s creation time
+- `status` - Filter by session status (e.g. ``"active"``).
+- `user_id` - Filter by owning user id.
+- `created_after` - Lower bound on the session's creation time
   (``datetime`` or ISO string).
-- ``1 - Upper bound on the session&#x27;s creation time.
-- ``2 - When ``True`` return memory-on threads (sessions with
+- `created_before` - Upper bound on the session's creation time.
+- `memory_enabled` - When ``True`` return memory-on threads (sessions with
   persisted traces); when ``False`` return memory-off runs. ``None``
   (default) applies no memory filter. *(Backend filter delivery is a
   follow-up; the SDK forwards the parameter today.)*
-- ``9 - Zero-indexed page number (default 0).
-- ``0 - Page size (default 20).
-- ``1 - Accepted for forward compatibility with the standard
+- `page_number` - Zero-indexed page number (default 0).
+- `page_size` - Page size (default 20).
+- `**kwargs` - Accepted for forward compatibility with the standard
   search signature; ignored by the session list endpoint.
   
 
 **Returns**:
 
-- ``2 - A page of Session instances.
+- `Page[Session]` - A page of Session instances.
   
 
 **Raises**:
 
-- ``3 - If the API response cannot be parsed or
+- `ResourceError` - If the API response cannot be parsed or
   deserialization fails.
-- ``4 - If the API request fails.
+- `APIError` - If the API request fails.
 
 #### messages
 
@@ -235,7 +298,7 @@ with query-param filters) and wraps the result in a ``Page``.
 def messages() -> List[SessionMessage]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L666)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L853)
 
 Get all messages in this session.
 
@@ -257,34 +320,35 @@ def add_message(
         role: str,
         content: str,
         request_id: Optional[str] = None,
-        attachments: Optional[List[Union[str, Path, Dict[str, Any]]]] = None,
+        attachments: Optional[List[Union[str, Path, Dict[str, Any],
+                                         File]]] = None,
         files: Optional[List[Union[str, Path]]] = None,
         tools: Optional[List[Dict[str, Any]]] = None) -> SessionMessage
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L690)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L877)
 
 Add a message to this session.
 
 **Arguments**:
 
-- `role` - Message role (&quot;user&quot; or &quot;assistant&quot;).
+- `role` - Message role ("user" or "assistant").
 - `content` - Message content. May be empty when ``attachments`` carry the
-  turn&#x27;s input (e.g. an audio clip that is itself the prompt).
+  turn's input (e.g. an audio clip that is itself the prompt).
 - `request_id` - Optional request ID to associate with the message.
-- `attachments` - The message&#x27;s attachments. Each entry may be:
+- `attachments` - The message's attachments. Each entry may be:
   
-  * a hosted-URL dict ``\{&quot;url&quot;, &quot;type&quot;?, &quot;name&quot;?, &quot;mimeType&quot;?}`` — used as-is;
-  * a local-path dict ``\{&quot;path&quot;: &quot;/...&quot;, &quot;type&quot;?, ...}`` — uploaded;
+  * a hosted-URL dict ``{"url", "type"?, "name"?, "mimeType"?}`` — used as-is;
+  * a local-path dict ``{"path": "/...", "type"?, ...}`` — uploaded;
   * a string URL (``http(s)://`` / ``s3://``) — attached as-is;
   * a string local path — uploaded to aiXplain storage.
   
-- `content`4 - Deprecated. Local file paths to upload and attach — pass these
+- `files` - Deprecated. Local file paths to upload and attach — pass these
   through ``attachments`` instead.
-- `content`7 - Per-message per-tool parameter overrides in the platform
-  ``[\{id, parameters: [\{name, value}]}]`` shape, applied to the
+- `tools` - Per-message per-tool parameter overrides in the platform
+  ``[{id, parameters: [{name, value}]}]`` shape, applied to the
   run this message triggers. Normally populated automatically from
-  the agent&#x27;s tool objects by ``agent.run(query, session=…)``.
+  the agent's tool objects by ``agent.run(query, session=…)``.
   
 
 **Returns**:
@@ -294,9 +358,9 @@ Add a message to this session.
 
 **Raises**:
 
-- ``2 - If the operation fails.
-- ``3 - If the API request fails.
-- ``4 - If a file upload fails.
+- `ResourceError` - If the operation fails.
+- `APIError` - If the API request fails.
+- `FileUploadError` - If a file upload fails.
 
 #### get\_message
 
@@ -304,7 +368,7 @@ Add a message to this session.
 def get_message(message_id: str) -> SessionMessage
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L762)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L949)
 
 Get a specific message by ID.
 
@@ -329,7 +393,7 @@ Get a specific message by ID.
 def delete_message(message_id: str) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L785)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L972)
 
 Delete a message from this session.
 
@@ -349,7 +413,7 @@ Delete a message from this session.
 def react(message_id: str, reaction: Optional[str]) -> SessionMessage
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L804)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/session.py#L991)
 
 React to a message or clear a reaction.
 
@@ -358,7 +422,7 @@ Only assistant messages can be reacted to.
 **Arguments**:
 
 - `message_id` - The message ID to react to.
-- `reaction` - &quot;LIKE&quot;, &quot;DISLIKE&quot;, or None to clear.
+- `reaction` - "LIKE", "DISLIKE", or None to clear.
   
 
 **Returns**:

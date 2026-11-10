@@ -1,9 +1,0 @@
-{
-    "name": "mock_name",
-    "description": "mock_description",
-    "function": "Text Generation",
-    "sourceLanguage": "en",
-    "input_modality": "text",
-    "output_modality": "text",
-    "documentation_url": ""
-}

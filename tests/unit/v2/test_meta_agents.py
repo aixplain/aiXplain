@@ -8,8 +8,9 @@ import json
 import pytest
 from unittest.mock import Mock, patch
 
-from aixplain.v2.meta_agents import Debugger, DebugResult, DEBUGGER_AGENT_ID
-from aixplain.v2.agent import AgentRunResult
+from aixplain import Debugger, DebugResult
+from aixplain.v2.meta_agents import DEBUGGER_AGENT_ID
+from aixplain import AgentRunResult
 
 
 # =============================================================================
@@ -120,7 +121,7 @@ class TestDebugResult:
 
     def test_debug_result_inherits_from_result(self):
         """DebugResult should inherit from Result."""
-        from aixplain.v2.resource import Result
+        from aixplain import Result
 
         result = DebugResult(status="SUCCESS", completed=True)
 
@@ -786,7 +787,7 @@ class TestDebuggerGetDebuggerAgent:
 
         # Patch the Agent.get class method at the class level
         # When the dynamic BoundAgent is created, it will inherit this patched method
-        from aixplain.v2.agent import Agent
+        from aixplain import Agent
 
         with patch.object(Agent, "get", return_value=mock_agent) as mock_get:
             agent = debugger._get_debugger_agent()

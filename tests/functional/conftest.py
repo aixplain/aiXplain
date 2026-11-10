@@ -14,6 +14,31 @@ import pytest
 
 from tests.cleanup_guards import ResourceTracker, finish_cleanup
 
+# A run the backend accepts but never finishes surfaces as the SDK's
+# ``TimeoutError`` after the 300s poll budget. That is a stalled test
+# environment, not a failing test, so give every functional test a retry for it.
+TIMEOUT_RERUNS = 2
+TIMEOUT_RERUNS_DELAY = 30
+
+
+def pytest_collection_modifyitems(config, items):
+    """Retry functional tests that fail only because a run timed out.
+
+    Done per item rather than with ``--reruns``/``--only-rerun`` on the command
+    line: those flags would also narrow the existing ``flaky`` markers, which
+    rerun on any failure (an LLM that skipped a tool), down to timeouts only. A
+    test that already carries a ``flaky`` marker keeps it unchanged.
+    """
+    for item in items:
+        if item.get_closest_marker("flaky") is None:
+            item.add_marker(
+                pytest.mark.flaky(
+                    reruns=TIMEOUT_RERUNS,
+                    reruns_delay=TIMEOUT_RERUNS_DELAY,
+                    only_rerun=[r"^TimeoutError: Operation timed out"],
+                )
+            )
+
 
 @pytest.fixture
 def resource_tracker(request):
@@ -32,6 +57,19 @@ def resource_tracker(request):
     Deliberately not autouse and it never skips: an autouse fixture that could
     call ``pytest.skip()`` is the shape `tests/unit/test_ci_matrix_coverage.py`
     flags as a directory-wide blanket skip (ENG-3544).
+    """
+    tracker = ResourceTracker()
+    yield tracker
+    finish_cleanup(tracker, request.node.nodeid)
+
+
+@pytest.fixture(scope="module")
+def module_resource_tracker(request):
+    """`resource_tracker` for module-scoped fixtures that share one resource across tests.
+
+    Same contract, torn down once the module finishes. Register each resource
+    right after it is saved, so a fixture that fails half-way through its setup
+    still gets what it already created deleted.
     """
     tracker = ResourceTracker()
     yield tracker

@@ -7,7 +7,9 @@ actually runs, and it drifted from the filesystem in both directions at once:
   directory-wide conftest hook, and reported green;
 * an earlier matrix trim (04dea96e) deleted the `benchmark`,
   `pipeline_designer`, and `pipeline_create` leg names while leaving their test
-  files, so those files ran under no leg at all.
+  files, so those files ran under no leg at all. (The pipeline files have since
+  been deleted along with the rest of the pipeline functional suite; `benchmark`
+  is still parked below.)
 
 This test asserts the mapping in both directions. It is static and
 credential-free on purpose: it runs in the `unit-coverage` job and in
@@ -16,7 +18,8 @@ is caught at the moment the matrix is edited rather than at the next release.
 
 Parking a directory stays available -- 04dea96e parked three of them precisely
 because they were failing, and a guard that forbade parking would only be
-satisfied by re-attaching unproven legs or deleting the tests. What the guard
+satisfied by re-attaching unproven legs or deleting the tests (which is what
+eventually happened to the pipeline ones). What the guard
 removes is *silent* parking: an unclaimed file must be named in
 `PARKED_TARGETS` with a ticket reference, so the backlog is in the repo instead
 of in a commit message nobody reads.
@@ -32,7 +35,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.ci_guards import REQUIRE_EXECUTED_ENV, should_fail_for_no_executed_tests
+from tests.ci_guards import (
+    MIN_EXECUTED_RATIO_ENV,
+    REQUIRE_EXECUTED_ENV,
+    min_executed_ratio,
+    should_fail_for_no_executed_tests,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "main.yaml"
@@ -44,30 +52,18 @@ TEST_FILE_PATTERNS = ("test_*.py", "*_test.py")
 #: Directories with no test module, and why. An entry is a written statement
 #: that the absence is intentional; without it, a directory whose tests were all
 #: deleted is indistinguishable from a covered one.
-DIRS_WITHOUT_TESTS = {
-    "finetune": "tests removed in 1539df13; only __init__.py and fixture data remain (ENG-3544 open question: delete or restore)",
-}
+#: Empty since PROD-2918: the `finetune` directory went with the v1 suites it
+#: served. Add an entry here (with a ticket) if a directory is ever emptied again.
+DIRS_WITHOUT_TESTS = {}
 
 #: Repo-relative file or directory -> why it has no CI leg. Parking is a real
 #: option, but only a declared one: each entry needs a ticket reference so the
 #: dead coverage is tracked rather than forgotten. Dropping an entry and adding
-#: the leg (both the `test-suite` name and its `include` block) belong in the
+#: the leg (both the `suite` name and its `include` block) belong in the
 #: same change, and the tests below hold the two halves together.
-PARKED_TARGETS = {
-    "tests/functional/benchmark": (
-        "parked by 04dea96e for failing against the test backend; MetricFactory/BenchmarkFactory "
-        "have no functional coverage until someone reruns this with a test-backend credential "
-        "and proves it green (ENG-3544)"
-    ),
-    "tests/functional/pipelines/designer_test.py": (
-        "parked by 04dea96e together with 265 lines of deleted flaky pipeline tests; "
-        "unproven against the test backend (ENG-3544)"
-    ),
-    "tests/functional/pipelines/create_test.py": (
-        "parked by 04dea96e together with 265 lines of deleted flaky pipeline tests; "
-        "unproven against the test backend (ENG-3544)"
-    ),
-}
+#: Empty since PROD-2918: `tests/functional/benchmark` exercised the v1
+#: BenchmarkFactory and was deleted with v1 rather than un-parked.
+PARKED_TARGETS = {}
 
 #: A parking reason has to point at something trackable, not just say "flaky".
 _TICKET_PATTERN = re.compile(r"[A-Z]{2,}-\d+")
@@ -75,30 +71,30 @@ _TICKET_PATTERN = re.compile(r"[A-Z]{2,}-\d+")
 
 def _matrix() -> dict:
     workflow = yaml.safe_load(WORKFLOW.read_text())
-    return workflow["jobs"]["setup-and-test"]["strategy"]["matrix"]
+    return workflow["jobs"]["functional"]["strategy"]["matrix"]
 
 
 def _include_targets() -> dict:
     """Map leg name -> path target, i.e. the first token of its `path` value.
 
-    `path` is a command-line tail rather than a bare path -- the pipeline leg
-    appends `--pipeline_version 2.0 --sdk_version v1 ...` -- but the target pytest
-    is pointed at is always the first token.
+    `path` is a command-line tail rather than a bare path -- a leg may append
+    pytest options such as `--sdk_version v1 ...` -- but the target pytest is
+    pointed at is always the first token.
     """
-    return {entry["test-suite"]: entry["path"].split()[0] for entry in _matrix()["include"]}
+    return {entry["suite"]: entry["path"].split()[0] for entry in _matrix()["include"]}
 
 
 def _running_leg_targets() -> dict:
     """The `include` entries that a job is actually spawned for.
 
-    GitHub Actions expands the matrix from the `test-suite` list; an `include`
+    GitHub Actions expands the matrix from the `suite` list; an `include`
     entry whose name is absent from that list contributes nothing and runs
     nothing. Coverage is therefore computed from the intersection, so deleting a
     leg *name* orphans its files even while the `include` entry lingers -- which
     is exactly how 04dea96e went unnoticed.
     """
     include = _include_targets()
-    return {name: include[name] for name in _matrix()["test-suite"] if name in include}
+    return {name: include[name] for name in _matrix()["suite"] if name in include}
 
 
 def _matching_files(directory: Path) -> set:
@@ -132,14 +128,14 @@ def test_every_leg_path_exists():
 def test_matrix_names_and_include_entries_agree():
     """A name with no `include` entry, or an entry with no name, both mean drift.
 
-    An `include` entry whose `test-suite` is absent from the name list does not
+    An `include` entry whose `suite` is absent from the name list does not
     run at all -- that is how the orphaned legs disappeared without the YAML
     looking wrong.
     """
-    names = set(_matrix()["test-suite"])
+    names = set(_matrix()["suite"])
     targets = set(_include_targets())
     assert names == targets, (
-        "every test-suite name needs an include entry and vice versa; "
+        "every suite name needs an include entry and vice versa; "
         f"names without an entry: {sorted(names - targets)}; "
         f"entries without a name (these do not run): {sorted(targets - names)}"
     )
@@ -164,7 +160,7 @@ def test_every_functional_test_file_is_claimed_by_one_leg_or_explicitly_parked()
     unaccounted = sorted(str(file) for file in _matching_files(FUNCTIONAL_DIR) - set(claims) - _parked_files())
     assert not unaccounted, (
         f"functional test files executed by NO CI leg: {unaccounted}. Add a leg to "
-        ".github/workflows/main.yaml (both the test-suite list and include), delete the files, or "
+        ".github/workflows/main.yaml (both the suite list and include), delete the files, or "
         "park them explicitly by adding an entry with a ticket reference to PARKED_TARGETS in this file."
     )
 
@@ -227,7 +223,7 @@ def test_parked_targets_still_exist_and_still_hold_tests(target):
 
 @pytest.mark.parametrize("target", sorted(PARKED_TARGETS))
 def test_parked_targets_cite_a_ticket(target):
-    """"Parked because it was flaky" is how coverage disappears for a year."""
+    """ "Parked because it was flaky" is how coverage disappears for a year."""
     reason = PARKED_TARGETS[target]
     assert _TICKET_PATTERN.search(reason), (
         f"the PARKED_TARGETS reason for {target} cites no ticket ({reason!r}); parked coverage needs "
@@ -256,6 +252,27 @@ def test_parked_targets_are_not_also_running_in_ci(target):
 _GUARD_CALLS = ("getenv", "environ", "get_closest_marker", "getoption", "getvalue")
 
 
+def _consults_a_guard(node: ast.AST) -> bool:
+    """True if *node* actually reads one of `_GUARD_CALLS` (`os.getenv`, `os.environ`, ...).
+
+    Matched on attribute and name nodes, not on the text of the dump: a fixture
+    whose docstring talks about "the environment", or that calls something named
+    `environment_for`, consults nothing, and a substring test let exactly that
+    pass as guarded (ENG-3685).
+    """
+    for child in ast.walk(node):
+        if isinstance(child, ast.Attribute) and child.attr in _GUARD_CALLS:
+            return True
+        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load) and child.id in _GUARD_CALLS:
+            return True
+    return False
+
+
+def _skips(node: ast.AST) -> bool:
+    body = ast.dump(node)
+    return "'skip'" in body or '"skip"' in body
+
+
 def _skips_unconditionally(node: ast.AST) -> bool:
     """True if *node*'s body reaches a skip without consulting anything.
 
@@ -263,9 +280,7 @@ def _skips_unconditionally(node: ast.AST) -> bool:
     directory-wide skip reads the environment, a marker, or an option, so
     requiring one of those keeps false positives unlikely and easy to resolve.
     """
-    body = ast.dump(node)
-    skips = "'skip'" in body or '"skip"' in body
-    return skips and not any(call in body for call in _GUARD_CALLS)
+    return _skips(node) and not _consults_a_guard(node)
 
 
 def _is_autouse_fixture(node: ast.AST) -> bool:
@@ -377,6 +392,29 @@ GUARDED_SETUP_HOOK = (
     "        pytest.skip('no credentials')\n"
 )
 
+# An unconditional skip that merely *talks* about the environment: a docstring,
+# a variable and a helper whose names contain "environ". The detector once took
+# that text for a guard, which hid an autouse skip in the v2 conftest (ENG-3685).
+BLANKET_FIXTURE_NAMING_THE_ENVIRONMENT = (
+    "import pytest\n"
+    "from tests.functional._assets import environment_for\n"
+    "@pytest.fixture(scope='session', autouse=True)\n"
+    "def verify_assets_resolve():\n"
+    '    """Resolve every asset in the environment this run targets."""\n'
+    "    environment = environment_for()\n"
+    "    pytest.skip(f'no credentials for {environment}')\n"
+)
+
+# The guard reached through `from os import environ` -- still a real read.
+GUARDED_FIXTURE_BARE_ENVIRON = (
+    "from os import environ\n"
+    "import pytest\n"
+    "@pytest.fixture(autouse=True)\n"
+    "def _require_api_key():\n"
+    "    if not environ.get('TEAM_API_KEY'):\n"
+    "        pytest.skip('no credentials')\n"
+)
+
 
 @pytest.mark.parametrize(
     ("source", "expected"),
@@ -387,6 +425,8 @@ GUARDED_SETUP_HOOK = (
         (GUARDED_FIXTURE, {}),
         (BLANKET_SETUP_HOOK, {OFFENDER: "pytest_runtest_setup"}),
         (GUARDED_SETUP_HOOK, {}),
+        (BLANKET_FIXTURE_NAMING_THE_ENVIRONMENT, {OFFENDER: "autouse fixture verify_assets_resolve()"}),
+        (GUARDED_FIXTURE_BARE_ENVIRON, {}),
     ],
     ids=[
         "blanket-hook",
@@ -395,6 +435,8 @@ GUARDED_SETUP_HOOK = (
         "guarded-autouse-fixture",
         "blanket-runtest-setup-hook",
         "guarded-runtest-setup-hook",
+        "blanket-autouse-fixture-naming-the-environment",
+        "guarded-autouse-fixture-bare-environ",
     ],
 )
 def test_blanket_skip_detector_distinguishes_guarded_from_unconditional(tmp_path, source, expected):
@@ -406,28 +448,74 @@ def test_blanket_skip_detector_distinguishes_guarded_from_unconditional(tmp_path
     assert _blanket_skip_offenders(agent_dir.parent, tmp_path) == expected
 
 
-@pytest.mark.parametrize("directory", ["agent", "team_agent", "benchmark", "pipelines"])
+@pytest.mark.parametrize("directory", ["v2"])
 def test_the_real_conftests_are_the_guarded_shape(directory):
-    """The conftests this ticket wrote still skip only on a missing credential.
+    """Every functional conftest still skips only on a missing credential.
 
-    `agent`/`team_agent` had the unconditional skip and were rewritten;
-    `benchmark`/`pipelines` had no guard at all and would have hit the backend
-    unauthenticated. Matched against the parsed tree, not the file text, so the
-    comments that explain the defect are not mistaken for the defect.
+    The `agent`/`team_agent` conftests this ticket rewrote, and the unguarded
+    `benchmark` one, went with the v1 suites in PROD-2918; `v2` is what is left.
+    Matched against the parsed tree, not the file text, so the comments that
+    explain the defect are not mistaken for the defect.
     """
     conftest = FUNCTIONAL_DIR / directory / "conftest.py"
     functions = [node for node in ast.walk(ast.parse(conftest.read_text())) if isinstance(node, ast.FunctionDef)]
 
     assert not [f for f in functions if f.name == "pytest_collection_modifyitems"], (
         f"tests/functional/{directory}/conftest.py reintroduced the collection hook that caused "
-        "ENG-3544; use the credential-guarded autouse fixture instead."
+        "ENG-3544; use a credential-guarded fixture instead."
     )
 
-    guards = [f for f in functions if _is_autouse_fixture(f) and "getenv" in ast.dump(f)]
+    # Every skip in the file has to read the environment itself, autouse or not:
+    # a fixture every test requests (`client`, `assets`) silences a leg as surely
+    # as an autouse one, and a check behind a helper is invisible to the
+    # detector above.
+    unguarded = sorted(f.name for f in functions if _skips_unconditionally(f))
+    assert not unguarded, (
+        f"tests/functional/{directory}/conftest.py skips in {unguarded} without reading the "
+        "environment there; inline the `os.getenv(...)` credential check so the guard is visible "
+        "(ENG-3544)."
+    )
+
+    # Not necessarily autouse: the v2 suite reaches the credential through the
+    # `client` fixture every test already requests, which skips on the same read.
+    guards = [f for f in functions if _skips(f) and _reads_api_key(f)]
     assert guards, (
-        f"tests/functional/{directory}/conftest.py has no autouse fixture guarding its skip on an "
+        f"tests/functional/{directory}/conftest.py has no fixture guarding its skip on an "
         "API key; without one the suite either runs with no credential or skips unconditionally."
     )
+
+
+class _StripEnvironmentReads(ast.NodeTransformer):
+    """Replace every `getenv(...)`/`environ.get(...)` call with `None` -- the guard, deleted."""
+
+    def visit_Call(self, node):
+        if _consults_a_guard(node.func):
+            return ast.copy_location(ast.Constant(None), node)
+        return self.generic_visit(node)
+
+
+def test_the_real_v2_conftest_is_guarded_only_by_its_environment_reads():
+    """Delete the env reads from the real v2 conftest and every skip must become unconditional.
+
+    The proof that the guard test above sees the real guards rather than an
+    incidental word: with the reads gone, each skipping fixture -- the
+    credential checks in `client` and `assets` among them -- is flagged.
+    """
+    tree = _StripEnvironmentReads().visit(ast.parse((FUNCTIONAL_DIR / "v2" / "conftest.py").read_text()))
+    skipping = {node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and _skips(node)}
+
+    assert {"client", "assets"} <= set(skipping), f"expected credential skips in client and assets, got {skipping}"
+    assert all(_skips_unconditionally(node) for node in skipping.values())
+
+
+def _reads_api_key(node: ast.AST) -> bool:
+    """True if *node* reads `TEAM_API_KEY` or `AIXPLAIN_API_KEY` through `getenv`/`environ`."""
+    for child in ast.walk(node):
+        if isinstance(child, ast.Call) and _consults_a_guard(child.func):
+            names = {arg.value for arg in child.args if isinstance(arg, ast.Constant)}
+            if names & {"TEAM_API_KEY", "AIXPLAIN_API_KEY"}:
+                return True
+    return False
 
 
 def test_workflow_enables_the_execution_guard():
@@ -457,6 +545,30 @@ def test_workflow_enables_the_execution_guard():
     )
 
 
+def test_workflow_pins_the_execution_ratio_floor():
+    """CI must state the floor it holds every leg to (ENG-3684).
+
+    Leaving `AIXPLAIN_MIN_EXECUTED_RATIO` unset would still enforce the default,
+    but the number nobody can see is the number nobody notices being wrong. The
+    literal is parsed by the real reader, so a value the guard rejects (`"80%"`,
+    `"high"`) fails here rather than failing every functional leg as "CI
+    integrity guard misconfigured" on the next push.
+    """
+    workflow = yaml.safe_load(WORKFLOW.read_text())
+    value = workflow.get("env", {}).get(MIN_EXECUTED_RATIO_ENV)
+
+    assert value is not None, (
+        f"{MIN_EXECUTED_RATIO_ENV} is missing from the workflow-level `env:` block in "
+        f"{WORKFLOW.name}. The floor each leg is held to belongs in the workflow, where it "
+        "is visible and reviewable (ENG-3684)."
+    )
+    ratio = min_executed_ratio({MIN_EXECUTED_RATIO_ENV: str(value)})
+    assert ratio > 0, (
+        f"{MIN_EXECUTED_RATIO_ENV} is set to {value!r}, which disables the ratio floor while "
+        "looking like it enforces one."
+    )
+
+
 def test_every_leg_declares_a_timeout():
     """`timeout-minutes: ${{ matrix.timeout }}` resolves to empty without one.
 
@@ -464,5 +576,37 @@ def test_every_leg_declares_a_timeout():
     and falls back to the job default, so a hung functional suite burns the full
     allowance before anyone notices.
     """
-    missing = [entry["test-suite"] for entry in _matrix()["include"] if "timeout" not in entry]
+    missing = [entry["suite"] for entry in _matrix()["include"] if "timeout" not in entry]
     assert not missing, f"matrix include entries with no `timeout`: {missing}"
+
+
+def test_the_job_timeout_outlasts_every_leg_timeout():
+    """A leg's step timeout has to fire before the job's.
+
+    When the job timeout lands first the runner kills the job outright, so the
+    leg reports as cancelled with no teardown; with six legs at `timeout: 45`
+    under a 45-minute job, that is what a hung leg did.
+    """
+    job = yaml.safe_load(WORKFLOW.read_text())["jobs"]["functional"]
+    longest = max(int(entry["timeout"]) for entry in _matrix()["include"])
+    assert int(job["timeout-minutes"]) > longest, (
+        f"jobs.functional.timeout-minutes is {job['timeout-minutes']}, not above the longest leg timeout "
+        f"({longest}); the job is killed before the leg's own timeout can fire."
+    )
+
+
+def test_functional_matrix_caps_its_parallelism():
+    """The legs share one test tenant, which caps concurrent agent runs.
+
+    With every leg running at once, the first live run of this matrix had ~40
+    tests refused with `err.agent_concurrency_limit_reached` -- failures that say
+    nothing about the SDK. `max-parallel` is the bound; dropping it, or raising it
+    past what the tenant absorbs, brings those failures back.
+    """
+    strategy = yaml.safe_load(WORKFLOW.read_text())["jobs"]["functional"]["strategy"]
+    max_parallel = strategy.get("max-parallel")
+
+    assert isinstance(max_parallel, int) and 1 <= max_parallel <= 4, (
+        f"jobs.functional.strategy.max-parallel is {max_parallel!r}; it must be an integer from 1 to 4 so the "
+        "legs stay under the test tenant's agent concurrency limit (err.agent_concurrency_limit_reached)."
+    )

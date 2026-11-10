@@ -23,15 +23,15 @@ from unittest.mock import MagicMock
 import pytest
 from dataclasses_json import config, dataclass_json
 
-from aixplain.v2.agent import Agent
-from aixplain.v2.enums import AssetStatus
-from aixplain.v2.exceptions import ResourceError, ValidationError
+from aixplain import Agent
+from aixplain import AssetStatus
+from aixplain import ResourceError, ValidationError
 from aixplain.v2.resource import (
     BaseResource,
     DeleteResourceMixin,
     GetResourceMixin,
 )
-from aixplain.v2.tool import Tool
+from aixplain import Tool
 
 
 def _reject(value):
@@ -150,7 +150,7 @@ def test_file_save_after_delete_raises():
     guard exists so File never regains the duplicate-on-save behaviour if one
     is added.
     """
-    from aixplain.v2.file import File
+    from aixplain import File
 
     file = File(id="FILE-1", name="report.pdf")
     file.context = MagicMock()
@@ -185,7 +185,7 @@ def _deleted_agent():
 
 def _deleted_file():
     """A File, whose save() never reaches ``BaseResource.save`` at all."""
-    from aixplain.v2.file import File
+    from aixplain import File
 
     file = File(id="FILE-1", name="report.pdf")
     file.context = MagicMock()
@@ -262,7 +262,7 @@ def test_create_hydration_failure_does_not_duplicate_on_second_save():
 
 def test_api_key_create_reraises_hydration_failure():
     """ApiKey._create's 422 fallback must not swallow the hydration error."""
-    from aixplain.v2.api_key import APIKey
+    from aixplain import APIKey
 
     api_key = APIKey(name="key")
     api_key.context = MagicMock()

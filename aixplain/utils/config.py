@@ -37,13 +37,13 @@ def _check_config_url(url: str, name: str) -> None:
     ``BACKEND_URL`` and ``MODELS_RUN_URL`` are read straight from the
     environment, so any ``.env`` on the machine can choose where the team API
     key is sent -- the policy has to be applied (BUG-939). It is *not* applied
-    as an import-time raise, though: this module is imported by ``import
-    aixplain`` itself, so raising here would break ``aixplain --help`` and unit
-    test collection on a machine with no valid environment (BUG-946).
+    as an import-time raise, though: raising here would break unit test
+    collection on a machine with no valid environment (BUG-946).
 
     The failure is therefore logged once, at WARNING, and re-raised by
-    :func:`ensure_config_urls_safe` before the first request actually goes out,
-    so nothing is ever sent to a rejected endpoint.
+    :func:`ensure_config_urls_safe`, so a caller that routes through this module
+    still gets an exception rather than a silent send. ``Aixplain()`` applies
+    the same policy itself, as a raise, before it builds a client.
     """
     global _DEFERRED_CONFIG_URL_ERROR
     try:
@@ -57,8 +57,9 @@ def _check_config_url(url: str, name: str) -> None:
 def ensure_config_urls_safe() -> None:
     """Raise if a configured endpoint failed the policy at import time.
 
-    Called from the request choke point so an unsafe endpoint is refused before
-    a socket is opened, rather than at ``import aixplain``.
+    Kept as an explicit call for anyone reading configuration through this
+    module; the v1 request choke point that called it automatically went with v1
+    in 0.3.0. ``Aixplain()`` validates its own three URLs directly.
 
     Raises:
         UnsafeURLError: If ``BACKEND_URL`` or ``MODELS_RUN_URL`` is not allowed.
@@ -81,18 +82,11 @@ def _normalize_api_keys():
 
     Importing this module must stay side-effect-safe when no credential is set:
     the unit test suite has to be collectible without one. Only *normalisation*
-    happens eagerly, because roughly 40 v1 call sites bind ``config.TEAM_API_KEY``
-    as a default argument value, which is evaluated once at import time - so the
-    ``AIXPLAIN_API_KEY -> TEAM_API_KEY`` copy has to happen before those modules
-    are imported.
+    happens eagerly, so a caller reading ``config.TEAM_API_KEY`` sees the value
+    whichever of the two environment variables was set.
 
-    A missing key is instead reported at the point of use: ``Aixplain()`` (v2)
-    refuses to construct without one. NOTE: v1 has no equivalent check -- the
-    ``@check_api_key`` decorator in ``aixplain/v1/decorators`` is applied to no
-    call site, so the import-time raise removed here was the only credential
-    error v1 ever produced. A v1 caller with no key now gets a backend 401
-    rather than an actionable message. v1 is deprecated, so this is accepted
-    rather than fixed here; see ENG-3431.
+    A missing key is instead reported at the point of use: ``Aixplain()``
+    refuses to construct without one.
 
     Two conflicting keys, on the other hand, are a misconfiguration that can
     only be intentional, so it still fails loudly and early (it cannot fire when

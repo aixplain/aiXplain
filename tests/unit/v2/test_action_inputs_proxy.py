@@ -10,8 +10,8 @@ that replaced the legacy ActionInputsProxy. It verifies that:
 
 import pytest
 
-from aixplain.v2.actions import Action, Input, Inputs
-from aixplain.v2.integration import ActionInputSpec
+from aixplain import Action, Input, Inputs
+from aixplain import ActionInputSpec
 
 
 # =============================================================================
@@ -368,7 +368,7 @@ class TestToolMergePayloadDefaults:
     @staticmethod
     def _create_tool_with_inputs(specs):
         """Create a minimal Tool with an Action containing the given input specs."""
-        from aixplain.v2.tool import Tool
+        from aixplain import Tool
 
         tool = Tool.__new__(Tool)
         tool.id = "test-tool-id"
@@ -379,7 +379,7 @@ class TestToolMergePayloadDefaults:
         inputs_obj = _build_inputs(specs)
         action_obj = Action(name="search", inputs=inputs_obj)
 
-        from aixplain.v2.actions import Actions
+        from aixplain import Actions
 
         actions = Actions(actions={"search": action_obj})
         tool.__dict__["actions"] = actions

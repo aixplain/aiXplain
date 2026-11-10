@@ -4,9 +4,9 @@ import pytest
 from unittest.mock import patch, Mock, MagicMock
 from dataclasses import dataclass
 
-from aixplain.v2.agent import Agent
-from aixplain.v2.enums import AssetStatus
-from aixplain.v2.exceptions import ResourceError
+from aixplain import Agent
+from aixplain import AssetStatus
+from aixplain import ResourceError
 
 DUPLICATE_RESPONSE = {
     "id": "duplicated-agent-456",

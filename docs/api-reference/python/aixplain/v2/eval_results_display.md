@@ -3,9 +3,12 @@ sidebar_label: eval_results_display
 title: aixplain.v2.eval_results_display
 ---
 
-Display helpers for :class:`~aixplain.v2.agent_evaluator.AgentEvaluationRun` results.
+`from aixplain import case_comparison_html, case_rows, guess_compare_value_columns, load_eval_csv, pivot_agents_wide, summarize_by_agent`
 
-Load CSV exports (from :meth:`~aixplain.v2.agent_evaluator.AgentEvaluationRun.to_dataframe`),
+
+Display helpers for `AgentEvaluationRun` results.
+
+Load CSV exports (from `to_dataframe`),
 pivot long rows into side-by-side wide tables, summarize metrics by agent, and build
 simple HTML for notebook widgets.
 
@@ -30,18 +33,18 @@ def load_eval_csv(path: Union[str, Path],
 
 Load a CSV written from evaluator results (e.g. ``df.to_csv(...)``).
 
-For a structured :class:`~aixplain.v2.agent_evaluator.AgentEvaluationRun`, use
-:meth:`~aixplain.v2.agent_evaluator.Eval.load_from_csv` instead.
+For a structured `AgentEvaluationRun`, use
+`load_from_csv` instead.
 
 **Arguments**:
 
 - `path` - Path to the CSV file.
-- `**read_csv_kwargs` - Forwarded to :func:`pandas.read_csv`.
+- `**read_csv_kwargs` - Forwarded to `pandas.read_csv`.
   
 
 **Returns**:
 
-  DataFrame in the same long shape as :meth:`AgentEvaluationRun.to_dataframe`.
+  DataFrame in the same long shape as `AgentEvaluationRun.to_dataframe`.
 
 #### pivot\_agents\_wide
 
@@ -58,15 +61,15 @@ def pivot_agents_wide(df: pd.DataFrame,
 Pivot long evaluator output so each case is one row and agents appear as columns.
 
 Column index is a MultiIndex. Pivoted fields use ``(value_field, agent_name)``.
-``query`` and ``reference`` use ``(field_name, &quot;&quot;)`` so they share two levels
+``query`` and ``reference`` use ``(field_name, "")`` so they share two levels
 and concatenate cleanly with pivoted columns.
 
 **Arguments**:
 
 - `df` - Long-format evaluation results.
-- `value_columns` - Columns to pivot; defaults to :func:``0.
-- ``1 - If True and ``query`` is present, join one query per ``case_index``.
-- ``6 - Same for ``reference``.
+- `value_columns` - Columns to pivot; defaults to `guess_compare_value_columns`.
+- `include_query` - If True and ``query`` is present, join one query per ``case_index``.
+- `include_reference` - Same for ``reference``.
   
 
 **Returns**:
@@ -76,7 +79,7 @@ and concatenate cleanly with pivoted columns.
 
 **Raises**:
 
-- ``1 - If required columns are missing or pivot inputs are invalid.
+- `ValidationError` - If required columns are missing or pivot inputs are invalid.
 
 #### summarize\_by\_agent
 
@@ -95,7 +98,7 @@ and ``n_evaluated__`` fields (threshold pass/fail) per agent.
 
 **Arguments**:
 
-- ``0 - Long-format evaluation results.
+- `df` - Long-format evaluation results.
   
 
 **Returns**:
@@ -105,7 +108,7 @@ and ``n_evaluated__`` fields (threshold pass/fail) per agent.
 
 **Raises**:
 
-- ``3 - If ``agent_name`` is missing.
+- `ValidationError` - If ``agent_name`` is missing.
 
 #### case\_rows
 

@@ -3,6 +3,9 @@ sidebar_label: exceptions
 title: aixplain.v2.exceptions
 ---
 
+`from aixplain import APIError, AixplainIssueError, AixplainV2Error, FileUploadError, ResourceError, TimeoutError, UntrustedURLError, ValidationError`
+
+
 Unified error hierarchy for v2 system.
 
 This module provides a comprehensive set of error types for consistent
@@ -14,7 +17,7 @@ error handling across all v2 components.
 class AixplainV2Error(Exception)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L10)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L11)
 
 Base exception for all v2 errors.
 
@@ -25,7 +28,7 @@ def __init__(message: Union[str, List[str]],
              details: Optional[Dict[str, Any]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L13)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L14)
 
 Initialize the exception with a message and optional details.
 
@@ -40,7 +43,7 @@ Initialize the exception with a message and optional details.
 class ResourceError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L27)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L28)
 
 Raised when resource operations fail.
 
@@ -50,7 +53,7 @@ Raised when resource operations fail.
 class APIError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L33)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L34)
 
 Raised when API calls fail.
 
@@ -60,10 +63,11 @@ Raised when API calls fail.
 def __init__(message: Union[str, List[str]],
              status_code: int = 0,
              response_data: Optional[Dict[str, Any]] = None,
-             error: Optional[str] = None) -> None
+             error: Optional[str] = None,
+             retryable: Optional[bool] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L36)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L37)
 
 Initialize APIError with HTTP status and response details.
 
@@ -73,6 +77,13 @@ Initialize APIError with HTTP status and response details.
 - `status_code` - HTTP status code from the API response.
 - `response_data` - Optional dictionary containing the raw API response.
 - `error` - Optional error string override.
+- `retryable` - Explicit retry signal, tri-state. ``None`` (the default)
+  means "no opinion" — callers fall back to the status-code
+  heuristic, where ``0`` stands for "no HTTP response at all".
+  ``False`` marks a deterministic failure that re-submitting
+  cannot fix; a business ``FAILED`` response is the motivating
+  case, because its usually-absent ``statusCode`` collapses onto
+  that same ``0`` transport sentinel.
 
 ### AixplainIssueError Objects
 
@@ -80,7 +91,7 @@ Initialize APIError with HTTP status and response details.
 class AixplainIssueError(APIError)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L64)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L75)
 
 Raised when SDK issue reporting fails.
 
@@ -90,19 +101,26 @@ Raised when SDK issue reporting fails.
 class ValidationError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L70)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L81)
 
 Raised when validation fails.
 
 ### TimeoutError Objects
 
 ```python
-class TimeoutError(AixplainV2Error)
+class TimeoutError(AixplainV2Error, builtins.TimeoutError)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L76)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L87)
 
 Raised when operations timeout.
+
+Also a `builtins.TimeoutError`, which matters because this name is
+re-exported from the package root: after ``from aixplain import *``, a plain
+``except TimeoutError:`` resolves to this class, and without the second base
+it would silently stop catching socket and asyncio timeouts. Inheriting both
+means the shadowing is harmless -- the name catches strictly more than it did
+before, never less.
 
 ### FileUploadError Objects
 
@@ -110,9 +128,23 @@ Raised when operations timeout.
 class FileUploadError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L82)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L101)
 
 Raised when file upload operations fail.
+
+### UntrustedURLError Objects
+
+```python
+class UntrustedURLError(AixplainV2Error)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L107)
+
+Raised when a credentialed request targets a host outside the trusted set.
+
+Not an `APIError`: no request is made, so there is no status code to
+report. Poll URLs come from response bodies, so this is the SDK refusing to
+hand the team API key to a host a body asked it to talk to.
 
 #### create\_operation\_failed\_error
 
@@ -120,7 +152,13 @@ Raised when file upload operations fail.
 def create_operation_failed_error(response: Dict[str, Any]) -> APIError
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L107)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L137)
 
 Create an operation failed error from API response.
+
+The error is always marked non-retryable: a ``FAILED`` body reports a
+*business* outcome, and its ``statusCode`` (usually absent, hence ``0``) is
+not a transport code. Without the explicit flag it would be indistinguishable
+from a connection failure and re-POSTed, billing the customer again for the
+same deterministic failure (BUG-1090).
 

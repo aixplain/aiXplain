@@ -25,9 +25,9 @@ These tests cover:
 from typing import Any, Dict, List
 from unittest.mock import Mock, patch
 
-from aixplain.v2.agent import Agent
-from aixplain.v2.model import Model, Parameter
-from aixplain.v2.tool import Tool
+from aixplain import Agent
+from aixplain import Model, Parameter
+from aixplain import Tool
 
 
 def _params_as_dict(parameters: List[dict]) -> Dict[str, Any]:
@@ -268,9 +268,7 @@ class TestAttachShapes:
             "id": "tool-1",
             "asset_id": "tool-1",
             "type": "model",
-            "parameters": [
-                {"name": "temperature", "value": "0.5", "allow_multi": False, "supports_variables": True}
-            ],
+            "parameters": [{"name": "temperature", "value": "0.5", "allow_multi": False, "supports_variables": True}],
         }
         # A dict that already carries a type must not trigger asset resolution.
         with patch.object(Agent, "_resolve_tool_snapshot", side_effect=AssertionError("must not resolve")):

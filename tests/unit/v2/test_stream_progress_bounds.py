@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from aixplain.v2.agent_progress import AgentProgressTracker, ProgressFormat
+from aixplain import AgentProgressTracker, ProgressFormat
 
 
 class _Response:

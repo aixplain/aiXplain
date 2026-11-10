@@ -1,21 +1,20 @@
 """Core module for aiXplain v2 API."""
 
 import os
-import sys
-from typing import Optional, TypeVar
+import warnings
+from typing import Optional, Type
 
 from aixplain.utils.url_safety import validate_config_url
 
 from .client import AixplainClient
 from .model import Model
 from .agent import Agent
-from .utility import Utility
 from .tool import Tool
 from .skill import Skill
 from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
 from .integration import Integration
 from .trigger import Trigger
-from .file import File, Resource
+from .file import File
 from .inspector import Inspector
 from .meta_agents import Debugger
 from .api_key import APIKey
@@ -25,22 +24,21 @@ from .issue import IssueReporter
 from . import enums
 
 
-ModelType = TypeVar("ModelType", bound=Model)
-AgentType = TypeVar("AgentType", bound=Agent)
-UtilityType = TypeVar("UtilityType", bound=Utility)
-ToolType = TypeVar("ToolType", bound=Tool)
-SkillType = TypeVar("SkillType", bound=Skill)
-MetricType = TypeVar("MetricType", bound=MetricBase)
-IntegrationType = TypeVar("IntegrationType", bound=Integration)
-TriggerType = TypeVar("TriggerType", bound=Trigger)
-ResourceType = TypeVar("ResourceType", bound=Resource)
-FileResourceType = TypeVar("FileResourceType", bound=File)
-InspectorType = TypeVar("InspectorType", bound=Inspector)
-DebuggerType = TypeVar("DebuggerType", bound=Debugger)
-APIKeyType = TypeVar("APIKeyType", bound=APIKey)
-SessionType = TypeVar("SessionType", bound=Session)
-RLMType = TypeVar("RLMType", bound=RLM)
-IssueReporterType = TypeVar("IssueReporterType", bound=IssueReporter)
+# Each bound resource is a class (``aix.Agent(...)``), so the attributes are typed as ``Type[...]``.
+ModelType = Type[Model]
+AgentType = Type[Agent]
+ToolType = Type[Tool]
+SkillType = Type[Skill]
+MetricType = Type[MetricBase]
+IntegrationType = Type[Integration]
+TriggerType = Type[Trigger]
+FileResourceType = Type[File]
+InspectorType = Type[Inspector]
+DebuggerType = Type[Debugger]
+APIKeyType = Type[APIKey]
+SessionType = Type[Session]
+RLMType = Type[RLM]
+IssueReporterType = IssueReporter
 
 
 class Aixplain:
@@ -58,14 +56,12 @@ class Aixplain:
 
     Model: ModelType = None
     Agent: AgentType = None
-    Utility: UtilityType = None
     Tool: ToolType = None
     Skill: SkillType = None
     Metric: MetricType = None
     Eval: type = None
     Integration: IntegrationType = None
     Trigger: TriggerType = None
-    Resource: ResourceType = None
     File: FileResourceType = None
     Inspector: InspectorType = None
     Debugger: DebuggerType = None
@@ -97,6 +93,16 @@ class Aixplain:
     AttachmentType = enums.AttachmentType
     BuiltinToolkit = enums.BuiltinToolkit
 
+    # The rest of the enum surface, so every enum is reachable off a client and
+    # not only from the package root (PROD-2921).
+    AuthenticationScheme = enums.AuthenticationScheme
+    CodeInterpreterModel = enums.CodeInterpreterModel
+    DataType = enums.DataType
+    EvolveType = enums.EvolveType
+    FileContentType = enums.FileContentType
+    FunctionType = enums.FunctionType
+    SplittingOptions = enums.SplittingOptions
+
     BACKEND_URL = "https://platform-api.aixplain.com"
     BENCHMARKS_BACKEND_URL = "https://platform-api.aixplain.com"
     MODELS_RUN_URL = "https://models.aixplain.com/api/v2/execute"
@@ -122,10 +128,6 @@ class Aixplain:
         if api_key:
             os.environ["TEAM_API_KEY"] = api_key
             os.environ["AIXPLAIN_API_KEY"] = api_key
-            _cfg = sys.modules.get("aixplain.utils.config")
-            if _cfg is not None:
-                _cfg.TEAM_API_KEY = api_key
-                _cfg.AIXPLAIN_API_KEY = api_key
         assert self.api_key, (
             "API key is required. Pass api_key=... to Aixplain() or set TEAM_API_KEY or AIXPLAIN_API_KEY."
         )
@@ -164,18 +166,36 @@ class Aixplain:
         """
         self.Model = type("Model", (Model,), {"context": self})
         self.Agent = type("Agent", (Agent,), {"context": self})
-        self.Utility = type("Utility", (Utility,), {"context": self})
         self.Tool = type("Tool", (Tool,), {"context": self})
         self.Skill = type("Skill", (Skill,), {"context": self})
         self.Metric = type("Metric", (MetricBase,), {"context": self})
         self.Eval = EvalClass
         self.Integration = type("Integration", (Integration,), {"context": self})
         self.Trigger = type("Trigger", (Trigger,), {"context": self})
-        self.Resource = type("Resource", (Resource,), {"context": self})
         self.File = type("File", (File,), {"context": self})
+        # ``Resource`` is a deprecated alias for ``File``, not a separate
+        # dynamic subclass, so ``aix.Resource is aix.File`` and instances
+        # built through either name are interchangeable. It is implemented as
+        # a property (see below) rather than an instance attribute here, so
+        # the deprecation warning fires only on use, not on every
+        # ``Aixplain()`` construction.
         self.Inspector = type("Inspector", (Inspector,), {"context": self})
         self.Debugger = type("Debugger", (Debugger,), {"context": self})
         self.APIKey = type("APIKey", (APIKey,), {"context": self})
         self.Session = type("Session", (Session,), {"context": self})
         self.RLM = type("RLM", (RLM,), {"context": self})
         self.issue = IssueReporter(context=self)
+
+    @property
+    def Resource(self) -> FileResourceType:
+        """Deprecated alias for :attr:`File`.
+
+        Returns the exact same class as ``self.File`` (not a separate dynamic
+        subclass), so ``aix.Resource is aix.File``.
+        """
+        warnings.warn(
+            "`Aixplain().Resource` is deprecated; use `Aixplain().File` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.File

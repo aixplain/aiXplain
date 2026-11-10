@@ -4,16 +4,11 @@ import warnings
 import pytest
 from unittest.mock import Mock
 
-from aixplain.v2.trigger import (
-    Trigger,
-    TriggerConfiguration,
-    TriggerRepeatRule,
-    _normalize_weekdays,
-    _normalize_monthdays,
-    _strip_none,
-)
-from aixplain.v2.integration import TriggerTypeSpec, TriggerEventOption, TriggerTypes
-from aixplain.v2.resource import Page
+from aixplain import Trigger, TriggerConfiguration, TriggerRepeatRule
+from aixplain.v2.trigger import _normalize_weekdays, _normalize_monthdays, _strip_none
+from aixplain import TriggerTypeSpec, TriggerEventOption, TriggerTypes
+from aixplain import Page
+from aixplain.v2.exceptions import ResourceError
 
 
 AGENT_ID = "66a060000000000000000000"
@@ -143,8 +138,12 @@ class TestBuildSavePayload:
 
     def test_notifications_and_enabled_passthrough(self):
         p = Trigger(
-            name="x", agent=FakeAgent(), input="q", run_at="2026-01-26T12:00:00Z",
-            notifications=True, enabled=False,
+            name="x",
+            agent=FakeAgent(),
+            input="q",
+            run_at="2026-01-26T12:00:00Z",
+            notifications=True,
+            enabled=False,
         ).build_save_payload()
         assert p["notifications"] is True and p["enabled"] is False
 
@@ -193,11 +192,22 @@ class TestBuildSavePayload:
 class TestRehydration:
     def _dto(self, **over):
         dto = {
-            "id": "trig1", "name": "Daily digest", "description": "d",
-            "triggerType": "time", "assetId": AGENT_ID, "assetType": "agent",
-            "type": "daily", "input": "Sum", "enabled": True, "notifications": False,
-            "nextRunAt": "2026-07-14T09:00:00Z", "lastRunAt": None, "failureCount": 0,
-            "enqueued": False, "createdAt": "2026-07-13T00:00:00Z", "updatedAt": "2026-07-13T00:00:00Z",
+            "id": "trig1",
+            "name": "Daily digest",
+            "description": "d",
+            "triggerType": "time",
+            "assetId": AGENT_ID,
+            "assetType": "agent",
+            "type": "daily",
+            "input": "Sum",
+            "enabled": True,
+            "notifications": False,
+            "nextRunAt": "2026-07-14T09:00:00Z",
+            "lastRunAt": None,
+            "failureCount": 0,
+            "enqueued": False,
+            "createdAt": "2026-07-13T00:00:00Z",
+            "updatedAt": "2026-07-13T00:00:00Z",
             "configuration": {"type": "daily", "time": "09:00", "timezone": "Europe/London", "repeat": None},
         }
         dto.update(over)
@@ -269,10 +279,20 @@ class TestSearch:
     def test_search_by_agent_sends_agentId_param(self):
         client = Mock()
         client.get.return_value = [
-            {"id": "t1", "name": "a", "triggerType": "time", "assetId": AGENT_ID,
-             "configuration": {"type": "once", "runAt": "2026-01-01T00:00:00Z"}},
-            {"id": "t2", "name": "b", "triggerType": "time", "assetId": AGENT_ID,
-             "configuration": {"type": "daily", "time": "09:00"}},
+            {
+                "id": "t1",
+                "name": "a",
+                "triggerType": "time",
+                "assetId": AGENT_ID,
+                "configuration": {"type": "once", "runAt": "2026-01-01T00:00:00Z"},
+            },
+            {
+                "id": "t2",
+                "name": "b",
+                "triggerType": "time",
+                "assetId": AGENT_ID,
+                "configuration": {"type": "daily", "time": "09:00"},
+            },
         ]
         cls = bound_trigger_class(make_context(client))
         page = cls.search(agent=FakeAgent())
@@ -331,6 +351,48 @@ class TestEventLifecycle:
         assert second.args[0] == "post" and second.args[1] == "v1/triggers"
         assert second.kwargs["json"]["triggerId"] == "ti_activated"
         assert t.trigger_id == "ti_activated" and t.id == "trigNew"
+
+    def test_failed_activation_reports_the_backend_reason(self):
+        client = Mock()
+        supplier_error = (
+            '410 {"error":{"message":"Connected account ca_x for toolkit \'GMAIL\' is in EXPIRED state",'
+            '"slug":"ActionExecute_ConnectedAccountExpired","status":410}}'
+        )
+        client.request.return_value = {
+            "status": "FAILED",
+            "completed": True,
+            "error": "err.supplier_error",
+            "supplierError": supplier_error,
+        }
+        t = Trigger(
+            name="Triage",
+            agent=FakeAgent(),
+            input="Triage",
+            event=TriggerEventOption(slug="GMAIL_NEW_GMAIL_MESSAGE", connection_id="conn1"),
+        )
+        t.context = make_context(client)
+
+        with pytest.raises(ResourceError, match="EXPIRED state") as exc_info:
+            t.save()
+
+        assert "slug='GMAIL_NEW_GMAIL_MESSAGE' on connection conn1" in str(exc_info.value)
+        assert client.request.call_count == 1  # nothing was persisted on /v1/triggers
+
+    def test_activation_without_trigger_id_or_reason_keeps_the_plain_message(self):
+        client = Mock()
+        client.request.return_value = {"completed": True, "data": {}}
+        t = Trigger(
+            name="Triage",
+            agent=FakeAgent(),
+            input="Triage",
+            event=TriggerEventOption(slug="NEW_EMAIL", connection_id="conn1"),
+        )
+        t.context = make_context(client)
+
+        with pytest.raises(ResourceError) as exc_info:
+            t.save()
+
+        assert str(exc_info.value) == "Failed to activate event trigger for slug='NEW_EMAIL' on connection conn1."
 
     def test_activation_without_connection_raises(self):
         opt = TriggerEventOption(slug="NEW_EMAIL")  # no connection_id

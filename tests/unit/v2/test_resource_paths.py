@@ -16,10 +16,10 @@ import os
 import pytest
 from unittest.mock import Mock
 
-from aixplain.v2.integration import Integration
-from aixplain.v2.model import Model
-from aixplain.v2.skill import Skill
-from aixplain.v2.tool import Tool
+from aixplain import Integration
+from aixplain import Model
+from aixplain import Skill
+from aixplain import Tool
 
 # (class, documented backend path). Kept as literals on purpose: this table is
 # the specification, not a mirror of the constant under test.

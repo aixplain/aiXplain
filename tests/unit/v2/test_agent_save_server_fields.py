@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aixplain.v2.agent import Agent
+from aixplain import Agent
 
 
 @pytest.fixture

@@ -3,7 +3,25 @@ sidebar_label: agent
 title: aixplain.v2.agent
 ---
 
+`from aixplain import Agent, AgentResponseData, AgentRunResult, Artifact, Budget, BudgetDict, ContextOverflowStrategy, ContextOverflowStrategyValue, ConversationMessage, OutputFormat, OutputFormatValue, RoleModelRef, Task, TaskDict`
+
+
 Agent module for aiXplain v2 SDK.
+
+#### OutputFormatValue
+
+The string form of `OutputFormat`, accepted anywhere the enum is.
+
+#### ContextOverflowStrategyValue
+
+The string form of `ContextOverflowStrategy`, accepted anywhere the
+enum is -- ``agent.context_overflow_strategy = "summarize"``.
+
+#### ProgressFormatValue
+
+The string form of `ProgressFormat`. Defined
+here rather than imported: ``agent_progress`` imports from this module, so the
+annotation below could not resolve the other way round.
 
 ### ConversationMessage Objects
 
@@ -11,13 +29,13 @@ Agent module for aiXplain v2 SDK.
 class ConversationMessage(TypedDict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L45)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L65)
 
 Type definition for a conversation message in agent history.
 
 **Attributes**:
 
-- `role` - The role of the message sender, either &#x27;user&#x27; or &#x27;assistant&#x27;
+- `role` - The role of the message sender, either 'user' or 'assistant'
 - `content` - The text content of the message
 - `attachments` - Optional attachments — hosted-URL/local-path strings or dicts
   with ``url`` or ``path`` (plus optional type/name/mimeType).
@@ -29,12 +47,12 @@ Type definition for a conversation message in agent history.
 def validate_history(history: List[Dict[str, Any]]) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L62)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L82)
 
 Validates conversation history for agent sessions.
 
 This function ensures that the history is properly formatted for agent conversations,
-with each message containing the required &#x27;role&#x27; and &#x27;content&#x27; fields and proper types.
+with each message containing the required 'role' and 'content' fields and proper types.
 
 **Arguments**:
 
@@ -53,11 +71,16 @@ with each message containing the required &#x27;role&#x27; and &#x27;content&#x2
 
 **Example**:
 
-  &gt;&gt;&gt; history = [
-  ...     \{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello&quot;},
-  ...     \{&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;Hi there!&quot;}
-  ... ]
-  &gt;&gt;&gt; validate_history(history)  # Returns True
+  
+```python
+>>> history = [
+...     {"role": "user", "content": "Hello"},
+...     {"role": "assistant", "content": "Hi there!"}
+... ]
+>>> validate_history(history)  # Returns True
+```
+  
+  
 
 ### OutputFormat Objects
 
@@ -65,7 +88,7 @@ with each message containing the required &#x27;role&#x27; and &#x27;content&#x2
 class OutputFormat(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L120)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L140)
 
 Output format options for agent responses.
 
@@ -75,20 +98,60 @@ Output format options for agent responses.
 class ContextOverflowStrategy(str, Enum)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L128)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L148)
 
-Strategy for condensing the working context when a run exceeds the model&#x27;s context window.
+Strategy for condensing the working context when a run exceeds the model's context window.
 
-Context condensation shapes only the working context sent to the model on a given run. It does not modify Shared Memory or the stored session history — the complete session history is always retained.
+Context condensation shapes only the working context sent to the model on a
+given run. It does not modify Shared Memory or the stored session history —
+the complete session history is always retained.
 
 **Attributes**:
 
 - `TRUNCATE` - Default. Remove the oldest unprotected turns until the context fits.
-- `SUMMARIZE` - Summarize older context into a shorter form the model can still use. Retains more of the conversation&#x27;s meaning than truncation, but adds latency and model cost.
+- `SUMMARIZE` - Summarize older context into a shorter form the model can still
+  use. Retains more of the conversation's meaning than truncation, but
+  adds latency and model cost.
+  
 
 **Notes**:
 
-Available in SDK 0.2.46+ (use the current 0.2.47). Set it as the agent&#x27;s saved default (`agent.context_overflow_strategy`) or override it per run via the `execution_params` argument (`context_overflow_strategy`). Precedence, highest first: per-run override, then the saved agent setting, then the Agent Engine default (`truncate`).
+  Available in SDK 0.2.46+ (use the current 0.2.47). Set it as the agent's
+  saved default (``agent.context_overflow_strategy``) or override it per run
+  via ``execution_params={"context_overflow_strategy": ...}``. Precedence,
+  highest first: per-run override -> saved agent setting -> Agent Engine
+  default (``truncate``).
+
+### BudgetDict Objects
+
+```python
+class BudgetDict(TypedDict)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L173)
+
+The dict form of `Budget`, on the user-facing field names.
+
+Every key is optional; an omitted cap is not sent, leaving that dimension
+uncapped. Declared as a ``TypedDict`` so a plain dict still gets
+autocomplete and a type error on a misspelled key, with nothing to import.
+
+### TaskDict Objects
+
+```python
+class TaskDict(TypedDict)
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L186)
+
+The dict form of `Task`, on the user-facing field names.
+
+``total=True`` because `Task` genuinely requires ``name``,
+``instructions`` and ``expected_output`` -- none has a default. The other
+config dicts in the SDK are ``total=False``, which is right for them because
+every field of the struct they describe defaults. Marking these optional
+would let a dict type-check clean and then fail at runtime, which is the
+disagreement these TypedDicts exist to prevent.
 
 ### AgentRunParams Objects
 
@@ -96,14 +159,14 @@ Available in SDK 0.2.46+ (use the current 0.2.47). Set it as the agent&#x27;s sa
 class AgentRunParams(BaseRunParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L230)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L301)
 
 Parameters for running an agent.
 
 **Attributes**:
 
 - `session` - Conversation thread to run within. A
-  :class:`~aixplain.v2.session.Session` instance or a session id
+  `Session` instance or a session id
   string. Omit for a one-shot, stateless run. Replaces the removed
   ``via_session`` flag and id-only ``session_id``.
 - `query` - The query to run
@@ -111,25 +174,29 @@ Parameters for running an agent.
   The backend performs the actual substitution.
 - `tasks` - List of tasks for the agent
 - `prompt` - Custom prompt override
-- `~aixplain.v2.session.Session`0 - Conversation history
-- `~aixplain.v2.session.Session`1 - Execution parameters (maxTokens, etc.). Passing
+- `history` - Conversation history
+- `execution_params` - Execution parameters (maxTokens, etc.). Passing
   ``max_iterations`` here is deprecated; set ``agent.budget.max_iterations``
   instead. A deprecated value is folded into ``budget.max_iterations``
-  (the agent&#x27;s budget wins on conflict) and the standalone key is not
+  (the agent's budget wins on conflict) and the standalone key is not
   emitted.
-- `~aixplain.v2.session.Session`8 - Criteria for evaluation
-- `~aixplain.v2.session.Session`9 - Evolution parameters
-- ``0 - Inspector configurations
-- ``1 - Whether to run response generation. Defaults to False.
-- ``2 - Multimodal attachments for the turn.
-  Each entry is a hosted-URL/local-path string or a dict with ``url`` or
-  ``path`` (plus optional ``type``/``name``/``mimeType``). Local paths are
-  uploaded to aiXplain storage automatically.
-- ``3 - Deprecated. Local file paths to upload — pass through ``attachments`` instead.
-- ``6 - Display format - &quot;status&quot; (single line) or &quot;logs&quot; (timeline).
+- `criteria` - Criteria for evaluation
+- `evolve` - Evolution parameters
+- `inspectors` - Inspector configurations
+- `run_response_generation` - Whether to run response generation. Defaults to False.
+- `attachments` - Multimodal attachments for the turn.
+  Each entry is a hosted-URL/local-path string, a dict with ``url`` or
+  ``path`` (plus optional ``type``/``name``/``mimeType``), or a saved
+  `File`. Local paths are uploaded to aiXplain
+  storage automatically; a saved ``File`` is attached via a signed url.
+- `files` - Deprecated. Local file paths to upload — pass through ``attachments`` instead.
+- `progress_format` - Display format - "status" (single line) or "logs" (timeline).
   If None (default), progress tracking is disabled.
-- ``7 - Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
-- ``8 - Whether to truncate long text in progress display
+- `progress_verbosity` - Detail level - 1 (minimal), 2 (thoughts), 3 (full I/O)
+- `progress_truncate` - Whether to truncate long text in progress display
+- `_progress_tracker` - Internal. The tracker owned by the ``run()`` /
+  ``sync_poll()`` call in progress, handed down to ``on_poll``.
+  Never sent to the backend.
 
 ### Budget Objects
 
@@ -140,23 +207,61 @@ Parameters for running an agent.
 class Budget()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L285)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L361)
 
 Budget caps governing an agent run (cost / duration / iterations).
 
-Every :class:`Agent` owns a ``budget`` (defaulting to an empty ``Budget()``),
-mutated in place via attribute access — mirroring ``model.inputs``::
+Every `Agent` owns a ``budget`` (defaulting to an empty ``Budget()``),
+mutated in place via attribute access — mirroring ``model.inputs``:
 
-    agent.budget.max_cost = 0.5
-    agent.budget.max_iterations = 10
+```python
+agent.budget.max_cost = 0.5
+agent.budget.max_iterations = 10
+```
 
-The same object serves two roles: ``agent.save()`` persists it as the agent&#x27;s
+
+The same object serves two roles: ``agent.save()`` persists it as the agent's
 default budget, and ``agent.run(...)`` sends its current state as the run-time
 budget (the backend merges the run-time budget field-by-field over the
 persisted default). The Python API is snake_case; serialization produces the
 agreed camelCase wire keys (``maxCost`` / ``maxDurationSeconds`` /
 ``maxIterations``). All fields are optional and ``None`` fields are dropped
 from ``to_dict()``.
+
+### Artifact Objects
+
+```python
+@dataclass_json
+
+@dataclass
+class Artifact()
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L400)
+
+A user-facing deliverable produced during an agent run.
+
+Artifacts are captured by the agent engine and come from two sources:
+
+- ``source="tool_output"`` — media a tool generated (image/audio/video/page).
+Carries a ``url``, usually a **presigned** URL.
+- ``source="workspace"`` — a file the agent wrote into its workspace.
+Carries inline UTF-8 text in ``content`` (binary workspace files are
+skipped by the engine; there is no uploader yet).
+
+Exactly one of ``url`` / ``content`` is populated.
+
+**Warning:** ``url_expires_at`` is when the **presigned URL** dies, not the artifact. Observed in the wild: a 24h window on a generated image URL. If you persist artifact URLs (database, cache, sent email), re-host the bytes before ``url_expires_at`` or the links will rot.
+
+
+``category`` and ``source`` are plain strings, not enums: the engine may add
+new media categories before this SDK knows about them, and an unknown value
+must pass through rather than raise.
+
+Both wire casings deserialize: the poll/``checkRequest`` path emits
+snake_case (``mime_type``) while the webhook body is camelCased
+(``mimeType``). If a payload somehow carries both spellings of a field, the
+one appearing last in the payload wins.
 
 ### AgentResponseData Objects
 
@@ -167,7 +272,7 @@ from ``to_dict()``.
 class AgentResponseData()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L319)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L468)
 
 Data structure for agent response.
 
@@ -177,9 +282,9 @@ Data structure for agent response.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L340)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L497)
 
-Assemble the nested ``governance`` dict from the flat wire fields.
+Normalize ``artifacts`` and assemble ``governance`` from flat wire fields.
 
 ### AgentRunResult Objects
 
@@ -190,7 +295,7 @@ Assemble the nested ``governance`` dict from the flat wire fields.
 class AgentRunResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L352)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L515)
 
 Result from running an agent.
 
@@ -204,12 +309,26 @@ Override type from base class
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L362)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L525)
 
 Promote diagnostic codes the backend nests under ``data``.
 
 The poll body carries them at ``data.diagnosticErrorCodes`` (or only
 inside ``executionStats`` on older builds), never top-level.
+
+#### artifacts
+
+```python
+@property
+def artifacts() -> List[Artifact]
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L564)
+
+Deliverables produced during the run (see `Artifact`).
+
+Always a list — empty when the run produced nothing, when artifact
+capture is disabled, or when the backend predates artifact support.
 
 #### execution\_id
 
@@ -218,7 +337,7 @@ inside ``executionStats`` on older builds), never top-level.
 def execution_id() -> Optional[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L401)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L580)
 
 Extract the execution ID from the poll URL or request_id.
 
@@ -238,7 +357,7 @@ def debug(prompt: Optional[str] = None,
           **kwargs: Any) -> "DebugResult"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L421)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L600)
 
 Debug this agent response using the Debugger meta-agent.
 
@@ -252,9 +371,9 @@ use the Debugger directly: aix.Debugger().debug_response(result)
 **Arguments**:
 
 - `prompt` - Optional custom prompt to guide the debugging analysis.
-- `Examples` - &quot;Why did it take so long?&quot;, &quot;Focus on error handling&quot;
+- `Examples` - "Why did it take so long?", "Focus on error handling"
 - `execution_id` - Optional execution ID (poll ID) for the run. If not provided,
-  it will be extracted from the response&#x27;s request_id or poll URL.
+  it will be extracted from the response's request_id or poll URL.
   This allows the debugger to fetch additional logs and information.
 - `**kwargs` - Additional parameters to pass to the debugger.
   
@@ -271,12 +390,17 @@ use the Debugger directly: aix.Debugger().debug_response(result)
 
 **Example**:
 
-  agent = aix.Agent.get(&quot;my_agent_id&quot;)
-  response = agent.run(&quot;Hello!&quot;)
-  debug_result = response.debug()  # Uses default prompt
-  debug_result = response.debug(&quot;Why did it take so long?&quot;)  # Custom prompt
-  debug_result = response.debug(execution_id=&quot;abc-123&quot;)  # With explicit ID
-  print(debug_result.analysis)
+  
+```python
+agent = aix.Agent.get("my_agent_id")
+response = agent.run("Hello!")
+debug_result = response.debug()  # Uses default prompt
+debug_result = response.debug("Why did it take so long?")  # Custom prompt
+debug_result = response.debug(execution_id="abc-123")  # With explicit ID
+print(debug_result.analysis)
+```
+  
+  
 
 ### Task Objects
 
@@ -287,7 +411,7 @@ use the Debugger directly: aix.Debugger().debug_response(result)
 class Task()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L474)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L653)
 
 A task definition for agent workflows.
 
@@ -297,7 +421,7 @@ A task definition for agent workflows.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L482)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L661)
 
 Initialize task dependencies after dataclass creation.
 
@@ -314,7 +438,7 @@ class Agent(BaseResource, SearchResourceMixin[BaseSearchParams, "Agent"],
             RunnableResourceMixin[AgentRunParams, AgentRunResult])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L492)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L671)
 
 Agent resource class.
 
@@ -324,7 +448,7 @@ Agent resource class.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L596)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L795)
 
 Initialize agent after dataclass creation.
 
@@ -334,16 +458,23 @@ Initialize agent after dataclass creation.
 def __setattr__(name: str, value: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L682)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L973)
 
-Keep ``self.budget`` a (never-None) ``Budget`` instance.
+Keep ``self.budget`` a (never-None) ``Budget`` instance, and note role assignments.
 
 Assigning ``agent.budget`` a dict / ``Budget`` / ``None`` is coerced into
 a ``Budget`` so attribute access (``agent.budget.max_cost = ...``) always
-works and the invariant &quot;budget is never None&quot; holds (mirrors how
+works and the invariant "budget is never None" holds (mirrors how
 ``Model.__setattr__`` coerces bulk ``inputs`` assignment). This runs for
 the generated ``__init__`` assignment too, so the field is a ``Budget``
 by the time ``__post_init__`` executes.
+
+A role ref assigned *after* hydration is the caller's intent and must
+always be sent on save, even when it happens to equal the class default
+(BUG-1093). Assignments made by the generated ``__init__`` are not
+recorded — ``_explicit_roles`` does not exist yet at that point — but
+such an object also has no recorded server fields, so suppression is off
+for it anyway. Hydration resets the set (see ``_record_server_fields``).
 
 #### mark\_as\_deleted
 
@@ -351,7 +482,7 @@ by the time ``__post_init__`` executes.
 def mark_as_deleted() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L723)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1045)
 
 Mark the agent as deleted by setting status to DELETED and calling parent method.
 
@@ -362,7 +493,7 @@ def before_run(*args: Any,
                **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L788)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1156)
 
 Hook called before running the agent to validate and prepare state.
 
@@ -373,7 +504,7 @@ def on_poll(response: AgentRunResult,
             **kwargs: Unpack[AgentRunParams]) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L806)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1173)
 
 Hook called after each poll to update progress display.
 
@@ -389,9 +520,14 @@ def after_run(result: Union[AgentRunResult, BaseException], *args: Any,
               **kwargs: Unpack[AgentRunParams]) -> Optional[AgentRunResult]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L818)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1186)
 
 Hook called after running the agent for result transformation.
+
+Also reached on the failure path, where ``result`` is the raised
+exception (any ``BaseException``, ``KeyboardInterrupt`` included). The
+progress display is not torn down here: ``run()`` owns it, so an
+override that skips ``super()`` cannot leak the display thread.
 
 #### run
 
@@ -399,7 +535,7 @@ Hook called after running the agent for result transformation.
 def run(*args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L921)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1319)
 
 Run the agent with optional progress display.
 
@@ -408,25 +544,25 @@ Run the agent with optional progress display.
 - `*args` - Positional arguments (first arg is treated as query)
 - `query` - The query to run
 - `session` - Run within a conversation thread. Accepts a
-  :class:`~aixplain.v2.session.Session` instance or a session id
+  `Session` instance or a session id
   string. When supplied, the run routes through the session path:
   the user message is posted to
-  ``POST /v1/sessions/\{id}/messages`` (carrying the session&#x27;s
+  ``POST /v1/sessions/{id}/messages`` (carrying the session's
   ``executionConfig`` plus any per-run execution overrides) and the
   triggered agent run is awaited. Omit ``session`` for a one-shot,
-  stateless run over ``POST /v2/agents/\{id}/run``. There is no
+  stateless run over ``POST /v2/agents/{id}/run``. There is no
   ``via_session`` flag and no id-only ``session_id`` — manage
   threads through ``aix.Session`` and pass them here.
-- `query`8 - Display format - &quot;status&quot; or &quot;logs&quot;. If None (default),
+- `progress_format` - Display format - "status" or "logs". If None (default),
   progress tracking is disabled.
-- `query`9 - Detail level 1-3 (default: 1)
-- `session`0 - Truncate long text (default: True)
-- `session`1 - Additional run parameters
+- `progress_verbosity` - Detail level 1-3 (default: 1)
+- `progress_truncate` - Truncate long text (default: True)
+- `**kwargs` - Additional run parameters
   
 
 **Returns**:
 
-- `session`2 - The result of the agent execution
+- `AgentRunResult` - The result of the agent execution
 
 #### run\_async
 
@@ -434,7 +570,7 @@ Run the agent with optional progress display.
 def run_async(*args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L956)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1368)
 
 Run the agent asynchronously.
 
@@ -450,29 +586,46 @@ Run the agent asynchronously.
 - `AgentRunResult` - The result of the agent execution. Use ``result.url``
   to poll for completion via ``sync_poll(result.url)`` or
   ``client.get(result.url)``. Do not construct
-  ``/sdk/runs/\{execution_id}`` — that endpoint is not supported
+  ``/sdk/runs/{execution_id}`` — that endpoint is not supported
   for agent runs.
+  
+
+**Notes**:
+
+  ``progress_format`` is ignored here and logged as a warning: this
+  call returns as soon as the run is submitted, so there is nothing
+  to display. To watch a run started this way, pass the progress
+  kwargs to the poll instead:
+  
+    ```python
+    r = agent.run_async("hi")
+    agent.sync_poll(r.url, progress_format="status")
+    ```
+  
+  
 
 #### poll
 
 ```python
-def poll(poll_url: str) -> AgentRunResult
+def poll(poll_url: str, timeout: Optional[float] = None) -> AgentRunResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1003)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1430)
 
 Poll for the result of an asynchronous agent execution.
 
 Unlike the base implementation, *poll_url* may be either a full URL
 (as returned in ``AgentRunResult.url``) **or** a bare execution ID.
 When an execution ID is provided the correct
-``/sdk/agents/\{id}/result`` endpoint is used automatically, avoiding
+``/sdk/agents/{id}/result`` endpoint is used automatically, avoiding
 the common mistake of calling the unsupported
-``/sdk/runs/\{id}`` endpoint.
+``/sdk/runs/{id}`` endpoint.
 
 **Arguments**:
 
 - `poll_url` - Full poll URL or execution ID.
+- `timeout` - Optional upper bound, in seconds, on this single request's
+  read phase. See `RunnableResourceMixin.poll`.
   
 
 **Returns**:
@@ -486,17 +639,21 @@ def sync_poll(poll_url: str,
               **kwargs: Unpack[AgentRunParams]) -> AgentRunResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1021)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1450)
 
 Poll until an asynchronous agent execution completes.
 
 Accepts either a full URL or a bare execution ID (see
-:meth:`poll` for details).
+`poll` for details).
 
 **Arguments**:
 
 - `poll_url` - Full poll URL or execution ID.
 - `**kwargs` - Run parameters including ``timeout`` and ``wait_time``.
+  ``progress_format`` / ``progress_verbosity`` /
+  ``progress_truncate`` render a live progress display for the
+  duration of the poll, exactly as on `run`; this is how a
+  run started with `run_async` is watched.
   
 
 **Returns**:
@@ -509,7 +666,7 @@ Accepts either a full URL or a bare execution ID (see
 def save(*args: Any, **kwargs: Any) -> "Agent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1068)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1516)
 
 Save the agent with dependency management.
 
@@ -531,6 +688,7 @@ child components before the agent itself is saved.
 
 **Raises**:
 
+- `ResourceError` - If the agent has been deleted.
 - `ValueError` - If child components are not saved and save_subcomponents is False
 
 #### before\_save
@@ -539,7 +697,7 @@ child components before the agent itself is saved.
 def before_save(*args: Any, **kwargs: Any) -> Optional[dict]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1270)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1771)
 
 Callback to be called before the resource is saved.
 
@@ -552,11 +710,11 @@ def after_duplicate(result: Union["Agent", Exception],
                     **kwargs: Any) -> Optional["Agent"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1285)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1786)
 
 Callback called after the agent is duplicated.
 
-Sets the duplicated agent&#x27;s status to DRAFT.
+Sets the duplicated agent's status to DRAFT.
 
 #### duplicate
 
@@ -566,12 +724,12 @@ def duplicate(duplicate_subagents: bool = False,
               name: Optional[str] = None) -> "Agent"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1295)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1796)
 
 Duplicate this agent on the aiXplain platform (server-side).
 
 Creates a server-side copy of this agent with a clean usage baseline.
-The duplicate inherits the original&#x27;s ownership, team, and permissions
+The duplicate inherits the original's ownership, team, and permissions
 but resets all usage and cost metrics.
 
 **Arguments**:
@@ -601,7 +759,7 @@ def search(cls: type["Agent"],
            **kwargs: Unpack[BaseSearchParams]) -> "Page[Agent]"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1334)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1840)
 
 Search agents with optional query and filtering.
 
@@ -622,7 +780,7 @@ Search agents with optional query and filtering.
 def llm_id() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1722)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L2298)
 
 Return main LLM id whether llm is a string or Model.
 
@@ -632,7 +790,7 @@ Return main LLM id whether llm is a string or Model.
 def build_save_payload(**kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1730)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L2306)
 
 Build the payload for the save action.
 
@@ -642,7 +800,14 @@ Build the payload for the save action.
 def build_run_payload(**kwargs: Unpack[AgentRunParams]) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L1847)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/agent.py#L2478)
 
 Build the payload for the run action.
+
+SDK-control kwargs (``_RUN_CONTROL_KEYS``: retries/timeouts, the
+``progress_*`` display trio, ``api_key`` / ``resource_path``, and the
+header-only run metadata) are dropped up front. The run path already
+filters them via ``_payload_kwargs_for_run``; repeating it here means the
+catch-all snake_case→camelCase forwarder below cannot put them on the
+wire even when this builder is called directly (BUG-1091).
 

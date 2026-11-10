@@ -4,9 +4,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from aixplain.v2.core import Aixplain
-from aixplain.v2.exceptions import APIError, AixplainIssueError
-from aixplain.v2.issue import IssueSeverity
+from aixplain import Aixplain
+from aixplain import APIError, AixplainIssueError
+from aixplain import IssueSeverity
 
 
 class TestIssueReporter:
@@ -92,6 +92,21 @@ class TestIssueReporter:
 
         with pytest.raises(AixplainIssueError, match="severity must be one of: SEV1, SEV2, SEV3, SEV4."):
             aix.issue.report("Agent crashes on tool invocation", severity="CRITICAL")
+
+    @pytest.mark.parametrize(
+        ("description", "kwargs"),
+        [(None, {}), ("Agent crashes on tool invocation", {"severity": "CRITICAL"})],
+        ids=["missing-description", "unknown-severity"],
+    )
+    def test_validation_fails_with_400_before_any_backend_call(self, description, kwargs):
+        aix = Aixplain(api_key="test-key")
+        aix.client.post = Mock()
+
+        with pytest.raises(AixplainIssueError) as exc_info:
+            aix.issue.report(description, **kwargs)
+
+        assert exc_info.value.status_code == 400
+        aix.client.post.assert_not_called()
 
     def test_report_wraps_api_error(self):
         aix = Aixplain(api_key="test-key")

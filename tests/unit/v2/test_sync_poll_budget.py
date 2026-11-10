@@ -21,9 +21,9 @@ from unittest.mock import Mock, patch
 import pytest
 from dataclasses_json import dataclass_json
 
-from aixplain.v2.agent import Agent
+from aixplain import Agent
 from aixplain.v2.client import DEFAULT_RETRY_TOTAL, DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ
-from aixplain.v2.exceptions import TimeoutError as AixplainTimeoutError
+from aixplain import TimeoutError as AixplainTimeoutError
 
 BACKEND_URL = "https://platform-api.aixplain.com"
 
@@ -330,7 +330,7 @@ class TestDeadlineWinsOverTheErrorItCauses:
     def test_read_timeout_at_the_deadline_raises_timeout_error(self):
         import requests
 
-        from aixplain.v2.exceptions import APIError
+        from aixplain import APIError
 
         agent = _create_agent()
         # Budget gone by the time the (bounded) request gives up.
@@ -354,7 +354,7 @@ class TestDeadlineWinsOverTheErrorItCauses:
 
     def test_an_api_error_inside_the_budget_still_propagates(self):
         """Only budget exhaustion softens the error; a live failure must not."""
-        from aixplain.v2.exceptions import APIError
+        from aixplain import APIError
 
         agent = _create_agent([APIError("upstream exploded", 500, {})])
 
@@ -364,7 +364,7 @@ class TestDeadlineWinsOverTheErrorItCauses:
 
     def test_the_final_failure_is_chained_onto_the_timeout(self):
         """A 401 on the last poll must stay visible, not become "timed out"."""
-        from aixplain.v2.exceptions import APIError
+        from aixplain import APIError
 
         agent = _create_agent()
         clock = {"t": 0.0}
@@ -395,7 +395,7 @@ class TestDeadlineWinsOverTheErrorItCauses:
 
     def test_untrusted_url_is_never_softened_into_a_timeout(self):
         """A refused credential leak must stay a security error, budget or not."""
-        from aixplain.v2.exceptions import UntrustedURLError
+        from aixplain import UntrustedURLError
 
         agent = _create_agent()
         agent.context.client.ensure_trusted_url = Mock(side_effect=UntrustedURLError("nope"))
@@ -448,7 +448,7 @@ class TestSubmitRetryJitter:
     """``_submit_with_retries`` sleeps between submissions -- also jittered."""
 
     def test_submission_retry_sleep_is_jittered(self):
-        from aixplain.v2.exceptions import APIError
+        from aixplain import APIError
         from aixplain.v2.resource import RunnableResourceMixin
 
         agent = _create_agent()

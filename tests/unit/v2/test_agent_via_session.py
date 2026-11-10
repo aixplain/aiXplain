@@ -13,8 +13,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from aixplain.v2.agent import Agent, AgentRunResult
-from aixplain.v2.session import ExecutionConfig, Session, SessionMessage
+from aixplain import Agent, AgentRunResult
+from aixplain import ExecutionConfig, Session, SessionMessage
 
 
 def _make_mock_context(**overrides):
@@ -266,7 +266,7 @@ class TestRunWithSessionOverrides:
         that omitted ``budget`` and then ``save()`` the loss, so the session ran
         uncapped from that point on (BUG-1091).
         """
-        from aixplain.v2.agent import Budget
+        from aixplain import Budget
 
         ctx = _make_mock_context()
 
@@ -298,7 +298,7 @@ class TestRunWithSessionOverrides:
 
     def test_agent_budget_seeds_a_session_without_one(self):
         """``agent.budget`` applied on the direct run path only; now on both."""
-        from aixplain.v2.agent import Budget
+        from aixplain import Budget
 
         ctx = _make_mock_context()
 

@@ -1,0 +1,72 @@
+# Secret scanning for the aiXplain SDK (ENG-3686).
+#
+# Live platform keys were committed in plaintext in scratch files and sat in the
+# tree for months. This config backs
+# the `gitleaks` hook in .pre-commit-config.yaml and the full-tree scan in
+# .github/workflows/pre-commit.yaml, which runs on every push.
+#
+# The allowlists below are deliberately narrow. Do NOT allowlist a whole test
+# directory or file: the fixtures under tests/ are exactly where a real key gets
+# pasted "just to try something". Allowlist the specific fake value, and say why.
+
+title = "aiXplain SDK"
+
+[extend]
+# Gitleaks' curated rule set. It matches credential shapes (AWS keys, JWTs,
+# GitHub tokens, high-entropy values next to an api_key-ish assignment) rather
+# than raw entropy, so the repo's 24-hex MongoDB asset IDs are not flagged.
+# detect-secrets was evaluated first and reported ~350 of them (ENG-3686).
+useDefault = true
+
+# The curated rules miss the shapes this repo actually leaked: a 64-hex platform
+# key in `os.environ["TEAM_API_KEY"] = "..."`, in `{"Authorization": "Token ..."}`
+# and passed straight to the client. A leaked assignment line went unreported;
+# only saved notebook output tripped a default rule, so the same notebook saved
+# without outputs would have passed. These two rules close
+# that gap. tests/unit/test_secret_scanning.py checks both against those shapes.
+#
+# The text between the name and the key may hold hex letters (`_PROD`, `_DEV`,
+# `_KEY`), so the rule only asks for a non-hex character right before the key,
+# not for a separator free of a-f. A separator that had to avoid a-f missed
+# `TEAM_API_KEY_PROD="<key>"` and `{"x-aixplain-key": "<key>"}`. Every name
+# below ends in a non-hex letter, so a key written straight after one still has
+# a boundary on its left.
+[[rules]]
+id = "aixplain-platform-key"
+description = "aiXplain platform/team API key: 64 hex characters shortly after a credential name on the same line."
+regex = '''(?i)(?:api[_-]?key|team[_-]?key|access[_-]?key|aixplain[_-]?key|token|secret|authorization)(?:[^\n]{0,40}?[^0-9a-f\n])?([0-9a-f]{64})(?:[^0-9a-f]|$)'''
+secretGroup = 1
+keywords = ["api_key", "api-key", "apikey", "team_key", "team-key", "access_key", "access-key", "aixplain_key", "aixplain-key", "token", "secret", "authorization"]
+
+[[rules]]
+id = "aixplain-client-positional-key"
+description = "aiXplain platform API key passed positionally, as in `Aixplain(\"<key>\")`, where no credential name is on the line."
+regex = '''(?i)\baixplain\(\s*["']([0-9a-f]{64})["']'''
+secretGroup = 1
+keywords = ["aixplain("]
+
+[[allowlists]]
+description = "Build artifacts, not reviewable source. `gitleaks dir .` walks the working tree, so a local run would otherwise re-report every secret-shaped literal frozen into a .pyc. All of these are gitignored and never reach a CI checkout."
+paths = [
+  '''__pycache__/''',
+  '''\.pyc$''',
+  '''^\.venv/''',
+  '''^venv/''',
+  '''^uv\.lock$''',
+]
+
+[[allowlists]]
+description = "Documentation placeholder. A literal instruction to the reader, never a live value."
+regexes = [
+  '''^YOUR_API_KEY$''',
+]
+
+[[allowlists]]
+description = "Hand-written fake credentials in unit tests, matched by exact value. Keep this list literal so a real key pasted next to them still trips the scanner."
+regexes = [
+  '''^abcd1234efgh$''',
+  '''^wxyz5678uvst$''',
+  '''^valid_api_key_123$''',
+  # The planted key in tests/unit/test_secret_scanning.py, which must look like a real one to test the detector.
+  '''^deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef$''',
+]

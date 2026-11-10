@@ -7,12 +7,12 @@ from dataclasses_json import dataclass_json
 
 import requests
 
-from aixplain.v2.actions import Action, Actions, Inputs
-from aixplain.v2.exceptions import APIError
-from aixplain.v2.integration import ActionInputSpec, ActionSpec
-from aixplain.v2.tool import Tool, ToolResult
-from aixplain.v2.integration import Integration
-from aixplain.v2.resource import ResourceError
+from aixplain import Action, Actions, Inputs
+from aixplain import APIError
+from aixplain import ActionInputSpec, ActionSpec
+from aixplain import Tool, ToolResult
+from aixplain import Integration
+from aixplain import ResourceError
 
 MOCK_BACKEND_RESPONSE = {
     "id": "69bbf9c19e1085b478304903",
@@ -473,6 +473,44 @@ class TestScriptToolDefaultIntegration:
     def test_code_without_any_function_raises(self):
         with pytest.raises(ValueError, match="No function"):
             Tool(name="Script Tool", description="desc", code="x = 1\n")
+
+    def test_code_with_a_syntax_error_raises(self):
+        with pytest.raises(ValueError, match="not valid Python"):
+            Tool(name="Script Tool", description="desc", code="def main(:\n    return 1\n")
+
+    def test_code_accepts_a_callable(self):
+        """``ScriptFactory`` migrates to ``Tool``, so a function must work as well
+        as a source string -- the migration should not force callers to
+        stringify their own function."""
+
+        def get_fact(city: str) -> str:
+            return city
+
+        tool = Tool(name="Script Tool", description="desc", code=get_fact)
+
+        assert tool.integration == self.PYTHON_SANDBOX_ID
+        assert tool.config["function_name"] == "get_fact"
+        assert "def get_fact(city: str) -> str:" in tool.config["code"]
+
+    def test_a_callable_defined_at_an_indent_is_dedented(self):
+        """``inspect.getsource`` keeps the enclosing indentation, which is not
+        parseable on its own."""
+
+        def outer():
+            def inner(x: int) -> int:
+                return x
+
+            return inner
+
+        tool = Tool(name="Script Tool", description="desc", code=outer())
+
+        assert tool.config["function_name"] == "inner"
+        assert tool.config["code"].startswith("def inner")
+
+    def test_a_lambda_raises_rather_than_producing_broken_source(self):
+        """A lambda has no ``def``, so the sandbox has no entrypoint to name."""
+        with pytest.raises(ValueError, match="No function"):
+            Tool(name="Script Tool", description="desc", code=lambda x: x)
 
 
 # =============================================================================

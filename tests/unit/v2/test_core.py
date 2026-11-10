@@ -8,15 +8,13 @@ import os
 import pytest
 from unittest.mock import patch, Mock
 
-from aixplain.v2.core import Aixplain
-from aixplain.v2.model import Model
-from aixplain.v2.tool import Tool
-from aixplain.v2.agent import Agent
-from aixplain.v2.utility import Utility
-from aixplain.v2.integration import Integration
-from aixplain.v2.file import Resource
-from aixplain.v2.inspector import Inspector
-from aixplain.v2.issue import IssueReporter
+from aixplain import Aixplain
+from aixplain import Model
+from aixplain import Tool
+from aixplain import Agent
+from aixplain import Integration
+from aixplain import Inspector
+from aixplain import IssueReporter
 
 
 class TestAixplainInitialization:
@@ -229,7 +227,6 @@ class TestAixplainInitResources:
         assert aixplain.Model is not None
         assert aixplain.Agent is not None
         assert aixplain.Tool is not None
-        assert aixplain.Utility is not None
         assert aixplain.Integration is not None
         assert aixplain.Resource is not None
         assert aixplain.Inspector is not None
@@ -242,7 +239,6 @@ class TestAixplainInitResources:
         assert aixplain.Model.context == aixplain
         assert aixplain.Agent.context == aixplain
         assert aixplain.Tool.context == aixplain
-        assert aixplain.Utility.context == aixplain
         assert aixplain.Integration.context == aixplain
         assert aixplain.Resource.context == aixplain
         assert aixplain.Inspector.context == aixplain
@@ -255,7 +251,6 @@ class TestAixplainInitResources:
         assert issubclass(aixplain.Model, Model)
         assert issubclass(aixplain.Agent, Agent)
         assert issubclass(aixplain.Tool, Tool)
-        assert issubclass(aixplain.Utility, Utility)
         assert issubclass(aixplain.Integration, Integration)
         assert isinstance(aixplain.issue, IssueReporter)
 
@@ -267,7 +262,6 @@ class TestAixplainInitResources:
         assert aixplain.Model != Model
         assert aixplain.Agent != Agent
         assert aixplain.Tool != Tool
-        assert aixplain.Utility != Utility
         assert aixplain.Integration != Integration
 
 
