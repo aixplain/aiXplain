@@ -1,0 +1,87 @@
+{
+  "contract": "Synchronous LLM run, includeRawData on: answer, usage, credits and the raw provider completion.",
+  "endpoint": {
+    "method": "POST",
+    "host": "models",
+    "path": "/{id}"
+  },
+  "request": {},
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "status": "SUCCESS",
+      "completed": true,
+      "data": "Paris is the capital of France.",
+      "details": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Paris is the capital of France.",
+            "refusal": null
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 42,
+        "completion_tokens": 9,
+        "total_tokens": 51,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      "runTime": 0.812,
+      "usedCredits": 1.17e-05,
+      "rawData": {
+        "id": "chatcmpl-contract",
+        "object": "chat.completion",
+        "created": 1792800000,
+        "model": "gpt-4o-mini-2024-07-18",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Paris is the capital of France.",
+              "refusal": null
+            },
+            "logprobs": null,
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 42,
+          "completion_tokens": 9,
+          "total_tokens": 51,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          }
+        },
+        "system_fingerprint": "fp_contract"
+      },
+      "requestId": "req-contract-llm-1"
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 (uv.lock 4c6dec6) aixplain/v2/resource.py handle_run_response 1992-2048, model.py ModelResult/Detail/Usage",
+      "aixplain_agents/llm/providers/aixplain.py _parse_sdk_response 2729-2841, _extract_raw_data_* 3025-3056",
+      "aixplain_agents/llm/providers/aixplain.py _build_base_sdk_params (options.includeRawData)"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording via scripts/contract_record.py. Shared with aixplain-agents tests/contract/recordings (same platform endpoint)."
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "contract": "Poll before the run finishes.",
+  "endpoint": {
+    "method": "GET",
+    "host": "models_root",
+    "path": "/api/v1/data/{request_id}"
+  },
+  "request": {},
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "status": "IN_PROGRESS",
+      "completed": false,
+      "progress": 0.5
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 (uv.lock 4c6dec6) aixplain/v2/resource.py poll 2159-2271"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording via scripts/contract_record.py. Shared with aixplain-agents tests/contract/recordings (same platform endpoint)."
+  }
+}
