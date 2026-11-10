@@ -7,6 +7,8 @@ locale-aware: ``region``, ``language`` and ``timezone``, plus the public
 
 Those values come from a single ``https://ipinfo.io/json`` request made from the
 machine running the SDK, cached once per process and skipped silently on failure.
+Set ``AIXPLAIN_NO_TELEMETRY=1`` (or ``AIXPLAIN_DISABLE_GEOLOCATION=1``) to skip
+the lookup entirely; the run metadata is then sent with ``null`` geo fields.
 See ``docs/run-metadata.md`` for the user-facing disclosure: every field, why it
 is collected, which call sites send it, and what happens when the lookup is
 blocked.
@@ -29,6 +31,7 @@ limitations under the License.
 from __future__ import annotations
 
 import logging
+import os
 from functools import lru_cache
 from typing import Any, Dict, Optional, Tuple
 
@@ -40,6 +43,23 @@ logger = logging.getLogger(__name__)
 
 _IPINFO_URL = "https://ipinfo.io/json"
 _IPINFO_TIMEOUT = 2.0
+
+#: Set either variable to a truthy value (``1``, ``true``, ``yes``, ``on``) to
+#: skip the ipinfo.io lookup. Run metadata is still sent, with ``None`` geo fields.
+NO_TELEMETRY_ENV_VAR = "AIXPLAIN_NO_TELEMETRY"
+DISABLE_GEOLOCATION_ENV_VAR = "AIXPLAIN_DISABLE_GEOLOCATION"
+# Same truthy set as ``aixplain.utils.url_safety``; duplicated because v2 may only
+# import ``aixplain.utils`` modules that import nothing from ``aixplain``.
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in _TRUTHY
+
+
+def geolocation_disabled() -> bool:
+    """Return True when the caller opted out of the ipinfo.io lookup (BUG-948)."""
+    return _env_flag(NO_TELEMETRY_ENV_VAR) or _env_flag(DISABLE_GEOLOCATION_ENV_VAR)
 
 
 @lru_cache(maxsize=1)
@@ -122,7 +142,9 @@ def build_run_metadata() -> Dict[str, Any]:
     * ``timezone`` — IANA timezone name for that IP.
 
     Every key except ``userAgent`` is ``None`` when the lookup failed, was blocked
-    or omitted the underlying field; a run is never blocked by it.
+    or omitted the underlying field; a run is never blocked by it. They are also
+    ``None`` when ``AIXPLAIN_NO_TELEMETRY`` or ``AIXPLAIN_DISABLE_GEOLOCATION`` is
+    set, in which case no request is made to ipinfo.io at all.
     ``docs/run-metadata.md`` carries the user-facing disclosure.
 
     Returns:
@@ -138,7 +160,9 @@ def build_run_metadata() -> Dict[str, Any]:
         "timezone": None,
     }
 
-    info = _fetch_ipinfo()
+    # Checked on every call, outside the lru_cache, so opting out mid-process
+    # also stops attaching an already-cached lookup result.
+    info = {} if geolocation_disabled() else _fetch_ipinfo()
 
     country = info.get("country")
     if isinstance(country, str) and len(country.strip()) == 2:

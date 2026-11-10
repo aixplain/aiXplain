@@ -111,7 +111,7 @@ It bundles the aixplain-builder skill and marketplace search. See the [plugin gu
 - [Example agents](https://github.com/aixplain/cookbook)
 - [Marketplace](https://app.aixplain.com/marketplace)
 - [Pricing](https://aixplain.com/pricing/) and [security](https://aixplain.com/security/)
-- [Run metadata](docs/run-metadata.md): each agent run sends a `metaData` object, including approximate location from one `ipinfo.io` lookup
+- [Run metadata](docs/run-metadata.md): each agent run sends a `metaData` object, including approximate location from one `ipinfo.io` lookup (set `AIXPLAIN_NO_TELEMETRY=1` to skip it)
 - [Migration guide](MIGRATION.md): upgrading older code to 0.3.0, where this API is the only one
 
 ## Community and support

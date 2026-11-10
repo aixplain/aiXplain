@@ -126,11 +126,14 @@ routed through a session (`agent.run(query, session=…)`) does not go through
 
 ## If you do not want the lookup
 
-There is no SDK flag or environment variable that disables it today; the platform uses
-these fields for agent execution, so the behaviour is intentional and on by default.
+The platform uses these fields for agent execution, so the behaviour is intentional and
+on by default. What you can do:
 
-What you can do:
-
+- **Set `AIXPLAIN_NO_TELEMETRY=1`** (alias: `AIXPLAIN_DISABLE_GEOLOCATION=1`; any of
+  `1`/`true`/`yes`/`on`) in the environment of the process running the SDK. No request
+  is made to `ipinfo.io`, and `ipAddress`/`latitude`/`longitude`/`region`/`language`/
+  `timezone` arrive as `null` (`userAgent` is still sent). The variable is read on every
+  run, so setting it mid-process also stops attaching an already-cached lookup.
 - **Block egress to `ipinfo.io`** from the host running the SDK. The lookup fails
   closed after one 2-second attempt, `ipAddress`/`latitude`/`longitude`/`region`/
   `language`/`timezone` arrive as `null`, and runs continue. The only functional loss

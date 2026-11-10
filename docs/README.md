@@ -188,6 +188,7 @@ execution.
 
 - The lookup runs **once per process**, on your first agent run, with a 2-second timeout.
 - If it fails or is blocked, the run proceeds normally with those fields `null`.
+- Set `AIXPLAIN_NO_TELEMETRY=1` (or `AIXPLAIN_DISABLE_GEOLOCATION=1`) to skip the lookup entirely; those fields are then sent as `null`.
 - It applies to direct agent runs. Runs routed through a session (`agent.run(query, session=...)`) and model runs do not send it.
 
 Full field-by-field disclosure: [run-metadata.md](./run-metadata.md).
