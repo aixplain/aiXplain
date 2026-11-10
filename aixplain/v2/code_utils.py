@@ -18,6 +18,7 @@ import validators
 
 from aixplain.utils.url_safety import safe_get
 from .enums import DataType, DataTypeValue
+from .plain_data import coerce_enum
 from .upload_utils import FileUploader
 
 logger = logging.getLogger(__name__)
@@ -63,12 +64,8 @@ class UtilityModelInput:
         reach the wire as an ``AttributeError``. Coercing on assignment (not only
         in ``__post_init__``) keeps construction and later assignment identical.
         """
-        if name == "type" and value is not None and not isinstance(value, DataType):
-            try:
-                value = DataType(value)
-            except ValueError:
-                accepted = ", ".join(repr(member.value) for member in DataType)
-                raise ValueError(f"Unknown input type {value!r}. Accepted values: {accepted}.") from None
+        if name == "type" and value is not None:
+            value = coerce_enum(value, DataType, label="input type")
         super().__setattr__(name, value)
 
     def validate(self):
