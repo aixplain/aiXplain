@@ -29,6 +29,7 @@ from .plain_data import WireValue, coerce_enum, coerce_struct_list, struct_field
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
+    _caller_stacklevel,
     BaseResource,
     SearchResourceMixin,
     GetResourceMixin,
@@ -2836,20 +2837,21 @@ class Agent(
         if deprecated_iterations is not None:
             # Point past the SDK run plumbing (build_run_payload ->
             # _post_and_handle_run -> _submit_with_retries ->
-            # RunnableResourceMixin.run -> Agent.run) to the user's agent.run(...)
-            # call site. The conflict warning (below) is emitted from this same
-            # frame, so it shares the stacklevel. ``_submit_with_retries`` is the
-            # POST-only retry boundary added for BUG-1090; it sits on both the
-            # run and run_async paths, so both stay at this depth.
+            # RunnableResourceMixin.run -> Agent.run, plus any decorator
+            # wrappers) to the user's agent.run(...) call site. Computed rather
+            # than hard-coded, so a frame added to that chain cannot silently
+            # re-attribute the warning to SDK code. The conflict warning (below)
+            # is emitted from this same frame, so it shares the stacklevel.
+            stacklevel = _caller_stacklevel()
             warnings.warn(
                 "Execution param 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
                 "It will be removed in a future release.",
                 DeprecationWarning,
-                stacklevel=6,
+                stacklevel=stacklevel,
             )
             normalized_budget, conflicted = self._fold_iter_into_budget(budget, deprecated_iterations)
             if conflicted:
-                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=6)
+                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=stacklevel)
         else:
             normalized_budget = self._normalize_budget(budget)
 
