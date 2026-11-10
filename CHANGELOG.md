@@ -9,7 +9,9 @@
   and a later `Aixplain()` with no key no longer silently reuses it. Code that
   read `os.environ["TEAM_API_KEY"]` after constructing a client, or called
   `upload_file()` / `parse_code()` without `api_key=`, must now pass the key
-  explicitly (for example `api_key=aix.api_key`). The standalone upload helpers
+  explicitly (for example `api_key=aix.api_key`). Likewise the lazily built
+  `aixplain.aixplain_v2` client reads only the environment, not a key passed to
+  an earlier `Aixplain(api_key=...)`. The standalone upload helpers
   now also fall back to `AIXPLAIN_API_KEY`.
 - Passing a local file as a plain string in `attachments` is deprecated: it
   still uploads but emits a `FutureWarning`. Pass `pathlib.Path(...)` or

@@ -28,6 +28,7 @@ SENSITIVE = [
     "./.env",
     ".env",
     "foo/../.ssh/id_rsa",
+    "clip\x00.wav",
 ]
 
 

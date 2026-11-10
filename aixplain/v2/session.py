@@ -105,10 +105,16 @@ def _is_sensitive_local_path(value: str) -> bool:
     that merely lives under a dot-directory does not. System roots are checked on
     both the written and the resolved path, so a symlink cannot hide ``/etc``.
     """
-    written = os.path.normpath(os.path.expanduser(value))
-    if any(part.startswith(".") and part not in (".", "..") for part in Path(written).parts):
+    try:
+        written = os.path.normpath(os.path.expanduser(value))
+        if any(part.startswith(".") and part not in (".", "..") for part in Path(written).parts):
+            return True
+        candidates = {os.path.abspath(written), os.path.realpath(written)}
+    except (ValueError, OSError):
+        # e.g. an embedded NUL byte: not a usable path, so refuse it as a
+        # ResourceError rather than leak a bare ValueError to the caller.
         return True
-    for candidate in {os.path.abspath(written), os.path.realpath(written)}:
+    for candidate in candidates:
         if any(candidate == root or candidate.startswith(root + os.sep) for root in _SENSITIVE_ROOTS):
             return True
     return False
