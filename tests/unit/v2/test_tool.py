@@ -896,6 +896,32 @@ class TestValidateParamsToleratesTransportFailures:
 
         assert tool._validate_params(action="search", data={"query": "hi"}) == []
 
+    def test_an_input_discovery_timeout_does_not_block_the_run(self):
+        """Discovery raises ``TimeoutError`` instead of returning ``[]`` (BUG-1453)."""
+        from aixplain.v2.exceptions import TimeoutError as AixTimeoutError
+
+        tool = self._tool_whose_loader_raises(AixTimeoutError("Action polling timed out after 30 seconds"))
+
+        assert tool._validate_params(action="search", data={"query": "hi"}) == []
+
+    def test_an_action_discovery_timeout_does_not_block_the_run(self):
+        """``validate_allowed_actions`` used to see ``[]`` on timeout and skip (BUG-1453)."""
+        from aixplain.v2.exceptions import TimeoutError as AixTimeoutError
+
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]})
+        tool.validate_allowed_actions = Mock(side_effect=AixTimeoutError("Action polling timed out"))
+
+        assert tool._validate_params(action="search", data={"query": "hi"}) == []
+
+    def test_a_non_transport_discovery_error_still_raises(self):
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]})
+        tool.validate_allowed_actions = Mock(side_effect=RuntimeError("bug"))
+
+        with pytest.raises(RuntimeError, match="bug"):
+            tool._validate_params(action="search", data={"query": "hi"})
+
     def test_a_backend_4xx_still_blocks_the_run(self):
         """A 4xx is the backend rejecting *this* action or payload, not a blip."""
         tool = self._tool_whose_loader_raises(APIError("Unknown action", status_code=400))

@@ -50,6 +50,11 @@ def _is_transport_failure(exc: BaseException) -> bool:
     """
     if isinstance(exc, requests.RequestException):
         return True
+    # Input discovery that ran out of its polling budget is the backend being
+    # slow, not the payload being wrong; it raises rather than returning ``[]``
+    # since BUG-1453, so it must not newly block ``tool.run()``.
+    if isinstance(exc, TimeoutError):
+        return True
     if isinstance(exc, APIError):
         status = getattr(exc, "status_code", 0) or 0
         return status == 0 or status == 429 or status >= 500
@@ -627,6 +632,13 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         except AssertionError as e:
             errors.append(str(e))
             return errors
+        except Exception as e:
+            # Action discovery is a network call and, since BUG-1453, raises on
+            # timeout instead of returning ``[]`` (which skipped this check). A
+            # transport failure must not block the run; anything else still does.
+            if not _is_transport_failure(e):
+                raise
+            logger.warning(f"Skipping allowed-actions validation; the action lookup failed: {e}")
 
         if self.allowed_actions and action not in self.allowed_actions:
             errors.append(f"Action '{action}' is not allowed for this tool. Allowed actions: {self.allowed_actions}")
