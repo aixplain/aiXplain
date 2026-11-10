@@ -178,6 +178,9 @@ if SENTRY_DSN:
     _sentry_options = dict(dsn=SENTRY_DSN, environment=ENV, send_default_pii=False)
     try:
         sentry_sdk.init(include_local_variables=False, **_sentry_options)
-    except TypeError:
-        # sentry-sdk < 1.18 predates ``include_local_variables``.
+    except TypeError as exc:
+        # sentry-sdk < 1.18 predates ``include_local_variables``; any other
+        # TypeError is a real configuration error and must surface unchanged.
+        if "include_local_variables" not in str(exc):
+            raise
         sentry_sdk.init(with_locals=False, **_sentry_options)

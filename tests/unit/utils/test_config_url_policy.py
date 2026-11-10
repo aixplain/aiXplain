@@ -145,3 +145,37 @@ def test_sentry_init_disables_pii_and_local_variables(reload_config, monkeypatch
     assert kwargs["send_default_pii"] is False
     assert kwargs["include_local_variables"] is False
     assert kwargs["environment"] == "prod"
+
+
+def test_sentry_unrelated_type_error_is_not_masked(reload_config, monkeypatch):
+    """The ``with_locals`` fallback is only for sentry-sdk versions lacking the option."""
+    from unittest import mock
+
+    monkeypatch.setenv("SENTRY_DSN", "https://public@sentry.example.invalid/1")
+    try:
+        with mock.patch("sentry_sdk.init", side_effect=TypeError("Unknown option 'dsn'")) as init:
+            with pytest.raises(TypeError, match="Unknown option 'dsn'"):
+                reload_config("https://platform-api.aixplain.com")
+    finally:
+        monkeypatch.delenv("SENTRY_DSN")
+    init.assert_called_once()
+
+
+def test_sentry_falls_back_to_with_locals_on_old_sdk(reload_config, monkeypatch):
+    from unittest import mock
+
+    monkeypatch.setenv("SENTRY_DSN", "https://public@sentry.example.invalid/1")
+    calls = []
+
+    def fake_init(**kwargs):
+        calls.append(kwargs)
+        if "include_local_variables" in kwargs:
+            raise TypeError("Unknown option 'include_local_variables'")
+
+    try:
+        with mock.patch("sentry_sdk.init", side_effect=fake_init):
+            reload_config("https://platform-api.aixplain.com")
+    finally:
+        monkeypatch.delenv("SENTRY_DSN")
+    assert calls[-1]["with_locals"] is False
+    assert calls[-1]["send_default_pii"] is False

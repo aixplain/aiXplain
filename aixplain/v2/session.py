@@ -73,8 +73,18 @@ _HOSTED_SCHEMES = ("http://", "https://", "s3://")
 STRICT_ATTACHMENTS_ENV_VAR = "AIXPLAIN_STRICT_ATTACHMENTS"
 
 #: System trees a bare-string attachment may never point into. ``/private/etc``
-#: is where ``/etc`` resolves on macOS.
-_SENSITIVE_ROOTS = ("/etc", "/proc", "/sys", "/dev", "/private/etc")
+#: is where ``/etc`` resolves on macOS; ``/run/secrets`` and ``/var/run/secrets``
+#: are the Docker and Kubernetes secret mounts.
+_SENSITIVE_ROOTS = (
+    "/etc",
+    "/proc",
+    "/sys",
+    "/dev",
+    "/private/etc",
+    "/run/secrets",
+    "/var/run/secrets",
+    "/private/var/run/secrets",
+)
 
 
 def _is_hosted_url(value: str) -> bool:
@@ -216,7 +226,8 @@ def resolve_attachments(
     uploaded to aiXplain storage and the resulting download link is attached. A plain
     non-URL string is still uploaded as a local path but is deprecated (it emits a
     ``FutureWarning``; ``AIXPLAIN_STRICT_ATTACHMENTS=1`` rejects it), and one naming
-    a dotfile or a system path (``/etc``, ``/proc``, ``/sys``, ``/dev``) is refused. A saved ``File`` is attached by a short-lived
+    a dotfile or a system path (``/etc``, ``/proc``, ``/sys``, ``/dev``, container
+    secret mounts) is refused. A saved ``File`` is attached by a short-lived
     signed url fetched on demand (:meth:`File.get_signed_url`) — file-asset responses
     never carry a stable url; an unsaved ``File`` or a folder raises, rather than
     silently re-uploading or guessing. The ``FileUploader`` is created lazily, only when

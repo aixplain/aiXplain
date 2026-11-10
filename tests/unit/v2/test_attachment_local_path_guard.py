@@ -22,6 +22,8 @@ SENSITIVE = [
     "/proc/self/environ",
     "/sys/kernel/x",
     "/dev/null",
+    "/var/run/secrets/kubernetes.io/serviceaccount/token",
+    "/run/secrets/db_password",
     "~/.aws/credentials",
     "./.env",
     ".env",
