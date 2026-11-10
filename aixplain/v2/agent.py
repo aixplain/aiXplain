@@ -5,9 +5,10 @@ import logging
 import re
 import warnings
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, ClassVar, List, Optional, Any, Dict, Tuple, Union, Text
 from typing_extensions import Unpack, NotRequired, TypedDict, Literal
@@ -20,11 +21,11 @@ from .enums import AssetStatus, AssetStatusValue, ResponseStatus
 from .model import Model
 from .file import File
 from .skill import Skill
-from .graph import Graph, GraphDict, StaticGraphStrategy, StaticGraphStrategyDict
-from .exceptions import ValidationError
+from .graph import Graph, GraphDict, InspectorNode, StaticGraphStrategy, StaticGraphStrategyDict
+from .exceptions import AgentRunFailedError, ResourceError, ValidationError, _structured_error, _structured_message
+from .exceptions import create_operation_failed_error
 from .mixins import ToolableMixin
-from .plain_data import coerce_struct_list, struct_fields
-from .exceptions import ValidationError
+from .plain_data import WireValue, coerce_enum, coerce_struct_list, struct_fields, wire_value
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
@@ -43,6 +44,7 @@ from .resource import (
 )
 
 if TYPE_CHECKING:
+    from .core import Aixplain
     from .session import ExecutionConfig, Session
 
 
@@ -54,7 +56,7 @@ OutputFormatValue = Literal["markdown", "text", "json"]
 
 #: The string form of :class:`ContextOverflowStrategy`, accepted anywhere the
 #: enum is -- ``agent.context_overflow_strategy = "summarize"``.
-ContextOverflowStrategyValue = Literal["truncate", "summarize"]
+ContextOverflowStrategyValue = Literal["truncate", "summarize", "none"]
 
 #: The string form of :class:`~aixplain.v2.agent_progress.ProgressFormat`. Defined
 #: here rather than imported: ``agent_progress`` imports from this module, so the
@@ -158,6 +160,7 @@ class ContextOverflowStrategy(str, Enum):
         SUMMARIZE: Summarize older context into a shorter form the model can still
             use. Retains more of the conversation's meaning than truncation, but
             adds latency and model cost.
+        NONE: Opt out of context condensation.
 
     Notes:
         Available in SDK 0.2.46+ (use the current 0.2.47). Set it as the agent's
@@ -169,6 +172,7 @@ class ContextOverflowStrategy(str, Enum):
 
     TRUNCATE = "truncate"
     SUMMARIZE = "summarize"
+    NONE = "none"
 
 
 class BudgetDict(TypedDict, total=False):
@@ -298,6 +302,13 @@ _ROLES: List[_RoleSpec] = [
 # ``Agent.__setattr__``.
 _ROLE_ATTRS = frozenset(spec.attr for spec in _ROLES)
 
+# Enum fields a caller sets on an agent, and the ``executionParams`` key each overrides per run.
+_ENUM_FIELDS: Dict[str, type] = {"output_format": OutputFormat, "context_overflow_strategy": ContextOverflowStrategy}
+_ENUM_EXEC_PARAMS: Dict[str, str] = {
+    "outputFormat": "output_format",
+    "contextOverflowStrategy": "context_overflow_strategy",
+}
+
 
 class AgentRunParams(BaseRunParams):
     """Parameters for running an agent.
@@ -396,6 +407,22 @@ class Budget:
 _BUDGET_FIELDS = struct_fields(Budget)
 
 
+def _presigned_expiry(url: str) -> Optional[str]:
+    """Expiry of a SigV4 (``X-Amz-Date`` + ``X-Amz-Expires``) or legacy ``Expires`` presigned URL."""
+    try:
+        params = parse_qs(urlparse(url).query)
+        if "X-Amz-Date" in params and "X-Amz-Expires" in params:
+            start = datetime.strptime(params["X-Amz-Date"][0], "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+            expires = start + timedelta(seconds=int(params["X-Amz-Expires"][0]))
+        elif "Expires" in params:
+            expires = datetime.fromtimestamp(int(params["Expires"][0]), tz=timezone.utc)
+        else:
+            return None
+    except (ValueError, OverflowError, OSError):
+        return None
+    return expires.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 @dataclass_json
 @dataclass
 class Artifact:
@@ -410,6 +437,12 @@ class Artifact:
       skipped by the engine; there is no uploader yet).
 
     Exactly one of ``url`` / ``content`` is populated.
+
+    When the engine re-hosts a deliverable on aiXplain storage, ``url`` is an
+    aiXplain signed URL, ``file_id`` is the stored file's id and ``source_url``
+    is the link the tool originally returned. Call :meth:`refresh_url` to get a
+    fresh signed URL once ``url_expires_at`` has passed. ``step_id`` is the
+    ``step_id`` of the step (tool call) in ``result.data.steps`` that produced it.
 
     .. warning::
        ``url_expires_at`` is when the **presigned URL** dies, not the artifact.
@@ -434,13 +467,55 @@ class Artifact:
     category: str = "other"
     source: str = ""
     tool_name: Optional[str] = field(default=None, metadata=config(field_name="toolName"))
+    step_id: Optional[str] = field(default=None, metadata=config(field_name="stepId"))
     url: Optional[str] = None
     url_expires_at: Optional[str] = field(default=None, metadata=config(field_name="urlExpiresAt"))
+    file_id: Optional[str] = field(default=None, metadata=config(field_name="fileId"))
+    source_url: Optional[str] = field(default=None, metadata=config(field_name="sourceUrl"))
     content: Optional[str] = None
     sha256: Optional[str] = None
     byte_size: Optional[int] = field(default=None, metadata=config(field_name="byteSize"))
     mentioned_in_answer: bool = field(default=False, metadata=config(field_name="mentionedInAnswer"))
     created_at: str = field(default="", metadata=config(field_name="createdAt"))
+
+    def __getstate__(self) -> Dict[str, Any]:
+        """Keep the live client out of serialized artifact state."""
+        state = self.__dict__.copy()
+        state.pop("_context", None)
+        return state
+
+    def refresh_url(self, expires_in: Optional[int] = None, client: Optional["Aixplain"] = None) -> str:
+        """Request a new signed URL for a re-hosted artifact.
+
+        Args:
+            expires_in: URL lifetime in seconds (backend default 1 hour, max 7 days).
+            client: Aixplain client to use instead of the one bound by the run.
+
+        Returns:
+            The refreshed signed URL, also stored on this artifact.
+
+        Raises:
+            ValidationError: If the artifact has no file id or no client is available.
+            ResourceError: If the backend returns no signed URL.
+        """
+        if not self.file_id:
+            raise ValidationError(f"Artifact '{self.name}' has no file_id: it was not re-hosted on aiXplain")
+        context = client if client is not None else getattr(self, "_context", None)
+        if context is None:
+            raise ValidationError("No client to refresh with: pass refresh_url(client=aix)")
+        # The backend accepts a file's own id in both URL positions, including
+        # nested re-hosted files; file_id need not equal the root asset id.
+        # Refresh still requires file access for the requesting client's team.
+        response = File._request_signed_url(context, self.file_id, self.file_id, expires_in)
+        url = response.get("url") if isinstance(response, dict) else None
+        if not url:
+            raise ResourceError(f"Backend returned no signed url for file {self.file_id}: {response!r}")
+        self.url = url
+        self.url_expires_at = _presigned_expiry(url) or (
+            datetime.now(timezone.utc)
+            + timedelta(seconds=min(expires_in, 7 * 24 * 3600) if expires_in is not None and expires_in > 0 else 3600)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return url
 
     @classmethod
     def _coerce_list(cls, value: Any) -> List["Artifact"]:
@@ -487,6 +562,28 @@ class AgentError:
         return None
 
 
+@dataclass_json
+@dataclass
+class AgentWarning:
+    """Non-fatal issue recorded on an agent run, sent on the wire as a ``warnings`` entry ``{code, message}``."""
+
+    code: Optional[str] = None
+    message: Optional[str] = None
+
+    @classmethod
+    def _coerce_list(cls, value: Any) -> List["AgentWarning"]:
+        """Decode a ``warnings`` list, skipping entries that carry neither a code nor a message."""
+        if not isinstance(value, list):
+            return []
+        decoded: List["AgentWarning"] = []
+        for item in value:
+            if isinstance(item, cls):
+                decoded.append(item)
+            elif isinstance(item, dict) and (item.get("code") or item.get("message")):
+                decoded.append(cls(code=item.get("code"), message=item.get("message")))
+        return decoded
+
+
 def _with_legacy_step_outputs(steps: Any) -> Any:
     """Give a failed step the ``ERROR: <message>`` output it carried before steps had an ``error`` field.
 
@@ -523,9 +620,14 @@ class AgentResponseData:
     steps: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     session_id: Optional[str] = None
     execution_stats: Optional[Dict[str, Any]] = field(default=None, metadata=config(field_name="executionStats"))
+    # Deprecated: mixes fatal and non-fatal codes. Use ``error.code`` and ``warnings[].code`` instead.
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
     error: Optional[AgentError] = field(
         default=None, metadata=config(field_name="errorDetails", decoder=AgentError._coerce)
+    )
+    # Optional for the same null-decoding reason as ``artifacts``; ``__post_init__`` normalizes.
+    warnings: Optional[List[AgentWarning]] = field(
+        default_factory=list, metadata=config(decoder=AgentWarning._coerce_list)
     )
     critiques: Optional[str] = ""
     # Declared Optional only to keep dataclasses_json quiet: an explicit
@@ -556,6 +658,7 @@ class AgentResponseData:
         # cheap no-op, since ``Artifact`` instances pass straight through.
         self.artifacts = Artifact._coerce_list(self.artifacts)
         self.error = AgentError._coerce(self.error)
+        self.warnings = AgentWarning._coerce_list(self.warnings)
         self.steps = _with_legacy_step_outputs(self.steps)
         if self.governance is None:
             self.governance = {
@@ -575,15 +678,20 @@ class AgentRunResult(Result):
     request_id: Optional[Text] = field(default=None, metadata=config(field_name="requestId"))
     used_credits: float = field(default=0.0, metadata=config(field_name="usedCredits"))
     run_time: float = field(default=0.0, metadata=config(field_name="runTime"))
+    # Deprecated: mixes fatal and non-fatal codes. Use ``error.code`` and ``warnings[].code`` instead.
     diagnostic_error_codes: List[str] = field(default_factory=list, metadata=config(field_name="diagnosticErrorCodes"))
     error: Optional[AgentError] = field(
         default=None, metadata=config(field_name="errorDetails", decoder=AgentError._coerce)
     )
+    # Optional for the same null-decoding reason as ``artifacts``; ``__post_init__`` normalizes.
+    warnings: Optional[List[AgentWarning]] = field(
+        default_factory=list, metadata=config(decoder=AgentWarning._coerce_list)
+    )
 
     def __post_init__(self) -> None:
-        """Promote diagnostic codes and the structured error the backend nests under ``data``.
+        """Promote diagnostic codes, the structured error and warnings the backend nests under ``data``.
 
-        The poll body carries them at ``data.diagnosticErrorCodes`` (or only
+        The poll body carries the codes at ``data.diagnosticErrorCodes`` (or only
         inside ``executionStats`` on older builds), never top-level.
         """
         if not self.diagnostic_error_codes:
@@ -591,12 +699,16 @@ class AgentRunResult(Result):
         data = self.data
         if isinstance(data, AgentResponseData):
             data_error = data.error
+            data_warnings = data.warnings
         elif isinstance(data, dict):
             # ``data`` is a bare dict when the result was built by hand rather than decoded.
             data_error = AgentError._coerce(data.get("errorDetails") or data.get("error_details"))
+            data_warnings = AgentWarning._coerce_list(data.get("warnings"))
         else:
             data_error = None
+            data_warnings = []
         self.error = AgentError._coerce(self.error) or data_error
+        self.warnings = AgentWarning._coerce_list(self.warnings) or list(data_warnings or [])
 
     def _codes_from_data(self) -> List[str]:
         """Extract diagnostic codes from ``data`` or its execution stats."""
@@ -636,12 +748,18 @@ class AgentRunResult(Result):
         """
         data = self.data
         if isinstance(data, AgentResponseData):
-            return data.artifacts or []
-        if isinstance(data, dict):
+            artifacts = data.artifacts or []
+        elif isinstance(data, dict):
             # ``data`` is a bare dict when the result was built by hand rather
             # than decoded through ``from_dict``.
-            return Artifact._coerce_list(data.get("artifacts"))
-        return []
+            artifacts = Artifact._coerce_list(data.get("artifacts"))
+        else:
+            return []
+        # Bound here so ``artifact.refresh_url()`` reaches the client that ran the agent.
+        for artifact in artifacts:
+            if getattr(artifact, "_context", None) is None:
+                artifact._context = self._context
+        return artifacts
 
     @property
     def execution_id(self) -> Optional[str]:
@@ -822,7 +940,7 @@ class Agent(
 
     # Output and execution fields
     output_format: Optional[Union[OutputFormatValue, OutputFormat]] = field(
-        default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat")
+        default=OutputFormat.TEXT.value, metadata=config(field_name="outputFormat", decoder=wire_value)
     )
     expected_output: Optional[Union[str, dict, BaseModel]] = field(
         default=None, metadata=config(field_name="expectedOutput")
@@ -856,7 +974,7 @@ class Agent(
     max_tokens: Optional[int] = field(default=2048, metadata=config(field_name="maxTokens"))
     context_overflow_strategy: Optional[Union[ContextOverflowStrategyValue, ContextOverflowStrategy]] = field(
         default=None,
-        metadata=config(field_name="contextOverflowStrategy"),
+        metadata=config(field_name="contextOverflowStrategy", decoder=wire_value),
     )
 
     def __post_init__(self) -> None:
@@ -1072,6 +1190,9 @@ class Agent(
                 super().__setattr__("graph_version", None)
         elif name == "strategy":
             value = StaticGraphStrategy.from_dict(value) if value is not None else None
+        elif name in _ENUM_FIELDS and value is not None and not isinstance(value, WireValue):
+            # A backend-decoded string passes through, so a value this SDK predates cannot break reads.
+            value = coerce_enum(value, _ENUM_FIELDS[name], label=name).value
         if name in _ROLE_ATTRS:
             explicit = getattr(self, "_explicit_roles", None)
             if explicit is not None:
@@ -1561,7 +1682,28 @@ class Agent(
         Returns:
             AgentRunResult with current execution status.
         """
-        return super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
+        result = super().poll(self._resolve_poll_url(poll_url), timeout=timeout)
+        result._context = self.context
+        return result
+
+    def _operation_failed_error(self, response: Dict[str, Any]) -> AgentRunFailedError:
+        """Build the error for a ``FAILED`` agent run, keeping its structured error and warnings."""
+        base = create_operation_failed_error(response)
+        data = response.get("data") if isinstance(response.get("data"), dict) else {}
+        structured = _structured_error(response) or _structured_error(data)
+        error_details = None
+        if structured:
+            error_details = AgentError(code=structured.get("code"), message=_structured_message(structured) or None)
+        return AgentRunFailedError(
+            base.message,
+            status_code=base.status_code,
+            response_data=base.response_data,
+            error=base.error,
+            retryable=base.retryable,
+            error_details=error_details,
+            warnings=AgentWarning._coerce_list(response.get("warnings"))
+            or AgentWarning._coerce_list(data.get("warnings")),
+        )
 
     def sync_poll(self, poll_url: str, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Poll until an asynchronous agent execution completes.
@@ -1647,6 +1789,7 @@ class Agent(
 
         Raises:
             ResourceError: If the agent has been deleted.
+            ValidationError: If an enum attribute shortcut has an unknown value.
             ValueError: If child components are not saved and save_subcomponents is False
         """
         # Guard before any child component is saved and before before_save()
@@ -1654,6 +1797,10 @@ class Agent(
         # backend at all (BUG-1093).
         if self.id or self.is_deleted:
             self._ensure_saveable()
+
+        for attr, enum_cls in _ENUM_FIELDS.items():
+            if kwargs.get(attr) is not None and not isinstance(kwargs[attr], WireValue):
+                coerce_enum(kwargs[attr], enum_cls, label=attr)
 
         save_subcomponents = kwargs.pop("save_subcomponents", False)
 
@@ -2407,6 +2554,30 @@ class Agent(
         for k in self._LEGACY_ROLE_KEYS:
             payload.pop(k, None)
 
+    def _validate_graph_inspectors(self) -> None:
+        """Reject an ``InspectorNode`` whose ``inspector_type`` names no inspector declared on this Agent.
+
+        The engine resolves the node by that name among ``agent.inspectors`` at run time, so an undeclared name
+        would otherwise fail every run that reaches the node.
+        """
+        declared = set()
+        for inspector in self.inspectors or []:
+            if isinstance(inspector, str):
+                declared.add(inspector)
+            elif isinstance(inspector, dict):
+                declared.add(inspector.get("name") or inspector.get("presetId") or inspector.get("preset_id"))
+            else:
+                declared.add(getattr(inspector, "name", None))
+        declared.discard(None)
+        for node in self.graph.nodes:
+            if isinstance(node, InspectorNode) and node.inspector_type not in declared:
+                listed = ", ".join(sorted(declared)) if declared else "none"
+                raise ValidationError(
+                    f"InspectorNode '{node.id}' names inspector '{node.inspector_type}', which is not declared on "
+                    f"this Agent (declared: {listed}). Add an Inspector named '{node.inspector_type}' to "
+                    "agent.inspectors; give it targets=[] to run it only at this node."
+                )
+
     def _apply_llm_fields_to_payload(self, payload: Dict[str, Any]) -> None:
         """Back-compat shim — preserves the old ``build_save_payload`` call site."""
         self._apply_llm_fields_to_save_payload(payload)
@@ -2499,6 +2670,7 @@ class Agent(
             strategy = self.strategy or StaticGraphStrategy()
             payload["graphVersion"] = self.graph_version or "1"
             payload["graph"] = self.graph.to_dict()
+            self._validate_graph_inspectors()
             payload["strategy"] = strategy.to_dict()
             if strategy.budget and payload.get("budget"):
                 warnings.warn(
@@ -2606,6 +2778,9 @@ class Agent(
 
         # Normalize snake_case keys to camelCase for the API
         execution_params = {self._EXEC_PARAMS_MAP.get(k, k): v for k, v in execution_params.items()}
+        for key, attr in _ENUM_EXEC_PARAMS.items():
+            if execution_params.get(key) is not None and not isinstance(execution_params[key], WireValue):
+                execution_params[key] = coerce_enum(execution_params[key], _ENUM_FIELDS[attr], label=attr).value
 
         # Set default values for execution_params if not provided.
         # No ``maxIterations`` default: the iteration cap now travels inside
@@ -3038,6 +3213,11 @@ def _decode_strategy(value: Any) -> Optional[StaticGraphStrategy]:
 
 
 def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
+    if isinstance(kvs, dict):
+        kvs = dict(kvs)
+        for attr, enum_cls in _ENUM_FIELDS.items():
+            if kvs.get(attr) is not None and not isinstance(kvs[attr], WireValue):
+                kvs[attr] = coerce_enum(kvs[attr], enum_cls, label=attr).value
     kvs = cls._fold_legacy_max_iterations(kvs)
     if isinstance(kvs, dict) and not kvs.get("graph") and ("strategy" in kvs or "graphVersion" in kvs):
         # A non-graph agent may still report a strategy or graphVersion; neither applies without a graph.

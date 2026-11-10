@@ -220,7 +220,7 @@ DEV = AssetIds(
 #: `TEST` is also what a run with no ``BACKEND_URL`` selects (see
 #: :data:`DEFAULT_BACKEND_URL`). Moving the default from `dev` to `test` changed
 #: no id, since `TEST` is `DEV` until an entry here says otherwise.
-TEST = replace(DEV)
+TEST = replace(DEV, NON_DEFAULT_LLM="698c87701239a117fd66b468")
 PROD = replace(DEV)
 
 ASSETS_BY_ENVIRONMENT: Dict[str, AssetIds] = {"dev": DEV, "test": TEST, "prod": PROD}

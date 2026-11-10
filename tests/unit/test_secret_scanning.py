@@ -34,7 +34,7 @@ import yaml
 
 if sys.version_info >= (3, 11):
     import tomllib
-else:  # `tomllib` is 3.11+; CI runs 3.9. See the `test` extra in pyproject.toml.
+else:  # `tomllib` is 3.11+; CI runs 3.10. See the `test` extra in pyproject.toml.
     import tomli as tomllib
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
