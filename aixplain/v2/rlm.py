@@ -1468,7 +1468,7 @@ del _url, _r
 
         # ``context`` is caller-supplied, so the fetch is SSRF-gated (BUG-939)
         # and its body capped before it is loaded into memory (BUG-1452).
-        r = safe_get(context, timeout=60, max_bytes=MAX_URL_CONTEXT_BYTES)
+        r = safe_get(context, max_bytes=MAX_URL_CONTEXT_BYTES)
         r.raise_for_status()
         ct = r.headers.get("Content-Type", "")
         url_path = context.split("?")[0].lower()

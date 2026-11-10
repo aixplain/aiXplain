@@ -57,6 +57,7 @@ def test_url_context_within_the_cap_is_loaded(fake_get):
     calls = fake_get(_response(b"hello world"))
     assert RLM._resolve_url_context("https://example.com/context.txt") == "hello world"
     assert calls and calls[0]["stream"] is True
+    assert calls[0]["timeout"] == (url_safety.FETCH_TIMEOUT_CONNECT, url_safety.FETCH_TIMEOUT_READ)
 
 
 def test_json_url_context_within_the_cap_is_parsed(fake_get):

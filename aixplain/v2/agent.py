@@ -30,6 +30,7 @@ from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
     _caller_stacklevel,
+    _deprecates_per_call_api_key,
     BaseResource,
     SearchResourceMixin,
     GetResourceMixin,
@@ -1554,6 +1555,9 @@ class Agent(
         normalized["maxIterations"] = max_iterations
         return normalized, False
 
+    # Decorated here as well as on the base ``run``: the ``session=`` path
+    # returns before reaching ``super().run`` (BUG-1452).
+    @_deprecates_per_call_api_key
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Run the agent with optional progress display.
 

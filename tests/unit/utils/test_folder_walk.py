@@ -105,3 +105,42 @@ def test_symlink_to_a_hidden_file_inside_the_root_is_skipped(tmp_path):
     (root / "cfg.txt").symlink_to(root / ".git" / "config")
     assert collect(root) == ["SKILL.md"]
     assert collect(root, include=[".env"]) == [".env", "SKILL.md", "notes.md"]
+
+
+@symlinks
+def test_catch_all_include_still_refuses_an_escaping_symlink(tmp_path):
+    """The outward-symlink check holds even when an include pattern matches the target."""
+    root = build_tree(tmp_path)
+    paths = collect(root, include=["*"])
+    assert ".git/config" in paths
+    assert "notes.md" not in paths
+    assert not any(p.startswith("linked_dir") for p in paths)
+
+
+def test_including_one_file_in_a_hidden_folder_admits_only_that_file(tmp_path):
+    root = tmp_path / "skill"
+    (root / ".git" / "hooks").mkdir(parents=True)
+    (root / ".git" / "HEAD").write_text("ref: refs/heads/main")
+    (root / ".git" / "config").write_text("[core]")
+    (root / ".git" / "hooks" / "pre-commit").write_text("#!/bin/sh")
+    (root / "SKILL.md").write_text("s")
+    assert collect(root, include=[".git/HEAD"]) == [".git/HEAD", "SKILL.md"]
+
+
+def test_including_a_hidden_folder_by_name_admits_all_of_it(tmp_path):
+    root = tmp_path / "skill"
+    (root / ".well-known" / "sub").mkdir(parents=True)
+    (root / ".well-known" / "info.json").write_text("{}")
+    (root / ".well-known" / "sub" / "x.txt").write_text("x")
+    assert collect(root, include=[".well-known"]) == [".well-known/info.json", ".well-known/sub/x.txt"]
+
+
+@symlinks
+def test_directory_resolving_elsewhere_is_pruned_even_if_not_reported_as_a_link(tmp_path, monkeypatch):
+    """A Windows junction is not ``islink``; it must still not be entered."""
+    root = build_tree(tmp_path)
+    monkeypatch.setattr("aixplain.utils.folder_walk.os.path.islink", lambda path: False)
+    if hasattr(os.path, "isjunction"):
+        monkeypatch.setattr("aixplain.utils.folder_walk.os.path.isjunction", lambda path: False)
+    top = next(iter(walk_upload_tree(str(root))))
+    assert top[1] == ["scripts"]

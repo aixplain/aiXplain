@@ -65,6 +65,12 @@ def _agent():
     return agent
 
 
+def _session_agent():
+    agent = _agent()
+    agent._run_with_session = Mock(return_value=MagicMock())
+    return agent
+
+
 MATCH = r"Aixplain\(api_key="
 
 
@@ -120,6 +126,7 @@ CALLS = {
     "model.run": lambda: _model().run(text="hi", api_key="OTHER-TENANT"),
     "tool.run": lambda: _tool().run(data={"query": "hi"}, api_key="OTHER-TENANT"),
     "agent.run": lambda: _agent().run(query="hi", api_key="OTHER-TENANT"),
+    "agent.run(session=)": lambda: _session_agent().run(query="hi", session="s1", api_key="OTHER-TENANT"),
 }
 
 
@@ -131,7 +138,7 @@ def test_per_call_api_key_warns_exactly_once(name):
     assert "Aixplain(api_key=" in str(found[0].message)
 
 
-@pytest.mark.parametrize("name", ["get", "search", "delete", "model.run"])
+@pytest.mark.parametrize("name", ["get", "search", "delete", "model.run", "agent.run", "agent.run(session=)"])
 def test_warning_points_at_the_caller(name):
     """The warning is attributed to user code, not to an SDK frame."""
     found = _call_and_record(CALLS[name])

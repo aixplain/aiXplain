@@ -255,6 +255,9 @@ def test_private_fetch_opt_in_does_not_reopen_cloud_metadata(url, resolver, monk
         "fd00:ec2::1",  # AWS IMDS IPv6 range
         "64:ff9b::a9fe:a9fe",  # NAT64 form of 169.254.169.254
         "::ffff:169.254.170.2",  # IPv4-mapped form
+        "2002:a9fe:aa02::",  # 6to4 form of 169.254.170.2
+        "64:ff9b:1::a9fe:a9fe",  # RFC 8215 local-use NAT64 form of 169.254.169.254
+        "fd20:ce::254",  # GCP metadata over IPv6
     ],
 )
 @pytest.mark.parametrize("opt_in", [True, False])
@@ -549,6 +552,13 @@ def test_upload_s3_bucket_list_pins_s3_uploads(monkeypatch):
         validate_upload_url("https://s3.us-east-1.amazonaws.com/any-bucket/key")
     with pytest.raises(UnsafeURLError):
         validate_upload_url("https://s3.us-east-1.amazonaws.com/")
+    # requests/urllib3 normalise dot segments before sending, so a path that
+    # starts with a pinned bucket must not be able to step out of it.
+    for path in ("good-bucket/../any-bucket/key", "good-bucket/%2e%2E/any-bucket/key", "./any-bucket/key"):
+        with pytest.raises(UnsafeURLError):
+            validate_upload_url(f"https://s3.us-east-1.amazonaws.com/{path}")
+    with pytest.raises(UnsafeURLError):
+        validate_upload_url("https://s3.us-east-1.amazonaws.com//any-bucket/key")
     # aixplain.com hosts are not affected by the bucket list.
     assert validate_upload_url("https://uploads.aixplain.com/x")
 

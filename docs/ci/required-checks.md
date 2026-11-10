@@ -184,7 +184,7 @@ dependency changes the PR carries — never holds the production key.
 `SLACK_TOKEN` is gated like the `_PROD` secrets: the step's `env:` expands it only on a production
 run (`IS_PROD`, BUG-1452) and only on a leg whose `include` entry has `slack: true`, so PR, `test`
 and nightly runs never hold it and their Slack tests skip. `tests/unit/test_ci_pr_and_release_gates.py`
-asserts both conditions, and `tests/unit/test_ci_pr_and_release_gates.py` fails if that set
+asserts both conditions, and fails if that set
 drifts from the legs whose test file uses the `slack_token` fixture. `HF_TOKEN` is no longer exported
 at all: no functional test reads it.
 

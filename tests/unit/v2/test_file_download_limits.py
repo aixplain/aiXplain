@@ -182,7 +182,60 @@ def test_zip_lying_about_its_size_is_still_capped_during_extraction(aix, tmp_pat
             destinations.append((member, tmp_path / member.filename))
         with pytest.raises(ResourceError, match="limit"):
             file_module._extract_bounded(bundle, destinations, 1024)
-    assert (tmp_path / "a.txt").stat().st_size <= 1024
+    # The partial file written before the cap was hit is removed again.
+    assert not (tmp_path / "a.txt").exists()
+
+
+def test_files_written_before_the_cap_are_removed(aix, tmp_path, monkeypatch):
+    """Earlier entries of an archive that trips the copy-loop cap do not stay behind."""
+    from aixplain.v2 import file as file_module
+
+    payload = _zip_bytes([("a.txt", b"a" * 600), ("b.txt", b"b" * 600)])
+    with zipfile.ZipFile(BytesIO(payload)) as bundle:
+        destinations = [(member, tmp_path / member.filename) for member in bundle.infolist()]
+        with pytest.raises(ResourceError, match="limit"):
+            file_module._extract_bounded(bundle, destinations, 1024)
+    assert not (tmp_path / "a.txt").exists()
+    assert not (tmp_path / "b.txt").exists()
+
+
+def test_os_error_while_extracting_is_a_resource_error(aix, tmp_path):
+    from aixplain.v2 import file as file_module
+
+    payload = _zip_bytes([("a.txt", b"a")])
+    blocker = tmp_path / "blocker"
+    blocker.write_text("a file, not a folder")
+    with zipfile.ZipFile(BytesIO(payload)) as bundle:
+        destinations = [(member, blocker / member.filename) for member in bundle.infolist()]
+        with pytest.raises(ResourceError, match="Could not extract"):
+            file_module._extract_bounded(bundle, destinations, 1024)
+
+
+def test_folder_download_extracts_through_the_bounded_copy(aix, tmp_path, monkeypatch):
+    """``download`` must not fall back to an uncapped ``extractall``."""
+    from aixplain.v2 import file as file_module
+
+    bounded = Mock()
+    monkeypatch.setattr(file_module, "_extract_bounded", bounded)
+    monkeypatch.setattr(zipfile.ZipFile, "extractall", Mock(side_effect=AssertionError("extractall used")))
+    folder = _folder(aix, _zip_bytes([("a.txt", b"hello")]))
+
+    folder.download(tmp_path / "reference")
+
+    bounded.assert_called_once()
+
+
+def test_archive_names_are_sanitised_like_extractall_on_windows(monkeypatch):
+    from aixplain.v2 import file as file_module
+
+    if os.name != "nt":
+        assert file_module._archive_member_name("docs/what?.txt") == "docs/what?.txt"
+    if not hasattr(zipfile.ZipFile, "_sanitize_windows_name"):
+        pytest.skip("zipfile has no Windows name sanitiser on this Python")
+    monkeypatch.setattr(os.path, "sep", "\\")
+    sanitised = file_module._archive_member_name("docs/what?.txt")
+    monkeypatch.undo()
+    assert sanitised == "docs\\what_.txt"
 
 
 def test_compressed_archive_over_the_cap_is_refused_while_downloading(aix, tmp_path, monkeypatch):

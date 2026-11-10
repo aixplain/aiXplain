@@ -30,7 +30,7 @@ import os
 import re
 import socket
 from typing import Any, List, Optional, Set, Tuple, Union
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 import requests
 
@@ -72,7 +72,7 @@ _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 _METADATA_HOSTS = frozenset({"metadata.google.internal", "metadata.goog"})
 # Cloud metadata / credential endpoints that stay refused even under the
 # private-fetch opt-in (BUG-1452): no deployment's artifact host lives here.
-_METADATA_IPS = frozenset({"169.254.169.254", "fd00:ec2::254", "100.100.100.200"})
+_METADATA_IPS = frozenset({"169.254.169.254", "fd00:ec2::254", "fd20:ce::254", "100.100.100.200"})
 _METADATA_NETWORKS = (
     ipaddress.ip_network("169.254.0.0/16"),  # IPv4 link-local: AWS/GCP/Azure IMDS, ECS task metadata
     ipaddress.ip_network("fd00:ec2::/32"),  # AWS IMDS over IPv6
@@ -80,6 +80,8 @@ _METADATA_NETWORKS = (
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 # NAT64: ``64:ff9b::7f00:1`` is 127.0.0.1 reached over IPv6.
 _NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+# RFC 8215 local-use NAT64 prefix; the IPv4 sits in the low 32 bits of a /96 within it.
+_LOCAL_NAT64_PREFIX = ipaddress.ip_network("64:ff9b:1::/48")
 # S3 host shapes: virtual-hosted (``<bucket>.s3[.-<region>].amazonaws.com``) and
 # path-style (``s3[.-<region>].amazonaws.com/<bucket>/...``), with the optional
 # ``dualstack`` label.
@@ -217,8 +219,8 @@ def _embedded_ipv4(
 ) -> Optional[ipaddress.IPv4Address]:
     """Return the IPv4 address carried inside an IPv6 *address*, if any.
 
-    Covers IPv4-mapped (``::ffff:a.b.c.d``), 6to4 and NAT64 (``64:ff9b::/96``)
-    forms. Used only by the metadata check, so the default-mode blanket NAT64
+    Covers IPv4-mapped (``::ffff:a.b.c.d``), 6to4, NAT64 (``64:ff9b::/96``)
+    and local-use NAT64 (``64:ff9b:1::/48``, RFC 8215) forms. Used only by the metadata check, so the default-mode blanket NAT64
     block in :func:`_is_blocked_address` is not loosened.
     """
     if not isinstance(address, ipaddress.IPv6Address):
@@ -226,7 +228,7 @@ def _embedded_ipv4(
     embedded = address.ipv4_mapped or address.sixtofour
     if embedded is not None:
         return embedded
-    if address in _NAT64_PREFIX:
+    if address in _NAT64_PREFIX or address in _LOCAL_NAT64_PREFIX:
         return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
     return None
 
@@ -473,7 +475,18 @@ def _s3_bucket(parsed: Any) -> Optional[str]:
     if virtual:
         return virtual.group("bucket")
     if _S3_PATH_HOST.match(host):
-        return parsed.path.lstrip("/").split("/", 1)[0].lower()
+        # ``requests``/urllib3 drop ``.``/``..`` segments before sending, so a
+        # path like ``/<pinned>/../<other>/key`` would reach ``<other>``. Refuse
+        # any dot segment (raw or percent-encoded) and an empty first segment
+        # rather than guess what is actually sent.
+        segments = parsed.path.split("/")[1:]
+        for segment in segments:
+            if unquote(segment) in (".", ".."):
+                raise UnsafeURLError("Refusing a path-style S3 upload URL with '.' or '..' path segments")
+        bucket = segments[0].lower() if segments else ""
+        if not bucket and len(segments) > 1:
+            raise UnsafeURLError("Refusing a path-style S3 upload URL with an empty bucket segment")
+        return bucket
     return None
 
 

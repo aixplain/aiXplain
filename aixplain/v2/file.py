@@ -715,7 +715,7 @@ class File(
                         )
                     destinations = []
                     for member in members:
-                        member_path = (target / member.filename).resolve()
+                        member_path = (target / _archive_member_name(member.filename)).resolve()
                         if os.path.commonpath([target_root, member_path]) != str(target_root):
                             raise ResourceError(f"Unsafe ZIP entry: {member.filename}")
                         destinations.append((member, member_path))
@@ -750,23 +750,55 @@ def _declared_length(response: Any) -> Optional[int]:
     return None
 
 
+def _archive_member_name(filename: str) -> str:
+    """Return *filename* as ``ZipFile.extractall`` would write it on this OS.
+
+    On Windows ``extractall`` replaces characters that are illegal in file
+    names (``what?.txt`` becomes ``what_.txt``); the bounded copy below must do
+    the same so such archives keep extracting.
+    """
+    if os.path.sep != "\\":
+        return filename
+    sanitize = getattr(zipfile.ZipFile, "_sanitize_windows_name", None)
+    if sanitize is None:
+        return filename
+    return sanitize(filename.replace("/", os.path.sep), os.path.sep)
+
+
 def _extract_bounded(bundle: zipfile.ZipFile, destinations: List[Tuple[zipfile.ZipInfo, Path]], cap: int) -> None:
-    """Extract *destinations* from *bundle*, refusing to write more than *cap* bytes in total."""
+    """Extract *destinations* from *bundle*, refusing to write more than *cap* bytes in total.
+
+    If the copy fails part-way (the cap is hit because the central directory
+    understated the sizes, or the OS refuses a name), the files written so far
+    are removed and the failure is raised as a :class:`ResourceError`.
+    """
     total = 0
-    for member, member_path in destinations:
-        if member.is_dir():
-            member_path.mkdir(parents=True, exist_ok=True)
-            continue
-        member_path.parent.mkdir(parents=True, exist_ok=True)
-        with bundle.open(member) as source, open(member_path, "wb") as sink:
-            while True:
-                chunk = source.read(1024 * 1024)
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > cap:
-                    raise ResourceError(f"Folder archive extracts to more than the {cap}-byte limit")
-                sink.write(chunk)
+    written: List[Path] = []
+    try:
+        for member, member_path in destinations:
+            if member.is_dir():
+                member_path.mkdir(parents=True, exist_ok=True)
+                continue
+            member_path.parent.mkdir(parents=True, exist_ok=True)
+            written.append(member_path)
+            with bundle.open(member) as source, open(member_path, "wb") as sink:
+                while True:
+                    chunk = source.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > cap:
+                        raise ResourceError(f"Folder archive extracts to more than the {cap}-byte limit")
+                    sink.write(chunk)
+    except BaseException as exc:
+        for path in written:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        if isinstance(exc, OSError):
+            raise ResourceError(f"Could not extract folder archive: {exc}") from exc
+        raise
 
 
 __all__ = ["File", "Resource"]
