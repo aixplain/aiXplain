@@ -12,6 +12,7 @@ from .resource import BaseSearchParams, Result
 from .model import Model
 from .enums import AuthenticationScheme
 from .actions import Actions, Action as ActionView, Inputs
+from .exceptions import ResourceError, TimeoutError, _extract_error_from_dict
 
 if TYPE_CHECKING:
     from .tool import Tool
@@ -200,8 +201,31 @@ class ActionMixin:
 
     actions_available: Optional[bool] = field(default=None, metadata=config(field_name="actionsAvailable"))
 
+    @staticmethod
+    def _raise_if_failed(response: Any) -> None:
+        """Raise ``ResourceError`` for a ``status: FAILED`` reply (completed or not).
+
+        Without this a FAILED reply was either polled until the timeout or had
+        its error string returned as data, which the listers turn into ``[]``.
+        """
+        if isinstance(response, dict) and str(response.get("status") or "").upper() == "FAILED":
+            data = response.get("data")
+            reason = (
+                _extract_error_from_dict(response)
+                or (_extract_error_from_dict(data) if isinstance(data, dict) else None)
+                or (data if isinstance(data, str) and data else None)
+                or "unknown error"
+            )
+            raise ResourceError(f"Integration request failed: {reason}")
+
     def _poll_for_data(self, response: dict, timeout: float = 30, wait_time: float = 1) -> Any:
-        """Poll an async response until completion and return the ``data`` field."""
+        """Poll an async response until completion and return the ``data`` field.
+
+        Raises:
+            ResourceError: If the backend reports ``status: FAILED``.
+            TimeoutError: If the request does not complete within *timeout* seconds.
+        """
+        self._raise_if_failed(response)
         data = response.get("data")
         if response.get("completed", True) or not isinstance(data, str) or not data.startswith("http"):
             return data
@@ -211,13 +235,14 @@ class ActionMixin:
         while True:
             remaining = timeout - (time.time() - start)
             if remaining <= 0:
-                return None
+                raise TimeoutError(f"Integration request did not complete within {timeout}s.")
             # Jittered and backed off, rather than a fixed 1s tick: a fleet of
             # clients polling in lockstep is the load shape BUG-942 is about.
             # Clamped to the remaining budget so jitter never overruns *timeout*.
             sleep_with_jitter(wait_time, max_sleep=remaining)
             wait_time = next_wait(wait_time)
             poll_resp = self.context.client.request("get", poll_url)
+            self._raise_if_failed(poll_resp)
             if poll_resp.get("completed", False) or poll_resp.get("status") == "SUCCESS":
                 return poll_resp.get("data")
 

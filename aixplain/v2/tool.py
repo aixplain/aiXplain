@@ -283,6 +283,11 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             if actions:
                 return actions
         except Exception as e:
+            # With no integration to fall back to, a failed discovery is an
+            # error, not "no actions" -- an empty list would disable
+            # validate_allowed_actions and the single-action default.
+            if not self._ensure_integration():
+                raise
             warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
 
         if self._ensure_integration():
