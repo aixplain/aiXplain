@@ -47,6 +47,12 @@ def _dir_is_included(rel_path: str, patterns: Sequence[str]) -> bool:
     return _matches(rel_path, patterns) or any(pattern.startswith(prefix) for pattern in patterns)
 
 
+def _is_hidden_path(rel_path: str) -> bool:
+    """True if any component of *rel_path* is a dot-name or an excluded cache directory."""
+    parts = rel_path.split("/")
+    return any(part.startswith(".") for part in parts) or any(part in DEFAULT_EXCLUDED_DIRS for part in parts[:-1])
+
+
 def _is_within(path: str, root: str) -> bool:
     try:
         return os.path.commonpath([path, root]) == root
@@ -101,6 +107,12 @@ def walk_upload_tree(
                 target = os.path.realpath(full_path)
                 if not _is_within(target, root_real) or not os.path.isfile(target):
                     skipped.append(rel_path + " (symlink outside the folder)")
+                    continue
+                # A link to a hidden/cache path inside the root (``notes.md ->
+                # .env``) must not smuggle out what the dot/cache rule skips.
+                rel_target = os.path.relpath(target, root_real).replace(os.sep, "/")
+                if _is_hidden_path(rel_target) and not _matches(rel_target, patterns):
+                    skipped.append(rel_path + " (symlink to a hidden path)")
                     continue
             if name.startswith(".") and not _matches(rel_path, patterns):
                 skipped.append(rel_path)

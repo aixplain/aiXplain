@@ -92,3 +92,16 @@ def test_clean_folder_walks_like_os_walk_without_warning(tmp_path, caplog):
     with caplog.at_level(logging.WARNING):
         assert collect(root) == ["a.txt", "b/c.txt", "z.txt"]
     assert not caplog.records
+
+
+@symlinks
+def test_symlink_to_a_hidden_file_inside_the_root_is_skipped(tmp_path):
+    root = tmp_path / "skill"
+    (root / ".git").mkdir(parents=True)
+    (root / ".env").write_text("AIXPLAIN_API_KEY=x")
+    (root / ".git" / "config").write_text("[core]")
+    (root / "SKILL.md").write_text("s")
+    (root / "notes.md").symlink_to(root / ".env")
+    (root / "cfg.txt").symlink_to(root / ".git" / "config")
+    assert collect(root) == ["SKILL.md"]
+    assert collect(root, include=[".env"]) == [".env", "SKILL.md", "notes.md"]
