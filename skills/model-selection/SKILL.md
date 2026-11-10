@@ -1,6 +1,6 @@
 ---
 name: model-selection
-description: Help someone choose the right aixplain model for their project. Starts from the job, applies the hard limits first (data retention, modality, context, budget, speed), shortlists 2–3 current models from the live marketplace with a reviewed tier for each, estimates cost, and then compares the shortlist on the user's own examples. Use whenever the user asks which model to use, "what's the best LLM for X", "cheaper/faster model than Y", "should I switch my agent's model", "which models keep no data (ZDR)", or wants to compare models for an agent, a pipeline, transcription, translation, vision or embeddings, even if they never say "model selection".
+description: Help someone choose the right aixplain model for their project. Starts from the job, applies the hard limits first (data retention, modality, context, budget, speed), shortlists 2–3 current models from the live marketplace with a tier for each, estimates cost, and then compares the shortlist on the user's own examples. Use whenever the user asks which model to use, "what's the best LLM for X", "cheaper/faster model than Y", "should I switch my agent's model", "which models keep no data (ZDR)", or wants to compare models for an agent, a pipeline, transcription, translation, vision or embeddings, even if they never say "model selection".
 ---
 
 # Choosing a model on aixplain

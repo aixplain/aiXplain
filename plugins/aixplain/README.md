@@ -3,10 +3,10 @@
 One Claude Code plugin for three connected jobs:
 
 - **Discover:** search the live aixplain marketplace through the bundled Marketplace Search MCP, inspect real schemas, and generate runnable SDK, REST, or MCP code.
-- **Choose:** pick the right model for a project with the model-selection skill: hard limits first, a reviewed shortlist from the live catalog, then a side-by-side test on your own examples.
+- **Choose:** pick the right model for a project with the model-selection skill: hard limits first, a shortlist from the live catalog, then a side-by-side test on your own examples.
 - **Build:** build, run, and deploy agents, models, knowledge bases, tools, and inspectors with the bundled aixplain-builder skill.
 
-Install it once, then use either skill as the task requires:
+Install it once, then use any of the skills as the task requires:
 
 ```text
 /plugin marketplace add aixplain/aiXplain
@@ -131,7 +131,7 @@ plugins/aixplain/
   .claude-plugin/plugin.json    manifest
   .mcp.json                     Marketplace Search MCP, ${AIXPLAIN_API_KEY}
   skills/marketplace-search/    marketplace discovery and runnable-code guidance
-  skills/model-selection/       choose a model: live shortlist, reviewed tiers, test on your examples
+  skills/model-selection/       choose a model: live shortlist, tiers, test on your examples
   skills/aixplain-builder/      build, run, and deploy anything the SDK supports
 ```
 
@@ -150,7 +150,7 @@ The skill is usable on its own: copy `skills/marketplace-search/SKILL.md` to
 
 Ask "which model should I use for X?" and the `model-selection` skill answers from the live catalog,
 never from memory. It applies your hard limits first (zero data retention, input type, context,
-budget, speed), shortlists 2–3 models with a reviewed tier (`frontier`, `balanced`, `fast`) and a cost
+budget, speed), shortlists 2–3 models with a tier (`frontier`, `balanced`, `fast`) and a cost
 estimate, then offers to run the shortlist on your own examples so you can compare output, time and
 credits side by side.
 
