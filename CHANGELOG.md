@@ -101,9 +101,12 @@ What changes for code that used the old classes through `aixplain.exceptions`:
 `AixplainBaseException`, `AuthenticationError`, `AlreadyDeployedError`,
 `BillingError`, `SupplierError`, `NetworkError`, `ServiceError`, `InternalError`
 and `get_error_from_status_code` still import from `aixplain.exceptions`, but now
-emit a `DeprecationWarning` and will be removed from it in 0.4.0. Import them
-from `aixplain.exceptions.types`, where they stay. They are no longer in
-`aixplain.exceptions.__all__`, so a star-import does not pull them in.
+emit a `DeprecationWarning` and will be removed from it in 0.4.0. The SDK never
+raises them, so `except AuthenticationError:` does not catch an API failure:
+catch `aixplain.APIError` and check `status_code` instead (e.g. `401`). The
+warning says so. The names stay importable from `aixplain.exceptions.types`.
+They are no longer in `aixplain.exceptions.__all__`, so a star-import does not
+pull them in.
 
 The v1 `ValidationError` / `ResourceError` (what `get_error_from_status_code`
 returns) now also subclass the v2 classes of the same name, so
