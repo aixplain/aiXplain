@@ -2088,3 +2088,323 @@ class TestStreamingWithUnknownStreamingSupport:
 
         with pytest.raises(ValidationError, match="does not support streaming"):
             model.run(text="hello", stream=True)
+
+
+# =============================================================================
+# BUG-1462: run/stream correctness
+# =============================================================================
+
+
+def _bytes_response(body: bytes, content_type: str = "text/event-stream"):
+    """A real ``requests.Response`` streaming ``body`` from memory."""
+    from io import BytesIO
+
+    import requests
+    from urllib3 import HTTPResponse
+
+    response = requests.Response()
+    response.raw = HTTPResponse(body=BytesIO(body), preload_content=False)
+    response.headers["Content-Type"] = content_type
+    response.encoding = "ISO-8859-1"
+    return response
+
+
+def _json_response(document, content_type: str = "application/json"):
+    return _bytes_response(json.dumps(document).encode("utf-8"), content_type)
+
+
+def _sync_only_model():
+    model = Model.__new__(Model)
+    model.id = "test-model-id"
+    model.name = "Test Model"
+    model.connection_type = ["synchronous"]
+    model.supports_streaming = None
+    model.params = None
+    model.__post_init__()
+    model.context = Mock()
+    model.context.model_url = "https://models.aixplain.com/api/v2/execute"
+    model.context.client.timeout = (10.0, 300.0)
+    model._ensure_valid_state = Mock()
+    return model
+
+
+class TestStreamErrorDetails:
+    def test_stream_error_includes_status_and_details(self):
+        response = Mock()
+        response.headers = {"Content-Type": "text/event-stream"}
+        response.iter_lines.return_value = iter(
+            ['data: {"error": "Stream Error", "status": 429, "details": "Rate limit exceeded"}']
+        )
+        chunks = list(ModelResponseStreamer(response))
+
+        assert chunks[-1].status == ResponseStatus.FAILED
+        assert "Stream Error" in chunks[-1].error_message
+        assert "429" in chunks[-1].error_message
+        assert "Rate limit exceeded" in chunks[-1].error_message
+
+    def test_status_word_is_not_repeated_as_status_code(self):
+        response = Mock()
+        response.headers = {"Content-Type": "text/event-stream"}
+        response.iter_lines.return_value = iter(['data: {"error": "boom", "status": "FAILED"}'])
+        chunks = list(ModelResponseStreamer(response))
+
+        assert chunks[-1].error_message == "boom"
+
+
+class TestNonSseStreamBody:
+    def test_tool_call_body_yields_tool_calls_not_raw_json(self):
+        tool_calls = [{"id": "call_1", "type": "function", "function": {"name": "lookup", "arguments": "{}"}}]
+        document = {
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": None, "tool_calls": tool_calls, "reasoning": "think"},
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        }
+        chunks = list(ModelResponseStreamer(_json_response(document)))
+
+        assert len(chunks) == 1
+        assert chunks[0].status == ResponseStatus.SUCCESS
+        assert chunks[0].data == ""
+        assert chunks[0].tool_calls == tool_calls
+        assert chunks[0].reasoning_content == "think"
+        assert chunks[0].finish_reason == "tool_calls"
+
+    def test_in_progress_envelope_without_poller_fails_and_hides_url(self):
+        url = "https://models.aixplain.com/api/v1/data/abc-123"
+        streamer = ModelResponseStreamer(_json_response({"status": "IN_PROGRESS", "data": url, "completed": False}))
+        chunks = list(streamer)
+
+        assert len(chunks) == 1
+        assert chunks[0].status == ResponseStatus.FAILED
+        assert url not in chunks[0].data
+        assert "IN_PROGRESS" in chunks[0].error_message
+        assert streamer.status == ResponseStatus.FAILED
+
+    def test_in_progress_envelope_is_polled_to_the_real_answer(self):
+        url = "https://models.aixplain.com/api/v1/data/abc-123"
+        poll = Mock(return_value=ModelResult(status="SUCCESS", completed=True, data="the answer"))
+        streamer = ModelResponseStreamer(_json_response({"status": "IN_PROGRESS", "data": url}), poll=poll)
+        chunks = list(streamer)
+
+        poll.assert_called_once_with(url)
+        assert [c.data for c in chunks] == ["the answer"]
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_in_progress_envelope_poll_failure_is_a_failed_chunk(self):
+        url = "https://models.aixplain.com/api/v1/data/abc-123"
+        poll = Mock(side_effect=APIError("Rate limit exceeded", status_code=429))
+        chunks = list(ModelResponseStreamer(_json_response({"status": "IN_PROGRESS", "data": url}), poll=poll))
+
+        assert chunks[0].status == ResponseStatus.FAILED
+        assert chunks[0].data == ""
+        assert "Rate limit exceeded" in chunks[0].error_message
+
+    def test_in_progress_envelope_failed_result_is_a_failed_chunk(self):
+        url = "https://models.aixplain.com/api/v1/data/abc-123"
+        poll = Mock(return_value=ModelResult(status="FAILED", completed=True, error_message="supplier down"))
+        chunks = list(ModelResponseStreamer(_json_response({"status": "IN_PROGRESS", "data": url}), poll=poll))
+
+        assert chunks[0].status == ResponseStatus.FAILED
+        assert chunks[0].error_message == "supplier down"
+
+    def test_run_stream_polls_an_in_progress_envelope(self):
+        model = _sync_only_model()
+        url = "https://models.aixplain.com/api/v1/data/abc-123"
+        model.context.client.request_stream.return_value = _json_response({"status": "IN_PROGRESS", "data": url})
+        model.sync_poll = Mock(return_value=ModelResult(status="SUCCESS", completed=True, data="polled"))
+
+        chunks = list(model.run_stream(text="hi"))
+
+        assert [c.data for c in chunks] == ["polled"]
+        assert model.sync_poll.call_args.args == (url,)
+
+    def test_run_stream_refuses_a_non_poll_url(self):
+        model = _sync_only_model()
+        model.context.client.request_stream.return_value = _json_response(
+            {"status": "IN_PROGRESS", "data": "https://example.com/not-a-poll-endpoint"}
+        )
+        model.sync_poll = Mock()
+
+        chunks = list(model.run_stream(text="hi"))
+
+        model.sync_poll.assert_not_called()
+        assert chunks[0].status == ResponseStatus.FAILED
+        assert "example.com" not in chunks[0].data
+
+
+class TestSseLineParsing:
+    @pytest.mark.parametrize("char", [" ", " ", "\u0085", "\u001c"])
+    def test_unicode_line_separator_inside_a_token_stays_intact(self, char):
+        token = f"a b{char}c"
+        payload = json.dumps({"data": token}, ensure_ascii=False)
+        body = f"data: {payload}\n\ndata: [DONE]\n\n".encode("utf-8")
+        streamer = ModelResponseStreamer(_bytes_response(body))
+        chunks = list(streamer)
+
+        assert [c.data for c in chunks] == [token]
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_crlf_and_cr_still_terminate_lines(self):
+        body = b'data: {"data": "one"}\r\n\r\ndata: {"data": "two"}\r\rdata: [DONE]\r\n'
+        chunks = list(ModelResponseStreamer(_bytes_response(body)))
+
+        assert [c.data for c in chunks] == ["one", "two"]
+
+    def test_comments_and_non_data_fields_never_reach_chunk_data(self):
+        response = Mock()
+        response.headers = {"Content-Type": "text/event-stream"}
+        response.iter_lines.return_value = iter(
+            [": keep-alive", "event: message", "id: 7", "retry: 1000", 'data: {"data": "hi"}', "", "data: [DONE]"]
+        )
+        streamer = ModelResponseStreamer(response)
+        chunks = list(streamer)
+
+        assert [c.data for c in chunks] == ["hi"]
+        assert streamer.status == ResponseStatus.SUCCESS
+
+    def test_non_sse_body_starting_with_a_comment_is_parsed_as_sse(self):
+        body = b': keep-alive\n\ndata: {"data": "x"}\n\ndata: [DONE]\n\n'
+        chunks = list(ModelResponseStreamer(_bytes_response(body, content_type="text/plain")))
+
+        assert [c.data for c in chunks] == ["x"]
+
+    def test_event_line_between_split_payload_halves_is_skipped(self):
+        response = Mock()
+        response.headers = {"Content-Type": "text/event-stream"}
+        response.iter_lines.return_value = iter(['data: {"data": "hel', "event: message", 'data: lo"}', "data: [DONE]"])
+        chunks = list(ModelResponseStreamer(response))
+
+        assert [c.data for c in chunks] == ["hello"]
+
+
+class TestSyncOnlyRunAsync:
+    @staticmethod
+    def _ok(body):
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = body
+        return response
+
+    def test_http_error_raises_api_error_after_one_post(self):
+        model = _sync_only_model()
+        model.context.client.request_raw = Mock(side_effect=APIError("Unauthorized", status_code=401))
+
+        with pytest.raises(APIError) as exc_info:
+            model.run_async(text="hi", run_retries=3, run_retry_wait=0)
+
+        assert exc_info.value.status_code == 401
+        model.context.client.request_raw.assert_called_once()
+
+    def test_retryable_error_honours_run_retries(self):
+        model = _sync_only_model()
+        model.context.client.request_raw = Mock(
+            side_effect=[
+                APIError("unavailable", status_code=503),
+                self._ok({"status": "IN_PROGRESS", "data": "https://models.aixplain.com/api/v1/data/x"}),
+            ]
+        )
+
+        with patch("aixplain.v2.resource.sleep_with_jitter"):
+            result = model.run_async(text="hi", run_retries=1, run_retry_wait=0)
+
+        assert model.context.client.request_raw.call_count == 2
+        assert result.url == "https://models.aixplain.com/api/v1/data/x"
+        # The retried POST still carries the text.
+        assert json.loads(model.context.client.request_raw.call_args.kwargs["data"])["data"] == "hi"
+
+    def test_retries_exhausted_raise_the_last_api_error(self):
+        model = _sync_only_model()
+        model.context.client.request_raw = Mock(side_effect=APIError("unavailable", status_code=503))
+
+        with patch("aixplain.v2.resource.sleep_with_jitter"):
+            with pytest.raises(APIError) as exc_info:
+                model.run_async(text="hi", run_retries=2, run_retry_wait=0)
+
+        assert exc_info.value.status_code == 503
+        assert model.context.client.request_raw.call_count == 3
+
+    def test_transport_error_is_an_api_error_and_not_resubmitted(self):
+        import requests
+
+        model = _sync_only_model()
+        model.context.client.request_raw = Mock(side_effect=requests.exceptions.ConnectionError("reset"))
+
+        with pytest.raises(APIError) as exc_info:
+            model.run_async(text="hi", run_retries=2, run_retry_wait=0)
+
+        assert exc_info.value.status_code == 0
+        model.context.client.request_raw.assert_called_once()
+
+    def test_failed_body_fills_error_message_from_backend_fields(self):
+        model = _sync_only_model()
+        model.context.client.request_raw = Mock(
+            return_value=self._ok({"status": "FAILED", "errorMessage": "boom", "supplierError": "supplier says no"})
+        )
+
+        result = model.run_async(text="hi")
+
+        assert result.status == "FAILED"
+        assert result.error_message == "boom"
+        assert result.supplier_error == "supplier says no"
+
+    def test_failed_body_falls_back_to_supplier_error(self):
+        model = _sync_only_model()
+        model.context.client.request_raw = Mock(
+            return_value=self._ok({"status": "FAILED", "supplierError": "supplier says no"})
+        )
+
+        assert model.run_async(text="hi").error_message == "supplier says no"
+
+    def test_timeout_bounds_the_v1_post(self):
+        model = _sync_only_model()
+        model.context.client.request_raw = Mock(
+            return_value=self._ok({"status": "IN_PROGRESS", "data": "https://models.aixplain.com/api/v1/data/x"})
+        )
+
+        model.run_async(text="hi", timeout=5)
+
+        assert model.context.client.request_raw.call_args.kwargs["timeout"] == (10.0, 5.0)
+
+
+class TestRunTimeoutBoundsRequests:
+    def test_sync_only_run_timeout_bounds_the_post_and_raises_timeout_error(self):
+        import requests
+
+        from aixplain.v2.exceptions import TimeoutError as V2TimeoutError
+
+        model = _sync_only_model()
+        model.context.client.request = Mock(side_effect=requests.exceptions.ReadTimeout("read timed out"))
+
+        with pytest.raises(V2TimeoutError):
+            model.run(text="x", timeout=5, run_retries=3, run_retry_wait=0)
+
+        model.context.client.request.assert_called_once()
+        connect, read = model.context.client.request.call_args.kwargs["timeout"]
+        assert connect == 10.0
+        assert 1.0 <= read <= 5.0
+
+    def test_sync_only_run_without_timeout_sends_no_timeout(self):
+        model = _sync_only_model()
+        model.context.client.request = Mock(return_value={"status": "SUCCESS", "completed": True, "data": "ok"})
+
+        model.run(text="x")
+
+        assert "timeout" not in model.context.client.request.call_args.kwargs
+
+    def test_stream_request_gets_the_caller_timeout(self):
+        model = _sync_only_model()
+        model.context.client.request_stream.return_value = _bytes_response(b'data: {"data": "x"}\n\ndata: [DONE]\n\n')
+
+        list(model.run_stream(text="hi", timeout=5))
+
+        assert model.context.client.request_stream.call_args.kwargs["timeout"] == (10.0, 5.0)
+
+    def test_stream_request_without_timeout_is_unchanged(self):
+        model = _sync_only_model()
+        model.context.client.request_stream.return_value = _bytes_response(b'data: {"data": "x"}\n\ndata: [DONE]\n\n')
+
+        list(model.run_stream(text="hi"))
+
+        assert "timeout" not in model.context.client.request_stream.call_args.kwargs
