@@ -303,3 +303,105 @@ class TestSandboxCannotRecoverKey:
         assert result.status == "FAILED"
         assert SENTINEL_KEY not in result.error_message
         assert "***REDACTED***" in result.error_message
+
+
+# BUG-1451 — parallel and rag modes redact the result too
+
+
+def _echo_worker():
+    """Worker double whose answer is the prompt it received (the worst case)."""
+
+    def run(text, max_tokens=None):
+        return SimpleNamespace(completed=True, status="SUCCESS", data=text, used_credits=0.0)
+
+    return SimpleNamespace(attributes={}, run=run)
+
+
+def _failing_worker():
+    def run(text, max_tokens=None):
+        raise RuntimeError(f"upstream echoed {SENTINEL_KEY}")
+
+    return SimpleNamespace(attributes={}, run=run)
+
+
+def _rag_index(chunks):
+    """aIR index double: ``search`` returns every chunk it was given."""
+    index = MagicMock()
+    index.id = "idx"
+    store = {"records": []}
+
+    def run(action, data):
+        if action == "upsert":
+            store["records"] = data["records"]
+            return SimpleNamespace(used_credits=0.0, data={})
+        return SimpleNamespace(used_credits=0.0, data=store["records"] or [{"text": c} for c in chunks])
+
+    index.run.side_effect = run
+    return index
+
+
+SECRET_CONTEXT = f"quarterly report; the deploy token is {SENTINEL_KEY}; revenue up"
+
+
+@pytest.mark.parametrize("multi_chunk", [False, True])
+def test_parallel_mode_redacts_an_echoed_secret(monkeypatch, multi_chunk):
+    rlm = _make_v2_rlm(api_key=SENTINEL_KEY)
+    rlm._worker = _echo_worker()
+    if multi_chunk:
+        monkeypatch.setattr(rlm_v2, "_chunk_context", lambda ctx, budget: [SECRET_CONTEXT, SECRET_CONTEXT, "tail"])
+
+    result = rlm.run(data=SECRET_CONTEXT, mode="parallel")
+
+    assert result.status == "SUCCESS"
+    assert "deploy token" in result.data  # the echo really happened
+    assert SENTINEL_KEY not in result.data
+
+
+def test_parallel_mode_redacts_the_error_message():
+    rlm = _make_v2_rlm(api_key=SENTINEL_KEY)
+    rlm._worker = _failing_worker()
+
+    result = rlm.run(data=SECRET_CONTEXT, mode="parallel")
+
+    assert result.status == "FAILED"
+    assert SENTINEL_KEY not in result.error_message
+
+
+def test_rag_mode_redacts_an_echoed_secret():
+    rlm = _make_v2_rlm(api_key=SENTINEL_KEY)
+    rlm._worker = _echo_worker()
+    rlm.rag_index_id = ""
+    rlm.rag_top_k = 3
+    rlm.rag_max_chunk_chars = 4000
+    rlm.context.Tool.return_value = _rag_index([SECRET_CONTEXT])
+
+    result = rlm.run(data=SECRET_CONTEXT, mode="rag")
+
+    assert result.status == "SUCCESS"
+    assert "deploy token" in result.data
+    assert SENTINEL_KEY not in result.data
+
+
+def test_rag_mode_redacts_the_error_message():
+    rlm = _make_v2_rlm(api_key=SENTINEL_KEY)
+    rlm._worker = _failing_worker()
+    rlm.rag_index_id = ""
+    rlm.rag_top_k = 3
+    rlm.rag_max_chunk_chars = 4000
+    rlm.context.Tool.return_value = _rag_index([SECRET_CONTEXT])
+
+    result = rlm.run(data=SECRET_CONTEXT, mode="rag")
+
+    assert result.status == "FAILED"
+    assert SENTINEL_KEY not in result.error_message
+
+
+def test_secret_from_the_environment_is_redacted_too(monkeypatch):
+    """The key may arrive via TEAM_API_KEY rather than the client object."""
+    monkeypatch.setenv("TEAM_API_KEY", SENTINEL_KEY)
+    rlm = _make_v2_rlm(api_key="another-client-key")
+    rlm._worker = _echo_worker()
+
+    result = rlm.run(data=SECRET_CONTEXT, mode="parallel")
+
+    assert SENTINEL_KEY not in result.data
