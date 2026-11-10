@@ -33,7 +33,7 @@ from pydantic import BaseModel, ConfigDict
 from typing_extensions import Unpack
 
 from .enums import DataType, EmbeddingModel, IndexStores, ResponseStatus, SplittingOptions, SplittingOptionsValue
-from .exceptions import ResourceError
+from .exceptions import ResourceError, ValidationError
 from .plain_data import coerce_enum
 from .resource import (
     BaseGetParams,
@@ -172,15 +172,15 @@ class Record:
                 to the environment credentials.
 
         Raises:
-            AssertionError: If the value type is invalid or a required field is missing.
+            ValidationError: If the value type is invalid or a required field is missing.
         """
-        assert self.value_type in [DataType.TEXT, DataType.IMAGE], "Index Upsert Error: Invalid value type"
+        if self.value_type not in [DataType.TEXT, DataType.IMAGE]:
+            raise ValidationError("Index Upsert Error: Invalid value type")
         if self.value_type == DataType.IMAGE:
-            assert self.uri is not None and self.uri != "", "Index Upsert Error: URI is required for image records"
-        else:
-            assert (self.value is not None and self.value != "") or (self.uri is not None and self.uri != ""), (
-                "Index Upsert Error: Either value or uri is required for text records"
-            )
+            if not self.uri:
+                raise ValidationError("Index Upsert Error: URI is required for image records")
+        elif not self.value and not self.uri:
+            raise ValidationError("Index Upsert Error: Either value or uri is required for text records")
 
         storage_type = _check_storage_type(self.uri)
         if storage_type in ("file", "url"):
@@ -221,10 +221,13 @@ class IndexFilter:
             field: The name of the field to filter on.
             value: The value to compare against.
             operator: The comparison operator to use.
+
+        Raises:
+            ValidationError: If *operator* is not an :class:`IndexFilterOperator` value.
         """
         self.field = field
         self.value = value
-        self.operator = operator
+        self.operator = coerce_enum(operator, IndexFilterOperator, label="index filter operator")
 
     def to_dict(self) -> dict:
         """Serialize the filter into its backend payload shape.
@@ -235,7 +238,7 @@ class IndexFilter:
         return {
             "field": self.field,
             "value": self.value,
-            "operator": self.operator.value if isinstance(self.operator, IndexFilterOperator) else self.operator,
+            "operator": self.operator.value,
         }
 
 
@@ -656,7 +659,7 @@ class Index(
         self,
         query: str,
         top_k: int = 10,
-        filters: Optional[List[IndexFilter]] = None,
+        filters: Optional[Union[IndexFilter, List[IndexFilter]]] = None,
         score_threshold: float = 0.0,
         timeout: int = 300,
     ) -> IndexResult:
@@ -665,14 +668,19 @@ class Index(
         Args:
             query: The query text, or a file path / URL for image search.
             top_k: Number of results to return.
-            filters: Optional list of :class:`IndexFilter` to apply.
+            filters: Optional :class:`IndexFilter` or list of them to apply.
             score_threshold: Minimum score threshold for results.
             timeout: Maximum time in seconds to wait for completion.
 
         Returns:
             IndexResult: The search result (``result.data`` holds the matches).
         """
-        filters = filters or []
+        if filters is None:
+            filters = []
+        elif isinstance(filters, IndexFilter):
+            filters = [filters]
+        if not isinstance(filters, (list, tuple)) or not all(isinstance(f, IndexFilter) for f in filters):
+            raise ValidationError("filters must be an IndexFilter or a list of IndexFilter objects.")
         uri, value_type = "", "text"
         storage_type = _check_storage_type(query)
         if storage_type in ("file", "url"):
@@ -798,7 +806,7 @@ class Index(
             raise ResourceError(f"File {file_path} does not exist")
 
         if file_path.endswith(".txt"):
-            with open(file_path, "r") as handle:
+            with open(file_path, "r", encoding="utf-8") as handle:
                 return handle.read()
 
         try:

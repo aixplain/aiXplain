@@ -44,8 +44,11 @@ def test_cwd_dotenv_is_still_loaded(nested_tree, monkeypatch):
     """The documented behaviour -- a ``.env`` in the working directory -- is kept."""
     parent, _ = nested_tree
     monkeypatch.chdir(parent)
-    monkeypatch.delenv("BACKEND_URL", raising=False)
-    monkeypatch.delenv("TEAM_API_KEY", raising=False)
+    # setenv first so monkeypatch records the original state and removes the
+    # values the .env load writes; a bare delenv on an unset name restores nothing.
+    for name in ("BACKEND_URL", "TEAM_API_KEY"):
+        monkeypatch.setenv(name, "")
+        monkeypatch.delenv(name)
 
     assert aixplain._load_cwd_dotenv() is True
     assert os.environ["BACKEND_URL"] == "https://evil.example.com"

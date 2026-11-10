@@ -84,7 +84,7 @@ an oversight, and the rest are guarded by
 | `EmbeddingModel` | input | `AirParams.embedding_model`, `aix.Index.create(embedding_model=...)`. No `Literal` alias: the field also takes any embedding model ID, so an alias of the four members would reject valid input. |
 | `FileType` | input | `File.file_type`. `FileTypeValue`. |
 | `Function` | input | Model/tool search filter. `FunctionValue`. |
-| `IndexFilterOperator` | input | `IndexFilter.operator`; the string operator (`"=="`, `"in"`, ...) is passed through unchanged. |
+| `IndexFilterOperator` | input | `IndexFilter.operator`; the string operator (`"=="`, `"in"`, ...) is coerced to the enum, and an unknown string raises `ValidationError`. |
 | `IssueSeverity` | input | `aix.issue.report(severity=...)`. `IssueSeverityValue`. |
 | `Language` | input | Search filter. `LanguageValue`. |
 | `License` | input | Asset licence. `LicenseValue`. |

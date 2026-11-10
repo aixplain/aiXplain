@@ -246,8 +246,8 @@ class S3Uploader:
         """
         base = presigned_url.split("?", 1)[0]
 
-        # virtual-hosted-style: bucket is everything before ".s3" (bucket names may contain dots)
-        vh = re.match(r"https?://([^/]+?)\.s3[^/]*\.amazonaws\.com", base)
+        # virtual-hosted-style: bucket is everything before the last ".s3" (bucket names may contain dots)
+        vh = re.match(r"https?://([^/]+)\.s3[^/]*\.amazonaws\.com", base)
         if vh:
             return f"s3://{vh.group(1)}/{path}"
 

@@ -45,3 +45,9 @@ def test_virtual_hosted_dotted_bucket_name():
 def test_unrecognized_url_falls_back():
     url = "https://example.com/whatever"
     assert S3Uploader.construct_s3_url(url, KEY) == f"s3://aixplain-uploads/{KEY}"
+
+
+def test_bucket_label_starting_with_s3_is_kept():
+    """A bucket label such as ``s3data`` must not end the bucket name early."""
+    url = "https://logs.s3data.s3.amazonaws.com/k?X-Amz-Signature=abc"
+    assert S3Uploader.construct_s3_url(url, KEY) == f"s3://logs.s3data/{KEY}"

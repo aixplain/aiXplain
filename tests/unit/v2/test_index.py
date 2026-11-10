@@ -9,7 +9,7 @@ import pytest
 from unittest.mock import Mock
 
 from aixplain.v2.enums import DataType, EmbeddingModel, ResponseStatus
-from aixplain.v2.exceptions import ResourceError
+from aixplain.v2.exceptions import ResourceError, ValidationError
 from aixplain.v2.index import (
     AirParams,
     GraphRAGParams,
@@ -77,17 +77,17 @@ class TestRecord:
         assert (record.value, record.value_type, record.uri) == ("hello", DataType.TEXT, "")
 
     def test_validate_invalid_type(self):
-        with pytest.raises(AssertionError) as e:
+        with pytest.raises(ValidationError) as e:
             Record(value="x", value_type="video").validate()
         assert str(e.value) == "Index Upsert Error: Invalid value type"
 
     def test_validate_image_requires_uri(self):
-        with pytest.raises(AssertionError) as e:
+        with pytest.raises(ValidationError) as e:
             Record(value="x", value_type=DataType.IMAGE, uri="").validate()
         assert str(e.value) == "Index Upsert Error: URI is required for image records"
 
     def test_validate_text_requires_value_or_uri(self):
-        with pytest.raises(AssertionError) as e:
+        with pytest.raises(ValidationError) as e:
             Record(value="", value_type=DataType.TEXT, uri="").validate()
         assert str(e.value) == "Index Upsert Error: Either value or uri is required for text records"
 
@@ -111,7 +111,26 @@ class TestFilterAndSplitter:
 
     def test_index_filter_string_operator(self):
         f = IndexFilter(field="c", value="v", operator="!=")
+        assert f.operator is IndexFilterOperator.NOT_EQUALS
         assert f.to_dict()["operator"] == "!="
+
+    def test_index_filter_rejects_unknown_operator(self):
+        with pytest.raises(ValidationError, match="Accepted values"):
+            IndexFilter(field="category", value="audio", operator="equals")
+
+    def test_search_accepts_a_single_filter(self):
+        ctx = _ctx()
+        ctx.client.request = Mock(return_value={"status": "SUCCESS", "completed": True})
+        _index(ctx).search("q", filters=IndexFilter("category", "tech", "=="))
+        sent = ctx.client.request.call_args.kwargs["json"]["filters"]
+        assert sent == [{"field": "category", "value": "tech", "operator": "=="}]
+
+    def test_search_rejects_non_filter_items(self):
+        ctx = _ctx()
+        ctx.client.request = Mock()
+        with pytest.raises(ValidationError, match="IndexFilter"):
+            _index(ctx).search("q", filters=[{"field": "c", "value": "v", "operator": "=="}])
+        ctx.client.request.assert_not_called()
 
     def test_splitter(self):
         s = Splitter(split=True, split_by="sentence", split_length=100, split_overlap=5)
@@ -458,6 +477,22 @@ class TestSplitterPlainData:
 class TestUploadsUseTheBoundClient:
     """Local files are uploaded with the bound client's key, not the environment's."""
 
+    def test_parse_file_uploads_with_the_index_credentials(self, monkeypatch, tmp_path):
+        calls = self._capture_uploads(monkeypatch)
+        doc = tmp_path / "doc.pdf"
+        doc.write_bytes(b"%PDF")
+        ctx = _ctx()
+        ctx.client.request = Mock(return_value={"status": "SUCCESS", "completed": True, "data": "parsed"})
+
+        assert _index(ctx).parse_file(str(doc)) == "parsed"
+        assert calls == [(str(doc), {"api_key": "test-key", "backend_url": "https://platform-api.test"})]
+
+    def test_parse_file_reads_txt_as_utf8(self, tmp_path):
+        doc = tmp_path / "notes.txt"
+        doc.write_bytes("Café —".encode("utf-8"))
+
+        assert _index(_ctx()).parse_file(str(doc)) == "Café —"
+
     def _capture_uploads(self, monkeypatch):
         import aixplain.v2.index as index_mod
 
@@ -555,13 +590,29 @@ class TestClientBinding:
         assert aixplain.IndexStores is enums.IndexStores
 
 
+_ENDPOINT_ENV_VARS = ("BACKEND_URL", "MODELS_RUN_URL", "PIPELINES_RUN_URL", "AIXPLAIN_TRUSTED_HOSTS")
+
+
+@pytest.fixture
+def clean_endpoint_env(monkeypatch):
+    """Keep exported or leaked endpoint variables from changing the client's trusted origins."""
+    for name in _ENDPOINT_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.mark.usefixtures("clean_endpoint_env")
 class TestBackendPaths:
     """Effect-based: assert on the path the real client was handed."""
 
     def _aix(self):
         from aixplain import Aixplain
 
-        aix = Aixplain(api_key="test-key", model_url="https://models.aixplain.com/api/v2/execute")
+        aix = Aixplain(
+            api_key="test-key",
+            backend_url="https://platform-api.aixplain.com",
+            model_url="https://models.aixplain.com/api/v2/execute",
+            pipeline_url="https://platform-api.aixplain.com/assets/pipeline/execution/run",
+        )
         aix.client.request = Mock()
         aix.client.request_raw = Mock()
         aix.client.get = Mock(return_value={"id": INDEX_ID, "name": "docs"})
@@ -591,6 +642,15 @@ class TestBackendPaths:
 
         assert aix.client.request_raw.call_args[0] == ("delete", f"sdk/models/{INDEX_ID}")
 
+    def test_delete_url_encodes_the_id(self):
+        aix = self._aix()
+        index = aix.Index.from_dict({"id": "a/b c", "name": "docs"})
+        index.context = aix
+
+        index.delete()
+
+        assert aix.client.request_raw.call_args[0] == ("delete", "sdk/models/a%2Fb%20c")
+
     def test_data_plane_posts_to_the_model_run_url(self):
         aix = self._aix()
         aix.client.request.return_value = {"status": "SUCCESS", "data": 3}
@@ -600,12 +660,18 @@ class TestBackendPaths:
         assert aix.client.request.call_args[0] == ("post", f"https://models.aixplain.com/api/v2/execute/{INDEX_ID}")
 
 
+@pytest.mark.usefixtures("clean_endpoint_env")
 class TestPollUrlGuard:
     def test_a_foreign_poll_url_is_refused_before_the_key_is_sent(self):
         from aixplain import Aixplain
         from aixplain.v2.exceptions import UntrustedURLError
 
-        aix = Aixplain(api_key="test-key")
+        aix = Aixplain(
+            api_key="test-key",
+            backend_url="https://platform-api.aixplain.com",
+            model_url="https://models.aixplain.com/api/v2/execute",
+            pipeline_url="https://platform-api.aixplain.com/assets/pipeline/execution/run",
+        )
         aix.client.request = Mock(return_value={"status": "IN_PROGRESS", "data": "https://evil.example.com/poll/1"})
         aix.client.session = Mock()
         index = aix.Index.from_dict({"id": INDEX_ID})
