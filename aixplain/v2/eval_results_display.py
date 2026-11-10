@@ -9,9 +9,15 @@ from __future__ import annotations
 
 import html
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Union
 
-import pandas as pd
+from ._lazy import _LazyModule
+
+if TYPE_CHECKING:
+    import pandas as pd
+else:
+    # Deferred so ``import aixplain`` does not pay for pandas (BUG-949).
+    pd = _LazyModule("pandas")
 
 from .exceptions import ValidationError
 
