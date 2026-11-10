@@ -29,6 +29,7 @@ class Mcp:
     """Minimal streamable-HTTP MCP client: initialize once, then call tools."""
 
     def __init__(self, url, api_key):
+        """Open an MCP session against ``url`` authenticated with ``api_key``."""
         self.url = url
         self.headers = {
             "Authorization": f"Bearer {api_key}",
@@ -36,11 +37,14 @@ class Mcp:
             "Content-Type": "application/json",
         }
         self.next_id = 1
-        self._post("initialize", {
-            "protocolVersion": "2025-03-26",
-            "capabilities": {},
-            "clientInfo": {"name": "model-selection-refresh", "version": "1"},
-        })
+        self._post(
+            "initialize",
+            {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "model-selection-refresh", "version": "1"},
+            },
+        )
         self._post("notifications/initialized", None, notify=True)
 
     def _post(self, method, params, notify=False):
@@ -63,6 +67,7 @@ class Mcp:
         return _parse_body(body)
 
     def call(self, tool, arguments):
+        """Call ``tool`` and return its JSON result, raising on a tool or protocol error."""
         reply = self._post("tools/call", {"name": tool, "arguments": arguments})
         if "error" in reply:
             raise RuntimeError(f"{tool}: {reply['error']}")
@@ -84,16 +89,37 @@ def _parse_body(body):
     raise RuntimeError(f"No JSON-RPC response in: {body[:200]}")
 
 
+class IncompleteFetch(RuntimeError):
+    """The pages fetched do not add up to the total the marketplace reports."""
+
+
 def fetch_llms(mcp):
-    models, page = [], 0
+    """Page the universal `search` (flat string filters, 0-based pages) and check the count.
+
+    `search_models` caps results and has no reliable total, so it cannot back a "removed models" report.
+    """
+    models, page, total = {}, 0, None
     while True:
-        reply = mcp.call("search_models", {
-            "query": "", "categories": ["LLM"], "page_size": PAGE_SIZE, "page_number": page,
-        })
-        models += reply["results"]
+        reply = mcp.call(
+            "search",
+            {
+                "query": "",
+                "asset_type": "model",
+                "categories": "LLM",
+                "page_size": PAGE_SIZE,
+                "page_number": page,
+            },
+        )
+        block = reply["model"]
+        total = block["stats"]["total"]
+        for m in block["results"]:
+            models[m["id"]] = m
         page += 1
-        if page >= reply["stats"]["pages_count"]:
-            return models
+        if not block["results"] or len(models) >= total or page >= block["stats"]["pages_count"]:
+            break
+    if len(models) != total:
+        raise IncompleteFetch(f"Fetched {len(models)} unique LLMs but the marketplace reports {total}.")
+    return list(models.values())
 
 
 def snapshot(models):
@@ -112,6 +138,7 @@ def snapshot(models):
 
 
 def build_report(old, new, tiers):
+    """Compare two snapshots against tiers.json and return the Markdown review report."""
     reviewed = tiers["models"]
     excluded = tiers.get("excluded", {})
     sections = []
@@ -125,11 +152,15 @@ def build_report(old, new, tiers):
 
     if old:
         added = [i for i in new if i not in old]
-        section("New on the marketplace: add to tiers.json or excluded",
-                [f"- {label(i, new[i])}" for i in added if i not in reviewed and i not in excluded])
+        section(
+            "New on the marketplace: add to tiers.json or excluded",
+            [f"- {label(i, new[i])}" for i in added if i not in reviewed and i not in excluded],
+        )
 
-    section("In tiers.json but gone from the marketplace: remove",
-            [f"- `{row['path']}` (`{i}`)" for i, row in reviewed.items() if i not in new])
+    section(
+        "In tiers.json but gone from the marketplace: remove",
+        [f"- `{row['path']}` (`{i}`)" for i, row in reviewed.items() if i not in new],
+    )
 
     if old:
         changes = []
@@ -142,11 +173,14 @@ def build_report(old, new, tiers):
                     changes.append(f"- {label(i, row)}: {field} {before[field]} → {row[field]}")
         section("Price or ZDR changed", changes)
 
-    section("Prices that look like the wrong unit (above 0.001 per token)", [
-        f"- {label(i, row)}: in {row['input_price']} / out {row['output_price']}"
-        for i, row in new.items()
-        if any((row[f] or 0) > SUSPECT_PRICE for f in ("input_price", "output_price"))
-    ])
+    section(
+        "Prices that look like the wrong unit (above 0.001 per token)",
+        [
+            f"- {label(i, row)}: in {row['input_price']} / out {row['output_price']}"
+            for i, row in new.items()
+            if any((row[f] or 0) > SUSPECT_PRICE for f in ("input_price", "output_price"))
+        ],
+    )
 
     untiered = [i for i in new if i not in reviewed and i not in excluded]
     unreviewed = sum(1 for row in reviewed.values() if not row.get("reviewed"))
@@ -161,6 +195,7 @@ def build_report(old, new, tiers):
 
 
 def main():
+    """Fetch the catalog, write catalog.json and print (or save) the report."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--report", type=Path, help="write the Markdown report here")
     args = parser.parse_args()
@@ -169,7 +204,10 @@ def main():
     if not api_key:
         sys.exit("Set AIXPLAIN_API_KEY.")
 
-    new = snapshot(fetch_llms(Mcp(MCP_URL, api_key)))
+    try:
+        new = snapshot(fetch_llms(Mcp(MCP_URL, api_key)))
+    except IncompleteFetch as error:
+        sys.exit(f"Refusing to write a partial catalog: {error}")
     old = json.loads(CATALOG.read_text()) if CATALOG.exists() else {}
     tiers = json.loads(TIERS.read_text())
 
