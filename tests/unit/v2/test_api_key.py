@@ -1113,6 +1113,11 @@ class TestAPIKeySave:
         api_key._create("sdk/api-keys", {"name": "Test Key", "budget": 1000.0})
 
         assert api_key.id == "existing_id"
+        # Upsert by name: the caller's settings are PUT onto the existing key.
+        put_calls = [c for c in mock_client.request.call_args_list if c.args[0] == "PUT"]
+        assert len(put_calls) == 1
+        assert put_calls[0].args[1] == "sdk/api-keys/existing_id"
+        assert put_calls[0].kwargs["json"] == {"name": "Test Key", "budget": 1000.0, "id": "existing_id"}
 
     def test_api_key_create_raises_on_unrelated_error(self):
         """_create() should re-raise errors that are not name conflicts."""
@@ -1399,3 +1404,132 @@ class TestAPIKeyGetByAccessKey:
 
         with pytest.raises(ValidationError, match="at least 8 characters"):
             MockAPIKey.get_by_access_key("short")
+
+
+# =============================================================================
+# BUG-1461 — upsert without silent adoption, UTC expiry, per-model matching
+# =============================================================================
+
+
+class TestBug1461APIKey:
+    """Regression tests for BUG-1461 items 7, 8 and 9."""
+
+    @staticmethod
+    def _bound(client, **ctx_attrs):
+        class BoundAPIKey(APIKey):
+            context = Mock(client=client, **ctx_attrs)
+
+        return BoundAPIKey
+
+    def test_create_after_failed_listing_applies_the_callers_budget(self):
+        from aixplain import APIError
+
+        existing = {"id": "existing_id", "name": "ci", "budget": 1000.0}
+        state = {"list_calls": 0}
+
+        def request(method, path, **kwargs):
+            if method == "get":
+                state["list_calls"] += 1
+                if state["list_calls"] == 1:
+                    raise APIError("forbidden", status_code=403)
+                return [existing]
+            if method == "post":
+                raise APIError("the name you provided is already in use", status_code=422)
+            if method == "PUT":
+                return {**existing, "budget": kwargs["json"]["budget"]}
+            raise AssertionError(method)
+
+        client = Mock(request=Mock(side_effect=request))
+        key = self._bound(client)(name="ci", budget=5)
+
+        key.save()
+
+        assert key.id == "existing_id"
+        assert key.budget == 5
+        put = [c for c in client.request.call_args_list if c.args[0] == "PUT"]
+        assert put and put[0].kwargs["json"]["budget"] == 5
+
+    def test_conflict_with_a_failing_second_listing_raises(self):
+        from aixplain import APIError
+
+        def request(method, path, **kwargs):
+            if method == "get":
+                raise APIError("forbidden", status_code=403)
+            if method == "post":
+                raise APIError("name already in use", status_code=422)
+            raise AssertionError(method)
+
+        key = self._bound(Mock(request=Mock(side_effect=request)))(name="ci", budget=5)
+
+        with pytest.raises((APIError, ResourceError)):
+            key.save()
+        assert key.budget == 5
+
+    def test_before_save_does_not_swallow_unexpected_errors(self):
+        key = APIKey(name="ci", budget=5)
+        with patch.object(APIKey, "list", side_effect=TypeError("bug")):
+            with pytest.raises(TypeError):
+                key.before_save()
+
+    def test_aware_expires_at_is_sent_as_the_same_utc_instant(self):
+        key = APIKey(name="k", budget=1, expires_at=datetime(2026, 12, 1, tzinfo=timezone(timedelta(hours=3))))
+        key.context = Mock()
+        assert key.build_save_payload()["expiresAt"] == "2026-11-30T21:00:00.000000Z"
+
+    def test_naive_expires_at_is_interpreted_as_utc(self):
+        key = APIKey(name="k", budget=1, expires_at=datetime(2026, 12, 1, 8, 30))
+        key.context = Mock()
+        assert key.build_save_payload()["expiresAt"] == "2026-12-01T08:30:00.000000Z"
+
+    @staticmethod
+    def _usage_key(rows, resolved=None):
+        client = Mock()
+        client.get = Mock(return_value=rows)
+        context = Mock(client=client, _model_path_cache={})
+        context.Model.get = Mock(return_value=resolved)
+        key = APIKey(id="key-1", name="k", budget=1)
+        key.context = context
+        return key
+
+    @pytest.mark.parametrize("ref_kind", ["id", "path", "model"])
+    def test_get_usage_matches_an_id_a_path_or_a_model(self, ref_kind):
+        oid, path = "6646261c6eb563165658bbb1", "openai/gpt-4o-mini/openai"
+        model = Mock(id=oid, path=path)
+        rows = [
+            {"assetId": oid, "requestCount": 3, "tokenCount": 10},
+            {"assetId": "other", "requestCount": 1, "tokenCount": 1},
+        ]
+        key = self._usage_key(rows, resolved=model)
+        ref = {"id": oid, "path": path, "model": model}[ref_kind]
+
+        usage = key.get_usage(model=ref)
+
+        assert len(usage) == 1
+
+    def test_get_usage_limits_matches_a_model(self):
+        oid, path = "6646261c6eb563165658bbb1", "openai/gpt-4o-mini/openai"
+
+        class BoundAPIKey(APIKey):
+            context = Mock(client=Mock(get=Mock(return_value=[{"assetId": oid}])), _model_path_cache={})
+
+        assert len(BoundAPIKey.get_usage_limits(model=Mock(id=oid, path=path))) == 1
+
+    @pytest.mark.parametrize("stored", ["6646261c6eb563165658bbb1", "openai/gpt-4o-mini/openai"])
+    def test_set_limit_matches_a_model_whether_stored_by_id_or_path(self, stored):
+        oid, path = "6646261c6eb563165658bbb1", "openai/gpt-4o-mini/openai"
+        key = APIKey(id="key-1", name="k", budget=1, asset_limits=[APIKeyLimits(model=stored, token_per_minute=1)])
+        key.context = Mock(_model_path_cache={})
+
+        key.set_token_per_minute(5, model=Mock(id=oid, path=path))
+
+        assert key.asset_limits[0].token_per_minute == 5
+
+    def test_set_limit_resolves_a_path_to_a_limit_stored_by_id(self):
+        oid, path = "6646261c6eb563165658bbb1", "openai/gpt-4o-mini/openai"
+        key = APIKey(id="key-1", name="k", budget=1, asset_limits=[APIKeyLimits(model=oid, token_per_minute=1)])
+        key.context = Mock(_model_path_cache={})
+        key.context.Model.get = Mock(return_value=Mock(id=oid, path=path))
+
+        key.set_token_per_minute(5, model=path)
+
+        assert key.asset_limits[0].token_per_minute == 5
