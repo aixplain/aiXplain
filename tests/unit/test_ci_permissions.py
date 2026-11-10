@@ -44,6 +44,9 @@ ALLOWED_WRITE = {
     # docs.yaml pushes a branch and opens a PR via peter-evans/create-pull-request.
     ("docs.yaml", "contents"): "docs.yaml opens the regenerated-API-docs PR",
     ("docs.yaml", "pull-requests"): "docs.yaml opens the regenerated-API-docs PR",
+    # model-selection-refresh.yaml opens its weekly PR the same way.
+    ("model-selection-refresh.yaml", "contents"): "model-selection-refresh.yaml opens the weekly catalog PR",
+    ("model-selection-refresh.yaml", "pull-requests"): "model-selection-refresh.yaml opens the weekly catalog PR",
     # release.yaml's `publish` job exchanges the OIDC token for a short-lived
     # PyPI upload token (Trusted Publishing). Job-scoped; see the tests below,
     # which additionally assert it never lands on a job that runs repo code.

@@ -18,12 +18,12 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
           python-version: '3.x'
 
@@ -35,7 +35,7 @@ jobs:
           python skills/model-selection/tooling/refresh.py --report "$RUNNER_TEMP/report.md"
 
       - name: Create Pull Request if the catalog changed
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: chore/model-selection-refresh
           commit-message: "chore(skills): refresh model-selection catalog"
