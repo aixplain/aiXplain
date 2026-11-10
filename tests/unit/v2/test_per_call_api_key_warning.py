@@ -14,7 +14,9 @@ from unittest.mock import Mock
 import pytest
 from dataclasses_json import dataclass_json
 
-from aixplain import DeleteResult
+from unittest.mock import MagicMock
+
+from aixplain import Action, ActionInputSpec, Actions, Agent, DeleteResult, Inputs, Model, Tool
 from aixplain.v2.resource import (
     BaseDeleteParams,
     BaseGetParams,
@@ -25,7 +27,43 @@ from aixplain.v2.resource import (
     SearchResourceMixin,
 )
 
-from .test_run_kwargs_stripped import _agent, _model, _tool
+
+def _model(cls=Model):
+    model = cls.__new__(cls)
+    model.id = "test-model-id"
+    model.name = "Test Model"
+    model.connection_type = ["synchronous"]
+    model.params = None
+    model.__post_init__()
+    model.context = Mock()
+    model.context.model_url = "https://models.aixplain.com/api/v2/execute"
+    model.context.client.request.return_value = {"status": "SUCCESS", "completed": True, "data": "ok"}
+    return model
+
+
+def _tool():
+    tool = _model(Tool)
+    tool.description = "Tool description"
+    tool.allowed_actions = ["search"]
+    tool._dynamic_attrs = {}
+    spec = ActionInputSpec(
+        name="Query", code="query", datatype="string", default_value=[], required=False, description="Query"
+    )
+    action = Action(name="search", inputs=Inputs.from_action_input_specs([spec]))
+    tool.__dict__["actions"] = Actions(actions={"search": action})
+    return tool
+
+
+def _agent():
+    agent = Agent.from_dict({"id": "a1", "name": "t"})
+    agent.context = MagicMock()
+    agent.status = None
+    fake_result = MagicMock()
+    fake_result.url = None
+    fake_result.completed = True
+    agent.handle_run_response = lambda response, **kw: fake_result
+    return agent
+
 
 MATCH = r"Aixplain\(api_key="
 

@@ -47,6 +47,10 @@ _SANDBOX_TOOL_ID = "microsoft/code-execution/microsoft"
 # Maximum characters of sandbox output fed back to the orchestrator per step.
 _REPL_OUTPUT_MAX_CHARS = 100_000
 
+#: Largest URL context body the parallel/rag modes will load into memory
+#: (BUG-1452). Over-size bodies raise ``UnsafeURLError`` (a ``ValueError``).
+MAX_URL_CONTEXT_BYTES = 50 * 1024 * 1024
+
 
 # Sandbox Sessions
 #
@@ -1462,8 +1466,9 @@ del _url, _r
             return context
         from aixplain.utils.url_safety import safe_get
 
-        # ``context`` is caller-supplied, so the fetch is SSRF-gated (BUG-939).
-        r = safe_get(context, timeout=60)
+        # ``context`` is caller-supplied, so the fetch is SSRF-gated (BUG-939)
+        # and its body capped before it is loaded into memory (BUG-1452).
+        r = safe_get(context, timeout=60, max_bytes=MAX_URL_CONTEXT_BYTES)
         r.raise_for_status()
         ct = r.headers.get("Content-Type", "")
         url_path = context.split("?")[0].lower()

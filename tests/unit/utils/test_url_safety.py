@@ -471,6 +471,20 @@ def test_safe_get_enforces_max_bytes(resolver):
         safe_get("https://example.com/big", session=session, max_bytes=1024)
 
 
+def test_safe_get_refuses_an_oversize_content_length_before_reading(resolver):
+    """BUG-1452: a body that announces it is too large is refused up front."""
+    resolver({"example.com": ["93.184.216.34"]})
+    session, _ = _session_with({"https://example.com/big": (200, {"Content-Length": "999999"}, b"x" * 10)})
+    with pytest.raises(UnsafeURLError, match="999999"):
+        safe_get("https://example.com/big", session=session, max_bytes=1024)
+
+
+def test_safe_get_accepts_a_content_length_within_the_cap(resolver):
+    resolver({"example.com": ["93.184.216.34"]})
+    session, _ = _session_with({"https://example.com/ok": (200, {"Content-Length": "5"}, b"hello")})
+    assert safe_get("https://example.com/ok", session=session, max_bytes=1024).content == b"hello"
+
+
 # --------------------------------------------------------------------------
 # validate_upload_url
 # --------------------------------------------------------------------------

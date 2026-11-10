@@ -356,6 +356,13 @@ def _read_bounded(response: requests.Response, max_bytes: int, url: str) -> None
         response._content_consumed = True
         return
 
+    declared = (response.headers or {}).get("Content-Length")
+    if isinstance(declared, str) and declared.strip().isdigit() and int(declared) > max_bytes:
+        # Refuse up front rather than reading *max_bytes* of a body that has
+        # already announced it is too large (BUG-1452).
+        response.close()
+        raise UnsafeURLError(f"Refusing to read {declared} bytes from {url!r}: the limit is {max_bytes}")
+
     body = bytearray()
     for chunk in response.iter_content(chunk_size=8192):
         if not chunk:
