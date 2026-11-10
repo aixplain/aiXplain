@@ -77,6 +77,7 @@ an oversight, and the rest are guarded by
 | `AssetStatus` | input + output | `agent.status`, and a search filter. `AssetStatusValue`. |
 | `AttachmentType` | input | Session message attachments. `AttachmentTypeValue`. |
 | `AuthenticationScheme` | input | Integration connect. `AuthenticationSchemeValue`. |
+| `BuiltinToolkit` | input | `agent.builtin_tools`. No alias: the field takes plain strings and forwards them unchecked, since the worker validates and gates toolkits. |
 | `ContextOverflowStrategy` | input | `agent.context_overflow_strategy`; `none` opts out of condensation. `ContextOverflowStrategyValue`. |
 | `DataType` | input | `UtilityModelInput.type`. `DataTypeValue`. |
 | `FileType` | input | `File.file_type`. `FileTypeValue`. |

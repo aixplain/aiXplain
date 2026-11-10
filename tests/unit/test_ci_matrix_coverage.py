@@ -61,9 +61,11 @@ DIRS_WITHOUT_TESTS = {}
 #: dead coverage is tracked rather than forgotten. Dropping an entry and adding
 #: the leg (both the `suite` name and its `include` block) belong in the
 #: same change, and the tests below hold the two halves together.
-#: Empty since PROD-2918: `tests/functional/benchmark` exercised the v1
-#: BenchmarkFactory and was deleted with v1 rather than un-parked.
-PARKED_TARGETS = {}
+PARKED_TARGETS = {
+    "tests/functional/v2/test_agent_builtin_tools.py": (
+        "ENG-3698: builtinTools is live on dev only; CI functional legs target test/prod"
+    ),
+}
 
 #: A parking reason has to point at something trackable, not just say "flaky".
 _TICKET_PATTERN = re.compile(r"[A-Z]{2,}-\d+")
