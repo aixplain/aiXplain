@@ -77,11 +77,11 @@ concurrency:
 
 env:
   # Coverage floor for the unit suite, enforced by the `unit-coverage` job.
-  # Measured at 86% (serial `coverage run -m pytest tests/unit`, no xdist --
+  # Measured at 85.2% (serial `coverage run -m pytest tests/unit`, no xdist --
   # under `-n` the figure collapses to ~26%) on BUG-1456, i.e. `development` @
-  # 71666c32 plus the RLM unit tests; set two points below to absorb
-  # ordering/version jitter. Ratchet it up here as coverage improves.
-  COVERAGE_FLOOR: "84"
+  # 71666c32 plus the RLM unit tests, with the `test` extra installed; set about two points
+  # below to absorb ordering/version jitter. Ratchet it up here as coverage improves.
+  COVERAGE_FLOOR: "83"
   # A leg that collects tests, skips every one, and exits 0 is indistinguishable
   # from a leg that passed -- `agent` and `team_agent` reported green while
   # executing 0 of 50 collected tests (ENG-3544). With this set, the
