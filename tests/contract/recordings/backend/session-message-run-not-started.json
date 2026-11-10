@@ -1,0 +1,36 @@
+{
+  "contract": "User message whose run failed to start for any reason but a 429 (for example err.not_enough_balance): the failure is logged and swallowed, and the message comes back 201 with no requestId.",
+  "endpoint": {
+    "method": "POST",
+    "host": "backend",
+    "path": "/v1/sessions/{id}/messages"
+  },
+  "request": {},
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "id": "msg-contract-1",
+      "sessionId": "sess-contract-1",
+      "userId": "2001",
+      "agentId": "agent-contract-1",
+      "role": "user",
+      "content": "What is the capital of France?",
+      "sequence": 1,
+      "createdAt": "2026-11-10T12:00:01.000Z"
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "platform-backend@97ec505ad src/session/controllers/session.message.controller.ts:153-186",
+      "platform-backend@97ec505ad src/session/dto/session.dto.ts:148-167 SessionMessageDto (undefined fields are omitted)",
+      "platform-backend@97ec505ad src/session/services/session.message.service.ts:961-977 runAgentForMessage rethrows only a 429"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording."
+  }
+}

@@ -7,6 +7,11 @@ credits grossed up by 1.2. That body is camelCase only at its top level
 (``to_legacy_response``); ``session_id`` and everything inside
 ``executionStats`` stay snake_case. SDK #983 was a nested field the SDK read
 from the wrong place, tested against a body typed by hand.
+
+A run with no ``session=`` goes through a new session (``POST /v1/sessions``,
+then ``POST /v1/sessions/{id}/messages``, whose ``requestId`` is polled). Only
+runs carrying kwargs the session endpoint cannot carry (``history``,
+``variables``, ``tasks``, ...) still use ``POST /v2/agents/{id}/run``.
 """
 
 import pytest
@@ -16,9 +21,13 @@ from tests.support.platform_replay import BACKEND_URL, PlatformStub, load_record
 AGENT_ID = "agent-contract-1"
 
 
+# A kwarg the session endpoint cannot carry, so the run keeps the direct path.
+DIRECT_PATH = {"history": [{"role": "user", "content": "Hello"}]}
+
+
 def _serve_run(platform: PlatformStub, poll: str) -> None:
     platform.serve("backend/agent-detail")
-    platform.serve("backend/agent-run-submit")
+    platform.serve("backend/session-create").serve("backend/session-message")
     platform.serve("backend/agent-poll-in-progress", then=[poll])
 
 
@@ -62,7 +71,31 @@ def test_successful_run_is_polled_to_its_answer(aix, platform: PlatformStub) -> 
     assert result.run_time == pytest.approx(1.5)
     polls = platform.sent("GET", "/sdk/agents/req-contract-agent-1/result")
     assert len(polls) == 2 and all(p.url.startswith(BACKEND_URL) for p in polls)
+    assert len(platform.sent("POST", "/messages")) == 1
+    assert platform.sent("POST", "/run") == []
+
+
+def test_a_run_creates_its_session_for_the_agent_and_posts_the_query(aix, platform: PlatformStub) -> None:
+    _serve_run(platform, "backend/agent-poll-success")
+
+    aix.Agent.get(AGENT_ID).run("What is the capital of France?", show_progress=False)
+
+    (create,) = [r for r in platform.sent("POST", "/v1/sessions") if r.path.endswith("/v1/sessions")]
+    assert create.json()["agentId"] == AGENT_ID
+    (message,) = platform.sent("POST", "/messages")
+    assert message.path.endswith("/v1/sessions/sess-contract-1/messages")
+    assert message.json()["role"] == "user" and message.json()["content"] == "What is the capital of France?"
+
+
+def test_a_run_the_session_endpoint_cannot_carry_keeps_the_direct_path(aix, platform: PlatformStub) -> None:
+    platform.serve("backend/agent-detail").serve("backend/agent-run-submit")
+    platform.serve("backend/agent-poll-in-progress", then=["backend/agent-poll-success"])
+
+    result = aix.Agent.get(AGENT_ID).run("What is the capital of France?", show_progress=False, **DIRECT_PATH)
+
+    assert result.status == "SUCCESS" and result.data.output == "Paris."
     assert len(platform.sent("POST", "/run")) == 1
+    assert platform.sent("POST", "/v1/sessions") == []
 
 
 def test_truncated_run_reports_its_diagnostic_code(aix, platform: PlatformStub) -> None:
@@ -100,7 +133,7 @@ def test_failed_run_carries_its_error_and_diagnostic_codes(aix, platform: Platfo
     assert expected["errorDetails"]["message"] in str(raised.value)
     assert raised.value.response_data["data"]["diagnosticErrorCodes"] == expected["diagnosticErrorCodes"]
     # A FAILED poll is a business outcome: raised, never resubmitted (SDK BUG-1090).
-    assert len(platform.sent("POST", "/run")) == 1
+    assert len(platform.sent("POST", "/messages")) == 1
 
 
 @pytest.mark.parametrize(
@@ -119,7 +152,49 @@ def test_refused_agent_run_raises_with_the_platform_code(
     platform.serve("backend/agent-detail").serve(recording)
 
     with pytest.raises(APIError) as raised:
-        aix.Agent.get(AGENT_ID).run("hi", show_progress=False)
+        aix.Agent.get(AGENT_ID).run("hi", show_progress=False, **DIRECT_PATH)
 
     assert raised.value.status_code == status and message in str(raised.value)
     assert len(platform.sent("POST", "/run")) == 1
+
+
+def test_a_quota_refusal_on_the_session_path_raises_with_the_platform_code(aix, platform: PlatformStub) -> None:
+    from aixplain.v2.exceptions import APIError
+
+    platform.serve("backend/agent-detail").serve("backend/session-create").serve("backend/error-agent-quota-session")
+
+    with pytest.raises(APIError) as raised:
+        aix.Agent.get(AGENT_ID).run("hi", show_progress=False)
+
+    assert raised.value.status_code == 429 and "err.agent_quota_exceeded" in str(raised.value)
+    assert platform.sent("GET", "/sdk/agents/") == []
+
+
+def test_a_session_run_the_platform_did_not_start_raises_without_polling(aix, platform: PlatformStub) -> None:
+    platform.serve("backend/agent-detail").serve("backend/session-create")
+    platform.serve("backend/session-message-run-not-started")
+
+    with pytest.raises(ValueError, match="did not return a requestId"):
+        aix.Agent.get(AGENT_ID).run("hi", show_progress=False)
+
+    assert platform.sent("GET", "/sdk/agents/") == []
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "ENG-3907 finding: on the session path platform-backend rethrows only a 429 from the agent run "
+        "(session.message.service.ts runAgentForMessage). Any other refusal, such as 471 "
+        "err.not_enough_balance, is logged and swallowed and the message comes back 201 with no "
+        "requestId, so the SDK cannot tell the caller why the run did not start. The direct path "
+        "raises APIError(471, err.not_enough_balance)."
+    ),
+)
+def test_a_session_run_refused_for_balance_says_so(aix, platform: PlatformStub) -> None:
+    from aixplain.v2.exceptions import APIError
+
+    platform.serve("backend/agent-detail").serve("backend/session-create")
+    platform.serve("backend/session-message-run-not-started")
+
+    with pytest.raises(APIError, match="err.not_enough_balance"):
+        aix.Agent.get(AGENT_ID).run("hi", show_progress=False)

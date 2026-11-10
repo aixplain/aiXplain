@@ -28,7 +28,7 @@ def canary(api_key: str) -> str:
 
 def _every_flow(aix, platform: PlatformStub) -> None:
     """Agent run and poll, model detail, run and stream, search, tool and file reads, and a failure."""
-    platform.serve("backend/agent-detail").serve("backend/agent-run-submit")
+    platform.serve("backend/agent-detail").serve("backend/session-create").serve("backend/session-message")
     platform.serve("backend/agent-poll-in-progress", then=["backend/agent-poll-success"])
     platform.serve("backend/model-detail-llm").serve("backend/models-paginate").serve("backend/tool-detail-utility")
     platform.serve("backend/file-asset-detail")
@@ -116,6 +116,21 @@ def test_a_poll_url_on_a_foreign_host_is_refused_before_any_request(aix, platfor
         "/v2/agents/{id}/run",
         StubResponse(status=201, body={"data": FOREIGN + "/sdk/agents/x/result", "requestId": "x"}),
     )
+
+    with pytest.raises(UntrustedURLError):
+        # history keeps the run on the direct path, where the poll URL comes from the body.
+        aix.Agent.get(AGENT_ID).run("hi", show_progress=False, history=[{"role": "user", "content": "Hello"}])
+
+    assert not [r for r in platform.requests if r.url.startswith(FOREIGN)]
+
+
+def test_a_foreign_request_id_on_the_session_path_is_refused_before_any_request(aix, platform: PlatformStub) -> None:
+    # The session path builds the poll URL from the message's requestId, and a
+    # requestId that is already a URL is used as it is.
+    platform.serve("backend/agent-detail").serve("backend/session-create")
+    message = dict(load_recording("backend/session-message")["response"]["json"])
+    message["requestId"] = FOREIGN + "/sdk/agents/x/result"
+    platform.route("POST", "backend", "/v1/sessions/{id}/messages", StubResponse(status=201, body=message))
 
     with pytest.raises(UntrustedURLError):
         aix.Agent.get(AGENT_ID).run("hi", show_progress=False)
