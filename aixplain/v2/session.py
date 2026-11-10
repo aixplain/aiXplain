@@ -8,7 +8,7 @@ from contextvars import ContextVar
 import warnings
 from dataclasses import dataclass, field, InitVar
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from typing_extensions import TypedDict
 from pathlib import Path
 
@@ -49,6 +49,18 @@ EXECUTION_PARAMS_MAP: Dict[str, str] = {
     "max_time": "maxTime",
     "expected_output": "expectedOutput",
 }
+
+
+def _infer_page_counts(page_number: int, page_size: int, count: int) -> Tuple[Optional[int], Optional[int]]:
+    """Infer ``(page_total, total)`` for a page whose envelope reports neither.
+
+    Only a short page (fewer items than ``page_size``) proves it is the last
+    one, so only then are the counts known. A full page, an oversized page or an
+    empty page past the first one says nothing about the rest: ``(None, None)``.
+    """
+    if count < page_size and (count > 0 or page_number == 0):
+        return page_number + 1, page_number * page_size + count
+    return None, None
 
 
 def _normalize_execution_params(params: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -848,14 +860,17 @@ class Session(
 
         # The backend returns a bare JSON array today; tolerate a paginated dict
         # too so a future backend change (envelope with total/pageTotal) still works.
+        # Whatever the backend does not report is inferred only when it is
+        # actually known (a short page is the last one); otherwise it is ``None``
+        # rather than a made-up ``page_total=1`` that would stop a paging loop.
         if isinstance(response, dict):
             items = response.get(cls.PAGINATE_ITEMS_KEY) or response.get("items") or []
-            total = response.get(cls.PAGINATE_TOTAL_KEY, len(items))
-            page_total = response.get(cls.PAGINATE_PAGE_TOTAL_KEY, 1)
+            inferred_page_total, inferred_total = _infer_page_counts(page_number, page_size, len(items))
+            total = response.get(cls.PAGINATE_TOTAL_KEY, inferred_total)
+            page_total = response.get(cls.PAGINATE_PAGE_TOTAL_KEY, inferred_page_total)
         else:
             items = _parse_list_response(response, "sessions")
-            total = len(items)
-            page_total = 1
+            page_total, total = _infer_page_counts(page_number, page_size, len(items))
 
         results: List["Session"] = []
         for item in items:
@@ -870,7 +885,7 @@ class Session(
         """Get all messages in this session.
 
         Returns:
-            List of SessionMessage instances.
+            List of SessionMessage instances, ordered by ``sequence``.
 
         Raises:
             ResourceError: If the API response is not a list or
@@ -888,7 +903,9 @@ class Session(
             raise ResourceError(f"Failed to list messages for session '{self.id}': {e}")
 
         items = _parse_list_response(response, "messages")
-        return [_deserialize(SessionMessage, item, "session message") for item in items]
+        messages = [_deserialize(SessionMessage, item, "session message") for item in items]
+        # The sort is stable, so messages sharing a sequence keep the backend order.
+        return sorted(messages, key=lambda message: message.sequence)
 
     def add_message(
         self,

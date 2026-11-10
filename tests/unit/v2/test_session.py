@@ -1430,3 +1430,73 @@ class TestSessionExecutionConfigConstruction:
     def test_run_response_generation_false_is_kept(self):
         cfg = ExecutionConfig(run_response_generation=False)
         assert cfg.run_response_generation is False
+
+
+# =========================================================================
+# BUG-1461 — honest paging, ordered messages, context_overflow_strategy
+# =========================================================================
+
+
+class TestBug1461SessionCorrectness:
+    """Regression tests for BUG-1461 items 1 and 2."""
+
+    def test_execution_config_sends_context_overflow_strategy_camel_case(self):
+        cfg = ExecutionConfig(execution_params={"context_overflow_strategy": "summarize"})
+        exec_params = cfg.to_api_dict()["executionParams"]
+        assert exec_params["contextOverflowStrategy"] == "summarize"
+        assert "context_overflow_strategy" not in exec_params
+
+    def test_full_bare_array_page_reports_unknown_counts(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = [{**SAMPLE_SESSION_DICT, "id": f"sess_{i}"} for i in range(5)]
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search(page_size=5)
+
+        assert len(page.results) == 5
+        assert page.page_total is None
+        assert page.total is None
+
+    def test_short_bare_array_page_is_the_last_page(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = [SAMPLE_SESSION_DICT, {**SAMPLE_SESSION_DICT, "id": "sess_002"}]
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search(page_number=2, page_size=5)
+
+        assert page.page_total == 3
+        assert page.total == 12
+
+    def test_empty_page_past_the_first_reports_unknown_counts(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = []
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search(page_number=3, page_size=5)
+
+        assert page.page_total is None
+        assert page.total is None
+
+    def test_dict_envelope_without_counts_does_not_invent_them(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = {"results": [{**SAMPLE_SESSION_DICT, "id": f"s{i}"} for i in range(5)]}
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search(page_size=5)
+
+        assert page.page_total is None
+        assert page.total is None
+
+    def test_messages_are_sorted_by_sequence(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = [
+            {**SAMPLE_MESSAGE_DICT, "id": "m3", "sequence": 3},
+            {**SAMPLE_MESSAGE_DICT, "id": "m1", "sequence": 1},
+            {**SAMPLE_MESSAGE_DICT, "id": "m2", "sequence": 2},
+        ]
+        BoundSession = _bound_session_class(ctx)
+        session = BoundSession.from_dict(SAMPLE_SESSION_DICT)
+        session.context = ctx
+        session._update_saved_state()
+
+        assert [m.id for m in session.messages()] == ["m1", "m2", "m3"]
