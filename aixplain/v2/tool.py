@@ -277,25 +277,45 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         return True
 
     def list_actions(self) -> List[ActionSpec]:
-        """List available actions for the tool (with integration fallback)."""
+        """List available actions for the tool (with integration fallback).
+
+        Raises:
+            TimeoutError: If discovery timed out and the integration fallback is
+                unavailable or timed out as well. A timeout is never reported as
+                an empty action list (BUG-1453).
+        """
+        primary_timeout: Optional[TimeoutError] = None
         try:
             actions = super().list_actions()
             if actions:
                 return actions
+        except TimeoutError as e:  # builtin; also catches aixplain's subclass
+            primary_timeout = e
+            warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
         except Exception as e:
             warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
 
         if self._ensure_integration():
+            # The fallback's own TimeoutError propagates.
             return self.integration.list_actions()
 
+        if primary_timeout is not None:
+            raise primary_timeout
         return []
 
     def _list_inputs(self, *actions: str) -> List[ActionSpec]:
-        """List available inputs for specified actions (with integration fallback)."""
+        """List available inputs for specified actions (with integration fallback).
+
+        Raises:
+            TimeoutError: If discovery timed out and the integration fallback is
+                unavailable or failed too. A timeout is never reported as an
+                empty input list (BUG-1453).
+        """
         try:
             return super()._list_inputs(*actions)
         except Exception as e:
             warnings.warn(f"Error listing inputs: {e}. Using integration._list_inputs() instead.")
+            timeout_error: Optional[TimeoutError] = e if isinstance(e, TimeoutError) else None
             if self._ensure_integration():
                 try:
                     return self.integration._list_inputs(*actions)
@@ -305,7 +325,11 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     # _validate_params now surfaces as a run failure (BUG-946).
                     # Without this the real cause never reaches the caller.
                     warnings.warn(f"Error listing inputs via the integration fallback: {fallback_error}.")
+                    if isinstance(fallback_error, TimeoutError):
+                        timeout_error = fallback_error
 
+            if timeout_error is not None:
+                raise timeout_error
             return []
 
     def list_inputs(self, *actions: str) -> List[ActionSpec]:
