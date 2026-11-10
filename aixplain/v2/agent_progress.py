@@ -333,6 +333,18 @@ class AgentProgressTracker:
         Returns:
             List of normalized step dictionaries
         """
+        # Fast path: read the steps straight off the raw poll payload. This is
+        # the same location the ``to_dict()`` lookup below checks first, but
+        # without a full recursive serialization of the response on every
+        # poll (BUG-949). ``_normalize_steps`` copies each step, so aliasing
+        # the raw payload here is safe.
+        raw_data = getattr(response, "_raw_data", None)
+        if isinstance(raw_data, dict):
+            data = raw_data.get("data")
+            if isinstance(data, dict) and isinstance(data.get("steps"), list):
+                steps = data["steps"]
+                return self._normalize_steps(steps, parent_id=None) if steps else []
+
         raw = {}
         if hasattr(response, "to_dict"):
             try:
