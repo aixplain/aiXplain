@@ -107,6 +107,7 @@ def _csv_signature(uploaded: Any, path_str: str) -> Optional[tuple[Any, ...]]:
 
 
 def main() -> None:
+    """Render the evaluation dashboard."""
     st.set_page_config(page_title="Agent eval dashboard", layout="wide")
     st.title("Agent evaluation dashboard")
     st.caption("Load results CSV · run summary · charts · optional LLM chat")
@@ -164,9 +165,7 @@ def main() -> None:
 
     df = run.to_dataframe()
 
-    tab_summary, tab_plots, tab_data, tab_chat = st.tabs(
-        ["Run summary", "Plots", "Data preview", "Chat"]
-    )
+    tab_summary, tab_plots, tab_data, tab_chat = st.tabs(["Run summary", "Plots", "Data preview", "Chat"])
 
     with tab_summary:
         if include_llm_summary:
