@@ -28,6 +28,7 @@ The agent reads `SKILL.md` first and pulls in the reference files only when it n
 |-------|-------------|
 | [aixplain-builder](./aixplain-builder) | Build, run, and deploy anything on aiXplain across the full v2 SDK — direct model inference (LLMs, Whisper/speech, translation, vision, embeddings), single & team agents, knowledge bases/RAG, tools & integrations (Slack, Gmail, databases, MCP, custom Python), runtime governance/inspectors, memory, and REST/JS/OpenAI-compatible access. Ships a self-update pipeline (`tooling/`) that re-syncs the skill with the docs + SDK. |
 | [aixplain-skill-builder](./aixplain-skill-builder) | Create, test, and publish skills — local Koder skills (`SKILL.md` folders Koder's coding agent loads) or aiXplain platform skills that agents use, optionally bundling their own tools. Guides the description that makes a skill route, and ships `scripts/skill_tool.py` to scaffold and validate a skill. |
+| [model-selection](./model-selection) | Choose the right model for a project: hard limits first (ZDR, input type, context, budget, speed), a shortlist from the live marketplace with reviewed tiers and cost estimates, then a side-by-side test on the user's own examples. A weekly workflow opens a PR with new, removed and repriced LLMs so the tiers stay current. Needs the Marketplace Search MCP (bundled in the `aixplain` plugin). |
 
 > More skills coming soon. See [Contributing](#contributing) to add one.
 
