@@ -179,3 +179,18 @@ class TestSaveRequests:
         save.assert_called_once_with(as_draft=True)
         put_payloads = [c[1]["json"] for c in ctx.client.request.call_args_list if c[0][0] == "put"]
         assert put_payloads and put_payloads[-1]["agents"] == [{"id": "C", "inspectors": []}]
+
+    def test_create_response_without_agents_keeps_roster(self):
+        ctx = _ctx()
+        BoundAgent = _bound_agent(ctx)
+        a = BoundAgent(id="A", name="a")
+        b = BoundAgent(id="B", name="b")
+        team = BoundAgent(name="T", instructions="lead", agents=[a, b])
+        # The create response does not echo ``agents``.
+        ctx.client.request.return_value = {"id": "team_1", "name": "T", "instructions": "lead"}
+        team.save()
+
+        assert team.agents == ["A", "B"]
+        assert team._original_agents == [a, b]
+        assert not team.is_modified
+        assert _payload_ids(team) == ["A", "B"]

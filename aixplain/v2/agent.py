@@ -1859,6 +1859,8 @@ class Agent(
         # ``self.tools`` with backend dicts and drop those mutations.
         pre_save_tools = list(self.tools) if self.tools else []
         pre_save_graph = (self.graph, self.strategy, self.graph_version)
+        # The roster was synced from the public list by _validate_dependencies().
+        pre_save_agents = list(getattr(self, "_original_agents", None) or [])
 
         # Call the parent save method
         saved_agent = super().save(*args, **kwargs)
@@ -1872,6 +1874,13 @@ class Agent(
                 self.strategy = pre_save_graph[1] or StaticGraphStrategy()
             if self._server_omitted("graphVersion"):
                 self.graph_version = pre_save_graph[2] or "1"
+
+        # A create response that does not echo ``agents`` would hydrate an empty
+        # public roster, which the next sync would read as "cleared" and the
+        # next save() would send as ``agents: []`` (BUG-1457).
+        if pre_save_agents and self._server_omitted("agents"):
+            self._original_agents = pre_save_agents
+            self.agents = [self._agent_reference_id(agent) for agent in pre_save_agents]
 
         # Restore the caller's tool objects, then re-hydrate any dict entries so
         # ``agent.tools[i]`` stays a mutable Tool/Model object after save.
