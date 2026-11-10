@@ -23,6 +23,7 @@ from .plain_data import WireValue, coerce_enum, struct_fields, wire_value
 if TYPE_CHECKING:
     from .agent import Budget, BudgetDict
 from .resource import (
+    _deprecates_per_call_api_key,
     BaseResource,
     GetResourceMixin,
     DeleteResourceMixin,
@@ -774,6 +775,7 @@ class Session(
         return payload
 
     @classmethod
+    @_deprecates_per_call_api_key
     def search(
         cls,
         agent: Optional[Any] = None,

@@ -26,6 +26,7 @@ from .resource import (
     _filter_value,
     _filter_values,
     _sort_direction,
+    _deprecates_per_call_api_key,
 )
 from .enums import (
     AssetStatus,
@@ -1023,6 +1024,7 @@ class Model(
         # Use v2 endpoint - it uses "results" as the items key (default)
         return super().search(**kwargs)
 
+    @_deprecates_per_call_api_key
     def run(self, **kwargs: Unpack[ModelRunParams]) -> Union[ModelResult, "ModelResponseStreamer"]:
         """Run the model with dynamic parameter validation and default handling.
 
@@ -1086,6 +1088,7 @@ class Model(
         """
         return self._submit_with_retries(**kwargs)
 
+    @_deprecates_per_call_api_key
     def run_async(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model asynchronously.
 
@@ -1189,6 +1192,7 @@ class Model(
                 error_message=resp.get("error_message", None),
             )
 
+    @_deprecates_per_call_api_key
     def run_stream(self, **kwargs: Unpack[ModelRunParams]) -> ModelResponseStreamer:
         """Run the model with streaming response.
 

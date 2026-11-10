@@ -1,11 +1,15 @@
 """Resource management module for v2 API."""
 
 import requests
+import contextvars
 import inspect
 import logging
+import os
 import re
+import sys
 import time
 import reprlib
+import warnings
 from datetime import datetime
 from dataclasses import MISSING, dataclass, field
 from dataclasses_json import dataclass_json, config
@@ -790,13 +794,64 @@ class BaseResource:
 # observable effect was riding into the model input body (BUG-1091).
 _SDK_REQUEST_KEYS: frozenset[str] = frozenset({"api_key", "resource_path"})
 
+_PER_CALL_API_KEY_MESSAGE = (
+    "Passing api_key= to an individual call is ignored: requests always authenticate with the "
+    "Aixplain context's key. Use Aixplain(api_key=...) (one context per tenant) instead. "
+    "The per-call parameter will be removed in the next major version."
+)
+
+# Set while a decorated entry point is running, so an override that delegates to
+# ``super()`` (``Agent.run`` -> ``RunnableResourceMixin.run``) warns once per call.
+_PER_CALL_API_KEY_WARNED: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "aixplain_per_call_api_key_warned", default=False
+)
+_PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
+
+
+def _caller_stacklevel() -> int:
+    """Return the ``warnings.warn`` stacklevel of the first frame outside ``aixplain``.
+
+    Computed relative to the function that calls ``warnings.warn`` (the caller
+    of this helper), so the warning is attributed to user code however deeply
+    the SDK's own overrides are nested.
+    """
+    frame = sys._getframe(1)
+    level = 1
+    while frame is not None and os.path.abspath(frame.f_code.co_filename).startswith(_PACKAGE_DIR):
+        frame = frame.f_back
+        level += 1
+    return level
+
+
+def _deprecates_per_call_api_key(func: Callable) -> Callable:
+    """Emit one ``DeprecationWarning`` when *func* is called with ``api_key=``.
+
+    The per-call key is accepted for backward compatibility and then ignored
+    (BUG-1091 strips it from every request); without a warning a multi-tenant
+    caller passing another tenant's key silently runs and bills against the
+    context's key (BUG-1452). Behaviour is otherwise unchanged.
+    """
+
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        if "api_key" not in kwargs or _PER_CALL_API_KEY_WARNED.get():
+            return func(*args, **kwargs)
+        warnings.warn(_PER_CALL_API_KEY_MESSAGE, DeprecationWarning, stacklevel=_caller_stacklevel())
+        token = _PER_CALL_API_KEY_WARNED.set(True)
+        try:
+            return func(*args, **kwargs)
+        finally:
+            _PER_CALL_API_KEY_WARNED.reset(token)
+
+    return wrapper
+
 
 class BaseParams(TypedDict):
     """Base class for parameters that include API key and resource path.
 
     Attributes:
-        api_key: Accepted for backward compatibility and **ignored**.
-            Authentication always comes from the ``Aixplain`` context
+        api_key: Deprecated: accepted for backward compatibility, **ignored**,
+            and emits a ``DeprecationWarning`` when passed. Authentication always comes from the ``Aixplain`` context
             (``Client._auth_headers``), which overrides any per-call value. It is
             stripped from every request so it can never reach a model input body
             or a supplier's prompt logs. Configure credentials via
@@ -1196,6 +1251,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         return filters
 
     @classmethod
+    @_deprecates_per_call_api_key
     def search(cls: type, **kwargs: Unpack[SearchParamsT]) -> Page[ResourceT]:
         """Search resources across the first n pages with optional filtering.
 
@@ -1420,6 +1476,7 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
     """Mixin for getting a resource."""
 
     @classmethod
+    @_deprecates_per_call_api_key
     def get(cls: type, id: Any, host: Optional[str] = None, **kwargs: Unpack[GetParamsT]) -> ResourceT:
         """Retrieve a single resource by its ID (or other get parameters).
 
@@ -1620,6 +1677,7 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         """
         return None
 
+    @_deprecates_per_call_api_key
     @with_hooks
     def delete(self, *args: Any, **kwargs: Unpack[DeleteParamsT]) -> DeleteResultT:
         """Delete a resource.
@@ -2095,6 +2153,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """
         return None
 
+    @_deprecates_per_call_api_key
     def run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Run the resource synchronously with automatic polling.
 
@@ -2138,6 +2197,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             raise
         return self._apply_after_run(result, **kwargs)
 
+    @_deprecates_per_call_api_key
     def run_async(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Run the resource asynchronously.
 
