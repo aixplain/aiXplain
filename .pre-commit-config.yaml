@@ -50,6 +50,7 @@ repos:
           - pytest
           - pytest-mock
           - pytest-rerunfailures
+          - pytest-timeout  # the revert check's per-test timeout (tests/unit/test_fix_revert_check.py)
           - pytest-xdist
           - requests-mock
           - plotly>=5.18.0  # keeps the plotting tests from silently skipping here too

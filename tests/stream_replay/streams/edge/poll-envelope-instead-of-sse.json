@@ -1,0 +1,36 @@
+{
+  "contract": "A v1 execute URL answers a stream request with a JSON poll envelope (agents #258).",
+  "family": "openai",
+  "request": {
+    "tools": [],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "sse": null,
+    "json": {
+      "status": "IN_PROGRESS",
+      "completed": false,
+      "data": "{models_root}/api/v1/data/req-replay-poll",
+      "requestId": "req-replay-poll"
+    }
+  },
+  "expected": {
+    "status": "FAILED",
+    "content_must_not_contain": "/api/v1/data/"
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 aixplain/v2/model.py ModelResponseStreamer.__next__ 476-635",
+      "agents #258 (1bea4105)"
+    ],
+    "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/edge/poll-envelope-instead-of-sse; the expected block is what the SDK's streamer should yield for it, written by hand."
+  },
+  "known_failure": "ENG-3782 finding (#258 class): a JSON poll envelope answering a stream request is yielded as one chunk whose content is the poll URL and the stream reports SUCCESS; an IN_PROGRESS envelope is not a completed answer."
+}

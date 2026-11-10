@@ -14,6 +14,7 @@ with a ``DeprecationWarning``, and are removed from this module in
 
 from aixplain.v2.exceptions import (
     APIError,
+    AgentRunFailedError,
     AixplainIssueError,
     AixplainV2Error,
     FileUploadError,
@@ -26,6 +27,7 @@ from aixplain.v2.exceptions import (
 __all__ = [
     "AixplainV2Error",
     "APIError",
+    "AgentRunFailedError",
     "AixplainIssueError",
     "ValidationError",
     "ResourceError",

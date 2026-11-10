@@ -1,0 +1,123 @@
+name: Test layers
+
+# The test layers ENG-3761 found missing, built under ENG-3782. Each layer is
+# its own job so a red check names the layer. All of them are hermetic: no
+# backend credential, every host is a never-resolvable *.test name or a local
+# server. Schedules (see docs/testing-layers.md for what belongs where):
+#
+#   contract          every PR and push; replays tests/contract/recordings through
+#                     the real SDK client and requests session.
+#   stream-replay     every PR and push; replays tests/stream_replay/streams (SSE per
+#                     model family and edge case) through Model.run_stream.
+#   security          every PR and push; a canary key through the client,
+#                     models, agents and RLM sandbox, and a scan of the
+#                     recordings for credential-shaped values. pre-commit.yaml's
+#                     gitleaks run covers the same files on every push.
+#   fault-injection   every PR and push; real sockets through toxiproxy in front
+#                     of local platform servers (stall, slow body, reset,
+#                     503/429, close without response).
+#
+# The fix-PR revert check (layer 6) lives in revert-check.yaml because it only
+# runs on fix PRs.
+
+on:
+  push:
+    branches: [main, development, test]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[test]"
+      - name: Run the contract layer
+        run: python -m pytest tests/contract
+
+  stream-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[test]"
+      - name: Run the stream-replay layer
+        run: python -m pytest tests/stream_replay
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[test]"
+      - name: Run the security layer
+        run: python -m pytest tests/security
+
+  fault-injection:
+    # Real toxiproxy in front of real servers. It runs with --network host so
+    # the proxies it opens on ephemeral ports are reachable from the job, and
+    # so it can reach the servers the tests bind on 127.0.0.1.
+    # FAULT_INJECTION_REQUIRE turns a missing toxiproxy into a failure instead
+    # of a silently green run on the in-process fallback proxy.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FAULT_INJECTION_REQUIRE: "1"
+      TOXIPROXY_URL: http://127.0.0.1:8474
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[test]"
+      - name: Start toxiproxy
+        run: |
+          docker run -d --name toxiproxy --network host ghcr.io/shopify/toxiproxy:2.12.0
+          for _ in $(seq 30); do
+            curl -sf http://127.0.0.1:8474/version && exit 0
+            sleep 1
+          done
+          docker logs toxiproxy
+          exit 1
+      - name: Run the fault-injection layer
+        run: python -m pytest tests/fault --timeout 120 -o timeout_method=signal

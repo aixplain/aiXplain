@@ -2,6 +2,48 @@
 
 ## Unreleased
 
+### Added: SDK type information
+
+The package now ships `py.typed`. Type checkers such as mypy will check SDK
+usage against its annotations. Downstream projects using `ignore_missing_imports`
+for `aixplain.*` may see new diagnostics after upgrading; review those diagnostics
+when updating the SDK.
+
+### Fixed: unrestricted API key limits
+
+Unset API key rate-limit dimensions now save as `-1` (unrestricted); explicit
+`0` still blocks requests. Existing keys saved with unintended zeros are not
+automatically repaired: fetch each affected key, set only the dimensions that
+should be unrestricted to `None` in `global_limits` and `asset_limits`, then
+call `save()`. Re-saving without resetting those zeros preserves them because
+the SDK cannot distinguish intentional blocking from an old unset value.
+
+Backend unrestricted rate and usage limits decode to `None`. User-supplied
+limits must be non-negative integers or `None`, including when using wire-name
+aliases such as `tpm`. Plain `Dict[str, Any]` limit variables remain accepted
+alongside `APIKeyLimitsDict` and `APIKeyLimits`.
+
+### Removed: Python 3.9 support
+
+`requires-python` is now `>=3.10, <4`, and CI runs on 3.10. Python 3.9 reached
+end of life in October 2025 and GitHub's `ubuntu-latest` runner no longer ships
+a 3.9 build. On Python 3.9, pip keeps resolving the last release that supported
+it.
+
+### Added: structured warnings on agent runs, and on a failed run's exception
+
+`AgentRunResult.warnings` and `AgentResponseData.warnings` list the run's
+non-fatal issues as `AgentWarning(code, message)`. They can be present on a
+`SUCCESS` run; a warning never means the run failed.
+
+A `FAILED` agent run now raises `AgentRunFailedError`, a subclass of `APIError`
+(so existing `except APIError` handlers still catch it), with
+`error_details` (`AgentError(code, message)`, the single fatal error) and
+`warnings` attached instead of only a message string.
+
+`diagnostic_error_codes` is deprecated: it mixes fatal and non-fatal codes.
+Use `error.code` and `warnings[].code` instead.
+
 ### Fixed: `agent.budget.max_duration_seconds` was ignored on every run
 
 `agent.run()` always sent `executionParams.maxTime: 300`, and the backend ranks

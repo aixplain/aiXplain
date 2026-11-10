@@ -18,7 +18,7 @@ from ._expected_output import expected_output_to_wire
 from .enums import AttachmentType
 from .exceptions import APIError, ResourceError, ValidationError
 from .file import File
-from .plain_data import struct_fields
+from .plain_data import WireValue, coerce_enum, struct_fields, wire_value
 
 if TYPE_CHECKING:
     from .agent import Budget, BudgetDict
@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 # emitted as a standalone ``executionParams.maxIterations``.
 EXECUTION_PARAMS_MAP: Dict[str, str] = {
     "output_format": "outputFormat",
+    "context_overflow_strategy": "contextOverflowStrategy",
     "max_tokens": "maxTokens",
     "max_time": "maxTime",
     "expected_output": "expectedOutput",
@@ -54,7 +55,14 @@ def _normalize_execution_params(params: Optional[Dict[str, Any]]) -> Optional[Di
     """Translate snake_case execution param keys to camelCase for the API."""
     if not params:
         return params
-    return {EXECUTION_PARAMS_MAP.get(k, k): v for k, v in params.items()}
+    from .agent import _ENUM_FIELDS
+
+    normalized = {EXECUTION_PARAMS_MAP.get(k, k): v for k, v in params.items()}
+    for attr, enum_cls in _ENUM_FIELDS.items():
+        key = EXECUTION_PARAMS_MAP[attr]
+        if normalized.get(key) is not None and not isinstance(normalized[key], WireValue):
+            normalized[key] = coerce_enum(normalized[key], enum_cls, label=attr).value
+    return normalized
 
 
 def _is_hosted_url(value: str) -> bool:
@@ -461,6 +469,11 @@ class ExecutionConfig:
         adds to the budget object is not a caller's typo, so it must not break
         every ``Session.get()``.
         """
+        if name == "execution_params" and isinstance(value, dict) and _DECODING_WIRE_PAYLOAD.get():
+            value = dict(value)
+            for key in ("outputFormat", "contextOverflowStrategy"):
+                if key in value:
+                    value[key] = wire_value(value[key])
         if name == "budget":
             from .agent import Agent
 

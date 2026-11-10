@@ -7,6 +7,7 @@ actually random, it preserves the mean, and it can never push a budgeted loop
 past its own deadline.
 """
 
+import random
 import statistics
 from unittest.mock import patch
 
@@ -155,7 +156,9 @@ class TestFleetDecorrelation:
         return offsets
 
     def test_two_simultaneous_clients_drift_apart(self):
-        a, b = self._poll_offsets(), self._poll_offsets()
+        # Seeded: unseeded, the two totals land within 0.05s of each other ~2.6% of runs.
+        with patch("aixplain.v2._backoff.random", random.Random(1)):
+            a, b = self._poll_offsets(), self._poll_offsets()
 
         assert a != b
         # By the 25th poll the two have accumulated a visible phase difference,
