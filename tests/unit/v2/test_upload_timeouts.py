@@ -95,13 +95,23 @@ class TestBlackholeFailsFast:
     """The acceptance criterion: bounded failure instead of an infinite hang."""
 
     def test_put_leg_raises_timeout(self, blackhole_url, monkeypatch):
+        from aixplain.v2.client import create_retry_session
+        from aixplain.v2.upload_utils import UPLOAD_RETRY_ALLOWED_METHODS
+
         monkeypatch.setenv("AIXPLAIN_HTTP_CONNECT_TIMEOUT", "1")
         monkeypatch.setenv("AIXPLAIN_HTTP_READ_TIMEOUT", "1")
+        # PUT is retried on the upload session (BUG-949), so use a one-retry
+        # session to keep the test fast; the point here is the read bound.
+        monkeypatch.setattr(
+            RequestManager,
+            "_session",
+            create_retry_session(total=1, allowed_methods=UPLOAD_RETRY_ALLOWED_METHODS),
+        )
 
         started = time.monotonic()
-        # PUT is outside the retry session's allowed_methods, so the read
-        # timeout surfaces directly rather than as an exhausted-retry error.
-        with pytest.raises(requests.exceptions.Timeout):
+        # Each attempt hits the read timeout; once retries are exhausted it
+        # surfaces as a Timeout or a MaxRetryError-backed ConnectionError.
+        with pytest.raises((requests.exceptions.Timeout, requests.exceptions.ConnectionError)):
             RequestManager.request_with_retry("put", blackhole_url, data=b"payload")
         elapsed = time.monotonic() - started
 
@@ -149,12 +159,15 @@ class TestUploadSessionReuse:
 
     def test_the_shared_session_is_pool_sized(self):
         """It must be a ``create_retry_session``, not a bare Session."""
-        from aixplain.v2.client import DEFAULT_POOL_MAXSIZE, RETRY_ALLOWED_METHODS
+        from aixplain.v2.client import DEFAULT_POOL_MAXSIZE
+        from aixplain.v2.upload_utils import UPLOAD_RETRY_ALLOWED_METHODS
 
         adapter = RequestManager.create_session().get_adapter("https://api.example.com")
 
         assert adapter._pool_maxsize == DEFAULT_POOL_MAXSIZE
-        assert adapter.max_retries.allowed_methods == RETRY_ALLOWED_METHODS
+        assert adapter.max_retries.allowed_methods == UPLOAD_RETRY_ALLOWED_METHODS
+        assert "PUT" in UPLOAD_RETRY_ALLOWED_METHODS
+        assert "POST" not in UPLOAD_RETRY_ALLOWED_METHODS
 
     def test_concurrent_first_use_creates_exactly_one_session(self):
         """The double-checked lock must not race into two sessions."""
