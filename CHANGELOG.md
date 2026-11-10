@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Added: typed v2 Index API (`aix.Index`)
+
+`aix.Index` is the v2 replacement for v1 `IndexFactory` / `IndexModel` (BUG-1455,
+porting the ENG-3148 work that was never merged). It covers the control plane
+(`create`, `list`, `get`, `delete`) and the data plane (`upsert`, `search`,
+`count`, `get_record`, `delete_record`, `retrieve_records_with_filter`,
+`delete_records_by_date`). The supporting types import from the package root:
+`Record`, `IndexFilter`, `IndexFilterOperator`, `Splitter`, `IndexResult`,
+`AirParams`, `VectaraParams`, `GraphRAGParams`, `ZeroEntropyParams`, and the
+`EmbeddingModel` and `IndexStores` enums (also available on the client as
+`aix.EmbeddingModel` / `aix.IndexStores`). `Splitter.split_by` accepts the plain
+string form (`"sentence"`). Local files passed to `upsert` or `search` are
+uploaded with the client's own API key. See
+[`IndexFactory` → `aix.Index`](MIGRATION.md#indexfactory--aixindex).
+
+### Fixed: uploads to path-style S3 URLs used the wrong bucket
+
+`S3Uploader.construct_s3_url` recognised only virtual-hosted S3 URLs
+(`https://<bucket>.s3.amazonaws.com/...`). For path-style and regional URLs it
+fell back to the hard-coded `aixplain-uploads` bucket, so the returned
+`s3://` link pointed at the wrong bucket. It now reads the bucket from both URL
+styles, including regional hosts.
+
 ### Added: SDK type information
 
 The package now ships `py.typed`. Type checkers such as mypy will check SDK
@@ -140,11 +163,12 @@ Migration guide: https://github.com/aixplain/aiXplain/blob/main/MIGRATION.md
 **The last release that contained v1 is `0.2.48`.** It stays on PyPI and stays
 installable; code pinned to it keeps running unchanged.
 
-Eight v1 factories — `IndexFactory`, `PipelineFactory`, `BenchmarkFactory`,
-`CorpusFactory`, `DataFactory`, `DatasetFactory`, `FinetuneFactory`,
-`WalletFactory` — had no v2 equivalent and were removed without one. If you depend
-on any of them, stay on `0.2.48` and
-[open an issue](https://github.com/aixplain/aiXplain/issues) naming it.
+Seven v1 factories — `PipelineFactory`, `BenchmarkFactory`, `CorpusFactory`,
+`DataFactory`, `DatasetFactory`, `FinetuneFactory`, `WalletFactory` — had no v2
+equivalent and were removed without one. If you depend on any of them, stay on
+`0.2.48` and [open an issue](https://github.com/aixplain/aiXplain/issues) naming
+it. `IndexFactory` was listed here too until `aix.Index` shipped in the same
+release (see "Added: typed v2 Index API" above).
 
 `aixplain._compat.AixplainV1DeprecationWarning` is kept as an importable name,
 although nothing emits it any more. `-W` options and `filterwarnings` entries

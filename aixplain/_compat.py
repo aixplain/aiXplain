@@ -70,14 +70,14 @@ _FACTORY_MAP = (
     ("MetricFactory", "aix.Metric"),
     ("APIKeyFactory", "aix.APIKey"),
     ("FileFactory", "aix.File"),
+    ("IndexFactory", "aix.Index"),
     ("ScriptFactory", "aix.Tool"),
 )
 
-#: The eight factories that never got a v2 equivalent. Named explicitly so a
+#: The seven factories that never got a v2 equivalent. Named explicitly so a
 #: caller who depends on one learns to pin rather than hunting for a v2 spelling
 #: that does not exist.
 _FACTORY_GAPS = (
-    "IndexFactory",
     "PipelineFactory",
     "BenchmarkFactory",
     "CorpusFactory",
@@ -97,6 +97,7 @@ _MODULE_MAP = (
     ("UtilityModel", "aix.Tool"),
     ("APIKey", "aix.APIKey"),
     ("File", "aix.File"),
+    ("IndexModel", "aix.Index"),
 )
 
 #: Guidance keyed by removed prefix. Keyed by *prefix*, not by exact module,

@@ -1,8 +1,51 @@
 # Knowledge bases (RAG) & memory
 
-## Knowledge base = an index tool on aiR
+## Two routes: `aix.Index` (typed, from code) vs. the aiR knowledge-base `Tool` (for agents)
 
-A knowledge base is a vector index created as a `Tool` bound to the aiR knowledge-base integration. There is no separate `Index` class — it's `aix.Tool(...)`. Workflow: **create → upsert documents → scope to read-only → attach to agent.**
+There are two ways to work with a vector index. Pick by what you need:
+
+| You want to… | Use |
+| --- | --- |
+| Create, list, **find by name**, fill, search and delete collections from Python, with typed records and filters | **`aix.Index`** (below) — the v2 replacement for v1 `IndexFactory` |
+| Give an **agent** a knowledge base it searches as a tool | **`aix.Tool(integration="aixplain/air-knowledge-base/aixplain")`** — the rest of this page |
+
+The two are separate surfaces: `aix.Index` runs the index *store models* (AIR, Vectara, GraphRAG, Zero Entropy) directly, and the knowledge-base `Tool` goes through the aiR knowledge-base *integration*, with its own action protocol and payload keys. Don't assume a collection made one way can be opened the other way.
+
+### `aix.Index` — typed index management
+
+```python
+from aixplain import Aixplain, AirParams, IndexFilter, IndexFilterOperator, Record, Splitter
+
+aix = Aixplain()
+
+index = aix.Index.create(params=AirParams(
+    name="product-docs", description="Product docs",
+    embedding_model=aix.EmbeddingModel.BGE_M3,
+))
+index.upsert(
+    [Record(value="Wireless headphones, $79", id="doc1", attributes={"category": "electronics"})],
+    splitter=Splitter(split=True, split_by="sentence", split_length=3, split_overlap=1),
+)
+index.upsert("manual.pdf")               # a local file: .txt is read, anything else is parsed server-side
+hits = index.search("headphones", top_k=5,
+                    filters=[IndexFilter("category", "electronics", IndexFilterOperator.EQUALS)])
+print(hits.data, hits.details)            # details holds the structured matches (scores, ids)
+print(index.count())                      # int
+index.get_record("doc1"); index.delete_record("doc1")
+index.retrieve_records_with_filter(IndexFilter("category", "electronics", IndexFilterOperator.EQUALS))
+index.delete()                            # deletes the whole collection
+```
+
+- **Find by name**: `list(query=...)` is a search, so match the name exactly yourself:
+  `[ix for ix in aix.Index.list(query="product-docs", page_size=50) if ix.name == "product-docs"]`.
+- **Open an existing collection** (including one made with v1 `IndexFactory`): `aix.Index.get(index_id)`.
+- Other stores: `VectaraParams`, `GraphRAGParams` (`llm=`), `ZeroEntropyParams` instead of `AirParams`.
+- `top_k` is the real, typed result limit on this route. The `num_results` warning below applies only to the knowledge-base `Tool` route.
+- `Index` has no generic `run()` / `run_async()`. They raise `NotImplementedError`; use the typed methods.
+
+## Knowledge base for agents = an index tool on aiR
+
+For agents, a knowledge base is a vector index created as a `Tool` bound to the aiR knowledge-base integration, i.e. `aix.Tool(...)`, not `aix.Index`. Workflow: **create → upsert documents → scope to read-only → attach to agent.**
 
 ### 1. Create
 
@@ -99,7 +142,7 @@ r = index.run(action="search", data={
 })
 ```
 
-> **Result-count key — use `num_results`. ⚠️ Field-verified.** `num_results` is the key the aiR service actually honours. `top_k` is **silently ignored**: the request succeeds and comes back `200`, the limit simply isn't applied, so you get the service default rather than an error telling you the key was wrong. This was established by probing a live index.
+> **Result-count key (knowledge-base `Tool` route) — use `num_results`. ⚠️ Field-verified.** `num_results` is the key the aiR service actually honours. `top_k` is **silently ignored**: the request succeeds and comes back `200`, the limit simply isn't applied, so you get the service default rather than an error telling you the key was wrong. This was established by probing a live index.
 >
 > The docs have now **come round to this**: the rewritten knowledge-base page uses `num_results` in every search example and its troubleshooting table blames a short result list on "no `num_results` set" — the earlier page's `top_k` example is gone. The SDK has **not**: `aixplain/v2/rlm.py` still builds its RAG queries as `{"query": …, "top_k": top_k}` (0.2.48, line ~1706), so first-party RLM retrieval is still passing the ignored key. That remaining SDK-vs-reality conflict isn't provable from the source either way — both keys are untyped pass-throughs in the `data` payload, so nothing in the SDK validates either one. Write `num_results`, and if you inherit code using `top_k`, check the returned record count before assuming the limit took effect.
 
