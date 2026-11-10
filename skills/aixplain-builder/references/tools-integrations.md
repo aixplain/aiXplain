@@ -241,7 +241,7 @@ analyst = aix.Agent(name="Analyst", description="Computes and charts from data y
 analyst.save()
 ```
 
-> `aix.Utility` (the old custom-utility-code asset) was removed in 0.3.0 — don't use it. For custom Python, use the Python Sandbox integration above.
+> For custom Python, use the Python Sandbox integration above. (The separate custom-utility asset was removed in 0.3.0.)
 
 ## MCP servers
 
