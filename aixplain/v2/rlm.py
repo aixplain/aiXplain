@@ -585,6 +585,10 @@ def _select_mode(query: str) -> str:
 # Result
 
 
+class _BudgetExhausted(Exception):
+    """A recursive-mode call would start with no ``timeout`` budget left (BUG-1453)."""
+
+
 @dataclass_json
 @dataclass(repr=False)
 class RLMResult(Result):
@@ -599,10 +603,14 @@ class RLMResult(Result):
             sandbox executions, and worker ``llm_query()`` invocations.
         repl_logs: Per-iteration REPL execution log (excluded from
             serialization; present only on live instances).
+        timed_out: ``True`` when a recursive run hit its ``timeout`` before
+            producing a final answer. Such a result has ``status="FAILED"``
+            and no ``data``, so it is never mistaken for a normal success.
     """
 
     iterations_used: int = field(default=0)
     used_credits: float = field(default=0.0, metadata=dj_config(field_name="usedCredits"))
+    timed_out: bool = field(default=False, metadata=dj_config(field_name="timedOut"))
     repl_logs: List[Dict] = field(
         default_factory=list,
         repr=False,
@@ -616,6 +624,8 @@ class RLMResult(Result):
         # fields would otherwise be invisible. Inject them before the closing ")".
         base = super().__repr__()
         extras = f",\n  iterations_used={self.iterations_used},\n  used_credits={self.used_credits}"
+        if self.timed_out:
+            extras += ",\n  timed_out=True"
         return base[:-2] + extras + "\n)" if base.endswith("\n)") else base
 
 
@@ -702,7 +712,10 @@ class RLM(BaseResource, ToolableMixin):
         max_iterations: Maximum orchestrator loop iterations (default 10). A
             batch of ``llm_query`` calls costs two iterations in recursive mode
             — one to submit the prompts and one to consume the answers.
-        timeout: Maximum wall-clock seconds per ``run()`` call (default 600).
+        timeout: Maximum wall-clock seconds per recursive-mode ``run()`` call
+            (default 600). The remaining budget bounds every orchestrator,
+            sandbox and ``llm_query`` call; once it is spent no final answer is
+            forced and the result carries ``timed_out=True``.
     """
 
     # Not a platform-backed resource — no API endpoint.
@@ -777,6 +790,15 @@ class RLM(BaseResource, ToolableMixin):
     )
     _used_credits: float = field(
         default=0.0,
+        repr=False,
+        compare=False,
+        metadata=dj_config(exclude=lambda x: True),
+        init=False,
+    )
+    # Absolute ``time.time()`` deadline of the recursive run in progress, or
+    # ``None`` outside recursive mode (parallel/rag keep their old behaviour).
+    _deadline: Optional[float] = field(
+        default=None,
         repr=False,
         compare=False,
         metadata=dj_config(exclude=lambda x: True),
@@ -1133,6 +1155,25 @@ del _url, _r
             raise ResourceError(f"RLM: sandbox {session!r} session has not been started.")
         return session_id
 
+    def _remaining_budget(self) -> Optional[float]:
+        """Seconds left before the recursive-mode deadline, or ``None`` when unbounded."""
+        deadline = getattr(self, "_deadline", None)
+        return None if deadline is None else deadline - time.time()
+
+    def _budget_kwargs(self) -> Dict[str, float]:
+        """``{"timeout": remaining}`` for a ``run`` call, or ``{}`` when unbounded.
+
+        Raises:
+            _BudgetExhausted: If the recursive-mode budget is already spent, so
+                no new billable call is started past the deadline.
+        """
+        remaining = self._remaining_budget()
+        if remaining is None:
+            return {}
+        if remaining <= 0:
+            raise _BudgetExhausted("RLM timeout budget exhausted")
+        return {"timeout": remaining}
+
     def _run_sandbox(self, sandbox: Any, code: str, *, session: str) -> Any:
         """Execute code in the named sandbox session and return the raw ToolResult.
 
@@ -1157,6 +1198,7 @@ del _url, _r
         result = sandbox.run(
             data={"code": code, "sessionId": session_id},
             action="run",
+            **self._budget_kwargs(),
         )
         self._used_credits += float(getattr(result, "used_credits", 0) or 0)
         return result
@@ -1425,7 +1467,9 @@ del _url, _r
         Raises:
             ResourceError: If the orchestrator model call fails or returns an error.
         """
-        response = self._get_orchestrator().run(text=_messages_to_prompt(messages), max_tokens=8192)
+        response = self._get_orchestrator().run(
+            text=_messages_to_prompt(messages), max_tokens=8192, **self._budget_kwargs()
+        )
         self._used_credits += float(getattr(response, "used_credits", 0) or 0)
         if response.completed or response.status == "SUCCESS":
             return str(response.data)
@@ -1442,7 +1486,7 @@ del _url, _r
         ``ThreadPoolExecutor`` from the parallel map step or from
         :meth:`_resolve_llm_queries`.
         """
-        response = self._get_worker().run(text=prompt, max_tokens=max_tokens)
+        response = self._get_worker().run(text=prompt, max_tokens=max_tokens, **self._budget_kwargs())
         credits = float(getattr(response, "used_credits", 0) or 0)
         with self._credits_lock:
             self._used_credits += credits
@@ -1800,7 +1844,10 @@ del _url, _r
 
             name: Identifier used in log messages. Defaults to ``"rlm_process"``.
             timeout: Maximum wall-clock seconds. Applies to ``"recursive"`` mode
-                only. Overrides ``self.timeout`` when provided.
+                only. Overrides ``self.timeout`` when provided. The remaining
+                budget bounds each orchestrator, sandbox and ``llm_query`` call;
+                once it is spent no final answer is forced and the result has
+                ``status="FAILED"`` and ``timed_out=True``.
             mode: ``"auto"``, ``"parallel"``, or ``"recursive"``. Defaults to
                 ``"auto"``.
             **kwargs: Ignored; kept for API compatibility.
@@ -1810,6 +1857,8 @@ del _url, _r
 
             - ``data``: Final answer string.
             - ``status``: ``"SUCCESS"`` or ``"FAILED"``.
+            - ``timed_out``: ``True`` if a recursive run hit ``timeout``
+              before producing a final answer.
             - ``completed``: ``True``.
             - ``used_credits``: Total credits across all model calls.
             - ``iterations_used``: Recursive mode → orchestrator iterations.
@@ -1891,6 +1940,11 @@ del _url, _r
         final_answer: Optional[str] = None
         repl_logs: List[Dict] = []
         self._used_credits = 0.0
+        # One deadline for the whole run, held on the instance so the budget
+        # reaches every orchestrator, sandbox and llm_query call (BUG-1453).
+        deadline = start_time + effective_timeout
+        self._deadline = deadline
+        timed_out = False
 
         try:
             self._preflight()
@@ -1900,8 +1954,9 @@ del _url, _r
             for iteration in range(self.max_iterations):
                 iterations_used = iteration + 1
 
-                if (time.time() - start_time) > effective_timeout:
-                    logger.warning(f"RLM '{name}': timeout after {iteration} iterations — forcing final answer.")
+                if time.time() >= deadline:
+                    logger.warning(f"RLM '{name}': timeout after {iteration} iterations.")
+                    timed_out = True
                     break
 
                 # Ask orchestrator for its next action
@@ -1924,6 +1979,12 @@ del _url, _r
                                 "content": (f"Code executed:\n```python\n{code}\n```\n\nREPL output:\n{output}"),
                             }
                         )
+                        # Re-checked after every block, not just per iteration:
+                        # the remaining blocks would otherwise run past it.
+                        if time.time() >= deadline:
+                            logger.warning(f"RLM '{name}': timeout during iteration {iteration} — skipping the rest.")
+                            timed_out = True
+                            break
                 else:
                     self._messages.append({"role": "assistant", "content": response_text})
 
@@ -1936,19 +1997,29 @@ del _url, _r
                         # send the orchestrator back to re-run its block.
                         if _LLM_PENDING_SENTINEL in content:
                             logger.warning(f"RLM '{name}': FINAL(...) contained a pending placeholder — rejected.")
+                            if timed_out:
+                                break
                             self._messages.append({"role": "user", "content": _PENDING_REJECTED_PROMPT})
                             continue
+                        # A literal answer needs no further I/O, so it is kept
+                        # even when the budget ran out during this iteration.
                         final_answer = self._redact(content)
+                        timed_out = False
                         break
-                    elif answer_type == "FINAL_VAR":
+                    elif answer_type == "FINAL_VAR" and not timed_out:
                         retrieved = self._get_repl_variable(content)
                         if retrieved is not None:
                             final_answer = retrieved
                             break
                         logger.warning(f"RLM '{name}': FINAL_VAR('{content}') unusable — continuing.")
 
-            # Force a final answer if loop exhausted or timed out without one
-            if final_answer is None:
+                if timed_out:
+                    break
+
+            # Force a final answer if the loop was exhausted without one. Not on
+            # a timeout: that would be one more unbounded-cost call past the
+            # caller's deadline (BUG-1453).
+            if final_answer is None and not timed_out:
                 logger.info(f"RLM '{name}': requesting forced final answer after {iterations_used} iteration(s).")
                 self._messages.append(_next_action_message(query, iterations_used, force_final=True))
                 final_answer = self._redact(self._orchestrator_completion(self._messages))
@@ -1958,32 +2029,52 @@ del _url, _r
                     final_answer = final_answer.replace(_LLM_PENDING_SENTINEL, "[unanswered]")
 
         except Exception as exc:
-            # Redacted before it is logged or returned: an exception raised deep
-            # in the client stack can quote a request that carried the key.
-            error_msg = self._redact(f"RLM run error: {exc}")
-            logger.error(error_msg)
-            result = RLMResult(
-                status="FAILED",
-                completed=True,
-                error_message=error_msg,
-                data=None,
-            )
-            result.iterations_used = iterations_used
-            result.used_credits = self._used_credits
-            result.repl_logs = repl_logs
-            return result
+            # A call refused for lack of budget, or a model/sandbox poll that ran
+            # out of it, is the run's timeout — not a generic error. A
+            # TimeoutError raised while budget remains is a real failure.
+            if isinstance(exc, _BudgetExhausted) or (isinstance(exc, TimeoutError) and time.time() >= deadline):
+                logger.warning(f"RLM '{name}': timeout reached during iteration {iterations_used}: {exc}")
+                timed_out = True
+                final_answer = None
+            else:
+                # Redacted before it is logged or returned: an exception raised deep
+                # in the client stack can quote a request that carried the key.
+                error_msg = self._redact(f"RLM run error: {exc}")
+                logger.error(error_msg)
+                result = RLMResult(
+                    status="FAILED",
+                    completed=True,
+                    error_message=error_msg,
+                    data=None,
+                )
+                result.iterations_used = iterations_used
+                result.used_credits = self._used_credits
+                result.repl_logs = repl_logs
+                return result
         finally:
+            # Cleared before teardown so session close never inherits a spent
+            # budget (best-effort teardown must still run).
+            self._deadline = None
             # Unconditional: success, exception, and timeout paths all land here.
             self.close()
 
         run_time = time.time() - start_time
-        logger.info(f"RLM '{name}': done in {iterations_used} iteration(s), {run_time:.1f}s.")
 
-        result = RLMResult(
-            status="SUCCESS",
-            completed=True,
-            data=final_answer or "",
-        )
+        if timed_out:
+            error_msg = (
+                f"RLM '{name}': timeout of {effective_timeout}s reached after "
+                f"{iterations_used} iteration(s) without a final answer."
+            )
+            logger.warning(error_msg)
+            result = RLMResult(status="FAILED", completed=True, error_message=error_msg, data=None)
+            result.timed_out = True
+        else:
+            logger.info(f"RLM '{name}': done in {iterations_used} iteration(s), {run_time:.1f}s.")
+            result = RLMResult(
+                status="SUCCESS",
+                completed=True,
+                data=final_answer or "",
+            )
         result.iterations_used = iterations_used
         result.used_credits = self._used_credits
         result.repl_logs = repl_logs
