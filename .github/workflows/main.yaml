@@ -258,7 +258,6 @@ jobs:
               "aixplain.v2.core",
               "aixplain.v2.agent",
               "aixplain.v2.api_key",
-              "aixplain.utils.config",
               "aixplain.utils.url_safety",
               "aixplain.exceptions.types",
               "aixplain._compat",
@@ -614,10 +613,9 @@ jobs:
           {
             echo "TEAM_API_KEY=$api_key"
             # The same value, deliberately. Every functional conftest accepts
-            # AIXPLAIN_API_KEY as the fallback for TEAM_API_KEY, and
-            # aixplain/utils/config.py raises when both are set and differ -- so
-            # this has to mirror TEAM_API_KEY rather than carry a second
-            # credential (ENG-3683).
+            # AIXPLAIN_API_KEY as the fallback for TEAM_API_KEY, and Aixplain()
+            # warns when both are set and differ -- so this mirrors
+            # TEAM_API_KEY rather than carrying a second credential (ENG-3683).
             echo "AIXPLAIN_API_KEY=$api_key"
             echo "BACKEND_URL=$backend"
             # v2 is the only model API the suites speak. tests/functional/v2/

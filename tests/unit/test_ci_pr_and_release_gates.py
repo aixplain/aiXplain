@@ -692,9 +692,9 @@ def test_the_models_url_ships_the_endpoint_the_conftest_speaks():
 def test_the_functional_legs_set_the_canonical_api_key_alias_to_the_same_value():
     """AIXPLAIN_API_KEY is the fallback every functional conftest accepts.
 
-    It cannot be a *second* credential: `aixplain/utils/config.py` raises when
-    AIXPLAIN_API_KEY and TEAM_API_KEY are both set and differ, so a well-meant
-    second secret here would fail every leg at import time.
+    It cannot be a *second* credential: `Aixplain()` warns when AIXPLAIN_API_KEY
+    and TEAM_API_KEY are both set and differ and then ignores AIXPLAIN_API_KEY,
+    so a well-meant second secret here would be silently unused.
     """
     script = _functional_env_step()["run"]
     team = re.findall(r"(?<![A-Z_])TEAM_API_KEY=\$\{?(\w+)", script)
@@ -707,8 +707,8 @@ def test_the_functional_legs_set_the_canonical_api_key_alias_to_the_same_value()
     )
     assert set(team) == set(aixplain), (
         f"TEAM_API_KEY is set from {sorted(set(team))} but AIXPLAIN_API_KEY from "
-        f"{sorted(set(aixplain))}. They must carry the same value: aixplain/utils/config.py "
-        "raises when the two are set and differ."
+        f"{sorted(set(aixplain))}. They must carry the same value: Aixplain() "
+        "warns when the two are set and differ."
     )
 
 

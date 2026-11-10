@@ -29,7 +29,7 @@ def _load_cwd_dotenv() -> bool:
     A bare ``load_dotenv()`` -- and ``find_dotenv(usecwd=True)`` -- searches
     *parent* directories, so a ``.env`` shipped inside a cloned sample project or
     a bug-report attachment could set ``BACKEND_URL``, ``TEAM_API_KEY``,
-    ``LOG_LEVEL`` or ``SENTRY_DSN`` for a user who merely ``cd``s into a
+    ``LOG_LEVEL`` or ``MODELS_RUN_URL`` for a user who merely ``cd``s into a
     subdirectory and runs their own script with their own key (BUG-939). Loading
     an explicit path removes the walk-up while keeping the documented behaviour
     for a ``.env`` in the working directory itself.
