@@ -16,6 +16,7 @@ limitations under the License.
 import os
 import logging
 from typing import Optional
+from urllib.parse import urlparse
 
 import sentry_sdk
 
@@ -74,7 +75,29 @@ _check_config_url(MODELS_RUN_URL, "MODELS_RUN_URL")
 TEAM_API_KEY = os.getenv("TEAM_API_KEY", "")
 AIXPLAIN_API_KEY = os.getenv("AIXPLAIN_API_KEY", "")
 
-ENV = "dev" if "dev" in BACKEND_URL else "test" if "test" in BACKEND_URL else "prod"
+#: Known aiXplain backend hosts and the environment each one is (BUG-948).
+_ENV_BY_HOST = {
+    "platform-api.aixplain.com": "prod",
+    "test-platform-api.aixplain.com": "test",
+    "dev-platform-api.aixplain.com": "dev",
+}
+
+
+def _env_from_url(url: str) -> str:
+    """Derive the deployment environment from the backend URL's parsed hostname.
+
+    A substring match let ``https://platform-api.aixplain.com/?x=dev`` read as
+    ``dev`` and any unknown host read as ``prod``; an unknown host is now
+    ``"custom"`` so it is never filed as production.
+    """
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except ValueError:
+        host = ""
+    return _ENV_BY_HOST.get(host, "custom")
+
+
+ENV = _env_from_url(BACKEND_URL)
 
 
 def _normalize_api_keys():
@@ -150,8 +173,11 @@ HF_TOKEN = os.getenv("HF_TOKEN", "")
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 
 if SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        environment=ENV,
-        send_default_pii=True,
-    )
+    # BUG-948: never ship PII (headers, user IPs) or frame locals (``api_key``,
+    # ``headers`` and ``payload`` are locals in most request paths) to Sentry.
+    _sentry_options = dict(dsn=SENTRY_DSN, environment=ENV, send_default_pii=False)
+    try:
+        sentry_sdk.init(include_local_variables=False, **_sentry_options)
+    except TypeError:
+        # sentry-sdk < 1.18 predates ``include_local_variables``.
+        sentry_sdk.init(with_locals=False, **_sentry_options)

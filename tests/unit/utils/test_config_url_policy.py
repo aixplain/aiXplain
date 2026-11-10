@@ -111,3 +111,37 @@ def test_aixplain_accepts_the_production_defaults():
     assert instance.backend_url.startswith("https://")
     assert instance.model_url.startswith("https://")
     assert instance.pipeline_url.startswith("https://")
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://platform-api.aixplain.com", "prod"),
+        ("https://platform-api.aixplain.com/?x=dev", "prod"),
+        ("https://PLATFORM-API.aixplain.com/", "prod"),
+        ("https://dev-platform-api.aixplain.com", "dev"),
+        ("https://test-platform-api.aixplain.com/api", "test"),
+        ("https://evil.tld", "custom"),
+        ("https://dev.evil.tld", "custom"),
+        ("https://platform-api.aixplain.com.evil.tld", "custom"),
+        ("not a url", "custom"),
+    ],
+)
+def test_env_is_derived_from_the_parsed_host(url, expected):
+    """BUG-948: ``ENV`` comes from the hostname, never a substring of the URL."""
+    assert config._env_from_url(url) == expected
+
+
+def test_sentry_init_disables_pii_and_local_variables(reload_config, monkeypatch):
+    """BUG-948: when ``SENTRY_DSN`` is set, Sentry ships neither PII nor frame locals."""
+    from unittest import mock
+
+    monkeypatch.setenv("SENTRY_DSN", "https://public@sentry.example.invalid/1")
+    with mock.patch("sentry_sdk.init") as init:
+        reload_config("https://platform-api.aixplain.com/?x=dev")
+    monkeypatch.delenv("SENTRY_DSN")
+    init.assert_called_once()
+    kwargs = init.call_args.kwargs
+    assert kwargs["send_default_pii"] is False
+    assert kwargs["include_local_variables"] is False
+    assert kwargs["environment"] == "prod"
