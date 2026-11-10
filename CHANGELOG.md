@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+### Security: key handling, attachments, skill downloads and telemetry (BUG-948)
+
+- `Aixplain(api_key=...)` no longer writes the key into `os.environ`
+  (`TEAM_API_KEY` / `AIXPLAIN_API_KEY`). Child processes no longer inherit it,
+  and a later `Aixplain()` with no key no longer silently reuses it. Code that
+  read `os.environ["TEAM_API_KEY"]` after constructing a client, or called
+  `upload_file()` / `parse_code()` without `api_key=`, must now pass the key
+  explicitly (for example `api_key=aix.api_key`). The standalone upload helpers
+  now also fall back to `AIXPLAIN_API_KEY`.
+- Passing a local file as a plain string in `attachments` is deprecated: it
+  still uploads but emits a `DeprecationWarning`. Pass `pathlib.Path(...)` or
+  `{"path": ...}` instead. A plain string naming a dotfile or a system path
+  (`/etc`, `/proc`, `/sys`, `/dev`) is refused before anything is read, and
+  `AIXPLAIN_STRICT_ATTACHMENTS=1` rejects every plain-string local path now.
+  URL detection (`http://`, `https://`, `s3://`) is case-insensitive.
+- `Skill.download()` reduces the backend-supplied skill name to a bare file
+  name, so the default `./{name}.zip` path cannot escape the current directory.
+- Set `AIXPLAIN_NO_TELEMETRY=1` (or `AIXPLAIN_DISABLE_GEOLOCATION=1`) to skip the
+  `ipinfo.io` lookup behind agent-run metadata; see `docs/run-metadata.md`.
+- `aixplain.utils.config` initialises Sentry (only when `SENTRY_DSN` is set)
+  with `send_default_pii=False` and without frame local variables, and derives
+  `ENV` from the backend URL's hostname; unknown hosts report `custom`.
+- Added `SECURITY.md`; the package classifier is now `Development Status :: 4 - Beta`.
+
 ### Added: SDK type information
 
 The package now ships `py.typed`. Type checkers such as mypy will check SDK
