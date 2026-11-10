@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from collections.abc import Mapping
 from itertools import chain
 
@@ -1299,13 +1300,19 @@ class Model(
         if headers:
             request_kwargs["headers"] = headers
         timeout = _caller_timeout_seconds(kwargs)
-        if timeout is not None:
-            request_kwargs["timeout"] = _request_timeout_for_budget(self.context.client, timeout)
+        start = time.time()
 
         def submit() -> dict:
             # HTTP errors propagate as ``APIError`` with their real status, like
             # the async-capable branch, instead of becoming a FAILED result after
             # one POST; that is also what lets ``run_retries`` apply (BUG-1462).
+            if timeout is not None:
+                # Each retry gets only what is left of the caller's budget, so
+                # ``run_retries`` cannot multiply ``timeout``.
+                remaining = timeout - (time.time() - start)
+                if remaining <= 0:
+                    raise TimeoutError(f"Operation timed out after {timeout} seconds")
+                request_kwargs["timeout"] = _request_timeout_for_budget(self.context.client, remaining)
             try:
                 r = self.context.client.request_raw("post", url, **request_kwargs)
             except requests.exceptions.ConnectTimeout as e:

@@ -2365,7 +2365,24 @@ class TestSyncOnlyRunAsync:
 
         model.run_async(text="hi", timeout=5)
 
-        assert model.context.client.request_raw.call_args.kwargs["timeout"] == (10.0, 5.0)
+        connect, read = model.context.client.request_raw.call_args.kwargs["timeout"]
+        assert connect == 10.0
+        assert 4.0 < read <= 5.0
+
+    def test_timeout_budget_shrinks_across_v1_retries(self):
+        from aixplain.v2.exceptions import TimeoutError as V2TimeoutError
+
+        model = _sync_only_model()
+        clock = iter([100.0, 100.0, 103.0, 106.0])
+        model.context.client.request_raw = Mock(side_effect=APIError("busy", 503))
+
+        with patch("aixplain.v2.model.time") as fake_time:
+            fake_time.time.side_effect = lambda: next(clock)
+            with pytest.raises(V2TimeoutError):
+                model.run_async(text="hi", timeout=5, run_retries=5, run_retry_wait=0)
+
+        reads = [c.kwargs["timeout"][1] for c in model.context.client.request_raw.call_args_list]
+        assert reads == [5.0, 2.0]
 
 
 class TestRunTimeoutBoundsRequests:
