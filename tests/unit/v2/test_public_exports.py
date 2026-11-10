@@ -52,6 +52,7 @@ INTERNAL_ALLOWLIST = frozenset(
         "AgentRunParams",
         "APIKeyDeleteParams",
         "APIKeyGetParams",
+        "AgentSearchParams",
         "APIKeySearchParams",
         "BaseDeleteParams",
         "BaseGetParams",

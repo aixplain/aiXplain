@@ -2,6 +2,7 @@
 
 import requests
 import inspect
+import math
 import logging
 import re
 import time
@@ -1007,7 +1008,9 @@ class Page(Generic[ResourceT]):
     Attributes:
         results: The list of resources in this page.
         page_number: Current page number (0-indexed).
-        page_total: Total number of pages.
+        page_total: Total number of pages (backend ``pagesCount``, or
+            ``ceil(total / page_size)`` when absent).
+            Use ``len(results)`` for the number of items on this page.
         total: Total number of resources across all pages. Never counts a
             record that was returned by the API but skipped by this page.
         skipped: Number of records the API returned for this page that could
@@ -1067,7 +1070,12 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         PAGINATE_METHOD: str: The method for pagination.
         PAGINATE_ITEMS_KEY: str: The key for the response.
         PAGINATE_TOTAL_KEY: str: The key for the total number of resources.
-        PAGINATE_PAGE_TOTAL_KEY: str: The key for the total number of pages.
+        PAGINATE_PAGES_COUNT_KEY: str: The key for the total number of pages
+            (``pagesCount``); ``Page.page_total`` falls back to
+            ``ceil(total / page_size)`` when it is absent.
+        PAGINATE_PAGE_TOTAL_KEY: str: The backend's per-page item count
+            (``pageTotal``). No longer used for ``Page.page_total``; kept for
+            subclasses that reference it.
         PAGINATE_DEFAULT_PAGE_NUMBER: int: The default page number.
         PAGINATE_DEFAULT_PAGE_SIZE: int: The default page size.
         PAGINATE_STRICT: bool: Whether a record that cannot be deserialized
@@ -1082,6 +1090,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
     PAGINATE_ITEMS_KEY: str = "results"  # Default to match backend
     PAGINATE_TOTAL_KEY: str = "total"
     PAGINATE_PAGE_TOTAL_KEY: str = "pageTotal"
+    PAGINATE_PAGES_COUNT_KEY: str = "pagesCount"
     PAGINATE_PAGE_NUMBER_KEY: str = "pageNumber"
     PAGINATE_DEFAULT_PAGE_NUMBER: int = 0
     PAGINATE_DEFAULT_PAGE_SIZE: int = 20
@@ -1297,11 +1306,40 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         return items
 
     @classmethod
+    def _page_count(cls: type, json_data: Any, total: int, items: List[Any], page_size: Any) -> int:
+        """Return the number of pages a paginated search spans.
+
+        Reads the backend's ``pagesCount`` (``PAGINATE_PAGES_COUNT_KEY``) and
+        falls back to ``ceil(total / page_size)``. The backend's ``pageTotal``
+        is deliberately not used: it is the number of items on *this* page, so
+        a loop bounded by it skips or over-fetches pages (BUG-1459).
+
+        Args:
+            json_data: The decoded response body.
+            total: The backend's total record count (before any skip correction).
+            items: The raw records on this page.
+            page_size: The requested page size, if known.
+
+        Returns:
+            int: The number of pages.
+        """
+
+        def _count(value: Any) -> bool:
+            return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+        pages_key = getattr(cls, "PAGINATE_PAGES_COUNT_KEY", "pagesCount")
+        if pages_key and isinstance(json_data, dict) and _count(json_data.get(pages_key)):
+            return json_data[pages_key]
+        if _count(page_size) and page_size > 0:
+            return math.ceil(total / page_size)
+        return 1 if items else 0
+
+    @classmethod
     def _build_page(cls: type, response: "Any", context: "Aixplain", **kwargs: Any) -> Page[ResourceT]:
         """Build a page of resources from the response.
 
         Accepts either a requests.Response or already-decoded dict/list. A
-        missing ``total`` / ``pageTotal`` falls back to the computed default,
+        missing ``total`` / ``pagesCount`` falls back to the computed default,
         but an envelope that carries no usable item list at all is reported:
         a renamed envelope, or a 200 error body, must not be indistinguishable
         from "no results". A present-but-empty (or explicitly ``null``) item
@@ -1331,12 +1369,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         if not isinstance(total, int) or isinstance(total, bool):
             total = len(items)
 
-        page_total = len(items)
-        paginate_page_total_key = getattr(cls, "PAGINATE_PAGE_TOTAL_KEY", "pageTotal")
-        if paginate_page_total_key and isinstance(json_data, dict):
-            page_total = json_data.get(paginate_page_total_key, page_total)
-        if not isinstance(page_total, int) or isinstance(page_total, bool):
-            page_total = len(items)
+        page_total = cls._page_count(json_data, total, items, kwargs.get("page_size"))
 
         # Build resources using shared method
         results, errors = cls._deserialize_items(items, context)
@@ -2244,6 +2277,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             filtered_response["errorDetails"] = response["errorDetails"]
         if response.get("warnings") is not None:
             filtered_response["warnings"] = response["warnings"]
+        # A model run's reasoning / tool calls / finish reason, kept so a polled
+        # result matches the synchronous path (BUG-1459).
+        if response.get("details") is not None:
+            filtered_response["details"] = response["details"]
         status = response.get("status", "IN_PROGRESS")
 
         # Failure handling

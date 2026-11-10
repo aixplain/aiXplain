@@ -192,8 +192,10 @@ from aixplain import Aixplain
 aix = Aixplain()
 
 model = aix.Model.get("6414bd3cd09663e9225130e8")
-models = aix.Model.search(function=aix.Function.TEXT_GENERATION)
+models = aix.Model.search(functions=[aix.Function.TEXT_GENERATION])
 ```
+
+`function=` is accepted as an alias of `functions=` (pass one or the other). Function members are sent as the backend's kebab codes (`text-generation`), so raw codes work too. `Model.search` rejects undeclared filters with `ValidationError`; `source_languages`, `target_languages`, `is_finetunable`, `ownership` and `status` are not read by the v2 search endpoint, so they emit a `FutureWarning` and are not sent.
 
 `ModelFactory.create_utility_model(...)` becomes `aix.Tool(code=...)` — custom Python code is a tool in v2, run in the Python Sandbox integration. Note the shape change: a v1 utility model was a standalone asset that showed up in model search and ran on its own, while a tool is attached to an agent. There is no v2 equivalent for onboarding a standalone utility-model asset. The model-onboarding helpers (`create_asset_repo`, `asset_repo_login`, `onboard_model`, `list_host_machines`, `list_gpus`, `deploy_huggingface_model`) have no v2 equivalent; they went with v1, along with the `aixplain` console script that exposed them. Use the web console, or stay on `0.2.48`.
 

@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Fixed: v2 search filters, `Page.page_total` and polled model details
+
+- `Model.search` (and `Tool`/`Integration.search`) send `Function` members as the
+  backend's kebab codes (`text-generation`) and accept `function=` as an alias
+  of `functions=`. Filters `v2/models/paginate` does not read
+  (`source_languages`, `target_languages`, `is_finetunable`, `ownership`,
+  `status`) are no longer sent and emit a `FutureWarning`; undeclared keywords
+  raise `ValidationError`. `sortBy`/`sortOrder` are no longer sent next to `sort`.
+- `Agent.search` sends `sort: [{field, dir}]` and forwards `status`; `ownership`
+  is not read by the backend, so it warns and is not sent. Undeclared keywords
+  raise `ValidationError`.
+- `Page.page_total` is now the number of pages (backend `pagesCount`, or
+  `ceil(total / page_size)`), as documented. It used to hold the number of items
+  on the page; use `len(page.results)` for that.
+- A polled model run keeps `details` (reasoning, tool calls, finish reason),
+  matching the synchronous path.
+
 ### Added: SDK type information
 
 The package now ships `py.typed`. Type checkers such as mypy will check SDK
