@@ -253,10 +253,19 @@ class ConfigManager:
 
     @classmethod
     def get_api_key(cls, custom_key: Optional[str] = None, required: bool = True) -> str:
-        """Get API key from custom value or environment."""
-        api_key = custom_key or os.getenv("TEAM_API_KEY", "")
+        """Get API key from custom value or environment.
+
+        Resolution order matches ``Aixplain()``: explicit key, then
+        ``TEAM_API_KEY``, then ``AIXPLAIN_API_KEY``. ``Aixplain(api_key=...)``
+        does not export its key to the environment, so callers holding a client
+        should pass ``api_key=aix.api_key`` explicitly.
+        """
+        api_key = custom_key or os.getenv("TEAM_API_KEY") or os.getenv("AIXPLAIN_API_KEY") or ""
         if not api_key and required:
-            raise FileUploadError("File Upload Error: API key is required for file uploads.")
+            raise FileUploadError(
+                "File Upload Error: API key is required for file uploads. "
+                "Pass api_key=... (e.g. aix.api_key) or set TEAM_API_KEY."
+            )
         return api_key
 
 

@@ -49,3 +49,28 @@ def test_audio_over_50_mb_is_rejected(tmp_path):
 
     with pytest.raises(FileUploadError, match='of type "audio" exceeds 50.0 MB'):
         validate_file_for_upload(path)
+
+
+class TestConfigManagerApiKey:
+    """BUG-948: ``Aixplain()`` no longer exports its key, so resolution is explicit."""
+
+    def test_explicit_key_wins(self, monkeypatch):
+        from aixplain.v2.upload_utils import ConfigManager
+
+        monkeypatch.setenv("TEAM_API_KEY", "env")
+        assert ConfigManager.get_api_key("explicit") == "explicit"
+
+    def test_falls_back_to_aixplain_api_key(self, monkeypatch):
+        from aixplain.v2.upload_utils import ConfigManager
+
+        monkeypatch.delenv("TEAM_API_KEY", raising=False)
+        monkeypatch.setenv("AIXPLAIN_API_KEY", "aix")
+        assert ConfigManager.get_api_key() == "aix"
+
+    def test_missing_key_error_points_to_explicit_key(self, monkeypatch):
+        from aixplain.v2.upload_utils import ConfigManager
+
+        monkeypatch.delenv("TEAM_API_KEY", raising=False)
+        monkeypatch.delenv("AIXPLAIN_API_KEY", raising=False)
+        with pytest.raises(FileUploadError, match="api_key="):
+            ConfigManager.get_api_key()
