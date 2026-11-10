@@ -169,6 +169,7 @@ from .enums import (
     MessageRole,
     Reaction,
     AttachmentType,
+    BuiltinToolkit,
     # Plain-data (Literal) forms of the input enums -- see docs/v2-plain-data.md
     AssetStatusValue,
     AttachmentTypeValue,
@@ -343,6 +344,7 @@ __all__ = [
     "MessageRole",
     "Reaction",
     "AttachmentType",
+    "BuiltinToolkit",
     # Plain-data (Literal) forms of the input enums
     "AssetStatusValue",
     "AttachmentTypeValue",

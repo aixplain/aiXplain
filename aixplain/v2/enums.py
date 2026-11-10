@@ -311,6 +311,14 @@ class AttachmentType(str, Enum):
     UNKNOWN = "unknown"
 
 
+class BuiltinToolkit(str, Enum):
+    """Built-in worker toolkits for ``Agent.builtin_tools``, which takes plain strings too."""
+
+    FILE = "file"
+    PYTHON = "python"
+    BASH = "bash"
+
+
 # ---------------------------------------------------------------------------
 # Plain-data forms of the input enums
 #
@@ -512,6 +520,7 @@ __all__ = [
     "MessageRole",
     "Reaction",
     "AttachmentType",
+    "BuiltinToolkit",
     # Plain-data (Literal) forms of the input enums
     "AssetStatusValue",
     "AttachmentTypeValue",

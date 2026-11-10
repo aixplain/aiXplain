@@ -91,6 +91,7 @@ class Aixplain:
     MessageRole = enums.MessageRole
     Reaction = enums.Reaction
     AttachmentType = enums.AttachmentType
+    BuiltinToolkit = enums.BuiltinToolkit
 
     # The rest of the enum surface, so every enum is reachable off a client and
     # not only from the package root (PROD-2921).
