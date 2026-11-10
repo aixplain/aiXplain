@@ -247,6 +247,46 @@ def test_private_fetch_opt_in_still_allows_an_internal_name(resolver, monkeypatc
     assert validate_fetch_url("http://artifacts.internal/code.py") == "http://artifacts.internal/code.py"
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://100.100.100.200/latest/meta-data/",  # Alibaba Cloud ECS metadata
+        "http://100.64.0.1/",  # RFC 6598 shared address space (CGNAT / Tailscale)
+        "http://100.127.255.254/",
+        "http://192.0.0.8/",  # IETF protocol assignments
+        "http://198.18.0.1/",  # benchmarking
+        "http://[::ffff:100.100.100.200]/",  # mapped form of the metadata address
+        "http://[::ffff:100.64.0.1]/",
+    ],
+)
+def test_non_global_addresses_are_rejected(url, resolver):
+    """Anything outside the global address space is refused, not just RFC 1918 (BUG-1451)."""
+    resolver({})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url(url)
+
+
+def test_public_name_resolving_to_shared_address_space_is_rejected(resolver):
+    resolver({"innocent.example": ["100.100.100.200"]})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url("http://innocent.example/")
+
+
+def test_private_fetch_opt_in_does_not_reopen_alibaba_metadata(resolver, monkeypatch):
+    """100.100.100.200 is a credential endpoint, so it stays blocked under the opt-in."""
+    monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
+    resolver({})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url("http://100.100.100.200/latest/meta-data/")
+
+
+def test_private_fetch_opt_in_allows_shared_address_space(resolver, monkeypatch):
+    """An on-prem artifact host on a CGNAT/Tailscale address is reachable with the opt-in."""
+    monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
+    resolver({})
+    assert validate_fetch_url("http://100.64.0.1/code.py") == "http://100.64.0.1/code.py"
+
+
 # --------------------------------------------------------------------------
 # safe_get
 # --------------------------------------------------------------------------

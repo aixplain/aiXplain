@@ -63,7 +63,8 @@ _ALLOWED_SCHEMES = frozenset({"http", "https"})
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 _METADATA_HOSTS = frozenset({"metadata.google.internal", "metadata.goog"})
-_METADATA_IPS = frozenset({"169.254.169.254", "fd00:ec2::254"})
+# 100.100.100.200 is the Alibaba Cloud ECS metadata service (BUG-1451).
+_METADATA_IPS = frozenset({"169.254.169.254", "fd00:ec2::254", "100.100.100.200"})
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 # NAT64: ``64:ff9b::7f00:1`` is 127.0.0.1 reached over IPv6.
 _NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
@@ -194,13 +195,23 @@ def _classify_address(raw: str) -> Union[ipaddress.IPv4Address, ipaddress.IPv6Ad
 
 
 def _is_blocked_address(address: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> bool:
-    """True if *address* is one the SDK must never be pointed at."""
+    """True if *address* is one the SDK must never be pointed at.
+
+    ``not is_global`` is the deny-by-default rule: it is True for every IANA
+    special-purpose range, including 100.64.0.0/10 (shared address space /
+    CGNAT, home of Alibaba Cloud's ``100.100.100.200`` metadata service and of
+    Tailscale peers), which none of the individual flags below cover
+    (BUG-1451). The explicit flags are kept for readability and for
+    interpreters whose ``is_global`` tables differ.
+    """
     if str(address) in _METADATA_IPS:
         return True
     if isinstance(address, ipaddress.IPv6Address) and address in _NAT64_PREFIX:
+        # 64:ff9b::/96 reports is_global=True, so it needs its own check.
         return True
     return bool(
-        address.is_loopback
+        not address.is_global
+        or address.is_loopback
         or address.is_private
         or address.is_link_local
         or address.is_reserved
@@ -232,8 +243,9 @@ def validate_fetch_url(url: str) -> str:
     ``http://169.254.169.254/latest/meta-data/``, ``http://127.0.0.1:8080/x``
     and ``http://10.0.0.1/`` (BUG-939). This is the security check that has to
     sit next to it: scheme allowlist, no userinfo, and *every* resolved address
-    rejected if it is loopback, private, link-local, reserved, multicast,
-    unspecified or a known cloud-metadata endpoint.
+    rejected if it is not globally routable (``ipaddress``'s ``is_global``,
+    which also covers 100.64.0.0/10 shared address space) or is a known
+    cloud-metadata endpoint.
 
     Set ``AIXPLAIN_ALLOW_PRIVATE_FETCH=1`` on an on-prem deployment whose
     artifact host lives on a private range. That opt-in relaxes the *private
