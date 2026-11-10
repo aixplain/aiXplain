@@ -858,7 +858,8 @@ class AgentSearchParams(BaseSearchParams):
     """Search parameters for agents.
 
     Attributes:
-        status: Agent status (or statuses) to filter by, e.g. ``"draft"``.
+        status: Agent status to filter by: ``"draft"`` or ``"onboarded"``.
+            A one-element list is accepted; other values warn and are not sent.
     """
 
     status: NotRequired[Union[AssetStatus, AssetStatusValue, List[Union[AssetStatus, AssetStatusValue]]]]
@@ -2123,8 +2124,8 @@ class Agent(
 
         Args:
             query: Optional search query string
-            **kwargs: Additional search parameters: ``status`` (e.g.
-                ``"draft"`` or ``[AssetStatus.ONBOARDED]``), ``sort_by``,
+            **kwargs: Additional search parameters: ``status`` (a single
+                ``"draft"`` or ``AssetStatus.ONBOARDED``), ``sort_by``,
                 ``sort_order``, ``page_number``, ``page_size``.
 
         Returns:
@@ -2135,7 +2136,8 @@ class Agent(
 
         Warns:
             FutureWarning: For ``ownership``, which ``v2/agents/paginate`` does
-                not read; it is not sent.
+                not read, and for a ``status`` other than one ``draft`` or
+                ``onboarded`` value, which it rejects; neither is sent.
         """
         # If query is provided, add it to kwargs
         if query is not None:
@@ -2161,19 +2163,26 @@ class Agent(
         }
     )
 
+    #: Statuses ``v2/agents/paginate`` accepts: a single scalar, one of these
+    #: (``AgentPaginateInput.status``). Lists and other values are rejected by
+    #: the backend, so they warn and are not sent.
+    _SEARCH_STATUS_VALUES: ClassVar[frozenset] = frozenset({AssetStatus.DRAFT.value, AssetStatus.ONBOARDED.value})
+
     @classmethod
     def _populate_filters(cls, params: dict) -> dict:
         """Build the ``v2/agents/paginate`` request body.
 
         The endpoint (``AgentPaginateInput``) sorts through
-        ``sort: [{field, dir}]`` and filters by ``status``; it reads neither
-        ``sortBy``/``sortOrder`` nor ``ownership`` (BUG-1459).
+        ``sort: [{field, dir}]`` and filters by a single ``status``
+        (``draft`` or ``onboarded``); it reads neither ``sortBy``/``sortOrder``
+        nor ``ownership`` (BUG-1459).
 
         Raises:
             ValidationError: If ``params`` carries an unsupported filter.
 
         Warns:
-            FutureWarning: When ``ownership`` is passed; it is dropped.
+            FutureWarning: When ``ownership`` is passed, or ``status`` is not a
+                single ``draft``/``onboarded`` value; it is dropped.
         """
         unknown = set(params) - cls._SEARCH_KNOWN_KEYS
         if unknown:
@@ -2202,9 +2211,18 @@ class Agent(
 
         status = params.get("status")
         if status is not None:
-            filters["status"] = (
-                _filter_values(status) if isinstance(status, (list, tuple, set)) else _filter_value(status)
-            )
+            values = _filter_values(status) if isinstance(status, (list, tuple, set)) else [_filter_value(status)]
+            values = list(dict.fromkeys(values))
+            if len(values) == 1 and values[0] in cls._SEARCH_STATUS_VALUES:
+                filters["status"] = values[0]
+            else:
+                warnings.warn(
+                    f"{cls.__name__}.search(): status={status!r} is not supported by the backend and was ignored; "
+                    f"pass a single status, one of {sorted(cls._SEARCH_STATUS_VALUES)}. This will raise in a "
+                    "future release.",
+                    FutureWarning,
+                    stacklevel=4,
+                )
         return filters
 
     @classmethod

@@ -538,18 +538,35 @@ def test_agent_sort_and_status_follow_the_backend_contract(monkeypatch):
     "status, expected",
     [
         (AssetStatus.DRAFT, "draft"),
-        (["draft", AssetStatus.ONBOARDED], ["draft", "onboarded"]),
+        ("onboarded", "onboarded"),
+        ([AssetStatus.ONBOARDED], "onboarded"),
+        (["draft", AssetStatus.DRAFT], "draft"),
     ],
-    ids=["enum", "list"],
+    ids=["enum", "string", "one-element-list", "duplicates"],
 )
-def test_agent_status_values(monkeypatch, status, expected):
+def test_agent_status_is_sent_as_one_scalar(monkeypatch, status, expected):
+    """``AgentPaginateInput.status`` is a scalar ``draft``/``onboarded`` enum."""
     client = _bind(monkeypatch, Agent)
 
-    Agent.search(status=status)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        Agent.search(status=status)
 
-    sent = _body(client)["status"]
-    assert sent == expected
-    assert type(sent) is type(expected)
+    assert _body(client)["status"] == expected
+
+
+@pytest.mark.parametrize(
+    "status",
+    [["draft", AssetStatus.ONBOARDED], AssetStatus.DELETED, "hidden", []],
+    ids=["several", "deleted", "hidden", "empty-list"],
+)
+def test_agent_status_the_backend_rejects_warns_and_is_not_sent(monkeypatch, status):
+    client = _bind(monkeypatch, Agent)
+
+    with pytest.warns(FutureWarning, match="status="):
+        Agent.search(status=status)
+
+    assert "status" not in _body(client)
 
 
 def test_agent_search_without_sort_omits_sort(monkeypatch):
