@@ -211,6 +211,45 @@ def test_os_error_while_extracting_is_a_resource_error(aix, tmp_path):
             file_module._extract_bounded(bundle, destinations, 1024)
 
 
+def test_rollback_keeps_a_file_that_existed_before_extraction(aix, tmp_path, monkeypatch):
+    """A failed ``open`` on a pre-existing destination file must not delete it."""
+    from aixplain.v2 import file as file_module
+
+    existing = tmp_path / "keep.txt"
+    existing.write_text("user data")
+    real_open = open
+
+    def failing_open(path, *args, **kwargs):
+        if Path(path) == existing:
+            raise PermissionError("read-only")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", failing_open)
+    payload = _zip_bytes([("new.txt", b"n"), ("keep.txt", b"k")])
+    with zipfile.ZipFile(BytesIO(payload)) as bundle:
+        destinations = [(member, tmp_path / member.filename) for member in bundle.infolist()]
+        with pytest.raises(ResourceError, match="Could not extract"):
+            file_module._extract_bounded(bundle, destinations, 1024)
+    monkeypatch.undo()
+
+    assert existing.read_text() == "user data"
+    # The file this extraction created is still rolled back.
+    assert not (tmp_path / "new.txt").exists()
+
+
+def test_traversal_entry_is_refused_even_if_the_sanitised_name_looks_safe(aix, tmp_path, monkeypatch):
+    """The containment check runs on the raw name, not only on the OS-sanitised one."""
+    from aixplain.v2 import file as file_module
+
+    # Simulate Windows sanitising, which strips ``..`` and leading separators.
+    monkeypatch.setattr(file_module, "_archive_member_name", lambda name: name.replace("../", ""))
+    folder = _folder(aix, _zip_bytes([("../../outside.txt", b"unsafe")]))
+
+    with pytest.raises(ResourceError, match="Unsafe ZIP entry"):
+        folder.download(tmp_path / "reference")
+    assert not (tmp_path / "reference" / "outside.txt").exists()
+
+
 def test_folder_download_extracts_through_the_bounded_copy(aix, tmp_path, monkeypatch):
     """``download`` must not fall back to an uncapped ``extractall``."""
     from aixplain.v2 import file as file_module

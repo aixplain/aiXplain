@@ -715,9 +715,15 @@ class File(
                         )
                     destinations = []
                     for member in members:
+                        # Check the raw name first: on Windows the sanitised
+                        # name drops ``..`` and leading separators, which would
+                        # turn a traversal entry into an in-folder one instead
+                        # of refusing it.
+                        raw_path = (target / member.filename).resolve()
                         member_path = (target / _archive_member_name(member.filename)).resolve()
-                        if os.path.commonpath([target_root, member_path]) != str(target_root):
-                            raise ResourceError(f"Unsafe ZIP entry: {member.filename}")
+                        for candidate in (raw_path, member_path):
+                            if os.path.commonpath([target_root, candidate]) != str(target_root):
+                                raise ResourceError(f"Unsafe ZIP entry: {member.filename}")
                         destinations.append((member, member_path))
                     _extract_bounded(bundle, destinations, archive_cap)
             except zipfile.BadZipFile as exc:
@@ -769,8 +775,9 @@ def _extract_bounded(bundle: zipfile.ZipFile, destinations: List[Tuple[zipfile.Z
     """Extract *destinations* from *bundle*, refusing to write more than *cap* bytes in total.
 
     If the copy fails part-way (the cap is hit because the central directory
-    understated the sizes, or the OS refuses a name), the files written so far
-    are removed and the failure is raised as a :class:`ResourceError`.
+    understated the sizes, or the OS refuses a name), the files this call
+    created are removed and the failure is raised as a :class:`ResourceError`.
+    Files that already existed in the destination are never removed.
     """
     total = 0
     written: List[Path] = []
@@ -780,8 +787,10 @@ def _extract_bounded(bundle: zipfile.ZipFile, destinations: List[Tuple[zipfile.Z
                 member_path.mkdir(parents=True, exist_ok=True)
                 continue
             member_path.parent.mkdir(parents=True, exist_ok=True)
-            written.append(member_path)
+            existed = os.path.lexists(member_path)
             with bundle.open(member) as source, open(member_path, "wb") as sink:
+                if not existed:
+                    written.append(member_path)
                 while True:
                     chunk = source.read(1024 * 1024)
                     if not chunk:

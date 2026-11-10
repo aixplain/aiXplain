@@ -258,6 +258,8 @@ def test_private_fetch_opt_in_does_not_reopen_cloud_metadata(url, resolver, monk
         "2002:a9fe:aa02::",  # 6to4 form of 169.254.170.2
         "64:ff9b:1::a9fe:a9fe",  # RFC 8215 local-use NAT64 form of 169.254.169.254
         "fd20:ce::254",  # GCP metadata over IPv6
+        "::a9fe:a9fe",  # deprecated IPv4-compatible form of 169.254.169.254
+        "::ffff:0:a9fe:a9fe",  # IPv4-translated form of 169.254.169.254
     ],
 )
 @pytest.mark.parametrize("opt_in", [True, False])

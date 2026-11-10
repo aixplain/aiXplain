@@ -82,6 +82,10 @@ _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 _NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
 # RFC 8215 local-use NAT64 prefix; the IPv4 sits in the low 32 bits of a /96 within it.
 _LOCAL_NAT64_PREFIX = ipaddress.ip_network("64:ff9b:1::/48")
+# Deprecated IPv4-compatible (``::a.b.c.d``, RFC 4291) and IPv4-translated
+# (``::ffff:0:a.b.c.d``, RFC 2765) forms; unwrapped only for the metadata check.
+_IPV4_COMPATIBLE_PREFIX = ipaddress.ip_network("::/96")
+_IPV4_TRANSLATED_PREFIX = ipaddress.ip_network("::ffff:0:0:0/96")
 # S3 host shapes: virtual-hosted (``<bucket>.s3[.-<region>].amazonaws.com``) and
 # path-style (``s3[.-<region>].amazonaws.com/<bucket>/...``), with the optional
 # ``dualstack`` label.
@@ -219,8 +223,9 @@ def _embedded_ipv4(
 ) -> Optional[ipaddress.IPv4Address]:
     """Return the IPv4 address carried inside an IPv6 *address*, if any.
 
-    Covers IPv4-mapped (``::ffff:a.b.c.d``), 6to4, NAT64 (``64:ff9b::/96``)
-    and local-use NAT64 (``64:ff9b:1::/48``, RFC 8215) forms. Used only by the metadata check, so the default-mode blanket NAT64
+    Covers IPv4-mapped (``::ffff:a.b.c.d``), 6to4, NAT64 (``64:ff9b::/96``),
+    local-use NAT64 (``64:ff9b:1::/48``, RFC 8215) and the deprecated
+    IPv4-compatible / IPv4-translated forms. Used only by the metadata check, so the default-mode blanket NAT64
     block in :func:`_is_blocked_address` is not loosened.
     """
     if not isinstance(address, ipaddress.IPv6Address):
@@ -228,7 +233,10 @@ def _embedded_ipv4(
     embedded = address.ipv4_mapped or address.sixtofour
     if embedded is not None:
         return embedded
-    if address in _NAT64_PREFIX or address in _LOCAL_NAT64_PREFIX:
+    if any(
+        address in prefix
+        for prefix in (_NAT64_PREFIX, _LOCAL_NAT64_PREFIX, _IPV4_COMPATIBLE_PREFIX, _IPV4_TRANSLATED_PREFIX)
+    ):
         return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
     return None
 
