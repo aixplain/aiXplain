@@ -608,19 +608,25 @@ class Index(
             items = response.get("results", [])
 
         results: List["Index"] = []
+        skipped = 0
         for item in items:
             try:
                 obj = cls.from_dict(item)
-            except Exception as e:  # pragma: no cover - defensive
+            except Exception as e:
                 logger.warning("Skipping item during Index deserialization: %s", e)
+                skipped += 1
                 continue
             setattr(obj, "context", context)
             obj._update_saved_state()
             results.append(obj)
 
-        total = response.get("total", len(results))
+        total = response.get("total", len(results) + skipped)
+        if skipped:
+            # Same contract as the shared paginate path: ``total`` never counts a
+            # row this page dropped, and ``skipped`` reports how many were dropped.
+            total = max(total - skipped, len(results))
         page_total = response.get("pageTotal", len(results))
-        return Page(results=results, page_number=page_number, page_total=page_total, total=total)
+        return Page(results=results, page_number=page_number, page_total=page_total, total=total, skipped=skipped)
 
     def delete(self, **kwargs: Any) -> DeleteResult:
         """Delete this index collection.
@@ -729,9 +735,16 @@ class Index(
         return result
 
     def count(self, timeout: int = 300) -> int:
-        """Return the total number of records in the index."""
+        """Return the total number of records in the index.
+
+        Raises:
+            ResourceError: If the backend returns a non-numeric count.
+        """
         result = self._run_index_action({"action": "count", "data": ""}, timeout=timeout)
-        return int(result.data)
+        try:
+            return int(result.data)
+        except (TypeError, ValueError) as e:
+            raise ResourceError(f"Index count returned a non-numeric value: {result.data!r}") from e
 
     def get_record(self, record_id: str, timeout: int = 300) -> IndexResult:
         """Retrieve a single record by ID."""

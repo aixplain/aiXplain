@@ -40,7 +40,7 @@ index.delete()                            # deletes the whole collection
   `[ix for ix in aix.Index.list(query="product-docs", page_size=50) if ix.name == "product-docs"]`.
 - **Open an existing collection** (including one made with v1 `IndexFactory`): `aix.Index.get(index_id)`.
 - Other stores: `VectaraParams`, `GraphRAGParams` (`llm=`), `ZeroEntropyParams` instead of `AirParams`.
-- `top_k` is the real, typed result limit on this route. The `num_results` warning below applies only to the knowledge-base `Tool` route.
+- `search(top_k=...)` is a typed parameter here, sent to the store model the way v1 `IndexModel.search` sent it. The field-verified `num_results` warning below was established on the knowledge-base `Tool` route; it has not been re-checked against this one, so check the returned record count if the limit matters.
 - `Index` has no generic `run()` / `run_async()`. They raise `NotImplementedError`; use the typed methods.
 
 ## Knowledge base for agents = an index tool on aiR

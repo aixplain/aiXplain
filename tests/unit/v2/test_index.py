@@ -9,6 +9,7 @@ import pytest
 from unittest.mock import Mock
 
 from aixplain.v2.enums import DataType, EmbeddingModel, ResponseStatus
+from aixplain.v2.exceptions import ResourceError
 from aixplain.v2.index import (
     AirParams,
     GraphRAGParams,
@@ -223,6 +224,14 @@ class TestDataPlane:
         assert idx.count() == 4
         assert ctx.client.request.call_args.kwargs["json"] == {"action": "count", "data": ""}
 
+    def test_count_non_numeric_raises_resource_error(self):
+        ctx = _ctx()
+        ctx.client.request = Mock(return_value={"status": "SUCCESS", "data": {"unexpected": True}})
+        idx = _index(ctx)
+
+        with pytest.raises(ResourceError, match="non-numeric"):
+            idx.count()
+
     def test_get_record(self):
         ctx = _ctx()
         ctx.client.request = Mock(return_value={"status": "SUCCESS", "data": {"id": "1"}, "completed": True})
@@ -364,6 +373,18 @@ class TestControlPlane:
         cls = _index_cls(ctx)
         with pytest.raises(ResourceError):
             cls.create(params=AirParams(name="n", description="d"))
+
+    def test_list_reports_skipped_rows(self):
+        ctx = _ctx()
+        ctx.client.request = Mock(
+            return_value={"items": [{"id": "a", "name": "alpha"}, "not-a-row"], "total": 2, "pageTotal": 1}
+        )
+        cls = _index_cls(ctx)
+
+        page = cls.list()
+        assert [ix.name for ix in page] == ["alpha"]
+        assert page.skipped == 1
+        assert page.total == 1
 
     def test_list_resolves_by_name(self):
         ctx = _ctx()
