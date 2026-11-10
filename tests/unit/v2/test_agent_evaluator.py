@@ -1533,9 +1533,18 @@ def test_legacy_measure_override_still_runs_and_warns_once() -> None:
     assert [row.metric_value("legacy", "metric_status") for row in run.rows] == ["SUCCESS", "SUCCESS"]
 
 
-def test_give_codes_reference_placeholder() -> None:
-    from aixplain.v2.agent_evaluator import AgentResponseDataFields
+@pytest.mark.parametrize("reference", ["", "   "])
+def test_measure_skips_blank_reference(reference) -> None:
+    metric = _real_metric(output=True)
+    ard = AgentResponseData(input="q", output="a", steps=[])
+    with patch.object(Metric, "run", return_value=_metric_response()) as run:
+        metric.measure(ard, reference=reference)
+    assert run.call_args.kwargs["data"] == {"data": "Output: a\n"}
 
-    fields = AgentResponseDataFields(query=True, output=True)
-    assert fields.give_codes() == {"query": "{{QUERY}}", "output": "{{OUTPUT}}"}
-    assert fields.give_codes(include_reference=True)["reference"] == "{{REFERENCE}}"
+
+def test_eval_blank_reference_calls_measure_positionally() -> None:
+    from aixplain.v2.agent_evaluator import _measure_metric
+
+    metric = MagicMock()
+    _measure_metric(metric, "agent-data", "", set())
+    metric.measure.assert_called_once_with("agent-data")

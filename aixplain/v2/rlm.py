@@ -393,29 +393,21 @@ def _find_code_blocks(text: str) -> Optional[List[str]]:
 _FINAL_START_RE = re.compile(r"^\s*FINAL\(", re.MULTILINE)
 
 
-def _has_unmatched_close(text: str) -> bool:
-    """Return True if ``text`` contains a ``)`` with no ``(`` before it to match."""
-    depth = 0
-    for char in text:
-        if char == "(":
-            depth += 1
-        elif char == ")":
-            depth -= 1
-            if depth < 0:
-                return True
-    return False
+_PARAGRAPH_BREAK_RE = re.compile(r"\n[ \t]*\n")
 
 
 def _extract_final_content(text: str, start: int) -> Optional[str]:
     """Return the body of a ``FINAL(`` declaration whose ``(`` ends just before ``start``.
 
-    Parentheses are matched, so ``FINAL(f(x) returns 2.)`` keeps ``f(x)``.
-    Two tolerances cover unbalanced model prose:
+    Parentheses are matched, so ``FINAL(f(x) returns 2.)`` keeps ``f(x)``, and
+    the body ends at the ``)`` that balances the declaration; anything after it
+    (``FINAL(Paris) (see 1) above``) is ignored.
 
-    - an extra ``)`` later on the closing line (``FINAL(happy :) really)``)
-      extends the body to the last ``)`` on that line;
-    - an unclosed ``(`` inside the body (``FINAL(see (a in the list)``) falls
-      back to the last ``)`` in the text.
+    When the body has an unclosed ``(`` (``FINAL(see (a in the list)``) the
+    scan never balances; the body then runs to the last ``)`` in the
+    declaration's own paragraph, so a later paragraph such as
+    ``(Note: computed in the REPL)`` is not swallowed. Only when that
+    paragraph has no ``)`` at all does it fall back to the last ``)`` in the text.
 
     Returns ``None`` when no ``)`` follows the declaration at all.
     """
@@ -427,13 +419,12 @@ def _extract_final_content(text: str, start: int) -> Optional[str]:
         elif char == ")":
             depth -= 1
             if depth == 0:
-                end = index
-                line_end = text.find("\n", end + 1)
-                tail = text[end + 1 : line_end if line_end != -1 else len(text)]
-                if _has_unmatched_close(tail):
-                    end = end + 1 + tail.rfind(")")
-                return text[start:end]
-    last = text.rfind(")", start)
+                return text[start:index]
+    paragraph_break = _PARAGRAPH_BREAK_RE.search(text, start)
+    paragraph_end = paragraph_break.start() if paragraph_break else len(text)
+    last = text.rfind(")", start, paragraph_end)
+    if last == -1:
+        last = text.rfind(")", start)
     return text[start:last] if last != -1 else None
 
 
@@ -1430,10 +1421,15 @@ del _url, _r
             return None, "forced final answer did not use FINAL(...) or FINAL_VAR(...)"
         answer_type, content = parsed
         if answer_type == "FINAL_VAR":
-            value = self._get_repl_variable(content)
+            try:
+                value = self._get_repl_variable(content)
+            except Exception as exc:
+                return None, self._redact(f"forced final answer FINAL_VAR({content!r}) lookup failed: {exc}")
             if value is None:
                 return None, f"forced final answer FINAL_VAR({content!r}) could not be resolved"
             return value, None
+        if not content:
+            return None, "forced final answer FINAL(...) was empty"
         return self._redact(content), None
 
     # llm_query Resolution (SDK-side, credentialled)

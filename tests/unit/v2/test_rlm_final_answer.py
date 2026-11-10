@@ -29,8 +29,18 @@ from aixplain.v2.rlm import RLM, RLMResult, _find_final_answer
         ("FINAL(a (b (c) d) e)", ("FINAL", "a (b (c) d) e")),
         ("FINAL(Paris)\n\n(Note: from REPL)", ("FINAL", "Paris")),
         ("FINAL(Paris) (confidence: high)", ("FINAL", "Paris")),
-        ("FINAL(I'm happy :) really)", ("FINAL", "I'm happy :) really")),
+        # Text after the balanced ")" is never part of the answer, even when it
+        # holds an extra ")" (an emoticon or a list marker).
+        ("FINAL(Paris) — see the note :)", ("FINAL", "Paris")),
+        ("FINAL(42) (see 1) above)", ("FINAL", "42")),
+        ("FINAL(Paris) 1) see list", ("FINAL", "Paris")),
+        # An unclosed "(" falls back to the last ")" in the declaration's paragraph.
         ("FINAL(see item (a in the list)", ("FINAL", "see item (a in the list")),
+        ("FINAL(Great :( sorry)\n\n(Note: computed in the REPL)", ("FINAL", "Great :( sorry")),
+        ("FINAL(Option (a is best)\n\nSources (REPL output) checked.", ("FINAL", "Option (a is best")),
+        ("FINAL(Option (a is best)\n  \nSources (REPL output) checked.", ("FINAL", "Option (a is best")),
+        # No ")" in that paragraph at all: the last ")" in the reply is used.
+        ("FINAL(first (part\n\nsecond part)", ("FINAL", "first (part\n\nsecond part")),
         ("FINAL(line1\nline2 (x)\nline3)", ("FINAL", "line1\nline2 (x)\nline3")),
         ("Some reasoning first.\n  FINAL(x)", ("FINAL", "x")),
         ("FINAL_VAR(answer)", ("FINAL_VAR", "answer")),
@@ -144,6 +154,24 @@ class TestForcedFinalAnswer:
         assert result.status == "FAILED"
         assert result.data == "FINAL_VAR(missing)"
         assert "missing" in result.error_message
+
+    @pytest.mark.parametrize("reply", ["FINAL()", "FINAL(   )"])
+    def test_empty_final_is_failed(self, reply):
+        result, _, _ = _run(_make_rlm(), "Still thinking.", reply)
+
+        assert result.status == "FAILED"
+        assert result.data == reply
+        assert "empty" in result.error_message
+        assert result.final_answer_forced is True
+
+    def test_final_var_lookup_error_keeps_raw_reply(self):
+        with patch.object(RLM, "_get_repl_variable", side_effect=RuntimeError("sandbox down")):
+            result, _, _ = _run(_make_rlm(), "Still thinking.", "FINAL_VAR(x)")
+
+        assert result.status == "FAILED"
+        assert result.data == "FINAL_VAR(x)"
+        assert "sandbox down" in result.error_message
+        assert result.final_answer_forced is True
 
     def test_invalid_identifier_is_failed_without_sandbox_call(self):
         result, events, _ = _run(_make_rlm(), "Still thinking.", "FINAL_VAR(1bad)")

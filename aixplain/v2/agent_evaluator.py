@@ -82,6 +82,11 @@ class MetricResponse(Result):
     validated_data: Optional[Any] = field(default=None, metadata=dj_config(field_name="validatedData"))
 
 
+def _is_missing_reference(reference: Any) -> bool:
+    """Return True for a case reference that carries nothing (``None`` or a blank string)."""
+    return reference is None or (isinstance(reference, str) and not reference.strip())
+
+
 @dataclass_json
 @dataclass
 class AgentResponseDataFields:
@@ -91,13 +96,8 @@ class AgentResponseDataFields:
     trace: bool = field(default=False, metadata=dj_config(field_name="trace"))
     output: bool = field(default=False, metadata=dj_config(field_name="output"))
 
-    def give_codes(self, include_reference: bool = False) -> Dict[str, str]:
-        """Return placeholder codes for query, trace, and output fields.
-
-        Args:
-            include_reference: When True, also return ``{"reference": "{{REFERENCE}}"}``
-                for prompt templates that use the case reference.
-        """
+    def give_codes(self) -> Dict[str, str]:
+        """Return placeholder codes for query, trace, and output fields."""
         code_response: Dict[str, str] = {}
         if self.query:
             code_response["query"] = "{{QUERY}}"
@@ -105,8 +105,6 @@ class AgentResponseDataFields:
             code_response["trace"] = "{{TRACE}}"
         if self.output:
             code_response["output"] = "{{OUTPUT}}"
-        if include_reference:
-            code_response["reference"] = "{{REFERENCE}}"
         return code_response
 
     def give_metric_input(self, agent_response: AgentResponseData, reference: Any = None) -> str:
@@ -114,8 +112,9 @@ class AgentResponseDataFields:
 
         Args:
             agent_response: The agent's response data.
-            reference: Optional ground truth for the case. When not ``None`` a
-                ``Reference: <value>`` line is appended, whatever the flags say.
+            reference: Optional ground truth for the case. Unless it is ``None``
+                or a blank string, a ``Reference: <value>`` line is appended,
+                whatever the flags say.
         """
         metric_input = ""
         if self.query:
@@ -124,7 +123,7 @@ class AgentResponseDataFields:
             metric_input += f"Trace: {agent_response.steps}\n"
         if self.output:
             metric_input += f"Output: {agent_response.output}\n"
-        if reference is not None:
+        if not _is_missing_reference(reference):
             metric_input += f"Reference: {reference}\n"
         return metric_input
 
@@ -361,8 +360,8 @@ class Metric(Tool):
         Args:
             agent_response: The agent's response data.
             reference: Optional ground truth for this case (e.g.
-                :attr:`EvalCase.reference`). When not ``None`` it is appended to
-                the metric input as ``Reference: <value>``.
+                :attr:`EvalCase.reference`). Unless it is ``None`` or a blank
+                string it is appended to the metric input as ``Reference: <value>``.
         """
         metric_input = self.agent_response_data_fields.give_metric_input(agent_response, reference=reference)
         if self.additional_input_prompt:
@@ -3259,11 +3258,12 @@ def _accepts_reference_kwarg(measure: Callable[..., Any]) -> bool:
 def _measure_metric(metric: Any, agent_data: Any, reference: Any, warned: set) -> Any:
     """Call ``metric.measure`` with the case reference when it can take one.
 
-    A ``None`` reference keeps the original ``measure(agent_data)`` call. A
+    A missing reference (``None`` or a blank string) keeps the original
+    ``measure(agent_data)`` call. A
     subclass whose ``measure`` override predates the ``reference`` keyword is
     still called without it, with a one-time warning per metric (``warned``).
     """
-    if reference is None:
+    if _is_missing_reference(reference):
         return metric.measure(agent_data)
     if _accepts_reference_kwarg(metric.measure):
         return metric.measure(agent_data, reference=reference)
@@ -3284,12 +3284,12 @@ class Eval:
     For each pair of (case, agent) the executor calls ``agent.run`` with the
     case's ``query``. Each :class:`Metric` is then invoked as
     ``metric.measure(agent_response, reference=case.reference)`` (the keyword
-    is omitted when the case has no reference). The metric's ``run`` payload is
+    is omitted when the case reference is ``None`` or a blank string). The metric's ``run`` payload is
     ``{"data": <str>}``, where the string holds the ``Query:`` / ``Trace:`` /
     ``Output:`` lines enabled by :attr:`Metric.agent_response_data_fields`
     (all off by default, see aiXplain#1170), preceded by
     :attr:`Metric.additional_input_prompt` if set, plus a ``Reference: <value>``
-    line whenever the case reference is not ``None``. Metric results are nested under
+    line whenever the case reference is not ``None`` or a blank string. Metric results are nested under
     ``AgentEvaluationRow.metrics[prefix]`` using the tool's ``name``, ``id``, or
     ``metric_<n>`` as prefix (see :meth:`AgentEvaluationRun.to_dataframe` for the
     legacy ``<prefix>__<key>`` flat layout).
