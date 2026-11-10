@@ -58,6 +58,8 @@ def _infer_page_counts(page_number: int, page_size: int, count: int) -> Tuple[Op
     one, so only then are the counts known. A full page, an oversized page or an
     empty page past the first one says nothing about the rest: ``(None, None)``.
     """
+    if not isinstance(page_size, int) or page_size <= 0:
+        return None, None
     if count < page_size and (count > 0 or page_number == 0):
         return page_number + 1, page_number * page_size + count
     return None, None
@@ -904,8 +906,12 @@ class Session(
 
         items = _parse_list_response(response, "messages")
         messages = [_deserialize(SessionMessage, item, "session message") for item in items]
-        # The sort is stable, so messages sharing a sequence keep the backend order.
-        return sorted(messages, key=lambda message: message.sequence)
+        # The sort is stable, so messages sharing a sequence keep the backend order;
+        # a message without a sequence (``null`` from the backend) sorts last.
+        return sorted(
+            messages,
+            key=lambda message: (message.sequence is None, message.sequence if message.sequence is not None else 0),
+        )
 
     def add_message(
         self,

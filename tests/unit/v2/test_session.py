@@ -1500,3 +1500,23 @@ class TestBug1461SessionCorrectness:
         session._update_saved_state()
 
         assert [m.id for m in session.messages()] == ["m1", "m2", "m3"]
+
+    def test_messages_with_null_sequence_sort_last(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = [
+            {**SAMPLE_MESSAGE_DICT, "id": "mx", "sequence": None},
+            {**SAMPLE_MESSAGE_DICT, "id": "m2", "sequence": 2},
+            {**SAMPLE_MESSAGE_DICT, "id": "m1", "sequence": 1},
+        ]
+        BoundSession = _bound_session_class(ctx)
+        session = BoundSession.from_dict(SAMPLE_SESSION_DICT)
+        session.context = ctx
+        session._update_saved_state()
+
+        assert [m.id for m in session.messages()] == ["m1", "m2", "mx"]
+
+    def test_invalid_page_size_reports_unknown_counts(self):
+        from aixplain.v2.session import _infer_page_counts
+
+        assert _infer_page_counts(0, 0, 3) == (None, None)
+        assert _infer_page_counts(0, None, 3) == (None, None)
