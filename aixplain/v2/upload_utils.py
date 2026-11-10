@@ -226,12 +226,16 @@ class S3Uploader:
             # Content-Length from the file size, and urllib3 rewinds the file
             # before each retry, so memory stays flat regardless of file size
             # (BUG-949).
+            # An empty file is sent as ``b""``: ``requests`` would otherwise fall
+            # back to ``Transfer-Encoding: chunked`` for a zero-length stream,
+            # which S3 presigned PUTs reject.
             with open(file_path, "rb") as f:
+                body = f if os.fstat(f.fileno()).st_size > 0 else b""
                 # A presigned S3 PUT never legitimately redirects; following a
                 # 307 would re-send the bytes to a host ``validate_upload_url``
                 # never saw (BUG-939).
                 response = RequestManager.request_with_retry(
-                    "put", presigned_url, headers=headers, data=f, allow_redirects=False
+                    "put", presigned_url, headers=headers, data=body, allow_redirects=False
                 )
 
             if response.status_code != 200:

@@ -176,6 +176,16 @@ class TestBoundedMap:
     def test_empty_input(self):
         assert _bounded_map(lambda i: i, 0, max_workers=4, timeout=1) == []
 
+    def test_timeout_is_a_stall_timeout_not_a_batch_deadline(self):
+        # Total runtime (~0.6s) exceeds the timeout, but some call completes
+        # well inside every 0.3s window, so nothing may be abandoned.
+        def fn(i):
+            time.sleep(0.05)
+            return i
+
+        results = _bounded_map(fn, 12, max_workers=1, timeout=0.3)
+        assert results == list(range(12))
+
 
 # Parallel map / reduce / llm_query
 
@@ -305,7 +315,7 @@ class TestRecursiveHistoryBudget:
 class TestSetupReplWritesContextFile:
     @pytest.mark.parametrize(
         "context, expected_ext",
-        [({"k": [1, 2, "ü"]}, ".json"), ("plain text ü", ".txt"), ([1, {"a": None}], ".json")],
+        [({"k": [1, 2, "ü"]}, ".json"), ("plain text ü\nline two\r\n", ".txt"), ([1, {"a": None}], ".json")],
     )
     def test_uploaded_file_holds_the_context(self, context, expected_ext):
         rlm = _make_rlm()
@@ -313,8 +323,8 @@ class TestSetupReplWritesContextFile:
 
         def fake_upload(self, file_path, **kwargs):
             captured["path"] = file_path
-            with open(file_path, encoding="utf-8") as fh:
-                captured["body"] = fh.read()
+            with open(file_path, "rb") as fh:
+                captured["body"] = fh.read().decode("utf-8")
             return "https://bucket.s3.amazonaws.com/tmp/context"
 
         with (

@@ -8,6 +8,7 @@ largest request the SDK makes got zero transport-level retries.
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
 from aixplain import FileUploadError
 from aixplain.v2.upload_utils import RequestManager, S3Uploader
@@ -43,6 +44,22 @@ class TestStreamingPut:
 
         assert seen["is_stream"]
         assert seen["body"] == sample_file.read_bytes()
+
+    def test_empty_file_is_sent_with_content_length_not_chunked(self, tmp_path):
+        empty = tmp_path / "empty.csv"
+        empty.write_bytes(b"")
+        seen = {}
+
+        def fake_request(method, url, **kwargs):
+            seen["data"] = kwargs["data"]
+            return _response()
+
+        with patch.object(RequestManager, "request_with_retry", side_effect=fake_request):
+            S3Uploader.upload_file(str(empty), PRESIGNED, "text/csv")
+
+        assert seen["data"] == b""
+        prepared = requests.Request("PUT", PRESIGNED, data=seen["data"]).prepare()
+        assert "Transfer-Encoding" not in prepared.headers
 
     def test_file_handle_is_closed_after_upload(self, sample_file):
         captured = {}

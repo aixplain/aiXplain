@@ -499,15 +499,17 @@ def _bounded_map(fn: Callable[[int], Any], n: int, *, max_workers: int, timeout:
     :class:`_FutureTimeout`) instead of a value when that call failed or missed
     the deadline, so one bad call never aborts the batch.
 
-    Never blocks past ``timeout`` seconds: the pool is shut down with
-    ``wait=False`` rather than joined (which a ``with ThreadPoolExecutor``
-    block would do), so a hung HTTP call cannot pin the caller. An abandoned
-    thread still ends on its own HTTP read timeout.
+    ``timeout`` is a *stall* timeout: the batch is abandoned only when no call
+    completes for ``timeout`` seconds, so a large batch that keeps making
+    progress is never cut short just because its total runtime exceeds
+    ``timeout``. On a stall, still-pending calls get a :class:`_FutureTimeout`
+    and the pool is shut down with ``wait=False`` rather than joined (which a
+    ``with ThreadPoolExecutor`` block would do), so a hung HTTP call cannot pin
+    the caller. An abandoned thread still ends on its own HTTP read timeout.
     """
     results: List[Any] = [None] * n
     if n <= 0:
         return results
-    deadline = time.monotonic() + timeout
     window = max(1, max_workers) * _FUTURES_WINDOW_FACTOR
     executor = ThreadPoolExecutor(max_workers=max(1, max_workers))
     pending: Dict[Future, int] = {}
@@ -517,14 +519,13 @@ def _bounded_map(fn: Callable[[int], Any], n: int, *, max_workers: int, timeout:
             while next_idx < n and len(pending) < window:
                 pending[executor.submit(fn, next_idx)] = next_idx
                 next_idx += 1
-            remaining = deadline - time.monotonic()
-            done = wait(pending, timeout=remaining, return_when=FIRST_COMPLETED).done if remaining > 0 else set()
+            done = wait(pending, timeout=timeout, return_when=FIRST_COMPLETED).done
             if not done:
                 for future, idx in pending.items():
                     future.cancel()
-                    results[idx] = _FutureTimeout(f"timed out after {timeout:.0f}s")
+                    results[idx] = _FutureTimeout(f"no worker call completed for {timeout:.0f}s")
                 for idx in range(next_idx, n):
-                    results[idx] = _FutureTimeout(f"not started within {timeout:.0f}s")
+                    results[idx] = _FutureTimeout(f"not started: worker calls stalled for {timeout:.0f}s")
                 break
             for future in done:
                 idx = pending.pop(future)
@@ -833,9 +834,10 @@ class RLM(BaseResource, ToolableMixin):
             batch of ``llm_query`` calls costs two iterations in recursive mode
             — one to submit the prompts and one to consume the answers.
         timeout: Maximum wall-clock seconds per ``run()`` call (default 600).
-            Also bounds each concurrent batch of worker calls (parallel-mode
-            map/reduce levels and ``llm_query`` batches): a call still running
-            at the deadline is abandoned and its slot gets an error marker.
+            Also used as a stall timeout for concurrent batches of worker
+            calls (parallel-mode map/reduce levels and ``llm_query`` batches):
+            if no call in a batch completes for this long, the still-pending
+            calls are abandoned and their slots get an error marker.
     """
 
     # Not a platform-backed resource — no API endpoint.
@@ -1212,7 +1214,9 @@ del _url, _url_path, _r
             tmp_dir = tempfile.mkdtemp()
             tmp_path = os.path.join(tmp_dir, f"context{ext}")
             try:
-                with open(tmp_path, "w", encoding="utf-8") as fh:
+                # newline="" keeps the bytes identical on every OS (no \r\n
+                # translation on Windows), as the previous binary write did.
+                with open(tmp_path, "w", encoding="utf-8", newline="") as fh:
                     if ext == ".json":
                         json.dump(context, fh)
                     else:
@@ -1980,7 +1984,7 @@ del _url, _r
             name: Identifier used in log messages. Defaults to ``"rlm_process"``.
             timeout: Maximum wall-clock seconds. Applies to ``"recursive"`` mode
                 only. Overrides ``self.timeout`` when provided. (Concurrent
-                worker batches are always bounded by ``self.timeout``.)
+                worker batches always use ``self.timeout`` as their stall timeout.)
             mode: ``"auto"``, ``"parallel"``, or ``"recursive"``. Defaults to
                 ``"auto"``.
             **kwargs: Ignored; kept for API compatibility.
