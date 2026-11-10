@@ -181,8 +181,10 @@ dependency changes the PR carries — never holds the production key.
 | `SLACK_TOKEN` | the Slack tests in the `agent-lifecycle`, `model` and `tool` legs — the legs with `slack: true`; no other leg receives it | those tests skip |
 | `SLACK_NIGHTLY_WEBHOOK_URL` | `nightly-report` | no alert is sent; the job logs a warning |
 
-`SLACK_TOKEN` is gated like the `_PROD` secrets: the step's `env:` expands it only on a leg whose
-`include` entry has `slack: true`, and `tests/unit/test_ci_pr_and_release_gates.py` fails if that set
+`SLACK_TOKEN` is gated like the `_PROD` secrets: the step's `env:` expands it only on a production
+run (`IS_PROD`, BUG-1452) and only on a leg whose `include` entry has `slack: true`, so PR, `test`
+and nightly runs never hold it and their Slack tests skip. `tests/unit/test_ci_pr_and_release_gates.py`
+asserts both conditions, and `tests/unit/test_ci_pr_and_release_gates.py` fails if that set
 drifts from the legs whose test file uses the `slack_token` fixture. `HF_TOKEN` is no longer exported
 at all: no functional test reads it.
 
@@ -265,6 +267,10 @@ code.
 the Actions API: **did every `functional (...)` leg succeed, against the production backend, on the
 exact commit this tag points at?**
 
+- It first requires the tagged commit to be **on `main`** (`git merge-base --is-ancestor "$SHA"
+  origin/main`, BUG-1452): a tag on an unmerged commit fails before the run lookup. The check runs
+  from the tagged commit, so it stops accidental releases; a `v*` tag ruleset (see the manual setup
+  below) is what stops someone who can also edit the workflow.
 - It keys on `github.sha`, not the tag name — a tag can be moved, and what was tested is a commit.
 - It counts only **production runs**: a `push` to `main`, or a `workflow_dispatch` whose ref is this
   tag. A push to `test`, a PR run or the nightly may sit on the same commit, but their legs passed
@@ -322,7 +328,13 @@ nothing is published and nothing else breaks.
    Also set **Deployment branches and tags → Selected** with a `v*` tag rule. Nothing in
    `release.yaml` can enforce which ref a tag points at — anyone who can push a tag can otherwise
    publish an arbitrary tree to PyPI under the project's name. The environment protection rule is the
-   only place that restriction can live.
+   only place that restriction can live. (The gate's on-`main` ancestry check catches an accidental
+   tag on an unmerged commit, but it runs from the tagged tree and is no substitute for this rule.)
+
+   Also add a **tag ruleset** (Settings → Rules → Rulesets) restricting who can create or move `v*`
+   tags, and move `TEAM_API_KEY_PROD` out of the repository secrets into a protected environment
+   limited to `main` and `v*` (with reviewers), then reference that environment from `main.yaml`'s
+   `functional` job. Neither can be expressed in the repository itself (BUG-1452).
 2. **Register the trusted publisher on PyPI.** Needs owner rights on the `aiXplain` PyPI project — the
    account that currently holds the upload token. On <https://pypi.org/manage/project/aixplain/settings/publishing/>:
 

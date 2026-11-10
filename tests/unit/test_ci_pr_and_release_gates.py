@@ -657,7 +657,7 @@ def test_production_secrets_only_expand_on_production_runs():
     expands through IS_PROD to the empty string otherwise.
     """
     step_env = _functional_env_step().get("env") or {}
-    prod_entries = {name: value for name, value in step_env.items() if "_PROD" in str(value)}
+    prod_entries = {name: value for name, value in step_env.items() if re.search(r"secrets\.\w+_PROD\b", str(value))}
     assert prod_entries, "the functional env step no longer reads any _PROD secret; update this test"
     for name, value in prod_entries.items():
         assert re.fullmatch(r"\$\{\{ env\.IS_PROD == 'true' && secrets\.\w+_PROD \|\| '' \}\}", str(value)), (
@@ -806,12 +806,21 @@ def test_only_the_legs_that_read_slack_token_are_handed_it():
     readers = {entry["suite"] for entry in _include() if _runs_a_slack_token_test(REPO_ROOT / entry["path"].split()[0])}
     assert readers, "no functional leg uses the `slack_token` fixture any more; drop SLACK_TOKEN and this test"
     for entry in _include():
-        rendered = _render(value.replace("secrets.SLACK_TOKEN", "'<secret>'"), {}, matrix=entry)
+        rendered = _render(value.replace("secrets.SLACK_TOKEN", "'<secret>'"), {}, {"IS_PROD": "true"}, matrix=entry)
         expected = "<secret>" if entry["suite"] in readers else ""
         assert rendered == expected, (
             f"the `{entry['suite']}` leg gets SLACK_TOKEN={rendered!r}; expected {expected!r} because it "
             f"{'runs' if expected else 'runs no'} test using the `slack_token` fixture. Set or drop `slack: true`."
         )
+
+
+def test_slack_token_never_reaches_a_non_production_run():
+    """BUG-1452: a same-repo PR (or a `test`/nightly run) must not hold SLACK_TOKEN on any leg."""
+    value = str((_functional_env_step().get("env") or {}).get("SLACK_TOKEN", ""))
+    assert "env.IS_PROD == 'true'" in value, f"SLACK_TOKEN is not gated on IS_PROD ({value!r})"
+    for entry in _include():
+        rendered = _render(value.replace("secrets.SLACK_TOKEN", "'<secret>'"), {}, {"IS_PROD": "false"}, matrix=entry)
+        assert rendered == "", f"the `{entry['suite']}` leg gets SLACK_TOKEN={rendered!r} on a non-production run"
 
 
 @needs_bash
@@ -974,6 +983,72 @@ def test_the_functional_gate_checks_the_released_commit_against_the_real_leg_lis
         assert move in script, f"release.yaml's functional gate no longer seems to {what} ({move!r} is gone)"
 
     assert "strategy" not in job, "the gate is a single decision; a matrix would make a missing leg a skipped job"
+
+
+def _ancestry_step() -> dict:
+    steps = [
+        step
+        for step in _job(RELEASE_WORKFLOW, "functional-gate")["steps"]
+        if "merge-base --is-ancestor" in (step.get("run") or "")
+    ]
+    assert len(steps) == 1, f"expected one ancestry-check step in the release gate, found {len(steps)}"
+    return steps[0]
+
+
+def test_the_release_gate_requires_the_tagged_commit_to_be_on_main():
+    """BUG-1452: a tag on a commit that never reached main must not publish."""
+    job = _job(RELEASE_WORKFLOW, "functional-gate")
+    step = _ancestry_step()
+    assert 'git merge-base --is-ancestor "$SHA" origin/main' in step["run"]
+    assert (step.get("env") or {}).get("SHA") == "${{ github.sha }}"
+    checkout = next(s for s in job["steps"] if str(s.get("uses", "")).startswith("actions/checkout@"))
+    assert checkout["with"].get("fetch-depth") == 0, "the ancestry check needs main's history"
+    assert checkout["with"].get("persist-credentials") is False
+    names = [s.get("name") for s in job["steps"]]
+    functional = next(i for i, s in enumerate(job["steps"]) if "runs_filter" in (s.get("run") or ""))
+    assert names.index(step["name"]) < functional, "check ancestry before spending API calls on the run lookup"
+
+
+@needs_bash
+@pytest.mark.parametrize("on_main", [True, False], ids=["merged-commit", "unmerged-commit"])
+def test_the_ancestry_step_accepts_only_commits_on_main(tmp_path, on_main: bool):
+    """Run the real step against a throwaway origin with a `main` and a side branch."""
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    (tmp_path / "home").mkdir()
+    _git(origin, "init", "-q", "-b", "main")
+    (origin / "a.txt").write_text("a\n")
+    _git(origin, "add", "a.txt")
+    _git(origin, "commit", "-q", "--no-verify", "-m", "on main")
+    merged = _git(origin, "rev-parse", "HEAD")
+    _git(origin, "checkout", "-q", "-b", "side")
+    (origin / "b.txt").write_text("b\n")
+    _git(origin, "add", "b.txt")
+    _git(origin, "commit", "-q", "--no-verify", "-m", "unmerged")
+    unmerged = _git(origin, "rev-parse", "HEAD")
+
+    clone = tmp_path / "clone"
+    subprocess.run(
+        ["git", "clone", "-q", "--no-checkout", str(origin), str(clone)],
+        check=True,
+        capture_output=True,
+        env=_clean_env(HOME=str(tmp_path / "home")),
+    )
+    script = tmp_path / "ancestry.sh"
+    script.write_text(_ancestry_step()["run"])
+    result = subprocess.run(
+        ["bash", str(script)],
+        cwd=clone,
+        capture_output=True,
+        text=True,
+        env=_clean_env(HOME=str(tmp_path / "home"), SHA=merged if on_main else unmerged),
+        timeout=60,
+    )
+    if on_main:
+        assert result.returncode == 0, result.stdout + result.stderr
+    else:
+        assert result.returncode != 0, "a commit that is not on main passed the release gate"
+        assert "not reachable from main" in result.stdout
 
 
 def _runs_filter() -> str:
