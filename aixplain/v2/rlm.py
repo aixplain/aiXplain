@@ -713,9 +713,12 @@ class RLM(BaseResource, ToolableMixin):
             batch of ``llm_query`` calls costs two iterations in recursive mode
             — one to submit the prompts and one to consume the answers.
         timeout: Maximum wall-clock seconds per recursive-mode ``run()`` call
-            (default 600). The remaining budget bounds every orchestrator,
-            sandbox and ``llm_query`` call; once it is spent no final answer is
-            forced and the result carries ``timed_out=True``.
+            (default 600). The remaining budget is passed to every orchestrator,
+            sandbox and ``llm_query`` call, where it bounds result polling (the
+            submit request itself keeps the client's read timeout), and no new
+            call is started once it is spent. No final answer is forced then and
+            the result carries ``timed_out=True``. Sandbox teardown and the
+            sandbox tool's first action discovery are not counted against it.
     """
 
     # Not a platform-backed resource — no API endpoint.
@@ -1845,9 +1848,10 @@ del _url, _r
             name: Identifier used in log messages. Defaults to ``"rlm_process"``.
             timeout: Maximum wall-clock seconds. Applies to ``"recursive"`` mode
                 only. Overrides ``self.timeout`` when provided. The remaining
-                budget bounds each orchestrator, sandbox and ``llm_query`` call;
-                once it is spent no final answer is forced and the result has
-                ``status="FAILED"`` and ``timed_out=True``.
+                budget bounds result polling of each orchestrator, sandbox and
+                ``llm_query`` call (not the submit request itself), and no new
+                call is started once it is spent. No final answer is forced then
+                and the result has ``status="FAILED"`` and ``timed_out=True``.
             mode: ``"auto"``, ``"parallel"``, or ``"recursive"``. Defaults to
                 ``"auto"``.
             **kwargs: Ignored; kept for API compatibility.

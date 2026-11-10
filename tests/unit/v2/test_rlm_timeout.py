@@ -206,6 +206,20 @@ class TestWorkerBudget:
         rlm._worker_call("p")
         assert "timeout" not in rlm._worker.run.call_args.kwargs
 
+    def test_no_sandbox_call_is_started_after_the_deadline(self):
+        """``_inject_llm_answers`` after a slow fan-out must not send a new run."""
+        import pytest
+
+        rlm, sandbox = _make_rlm(), _Sandbox()
+        rlm._sandbox_tool = sandbox
+        rlm._repl_session_id = "repl-session"
+        rlm._deadline = time.time() - 0.01
+
+        with pytest.raises(rlm_v2._BudgetExhausted):
+            rlm._inject_llm_answers({"p": "a"})
+
+        assert sandbox.calls == []
+
     def test_rlm_result_timed_out_defaults_false_and_serializes(self):
         result = RLMResult(status="SUCCESS", completed=True, data="x")
         assert result.timed_out is False

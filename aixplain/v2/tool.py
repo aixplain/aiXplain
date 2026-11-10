@@ -566,6 +566,14 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     action_obj = self.actions[action_name]
                 except (ValueError, KeyError):
                     continue
+                except Exception as e:
+                    # Name resolution goes through ``list_actions()``, which raises
+                    # on a discovery timeout since BUG-1453. The spec above already
+                    # came back, so fall back to its defaults instead of failing.
+                    if not _is_transport_failure(e):
+                        raise
+                    logger.warning(f"Using default inputs for '{action_name}'; the action lookup failed: {e}")
+                    action_obj = None
 
             for input_param in spec.inputs:
                 input_code = input_param.code or input_param.name.lower().replace(" ", "_")
@@ -704,12 +712,20 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         if not action_name:
             raise ValueError("No action provided")
 
-        action_obj = self.actions[action_name]
-
-        for input_code in action_obj.inputs.keys():
-            inp = action_obj.inputs.get(input_code)
-            if inp is not None and inp.value is not None:
-                merged[input_code] = inp.value
+        try:
+            action_obj = self.actions[action_name]
+            for input_code in action_obj.inputs.keys():
+                inp = action_obj.inputs.get(input_code)
+                if inp is not None and inp.value is not None:
+                    merged[input_code] = inp.value
+        except Exception as e:
+            # The lookup is a network call and, since BUG-1453, raises on a
+            # discovery timeout instead of returning ``[]``. A transport failure
+            # must not block the run: send the caller's action and data as-is.
+            if not _is_transport_failure(e):
+                raise
+            logger.warning(f"Skipping stored inputs for '{action_name}'; the action lookup failed: {e}")
+            merged = {}
 
         kwargs.setdefault("data", {})
 
