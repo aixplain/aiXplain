@@ -362,10 +362,19 @@ class Skill(
         """Download the skill bundle to a local path. Returns the written path.
 
         Args:
-            file_path: Where to write the bundle. Defaults to ``./{name}.zip``.
+            file_path: Where to write the bundle. Defaults to ``./{name}.zip`` in
+                the current directory, with ``name`` reduced to a bare filename.
+                An explicit ``file_path`` is used as given.
         """
         self._ensure_valid_state()
-        file_path = file_path or f"./{self.name}.zip"
+        if not file_path:
+            # BUG-948: ``self.name`` is backend-populated (another tenant's, for a
+            # shared skill). Reduce it to a bare filename, as ``File.download``
+            # does, so a name holding separators or ".." cannot escape the CWD.
+            safe_name = os.path.basename((self.name or "").replace("\\", "/"))
+            if safe_name in ("", ".", ".."):
+                safe_name = "skill"
+            file_path = os.path.join(".", f"{safe_name}.zip")
         url = f"{self.RESOURCE_PATH}/{self.encoded_id}/download"
         response = self.context.client.request_raw("get", url)
         with open(file_path, "wb") as handle:
