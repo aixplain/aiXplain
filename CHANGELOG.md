@@ -10,7 +10,8 @@ the same path `session=` takes. The run is recorded as a platform session and it
 is on `result.session_id`; pass it back as `session=` to continue the conversation.
 The run's `execution_params`, `criteria`, `evolve`, `identifier` and
 `run_response_generation`, and the agent's budget, are stored in that session's
-`executionConfig`. Sessions are not deleted automatically.
+`executionConfig`. The SDK does not delete these sessions; the backend removes a
+session after 180 days without activity.
 
 Runs that pass `tasks`, `prompt`, `inspectors`, `history` or `variables`, or a
 non-string `query`, still use `POST /v2/agents/{id}/run` with no session, because the
@@ -20,13 +21,18 @@ session's `executionConfig` and is also sent as the `x-user-id` header on the se
 create and on the message, as the direct path sends it on the run: the backend makes
 the session owned by that end user (without the header a session is visible to every
 caller on the team) and applies per-user rate limits. `run_retries` / `run_retry_wait`
-retry the session create and the message POST on a 429, a 5xx or no response, as they
-retry the direct run POST.
+retry the session create and the message POST on a 429 or a 5xx, as they retry the
+direct run POST.
 
 `run_async(session=...)` is now supported and returns a result whose `url` polls the
 triggered run; it used to raise `NotImplementedError`. Session runs now call the
 agent's `before_run` hook (which saves a new or modified draft agent) and `after_run`
 hook, as direct runs do.
+
+**Behaviour change for existing `session=` callers:** because `before_run` now runs on
+that path too, `agent.run(query, session=...)` on an onboarded agent with unsaved local
+edits raises `ValueError` (it used to run the stale server copy silently), and an edited
+draft agent is saved before the message is posted.
 
 ### Fixed: large uploads failing after 10 seconds on slow connections
 

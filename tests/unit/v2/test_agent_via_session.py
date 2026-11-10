@@ -674,6 +674,55 @@ class TestSessionPathRunsTheAfterRunHook:
             harness.agent.run("hi")
         assert len(seen) == 1 and isinstance(seen[0], RuntimeError)
 
+    def test_run_async_after_run_sees_a_failed_submission(self):
+        harness = _AutoSessionHarness()
+        harness.ctx.Session.add_message = Mock(side_effect=RuntimeError("post failed"))
+        seen = []
+        harness.agent.after_run = lambda result, *a, **k: seen.append(result)
+
+        with pytest.raises(RuntimeError, match="post failed"):
+            harness.agent.run_async("hi")
+        assert len(seen) == 1 and isinstance(seen[0], RuntimeError)
+
+
+class TestExplicitSessionRunsBeginRun:
+    """``session=`` runs go through ``before_run`` too, as the direct path does (BUG-1457)."""
+
+    def test_an_onboarded_agent_with_local_edits_raises_before_posting(self):
+        from aixplain.v2 import AssetStatus
+
+        harness = _AutoSessionHarness()
+        harness.agent.status = AssetStatus.ONBOARDED
+        harness.agent._update_saved_state()
+        harness.agent.instructions = "edited locally, not saved"
+        # Without the guard the run would reach the poll; keep that fast so a regression fails, not hangs.
+        harness.agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result()))
+        session = harness.ctx.Session(agent_id="agent_99")
+        session.id = "sess_given"
+
+        with pytest.raises(ValueError, match="onboarded and cannot be modified"):
+            harness.agent.run("hi", session=session)
+
+        assert harness.posted == []
+
+    def test_an_edited_draft_is_saved_before_the_message_is_posted(self):
+        harness = _AutoSessionHarness()
+        agent = harness.agent
+        agent.instructions = "edited draft"
+        order = []
+        agent.save = lambda *a, **k: order.append("agent.save")
+        harness.ctx.Session.add_message = lambda self, role, content, **kw: (
+            order.append("message"),
+            _user_message(),
+        )[1]
+        agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result()))
+        session = harness.ctx.Session(agent_id="agent_99")
+        session.id = "sess_given"
+
+        agent.run("hi", session=session)
+
+        assert order == ["agent.save", "message"]
+
 
 # ---------------------------------------------------------------------------
 # 9. On the wire: the end user as x-user-id, and run_retries on both POSTs
@@ -889,3 +938,24 @@ class TestSessionRunPollTimeout:
 
         assert poll.call_args.kwargs["timeout"] == 1500 + Agent._POLL_TIMEOUT_ALLOWANCE_SECONDS
 
+    def test_a_sessionless_run_waits_for_the_agents_budget(self):
+        """The session created for a run carries the agent's budget, so the poll waits for it (ENG-3845)."""
+        from aixplain import Budget
+
+        harness = _AutoSessionHarness()
+        harness.agent.budget = Budget(max_duration_seconds=900)
+        harness.agent._update_saved_state()
+
+        with patch.object(Agent, "sync_poll", return_value=AgentRunResult.from_dict(_success_result())) as poll:
+            harness.agent.run("hi")
+
+        assert len(harness.created) == 1
+        assert poll.call_args.kwargs["timeout"] == 900 + Agent._POLL_TIMEOUT_ALLOWANCE_SECONDS
+
+    def test_an_explicit_timeout_still_wins(self):
+        harness = _AutoSessionHarness()
+
+        with patch.object(Agent, "sync_poll", return_value=AgentRunResult.from_dict(_success_result())) as poll:
+            harness.agent.run("hi", timeout=42)
+
+        assert poll.call_args.kwargs["timeout"] == 42

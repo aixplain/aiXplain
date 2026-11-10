@@ -1681,8 +1681,13 @@ class Agent(
             )
 
         if session is not None or self._sessionless_run_reason(kwargs) is None:
-            # Frames up to the user: Agent.run_async -> caller.
-            submitted = self._submit_session_message(session, kwargs, caller_depth=2)
+            try:
+                # Frames up to the user: Agent.run_async -> caller.
+                submitted = self._submit_session_message(session, kwargs, caller_depth=2)
+            except BaseException as exc:
+                # As the direct run_async does: after_run sees a failed submission.
+                self._apply_after_run_failure(exc, **kwargs)
+                raise
             if isinstance(submitted, AgentRunResult):
                 return submitted
             session, user_msg = submitted
@@ -3187,7 +3192,7 @@ class Agent(
 
         The session path's counterpart of ``_submit_with_retries``: the session
         create and the user-message POST each get ``1 + run_retries`` attempts,
-        with the same retryable statuses (429, 5xx, no response) and the same
+        with the same retryable statuses (429, 5xx) and the same
         jittered wait. With ``run_retries`` unset (the default) each is sent
         once, so nothing is ever re-sent unless the caller asked for it. A
         retried message POST has the direct path's at-least-once semantics: if
