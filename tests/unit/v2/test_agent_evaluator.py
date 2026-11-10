@@ -1436,3 +1436,106 @@ def test_experiment_diff_case_falls_back_to_agent_response_for_output() -> None:
     assert len(diff.regressions) == 1
     assert diff.regressions[0].baseline_output == "from_agent"
     assert diff.regressions[0].candidate_output == "from_agent2"
+
+
+# BUG-1460 — EvalCase.reference reaches the metric
+
+
+def _real_metric(name: str = "judge", **fields: bool) -> Metric:
+    from aixplain.v2.agent_evaluator import AgentResponseDataFields
+
+    metric = Metric.__new__(Metric)
+    metric.name = name
+    metric.id = None
+    metric.threshold = None
+    metric.additional_input_prompt = None
+    metric.agent_response_data_fields = AgentResponseDataFields(**fields)
+    return metric
+
+
+def _metric_response() -> MagicMock:
+    mr = MagicMock()
+    mr.status = "SUCCESS"
+    mr.completed = True
+    mr.validated_data = {"score": 1}
+    return mr
+
+
+def test_measure_appends_reference_to_metric_input() -> None:
+    metric = _real_metric(output=True)
+    ard = AgentResponseData(input="Capital of France?", output="Paris", steps=[])
+    with patch.object(Metric, "run", return_value=_metric_response()) as run:
+        metric.measure(ard, reference="Paris")
+    assert run.call_args.kwargs["data"] == {"data": "Output: Paris\nReference: Paris\n"}
+
+
+def test_measure_without_reference_is_unchanged() -> None:
+    metric = _real_metric(query=True, output=True)
+    ard = AgentResponseData(input="q", output="a", steps=[])
+    with patch.object(Metric, "run", return_value=_metric_response()) as run:
+        metric.measure(ard)
+    assert run.call_args.kwargs["data"] == {"data": "Query: q\nOutput: a\n"}
+
+
+def test_eval_sends_case_reference_to_metric() -> None:
+    agent = MagicMock()
+    agent.name = "agent_a"
+    agent.run.return_value = _successful_run_result(
+        AgentResponseData(input="Capital of France?", output="It is Paris.", steps=[])
+    )
+    metric = _real_metric(query=True, output=True)
+
+    with patch.object(Metric, "run", return_value=_metric_response()) as run:
+        result = Eval().evaluate(
+            agent, _eval_ds(EvalCase(query="Capital of France?", reference="Paris")), metrics=[metric]
+        )
+
+    payload = run.call_args.kwargs["data"]["data"]
+    assert "Reference: Paris" in payload
+    assert result.rows[0].metric_value("judge", "metric_status") == "SUCCESS"
+
+
+def test_eval_case_without_reference_calls_measure_positionally() -> None:
+    agent = MagicMock()
+    agent.name = "agent_a"
+    ard = AgentResponseData(input="q", output="a", steps=[])
+    agent.run.return_value = _successful_run_result(ard)
+    metric = MagicMock(spec=Metric)
+    metric.name = "m1"
+    metric.measure.return_value = _metric_response()
+
+    Eval().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
+
+    metric.measure.assert_called_once_with(ard)
+
+
+def test_legacy_measure_override_still_runs_and_warns_once() -> None:
+    class LegacyMetric(Metric):
+        def measure(self, agent_response):  # type: ignore[override]
+            return _metric_response()
+
+    metric = LegacyMetric.__new__(LegacyMetric)
+    metric.name = "legacy"
+    metric.id = None
+    metric.threshold = None
+    agent = MagicMock()
+    agent.name = "agent_a"
+    agent.run.return_value = _successful_run_result(AgentResponseData(input="q", output="a", steps=[]))
+
+    with pytest.warns(UserWarning, match="reference") as record:
+        run = Eval().evaluate(
+            agent,
+            _eval_ds(EvalCase(query="q1", reference="r1"), EvalCase(query="q2", reference="r2")),
+            metrics=[metric],
+        )
+
+    assert len([w for w in record if "reference" in str(w.message)]) == 1
+    assert [row.metric_value("legacy", "metric_status") for row in run.rows] == ["SUCCESS", "SUCCESS"]
+
+
+def test_give_codes_reference_placeholder() -> None:
+    from aixplain.v2.agent_evaluator import AgentResponseDataFields
+
+    fields = AgentResponseDataFields(query=True, output=True)
+    assert fields.give_codes() == {"query": "{{QUERY}}", "output": "{{OUTPUT}}"}
+    assert fields.give_codes(include_reference=True)["reference"] == "{{REFERENCE}}"
