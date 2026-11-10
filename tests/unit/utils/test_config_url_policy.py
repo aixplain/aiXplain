@@ -121,6 +121,7 @@ def test_aixplain_accepts_the_production_defaults():
         ("https://PLATFORM-API.aixplain.com/", "prod"),
         ("https://dev-platform-api.aixplain.com", "dev"),
         ("https://test-platform-api.aixplain.com/api", "test"),
+        ("https://staging-platform-api.aixplain.com", "staging"),
         ("https://evil.tld", "custom"),
         ("https://dev.evil.tld", "custom"),
         ("https://platform-api.aixplain.com.evil.tld", "custom"),

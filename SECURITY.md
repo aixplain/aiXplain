@@ -3,8 +3,8 @@
 ## Supported versions
 
 Security fixes are released for the latest published minor line of the
-`aiXplain` SDK on PyPI (currently `0.3.x`). Older releases do not receive
-backported fixes; upgrade to the latest release to pick them up.
+`aiXplain` SDK on PyPI. Older releases do not receive backported fixes; upgrade
+to the latest release to pick them up.
 
 ## Reporting a vulnerability
 

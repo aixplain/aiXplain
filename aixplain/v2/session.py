@@ -1,6 +1,7 @@
 """Session module for aiXplain v2 SDK."""
 
 import os
+import sys
 import logging
 import mimetypes
 from contextlib import contextmanager
@@ -97,19 +98,54 @@ def _is_hosted_url(value: str) -> bool:
     return value.strip().lower().startswith(_HOSTED_SCHEMES)
 
 
+def _has_dot_component(parts) -> bool:
+    """True if any path component is a dotfile or dot-directory name."""
+    return any(part.startswith(".") and part not in (".", "..") for part in parts)
+
+
+def _dot_component_below_home(path: str) -> bool:
+    """True if ``path`` lies under the home directory inside a dotfile or dot-directory."""
+    for home in {os.path.expanduser("~"), os.path.realpath(os.path.expanduser("~"))}:
+        if path.startswith(home.rstrip(os.sep) + os.sep):
+            return _has_dot_component(Path(os.path.relpath(path, home)).parts)
+    return False
+
+
+def _caller_stacklevel() -> int:
+    """``stacklevel`` that points a warning at the first frame outside the ``aixplain`` package."""
+    package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
+    frame = sys._getframe(1)
+    level = 1
+    while frame is not None and os.path.abspath(frame.f_code.co_filename).startswith(package_dir):
+        frame = frame.f_back
+        level += 1
+    return level
+
+
 def _is_sensitive_local_path(value: str) -> bool:
     """True if a bare-string path names a dotfile/dot-directory or a system tree.
 
     Dot components are checked on the path as written (after ``~`` expansion and
     normalisation), so ``~/.aws/credentials`` and ``./.env`` match while a project
-    that merely lives under a dot-directory does not. System roots are checked on
-    both the written and the resolved path, so a symlink cannot hide ``/etc``.
+    that merely lives under a dot-directory does not; a symlink whose target adds a
+    dot component below the home directory is refused too, so a dot-free link
+    cannot hide ``~/.aws``. System roots are checked on both the written and the
+    resolved path, so a symlink cannot hide ``/etc``. The system-root denylist is
+    POSIX-only; on Windows only the dotfile rule applies.
     """
     try:
         written = os.path.normpath(os.path.expanduser(value))
-        if any(part.startswith(".") and part not in (".", "..") for part in Path(written).parts):
+        if _has_dot_component(Path(written).parts):
             return True
-        candidates = {os.path.abspath(written), os.path.realpath(written)}
+        absolute = os.path.abspath(written)
+        resolved = os.path.realpath(written)
+        # A dot-free symlink can still point into a dot-directory under the
+        # home directory (e.g. ``notes.txt -> ~/.aws/credentials``). Refuse when
+        # resolving adds a dot component below home that the unresolved path
+        # lacks, so a project that merely lives under ``~/.something`` still works.
+        if _dot_component_below_home(resolved) and not _dot_component_below_home(absolute):
+            return True
+        candidates = {absolute, resolved}
     except (ValueError, OSError):
         # e.g. an embedded NUL byte: not a usable path, so refuse it as a
         # ResourceError rather than leak a bare ValueError to the caller.
@@ -311,7 +347,9 @@ def resolve_attachments(
                     # inside aixplain, where Python's default filters would hide a
                     # DeprecationWarning from the end user it is meant for.
                     FutureWarning,
-                    stacklevel=3,
+                    # Point at the user's call (Agent.run / Session.add_message),
+                    # whatever the SDK-internal call depth is.
+                    stacklevel=_caller_stacklevel(),
                 )
                 resolved.append(_upload(value))
         elif isinstance(entry, File):

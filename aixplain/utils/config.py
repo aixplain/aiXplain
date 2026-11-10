@@ -80,6 +80,7 @@ _ENV_BY_HOST = {
     "platform-api.aixplain.com": "prod",
     "test-platform-api.aixplain.com": "test",
     "dev-platform-api.aixplain.com": "dev",
+    "staging-platform-api.aixplain.com": "staging",
 }
 
 

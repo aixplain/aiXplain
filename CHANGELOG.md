@@ -17,7 +17,9 @@
   still uploads but emits a `FutureWarning`. Pass `pathlib.Path(...)` or
   `{"path": ...}` instead. A plain string naming a dotfile or a system path
   (`/etc`, `/proc`, `/sys`, `/dev`, or the `/run/secrets` and `/var/run/secrets`
-  container mounts) is refused before anything is read, and
+  container mounts; the system-path list applies on POSIX only) is refused before
+  anything is read, as is a symlink that resolves into a dot-directory under the
+  home directory, and
   `AIXPLAIN_STRICT_ATTACHMENTS=1` rejects every plain-string local path now.
   URL detection (`http://`, `https://`, `s3://`) is case-insensitive.
 - `Skill.download()` reduces the backend-supplied skill name to a bare file

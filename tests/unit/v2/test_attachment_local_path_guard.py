@@ -17,18 +17,22 @@ import pytest
 from aixplain import ResourceError
 from aixplain.v2.session import STRICT_ATTACHMENTS_ENV_VAR, _is_hosted_url, resolve_attachments
 
+#: The system-root denylist (and NUL-byte handling) is POSIX-only; on Windows
+#: only the dotfile rule applies.
+_posix_only = pytest.mark.skipif(os.name == "nt", reason="system-root denylist is POSIX-only")
+
 SENSITIVE = [
-    "/etc/passwd",
-    "/proc/self/environ",
-    "/sys/kernel/x",
-    "/dev/null",
-    "/var/run/secrets/kubernetes.io/serviceaccount/token",
-    "/run/secrets/db_password",
+    pytest.param("/etc/passwd", marks=_posix_only),
+    pytest.param("/proc/self/environ", marks=_posix_only),
+    pytest.param("/sys/kernel/x", marks=_posix_only),
+    pytest.param("/dev/null", marks=_posix_only),
+    pytest.param("/var/run/secrets/kubernetes.io/serviceaccount/token", marks=_posix_only),
+    pytest.param("/run/secrets/db_password", marks=_posix_only),
     "~/.aws/credentials",
     "./.env",
     ".env",
     "foo/../.ssh/id_rsa",
-    "clip\x00.wav",
+    pytest.param("clip\x00.wav", marks=_posix_only),
 ]
 
 
@@ -78,19 +82,60 @@ def test_sensitive_plain_string_is_refused_before_upload(uploader, value):
     uploader.return_value.upload.assert_not_called()
 
 
-@pytest.mark.parametrize("value", ["/etc/passwd", "~/.aws/credentials"])
+@pytest.mark.parametrize("value", [pytest.param("/etc/passwd", marks=_posix_only), "~/.aws/credentials"])
 def test_sensitive_path_via_files_kwarg_is_refused(uploader, value):
     with pytest.warns(DeprecationWarning), pytest.raises(ResourceError, match="Refusing to upload"):
         resolve_attachments(_ctx(), None, [value])
     uploader.return_value.upload.assert_not_called()
 
 
+@_posix_only
 def test_symlink_into_system_tree_is_refused(uploader, tmp_path):
     link = tmp_path / "innocent.txt"
     os.symlink("/etc/hosts", link)
     with pytest.raises(ResourceError, match="Refusing to upload"):
         resolve_attachments(_ctx(), [str(link)], None)
     uploader.return_value.upload.assert_not_called()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlinks need extra privileges on Windows")
+def test_dot_free_symlink_into_home_dot_directory_is_refused(uploader, tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".aws").mkdir(parents=True)
+    (home / ".aws" / "credentials").write_text("secret")
+    monkeypatch.setenv("HOME", str(home))
+    link = tmp_path / "notes.txt"
+    os.symlink(home / ".aws" / "credentials", link)
+    with pytest.raises(ResourceError, match="Refusing to upload"):
+        resolve_attachments(_ctx(), [str(link)], None)
+    uploader.return_value.upload.assert_not_called()
+
+
+def test_project_under_home_dot_directory_is_not_refused(uploader, tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    work = home / ".agents" / "proj"
+    work.mkdir(parents=True)
+    (work / "clip.wav").write_bytes(b"x")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir(work)
+    with pytest.warns(FutureWarning):
+        resolve_attachments(_ctx(), ["clip.wav"], None)
+    uploader.return_value.upload.assert_called_once()
+
+
+def test_deprecation_warning_points_at_the_callers_line(uploader, tmp_path):
+    from aixplain import Session
+
+    path = tmp_path / "clip.wav"
+    path.write_bytes(b"x")
+    ctx = _ctx()
+    ctx.client = Mock()
+    ctx.client.request.return_value = {}
+    session = Session.from_dict({"id": "s1", "agentId": "agent-1"})
+    session.context = ctx
+    with pytest.warns(FutureWarning, match="plain string") as record:
+        session.add_message(role="user", content="q", attachments=[str(path)])
+    assert [w.filename for w in record if issubclass(w.category, FutureWarning)] == [__file__]
 
 
 def test_benign_plain_string_uploads_with_deprecation_warning(uploader, tmp_path):
@@ -138,7 +183,14 @@ def test_project_under_dot_directory_is_not_refused(uploader, tmp_path, monkeypa
     uploader.return_value.upload.assert_called_once()
 
 
-@pytest.mark.parametrize("value", ["/etc/passwd", "~/.aws/credentials", "/proc/self/environ"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("/etc/passwd", marks=_posix_only),
+        "~/.aws/credentials",
+        pytest.param("/proc/self/environ", marks=_posix_only),
+    ],
+)
 def test_agent_and_session_entry_points_refuse_sensitive_paths(uploader, value):
     from aixplain import Agent, Session
 
