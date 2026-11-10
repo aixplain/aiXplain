@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Union, Any
 from urllib.parse import urljoin
 import requests
 
-from aixplain.utils.url_safety import validate_upload_url
+from aixplain.utils.url_safety import validate_config_url, validate_upload_url
 
 from .exceptions import FileUploadError
 
@@ -246,10 +246,29 @@ class S3Uploader:
 class ConfigManager:
     """Handles configuration and environment variables."""
 
+    DEFAULT_BACKEND_URL = "https://platform-api.aixplain.com"
+
     @classmethod
     def get_backend_url(cls, custom_url: Optional[str] = None) -> str:
-        """Get backend URL from custom value or environment."""
-        return custom_url or os.getenv("BACKEND_URL", "https://platform-api.aixplain.com")
+        """Resolve the backend URL and apply the config-URL policy.
+
+        The upload helpers send ``Authorization: token <key>`` to this URL, so
+        it gets the same check ``Aixplain()`` applies to ``BACKEND_URL``
+        (BUG-1451): https only unless ``AIXPLAIN_ALLOW_INSECURE_URLS=1``, no
+        userinfo, and a one-time WARNING for a non-aiXplain host.
+
+        Args:
+            custom_url: Explicit backend URL; falls back to ``BACKEND_URL`` and
+                then to the public aiXplain platform.
+
+        Returns:
+            str: The validated backend URL.
+
+        Raises:
+            UnsafeURLError: If the resolved URL fails the policy.
+        """
+        url = custom_url or os.getenv("BACKEND_URL") or cls.DEFAULT_BACKEND_URL
+        return validate_config_url(url, "BACKEND_URL")
 
     @classmethod
     def get_api_key(cls, custom_key: Optional[str] = None, required: bool = True) -> str:
@@ -269,7 +288,14 @@ class FileUploader:
         api_key: Optional[str] = None,
         require_api_key: bool = True,
     ):
-        """Initialize file uploader with configuration."""
+        """Initialize file uploader with configuration.
+
+        Raises:
+            UnsafeURLError: If the resolved backend URL fails the config-URL
+                policy (for example plain ``http://`` without
+                ``AIXPLAIN_ALLOW_INSECURE_URLS=1``). Raised here, before any
+                request carries the API key.
+        """
         self.backend_url = ConfigManager.get_backend_url(backend_url)
         self.api_key = ConfigManager.get_api_key(api_key, required=require_api_key)
 
@@ -356,6 +382,10 @@ def upload_file(
 
     Returns:
         S3 path (s3://bucket/key) or download URL
+
+    Raises:
+        UnsafeURLError: If the backend URL (``backend_url`` or ``BACKEND_URL``)
+            fails the config-URL policy; raised before any request is sent.
     """
     uploader = FileUploader(backend_url=backend_url, api_key=api_key)
     return uploader.upload(
