@@ -39,6 +39,10 @@ from aixplain.v2.rlm import RLM, RLMResult, _find_final_answer
         ("FINAL(Great :( sorry)\n\n(Note: computed in the REPL)", ("FINAL", "Great :( sorry")),
         ("FINAL(Option (a is best)\n\nSources (REPL output) checked.", ("FINAL", "Option (a is best")),
         ("FINAL(Option (a is best)\n  \nSources (REPL output) checked.", ("FINAL", "Option (a is best")),
+        # CRLF and non-breaking-space blank lines also end the paragraph.
+        ("FINAL(Great :( sorry)\r\n\r\n(Note: computed in the REPL)", ("FINAL", "Great :( sorry")),
+        ("FINAL(Option (a is best)\r\n\r\nSources (REPL output) checked.", ("FINAL", "Option (a is best")),
+        ("FINAL(Option (a is best)\n\u00a0\nSources (REPL output) checked.", ("FINAL", "Option (a is best")),
         # No ")" in that paragraph at all: the last ")" in the reply is used.
         ("FINAL(first (part\n\nsecond part)", ("FINAL", "first (part\n\nsecond part")),
         ("FINAL(line1\nline2 (x)\nline3)", ("FINAL", "line1\nline2 (x)\nline3")),
@@ -171,6 +175,28 @@ class TestForcedFinalAnswer:
         assert result.status == "FAILED"
         assert result.data == "FINAL_VAR(x)"
         assert "sandbox down" in result.error_message
+        assert result.final_answer_forced is True
+
+    def test_final_var_lookup_error_message_is_redacted(self):
+        secret = "sk-test-secret-value"
+        with (
+            patch.object(RLM, "_secret_values", return_value=[secret]),
+            patch.object(RLM, "_get_repl_variable", side_effect=RuntimeError(f"auth failed for {secret}")),
+        ):
+            result, _, _ = _run(_make_rlm(), "Still thinking.", "FINAL_VAR(x)")
+
+        assert result.status == "FAILED"
+        assert secret not in result.error_message
+        assert rlm_v2._REDACTION_PLACEHOLDER in result.error_message
+
+    # Sandbox stdout as print() emits it for x = "" and x = "   ".
+    @pytest.mark.parametrize("stdout", ["\n", "   \n"])
+    def test_empty_final_var_value_is_failed(self, stdout):
+        result, _, _ = _run(_make_rlm(), "Still thinking.", "FINAL_VAR(x)", repl={"x": stdout})
+
+        assert result.status == "FAILED"
+        assert result.data == "FINAL_VAR(x)"
+        assert "empty" in result.error_message
         assert result.final_answer_forced is True
 
     def test_invalid_identifier_is_failed_without_sandbox_call(self):

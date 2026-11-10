@@ -393,7 +393,7 @@ def _find_code_blocks(text: str) -> Optional[List[str]]:
 _FINAL_START_RE = re.compile(r"^\s*FINAL\(", re.MULTILINE)
 
 
-_PARAGRAPH_BREAK_RE = re.compile(r"\n[ \t]*\n")
+_PARAGRAPH_BREAK_RE = re.compile(r"\n[^\S\n]*\n")
 
 
 def _extract_final_content(text: str, start: int) -> Optional[str]:
@@ -1427,6 +1427,8 @@ del _url, _r
                 return None, self._redact(f"forced final answer FINAL_VAR({content!r}) lookup failed: {exc}")
             if value is None:
                 return None, f"forced final answer FINAL_VAR({content!r}) could not be resolved"
+            if not value.strip():
+                return None, f"forced final answer FINAL_VAR({content!r}) was empty"
             return value, None
         if not content:
             return None, "forced final answer FINAL(...) was empty"
