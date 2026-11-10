@@ -27,6 +27,7 @@ Closing that window requires connecting to the pinned address with an explicit
 import ipaddress
 import logging
 import os
+import re
 import socket
 from typing import Any, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin, urlparse
@@ -44,11 +45,17 @@ ALLOW_PRIVATE_FETCH_ENV_VAR = "AIXPLAIN_ALLOW_PRIVATE_FETCH"
 #: Comma-separated extra hosts/suffixes accepted by :func:`validate_upload_url`.
 UPLOAD_ALLOWLIST_ENV_VAR = "AIXPLAIN_UPLOAD_HOST_ALLOWLIST"
 
+#: Optional comma-separated S3 bucket names. When set, a presigned upload to an
+#: S3 host must target one of these buckets (BUG-1452).
+UPLOAD_S3_BUCKETS_ENV_VAR = "AIXPLAIN_UPLOAD_S3_BUCKETS"
+
 #: Host suffix considered "an aiXplain endpoint" for the config-URL warning.
 AIXPLAIN_HOST_SUFFIX = "aixplain.com"
 
-#: Upload hosts accepted without configuration.
-DEFAULT_UPLOAD_HOST_SUFFIXES = ("amazonaws.com", "aixplain.com")
+#: Upload host suffixes accepted without configuration. ``amazonaws.com`` is no
+#: longer a blanket suffix (BUG-1452): AWS hosts are accepted only when they have
+#: an S3 shape, see :func:`validate_upload_url`.
+DEFAULT_UPLOAD_HOST_SUFFIXES = ("aixplain.com",)
 
 # Deliberately tighter than the API client's 300s read timeout: this fetches an
 # arbitrary caller-supplied URL, so it bounds an attacker-controlled peer rather
@@ -63,10 +70,22 @@ _ALLOWED_SCHEMES = frozenset({"http", "https"})
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 _METADATA_HOSTS = frozenset({"metadata.google.internal", "metadata.goog"})
-_METADATA_IPS = frozenset({"169.254.169.254", "fd00:ec2::254"})
+# Cloud metadata / credential endpoints that stay refused even under the
+# private-fetch opt-in (BUG-1452): no deployment's artifact host lives here.
+_METADATA_IPS = frozenset({"169.254.169.254", "fd00:ec2::254", "100.100.100.200"})
+_METADATA_NETWORKS = (
+    ipaddress.ip_network("169.254.0.0/16"),  # IPv4 link-local: AWS/GCP/Azure IMDS, ECS task metadata
+    ipaddress.ip_network("fd00:ec2::/32"),  # AWS IMDS over IPv6
+)
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 # NAT64: ``64:ff9b::7f00:1`` is 127.0.0.1 reached over IPv6.
 _NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+# S3 host shapes: virtual-hosted (``<bucket>.s3[.-<region>].amazonaws.com``) and
+# path-style (``s3[.-<region>].amazonaws.com/<bucket>/...``), with the optional
+# ``dualstack`` label.
+_S3_ENDPOINT = r"s3(?:[.-](?:dualstack\.)?[a-z0-9-]+)?\.amazonaws\.com"
+_S3_VIRTUAL_HOST = re.compile(r"^(?P<bucket>[a-z0-9][a-z0-9.\-]{1,61}[a-z0-9])\." + _S3_ENDPOINT + r"$")
+_S3_PATH_HOST = re.compile(r"^" + _S3_ENDPOINT + r"$")
 
 # ``(variable, host)`` pairs already warned about, so a module reload or a second
 # ``Aixplain()`` does not repeat the line. A plain set (not ``lru_cache``) so a
@@ -193,9 +212,45 @@ def _classify_address(raw: str) -> Union[ipaddress.IPv4Address, ipaddress.IPv6Ad
     return address
 
 
+def _embedded_ipv4(
+    address: Union[ipaddress.IPv4Address, ipaddress.IPv6Address],
+) -> Optional[ipaddress.IPv4Address]:
+    """Return the IPv4 address carried inside an IPv6 *address*, if any.
+
+    Covers IPv4-mapped (``::ffff:a.b.c.d``), 6to4 and NAT64 (``64:ff9b::/96``)
+    forms. Used only by the metadata check, so the default-mode blanket NAT64
+    block in :func:`_is_blocked_address` is not loosened.
+    """
+    if not isinstance(address, ipaddress.IPv6Address):
+        return None
+    embedded = address.ipv4_mapped or address.sixtofour
+    if embedded is not None:
+        return embedded
+    if address in _NAT64_PREFIX:
+        return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
+    return None
+
+
+def _is_metadata_address(address: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> bool:
+    """True if *address* (or the IPv4 it embeds) is a cloud metadata endpoint.
+
+    Refused regardless of ``AIXPLAIN_ALLOW_PRIVATE_FETCH``.
+    """
+    candidates = [address]
+    embedded = _embedded_ipv4(address)
+    if embedded is not None:
+        candidates.append(embedded)
+    for candidate in candidates:
+        if str(candidate) in _METADATA_IPS:
+            return True
+        if any(candidate.version == network.version and candidate in network for network in _METADATA_NETWORKS):
+            return True
+    return False
+
+
 def _is_blocked_address(address: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> bool:
     """True if *address* is one the SDK must never be pointed at."""
-    if str(address) in _METADATA_IPS:
+    if _is_metadata_address(address):
         return True
     if isinstance(address, ipaddress.IPv6Address) and address in _NAT64_PREFIX:
         return True
@@ -237,7 +292,10 @@ def validate_fetch_url(url: str) -> str:
 
     Set ``AIXPLAIN_ALLOW_PRIVATE_FETCH=1`` on an on-prem deployment whose
     artifact host lives on a private range. That opt-in relaxes the *private
-    range* rule only -- the cloud metadata endpoints stay refused either way.
+    range* rule only -- the cloud metadata endpoints stay refused either way:
+    all of link-local ``169.254.0.0/16`` (AWS/GCP/Azure IMDS, ECS task
+    credentials), ``fd00:ec2::/32``, ``100.100.100.200`` (Alibaba Cloud), and
+    the same addresses embedded in IPv4-mapped, 6to4 or NAT64 IPv6 forms.
     Nobody's artifact host is ``169.254.169.254``, and the flag exists to reach
     an internal file server, not to let a caller-supplied (or model-generated)
     URL read the container's instance credentials and upload them.
@@ -263,7 +321,7 @@ def validate_fetch_url(url: str) -> str:
             address = _classify_address(raw)
         except ValueError as exc:
             raise UnsafeURLError(f"Host {host!r} resolved to an unusable address {raw!r}: {exc}")
-        if str(address) in _METADATA_IPS:
+        if _is_metadata_address(address):
             raise UnsafeURLError(
                 f"Refusing to fetch {url!r}: host {host!r} resolves to the cloud metadata address "
                 f"{address}, which stays blocked even under {ALLOW_PRIVATE_FETCH_ENV_VAR}."
@@ -392,6 +450,26 @@ def safe_get(
     raise UnsafeURLError(f"Refusing to follow more than {max_redirects} redirects from {url!r}")
 
 
+def _configured_s3_buckets() -> Tuple[str, ...]:
+    """Return the bucket names from ``AIXPLAIN_UPLOAD_S3_BUCKETS`` (lower-cased)."""
+    raw = os.getenv(UPLOAD_S3_BUCKETS_ENV_VAR, "")
+    return tuple(entry.strip().lower() for entry in raw.split(",") if entry.strip())
+
+
+def _s3_bucket(parsed: Any) -> Optional[str]:
+    """Return the bucket an S3-shaped upload URL targets, or ``None`` if not S3.
+
+    Returns an empty string for a path-style S3 URL that names no bucket.
+    """
+    host = parsed.hostname.lower().rstrip(".")
+    virtual = _S3_VIRTUAL_HOST.match(host)
+    if virtual:
+        return virtual.group("bucket")
+    if _S3_PATH_HOST.match(host):
+        return parsed.path.lstrip("/").split("/", 1)[0].lower()
+    return None
+
+
 def _upload_host_suffixes() -> Tuple[str, ...]:
     """Return the allowed upload host suffixes, including the env extension."""
     extra = os.getenv(UPLOAD_ALLOWLIST_ENV_VAR, "")
@@ -407,9 +485,14 @@ def validate_upload_url(url: str) -> str:
     receive every dataset, database file, skill bundle and attachment while the
     SDK reported success (BUG-939).
 
-    ``*.amazonaws.com`` and ``*.aixplain.com`` are allowed by default; extend
-    with a comma-separated ``AIXPLAIN_UPLOAD_HOST_ALLOWLIST`` (each entry may be
-    a bare host, ``.suffix`` or ``*.suffix``). https is required unless
+    Accepted by default: ``*.aixplain.com`` and S3 hosts
+    (``<bucket>.s3[.<region>].amazonaws.com`` or path-style
+    ``s3[.<region>].amazonaws.com/<bucket>``). Other ``amazonaws.com`` hosts
+    (API Gateway, Lambda URLs, load balancers, ...) are refused (BUG-1452).
+    Set a comma-separated ``AIXPLAIN_UPLOAD_S3_BUCKETS`` to also pin S3 uploads
+    to specific buckets. Extend the host list with a comma-separated
+    ``AIXPLAIN_UPLOAD_HOST_ALLOWLIST`` (each entry may be a bare host,
+    ``.suffix`` or ``*.suffix``). https is required unless
     ``AIXPLAIN_ALLOW_INSECURE_URLS=1``.
 
     Args:
@@ -428,9 +511,17 @@ def validate_upload_url(url: str) -> str:
         )
     host = parsed.hostname.lower()
     suffixes = _upload_host_suffixes()
-    if not any(_host_matches(host, suffix) for suffix in suffixes):
+    if any(_host_matches(host, suffix) for suffix in suffixes):
+        return url
+    bucket = _s3_bucket(parsed)
+    if bucket is not None:
+        buckets = _configured_s3_buckets()
+        if not buckets or bucket in buckets:
+            return url
         raise UnsafeURLError(
-            f"Refusing to upload to unexpected host {host!r}. Allowed: {', '.join(suffixes)}. "
-            f"Set {UPLOAD_ALLOWLIST_ENV_VAR} to add a host."
+            f"Refusing to upload to S3 bucket {bucket!r}: it is not listed in {UPLOAD_S3_BUCKETS_ENV_VAR}."
         )
-    return url
+    raise UnsafeURLError(
+        f"Refusing to upload to unexpected host {host!r}. Allowed: {', '.join(suffixes)} and S3 bucket hosts. "
+        f"Set {UPLOAD_ALLOWLIST_ENV_VAR} to add a host."
+    )
