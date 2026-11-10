@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Changed: tighter URL and context handling (BUG-1451)
+
+- A `.env` in the working directory can no longer set `BACKEND_URL`,
+  `*_RUN_URL`, `AIXPLAIN_TRUSTED_HOSTS`, `AIXPLAIN_ALLOW_PRIVATE_FETCH`,
+  `AIXPLAIN_UPLOAD_HOST_ALLOWLIST`, `AIXPLAIN_ALLOW_INSECURE_URLS`,
+  `SENTRY_DSN`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`,
+  `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`, `SSL_CERT_FILE` or `SSL_CERT_DIR`.
+  They are ignored with a warning; export them in the shell or CI instead. An
+  https `*.aixplain.com` value for `BACKEND_URL` / `*_RUN_URL` is still loaded.
+- `upload_file()` and `FileUploader` now apply the same URL policy as
+  `Aixplain()`: a plain `http://` backend (including `http://localhost`) is
+  refused unless `AIXPLAIN_ALLOW_INSECURE_URLS=1` is exported.
+- URLs whose host is malformed (for example containing `\`, whitespace or
+  control characters) are refused by the URL policy and the trusted-origin
+  check.
+- `validate_fetch_url` now refuses every non-global address, including
+  100.64.0.0/10, unless `AIXPLAIN_ALLOW_PRIVATE_FETCH=1` is set; cloud metadata
+  addresses stay refused either way.
+- `RLM.run(data=str)` no longer reads a file when the string names one; a `str`
+  is always text (or a URL). Pass `pathlib.Path(...)` or `context_path=` to load
+  a file. A `FutureWarning` is emitted once when a `str` names an existing file.
+  Parallel and rag results are now redacted like recursive results.
+
 ### Added: SDK type information
 
 The package now ships `py.typed`. Type checkers such as mypy will check SDK

@@ -280,6 +280,15 @@ def test_private_fetch_opt_in_does_not_reopen_alibaba_metadata(resolver, monkeyp
         validate_fetch_url("http://100.100.100.200/latest/meta-data/")
 
 
+@pytest.mark.parametrize("address", ["64:ff9b::a9fe:a9fe", "64:ff9b::6464:64c8"])
+def test_private_fetch_opt_in_does_not_reopen_nat64_metadata(address, resolver, monkeypatch):
+    """The NAT64 form of a metadata address stays blocked under the opt-in."""
+    monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
+    resolver({"innocent.example": [address]})
+    with pytest.raises(UnsafeURLError, match="metadata"):
+        validate_fetch_url("http://innocent.example/")
+
+
 def test_private_fetch_opt_in_allows_shared_address_space(resolver, monkeypatch):
     """An on-prem artifact host on a CGNAT/Tailscale address is reachable with the opt-in."""
     monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
@@ -503,3 +512,44 @@ def test_upload_allowlist_env_var_extends_the_defaults(monkeypatch):
     assert validate_upload_url("https://a.cdn.example.org/x")
     with pytest.raises(UnsafeURLError):
         validate_upload_url("https://other.example.com/x")
+
+
+# --------------------------------------------------------------------------
+# Hosts that urllib.parse and urllib3 read differently (BUG-1451 review)
+# --------------------------------------------------------------------------
+
+MALFORMED_HOST_URLS = [
+    "https://evil.example\\.platform-api.aixplain.com/",
+    "https://evil.example\\@platform-api.aixplain.com/",
+    "https://evil.example\t.platform-api.aixplain.com/",
+    "https://evil.example\n.platform-api.aixplain.com/",
+    "https://evil.example%2f.platform-api.aixplain.com/",
+]
+
+
+@pytest.mark.parametrize("url", MALFORMED_HOST_URLS)
+def test_malformed_host_is_rejected_by_config_policy(url, caplog):
+    with pytest.raises(UnsafeURLError):
+        validate_config_url(url, "BACKEND_URL")
+
+
+@pytest.mark.parametrize("url", MALFORMED_HOST_URLS)
+def test_malformed_host_is_rejected_by_fetch_policy(url, resolver):
+    resolver({})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://platform-api.aixplain.com/sdk/x?a=b\\c",
+        "https://Platform-API.aixplain.com:443/",
+        "http://[::1]:8000/",
+        "http://127.0.0.1:8000/",
+    ],
+)
+def test_well_formed_hosts_stay_unambiguous(url):
+    from urllib.parse import urlparse
+
+    assert url_safety.is_unambiguous_host(url, urlparse(url).hostname)

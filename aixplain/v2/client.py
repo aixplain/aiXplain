@@ -10,6 +10,7 @@ import requests
 from requests.adapters import HTTPAdapter, Retry
 from urllib.parse import urljoin, urlparse
 
+from ..utils.url_safety import is_unambiguous_host
 from .exceptions import APIError, UntrustedURLError
 
 logger = logging.getLogger(__name__)
@@ -326,7 +327,9 @@ def normalize_origin(url: str) -> Optional[Origin]:
     (``https://platform-api.aixplain.com@evil.example.com/x``) cannot disguise the
     real target and so ``:443`` compares equal to the implicit default. Returns
     ``None`` for anything that is not a parseable http(s) URL with a host, and for
-    URLs carrying userinfo, which a legitimate aiXplain endpoint never does.
+    URLs carrying userinfo, which a legitimate aiXplain endpoint never does, and
+    for malformed authorities where ``urllib3`` would connect to a different host
+    than ``urlparse`` reports.
     """
     try:
         parsed = urlparse(url)
@@ -340,7 +343,7 @@ def normalize_origin(url: str) -> Optional[Origin]:
         host, port = parsed.hostname, parsed.port
     except ValueError:  # malformed port, e.g. "https://host:notaport/x"
         return None
-    if not host:
+    if not host or not is_unambiguous_host(url, host):
         return None
     # ``port is None`` means "not specified", which is the scheme default. An
     # explicit ``:0`` is a distinct (unconnectable) origin, so it must not be

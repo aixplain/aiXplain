@@ -162,3 +162,11 @@ def test_plain_text_does_not_warn(dotenv_dir):
         warnings.simplefilter("always")
         _make_rlm().run(data="just some prose, not a file", mode="parallel")
     assert not [w for w in caught if issubclass(w.category, FutureWarning)]
+
+
+@pytest.mark.parametrize("text", ["\\\\server\\share\\x", "//server/share/x"])
+def test_unc_like_text_is_not_probed(text, monkeypatch):
+    probed = []
+    monkeypatch.setattr(rlm_v2.os.path, "isfile", lambda p: probed.append(p) or False)
+    rlm_v2._warn_if_str_names_a_file(text)
+    assert probed == []

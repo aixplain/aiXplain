@@ -403,11 +403,15 @@ def _warn_if_str_names_a_file(text: str) -> None:
     Before BUG-1451, ``RLM.run`` opened any ``str`` that happened to be an
     existing path, so end-user text such as ``".env"`` read server files. A
     ``str`` is now always text (or a URL). This only tells callers who relied
-    on the old behaviour how to migrate; it never opens the file, and the
-    message carries neither the path nor any content.
+    on the old behaviour how to migrate; it never opens the file, never probes
+    a Windows UNC (network share) path, and the message carries neither the path
+    nor any content.
     """
     global _STR_PATH_WARNED
     if _STR_PATH_WARNED or len(text) > _STR_PATH_PROBE_MAX_LEN or "\n" in text:
+        return
+    if text.startswith(("\\\\", "//")):
+        # A UNC path: probing it would make Windows contact that server.
         return
     try:
         names_a_file = os.path.isfile(text)

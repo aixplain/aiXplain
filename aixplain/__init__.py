@@ -20,6 +20,7 @@ limitations under the License.
 
 import os
 import logging
+import re
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
@@ -36,6 +37,15 @@ _DOTENV_PROTECTED_NAMES = frozenset(
         "AIXPLAIN_UPLOAD_HOST_ALLOWLIST",
         "AIXPLAIN_ALLOW_INSECURE_URLS",
         "SENTRY_DSN",
+        # ``requests`` honours these for every SDK session: a proxy plus a CA
+        # bundle shipped with a project could read the key in transit.
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "REQUESTS_CA_BUNDLE",
+        "CURL_CA_BUNDLE",
+        "SSL_CERT_FILE",
+        "SSL_CERT_DIR",
     }
 )
 #: Suffix covering ``MODELS_RUN_URL``, ``PIPELINES_RUN_URL`` and future endpoints.
@@ -43,6 +53,11 @@ _DOTENV_PROTECTED_SUFFIXES = ("_RUN_URL",)
 #: Endpoint names whose dotenv value is kept when it is an https aiXplain host.
 _DOTENV_ENDPOINT_NAMES = frozenset({"BACKEND_URL"})
 _AIXPLAIN_HOST_SUFFIX = "aixplain.com"
+#: Plain LDH host names only: ``urllib.parse`` and ``urllib3`` (what ``requests``
+#: connects with) can disagree about where a host ending in ``\`` or carrying
+#: whitespace stops, so such values are never exempt.
+_DOTENV_HOST_RE = re.compile(r"[a-z0-9.-]+")
+_DOTENV_AUTHORITY_FORBIDDEN_RE = re.compile(r"[\\\s\x00-\x1f\x7f]")
 
 
 def _is_protected_dotenv_name(name: str) -> bool:
@@ -70,6 +85,10 @@ def _is_aixplain_https_endpoint(name: str, value: str) -> bool:
         return False
     if parsed.scheme != "https" or has_userinfo or not host:
         return False
+    authority = value.strip().partition("://")[2]
+    authority = re.split(r"[/?#]", authority, maxsplit=1)[0]
+    if _DOTENV_AUTHORITY_FORBIDDEN_RE.search(authority) or not _DOTENV_HOST_RE.fullmatch(host):
+        return False
     return host == _AIXPLAIN_HOST_SUFFIX or host.endswith("." + _AIXPLAIN_HOST_SUFFIX)
 
 
@@ -88,8 +107,10 @@ def _load_cwd_dotenv() -> bool:
     cloned project, so it may not set the names that decide where the key goes
     or loosen the URL policy: ``BACKEND_URL``, ``*_RUN_URL``,
     ``AIXPLAIN_TRUSTED_HOSTS``, ``AIXPLAIN_ALLOW_PRIVATE_FETCH``,
-    ``AIXPLAIN_UPLOAD_HOST_ALLOWLIST``, ``AIXPLAIN_ALLOW_INSECURE_URLS`` and
-    ``SENTRY_DSN`` (BUG-1451). Those are dropped with a WARNING that names the
+    ``AIXPLAIN_UPLOAD_HOST_ALLOWLIST``, ``AIXPLAIN_ALLOW_INSECURE_URLS``,
+    ``SENTRY_DSN``, and the proxy / CA-bundle variables ``requests`` honours
+    (``HTTP(S)_PROXY``, ``ALL_PROXY``, ``REQUESTS_CA_BUNDLE``,
+    ``CURL_CA_BUNDLE``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR``) (BUG-1451). Those are dropped with a WARNING that names the
     variable (never its value) unless they were already exported. An https
     ``*.aixplain.com`` value for ``BACKEND_URL`` / ``*_RUN_URL`` is kept, since
     it cannot send the key outside aiXplain. Everything else, including

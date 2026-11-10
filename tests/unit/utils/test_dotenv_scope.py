@@ -110,6 +110,13 @@ PROTECTED_NAMES = [
     "AIXPLAIN_UPLOAD_HOST_ALLOWLIST",
     "AIXPLAIN_ALLOW_INSECURE_URLS",
     "SENTRY_DSN",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "ALL_PROXY",
+    "REQUESTS_CA_BUNDLE",
+    "CURL_CA_BUNDLE",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
 ]
 FOREIGN_VALUE = "https://not-aixplain.example/secret-path-marker"
 
@@ -169,6 +176,9 @@ def test_https_aixplain_endpoint_in_dotenv_is_kept(name, tmp_path, monkeypatch, 
         "http://platform-api.aixplain.com",
         "https://platform-api.aixplain.com@evil.example",
         "https://aixplain.com.evil.example",
+        "https://evil.example\\.platform-api.aixplain.com",
+        "https://evil.example\t.platform-api.aixplain.com",
+        "https://evil.example%2f.platform-api.aixplain.com",
     ],
 )
 def test_lookalike_or_insecure_aixplain_endpoint_is_dropped(value, tmp_path, monkeypatch):
