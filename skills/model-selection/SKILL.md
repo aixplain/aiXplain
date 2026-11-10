@@ -10,7 +10,7 @@ The catalog changes every week, so this skill never answers from memory. It comb
 | Source | What it gives | Changes |
 |---|---|---|
 | Marketplace Search MCP (`mcp__aixplain-marketplace-search__*`) | what exists now: id, path, price, ZDR, description | live |
-| `references/tiers.json` | the team's reviewed tier and strengths per LLM | weekly PR |
+| `references/tiers.json` | the team's tier and strengths per LLM (`reviewed: null` = not yet checked by a person) | weekly PR |
 | A test run on the user's examples | which candidate actually works for their project | per project |
 
 Every model name, price and ZDR value you report must come from a tool result or `tiers.json`. Never
@@ -69,6 +69,8 @@ Start from the tier the job needs, match `good_for` to the job, and keep only mo
 live results from step 2 (a model in `tiers.json` but not in the catalog has been removed: skip it).
 A model in the catalog but not in `tiers.json` is new and unreviewed: you may include it, labelled
 "new, not yet reviewed", judged only from its description.
+A `tiers.json` entry with `reviewed: null` rests on the vendor description only: label its tier
+"unreviewed" when you report it.
 
 ## 4. Shortlist and price it
 
@@ -124,7 +126,7 @@ Lead with the recommendation and one line of why, then a short table:
 |---|---|---|---|---|---|
 
 Then how to use it (`aix.Model.get("<path>")`, or `agent.llm = "<id>"`), and what you assumed.
-Say when a tier is "new, not yet reviewed". Never paste raw tool JSON.
+Say when a model is "new, not yet reviewed" or its tier is "unreviewed". Never paste raw tool JSON.
 
 ## Keeping this skill current (maintainers)
 
@@ -135,4 +137,7 @@ Say when a tier is "new, not yet reviewed". Never paste raw tool JSON.
 - `.github/workflows/model-selection-refresh.yaml` runs the refresh every Monday. It opens a PR with
   the new snapshot and a report: new models to tier, removed models still in `tiers.json`, price and
   ZDR changes, and prices that look like the wrong unit. A reviewer updates `tiers.json` in the same
-  PR before merging.
+  PR before merging. The job fails instead of writing a report if the fetch does not
+  return every LLM the marketplace counts.
+- Scheduled and manual runs only fire from the default branch (`main`), and the PR they open targets
+  `main`. Port `catalog.json` and `tiers.json` changes back to `development` so the two do not drift.
