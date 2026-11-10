@@ -58,6 +58,7 @@ INTERNAL_ALLOWLIST = frozenset(
         "BaseRunParams",
         "BaseSearchParams",
         "FileSearchParams",
+        "IndexRunParams",
         "IntegrationSearchParams",
         "ModelRunParams",
         "ModelSearchParams",

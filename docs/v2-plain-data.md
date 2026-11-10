@@ -53,8 +53,9 @@ points that know they hold caller input (`Agent.__setattr__`,
 
 ## Enums
 
-`TokenType` is a plain `Enum`; every other enum in `v2` subclasses `str`, so the
-string form already worked at runtime and only the *annotation* was missing.
+`TokenType`, `IndexFilterOperator` and `IndexStores` are plain `Enum`s; every
+other enum in `v2` subclasses `str`, so the string form already worked at runtime
+and only the *annotation* was missing.
 
 A string outside the enum raises `ValidationError` naming the accepted values
 (`plain_data.coerce_enum`). It is never stored and sent. A value decoded from a
@@ -62,12 +63,13 @@ backend response is exempt: it arrives as a `WireValue`, so a value added on the
 backend after this SDK was released cannot break reading an agent.
 
 An alias only earns its place by being **attached** to something: the runtime
-already accepted the string, so the annotation is the entire point. Five have no
+already accepted the string, so the annotation is the entire point. Four have no
 annotation site yet, because the SDK exports the enum but never takes it as a
 typed parameter — `AttachmentTypeValue` and `StorageTypeValue` (both inferred,
 never passed), `AuthenticationSchemeValue` (integration connect takes untyped
-`**kwargs`), `LicenseValue` (documented but not a parameter) and
-`SplittingOptionsValue` (index chunking has no v2 surface). They are listed in
+`**kwargs`) and `LicenseValue` (documented but not a parameter).
+`SplittingOptionsValue` left that list when index chunking got a v2 surface
+(`Splitter.split_by`, BUG-1455). They are listed in
 `UNATTACHED_ALIASES` in the test module, so the gap stays a decision rather than
 an oversight, and the rest are guarded by
 `test_literal_alias_is_used_in_an_annotation`.
@@ -78,9 +80,11 @@ an oversight, and the rest are guarded by
 | `AttachmentType` | input | Session message attachments. `AttachmentTypeValue`. |
 | `AuthenticationScheme` | input | Integration connect. `AuthenticationSchemeValue`. |
 | `ContextOverflowStrategy` | input | `agent.context_overflow_strategy`; `none` opts out of condensation. `ContextOverflowStrategyValue`. |
-| `DataType` | input | `UtilityModelInput.type`. `DataTypeValue`. |
+| `DataType` | input | `UtilityModelInput.type`, `Record.value_type`. `DataTypeValue`. |
+| `EmbeddingModel` | input | `AirParams.embedding_model`, `aix.Index.create(embedding_model=...)`. No `Literal` alias: the field also takes any embedding model ID, so an alias of the four members would reject valid input. |
 | `FileType` | input | `File.file_type`. `FileTypeValue`. |
 | `Function` | input | Model/tool search filter. `FunctionValue`. |
+| `IndexFilterOperator` | input | `IndexFilter.operator`; the string operator (`"=="`, `"in"`, ...) is passed through unchanged. |
 | `IssueSeverity` | input | `aix.issue.report(severity=...)`. `IssueSeverityValue`. |
 | `Language` | input | Search filter. `LanguageValue`. |
 | `License` | input | Asset licence. `LicenseValue`. |
@@ -89,7 +93,7 @@ an oversight, and the rest are guarded by
 | `Privacy` | input | `File.privacy`. `PrivacyValue`. |
 | `ProgressFormat` | input | `agent.run(progress_format=...)`. `ProgressFormatValue`. |
 | `SortBy`, `SortOrder` | input | Search params. `SortByValue`, `SortOrderValue`. |
-| `SplittingOptions` | input | Index chunking. `SplittingOptionsValue`. |
+| `SplittingOptions` | input | Index chunking, `Splitter.split_by`. `SplittingOptionsValue`. |
 | `StorageType` | input | File storage. `StorageTypeValue`. |
 | `Supplier` | input | Search filter. `SupplierValue`. |
 | `TokenType` | input | API key limits (PROD-2917). `TokenTypeValue`. |
@@ -102,10 +106,11 @@ an oversight, and the rest are guarded by
 | `EvolveType` | internal | Exported; no call site in the SDK. |
 | `FileContentType` | internal | Exported; no call site in the SDK. |
 | `FunctionType` | internal | Exported; no call site in the SDK. |
+| `IndexStores` | internal | Store-model ids behind `AirParams`, `VectaraParams`, `GraphRAGParams`, `ZeroEntropyParams`; callers pick the params class, not the member. A plain `Enum` with dict values. |
 | `MessageRole` | internal | Exported; `SessionMessage.role` is a plain `str`. |
 | `Reaction` | internal | Exported; the reaction field is a plain `str`. |
 
-The six **internal** enums are exported but referenced nowhere in `aixplain/v2`.
+The six **internal** enums other than `IndexStores` are exported but referenced nowhere in `aixplain/v2`.
 They are left as they are rather than given an alias: an alias is another thing
 to keep in sync, and nothing passes these in today. If a call site appears,
 promote the enum to *input* here and add its alias.
@@ -150,7 +155,7 @@ adding a field needs no second edit.
 `AgentEvaluationRow`, `AgentEvaluationRun`, `APIKeyUsageLimit`, `Artifact`,
 `BaseResult`, `CompletionTokensDetails`, `DebugResult`, `DeleteResult`, `Detail`,
 `Experiment`, `ExperimentRun`, `ExperimentRunDiff`, `ExperimentRunDiffCase`,
-`IntegrationResult`, `Message`, `ModelResult`, `MetricResponse`, `Parameter`,
+`IndexResult`, `IntegrationResult`, `Message`, `ModelResult`, `MetricResponse`, `Parameter`,
 `Pricing`, `PromptTokensDetails`, `Result`, `RLMResult`, `SessionMessage`,
 `StreamChunk`, `ToolResult`, `Usage`, `VendorInfo`, `Version`.
 
@@ -173,9 +178,9 @@ So are the inspector structs (`_ActionConfig`, `_Judge`) and `Inspector` itself.
 
 ### Resources
 
-The 15 resource classes bound on an `Aixplain` client (`Agent`, `Model`, `Tool`,
+The 16 resource classes bound on an `Aixplain` client (`Agent`, `Model`, `Tool`,
 `Skill`, `Utility`, `File`, `Trigger`, `Session`, `APIKey`, `Integration`,
-`Inspector`, `Debugger`, `RLM`, `Metric`, `Resource`) are not config structs.
+`Index`, `Inspector`, `Debugger`, `RLM`, `Metric`, `Resource`) are not config structs.
 They are constructed through the client and are out of scope for this rule.
 
 ## Keeping this honest

@@ -13,6 +13,7 @@ from .tool import Tool
 from .skill import Skill
 from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
 from .integration import Integration
+from .index import Index
 from .trigger import Trigger
 from .file import File
 from .inspector import Inspector
@@ -31,6 +32,7 @@ ToolType = Type[Tool]
 SkillType = Type[Skill]
 MetricType = Type[MetricBase]
 IntegrationType = Type[Integration]
+IndexType = Type[Index]
 TriggerType = Type[Trigger]
 FileResourceType = Type[File]
 InspectorType = Type[Inspector]
@@ -61,6 +63,7 @@ class Aixplain:
     Metric: MetricType = None
     Eval: type = None
     Integration: IntegrationType = None
+    Index: IndexType = None
     Trigger: TriggerType = None
     File: FileResourceType = None
     Inspector: InspectorType = None
@@ -97,9 +100,11 @@ class Aixplain:
     AuthenticationScheme = enums.AuthenticationScheme
     CodeInterpreterModel = enums.CodeInterpreterModel
     DataType = enums.DataType
+    EmbeddingModel = enums.EmbeddingModel
     EvolveType = enums.EvolveType
     FileContentType = enums.FileContentType
     FunctionType = enums.FunctionType
+    IndexStores = enums.IndexStores
     SplittingOptions = enums.SplittingOptions
 
     BACKEND_URL = "https://platform-api.aixplain.com"
@@ -170,6 +175,7 @@ class Aixplain:
         self.Metric = type("Metric", (MetricBase,), {"context": self})
         self.Eval = EvalClass
         self.Integration = type("Integration", (Integration,), {"context": self})
+        self.Index = type("Index", (Index,), {"context": self})
         self.Trigger = type("Trigger", (Trigger,), {"context": self})
         self.File = type("File", (File,), {"context": self})
         # ``Resource`` is a deprecated alias for ``File``, not a separate

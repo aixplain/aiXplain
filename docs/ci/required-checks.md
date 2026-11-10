@@ -49,6 +49,7 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | — | `functional (debugger)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (eval)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (file)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (index)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (integration)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (issue)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (model)` | `main.yaml` | Yes, when in scope | as above |
