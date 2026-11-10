@@ -1,0 +1,32 @@
+{
+  "contract": "The supplier fails before any token: an error frame and the end of the stream.",
+  "family": "openai",
+  "request": {
+    "tools": [],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream"
+    },
+    "sse": [
+      "data: {\"error\": {\"message\": \"Upstream provider returned 503\", \"type\": \"supplier_error\"}}",
+      ""
+    ]
+  },
+  "expected": {
+    "status": "FAILED",
+    "error_message_contains": "Upstream provider returned 503"
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 aixplain/v2/model.py ModelResponseStreamer.__next__ 476-635",
+      "SDK _extract_stream_error 284-312"
+    ],
+    "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/edge/supplier-error-before-any-token; the expected block is what the SDK's streamer should yield for it, written by hand."
+  }
+}

@@ -1,0 +1,223 @@
+{
+  "contract": "Model search page: {results, pageTotal, total, filteredFrom, pagesCount}; sort fields go to Mongo unchanged.",
+  "endpoint": {
+    "method": "POST",
+    "host": "backend",
+    "path": "/v2/models/paginate"
+  },
+  "request": {},
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "results": [
+        {
+          "id": "6646261c6eb563165658bbb1",
+          "name": "GPT-4o Mini",
+          "serviceName": "gpt-4o-mini",
+          "status": "onboarded",
+          "host": "openai",
+          "developer": "OpenAI",
+          "description": "GPT-4o mini chat completion model.",
+          "descriptionShort": null,
+          "subscriptions": [],
+          "assetInfo": {
+            "assetPath": "openai/gpt-4o-mini/openai"
+          },
+          "vendor": {
+            "id": 1,
+            "name": "OpenAI",
+            "code": "openai"
+          },
+          "supplier": {
+            "id": 1,
+            "name": "OpenAI",
+            "code": "openai"
+          },
+          "connectionType": [
+            "synchronous"
+          ],
+          "function": {
+            "id": "text-generation",
+            "name": "Text Generation"
+          },
+          "pricing": {
+            "price": 0.15,
+            "unitType": "TOKEN",
+            "unitTypeScale": "1000000"
+          },
+          "version": {
+            "name": "gpt-4o-mini",
+            "id": "gpt-4o-mini"
+          },
+          "functionType": "ai",
+          "type": "model",
+          "onboardingStatusMessage": null,
+          "createdAt": "2024-05-16T12:00:00.000Z",
+          "updatedAt": "2026-09-30T08:00:00.000Z",
+          "isSystemAsset": false,
+          "supportsStreaming": true,
+          "supportsBYOC": false,
+          "dataRetention": {
+            "mode": "unknown"
+          },
+          "attributes": {
+            "max_context_length": "128000"
+          },
+          "parentModelId": null,
+          "params": [
+            {
+              "name": "text",
+              "required": true,
+              "isFixed": false,
+              "values": [],
+              "defaultValues": [],
+              "availableOptions": [],
+              "dataType": "text",
+              "dataSubType": "text",
+              "multipleValues": false
+            },
+            {
+              "name": "context",
+              "required": false,
+              "isFixed": false,
+              "values": [],
+              "defaultValues": [],
+              "availableOptions": [],
+              "dataType": "text",
+              "dataSubType": "text",
+              "multipleValues": false
+            },
+            {
+              "name": "prompt",
+              "required": false,
+              "isFixed": false,
+              "values": [],
+              "defaultValues": [],
+              "availableOptions": [],
+              "dataType": "text",
+              "dataSubType": "text",
+              "multipleValues": false
+            },
+            {
+              "name": "history",
+              "required": false,
+              "isFixed": false,
+              "values": [],
+              "defaultValues": [],
+              "availableOptions": [],
+              "dataType": "text",
+              "dataSubType": "json",
+              "multipleValues": false
+            },
+            {
+              "name": "temperature",
+              "required": false,
+              "isFixed": false,
+              "values": [],
+              "defaultValues": [
+                {
+                  "value": 1,
+                  "label": "1"
+                }
+              ],
+              "availableOptions": [],
+              "dataType": "number",
+              "dataSubType": "number",
+              "multipleValues": false,
+              "allowedRange": {
+                "from": 0,
+                "to": 2
+              }
+            },
+            {
+              "name": "max_tokens",
+              "required": false,
+              "isFixed": false,
+              "values": [],
+              "defaultValues": [
+                {
+                  "value": 4096,
+                  "label": "4096"
+                }
+              ],
+              "availableOptions": [],
+              "dataType": "number",
+              "dataSubType": "number",
+              "multipleValues": false,
+              "allowedRange": {
+                "from": 1,
+                "to": 16384
+              }
+            },
+            {
+              "name": "top_p",
+              "required": false,
+              "isFixed": false,
+              "values": [],
+              "defaultValues": [
+                {
+                  "value": 1,
+                  "label": "1"
+                }
+              ],
+              "availableOptions": [],
+              "dataType": "number",
+              "dataSubType": "number",
+              "multipleValues": false
+            },
+            {
+              "name": "tools",
+              "required": false,
+              "isFixed": false,
+              "values": [],
+              "defaultValues": [],
+              "availableOptions": [],
+              "dataType": "text",
+              "dataSubType": "json",
+              "multipleValues": false
+            },
+            {
+              "name": "tool_choice",
+              "required": false,
+              "isFixed": false,
+              "values": [],
+              "defaultValues": [],
+              "availableOptions": [],
+              "dataType": "text",
+              "dataSubType": "json",
+              "multipleValues": false
+            },
+            {
+              "name": "response_format",
+              "required": false,
+              "isFixed": false,
+              "values": [],
+              "defaultValues": [],
+              "availableOptions": [],
+              "dataType": "text",
+              "dataSubType": "json",
+              "multipleValues": false
+            }
+          ]
+        }
+      ],
+      "pageTotal": 1,
+      "total": 1,
+      "filteredFrom": 1,
+      "pagesCount": 1
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "platform-backend@91ed4d7bf src/common/helpers/pagination.helper.ts:5-18,95-101",
+      "platform-backend@91ed4d7bf src/common/inputs/sort.input.ts sortToMongo (no field whitelist)"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording."
+  }
+}

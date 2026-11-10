@@ -1,0 +1,30 @@
+{
+  "contract": "Agent run submit: 201 with a poll URL in data and no status field.",
+  "endpoint": {
+    "method": "POST",
+    "host": "backend",
+    "path": "/v2/agents/{id}/run"
+  },
+  "request": {},
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "data": "{backend}/sdk/agents/req-contract-agent-1/result",
+      "requestId": "req-contract-agent-1",
+      "sessionId": "sess-contract-1"
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "platform-backend@91ed4d7bf src/agent/controllers/agent.controller.ts:309-340",
+      "platform-backend@91ed4d7bf src/agent/dto/agent.dto.ts:423-457 AgentRunDto"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording."
+  }
+}

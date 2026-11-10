@@ -1,0 +1,30 @@
+{
+  "contract": "A supplier refusal returned as HTTP 400 with supplierError (SDK #1032).",
+  "endpoint": {
+    "method": "POST",
+    "host": "models",
+    "path": "/{id}"
+  },
+  "request": {},
+  "response": {
+    "status": 400,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "error": "err.supplier_error",
+      "supplierError": "Name already exists",
+      "statusCode": 400
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK aixplain/v2/client.py request_raw message precedence (supplierError first)",
+      "SDK PR #1032 / 854f723e test body"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording."
+  }
+}
