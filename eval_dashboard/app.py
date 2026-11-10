@@ -5,7 +5,12 @@ so Python loads the **checkout** ``aixplain/`` package (no ``pip install -e .`` 
 for the SDK itself). You still need this venv to satisfy the SDK’s third-party
 dependencies (``pandas``, ``requests``, etc.—see the repo ``pyproject.toml``)::
 
-    streamlit run eval_dashboard/app.py
+    streamlit run eval_dashboard/app.py --server.address 127.0.0.1
+
+Keep the dashboard on loopback: it reads any local CSV path you type and spends your
+``AIXPLAIN_API_KEY``, so it must not be reachable from the LAN. The repository's
+``.streamlit/config.toml`` sets ``server.address = "127.0.0.1"`` when you launch from the
+repo root; the explicit flag covers launching from anywhere else.
 
 Load a file produced by :meth:`~aixplain.v2.agent_evaluator.AgentEvaluationRun.to_dataframe`
 (``to_csv``). Optional LLM features (executive summary, chat) need ``AIXPLAIN_API_KEY`` and
