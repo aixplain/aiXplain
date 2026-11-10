@@ -12,7 +12,7 @@
   explicitly (for example `api_key=aix.api_key`). The standalone upload helpers
   now also fall back to `AIXPLAIN_API_KEY`.
 - Passing a local file as a plain string in `attachments` is deprecated: it
-  still uploads but emits a `DeprecationWarning`. Pass `pathlib.Path(...)` or
+  still uploads but emits a `FutureWarning`. Pass `pathlib.Path(...)` or
   `{"path": ...}` instead. A plain string naming a dotfile or a system path
   (`/etc`, `/proc`, `/sys`, `/dev`) is refused before anything is read, and
   `AIXPLAIN_STRICT_ATTACHMENTS=1` rejects every plain-string local path now.

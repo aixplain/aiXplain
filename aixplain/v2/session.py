@@ -215,7 +215,7 @@ def resolve_attachments(
     through unchanged; local paths (``pathlib.Path`` or dicts carrying a ``path``) are
     uploaded to aiXplain storage and the resulting download link is attached. A plain
     non-URL string is still uploaded as a local path but is deprecated (it emits a
-    ``DeprecationWarning``; ``AIXPLAIN_STRICT_ATTACHMENTS=1`` rejects it), and one naming
+    ``FutureWarning``; ``AIXPLAIN_STRICT_ATTACHMENTS=1`` rejects it), and one naming
     a dotfile or a system path (``/etc``, ``/proc``, ``/sys``, ``/dev``) is refused. A saved ``File`` is attached by a short-lived
     signed url fetched on demand (:meth:`File.get_signed_url`) — file-asset responses
     never carry a stable url; an unsaved ``File`` or a folder raises, rather than
@@ -269,6 +269,7 @@ def resolve_attachments(
         elif isinstance(entry, str):
             value = entry
             if _is_hosted_url(value):
+                value = value.strip()
                 # A bare URL string: attach as-is, auto-detecting type/mimeType
                 # (and name) from the extension.
                 att: Dict[str, Any] = {"url": value, "name": os.path.basename(value.split("?", 1)[0])}
@@ -289,7 +290,10 @@ def resolve_attachments(
                     "Passing a local file path as a plain string in `attachments` is deprecated and "
                     "will be rejected in a future release; pass pathlib.Path(...) or {'path': ...} "
                     "instead. Plain strings will be treated as URLs only.",
-                    DeprecationWarning,
+                    # FutureWarning, not DeprecationWarning: the warning is raised
+                    # inside aixplain, where Python's default filters would hide a
+                    # DeprecationWarning from the end user it is meant for.
+                    FutureWarning,
                     stacklevel=3,
                 )
                 resolved.append(_upload(value))
@@ -981,7 +985,7 @@ class Session(
                 * a string URL (``http(s)://`` / ``s3://``, any case) — attached as-is;
                 * a ``pathlib.Path`` — uploaded to aiXplain storage;
                 * a plain-string local path — deprecated: still uploaded with a
-                  ``DeprecationWarning``, but refused for dotfiles and system
+                  ``FutureWarning``, but refused for dotfiles and system
                   paths, and rejected outright under ``AIXPLAIN_STRICT_ATTACHMENTS=1``.
 
             files: Deprecated. Local file paths to upload and attach — pass these

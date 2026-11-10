@@ -60,6 +60,13 @@ def test_uppercase_url_is_attached_without_upload(uploader):
     uploader.assert_not_called()
 
 
+def test_whitespace_padded_url_is_attached_stripped(uploader):
+    out = resolve_attachments(_ctx(), ["  https://cdn.example.com/a.png\n"], None)
+    assert out[0]["url"] == "https://cdn.example.com/a.png"
+    assert out[0]["name"] == "a.png"
+    uploader.assert_not_called()
+
+
 @pytest.mark.parametrize("value", SENSITIVE)
 def test_sensitive_plain_string_is_refused_before_upload(uploader, value):
     with pytest.raises(ResourceError, match="Refusing to upload"):
@@ -86,7 +93,7 @@ def test_symlink_into_system_tree_is_refused(uploader, tmp_path):
 def test_benign_plain_string_uploads_with_deprecation_warning(uploader, tmp_path):
     path = tmp_path / "clip.wav"
     path.write_bytes(b"x")
-    with pytest.warns(DeprecationWarning, match="plain string"):
+    with pytest.warns(FutureWarning, match="plain string"):
         out = resolve_attachments(_ctx(), [str(path)], None)
     assert out[0]["url"] == "https://cdn.example.com/x"
     uploader.assert_called_once_with(backend_url="https://platform-api.aixplain.com", api_key="ctx-key")
@@ -123,7 +130,7 @@ def test_project_under_dot_directory_is_not_refused(uploader, tmp_path, monkeypa
     work.mkdir(parents=True)
     (work / "clip.wav").write_bytes(b"x")
     monkeypatch.chdir(work)
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         resolve_attachments(_ctx(), ["clip.wav"], None)
     uploader.return_value.upload.assert_called_once()
 

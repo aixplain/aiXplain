@@ -766,7 +766,7 @@ class TestSessionMessages:
             MockDetector.detect_mime_type.return_value = "audio/wav"
 
             # A plain-string local path still uploads but is deprecated (BUG-948).
-            with pytest.warns(DeprecationWarning, match="plain string"):
+            with pytest.warns(FutureWarning, match="plain string"):
                 session.add_message(role="user", content="transcribe", attachments=["/tmp/clip.wav"])
 
         att = ctx.client.request.call_args[1]["json"]["attachments"][0]
