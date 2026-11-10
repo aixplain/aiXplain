@@ -8,6 +8,7 @@ from dataclasses_json import dataclass_json, config
 from functools import cached_property
 
 from ._backoff import next_wait, sleep_with_jitter
+from .exceptions import TimeoutError
 from .resource import BaseSearchParams, Result
 from .model import Model
 from .enums import AuthenticationScheme
@@ -201,7 +202,13 @@ class ActionMixin:
     actions_available: Optional[bool] = field(default=None, metadata=config(field_name="actionsAvailable"))
 
     def _poll_for_data(self, response: dict, timeout: float = 30, wait_time: float = 1) -> Any:
-        """Poll an async response until completion and return the ``data`` field."""
+        """Poll an async response until completion and return the ``data`` field.
+
+        Raises:
+            TimeoutError: The budget expired before the poll completed. Raised
+                rather than returning ``None``, which callers turned into ``[]``
+                and reported as "no actions" (BUG-1095). Carries ``poll_url``.
+        """
         data = response.get("data")
         if response.get("completed", True) or not isinstance(data, str) or not data.startswith("http"):
             return data
@@ -211,7 +218,7 @@ class ActionMixin:
         while True:
             remaining = timeout - (time.time() - start)
             if remaining <= 0:
-                return None
+                raise TimeoutError(f"Integration poll timed out after {timeout} seconds", poll_url=poll_url)
             # Jittered and backed off, rather than a fixed 1s tick: a fleet of
             # clients polling in lockstep is the load shape BUG-942 is about.
             # Clamped to the remaining budget so jitter never overruns *timeout*.

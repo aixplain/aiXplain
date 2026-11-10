@@ -6,6 +6,7 @@ import logging
 import re
 import time
 import reprlib
+import warnings
 from datetime import datetime
 from dataclasses import MISSING, dataclass, field
 from dataclasses_json import dataclass_json, config
@@ -13,6 +14,7 @@ from urllib.parse import quote
 from typing import (
     List,
     Tuple,
+    Dict,
     TypedDict,
     TypeVar,
     Generic,
@@ -23,6 +25,7 @@ from typing import (
     runtime_checkable,
     Union,
     Callable,
+    ClassVar,
     Iterable,
     Iterator,
 )
@@ -206,7 +209,13 @@ def with_hooks(func: Callable) -> Callable:
         except Exception as e:
             # Transform low-level exceptions to domain-specific errors
             if not isinstance(e, ResourceError):
-                raise ResourceError(f"Failed to {operation_name} resource: {e}")
+                # Keep the rewrap (callers catch ResourceError) but preserve the
+                # HTTP details and the cause, so e.g. a 402 and a 404 stay
+                # distinguishable.
+                wrapped = ResourceError(f"Failed to {operation_name} resource: {e}")
+                wrapped.status_code = getattr(e, "status_code", None)
+                wrapped.response_data = getattr(e, "response_data", None)
+                raise wrapped from e
 
             # Call after hook (error case)
             after_method = getattr(self, f"after_{operation_name}", None)
@@ -635,6 +644,10 @@ class BaseResource:
         """Update the resource."""
         self.context.client.request("put", f"{resource_path}/{self.encoded_id}", json=payload)
 
+    # save() kwargs that are options consumed by a hook (e.g. Agent's
+    # ``as_draft``), not attributes; exempt from the unknown-attribute warning.
+    _SAVE_OPTION_KWARGS: ClassVar[frozenset] = frozenset()
+
     @with_hooks
     def save(self, *args: Any, **kwargs: Any) -> "BaseResource":
         """Save the resource with attribute shortcuts.
@@ -674,6 +687,14 @@ class BaseResource:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
+            elif key not in self._SAVE_OPTION_KWARGS:
+                # Warn rather than raise so existing callers keep working, but
+                # make ``save(descripton=...)`` stop being a silent no-op.
+                warnings.warn(
+                    f"{type(self).__name__}.save() ignored unknown attribute {key!r}",
+                    UserWarning,
+                    stacklevel=3,
+                )
 
         payload = self.build_save_payload(**kwargs)
 
@@ -705,8 +726,16 @@ class BaseResource:
         Returns:
             BaseResource: New resource instance with id=None
         """
-        # Create deep copy of the resource
-        cloned = deepcopy(self)
+        # Deep-copy the resource state, but share the Aixplain context: it is a
+        # live client (requests.Session, config), not resource state. Copying it
+        # minted a never-closed Session per clone and froze the clone against a
+        # config snapshot. The memo also covers nested resources (an agent's
+        # tools, say) that reference the same context.
+        memo: Dict[int, Any] = {}
+        for shared in (getattr(self, "context", None), getattr(self, "_context", None)):
+            if shared is not None:
+                memo[id(shared)] = shared
+        cloned = deepcopy(self, memo)
 
         # Reset ID and saved state for new asset
         cloned.id = None
@@ -1054,9 +1083,23 @@ class Page(Generic[ResourceT]):
         """Iterate over the results in this page."""
         return iter(self.results)
 
-    def __getitem__(self, key: str):
-        """Allow dictionary-like access to page attributes."""
+    def __getitem__(self, key: Union[str, int, slice]):
+        """Index the results (``page[0]``, ``page[1:]``) or read an attribute (``page["total"]``)."""
+        if isinstance(key, slice) or (isinstance(key, int) and not isinstance(key, bool)):
+            return self.results[key]
         return getattr(self, key)
+
+    def __len__(self) -> int:
+        """Return the number of results in this page."""
+        return len(self.results)
+
+    def __bool__(self) -> bool:
+        """Keep a page truthy even when empty.
+
+        Defining ``__len__`` would otherwise make an empty page falsy and
+        silently change the meaning of existing ``if page:`` checks.
+        """
+        return True
 
 
 class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
@@ -1867,6 +1910,35 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         raise RuntimeError("run submission retry loop exhausted without return")
 
+    # Whether ``timeout=None`` is a meaningful value for ``run()``. Agent sets
+    # this: there ``None`` means "derive the budget from the run's duration".
+    _POLL_TIMEOUT_NONE_IS_DEFAULT = False
+
+    def _validate_poll_kwargs(self, kwargs: Dict[str, Any]) -> None:
+        """Reject poll budgets that would otherwise fail only after the run is billed.
+
+        ``sync_poll`` reads ``timeout``/``wait_time`` after the POST, so
+        ``timeout=None`` used to raise ``TypeError`` and ``timeout=0`` a
+        ``TimeoutError`` -- each with a billed job left running (BUG-1095).
+
+        Raises:
+            ValueError: ``timeout`` is not a positive number, or ``wait_time``
+                is not a non-negative number.
+        """
+
+        def _is_number(value: Any) -> bool:
+            return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+        if "timeout" in kwargs:
+            timeout = kwargs["timeout"]
+            if not (timeout is None and self._POLL_TIMEOUT_NONE_IS_DEFAULT):
+                if not _is_number(timeout) or timeout <= 0:
+                    raise ValueError(f"timeout must be a positive number of seconds, got {timeout!r}")
+        if "wait_time" in kwargs:
+            wait_time = kwargs["wait_time"]
+            if not _is_number(wait_time) or wait_time < 0:
+                raise ValueError(f"wait_time must be a non-negative number of seconds, got {wait_time!r}")
+
     def _begin_run(self, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
         """Invoke before_run; return early result or None to continue."""
         before_method = getattr(self, "before_run", None)
@@ -2120,6 +2192,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             ``before_run`` raising: nothing has been set up yet, so a hook must
             not leave a resource live behind a raise of its own.
         """
+        # Before _begin_run and the POST: a bad budget must not bill a run
+        # that is then abandoned (BUG-1095).
+        self._validate_poll_kwargs(kwargs)
         early = self._begin_run(**kwargs)
         if early is not None:
             return self._apply_after_run(early, **kwargs)
@@ -2128,7 +2203,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             result = self._submit_with_retries(**kwargs)
             if result.url and not result.completed:
                 request_id = getattr(result, "request_id", None)
-                result = self.sync_poll(result.url, **kwargs)
+                try:
+                    result = self.sync_poll(result.url, **kwargs)
+                except TimeoutError as timeout_exc:
+                    # The job keeps running server-side; hand back its id.
+                    if timeout_exc.request_id is None:
+                        timeout_exc.request_id = request_id
+                    raise
                 if request_id is not None and hasattr(result, "request_id") and not result.request_id:
                     result.request_id = request_id
         except BaseException as exc:
@@ -2397,4 +2478,4 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         if show_progress:
             logger.error(f"Operation timeout - No response after {timeout}s")
-        raise TimeoutError(f"Operation timed out after {timeout} seconds") from last_error
+        raise TimeoutError(f"Operation timed out after {timeout} seconds", poll_url=poll_url) from last_error

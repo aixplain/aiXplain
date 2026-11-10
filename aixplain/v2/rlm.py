@@ -1380,7 +1380,7 @@ del _url, _r
         self._get_worker()
 
         answers: Dict[str, str] = {}
-        with ThreadPoolExecutor(max_workers=min(len(uniq), _MAX_PARALLEL_WORKERS)) as ex:
+        with ThreadPoolExecutor(max_workers=max(1, min(len(uniq), _MAX_PARALLEL_WORKERS))) as ex:
             futures = {ex.submit(self._worker_call, prompt, _LLM_QUERY_MAX_TOKENS): key for key, prompt in uniq.items()}
             for f in as_completed(futures):
                 key = futures[f]
@@ -1488,7 +1488,7 @@ del _url, _r
             prompt = _MAP_PROMPT.format(idx=idx + 1, total=n, query=query, chunk=chunks[idx])
             return self._worker_call(prompt)
 
-        max_workers = min(n, _MAX_PARALLEL_WORKERS)
+        max_workers = max(1, min(n, _MAX_PARALLEL_WORKERS))
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
             futures = {ex.submit(_map_one, i): i for i in range(n)}
             for f in as_completed(futures):
@@ -1520,7 +1520,7 @@ del _url, _r
                 return self._reduce_call(formatted, query, len(group))
 
             next_level: List[Optional[str]] = [None] * len(groups)
-            max_workers = min(len(groups), _MAX_PARALLEL_WORKERS)
+            max_workers = max(1, min(len(groups), _MAX_PARALLEL_WORKERS))
             with ThreadPoolExecutor(max_workers=max_workers) as ex:
                 futures = {ex.submit(_reduce_group, g): i for i, g in enumerate(groups)}
                 for f in as_completed(futures):
@@ -1564,7 +1564,9 @@ del _url, _r
 
             worker_tokens = self._get_worker_context_tokens()
             budget_chars = _compute_chunk_budget_chars(worker_tokens)
-            chunks = _chunk_context(context, budget_chars)
+            # An empty list/dict context chunks to nothing; take the single-call
+            # path instead of sizing a thread pool at zero workers (BUG-1095).
+            chunks = _chunk_context(context, budget_chars) or [""]
             n_chunks = len(chunks)
             logger.info(
                 f"RLM '{name}' parallel: {n_chunks} chunk(s), ~{budget_chars} chars/chunk "

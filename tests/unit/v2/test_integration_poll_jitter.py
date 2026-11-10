@@ -103,13 +103,17 @@ class TestJitteredBackoff:
 class TestBudget:
     """The loop must still honour its ``timeout``."""
 
-    def test_exhausted_budget_returns_none_without_polling(self):
+    def test_exhausted_budget_raises_without_polling(self):
+        # Raises rather than returning None, which callers reported as "no
+        # actions" (BUG-1095).
         poller = _Poller([DONE])
 
-        assert poller._poll_for_data({"completed": False, "data": POLL_URL}, timeout=0) is None
+        with pytest.raises(TimeoutError) as excinfo:
+            poller._poll_for_data({"completed": False, "data": POLL_URL}, timeout=0)
+        assert excinfo.value.poll_url == POLL_URL
         poller.context.client.request.assert_not_called()
 
-    def test_returns_none_when_the_budget_expires(self):
+    def test_raises_when_the_budget_expires(self):
         poller = _Poller([PENDING] * 50)
 
         with patch("aixplain.v2.integration.sleep_with_jitter", return_value=0.0):
@@ -121,7 +125,8 @@ class TestBudget:
                     return PENDING
 
                 poller.context.client.request = Mock(side_effect=advance)
-                assert poller._poll_for_data({"completed": False, "data": POLL_URL}, timeout=30) is None
+                with pytest.raises(TimeoutError):
+                    poller._poll_for_data({"completed": False, "data": POLL_URL}, timeout=30)
 
         assert poller.context.client.request.call_count == 6
 

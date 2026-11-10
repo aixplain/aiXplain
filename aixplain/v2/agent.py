@@ -22,7 +22,14 @@ from .model import Model
 from .file import File
 from .skill import Skill
 from .graph import Graph, GraphDict, InspectorNode, StaticGraphStrategy, StaticGraphStrategyDict
-from .exceptions import AgentRunFailedError, ResourceError, ValidationError, _structured_error, _structured_message
+from .exceptions import (
+    AgentRunFailedError,
+    ResourceError,
+    TimeoutError,
+    ValidationError,
+    _structured_error,
+    _structured_message,
+)
 from .exceptions import create_operation_failed_error
 from .mixins import ToolableMixin
 from .plain_data import WireValue, coerce_enum, coerce_struct_list, struct_fields, wire_value
@@ -1426,6 +1433,11 @@ class Agent(
     _SERVER_DEFAULT_MAX_DURATION_SECONDS: ClassVar[float] = 600
     # Waited on top of the run's duration: queueing, setup and result delivery.
     _POLL_TIMEOUT_ALLOWANCE_SECONDS: ClassVar[float] = 120
+    # ``run(timeout=None)`` means "derive the poll budget from the run's
+    # duration" here (see _default_poll_timeout), so it passes validation.
+    _POLL_TIMEOUT_NONE_IS_DEFAULT: ClassVar[bool] = True
+    # Consumed by before_save, not an attribute (see BaseResource.save).
+    _SAVE_OPTION_KWARGS: ClassVar[frozenset] = frozenset({"as_draft"})
 
     def _run_duration_seconds(
         self,
@@ -1581,6 +1593,9 @@ class Agent(
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
+
+        # Before either path posts (and bills) the run (BUG-1095).
+        self._validate_poll_kwargs(kwargs)
 
         session = kwargs.pop("session", None)
         if session is not None:
@@ -3169,9 +3184,16 @@ class Agent(
             result = self.sync_poll(
                 user_msg.request_id,
                 timeout=self._default_poll_timeout(kwargs, getattr(session, "execution_config", None)),
-                wait_time=kwargs.get("wait_time", 0.5),
+                wait_time=kwargs["wait_time"] if kwargs.get("wait_time") is not None else 0.5,
                 _progress_tracker=tracker,
             )
+        except TimeoutError as timeout_exc:
+            # The run keeps going server-side; hand back its id.
+            if tracker is not None:
+                tracker.stop()
+            if timeout_exc.request_id is None:
+                timeout_exc.request_id = user_msg.request_id
+            raise
         except BaseException:
             if tracker is not None:
                 tracker.stop()

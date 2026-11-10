@@ -38,7 +38,7 @@ from .enums import (
     SupplierValue,
 )
 from .mixins import ToolableMixin, ToolDict
-from .exceptions import ValidationError
+from .exceptions import TimeoutError, ValidationError
 from .actions import Actions, Action, Inputs
 
 if TYPE_CHECKING:
@@ -1053,10 +1053,21 @@ class Model(
             if param_errors:
                 raise ValueError(f"Parameter validation failed: {'; '.join(param_errors)}")
 
+        # The sync-only path below polls without going through
+        # RunnableResourceMixin.run, so validate the budget here, before the
+        # POST bills the run (BUG-1095).
+        self._validate_poll_kwargs(effective_params)
+
         if self.is_sync_only:
             result = self._run_sync_v2(**effective_params)
             if result.url and result.status == "IN_PROGRESS" and not result.completed and self._is_poll_url(result.url):
-                result = self.sync_poll(result.url, **effective_params)
+                request_id = getattr(result, "request_id", None)
+                try:
+                    result = self.sync_poll(result.url, **effective_params)
+                except TimeoutError as timeout_exc:
+                    if timeout_exc.request_id is None:
+                        timeout_exc.request_id = request_id
+                    raise
             return result
         else:
             # Async-capable models: Use base run() which calls run_async() and polls
