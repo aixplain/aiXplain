@@ -71,8 +71,9 @@ class ConversationMessage(TypedDict):
     Attributes:
         role: The role of the message sender, either 'user' or 'assistant'
         content: The text content of the message
-        attachments: Optional attachments — hosted-URL/local-path strings or dicts
-            with ``url`` or ``path`` (plus optional type/name/mimeType).
+        attachments: Optional attachments — hosted-URL strings, ``pathlib.Path``
+            local files, or dicts with ``url`` or ``path`` (plus optional
+            type/name/mimeType). Plain-string local paths are deprecated.
         files: Deprecated. Local file paths to upload — pass through ``attachments``.
     """
 
@@ -334,10 +335,12 @@ class AgentRunParams(BaseRunParams):
         inspectors: Inspector configurations
         run_response_generation: Whether to run response generation. Defaults to False.
         attachments: Multimodal attachments for the turn.
-            Each entry is a hosted-URL/local-path string, a dict with ``url`` or
-            ``path`` (plus optional ``type``/``name``/``mimeType``), or a saved
-            :class:`~aixplain.v2.file.File`. Local paths are uploaded to aiXplain
-            storage automatically; a saved ``File`` is attached via a signed url.
+            Each entry is a hosted-URL string, a ``pathlib.Path``, a dict with
+            ``url`` or ``path`` (plus optional ``type``/``name``/``mimeType``), or
+            a saved :class:`~aixplain.v2.file.File`. Local files are uploaded to
+            aiXplain storage automatically; a saved ``File`` is attached via a
+            signed url. A plain-string local path is deprecated (it warns, and
+            dotfiles / system paths are refused) — use ``Path(...)`` instead.
         files: Deprecated. Local file paths to upload — pass through ``attachments`` instead.
         progress_format: Display format - "status" (single line) or "logs" (timeline).
                         If None (default), progress tracking is disabled.

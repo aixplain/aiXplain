@@ -765,7 +765,9 @@ class TestSessionMessages:
             MockUploader.return_value.upload.return_value = "https://cdn.example.com/clip.wav"
             MockDetector.detect_mime_type.return_value = "audio/wav"
 
-            session.add_message(role="user", content="transcribe", attachments=["/tmp/clip.wav"])
+            # A plain-string local path still uploads but is deprecated (BUG-948).
+            with pytest.warns(DeprecationWarning, match="plain string"):
+                session.add_message(role="user", content="transcribe", attachments=["/tmp/clip.wav"])
 
         att = ctx.client.request.call_args[1]["json"]["attachments"][0]
         assert att == {
