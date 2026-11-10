@@ -100,8 +100,8 @@ class TestWithHooksPreservesApiErrorDetails:
 # ``None`` is absent here on purpose: Model drops ``None`` kwargs while merging
 # its dynamic attributes, so ``timeout=None`` already means "default" there.
 # The base validator's ``None`` handling is pinned separately below.
-BAD_TIMEOUTS = [0, -1, "10", True]
-BAD_WAIT_TIMES = [-1, "1", True]
+BAD_TIMEOUTS = [0, -1, "10", True, float("nan")]
+BAD_WAIT_TIMES = [-1, "1", True, float("nan")]
 
 
 class TestRunValidatesBudgetBeforePost:

@@ -1932,11 +1932,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         if "timeout" in kwargs:
             timeout = kwargs["timeout"]
             if not (timeout is None and self._POLL_TIMEOUT_NONE_IS_DEFAULT):
-                if not _is_number(timeout) or timeout <= 0:
+                # ``not timeout > 0`` (not ``timeout <= 0``) also rejects NaN,
+                # which would otherwise never expire the poll loop.
+                if not _is_number(timeout) or not timeout > 0:
                     raise ValueError(f"timeout must be a positive number of seconds, got {timeout!r}")
         if "wait_time" in kwargs:
             wait_time = kwargs["wait_time"]
-            if not _is_number(wait_time) or wait_time < 0:
+            if not _is_number(wait_time) or not wait_time >= 0:
                 raise ValueError(f"wait_time must be a non-negative number of seconds, got {wait_time!r}")
 
     def _begin_run(self, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
