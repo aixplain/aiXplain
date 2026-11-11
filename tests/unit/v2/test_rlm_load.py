@@ -200,11 +200,14 @@ class TestParallelIsolation:
             return "ok"
 
         with patch.object(rlm, "_worker_call", side_effect=worker_call):
-            answers = rlm._parallel_map(["a", "b", "c"], "q")
+            answers, failed, last_error = rlm._parallel_map(["a", "b", "c"], "q")
 
         assert len(answers) == 3
-        assert sum(a.startswith("[Error analyzing this part:") for a in answers) <= 1
-        assert answers.count("ok") >= 2
+        assert failed <= 1
+        assert answers.count("NONE") == failed
+        assert answers.count("ok") == 3 - failed
+        if failed:
+            assert isinstance(last_error, ResourceError)
 
     def test_hierarchical_reduce_isolates_one_failed_group(self):
         rlm = _make_rlm()
@@ -265,6 +268,8 @@ class TestRecursiveHistoryBudget:
 
         def orch_run(text, max_tokens):
             sent.append(text)
+            if len(sent) > 10:  # forced final turn must answer with FINAL(...)
+                return _model_response("FINAL(done)")
             return _model_response(f"```repl\nprint({len(sent)})\n```")
 
         orchestrator.run.side_effect = orch_run

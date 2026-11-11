@@ -38,6 +38,25 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          # Full history, so the ancestry check below can see main.
+          fetch-depth: 0
+
+      # Only a commit that is already on main may be released (BUG-1452): a tag
+      # pushed on an unmerged commit -- with a manual main.yaml dispatch on that
+      # tag to satisfy the functional check -- must not publish. This runs from
+      # the tagged commit, so it stops accidental releases; a `v*` tag ruleset in
+      # the repository settings is what stops someone who can edit the workflow.
+      - name: Require the tagged commit to be on main
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$SHA" origin/main; then
+            echo "::error::$SHA is not reachable from main; only commits merged into main can be released."
+            exit 1
+          fi
+          echo "$SHA is on main"
 
       - name: Set up Python
         uses: actions/setup-python@v7

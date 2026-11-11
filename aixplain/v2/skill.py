@@ -27,12 +27,14 @@ import copy
 import logging
 import os
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from dataclasses import dataclass, field
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
 
 import yaml
+
+from aixplain.utils.folder_walk import walk_upload_tree
 
 from .resource import (
     BaseResource,
@@ -328,6 +330,11 @@ class Skill(
         Args:
             *args: Positional arguments passed to the base save method.
             **kwargs: Attributes to set before saving (passed to base save).
+                ``include`` (a list of relative paths or ``fnmatch`` patterns) is
+                consumed here instead: it re-admits hidden files/folders that a
+                folder upload skips by default (``.env``, ``.git/`` and other
+                dot-paths, cache folders and symlinks leaving the folder are
+                never uploaded otherwise).
 
         Raises:
             ResourceError: If the skill has been deleted — the same type every
@@ -340,6 +347,8 @@ class Skill(
         # kwargs only after this method has run — stage the new path, not the old one.
         if "file_path" in kwargs:
             self.file_path = kwargs["file_path"]
+        # ``include`` steers the folder walk; it is not a Skill attribute.
+        include = kwargs.pop("include", None)
         if self.file_path:
             self._stage_from_path()
         super().save(*args, **kwargs)
@@ -347,7 +356,7 @@ class Skill(
             if self._local_is_file:
                 self._upload_file_as_skill(self._local_path)
             else:
-                self._upload_folder(self._local_path)
+                self._upload_folder(self._local_path, include=include)
             self._local_path = None
         return self
 
@@ -467,7 +476,7 @@ class Skill(
         self._ensure_valid_state()
         self._put_or_post_file(path, "SKILL.md", None, self._tree_index())
 
-    def _upload_folder(self, root: str) -> None:
+    def _upload_folder(self, root: str, include: Optional[Sequence[str]] = None) -> None:
         """Walk the local folder and create/update the backend file/folder tree.
 
         Folder structure is preserved: each subdirectory becomes a folder node and
@@ -476,11 +485,15 @@ class Skill(
         or updated in place (files) rather than re-created; a node that no longer
         exists locally is left alone, so the tree only ever grows. Node management
         is entirely internal — it is not part of the developer-facing surface.
+
+        Hidden files and folders (``.env``, ``.git/``), cache folders and
+        symlinks leaving *root* are skipped unless re-admitted through
+        *include* (see :func:`aixplain.utils.folder_walk.walk_upload_tree`).
         """
         self._ensure_valid_state()
         existing = self._tree_index()
 
-        for dirpath, _dirnames, filenames in os.walk(root):
+        for dirpath, _dirnames, filenames in walk_upload_tree(root, include=include):
             rel = os.path.relpath(dirpath, root)
             rel = "" if rel == "." else rel.replace(os.sep, "/")
             parent_id = self._ensure_folder(rel, existing) if rel else None
@@ -488,7 +501,13 @@ class Skill(
                 rel_path = f"{rel}/{filename}" if rel else filename
                 self._put_or_post_file(os.path.join(dirpath, filename), rel_path, parent_id, existing)
 
-    def update(self, path: str, name: Optional[str] = None) -> "Skill":
+    def update(
+        self,
+        path: str,
+        name: Optional[str] = None,
+        *,
+        include: Optional[Sequence[str]] = None,
+    ) -> "Skill":
         """Update (or add) a single file or folder within this skill's bundle.
 
         Unlike :meth:`save` (which re-uploads every file under ``file_path``),
@@ -503,6 +522,11 @@ class Skill(
             name: Where this content lives within the skill — a bare filename
                 (``"SKILL.md"``) or a relative path (``"scripts/helper.py"``).
                 Defaults to ``os.path.basename(path)``.
+            include: When *path* is a folder, relative paths or ``fnmatch``
+                patterns of hidden files/folders to upload anyway (e.g.
+                ``[".well-known/*"]``). By default hidden files and folders
+                (``.env``, ``.git/``), cache folders and symlinks leaving the
+                folder are skipped. A single file *path* is always uploaded.
 
         Returns:
             This ``Skill``.
@@ -520,7 +544,7 @@ class Skill(
         existing = self._tree_index()
 
         if os.path.isdir(path):
-            for dirpath, _dirnames, filenames in os.walk(path):
+            for dirpath, _dirnames, filenames in walk_upload_tree(path, include=include):
                 rel = os.path.relpath(dirpath, path)
                 rel = "" if rel == "." else rel.replace(os.sep, "/")
                 mounted_dir = f"{name}/{rel}" if rel else name

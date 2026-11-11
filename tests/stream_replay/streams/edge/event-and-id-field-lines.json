@@ -29,7 +29,6 @@
     "reasoning": "",
     "finish_reason": "stop"
   },
-  "known_failure": "ENG-3782 finding: ModelResponseStreamer treats 'event:'/'id:' lines as JSON payload, buffers them in front of the next data: line and yields raw text such as 'event: message{\"id\":...}' as content.",
   "provenance": {
     "source": "reconstructed",
     "recorded_at": null,

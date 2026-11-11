@@ -26,7 +26,7 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 
 | Tier | Context | Workflow | Runs on a PR today? | Precondition to require |
 | ---- | ------- | -------- | ------------------- | ----------------------- |
-| 1 | `pre-commit` | `pre-commit.yaml` | Yes (`push: '**'`) | None — requireable as soon as it is green |
+| 1 | `pre-commit` | `pre-commit.yaml` | Yes (`push: '**'` + `pull_request`, so fork PRs report too — BUG-1454) | None — requireable as soon as it is green |
 | 1 | `unit-coverage` | `main.yaml` | Yes | None — requireable as soon as it is green |
 | 1 | `package-integrity` | `main.yaml` | Yes | None — requireable as soon as it is green |
 | 1 | `functional-scope` | `main.yaml` | Yes | None — it is a decision, not a test; seconds long, no secrets |
@@ -49,6 +49,7 @@ GitHub names a matrix job `<job-name> (<base matrix values>)`. Keys contributed 
 | — | `functional (debugger)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (eval)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (file)` | `main.yaml` | Yes, when in scope | as above |
+| — | `functional (index)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (integration)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (issue)` | `main.yaml` | Yes, when in scope | as above |
 | — | `functional (model)` | `main.yaml` | Yes, when in scope | as above |
@@ -142,8 +143,13 @@ agents on the same test tenant, which refuses runs past its concurrency cap with
 `err.agent_concurrency_limit_reached`; with all legs at once, the first live run lost ~40 tests to it.
 `tests/unit/test_ci_matrix_coverage.py` fails if the cap is removed or raised above four.
 
-`pre-commit.yaml` triggers on `push` to `'**'`, so `pre-commit` also reports on a feature-branch
-PR. It runs `tests/unit`, which includes the coverage-relevant suite and all the static CI guards,
+`pre-commit.yaml` triggers on `push` to `'**'` and on `pull_request`. The push trigger covers
+branches with no PR; the `pull_request` trigger is what makes `pre-commit` report on a fork PR,
+since a push to a fork starts no workflow in this repository (BUG-1454). It must be in place
+before `pre-commit` is required, or every fork PR waits forever on a check that never reports.
+A same-repo PR therefore runs it twice; that is deliberate, because deduplicating with a job-level
+`if:` would report a *skipped* `pre-commit` check, and a skipped check satisfies a required context
+even while the other run is red. It runs `tests/unit`, which includes the coverage-relevant suite and all the static CI guards,
 and takes no secret, so unlike the functional legs its redness always means an SDK-side problem.
 
 The `generator-drift` context is gone: the code generator it ran rendered v1 modules only, and both
@@ -163,9 +169,10 @@ alone, as it first was, the nightly ran every leg against production with `TEAM_
 
 The `nightly-report` job posts to Slack when the nightly is not green, via a plain incoming webhook
 in the `SLACK_NIGHTLY_WEBHOOK_URL` secret (deliberately not the `SLACK_TOKEN` the Slack *integration
-tests* consume — different audience, different rotation). **Until that secret is set, the job logs a
-workflow warning and sends nothing**; it does not fail, since the nightly is already red and a second
-red job saying so adds nothing.
+tests* consume — different audience, different rotation). **On a scheduled run, a missing secret
+fails `nightly-report`** with an `::error::` annotation, green nightly or red (BUG-1454): as a mere
+warning on a green job it hid 13 consecutive red nightlies. On any other event the notify step only
+warns.
 
 ### Secrets the functional legs read
 
@@ -179,17 +186,19 @@ dependency changes the PR carries — never holds the production key.
 | ------ | ------- | -------- |
 | `TEAM_API_KEY` / `TEAM_API_KEY_PROD` | every functional leg | every leg fails |
 | `SLACK_TOKEN` | the Slack tests in the `agent-lifecycle`, `model` and `tool` legs — the legs with `slack: true`; no other leg receives it | those tests skip |
-| `SLACK_NIGHTLY_WEBHOOK_URL` | `nightly-report` | no alert is sent; the job logs a warning |
+| `SLACK_NIGHTLY_WEBHOOK_URL` | `nightly-report` | no alert is sent; on a scheduled run the job fails |
 
-`SLACK_TOKEN` is gated like the `_PROD` secrets: the step's `env:` expands it only on a leg whose
-`include` entry has `slack: true`, and `tests/unit/test_ci_pr_and_release_gates.py` fails if that set
+`SLACK_TOKEN` is gated like the `_PROD` secrets: the step's `env:` expands it only on a production
+run (`IS_PROD`, BUG-1452) and only on a leg whose `include` entry has `slack: true`, so PR, `test`
+and nightly runs never hold it and their Slack tests skip. `tests/unit/test_ci_pr_and_release_gates.py`
+asserts both conditions, and fails if that set
 drifts from the legs whose test file uses the `slack_token` fixture. `HF_TOKEN` is no longer exported
 at all: no functional test reads it.
 
 `AIXPLAIN_API_KEY` is **not** a separate secret. The workflow exports it with the same value as
 `TEAM_API_KEY`, because every functional conftest accepts it as the canonical fallback while
-`aixplain/utils/config.py` raises when the two are set and differ. Adding a second, different
-credential under that name would fail every leg at import time.
+`Aixplain()` warns when the two are set and differ (and uses `TEAM_API_KEY`). A second, different
+credential under that name would be ignored by the SDK and contradict the conftests' fallback.
 
 These are repository secrets and have to be created by hand (Settings → Secrets and variables →
 Actions). The two `TEST_…_ID` secrets name backend-resident objects — an integration and a connected
@@ -265,6 +274,10 @@ code.
 the Actions API: **did every `functional (...)` leg succeed, against the production backend, on the
 exact commit this tag points at?**
 
+- It first requires the tagged commit to be **on `main`** (`git merge-base --is-ancestor "$SHA"
+  origin/main`, BUG-1452): a tag on an unmerged commit fails before the run lookup. The check runs
+  from the tagged commit, so it stops accidental releases; a `v*` tag ruleset (see the manual setup
+  below) is what stops someone who can also edit the workflow.
 - It keys on `github.sha`, not the tag name — a tag can be moved, and what was tested is a commit.
 - It counts only **production runs**: a `push` to `main`, or a `workflow_dispatch` whose ref is this
   tag. A push to `test`, a PR run or the nightly may sit on the same commit, but their legs passed
@@ -322,7 +335,13 @@ nothing is published and nothing else breaks.
    Also set **Deployment branches and tags → Selected** with a `v*` tag rule. Nothing in
    `release.yaml` can enforce which ref a tag points at — anyone who can push a tag can otherwise
    publish an arbitrary tree to PyPI under the project's name. The environment protection rule is the
-   only place that restriction can live.
+   only place that restriction can live. (The gate's on-`main` ancestry check catches an accidental
+   tag on an unmerged commit, but it runs from the tagged tree and is no substitute for this rule.)
+
+   Also add a **tag ruleset** (Settings → Rules → Rulesets) restricting who can create or move `v*`
+   tags, and move `TEAM_API_KEY_PROD` out of the repository secrets into a protected environment
+   limited to `main` and `v*` (with reviewers), then reference that environment from `main.yaml`'s
+   `functional` job. Neither can be expressed in the repository itself (BUG-1452).
 2. **Register the trusted publisher on PyPI.** Needs owner rights on the `aiXplain` PyPI project — the
    account that currently holds the upload token. On <https://pypi.org/manage/project/aixplain/settings/publishing/>:
 

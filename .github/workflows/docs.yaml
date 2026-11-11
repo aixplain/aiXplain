@@ -39,7 +39,7 @@ jobs:
           PYTHONPATH=. pydoc-markdown pydoc-markdown.yml
 
       - name: Create Pull Request if docs changed
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8.1.3
         with:
           branch: docs/regenerate-api-docs
           commit-message: "chore(docs): regenerate API docs"

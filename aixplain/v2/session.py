@@ -23,6 +23,7 @@ from .plain_data import WireValue, coerce_enum, struct_fields, wire_value
 if TYPE_CHECKING:
     from .agent import Budget, BudgetDict
 from .resource import (
+    _deprecates_per_call_api_key,
     BaseResource,
     GetResourceMixin,
     DeleteResourceMixin,
@@ -774,6 +775,7 @@ class Session(
         return payload
 
     @classmethod
+    @_deprecates_per_call_api_key
     def search(
         cls,
         agent: Optional[Any] = None,
@@ -851,7 +853,9 @@ class Session(
         if isinstance(response, dict):
             items = response.get(cls.PAGINATE_ITEMS_KEY) or response.get("items") or []
             total = response.get(cls.PAGINATE_TOTAL_KEY, len(items))
-            page_total = response.get(cls.PAGINATE_PAGE_TOTAL_KEY, 1)
+            # ``pageTotal`` is the item count of this page; use ``pagesCount``
+            # or ``ceil(total / page_size)`` for the page count (BUG-1459).
+            page_total = cls._page_count(response, total if isinstance(total, int) else len(items), items, page_size)
         else:
             items = _parse_list_response(response, "sessions")
             total = len(items)
