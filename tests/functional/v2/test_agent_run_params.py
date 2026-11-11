@@ -449,16 +449,40 @@ def test_run_time_inspector_accepted(run_agent, assets):
 # ---------------------------------------------------------------------------
 
 
-def test_timeout_zero_raises_before_first_poll(run_agent):
-    """``timeout`` bounds the SDK's wait for an accepted run.
+def test_timeout_zero_is_rejected_before_submission(run_agent):
+    """A non-positive ``timeout`` is rejected before the run is submitted.
 
-    Agent runs are asynchronous: the submission returns a poll URL, and
-    ``sync_poll`` checks the remaining budget before its first poll, so
-    ``timeout=0`` raises deterministically. The run itself carries on on the
-    backend.
+    ``Agent.run`` validates the poll budget before the POST (BUG-1095), so a
+    budget that can never be met does not bill a run that is then abandoned.
+    The unit tests in ``tests/unit/v2/test_bug_1095_contracts.py`` check that no
+    request is sent; this test checks the same contract against the live client.
     """
-    with pytest.raises(SDKTimeoutError, match=r"timed out after 0 seconds"):
+    with pytest.raises(ValueError, match=r"timeout must be a positive number of seconds"):
         run_agent.run("Say hi.", timeout=0)
+
+
+def test_tiny_timeout_raises_sdk_timeout(run_agent):
+    """A positive but tiny ``timeout`` passes validation and then raises the SDK ``TimeoutError``.
+
+    The budget bounds two steps, and either one can expire it:
+
+    * the submission POST, whose read timeout is the remaining budget floored
+      at 1 s (BUG-1462). A POST slower than that raises "Run submission did
+      not complete within ...", and that error has no poll URL yet;
+    * otherwise ``sync_poll``, which rechecks the budget after every poll, so
+      it raises "timed out after 0.001 seconds" by the first poll at the latest.
+
+    The test accepts either message because prod POST latency decides which
+    one appears. The call can only return if a "Say hi." run finishes within a
+    millisecond of being accepted, and an LLM round trip rules that out.
+    """
+    with pytest.raises(
+        SDKTimeoutError,
+        match=r"timed out after 0\.001 seconds|Run submission did not complete within",
+    ) as excinfo:
+        run_agent.run("Say hi.", timeout=0.001)
+    if "timed out after" in str(excinfo.value):
+        assert excinfo.value.poll_url, "a poll timeout should carry the run's poll URL"
 
 
 # ---------------------------------------------------------------------------
