@@ -4,6 +4,7 @@ from typing import Any, Iterable, Optional, Tuple, Union, List, FrozenSet
 import inspect
 import json
 import logging
+import math
 import os
 import re
 import requests
@@ -90,10 +91,12 @@ DEFAULT_UPLOAD_TIMEOUT = 120.0
 
 
 def _timeout_from_env(name: str, default: float) -> float:
-    """Read a positive float timeout from ``name``, falling back to ``default``.
+    """Read a positive, finite float timeout from ``name``, falling back to ``default``.
 
     A malformed value must not silently remove the bound the variable exists
-    to configure, so it logs and keeps the default.
+    to configure, so it logs and keeps the default. ``nan`` and ``inf`` parse
+    as floats but are not usable: ``max(10.0, nan)`` is ``10.0``, and
+    ``requests`` rejects ``inf`` with an ``OverflowError``.
     """
     raw = os.getenv(name, "").strip()
     if not raw:
@@ -102,6 +105,9 @@ def _timeout_from_env(name: str, default: float) -> float:
         value = float(raw)
     except ValueError:
         logger.warning(f"Ignoring non-numeric {name}={raw!r}; using {default}s")
+        return default
+    if not math.isfinite(value):
+        logger.warning(f"Ignoring non-finite {name}={raw!r}; using {default}s")
         return default
     if value <= 0:
         logger.warning(f"Ignoring non-positive {name}={raw!r}; using {default}s")
@@ -121,7 +127,7 @@ def default_timeout() -> Tuple[float, float]:
     )
 
 
-def upload_timeout(base: Optional[TimeoutType] = None) -> Tuple[float, float]:
+def upload_timeout(base: Any = None) -> Any:
     """Resolve the ``(connect/send, read)`` timeout for a presigned upload PUT.
 
     The first slot also bounds each block of the request body (see
@@ -129,20 +135,36 @@ def upload_timeout(base: Optional[TimeoutType] = None) -> Tuple[float, float]:
     ``AIXPLAIN_HTTP_UPLOAD_TIMEOUT`` (seconds, default 120). The read slot
     comes from *base*, the caller's configured timeout, or from
     :func:`default_timeout` when *base* is ``None``. A larger first slot in
-    *base* wins, so a caller who raised the connect timeout is never lowered.
+    *base* wins, so a caller who raised the connect timeout is never lowered,
+    and a ``None`` slot (no limit) stays ``None``.
 
     Args:
-        base: The timeout configured for the client, as a single number or a
-            ``(connect, read)`` pair. ``None`` uses the defaults.
+        base: The timeout configured for the client, in any shape ``requests``
+            accepts: a single number, a ``(connect, read)`` tuple or list whose
+            slots may be ``None``, or a ``urllib3`` ``Timeout``. ``None`` uses
+            the defaults. A shape whose first slot cannot be read (a
+            ``Timeout``, a 3-tuple) is returned unchanged, so ``requests``
+            treats it as it treats any other request's timeout.
 
     Returns:
-        A ``(connect/send, read)`` pair to pass as ``timeout=``.
+        A ``(connect/send, read)`` pair to pass as ``timeout=``, or *base*
+        unchanged when its shape is not one of the above.
     """
     if base is None:
         base = default_timeout()
-    connect, read = base if isinstance(base, tuple) else (base, base)
+    if isinstance(base, (tuple, list)) and len(base) == 2:
+        connect, read = base
+    elif isinstance(base, (int, float)) and not isinstance(base, bool):
+        connect = read = base
+    else:
+        return base
+    try:
+        connect = None if connect is None else float(connect)
+        read = None if read is None else float(read)
+    except (TypeError, ValueError):
+        return base
     send = _timeout_from_env("AIXPLAIN_HTTP_UPLOAD_TIMEOUT", DEFAULT_UPLOAD_TIMEOUT)
-    return (max(float(connect), send), float(read))
+    return (None if connect is None else max(connect, send), read)
 
 
 # Hosts the SDK is willing to send ``TEAM_API_KEY`` to, on top of whatever the

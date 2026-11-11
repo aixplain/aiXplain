@@ -26,6 +26,7 @@ from .graph import Graph, GraphDict, InspectorNode, StaticGraphStrategy, StaticG
 from ._backoff import sleep_with_jitter
 from .exceptions import (
     AgentRunFailedError,
+    AgentRunNotStartedError,
     APIError,
     ResourceError,
     ValidationError,
@@ -1681,16 +1682,17 @@ class Agent(
             )
 
         if session is not None or self._sessionless_run_reason(kwargs) is None:
+            # As the direct run_async does: before_run outside the try, an early
+            # result returned as is, after_run only for a failed submission.
+            # Frames up to the user: Agent.run_async -> caller.
+            early, query, end_user_id = self._begin_session_run(session, kwargs, caller_depth=2)
+            if early is not None:
+                return early
             try:
-                # Frames up to the user: Agent.run_async -> caller.
-                submitted = self._submit_session_message(session, kwargs, caller_depth=2)
+                session, user_msg = self._submit_session_message(session, kwargs, query, end_user_id, caller_depth=2)
             except BaseException as exc:
-                # As the direct run_async does: after_run sees a failed submission.
                 self._apply_after_run_failure(exc, **kwargs)
                 raise
-            if isinstance(submitted, AgentRunResult):
-                return submitted
-            session, user_msg = submitted
             result = AgentRunResult(
                 status="IN_PROGRESS",
                 completed=False,
@@ -3157,14 +3159,38 @@ class Agent(
             return self.context.Session.get(session)
         raise TypeError(f"session must be a Session instance or a session id string, got {type(session).__name__}")
 
+    #: Run kwargs the direct path sends as headers (``x-session-id`` / ``x-agent``)
+    #: and the session create and message POST do not carry.
+    _DIRECT_ONLY_HEADER_KWARGS: ClassVar[tuple] = ("session_id", "agent_name")
+
+    def _kwargs_a_session_run_does_not_send(self, kwargs: Dict[str, Any]) -> List[str]:
+        """Run kwargs, besides :attr:`_LEGACY_ONLY_RUN_KWARGS`, that the session path would drop.
+
+        The session path sends the query, the attachments and the
+        :attr:`_SESSION_EXECUTION_OVERRIDES`, and uses the SDK control kwargs
+        (``timeout``, ``run_retries``, the progress display, ...) itself. The
+        direct path also sends ``session_id`` / ``agent_name`` as headers and
+        forwards any other kwarg as a body field; neither reaches the backend
+        through a session.
+        """
+        consumed = {"query", "attachments", "files", *self._SESSION_EXECUTION_OVERRIDES, *self._LEGACY_ONLY_RUN_KWARGS}
+        return sorted(
+            key
+            for key, value in kwargs.items()
+            if value is not None
+            and key not in consumed
+            and (key in self._DIRECT_ONLY_HEADER_KWARGS or key not in self._RUN_CONTROL_KEYS)
+        )
+
     def _sessionless_run_reason(self, kwargs: Dict[str, Any]) -> Optional[str]:
         """Why a run with no ``session`` cannot go through a session, or ``None`` when it can.
 
         ``POST /v1/sessions/{id}/messages`` carries a text query, attachments and
         the ``executionConfig`` fields, nothing else. A run that passes one of the
-        :attr:`_LEGACY_ONLY_RUN_KWARGS` or a non-string query keeps the direct
-        ``POST /v2/agents/{id}/run`` path, where those still work, rather than
-        failing a call that worked before every run went through a session.
+        :attr:`_LEGACY_ONLY_RUN_KWARGS`, a non-string query, ``session_id`` /
+        ``agent_name`` (sent as headers) or any other kwarg the direct path
+        forwards keeps the direct ``POST /v2/agents/{id}/run`` path, where those
+        still reach the backend, rather than dropping them silently.
         """
         legacy = [key for key in self._LEGACY_ONLY_RUN_KWARGS if kwargs.get(key) is not None]
         if legacy:
@@ -3172,6 +3198,25 @@ class Agent(
         query = kwargs.get("query")
         if query is not None and not isinstance(query, str):
             return f"a {type(query).__name__} query (the session endpoint takes a string)"
+        unsent = self._kwargs_a_session_run_does_not_send(kwargs)
+        if unsent:
+            return f"run kwargs a session run does not send: {unsent}"
+        return None
+
+    @staticmethod
+    def _session_api_error(exc: BaseException) -> Optional[APIError]:
+        """The ``APIError`` behind a failed session create or message POST, or ``None``.
+
+        ``Session.save()`` reports a backend error as a ``ResourceError`` raised
+        while handling it (``with_hooks``), so the ``APIError`` with the status
+        and platform code is that exception's ``__cause__`` or ``__context__``.
+        """
+        if isinstance(exc, APIError):
+            return exc
+        if isinstance(exc, ResourceError):
+            inner = exc.__cause__ or exc.__context__
+            if isinstance(inner, APIError):
+                return inner
         return None
 
     @classmethod
@@ -3179,13 +3224,10 @@ class Agent(
         """Whether a failed session create or message POST may succeed on retry.
 
         The direct path's rule (:meth:`_is_retryable_run_error`), applied to the
-        ``APIError`` behind the failure. ``Session.save()`` reports a backend
-        error as a ``ResourceError`` raised while handling it (``with_hooks``), so
-        the ``APIError`` is that exception's ``__context__``.
+        ``APIError`` behind the failure (:meth:`_session_api_error`).
         """
-        if isinstance(exc, ResourceError) and not isinstance(exc, APIError):
-            exc = exc.__cause__ or exc.__context__
-        return cls._is_retryable_run_error(exc) if exc is not None else False
+        api_error = cls._session_api_error(exc)
+        return cls._is_retryable_run_error(api_error) if api_error is not None else False
 
     def _submit_session_request(self, kwargs: Dict[str, Any], send: Callable[[], _SubmitT]) -> _SubmitT:
         """Run one session-path POST, retried as ``run_retries`` / ``run_retry_wait`` ask.
@@ -3198,6 +3240,11 @@ class Agent(
         retried message POST has the direct path's at-least-once semantics: if
         the backend accepted the first attempt before failing, the run is
         started twice.
+
+        A backend refusal raises the ``APIError`` with its status and platform
+        code, as the direct run POST does, even when ``Session.save()`` wrapped
+        it in a ``ResourceError``: a caller's ``except APIError`` around
+        ``agent.run()`` must keep matching a refused session create.
         """
         run_retries, run_retry_wait = self._run_retry_settings(kwargs)
         for attempt in range(run_retries + 1):
@@ -3205,7 +3252,10 @@ class Agent(
                 return send()
             except (APIError, ResourceError) as exc:
                 if attempt >= run_retries or not self._is_retryable_session_submit_error(exc):
-                    raise
+                    api_error = self._session_api_error(exc)
+                    if api_error is None or api_error is exc:
+                        raise
+                    raise api_error from None
                 sleep_with_jitter(run_retry_wait)
         raise RuntimeError("session submission retry loop exhausted without return")
 
@@ -3273,19 +3323,20 @@ class Agent(
             self._submit_session_request(kwargs, session.save)
         return session
 
-    def _submit_session_message(
+    def _begin_session_run(
         self, session: Any, kwargs: Dict[str, Any], caller_depth: int
-    ) -> Union[AgentRunResult, Tuple["Session", Any]]:
-        """Post the run's user message to a session; return ``(session, user_message)``.
+    ) -> Tuple[Optional[AgentRunResult], str, Optional[str]]:
+        """Check a session run's arguments and call ``before_run``; nothing is sent.
 
-        Steps 1 and 2 of :meth:`_run_with_session`, shared with
-        :meth:`run_async`. When *session* is ``None`` a new one is created for
-        this run (:meth:`_create_run_session`). Returns the early result instead
-        when a ``before_run`` hook supplies one.
+        Returns ``(early, query, end_user_id)``: *early* is the result a
+        ``before_run`` hook supplied (``None`` to go on), *query* the text to
+        post and *end_user_id* the ``x-user-id`` value. Runs before the ``try``
+        that calls ``after_run``, as ``RunnableResourceMixin.run`` calls
+        ``before_run``: a hook that raises, or an argument rejected before it
+        runs, never reaches ``after_run``.
 
         *caller_depth* is the number of frames between this one and the user's
-        ``run()`` / ``run_async()`` call, so warnings raised while building the
-        session point at that call.
+        ``run()`` / ``run_async()`` call, so a warning points at that call.
         """
         offending = [k for k in self._LEGACY_ONLY_RUN_KWARGS if kwargs.get(k) is not None]
         if offending:
@@ -3302,17 +3353,45 @@ class Agent(
             raise ValueError("A session run requires a query or attachments.")
         if query is not None and not isinstance(query, str):
             raise ValueError("session=… only supports string queries.")
-        query = query or ""
         # Checked before anything is sent, as the direct path checks its headers.
         end_user_id = self._end_user_id_for_run(kwargs)
+
+        # Only an explicit session= gets here with such kwargs: a run without
+        # one keeps the direct path for them (_sessionless_run_reason).
+        unsent = self._kwargs_a_session_run_does_not_send(kwargs)
+        if session is not None and unsent:
+            warnings.warn(
+                f"Run kwargs {unsent} are not sent on a session=… run: the session message carries the "
+                f"query, attachments and {list(self._SESSION_EXECUTION_OVERRIDES)} only.",
+                UserWarning,
+                stacklevel=caller_depth + 1,
+            )
 
         # The same hook the direct path runs first: it checks child components
         # are saved and saves a new or modified draft agent, which a session
         # needs because it is bound to the agent's id.
         early = self._begin_run(**kwargs)
-        if early is not None:
-            return early
+        return early, query or "", end_user_id
 
+    def _submit_session_message(
+        self, session: Any, kwargs: Dict[str, Any], query: str, end_user_id: Optional[str], caller_depth: int
+    ) -> Tuple["Session", Any]:
+        """Post the run's user message to a session; return ``(session, user_message)``.
+
+        Steps 1 and 2 of :meth:`_run_with_session`, shared with
+        :meth:`run_async`, after :meth:`_begin_session_run`. When *session* is
+        ``None`` a new one is created for this run (:meth:`_create_run_session`).
+
+        *caller_depth* is the number of frames between this one and the user's
+        ``run()`` / ``run_async()`` call, so warnings raised while building the
+        session point at that call.
+
+        Raises:
+            AgentRunNotStartedError: The message was saved but the platform did
+                not start the run (no ``requestId``).
+        """
+        attachments = kwargs.get("attachments")
+        files = kwargs.get("files")
         if session is None:
             session = self._create_run_session(kwargs, stacklevel=caller_depth + 2, end_user_id=end_user_id)
         else:
@@ -3336,9 +3415,13 @@ class Agent(
                 ),
             )
         if not user_msg.request_id:
-            raise ValueError(
-                f"Backend did not return a requestId on the user message for "
-                f"session '{session.id}'; cannot poll the agent run result."
+            raise AgentRunNotStartedError(
+                f"The platform did not start the agent run: the user message was saved to session "
+                f"'{session.id}' but came back with no requestId. The session endpoint reports only a "
+                f"rate limit (429) when it refuses a run; any other refusal, such as insufficient "
+                f"credits, arrives this way, so the reason is not available here. Check the team's "
+                f"balance and the agent's status.",
+                session_id=session.id,
             )
         return session, user_msg
 
@@ -3366,12 +3449,12 @@ class Agent(
         # ``after_run`` keeps the contract it has on the direct path
         # (``RunnableResourceMixin.run``): called once on every exit, allowed to
         # substitute a successful result, never to turn a raise into a return.
+        # Frames up to the user: _run_with_session -> Agent.run -> caller.
+        early, query, end_user_id = self._begin_session_run(session, kwargs, caller_depth=3)
+        if early is not None:
+            return self._apply_after_run(early, **kwargs)
         try:
-            # Frames up to the user: _run_with_session -> Agent.run -> caller.
-            submitted = self._submit_session_message(session, kwargs, caller_depth=3)
-            if isinstance(submitted, AgentRunResult):
-                return self._apply_after_run(submitted, **kwargs)
-            session, user_msg = submitted
+            session, user_msg = self._submit_session_message(session, kwargs, query, end_user_id, caller_depth=3)
 
             # Same progress-display ownership as the direct path: sync_poll calls
             # self.on_poll(...) on every iteration, which forwards to the tracker.

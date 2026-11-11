@@ -35,6 +35,22 @@ debug_result = response.debug("Why did it take so long?")  # Custom prompt
 
 
 
+#### DEBUGGER\_AGENT\_ID\_ENV
+
+Overrides `DEBUGGER_AGENT_ID`, read on every lookup. The debugger is a
+backend agent deployed per environment, so a backend that carries it under a
+different id (or a team running its own debugger) points the SDK at it here.
+
+#### debugger\_agent\_id
+
+```python
+def debugger_agent_id() -> str
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L49)
+
+The debugger agent id to use: ``AIXPLAIN_DEBUGGER_AGENT_ID`` when set, else `DEBUGGER_AGENT_ID`.
+
 ### DebugResult Objects
 
 ```python
@@ -44,7 +60,7 @@ debug_result = response.debug("Why did it take so long?")  # Custom prompt
 class DebugResult(Result)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L42)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L56)
 
 Result from running the Debugger meta-agent.
 
@@ -64,7 +80,7 @@ Result from running the Debugger meta-agent.
 def analysis() -> Optional[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L61)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L75)
 
 Extract the debugging analysis text from the result data.
 
@@ -78,7 +94,7 @@ Extract the debugging analysis text from the result data.
 class Debugger()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L82)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L96)
 
 Meta-agent for debugging and analyzing agent responses.
 
@@ -114,7 +130,7 @@ debug_result = debugger.debug_response(agent_result)
 def __init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L106)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L120)
 
 Initialize the Debugger.
 
@@ -129,7 +145,7 @@ def run(content: Optional[str] = None,
         **kwargs: Any) -> DebugResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L130)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L159)
 
 Run the debugger on provided content.
 
@@ -170,7 +186,7 @@ def debug_response(response: "AgentRunResult",
                    **kwargs: Any) -> DebugResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L167)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/meta_agents.py#L196)
 
 Debug an agent response.
 

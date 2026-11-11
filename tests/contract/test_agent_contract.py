@@ -16,7 +16,7 @@ runs carrying kwargs the session endpoint cannot carry (``history``,
 
 import pytest
 
-from tests.support.platform_replay import BACKEND_URL, PlatformStub, load_recording
+from tests.support.platform_replay import BACKEND_URL, PlatformStub, load_recording, recording_response
 
 AGENT_ID = "agent-contract-1"
 
@@ -170,13 +170,34 @@ def test_a_quota_refusal_on_the_session_path_raises_with_the_platform_code(aix, 
     assert platform.sent("GET", "/sdk/agents/") == []
 
 
+def test_a_refused_session_create_raises_with_the_platform_status(aix, platform: PlatformStub) -> None:
+    # Session.save() wraps a backend error in a ResourceError; the run must still
+    # raise the APIError, so ``except APIError`` around agent.run() keeps matching.
+    from aixplain.v2.exceptions import APIError, ResourceError
+
+    platform.serve("backend/agent-detail")
+    platform.route("POST", "backend", "/v1/sessions", recording_response("backend/error-forbidden"))
+
+    with pytest.raises(APIError) as raised:
+        aix.Agent.get(AGENT_ID).run("hi", show_progress=False)
+
+    assert raised.value.status_code == 403 and "Forbidden" in str(raised.value)
+    assert not isinstance(raised.value, ResourceError)
+    assert platform.sent("POST", "/messages") == []
+
+
 def test_a_session_run_the_platform_did_not_start_raises_without_polling(aix, platform: PlatformStub) -> None:
+    from aixplain.v2.exceptions import AgentRunNotStartedError, APIError
+
     platform.serve("backend/agent-detail").serve("backend/session-create")
     platform.serve("backend/session-message-run-not-started")
 
-    with pytest.raises(ValueError, match="did not return a requestId"):
+    with pytest.raises(AgentRunNotStartedError, match="did not start the agent run") as raised:
         aix.Agent.get(AGENT_ID).run("hi", show_progress=False)
 
+    # An APIError, so ``except APIError`` catches it, and a ValueError, as before.
+    assert isinstance(raised.value, APIError) and isinstance(raised.value, ValueError)
+    assert raised.value.retryable is False and raised.value.session_id == "sess-contract-1"
     assert platform.sent("GET", "/sdk/agents/") == []
 
 
@@ -186,8 +207,8 @@ def test_a_session_run_the_platform_did_not_start_raises_without_polling(aix, pl
         "ENG-3907 finding: on the session path platform-backend rethrows only a 429 from the agent run "
         "(session.message.service.ts runAgentForMessage). Any other refusal, such as 471 "
         "err.not_enough_balance, is logged and swallowed and the message comes back 201 with no "
-        "requestId, so the SDK cannot tell the caller why the run did not start. The direct path "
-        "raises APIError(471, err.not_enough_balance)."
+        "requestId, so the SDK cannot tell the caller why the run did not start: it raises "
+        "AgentRunNotStartedError with no status. The direct path raises APIError(471, err.not_enough_balance)."
     ),
 )
 def test_a_session_run_refused_for_balance_says_so(aix, platform: PlatformStub) -> None:
@@ -196,5 +217,7 @@ def test_a_session_run_refused_for_balance_says_so(aix, platform: PlatformStub) 
     platform.serve("backend/agent-detail").serve("backend/session-create")
     platform.serve("backend/session-message-run-not-started")
 
-    with pytest.raises(APIError, match="err.not_enough_balance"):
+    with pytest.raises(APIError) as raised:
         aix.Agent.get(AGENT_ID).run("hi", show_progress=False)
+
+    assert raised.value.status_code == 471 and "err.not_enough_balance" in str(raised.value)

@@ -10,15 +10,16 @@ threads are managed through `aix.Session` and passed here.
 
 Without `session=` the SDK creates a new Session for the run and goes through
 the same path, so every run is a session run. Only kwargs the session endpoint
-cannot carry (`tasks`/`prompt`/`inspectors`/`history`/`variables`, or a
-non-string query) keep the direct `/v2/agents/{id}/run` path.
+cannot carry (`tasks`/`prompt`/`inspectors`/`history`/`variables`, a non-string
+query, the `session_id`/`agent_name` headers or any other kwarg the direct path
+forwards) keep the direct `/v2/agents/{id}/run` path.
 """
 
 from unittest.mock import Mock, patch
 
 import pytest
 
-from aixplain import Agent, AgentRunResult
+from aixplain import Agent, AgentRunNotStartedError, AgentRunResult
 from aixplain import ExecutionConfig, Session, SessionMessage
 
 
@@ -403,7 +404,7 @@ class TestRunWithSessionAttachments:
 
 
 # ---------------------------------------------------------------------------
-# 5. Missing requestId on the user message → ValueError (defensive)
+# 5. Missing requestId on the user message → AgentRunNotStartedError (also a ValueError)
 # ---------------------------------------------------------------------------
 
 
@@ -424,8 +425,10 @@ class TestRunWithSessionMissingRequestId:
         session = BoundSession(agent_id="agent_99")
         session.id = "sess_new"
 
-        with pytest.raises(ValueError, match="requestId"):
+        # Still a ValueError, as before, and now an APIError too.
+        with pytest.raises(ValueError, match="requestId") as raised:
             agent.run("hi", session=session)
+        assert isinstance(raised.value, AgentRunNotStartedError)
 
 
 # ---------------------------------------------------------------------------
@@ -904,15 +907,212 @@ class TestRunRetriesOnTheSessionPath:
         sleep.assert_not_called()
 
     def test_retries_stop_at_the_limit(self):
-        from aixplain import ResourceError
+        from aixplain import APIError, ResourceError
 
         harness = _WireHarness(fail={"sessions": [self._unavailable() for _ in range(5)]})
 
-        with patch("aixplain.v2.agent.sleep_with_jitter"), pytest.raises(ResourceError):
+        with patch("aixplain.v2.agent.sleep_with_jitter"), pytest.raises(APIError) as raised:
             harness.agent.run("hi", run_retries=2, run_retry_wait=0)
 
+        # The last attempt's APIError, not the ResourceError Session.save() wraps it in.
+        assert raised.value.status_code == 503
+        assert not isinstance(raised.value, ResourceError)
         assert len(harness.posts("sessions")) == 3  # 1 + run_retries
         assert harness.posts("messages") == []
+
+
+class TestSessionPathRefusalsKeepTheAPIErrorContract:
+    """A refused run raises an ``APIError`` with the platform's status, as on the direct path."""
+
+    @pytest.mark.parametrize("status", [401, 403, 500])
+    def test_a_refused_session_create_raises_the_api_error(self, status):
+        from aixplain import APIError, ResourceError
+
+        refusal = APIError("refused", status_code=status, error="err.refused")
+        harness = _WireHarness(fail={"sessions": [refusal]})
+
+        with pytest.raises(APIError) as raised:
+            harness.agent.run("hi")
+
+        assert raised.value is refusal
+        assert not isinstance(raised.value, ResourceError)
+        assert raised.value.__cause__ is None and raised.value.__suppress_context__
+        assert harness.posts("messages") == []
+
+    def test_run_async_raises_it_too(self):
+        from aixplain import APIError
+
+        harness = _WireHarness(fail={"sessions": [APIError("refused", status_code=401)]})
+
+        with pytest.raises(APIError) as raised:
+            harness.agent.run_async("hi")
+
+        assert raised.value.status_code == 401
+
+    def test_a_session_save_failure_without_an_api_error_is_left_alone(self):
+        from aixplain import ResourceError
+
+        harness = _WireHarness(fail={"sessions": [RuntimeError("socket closed")]})
+
+        with pytest.raises(ResourceError, match="socket closed"):
+            harness.agent.run("hi")
+
+    def test_a_run_the_platform_did_not_start_raises_agent_run_not_started(self):
+        from aixplain import AgentRunNotStartedError, APIError
+
+        harness = _AutoSessionHarness()
+        harness.ctx.Session.add_message = lambda self, role, content, **kw: _user_message(request_id=None)
+        harness.agent.sync_poll = Mock()
+        seen = []
+        harness.agent.after_run = lambda result, *a, **k: seen.append(result)
+
+        with pytest.raises(AgentRunNotStartedError, match="did not start the agent run") as raised:
+            harness.agent.run("hi")
+
+        error = raised.value
+        assert isinstance(error, APIError) and isinstance(error, ValueError)
+        assert error.retryable is False
+        assert error.session_id == "sess_auto"
+        harness.agent.sync_poll.assert_not_called()
+        assert seen == [error]
+
+    def test_it_is_not_retried(self):
+        from aixplain import AgentRunNotStartedError
+
+        harness = _AutoSessionHarness()
+        posts = []
+        harness.ctx.Session.add_message = lambda self, role, content, **kw: (
+            posts.append(1),
+            _user_message(request_id=None),
+        )[1]
+
+        with patch("aixplain.v2.agent.sleep_with_jitter"), pytest.raises(AgentRunNotStartedError):
+            harness.agent.run_async("hi", run_retries=3, run_retry_wait=0)
+
+        assert len(posts) == 1
+
+
+class TestKwargsASessionRunDoesNotSend:
+    """``session_id`` / ``agent_name`` and unknown kwargs keep the direct path, where they are sent."""
+
+    @staticmethod
+    def _direct_harness():
+        harness = _AutoSessionHarness()
+        harness.ctx.client.request.return_value = {"status": "SUCCESS", "completed": True, "data": {"output": "ok"}}
+        # The direct run answers completed, so nothing polls; a session run would, so fail it fast.
+        harness.agent.sync_poll = Mock(side_effect=AssertionError("the run took the session path"))
+        return harness
+
+    @staticmethod
+    def _run_post(harness):
+        method, url = harness.ctx.client.request.call_args_list[0].args[:2]
+        assert (method, "v2/agents/agent_99/run" in url) == ("post", True)
+        return harness.ctx.client.request.call_args_list[0].kwargs
+
+    @pytest.mark.parametrize(
+        ("kwarg", "header"),
+        [("session_id", "x-session-id"), ("agent_name", "x-agent")],
+        ids=["session_id", "agent_name"],
+    )
+    def test_header_kwargs_keep_the_direct_path_and_its_header(self, kwarg, header):
+        harness = self._direct_harness()
+
+        harness.agent.run("hi", **{kwarg: "corr-1"})
+
+        assert harness.created == []
+        assert self._run_post(harness)["headers"][header] == "corr-1"
+
+    def test_run_async_keeps_them_on_the_direct_path_too(self):
+        harness = self._direct_harness()
+        harness.ctx.client.request.return_value = {
+            "status": "IN_PROGRESS",
+            "completed": False,
+            "url": "https://platform-api.aixplain.com/sdk/agents/r/result",
+        }
+
+        harness.agent.run_async("hi", session_id="corr-1", agent_name="caller")
+
+        assert harness.created == []
+        assert self._run_post(harness)["headers"] == {"x-session-id": "corr-1", "x-agent": "caller"}
+
+    def test_an_unknown_kwarg_keeps_the_direct_path_and_is_forwarded(self):
+        harness = self._direct_harness()
+
+        harness.agent.run("hi", custom_flag="on")
+
+        assert harness.created == []
+        assert self._run_post(harness)["json"]["custom_flag"] == "on"
+
+    def test_sdk_control_kwargs_stay_on_the_session_path(self):
+        harness = _AutoSessionHarness()
+        harness.agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result()))
+
+        harness.agent.run("hi", timeout=30, wait_time=1, run_retries=1, run_retry_wait=0, show_progress=False)
+
+        assert len(harness.created) == 1
+        harness.ctx.client.request.assert_not_called()
+
+    def test_an_explicit_session_warns_that_they_are_not_sent(self):
+        harness = _AutoSessionHarness()
+        harness.agent.sync_poll = Mock(return_value=AgentRunResult.from_dict(_success_result()))
+        session = harness.ctx.Session(agent_id="agent_99")
+        session.id = "sess_given"
+
+        with pytest.warns(UserWarning, match=r"\['agent_name', 'session_id'\] are not sent") as caught:
+            harness.agent.run("hi", session=session, session_id="corr-1", agent_name="caller")
+
+        assert caught[0].filename == __file__
+        assert harness.posted[0]["session"] == "sess_given"
+        harness.ctx.client.request.assert_not_called()
+
+
+class TestSessionPathHookOrderMatchesTheDirectPath:
+    """``before_run`` / ``after_run`` are called as ``RunnableResourceMixin.run`` / ``run_async`` call them."""
+
+    def test_an_early_result_reaches_after_run_once_even_when_after_run_raises(self):
+        harness = _AutoSessionHarness()
+        early = AgentRunResult.from_dict(_success_result())
+        harness.agent.before_run = lambda *a, **k: early
+        calls = []
+
+        def after_run(result, *a, **k):
+            calls.append(result)
+            raise RuntimeError("after_run failed")
+
+        harness.agent.after_run = after_run
+
+        with pytest.raises(RuntimeError, match="after_run failed"):
+            harness.agent.run("hi")
+
+        assert calls == [early]
+        assert harness.created == []
+
+    @pytest.mark.parametrize("method", ["run", "run_async"])
+    def test_a_raising_before_run_does_not_reach_after_run(self, method):
+        harness = _AutoSessionHarness()
+
+        def before_run(*a, **k):
+            raise RuntimeError("before_run failed")
+
+        harness.agent.before_run = before_run
+        seen = []
+        harness.agent.after_run = lambda result, *a, **k: seen.append(result)
+
+        with pytest.raises(RuntimeError, match="before_run failed"):
+            getattr(harness.agent, method)("hi")
+
+        assert seen == []
+        assert harness.created == []
+
+    def test_run_async_returns_an_early_result_without_after_run(self):
+        harness = _AutoSessionHarness()
+        early = AgentRunResult.from_dict(_success_result())
+        harness.agent.before_run = lambda *a, **k: early
+        seen = []
+        harness.agent.after_run = lambda result, *a, **k: seen.append(result)
+
+        assert harness.agent.run_async("hi") is early
+        assert seen == []
 
 
 class TestSessionRunPollTimeout:

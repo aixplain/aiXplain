@@ -11,12 +11,45 @@ Client module for making HTTP requests to the aiXplain API.
 def default_timeout() -> Tuple[float, float]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L102)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L118)
 
 Resolve the default (connect, read) timeout, honouring env overrides.
 
 ``AIXPLAIN_HTTP_CONNECT_TIMEOUT`` / ``AIXPLAIN_HTTP_READ_TIMEOUT`` (seconds)
 override the built-in defaults per environment without a code change.
+
+#### upload\_timeout
+
+```python
+def upload_timeout(base: Any = None) -> Any
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L130)
+
+Resolve the ``(connect/send, read)`` timeout for a presigned upload PUT.
+
+The first slot also bounds each block of the request body (see
+`DEFAULT_UPLOAD_TIMEOUT`), so it is raised to at least
+``AIXPLAIN_HTTP_UPLOAD_TIMEOUT`` (seconds, default 120). The read slot
+comes from *base*, the caller's configured timeout, or from
+`default_timeout` when *base* is ``None``. A larger first slot in
+*base* wins, so a caller who raised the connect timeout is never lowered,
+and a ``None`` slot (no limit) stays ``None``.
+
+**Arguments**:
+
+- `base` - The timeout configured for the client, in any shape ``requests``
+- `accepts` - a single number, a ``(connect, read)`` tuple or list whose
+  slots may be ``None``, or a ``urllib3`` ``Timeout``. ``None`` uses
+  the defaults. A shape whose first slot cannot be read (a
+  ``Timeout``, a 3-tuple) is returned unchanged, so ``requests``
+  treats it as it treats any other request's timeout.
+  
+
+**Returns**:
+
+  A ``(connect/send, read)`` pair to pass as ``timeout=``, or *base*
+  unchanged when its shape is not one of the above.
 
 #### normalize\_origin
 
@@ -24,7 +57,7 @@ override the built-in defaults per environment without a code change.
 def normalize_origin(url: str) -> Optional[Origin]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L322)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L378)
 
 Return the normalized ``(scheme, host, port)`` triple for *url*, or None.
 
@@ -40,7 +73,7 @@ URLs carrying userinfo, which a legitimate aiXplain endpoint never does.
 def build_trusted_origins(urls: Iterable[str]) -> FrozenSet[Origin]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L368)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L424)
 
 Build the trusted origin set from configured endpoints, defaults and env.
 
@@ -56,7 +89,7 @@ body can induce.
 class _AixplainSession(requests.Session)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L388)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L444)
 
 Session that drops aiXplain credentials when a redirect leaves the trusted set.
 
@@ -73,7 +106,7 @@ own signature).
 def __init__(trusted_origins: FrozenSet[Origin] = frozenset()) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L408)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L464)
 
 Initialize the session with the origins allowed to receive credentials.
 
@@ -84,7 +117,7 @@ def rebuild_auth(prepared_request: requests.PreparedRequest,
                  response: requests.Response) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L413)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L469)
 
 Strip aiXplain credentials when the redirect target is not trusted.
 
@@ -98,7 +131,7 @@ def create_retry_session(total: Optional[int] = None,
                          **kwargs: Any) -> requests.Session
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L467)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L523)
 
 Creates a requests.Session with a specified retry strategy.
 
@@ -130,7 +163,7 @@ failure use the SDK-level ``run_retries`` parameter instead.
 class AixplainClient()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L523)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L579)
 
 HTTP client for aiXplain API with retry support.
 
@@ -148,7 +181,7 @@ def __init__(
         trusted_urls: Optional[List[str]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L526)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L582)
 
 Initialize AixplainClient with authentication and retry configuration.
 
@@ -176,7 +209,7 @@ Initialize AixplainClient with authentication and retry configuration.
 def resolve_url(path: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L584)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L640)
 
 Resolve *path* against ``base_url`` unless it is already absolute.
 
@@ -186,7 +219,7 @@ Resolve *path* against ``base_url`` unless it is already absolute.
 def is_trusted_url(url: str) -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L590)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L646)
 
 Return True when *url* is an origin allowed to receive the API key.
 
@@ -196,7 +229,7 @@ Return True when *url* is an origin allowed to receive the API key.
 def ensure_trusted_url(path: str) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L594)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L650)
 
 Resolve *path* and return it, raising unless it is a trusted origin.
 
@@ -214,7 +247,7 @@ Validation happens on the *resolved* URL: a relative input such as
 def request_raw(method: str, path: str, **kwargs: Any) -> requests.Response
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L620)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L676)
 
 Sends an HTTP request.
 
@@ -240,7 +273,7 @@ Sends an HTTP request.
 def request(method: str, path: str, **kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L673)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L729)
 
 Sends an HTTP request.
 
@@ -261,7 +294,7 @@ Sends an HTTP request.
 def get(path: str, **kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L687)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L743)
 
 Sends an HTTP GET request.
 
@@ -281,7 +314,7 @@ Sends an HTTP GET request.
 def post(path: str, **kwargs: Any) -> dict
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L699)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L755)
 
 Sends an HTTP POST request.
 
@@ -301,7 +334,7 @@ Sends an HTTP POST request.
 def request_stream(method: str, path: str, **kwargs: Any) -> requests.Response
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L711)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/client.py#L767)
 
 Sends a streaming HTTP request.
 

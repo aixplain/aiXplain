@@ -100,7 +100,7 @@ print(r.data.output)
 
 **JSON output** requires both `output_format="json"` + `expected_output=<schema>` on the agent, and `run_response_generation=True` at run time — otherwise the backend rejects with `AX-VAL-1000`.
 
-> **Privacy:** every run payload auto-attaches a `metaData` block built by the SDK carrying the caller's **IP address, latitude/longitude, timezone, locale/region and user agent**. Flag this for privacy-sensitive deployments.
+> **Privacy:** every direct run payload (`/v2/agents/{id}/run`, see Sessions below for which runs take that path) auto-attaches a `metaData` block built by the SDK carrying the caller's **IP address, latitude/longitude, timezone, locale/region and user agent**. Session runs do not send it. Flag this for privacy-sensitive deployments.
 
 ## Budget (cost / time / iteration caps)
 
@@ -145,9 +145,9 @@ agent.run("My name is Adam.", session=session)
 agent.run("What is my name?", session=session)     # remembers; or session=session.id
 ```
 
-**Every run is a session run.** Omit `session=` and the SDK creates a new session for that run (with the run's `execution_params`/`criteria`/`identifier` and the agent's budget in its `executionConfig`) and returns its id on `result.session_id` — pass it back as `session=` to continue the thread. `run_async` does the same. Only runs passing `tasks`/`prompt`/`inspectors`/`history`/`variables` or a non-string query still use the direct `/v2/agents/{id}/run` endpoint, with no session.
+**Every run is a session run.** Omit `session=` and the SDK creates a new session for that run (with the run's `execution_params`/`criteria`/`identifier` and the agent's budget in its `executionConfig`) and returns its id on `result.session_id` — pass it back as `session=` to continue the thread. `run_async` does the same. Only runs passing `tasks`/`prompt`/`inspectors`/`history`/`variables`, `session_id`/`agent_name` (sent as `x-session-id`/`x-agent` headers), any other kwarg a session message does not carry, or a non-string query still use the direct `/v2/agents/{id}/run` endpoint, with no session.
 
-`session=` accepts a `Session` object or an id string — anything else raises `TypeError`. Sessions live on the server and are bound to one agent, so a fresh client (`aix.Agent.get(id)`) resumes the same conversation from `session.id` alone. Save payload is `{'agentId', 'name', 'status'}` (+ `executionConfig` if set); statuses are `active | completed | failed | archived`. Sessions are **never auto-deleted** — call `session.delete()` when done (this includes the one the SDK creates for each sessionless run).
+`session=` accepts a `Session` object or an id string — anything else raises `TypeError`. Sessions live on the server and are bound to one agent, so a fresh client (`aix.Agent.get(id)`) resumes the same conversation from `session.id` alone. Save payload is `{'agentId', 'name', 'status'}` (+ `executionConfig` if set); statuses are `active | completed | failed | archived`. The SDK never deletes a session; the backend removes one after **180 days without activity**. Call `session.delete()` when done (this includes the one the SDK creates for each sessionless run). A session created without an `identifier` (sent as `x-user-id`) is visible to the whole team.
 
 For one run's worth of prior turns *without* a stored session, pass `history=[{"role","content"}, …]` instead; nothing is persisted, and it cannot be combined with `session=`.
 
@@ -171,7 +171,9 @@ Message management: `session.messages()`, `add_message(role, content, attachment
 
 - These run kwargs raise `ValueError` when combined with `session=`: `tasks`, `prompt`, `inspectors`, `history`, `variables`.
 - `query` must be a plain string, and a query or `attachments` is required.
-- `run_async(session=...)` raises `NotImplementedError` — session runs are sync-only.
+- `run_async(session=...)` is supported and returns a result whose `url` polls the triggered run.
+- `session_id` / `agent_name` and other kwargs a session message does not carry are not sent alongside `session=`; the run warns.
+- A refused run raises `APIError` with the platform's status, as on the direct path. A message the platform saved without starting its run (no `requestId`; any refusal other than a 429, such as insufficient credits) raises `AgentRunNotStartedError`, an `APIError` and a `ValueError`, with no status.
 - Per-run overrides (`execution_params`, `criteria`, `evolve`, `identifier`, `run_response_generation`) alongside `session=` warn and **mutate and re-save the session's `executionConfig`**, affecting every later message on that session. The agent's own `budget` is seeded in the same way — it fills only the caps the session leaves unset — so a plain session run on a budgeted agent can emit that `UserWarning` and rewrite the session even when you passed no overrides at all. Expected; no action needed.
 
 For durable cross-session / cross-agent memory, use the Shared Memory tool — see `references/knowledge-memory.md`.

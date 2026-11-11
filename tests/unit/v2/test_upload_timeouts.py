@@ -16,6 +16,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
+from urllib3.util import Timeout
 
 from aixplain.v2.client import DEFAULT_TIMEOUT_CONNECT, DEFAULT_TIMEOUT_READ, DEFAULT_UPLOAD_TIMEOUT, upload_timeout
 from aixplain import FileUploadError
@@ -204,10 +205,35 @@ class TestUploadTimeout:
         monkeypatch.setenv("AIXPLAIN_HTTP_UPLOAD_TIMEOUT", "900")
         assert upload_timeout((10, 300)) == (900.0, 300.0)
 
-    @pytest.mark.parametrize("bad", ["abc", "0", "-5", ""])
+    @pytest.mark.parametrize("bad", ["abc", "0", "-5", "", "nan", "inf", "-inf"])
     def test_unusable_env_values_fall_back_to_the_default(self, bad, monkeypatch):
         monkeypatch.setenv("AIXPLAIN_HTTP_UPLOAD_TIMEOUT", bad)
         assert upload_timeout((10, 300)) == (DEFAULT_UPLOAD_TIMEOUT, 300.0)
+
+    @pytest.mark.parametrize(
+        ("base", "expected"),
+        [
+            ((10, None), (DEFAULT_UPLOAD_TIMEOUT, None)),  # no read limit stays no read limit
+            ((None, 42), (None, 42.0)),  # no connect limit is never lowered to one
+            ([5, 42], (DEFAULT_UPLOAD_TIMEOUT, 42.0)),
+            ((5.0, 42.0), (DEFAULT_UPLOAD_TIMEOUT, 42.0)),
+        ],
+        ids=["read-none", "connect-none", "list", "floats"],
+    )
+    def test_every_pair_shape_requests_accepts(self, base, expected):
+        assert upload_timeout(base) == expected
+
+    @pytest.mark.parametrize(
+        "base",
+        [Timeout(connect=5, read=42), (1, 2, 3), ("a", 42)],
+        ids=["urllib3-timeout", "three-tuple", "non-numeric-slot"],
+    )
+    def test_a_shape_it_cannot_read_is_passed_through_unchanged(self, base):
+        assert upload_timeout(base) is base
+
+    def test_file_save_does_not_crash_on_a_client_timeout_with_no_read_limit(self):
+        # requests.put accepts (10, None); upload_timeout must not fail on it before a byte is sent.
+        assert upload_timeout((10, None))[0] == DEFAULT_UPLOAD_TIMEOUT
 
 
 class TestS3PutStreamsTheFile:
@@ -280,12 +306,12 @@ class TestEmptyFileUpload:
         assert self._wire_headers(bodies[0]) == {"Content-Length": "0"}
 
 
-@pytest.fixture
-def slow_sink_url():
-    """An HTTP listener that drains a request body slowly, then answers 200.
+def _sink(per_chunk_sleep=0.0, stall_after=None, stall_seconds=0.0):
+    """An HTTP listener that drains a request body, throttled and/or stalled, then answers 200.
 
-    A small receive buffer and a throttled ``recv`` make the client's send block
-    for well over a second in total, while no single 16 KiB block waits long.
+    Yields its URL. *per_chunk_sleep* throttles each ``recv``; after
+    *stall_after* body bytes it stops reading for *stall_seconds*, so the
+    client blocks in a single send for that long once the socket buffers fill.
     """
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -308,12 +334,20 @@ def slow_sink_url():
             head, _, body = data.partition(b"\r\n\r\n")
             length = int(re.search(rb"content-length:\s*(\d+)", head, re.I).group(1))
             received = len(body)
+            stalled = False
             while received < length:
-                chunk = conn.recv(4096)
+                if stall_after is not None and not stalled and received >= stall_after:
+                    stalled = True
+                    time.sleep(stall_seconds)
+                try:
+                    chunk = conn.recv(65536)
+                except OSError:
+                    return
                 if not chunk:
                     return
                 received += len(chunk)
-                time.sleep(0.002)
+                if per_chunk_sleep:
+                    time.sleep(per_chunk_sleep)
             conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
 
     thread = threading.Thread(target=serve, daemon=True)
@@ -321,6 +355,18 @@ def slow_sink_url():
     yield f"http://127.0.0.1:{listener.getsockname()[1]}/upload"
     listener.close()
     thread.join(timeout=5)
+
+
+@pytest.fixture
+def slow_sink_url():
+    """A sink that drains the body slowly: the send blocks well over a second in total, no block waits long."""
+    yield from _sink(per_chunk_sleep=0.002)
+
+
+@pytest.fixture
+def stalling_sink_url():
+    """A sink that stops reading for 1.5 s partway through the body, then drains it at full speed."""
+    yield from _sink(stall_after=64 * 1024, stall_seconds=1.5)
 
 
 class TestSlowLinkUpload:
@@ -342,3 +388,22 @@ class TestSlowLinkUpload:
         elapsed = time.monotonic() - started
 
         assert elapsed > 1.0, f"took {elapsed:.2f}s; the sink did not throttle, so this proves nothing"
+
+    def test_a_block_that_waits_longer_than_the_connect_timeout_succeeds(
+        self, stalling_sink_url, tmp_path, monkeypatch
+    ):
+        # Pins the timeout half of the fix: the connect timeout (0.5 s) is well
+        # under the stall (1.5 s) and the upload timeout (10 s) well over it.
+        # Without ``upload_timeout`` the blocked send is held to the connect
+        # timeout and fails at 0.5 s, streamed or not.
+        monkeypatch.setenv("AIXPLAIN_HTTP_CONNECT_TIMEOUT", "0.5")
+        monkeypatch.setenv("AIXPLAIN_HTTP_UPLOAD_TIMEOUT", "10")
+        file_path = tmp_path / "large.bin"
+        file_path.write_bytes(b"\0" * (16 * 1024 * 1024))
+
+        started = time.monotonic()
+        with patch("aixplain.v2.upload_utils.validate_upload_url"):
+            S3Uploader.upload_file(str(file_path), stalling_sink_url, "application/octet-stream")
+        elapsed = time.monotonic() - started
+
+        assert elapsed > 1.0, f"took {elapsed:.2f}s; the sink did not stall, so this proves nothing"

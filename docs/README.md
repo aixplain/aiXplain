@@ -180,7 +180,7 @@ Learn more at aixplain [Security](https://aixplain.com/security/) and aixplain [
 
 ## Run metadata
 
-Agent runs send a `metaData` object alongside your query. It carries `userAgent`
+Direct agent runs (the ones that do not go through a session) send a `metaData` object alongside your query. It carries `userAgent`
 and — derived from a one-time `https://ipinfo.io/json` lookup made from the machine
 running the SDK — `region`, `language`, `ipAddress`, `latitude`, `longitude`, and
 `timezone`. The platform uses `region`/`language`/`timezone` for locale-aware agent
@@ -188,7 +188,7 @@ execution.
 
 - The lookup runs **once per process**, on your first agent run, with a 2-second timeout.
 - If it fails or is blocked, the run proceeds normally with those fields `null`.
-- It applies to direct agent runs only. Every agent run goes through a session (the SDK creates one when `session=` is omitted) unless it passes `tasks`, `prompt`, `inspectors`, `history`, `variables` or a non-string query; session runs and model runs do not send it.
+- It applies to direct agent runs only. Every agent run goes through a session (the SDK creates one when `session=` is omitted) unless it passes `tasks`, `prompt`, `inspectors`, `history`, `variables`, `session_id`, `agent_name`, another kwarg a session message does not carry, or a non-string query; session runs and model runs do not send it.
 
 Full field-by-field disclosure: [run-metadata.md](./run-metadata.md).
 

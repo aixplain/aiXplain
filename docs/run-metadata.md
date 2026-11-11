@@ -105,7 +105,7 @@ If you see `latitude: null` in a trace, this is why.
 
 | Surface | Call site | When |
 |---|---|---|
-| `Agent.build_run_payload` | `aixplain/v2/agent.py` | every direct agent run (`agent.run` / `agent.run_async` with no `session=` that pass `tasks`, `prompt`, `inspectors`, `history` or `variables`, or a non-string `query`) |
+| `Agent.build_run_payload` | `aixplain/v2/agent.py` | every direct agent run (`agent.run` / `agent.run_async` with no `session=` that pass `tasks`, `prompt`, `inspectors`, `history`, `variables`, `session_id`, `agent_name` or any other kwarg a session message does not carry, or a non-string `query`) |
 
 The four v1 call sites (`Agent.run_async`, `Agent.generate_session_id`,
 `TeamAgent.run_async`, `TeamAgent.generate_session_id`) went with v1 in 0.3.0.
@@ -114,7 +114,9 @@ Direct agent runs reach the single call site through
 `RunnableResourceMixin._post_and_handle_run`, which calls `build_run_payload`. A run
 routed through a session does not go through `build_run_payload` at all — see below.
 That is every other agent run: with no `session=`, the SDK creates a session for the run
-and posts the query to it.
+and posts the query to it. That session stays on the platform until it has been inactive
+for 180 days, and one created without an `identifier` (sent as `x-user-id`) is visible to
+the whole team.
 
 **These do _not_ send `metaData`:**
 
