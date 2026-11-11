@@ -13,7 +13,6 @@
         {
           "items": [
             "api-reference/python/aixplain/utils/init",
-            "api-reference/python/aixplain/utils/config",
             "api-reference/python/aixplain/utils/url_safety",
             "api-reference/python/aixplain/utils/user_info_utils"
           ],

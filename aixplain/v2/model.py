@@ -5,10 +5,13 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 import warnings
 from collections.abc import Mapping
 from itertools import chain
-from typing import ClassVar, Dict, FrozenSet, Union, List, Optional, Any, TYPE_CHECKING, Iterator, Tuple
+
+import requests
+from typing import Callable, ClassVar, Dict, FrozenSet, Union, List, Optional, Any, Iterator, Tuple
 from urllib.parse import urlparse
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
@@ -27,6 +30,8 @@ from .resource import (
     _filter_value,
     _filter_values,
     _sort_direction,
+    _caller_timeout_seconds,
+    _request_timeout_for_budget,
 )
 from .enums import (
     AssetStatus,
@@ -39,11 +44,8 @@ from .enums import (
     SupplierValue,
 )
 from .mixins import ToolableMixin, ToolDict
-from .exceptions import ValidationError
+from .exceptions import APIError, TimeoutError, UntrustedURLError, ValidationError
 from .actions import Actions, Action, Inputs
-
-if TYPE_CHECKING:
-    import requests
 
 logger = logging.getLogger(__name__)
 
@@ -297,9 +299,23 @@ def _extract_stream_error(data: Any) -> Optional[str]:
 
     error = data.get("error")
     if error:
-        if isinstance(error, dict):
-            return str(error.get("message") or error)
-        return str(error)
+        base = str(error.get("message") or error) if isinstance(error, dict) else str(error)
+        # modelserving sends ``{error: "Stream Error", status, details}``; the
+        # bare ``error`` is a generic label, so the HTTP status and the
+        # supplier detail are what tell the caller what actually went wrong
+        # (BUG-1462).
+        extras: List[str] = []
+        status = data.get("status")
+        if status in (None, ""):
+            status = data.get("statusCode")
+        if status not in (None, "") and not (isinstance(status, str) and status.upper() in {"FAILED", "ERROR"}):
+            extras.append(f"status={status}")
+        detail = data.get("details") or data.get("supplierError") or data.get("supplier_error")
+        if detail:
+            detail_text = detail if isinstance(detail, str) else json.dumps(detail, default=str)
+            if detail_text != base:
+                extras.append(detail_text)
+        return f"{base} ({'; '.join(extras)})" if extras else base
 
     status = data.get("status")
     if isinstance(status, str) and status.upper() in {"FAILED", "ERROR"}:
@@ -343,6 +359,11 @@ def _content_from_document(data: Any) -> str:
                 content = message.get("content")
                 if isinstance(content, str):
                     return content
+                if content is None:
+                    # A tool-call reply has ``content: null``; its payload is in
+                    # ``tool_calls``, not the text, so the text is empty rather
+                    # than the whole body serialized (BUG-1462).
+                    return ""
 
         content = data.get("data")
         if isinstance(content, str):
@@ -351,6 +372,43 @@ def _content_from_document(data: Any) -> str:
             return json.dumps(content)
 
     return json.dumps(data)
+
+
+def _openai_message_extras(data: Any) -> "tuple[Optional[List[dict[str, Any]]], Optional[str]]":
+    """Return ``(tool_calls, reasoning_content)`` of an OpenAI-shaped document.
+
+    Reads ``choices[0].message`` (or ``.delta``) the same way the SSE parser
+    reads a delta, so a complete JSON body answering a streaming request keeps
+    its tool calls and reasoning (BUG-1462).
+    """
+    if not isinstance(data, dict):
+        return None, None
+    choices = data.get("choices")
+    if not (isinstance(choices, list) and choices and isinstance(choices[0], dict)):
+        return None, None
+    message = choices[0].get("message")
+    if not isinstance(message, dict):
+        message = choices[0].get("delta")
+    if not isinstance(message, dict):
+        return None, None
+    tool_calls = message.get("tool_calls")
+    if tool_calls is not None and not isinstance(tool_calls, list):
+        tool_calls = [tool_calls]
+    raw_details = message.get("reasoning_details")
+    reasoning_content = _normalize_reasoning(
+        message.get("reasoning_content") if isinstance(message.get("reasoning_content"), str) else None,
+        message.get("reasoning") if isinstance(message.get("reasoning"), str) else None,
+        raw_details if isinstance(raw_details, list) else None,
+    )
+    return tool_calls or None, reasoning_content
+
+
+#: Message of the FAILED chunk yielded when a streaming request is answered with
+#: an async ``IN_PROGRESS`` envelope that cannot be polled.
+_ASYNC_ENVELOPE_MESSAGE = (
+    "Model answered a streaming request asynchronously (IN_PROGRESS); no result was streamed. "
+    "The model may not support streaming: call run() without stream=True."
+)
 
 
 class ModelResponseStreamer(Iterator[StreamChunk]):
@@ -389,17 +447,33 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
         ...         print(chunk.data, end="", flush=True)
     """
 
-    def __init__(self, response: "requests.Response"):
+    def __init__(
+        self,
+        response: "requests.Response",
+        *,
+        poll: Optional[Callable[[str], "ModelResult"]] = None,
+    ):
         """Initialize a new ModelResponseStreamer instance.
 
         Args:
             response: A requests.Response object with streaming enabled
+            poll: Optional callable that resolves a poll URL to its final
+                :class:`ModelResult`. Used when the backend answers the
+                streaming request with an async ``IN_PROGRESS`` envelope, so the
+                stream yields the real answer instead of the poll URL. Without
+                it such an envelope ends the stream with a ``FAILED`` chunk.
         """
         self._response = response
+        self._poll = poll
         encoding = getattr(response, "encoding", None)
-        if encoding is None or encoding.lower() == "iso-8859-1":
+        if encoding is None or (isinstance(encoding, str) and encoding.lower() == "iso-8859-1"):
             response.encoding = "utf-8"
-        self._iterator = response.iter_lines(decode_unicode=True)
+        # Split on raw bytes: ``bytes.splitlines`` breaks only on CR / LF / CRLF,
+        # the SSE line terminators. ``decode_unicode=True`` would split with
+        # ``str.splitlines``, which also breaks on U+2028, U+2029, U+0085 and
+        # U+001C-U+001E -- characters ``JSON.stringify`` leaves raw inside a
+        # token, so one event arrived as two broken fragments (BUG-1462).
+        self._iterator = self._decoded_lines(response.iter_lines(decode_unicode=False))
         self.status = ResponseStatus.IN_PROGRESS
         self._done = False
         self._buffered_line: Optional[str] = None
@@ -409,6 +483,59 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
     def __iter__(self) -> Iterator[StreamChunk]:
         """Return the iterator for the ModelResponseStreamer."""
         return self
+
+    def _decoded_lines(self, lines: Any) -> Iterator[Any]:
+        """Lazily decode each raw line; nothing is read until iteration starts."""
+        for line in lines:
+            yield self._decode_line(line)
+
+    def _decode_line(self, line: Any) -> Any:
+        """Decode one raw line with the response encoding (UTF-8 by default)."""
+        if isinstance(line, (bytes, bytearray)):
+            encoding = getattr(self._response, "encoding", None)
+            if not isinstance(encoding, str) or not encoding:
+                encoding = "utf-8"
+            try:
+                return bytes(line).decode(encoding, errors="replace")
+            except LookupError:
+                return bytes(line).decode("utf-8", errors="replace")
+        return line
+
+    def _resolve_async_envelope(self, url: Any) -> StreamChunk:
+        """Turn an ``IN_PROGRESS`` envelope into the run's real final chunk.
+
+        modelserving streams only for assets with ``supportsStreaming`` set; any
+        other model answers ``{status: "IN_PROGRESS", data: "<poll url>"}``.
+        That used to be yielded as a SUCCESS chunk whose text was the poll URL
+        (BUG-1462). It is now polled to completion when a poller is available,
+        and otherwise ends the stream as FAILED. The URL is never yielded.
+        """
+        self._done = True
+        logger.warning(
+            "Model answered a streaming request with an async IN_PROGRESS envelope; "
+            "the model's supportsStreaming flag is probably unset."
+        )
+        if self._poll is None or not isinstance(url, str) or not url:
+            self.status = ResponseStatus.FAILED
+            return StreamChunk(status=ResponseStatus.FAILED, data="", error_message=_ASYNC_ENVELOPE_MESSAGE)
+        try:
+            result = self._poll(url)
+        except UntrustedURLError:
+            raise
+        except Exception as e:
+            self.status = ResponseStatus.FAILED
+            return StreamChunk(status=ResponseStatus.FAILED, data="", error_message=str(e))
+
+        if str(getattr(result, "status", "")).upper() == ResponseStatus.SUCCESS.value:
+            self.status = ResponseStatus.SUCCESS
+            return StreamChunk(status=ResponseStatus.SUCCESS, data=_content_from_document(result.data))
+        self.status = ResponseStatus.FAILED
+        message = (
+            getattr(result, "error_message", None)
+            or getattr(result, "supplier_error", None)
+            or f"Model run ended with status {getattr(result, 'status', None)!r}"
+        )
+        return StreamChunk(status=ResponseStatus.FAILED, data="", error_message=str(message))
 
     def _non_streaming_chunk(self) -> Optional[StreamChunk]:
         """Return the whole body as one chunk when it is not an SSE stream.
@@ -455,6 +582,14 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
             logger.warning("Model run reported an error on the streaming path: %s", error_message)
             return StreamChunk(status=ResponseStatus.FAILED, data="", error_message=error_message)
 
+        if (
+            isinstance(data, dict)
+            and str(data.get("status") or "").upper() == ResponseStatus.IN_PROGRESS.value
+            and not data.get("completed")
+        ):
+            url = data.get("data") if isinstance(data.get("data"), str) else data.get("url")
+            return self._resolve_async_envelope(url)
+
         logger.warning(
             "Model responded to a streaming request with a complete %s body; yielding it as a single chunk.",
             content_type or "non-SSE",
@@ -467,9 +602,12 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
             if isinstance(choices, list) and choices and isinstance(choices[0], dict):
                 raw_finish_reason = choices[0].get("finish_reason")
                 finish_reason = raw_finish_reason if isinstance(raw_finish_reason, str) else None
+        tool_calls, reasoning_content = _openai_message_extras(data)
         return StreamChunk(
             status=ResponseStatus.SUCCESS,
             data=_content_from_document(data),
+            reasoning_content=reasoning_content,
+            tool_calls=tool_calls,
             usage=usage if isinstance(usage, dict) else None,
             finish_reason=finish_reason,
         )
@@ -515,9 +653,14 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
             if not line:
                 continue
 
-            # Parse SSE data line - remove "data:" prefix and any leading whitespace
+            # Parse SSE data line - remove "data:" prefix and any leading whitespace.
+            # Other SSE fields (``event:``, ``id:``, ``retry:``) and ``:`` comments
+            # such as keep-alives carry no payload; yielding them leaked protocol
+            # text into ``chunk.data`` (BUG-1462).
             if line.startswith("data:"):
                 line = line[5:].lstrip()
+            elif line.startswith(_SSE_LINE_PREFIXES):
+                continue
 
             # Check for stream completion marker
             if line == "[DONE]":
@@ -536,6 +679,14 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
                 except json.JSONDecodeError:
                     try:
                         continuation_line = next(self._iterator)
+                        # A non-data SSE field between the halves of a split
+                        # payload is protocol noise, not a payload boundary.
+                        while (
+                            continuation_line
+                            and not continuation_line.startswith("data:")
+                            and continuation_line.startswith(_SSE_LINE_PREFIXES)
+                        ):
+                            continuation_line = next(self._iterator)
                     except StopIteration:
                         break
 
@@ -1172,6 +1323,10 @@ class Model(
         """
         self._ensure_valid_state()
 
+        # Work on a copy: the retry loop below re-sends the same payload, so the
+        # caller's kwargs (and ``text``) must survive the first attempt.
+        kwargs = dict(kwargs)
+
         # Build V1 payload: V1 expects 'data' parameter, map from 'text' if needed
         data = kwargs.pop("text", None)
         parameters = {k: v for k, v in kwargs.items() if k not in self._SDK_ONLY_PARAMS}
@@ -1191,18 +1346,45 @@ class Model(
         headers = self._headers_for_run(kwargs)
         if headers:
             request_kwargs["headers"] = headers
+        timeout = _caller_timeout_seconds(kwargs)
+        start = time.time()
 
-        # Use the v2 client's raw request method (raises APIError on non-2xx)
-        try:
-            r = self.context.client.request_raw("post", url, **request_kwargs)
-            resp = r.json()
-        except Exception as e:
-            logger.error(f"Error in V1 async request: {e}")
+        def submit() -> dict:
+            # HTTP errors propagate as ``APIError`` with their real status, like
+            # the async-capable branch, instead of becoming a FAILED result after
+            # one POST; that is also what lets ``run_retries`` apply (BUG-1462).
+            if timeout is not None:
+                # Each retry gets only what is left of the caller's budget, so
+                # ``run_retries`` cannot multiply ``timeout``.
+                remaining = timeout - (time.time() - start)
+                if remaining <= 0:
+                    raise TimeoutError(f"Operation timed out after {timeout} seconds")
+                request_kwargs["timeout"] = _request_timeout_for_budget(self.context.client, remaining)
+            try:
+                r = self.context.client.request_raw("post", url, **request_kwargs)
+            except requests.exceptions.ConnectTimeout as e:
+                # Never connected, so nothing was submitted: safe to retry.
+                raise APIError(f"Model Run: {e}", 0) from e
+            except requests.exceptions.ReadTimeout as e:
+                if timeout is not None:
+                    raise TimeoutError(f"Run submission did not complete within {timeout:.1f}s") from e
+                raise APIError(f"Model Run: {e}", 0, retryable=False) from e
+            except requests.exceptions.RequestException as e:
+                # The POST may already have landed and been billed, so it is not
+                # re-sent (BUG-1090); the caller still gets an ``APIError``.
+                raise APIError(f"Model Run: {e}", 0, retryable=False) from e
+            try:
+                return r.json()
+            except ValueError as e:
+                raise APIError("Model Run: invalid JSON response", getattr(r, "status_code", 0), retryable=False) from e
+
+        resp = self._retry_submission(submit, kwargs)
+        if not isinstance(resp, dict):
             return ModelResult(
                 status=ResponseStatus.FAILED.value,
                 completed=True,
                 data="",
-                error_message=f"Model Run: {e}",
+                error_message=f"Model Run: unexpected response {resp!r}",
             )
 
         # request_raw only returns on 2xx; parse the response
@@ -1228,12 +1410,16 @@ class Model(
                 raw_status = ResponseStatus(status)
             except ValueError:
                 raw_status = ResponseStatus.FAILED
+            # The backend reports failures as ``errorMessage`` / ``supplierError``;
+            # ``error_message`` was never sent, so both fields came back None.
+            supplier_error = resp.get("supplierError") or resp.get("supplier_error")
             return ModelResult(
                 status=raw_status.value,
                 completed=resp.get("completed", True),
                 data=resp.get("data", ""),
                 url=resp.get("url", None),
-                error_message=resp.get("error_message", None),
+                error_message=resp.get("errorMessage") or supplier_error or resp.get("error_message"),
+                supplier_error=supplier_error,
             )
 
     def run_stream(self, **kwargs: Unpack[ModelRunParams]) -> ModelResponseStreamer:
@@ -1304,9 +1490,21 @@ class Model(
         headers = self._headers_for_run(effective_params)
         if headers:
             request_kwargs["headers"] = headers
+        timeout = _caller_timeout_seconds(effective_params)
+        if timeout is not None:
+            # Per-chunk read timeout: bounds the time to the first byte and every
+            # gap between chunks by the caller's ``timeout`` (BUG-1462).
+            request_kwargs["timeout"] = _request_timeout_for_budget(self.context.client, timeout)
         response = self.context.client.request_stream("POST", run_url, **request_kwargs)
 
-        return ModelResponseStreamer(response)
+        def poll(url: str) -> ModelResult:
+            # Only follow URLs shaped like a model poll endpoint; ``sync_poll``
+            # also re-checks the host against the trusted-origin allowlist.
+            if not self._is_poll_url(url):
+                raise APIError(f"Model answered a streaming request with an unexpected async URL: {url!r}", 0)
+            return self.sync_poll(url, **effective_params)
+
+        return ModelResponseStreamer(response, poll=poll)
 
     def _merge_with_dynamic_attrs(self, **kwargs) -> dict:
         """Merge provided parameters with dynamic attributes.

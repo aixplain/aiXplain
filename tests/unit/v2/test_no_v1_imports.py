@@ -20,7 +20,7 @@ V2_PACKAGE_DIR = Path(__file__).resolve().parents[3] / "aixplain" / "v2"
 FUNCTIONAL_V2_DIR = Path(__file__).resolve().parents[3] / "tests" / "functional" / "v2"
 
 # No file is exempt. ``enums_include.py`` (the generated v1 enum shim) and
-# ``core.py``'s guarded sync into ``aixplain.utils.config`` both went with v1.
+# ``core.py``'s guarded sync into the v1 config module both went with v1.
 EXCLUDED_FILES = set()
 
 # Modules under ``aixplain.utils`` that v2 *may* import. ``url_safety`` is the

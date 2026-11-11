@@ -98,6 +98,31 @@ def _client_retry_attempts(client: Any) -> int:
     return total + 1
 
 
+def _caller_timeout_seconds(kwargs: Any) -> Optional[float]:
+    """The caller's explicit ``timeout`` run kwarg in seconds, or ``None``.
+
+    Anything that is not a positive number (absent, ``None``, ``bool``, junk)
+    means "no explicit bound", so request kwargs stay exactly as they were.
+    """
+    if not isinstance(kwargs, dict):
+        return None
+    value = kwargs.get("timeout")
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        return None
+    return float(value)
+
+
+def _request_timeout_for_budget(client: Any, budget: float) -> Tuple[float, float]:
+    """``(connect, read)`` timeout for one request bounded by ``budget`` seconds.
+
+    The read timeout is narrowed to the budget but never widened past what the
+    client is configured with, and floored at 1s so a nearly spent budget still
+    sends a request that can succeed (BUG-1462).
+    """
+    connect, read = _client_timeout_bounds(client)
+    return (connect, max(1.0, min(float(budget), read)))
+
+
 _DESCENDING = "DESC"
 
 
@@ -1888,9 +1913,41 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 attempt has been used.
         """
         run_retries, run_retry_wait = self._run_retry_settings(kwargs)
+        timeout = _caller_timeout_seconds(kwargs)
+        start = time.time()
+        # The loop calls ``_post_and_handle_run`` directly (no helper frame) so
+        # warnings raised in ``build_run_payload`` keep a fixed stacklevel.
         for attempt in range(run_retries + 1):
             try:
-                return self._post_and_handle_run(**kwargs)
+                if timeout is None:
+                    return self._post_and_handle_run(**kwargs)
+                # The caller's ``timeout`` also bounds the submission itself: for
+                # a sync-only model the POST *is* the whole execution, so without
+                # this ``run(timeout=5)`` could block for the client's 300s read
+                # timeout (BUG-1462).
+                remaining = timeout - (time.time() - start)
+                if remaining <= 0:
+                    raise TimeoutError(f"Operation timed out after {timeout} seconds")
+                return self._post_and_handle_run(_request_timeout=remaining, **kwargs)
+            except APIError as e:
+                if not self._is_retryable_run_error(e) or attempt >= run_retries:
+                    raise
+                # Jittered: a platform blip otherwise makes every client
+                # re-submit in the same instant (BUG-942).
+                sleep_with_jitter(run_retry_wait)
+
+        raise RuntimeError("run submission retry loop exhausted without return")
+
+    def _retry_submission(self, submit: Callable[[], ResultT], kwargs: dict) -> ResultT:
+        """Call ``submit`` honouring ``run_retries`` / ``run_retry_wait``.
+
+        Only retryable ``APIError`` failures are retried (see
+        :meth:`_is_retryable_run_error`); anything else propagates at once.
+        """
+        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
+        for attempt in range(run_retries + 1):
+            try:
+                return submit()
             except APIError as e:
                 if not self._is_retryable_run_error(e) or attempt >= run_retries:
                     raise
@@ -1949,8 +2006,19 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             raise ValueError(f"{key} {value!r} cannot be sent as the {header} header: header values must be ASCII")
         return value
 
-    def _post_and_handle_run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
-        """Single POST + handle_run_response (no retries, no before_run)."""
+    def _post_and_handle_run(
+        self, *, _request_timeout: Optional[float] = None, **kwargs: Unpack[RunParamsT]
+    ) -> ResultT:
+        """Single POST + handle_run_response (no retries, no before_run).
+
+        Args:
+            _request_timeout: Remaining caller budget in seconds. When given it
+                becomes the POST's read timeout and a read timeout is raised as
+                :class:`~aixplain.v2.exceptions.TimeoutError` (never retried, as
+                the submission may already have landed). ``None`` keeps the
+                client default.
+            **kwargs: Run parameters.
+        """
         self._ensure_valid_state()
         payload_input = self._payload_kwargs_for_run(kwargs)
         payload = self.build_run_payload(**payload_input)
@@ -1959,7 +2027,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         headers = self._headers_for_run(kwargs)
         if headers:
             request_kwargs["headers"] = headers
-        response = self.context.client.request("post", run_url, **request_kwargs)
+        if _request_timeout is not None:
+            request_kwargs["timeout"] = _request_timeout_for_budget(self.context.client, _request_timeout)
+        try:
+            response = self.context.client.request("post", run_url, **request_kwargs)
+        except requests.exceptions.ReadTimeout as e:
+            if _request_timeout is None:
+                raise
+            raise TimeoutError(f"Run submission did not complete within {_request_timeout:.1f}s") from e
         return self.handle_run_response(response, **kwargs)
 
     def _apply_after_run(self, result: ResultT, **kwargs: Unpack[RunParamsT]) -> ResultT:
@@ -2234,11 +2309,15 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             # If poll_url is a full URL, urljoin will use it directly
             # If it's a relative path, it will be joined with base_url
             response = self.context.client.get(poll_url, **request_kwargs)
+        except (APIError, UntrustedURLError):
+            # An HTTP error already carries the real status code, the supplier
+            # message and the response body. Rewrapping it as status 0 -- the
+            # SDK's "no HTTP response at all" sentinel -- lost all three
+            # (BUG-1462).
+            raise
         except Exception as e:
-            # Re-raise as APIError instead of silently returning failed result
-            from .exceptions import APIError
-
-            raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url})
+            # Transport failure: no HTTP response, so status 0 is accurate.
+            raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url}) from e
 
         # Handle polling response - use camelCase keys (what backend sends)
         # dataclass_json with config(field_name=...) handles mapping to snake_case

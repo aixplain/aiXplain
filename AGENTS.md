@@ -59,13 +59,20 @@ python -m pytest tests/unit
 # Functional / integration tests
 python -m pytest tests/functional
 
-# Unit tests with coverage (same as pre-commit hook)
-coverage run --source=. -m pytest tests/unit
+# Unit tests with coverage (same as the pre-commit hook and the CI `unit-coverage` job).
+# Scope comes from [tool.coverage.run] in pyproject.toml -- do not add --source=.,
+# which also counts tests/ and inflates the figure. Run it serially (no -n/xdist):
+# xdist under-reports badly, and the CI floor is measured serially.
+coverage run -m pytest tests/unit
+coverage report
 ```
 
 ### Lint and Format
 
-Ruff is the sole linter and formatter.
+Ruff is the sole linter and formatter. Use the version pinned in `.pre-commit-config.yaml`
+(`ruff==0.12.12`, e.g. `uvx ruff@0.12.12 check .`). `ruff check .` is green on a clean checkout;
+`ruff.toml` exempts tests and repository tooling scripts from the pydocstyle (`D`) rules. The
+pre-commit hooks lint `aixplain/v2/` and format `aixplain/v2/` and `tests/`.
 
 ```bash
 ruff check .            # Lint
@@ -111,7 +118,7 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
 > `tests/unit/test_v1_removal.py` fails if any hand-written doc disagrees, so change the constants
 > and then the docs, never the reverse. Importing a legacy path raises a `ModuleNotFoundError`
 > naming the v2 replacement — see [`MIGRATION.md`](MIGRATION.md) for the factory-by-factory map,
-> including the eight factories that had no v2 equivalent and were removed without one.
+> including the seven factories that had no v2 equivalent and were removed without one.
 
 ### Package Layout
 

@@ -150,8 +150,17 @@ def test_factories_error_names_every_factory_and_the_gaps():
     message = removal_message("aixplain.factories")
     for factory in ("AgentFactory", "ModelFactory", "ToolFactory", "APIKeyFactory"):
         assert factory in message, f"{factory} is missing from the aixplain.factories error"
-    for gap in ("IndexFactory", "PipelineFactory", "FinetuneFactory", "WalletFactory"):
+    for gap in ("PipelineFactory", "FinetuneFactory", "WalletFactory"):
         assert gap in message, f"{gap} has no v2 equivalent and must be named as such"
+
+
+def test_index_factory_is_mapped_to_aix_index_not_listed_as_a_gap():
+    """BUG-1455: ``IndexFactory`` has a typed v2 replacement, so it is a mapping, not a gap."""
+    message = removal_message("aixplain.factories")
+    mapped, _, gaps = message.partition("No v2 equivalent:")
+    assert re.search(r"IndexFactory\s+-> aix\.Index\b", mapped), mapped
+    assert "IndexFactory" not in gaps
+    assert re.search(r"IndexModel\s+-> aix\.Index\b", removal_message("aixplain.modules"))
 
 
 @pytest.mark.parametrize("prefix", V1_IMPORT_PREFIXES)

@@ -1169,6 +1169,46 @@ class Agent(
             ]
             self.skills = [self._skill_reference_id(skill) or skill for skill in self._original_skills]
 
+    @staticmethod
+    def _agent_reference_id(agent: Optional[Union[str, Dict[str, Any], "Agent"]]) -> Optional[str]:
+        """Return the backend ID represented by one sub-agent reference."""
+        if agent is None:
+            return None
+        if isinstance(agent, str):
+            return agent
+        if isinstance(agent, dict):
+            return agent.get("id")
+        return getattr(agent, "id", None)
+
+    def _sync_agent_references(self) -> None:
+        """Capture direct mutations to ``agent.agents`` before validation or save.
+
+        The public ``agent.agents`` list (ids, dicts or Agent objects; ``None``
+        marks an unsaved Agent) is the source of truth. ``_original_agents``
+        mirrors it and keeps the original Agent objects for retained members, so
+        unsaved-member checks and ``save_subcomponents`` recursion keep working.
+        """
+        current = list(self.agents or [])
+        original = list(getattr(self, "_original_agents", []) or [])
+        # A None slot is a still-unsaved placeholder; only safe to refresh by position if lengths match.
+        same_length = len(current) == len(original)
+        effective_current = [
+            original[index] if agent is None and same_length else agent for index, agent in enumerate(current)
+        ]
+        current_ids = [self._agent_reference_id(agent) for agent in effective_current]
+        original_ids = [self._agent_reference_id(agent) for agent in original]
+        if current_ids != original_ids or any(not isinstance(agent, str) and agent is not None for agent in current):
+            original_by_id = {
+                self._agent_reference_id(agent): agent
+                for agent in original
+                if self._agent_reference_id(agent) is not None
+            }
+            self._original_agents = [
+                original_by_id.get(agent, agent) if isinstance(agent, str) else agent for agent in effective_current
+            ]
+            # Keep the public list in its post-init shape: ids, None for unsaved Agents.
+            self.agents = [self._agent_reference_id(agent) for agent in self._original_agents]
+
     def __setattr__(self, name: str, value: Any) -> None:
         """Keep ``self.budget`` a (never-None) ``Budget`` instance, and note role assignments.
 
@@ -1833,6 +1873,8 @@ class Agent(
         # ``self.tools`` with backend dicts and drop those mutations.
         pre_save_tools = list(self.tools) if self.tools else []
         pre_save_graph = (self.graph, self.strategy, self.graph_version)
+        # The roster was synced from the public list by _validate_dependencies().
+        pre_save_agents = list(getattr(self, "_original_agents", None) or [])
 
         # Call the parent save method
         saved_agent = super().save(*args, **kwargs)
@@ -1846,6 +1888,13 @@ class Agent(
                 self.strategy = pre_save_graph[1] or StaticGraphStrategy()
             if self._server_omitted("graphVersion"):
                 self.graph_version = pre_save_graph[2] or "1"
+
+        # A create response that does not echo ``agents`` would hydrate an empty
+        # public roster, which the next sync would read as "cleared" and the
+        # next save() would send as ``agents: []`` (BUG-1457).
+        if pre_save_agents and self._server_omitted("agents"):
+            self._original_agents = pre_save_agents
+            self.agents = [self._agent_reference_id(agent) for agent in pre_save_agents]
 
         # Restore the caller's tool objects, then re-hydrate any dict entries so
         # ``agent.tools[i]`` stays a mutable Tool/Model object after save.
@@ -1899,6 +1948,7 @@ class Agent(
         """Recursively save all unsaved child components."""
         self._sync_file_references()
         self._sync_skill_references()
+        self._sync_agent_references()
         failed_components = []
 
         # Save tools
@@ -1958,6 +2008,7 @@ class Agent(
         """Validate that all child components are saved before running."""
         self._sync_file_references()
         self._sync_skill_references()
+        self._sync_agent_references()
         unsaved_components = []
 
         # Check tools
@@ -2004,6 +2055,7 @@ class Agent(
         """Validate that all child components are saved."""
         self._sync_file_references()
         self._sync_skill_references()
+        self._sync_agent_references()
         unsaved_components = []
 
         # Check tools
@@ -2699,6 +2751,7 @@ class Agent(
         """Build the payload for the save action."""
         self._sync_file_references()
         self._sync_skill_references()
+        self._sync_agent_references()
         # Import Inspector from v2 module
         from .inspector import Inspector
 
@@ -2788,20 +2841,16 @@ class Agent(
             payload.pop("graph", None)
             payload.pop("strategy", None)
 
-        # Convert agents to API format, resolving IDs from original objects
-        if hasattr(self, "_original_agents") and self._original_agents:
-            converted_agents = []
-            for agent in self._original_agents:
-                if isinstance(agent, str):
-                    agent_id = agent
-                elif isinstance(agent, dict):
-                    agent_id = agent.get("id")
-                else:
-                    agent_id = agent.id  # Get current ID from Agent object
-                if not agent_id:
-                    raise ValueError("All agents must be saved before saving the team agent.")
-                converted_agents.append({"id": agent_id, "inspectors": []})
-            payload["agents"] = converted_agents
+        # Convert agents to API format, resolving IDs from original objects.
+        # Always set the key from the synced roster so an emptied team sends
+        # ``agents: []`` (a plain agent already serializes ``agents: []``).
+        converted_agents = []
+        for agent in getattr(self, "_original_agents", None) or []:
+            agent_id = self._agent_reference_id(agent)
+            if not agent_id:
+                raise ValueError("All agents must be saved before saving the team agent.")
+            converted_agents.append({"id": agent_id, "inspectors": []})
+        payload["agents"] = converted_agents
 
         # Convert skills to API format. Skills follow the same wire design as
         # tools: each is sent as an object (via as_tool()), never a bare id.
@@ -3225,9 +3274,12 @@ class Agent(
 
         We don't poll session messages for the assistant reply — the run result
         endpoint is fully populated for the run the user message triggered.
-        """
-        self._validate_run_dependencies()
 
+        Before step 1, the same ``before_run`` guard as the direct path runs
+        (after cheap argument validation): it validates dependencies, auto-saves
+        a modified draft, and refuses an onboarded agent with unsaved edits, so
+        no session message is posted for a stale configuration.
+        """
         offending = [k for k in self._LEGACY_ONLY_RUN_KWARGS if kwargs.get(k) is not None]
         if offending:
             raise ValueError(
@@ -3244,6 +3296,12 @@ class Agent(
         if query is not None and not isinstance(query, str):
             raise ValueError("session=… only supports string queries.")
         query = query or ""
+
+        # Same guard as the direct (non-session) path. ``before_run`` does not
+        # read or mutate kwargs, so query/attachments/overrides stay available.
+        early_result = self.before_run(**kwargs)
+        if early_result is not None:
+            return early_result
 
         session = self._resolve_session(session)
         self._apply_run_overrides_to_session(session, kwargs)

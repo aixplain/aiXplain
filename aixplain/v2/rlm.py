@@ -599,6 +599,9 @@ class RLMResult(Result):
             sandbox executions, and worker ``llm_query()`` invocations.
         repl_logs: Per-iteration REPL execution log (excluded from
             serialization; present only on live instances).
+        failed_chunks: Number of chunks whose worker call failed in
+            ``mode="parallel"``. Those chunks are left out of the answer; when
+            every chunk fails the run is ``FAILED``.
     """
 
     iterations_used: int = field(default=0)
@@ -609,6 +612,7 @@ class RLMResult(Result):
         compare=False,
         metadata=dj_config(exclude=lambda x: True),
     )
+    failed_chunks: int = field(default=0, metadata=dj_config(field_name="failedChunks"))
 
     def __repr__(self) -> str:
         """Render the base ``Result`` repr plus RLM-specific fields."""
@@ -616,6 +620,8 @@ class RLMResult(Result):
         # fields would otherwise be invisible. Inject them before the closing ")".
         base = super().__repr__()
         extras = f",\n  iterations_used={self.iterations_used},\n  used_credits={self.used_credits}"
+        if self.failed_chunks:
+            extras += f",\n  failed_chunks={self.failed_chunks}"
         return base[:-2] + extras + "\n)" if base.endswith("\n)") else base
 
 
@@ -1359,7 +1365,7 @@ del _url, _r
         which already holds the key, instead of by sandbox-resident code. Runs
         the batch concurrently, deduplicates by prompt hash, and never lets a
         single failure kill the run — a failed prompt is answered with an error
-        marker, matching :meth:`_parallel_map`.
+        marker.
 
         Args:
             prompts: Prompts submitted by the sandbox this turn.
@@ -1474,15 +1480,19 @@ del _url, _r
                 return r.text
         return r.text
 
-    def _parallel_map(self, chunks: List[str], query: str) -> List[str]:
+    def _parallel_map(self, chunks: List[str], query: str) -> Tuple[List[str], int, Optional[BaseException]]:
         """Run the map step: one worker call per chunk, in parallel.
 
-        Returns answers in original chunk order. A single chunk failure does
-        not fail the whole run — its slot is replaced with an error marker
-        and the reduce step proceeds with what's available.
+        Returns ``(answers, failed, last_error)``: answers in original chunk
+        order, the number of chunks whose worker call failed, and the last such
+        error. A single chunk failure does not fail the whole run: its slot
+        becomes ``"NONE"``, so ``_reduce`` drops it instead of synthesizing the
+        error text as if it were content (BUG-1462).
         """
         n = len(chunks)
         answers: List[Optional[str]] = [None] * n
+        failed = 0
+        last_error: Optional[BaseException] = None
 
         def _map_one(idx: int) -> str:
             prompt = _MAP_PROMPT.format(idx=idx + 1, total=n, query=query, chunk=chunks[idx])
@@ -1496,10 +1506,12 @@ del _url, _r
                 try:
                     answers[i] = f.result()
                 except Exception as exc:
-                    logger.warning(f"RLM parallel: chunk {i} failed: {exc}")
-                    answers[i] = f"[Error analyzing this part: {exc}]"
+                    failed += 1
+                    last_error = exc
+                    logger.warning(f"RLM parallel: chunk {i} failed: {self._redact(str(exc))}")
+                    answers[i] = "NONE"
 
-        return [a if a is not None else "NONE" for a in answers]
+        return [a if a is not None else "NONE" for a in answers], failed, last_error
 
     def _reduce_call(self, formatted_answers: str, query: str, n: int) -> str:
         """Single reduce call: synthesize partial answers into one final answer."""
@@ -1556,6 +1568,7 @@ del _url, _r
     ) -> RLMResult:
         """Deterministic chunk → parallel map → reduce. No orchestrator, no sandbox."""
         iterations_used = 0
+        failed_chunks = 0
         try:
             context = self._resolve_url_context(context)
             # Pre-resolve worker once so the cache is populated before threads
@@ -1578,11 +1591,28 @@ del _url, _r
                 final_answer = self._worker_call(prompt)
                 iterations_used = 1
             else:
-                chunk_answers = self._parallel_map(chunks, query)
-                final_answer = self._reduce(chunk_answers, query, budget_chars)
+                chunk_answers, failed_chunks, last_error = self._parallel_map(chunks, query)
                 iterations_used = n_chunks
+                if failed_chunks >= n_chunks:
+                    # Nothing was analysed: an answer built from nothing (or, as
+                    # before, from the error strings) must not read as SUCCESS.
+                    error_msg = self._redact(
+                        f"RLM parallel error: all {n_chunks} chunk(s) failed; last error: {last_error}"
+                    )
+                    logger.error(error_msg)
+                    result = RLMResult(status="FAILED", completed=True, error_message=error_msg, data=None)
+                    result.iterations_used = iterations_used
+                    result.used_credits = self._used_credits
+                    result.failed_chunks = failed_chunks
+                    return result
+                if failed_chunks:
+                    logger.warning(
+                        f"RLM '{name}' parallel: {failed_chunks} of {n_chunks} chunk(s) failed and were left out "
+                        "of the answer."
+                    )
+                final_answer = self._reduce(chunk_answers, query, budget_chars)
         except Exception as exc:
-            error_msg = f"RLM parallel error: {exc}"
+            error_msg = self._redact(f"RLM parallel error: {exc}")
             logger.error(error_msg)
             result = RLMResult(
                 status="FAILED",
@@ -1592,6 +1622,7 @@ del _url, _r
             )
             result.iterations_used = iterations_used
             result.used_credits = self._used_credits
+            result.failed_chunks = failed_chunks
             return result
 
         run_time = time.time() - start_time
@@ -1603,6 +1634,7 @@ del _url, _r
         )
         result.iterations_used = iterations_used
         result.used_credits = self._used_credits
+        result.failed_chunks = failed_chunks
         result._raw_data = {"run_time": run_time}
         return result
 
@@ -1703,10 +1735,16 @@ del _url, _r
 
             # Retrieve. Clamp top_k to available chunks so we never ask for more.
             top_k = min(top_k, max(n_chunks, 1))
-            search_resp = index.run(action="search", data={"query": query, "top_k": top_k})
+            # aIR search is documented to honour ``num_results`` and reportedly
+            # ignores ``top_k``; send both, and trim client-side so ``rag_top_k``
+            # bounds the synthesis prompt either way (BUG-1462).
+            search_resp = index.run(action="search", data={"query": query, "top_k": top_k, "num_results": top_k})
             self._used_credits += float(getattr(search_resp, "used_credits", 0) or 0)
 
             retrieved = self._parse_rag_search_response(search_resp)
+            if len(retrieved) > top_k:
+                # Service order is relevance order: trim before re-sorting by position.
+                retrieved = retrieved[:top_k]
             logger.info(f"RLM '{name}' rag: retrieved {len(retrieved)} chunk(s) (top_k={top_k}).")
 
             if not retrieved:
@@ -1721,7 +1759,7 @@ del _url, _r
             # One synthesis call (or zero if nothing retrieved).
             iterations_used = 1
         except Exception as exc:
-            error_msg = f"RLM rag error: {exc}"
+            error_msg = self._redact(f"RLM rag error: {exc}")
             logger.error(error_msg)
             result = RLMResult(
                 status="FAILED",
@@ -1817,6 +1855,9 @@ del _url, _r
               chunks), or 1 for the single-call fast path.
             - ``repl_logs``: Per-iteration execution log (recursive mode only;
               empty for parallel). Not serialized.
+            - ``failed_chunks``: Parallel mode → chunks whose worker call
+              failed and were left out of the answer. ``FAILED`` when every
+              chunk failed.
 
         Raises:
             ResourceError: If ``worker_id`` is unset, or ``recursive`` mode is

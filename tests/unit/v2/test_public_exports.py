@@ -59,6 +59,7 @@ INTERNAL_ALLOWLIST = frozenset(
         "BaseRunParams",
         "BaseSearchParams",
         "FileSearchParams",
+        "IndexRunParams",
         "IntegrationSearchParams",
         "ModelRunParams",
         "ModelSearchParams",
@@ -213,6 +214,40 @@ def test_v1_names_still_resolve_with_a_deprecation_warning(name):
         import aixplain.exceptions as exceptions
 
         assert getattr(exceptions, name) is getattr(types, name)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "AixplainBaseException",
+        "AlreadyDeployedError",
+        "AuthenticationError",
+        "BillingError",
+        "InternalError",
+        "NetworkError",
+        "ServiceError",
+        "SupplierError",
+        "get_error_from_status_code",
+    ],
+)
+def test_v1_name_deprecation_points_at_api_error_and_status_code(name):
+    """The warning must lead to a handler that fires, not to another dead import (BUG-1456)."""
+    with pytest.warns(DeprecationWarning) as record:
+        exec(f"from aixplain.exceptions import {name} as resolved", {})
+
+    message = " ".join(str(w.message) for w in record)
+    assert "aixplain.APIError" in message
+    assert "status_code" in message
+
+
+def test_the_class_the_deprecation_names_is_the_one_v2_raises():
+    """`aixplain.APIError` is the v2 class, so `except aixplain.APIError` catches a 401."""
+    from aixplain.v2.exceptions import APIError
+
+    assert aixplain.APIError is APIError
+    with pytest.raises(aixplain.APIError) as excinfo:
+        raise APIError("unauthorized", status_code=401)
+    assert excinfo.value.status_code == 401
 
 
 def test_plain_import_and_star_import_do_not_warn():

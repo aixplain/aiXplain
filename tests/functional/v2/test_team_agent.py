@@ -45,7 +45,7 @@ test_nested_deployment_chain     ``test_nested_deployment_chain``
 test_fail_non_existent_llm       ``test_fail_non_existent_llm``
 test_add_remove_agents_from_team_agent
                                  ``test_add_remove_agents_from_team_agent``
-                                 (plus the strict-xfail public-path twin
+                                 (plus the append-only public-list twin
                                  ``test_add_agent_via_public_agents_list``)
 test_team_agent_tasks            ``test_team_agent_tasks``
 test_team_agent_with_instructions
@@ -341,9 +341,7 @@ def test_nested_deployment_chain(client, resource_tracker):
 def test_add_remove_agents_from_team_agent(client, resource_tracker):
     """A saved team's subagent list can be extended, saved, run, then shrunk.
 
-    Edits go through the private ``_original_agents`` list because the public
-    ``team.agents`` edit is dropped on save; see
-    ``test_add_agent_via_public_agents_list``.
+    All edits go through the public ``team.agents`` list (BUG-1457).
     """
     first = client.Agent(name=unique_name("TA-keep"), instructions="Answer A.")
     first.save()
@@ -359,28 +357,16 @@ def test_add_remove_agents_from_team_agent(client, resource_tracker):
     team.save()
     resource_tracker.append(team)
 
-    # ``_original_agents`` is what build_save_payload serializes; keep the public
-    # id list in step so a later to_dict()/is_modified check sees the change.
-    team._original_agents.append(added)
     team.agents.append(added.id)
     team.save()
     assert set(agent_ids(client.Agent.get(team.id).agents)) == {first.id, second.id, added.id}
     _assert_success(team.run("Reply with exactly the word OK."))
 
-    team._original_agents = [agent for agent in team._original_agents if agent is not second]
-    team.agents = [agent_id for agent_id in team.agents if agent_id != second.id]
+    team.agents.remove(second.id)
     team.save()
     assert set(agent_ids(client.Agent.get(team.id).agents)) == {first.id, added.id}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "SDK bug: Agent.build_save_payload reads _original_agents, so public edits to agents "
-        "are dropped on save — ticket to be filed"
-    ),
-)
 def test_add_agent_via_public_agents_list(client, resource_tracker):
     """Appending to the public ``team.agents`` list, then saving, persists the new member."""
     first = client.Agent(name=unique_name("TA-pub-keep"), instructions="Answer A.")
