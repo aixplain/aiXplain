@@ -72,6 +72,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 VERDICT_CATCHES = "CATCHES"
@@ -150,12 +151,61 @@ class Report:
 # --------------------------------------------------------------------------
 
 
+# Repository-location variables git exports to hooks (GIT_DIR, GIT_INDEX_FILE,
+# GIT_WORK_TREE, ...). Inherited by a run started from a hook (pre-commit runs
+# the unit tests inside `git commit`), they override `git -C <repo>` and point
+# every command at the outer repository and its index. Used as a fallback when
+# `git rev-parse --local-env-vars` cannot be run.
+_GIT_LOCAL_ENV_FALLBACK = (
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_CONFIG",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_IMPLICIT_WORK_TREE",
+    "GIT_GRAFT_FILE",
+    "GIT_INDEX_FILE",
+    "GIT_NO_REPLACE_OBJECTS",
+    "GIT_REPLACE_REF_BASE",
+    "GIT_PREFIX",
+    "GIT_SHALLOW_FILE",
+    "GIT_COMMON_DIR",
+)
+# Not repository-local per git, but they still change which repository is found.
+_GIT_LOCATION_EXTRA = ("GIT_NAMESPACE", "GIT_CEILING_DIRECTORIES", "GIT_DISCOVERY_ACROSS_FILESYSTEM")
+
+
+@lru_cache(maxsize=1)
+def git_local_env_vars() -> tuple[str, ...]:
+    """Names of the variables that tie git to one repository; computed once."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--local-env-vars"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env={k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
+        )
+        names = tuple(proc.stdout.split()) or _GIT_LOCAL_ENV_FALLBACK
+    except (OSError, subprocess.CalledProcessError):
+        names = _GIT_LOCAL_ENV_FALLBACK
+    return tuple(dict.fromkeys((*names, *_GIT_LOCAL_ENV_FALLBACK, *_GIT_LOCATION_EXTRA)))
+
+
+def _without_git_location(env: Mapping[str, str]) -> dict[str, str]:
+    drop = set(git_local_env_vars())
+    return {k: v for k, v in env.items() if k not in drop}
+
+
 def _git(repo: Path, *args: str, check: bool = True) -> str:
     proc = subprocess.run(
         ["git", "-C", str(repo), *args],
         check=False,
         capture_output=True,
         text=True,
+        env=_without_git_location(os.environ),
     )
     if check and proc.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
@@ -168,6 +218,7 @@ def _show(repo: Path, rev: str, path: str) -> str | None:
         check=False,
         capture_output=True,
         text=True,
+        env=_without_git_location(os.environ),
     )
     return proc.stdout if proc.returncode == 0 else None
 
@@ -449,9 +500,11 @@ def _scrubbed_env(
     credential-looking variable is dropped (as ENG-3761's manual check did).
     ``extra`` is set afterwards: dummy values for code that refuses to import
     without one (older SDK revisions demand an API key at import time).
+    git's repository-location variables are dropped too, so a test that runs
+    git inside the worktree cannot reach the repository of an outer hook.
     """
     drop = re.compile(r"(API_KEY|_TOKEN|_SECRET|ACCESS_KEY|^AIXPLAIN|^TEAM_API|^BACKEND_URL$|^MODELS_RUN_URL$)")
-    env = {k: v for k, v in os.environ.items() if not drop.search(k)}
+    env = {k: v for k, v in _without_git_location(os.environ).items() if not drop.search(k)}
     env.update(extra or {})
     roots = [str(worktree / r) for r in source_roots] + [str(worktree)]
     if env.get("PYTHONPATH"):

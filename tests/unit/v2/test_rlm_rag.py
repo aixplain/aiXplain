@@ -90,7 +90,8 @@ def test_ephemeral_index_created_upserted_searched_and_deleted():
     assert [r["id"] for r in records] == [f"chunk_{i}" for i in range(len(expected_chunks))]
     assert [r["metadata"]["position"] for r in records] == list(range(len(expected_chunks)))
     search_data = index.run.call_args_list[1].kwargs["data"]
-    assert search_data == {"query": "Q", "top_k": 3}
+    # aIR search honours ``num_results``; ``top_k`` is sent too (BUG-1462).
+    assert search_data == {"query": "Q", "top_k": 3, "num_results": 3}
     index.delete.assert_called_once()
 
 
@@ -155,10 +156,6 @@ def test_worker_failure_surfaces_as_failed_result():
     assert result.error_message == "RLM rag error: RLM: worker model failed — bad"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="with a reused rag_index_id, top_k is still clamped to the chunk count of the local context argument",
-)
 def test_reused_index_top_k_not_clamped_by_local_context():
     worker = FakeModel(responder=lambda t: "synth")
     index = _index([{"text": "hit"}])

@@ -2096,8 +2096,12 @@ del _url, _r
                 self._used_credits += float(getattr(upsert_resp, "used_credits", 0) or 0)
                 logger.debug(f"RLM '{name}' rag: upserted {n_chunks} chunks.")
 
-            # Retrieve. Clamp top_k to available chunks so we never ask for more.
-            top_k = min(top_k, max(n_chunks, 1))
+            # Retrieve. For an ephemeral index, clamp top_k to the chunks just
+            # upserted so we never ask for more. A pre-built index holds its own
+            # chunks, unrelated to the size of ``context``: clamping there (and
+            # trimming to that value below) would drop hits the caller asked for.
+            if ephemeral_index is not None:
+                top_k = min(top_k, max(n_chunks, 1))
             # aIR search is documented to honour ``num_results`` and reportedly
             # ignores ``top_k``; send both, and trim client-side so ``rag_top_k``
             # bounds the synthesis prompt either way (BUG-1462).

@@ -139,7 +139,7 @@ def test_hierarchical_reduce_directly():
     assert len(worker.calls) == 4
 
 
-def test_failed_chunk_becomes_error_marker_and_run_succeeds():
+def test_failed_chunk_is_left_out_of_the_reduce_and_run_succeeds():
     def responder(text):
         if _is_map(text) and "part 2 of" in text:
             return resp(data=None, status="FAILED", completed=False, error_message="boom")
@@ -153,8 +153,14 @@ def test_failed_chunk_becomes_error_marker_and_run_succeeds():
     result = rlm.run(data={"context": "q" * (BUDGET * 2), "query": "Q"}, mode="parallel")
 
     assert result.status == "SUCCESS"
+    assert result.failed_chunks == 1
     reduce_prompt = next(c["text"] for c in worker.calls if _is_reduce(c["text"]))
-    assert "[Part 2]: [Error analyzing this part: RLM: worker model failed — boom]" in reduce_prompt
+    # BUG-1462: the failed slot becomes "NONE" and is dropped, so the error text
+    # is never synthesized as if it were document content.
+    assert "[Part 1]: ok" in reduce_prompt
+    assert "[Part 3]: ok" in reduce_prompt
+    assert "[Part 2]" not in reduce_prompt
+    assert "boom" not in reduce_prompt
 
 
 def test_worker_call_raises_resource_error_on_failed_status():
