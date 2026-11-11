@@ -14,7 +14,10 @@ The v1-era hierarchy (``AixplainBaseException``, ``AuthenticationError``,
 ``BillingError``, ..., and ``get_error_from_status_code``) is defined in
 ``aixplain.exceptions.types``. Its names still resolve here for one release,
 with a ``DeprecationWarning``, and are removed from this module in
-``V1_EXCEPTIONS_REMOVED_IN``. Nothing in the SDK raises them.
+``V1_EXCEPTIONS_REMOVED_IN``. Nothing in the SDK raises them: an API failure
+surfaces as ``aixplain.APIError`` (or a subclass), so handle it with
+``except aixplain.APIError as e`` and branch on ``e.status_code`` (for example
+``401`` for what ``AuthenticationError`` used to mean).
 
 #### V1\_EXCEPTIONS\_REMOVED\_IN
 
@@ -26,7 +29,7 @@ Release that drops the deprecated v1 names from this module.
 def __getattr__(name: str) -> object
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/__init__.py#L59)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/exceptions/__init__.py#L62)
 
 Resolve a deprecated v1 name from ``aixplain.exceptions.types``, with a warning.
 

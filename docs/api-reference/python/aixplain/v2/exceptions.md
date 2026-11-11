@@ -47,13 +47,18 @@ class ResourceError(AixplainV2Error)
 
 Raised when resource operations fail.
 
+``status_code`` and ``response_data`` are copied from the wrapped
+`APIError` when a ``save``/``delete``/``clone``/``duplicate`` failure
+is rewrapped (see ``with_hooks``); they stay ``None`` otherwise. The original
+exception is also available as ``__cause__``.
+
 ### APIError Objects
 
 ```python
 class APIError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L37)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L44)
 
 Raised when API calls fail.
 
@@ -67,7 +72,7 @@ def __init__(message: Union[str, List[str]],
              retryable: Optional[bool] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L40)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L47)
 
 Initialize APIError with HTTP status and response details.
 
@@ -91,7 +96,7 @@ Initialize APIError with HTTP status and response details.
 class AgentRunFailedError(APIError)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L78)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L85)
 
 Raised when an agent run ends ``FAILED``; carries the run's ``error_details`` and non-fatal ``warnings``.
 
@@ -107,7 +112,7 @@ def __init__(message: Union[str, List[str]],
              warnings: Optional[List["AgentWarning"]] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L81)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L88)
 
 Initialize with the APIError fields plus the run's structured error and warnings.
 
@@ -117,7 +122,7 @@ Initialize with the APIError fields plus the run's structured error and warnings
 class AgentRunNotStartedError(APIError, ValueError)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L97)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L104)
 
 Raised when the platform accepted an agent run's user message but did not start the run.
 
@@ -135,7 +140,7 @@ def __init__(message: Union[str, List[str]],
              session_id: Optional[str] = None) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L108)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L115)
 
 Initialize with the session the message was posted to.
 
@@ -150,7 +155,7 @@ Initialize with the session the message was posted to.
 class AixplainIssueError(APIError)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L119)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L126)
 
 Raised when SDK issue reporting fails.
 
@@ -160,7 +165,7 @@ Raised when SDK issue reporting fails.
 class ValidationError(AixplainV2Error, ValueError)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L125)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L132)
 
 Raised when validation fails; also a ``ValueError``, so existing ``except ValueError`` handlers still catch it.
 
@@ -170,7 +175,7 @@ Raised when validation fails; also a ``ValueError``, so existing ``except ValueE
 class TimeoutError(AixplainV2Error, builtins.TimeoutError)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L131)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L138)
 
 Raised when operations timeout.
 
@@ -181,13 +186,38 @@ it would silently stop catching socket and asyncio timeouts. Inheriting both
 means the shadowing is harmless -- the name catches strictly more than it did
 before, never less.
 
+A poll timeout does not cancel the server-side job. ``poll_url`` and
+``request_id`` (``None`` when unknown) identify it so the caller can keep
+polling or look the run up instead of orphaning it.
+
+#### \_\_init\_\_
+
+```python
+def __init__(message: Union[str, List[str]],
+             details: Optional[Dict[str, Any]] = None,
+             *,
+             poll_url: Optional[str] = None,
+             request_id: Optional[str] = None) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L156)
+
+Initialize the timeout with optional handles to the still-running job.
+
+**Arguments**:
+
+- `message` - Error message string or list of error messages.
+- `details` - Optional dictionary with additional error details.
+- `poll_url` - URL that can still be polled for the job's result.
+- `request_id` - Identifier of the submitted run, when known.
+
 ### FileUploadError Objects
 
 ```python
 class FileUploadError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L145)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L177)
 
 Raised when file upload operations fail.
 
@@ -197,7 +227,7 @@ Raised when file upload operations fail.
 class UntrustedURLError(AixplainV2Error)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L151)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L183)
 
 Raised when a credentialed request targets a host outside the trusted set.
 
@@ -211,7 +241,7 @@ hand the team API key to a host a body asked it to talk to.
 def create_operation_failed_error(response: Dict[str, Any]) -> APIError
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L207)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/exceptions.py#L239)
 
 Create an operation failed error from API response.
 

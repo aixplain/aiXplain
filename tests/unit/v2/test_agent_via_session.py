@@ -1159,3 +1159,95 @@ class TestSessionRunPollTimeout:
             harness.agent.run("hi", timeout=42)
 
         assert poll.call_args.kwargs["timeout"] == 42
+
+
+# ---------------------------------------------------------------------------
+# BUG-1457: the session path goes through the same before_run guard
+# ---------------------------------------------------------------------------
+
+
+class TestRunWithSessionBeforeRunGuard:
+    """``run(session=…)`` must auto-save a modified draft and refuse a modified onboarded agent."""
+
+    def _setup(self, status):
+        from aixplain.v2.enums import AssetStatus
+
+        ctx = _make_mock_context()
+        BoundAgent = _bound_agent(ctx)
+        agent = BoundAgent(id="agent_99", name="A", instructions="old")
+        agent.status = AssetStatus(status)
+        agent._update_saved_state()
+
+        session = Session(agent_id="agent_99", name="thread")
+        session.context = ctx
+        session.id = "sess_guard"
+        events = []
+
+        def fake_add_message(role, content, **kw):
+            events.append(("add_message", content, kw))
+            return _user_message(request_id="req_guard")
+
+        session.add_message = Mock(side_effect=fake_add_message)
+        ctx.client.get.return_value = _success_result(session_id="sess_guard", request_id="req_guard")
+        return ctx, BoundAgent, agent, session, events
+
+    def test_modified_draft_is_saved_once_before_message(self):
+        ctx, BoundAgent, agent, session, events = self._setup("draft")
+        agent.instructions = "new"
+
+        def fake_save(self, *args, **kwargs):
+            events.append(("save", kwargs))
+            self._update_saved_state()
+            return self
+
+        with patch.object(BoundAgent, "save", fake_save):
+            agent.run("hi", session=session, attachments=["https://example.com/a.png"])
+
+        assert [e[0] for e in events] == ["save", "add_message"]
+        assert events[0][1] == {"as_draft": True}
+        # before_run does not consume the kwargs the session path still needs.
+        assert events[1][1] == "hi"
+        assert events[1][2]["attachments"] == ["https://example.com/a.png"]
+
+    def test_unmodified_draft_is_not_saved(self):
+        ctx, BoundAgent, agent, session, events = self._setup("draft")
+        with patch.object(BoundAgent, "save") as save:
+            agent.run("hi", session=session)
+        save.assert_not_called()
+        session.add_message.assert_called_once()
+
+    def test_modified_onboarded_raises_and_posts_nothing(self):
+        ctx, BoundAgent, agent, session, events = self._setup("onboarded")
+        agent.instructions = "new"
+
+        with pytest.raises(ValueError, match="onboarded and cannot be modified") as session_exc:
+            agent.run("hi", session=session)
+        session.add_message.assert_not_called()
+        ctx.client.get.assert_not_called()
+
+        # Same error as the direct (session-less) path.
+        with pytest.raises(ValueError) as direct_exc:
+            agent.run("hi")
+        assert str(session_exc.value) == str(direct_exc.value)
+
+    def test_unmodified_onboarded_runs(self):
+        ctx, BoundAgent, agent, session, events = self._setup("onboarded")
+        result = agent.run("hi", session=session)
+        session.add_message.assert_called_once()
+        assert result.status == "SUCCESS"
+
+    def test_unsaved_sub_agent_still_rejected(self):
+        ctx, BoundAgent, agent, session, events = self._setup("onboarded")
+        team = BoundAgent(id="team_1", name="T", agents=[BoundAgent(name="child", instructions="x")])
+        team._update_saved_state()
+        with pytest.raises(ValueError, match="must be saved before running"):
+            team.run("hi", session=session)
+        session.add_message.assert_not_called()
+
+    def test_malformed_call_does_not_save_draft(self):
+        ctx, BoundAgent, agent, session, events = self._setup("draft")
+        agent.instructions = "new"
+        with patch.object(BoundAgent, "save") as save:
+            with pytest.raises(ValueError, match="requires a query or attachments"):
+                agent.run(session=session)
+        save.assert_not_called()

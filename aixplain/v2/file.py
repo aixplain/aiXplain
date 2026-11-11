@@ -32,6 +32,7 @@ from urllib.parse import quote, unquote, urlparse
 import requests
 from dataclasses_json import config, dataclass_json
 
+from aixplain.utils.folder_walk import walk_upload_tree
 from aixplain.utils.url_safety import safe_get, validate_upload_url
 
 from .enums import FileType, FileTypeValue, Privacy, PrivacyValue, SortBy
@@ -88,6 +89,16 @@ class File(
     """
 
     RESOURCE_PATH = "sdk/file-asset"
+
+    #: Largest body :meth:`save` will download from an http(s) ``source``, in
+    #: bytes. Enforced while streaming, so no more than this reaches disk
+    #: (BUG-1452). Override on the class (or an instance) to raise it.
+    MAX_URL_SOURCE_BYTES = 1024**3
+    #: Largest folder archive :meth:`download` will accept: both the compressed
+    #: download and the total uncompressed size of its entries (BUG-1452).
+    MAX_ARCHIVE_BYTES = 10 * 1024**3
+    #: Most entries a downloaded folder archive may contain (BUG-1452).
+    MAX_ARCHIVE_ENTRIES = 100_000
 
     source: Optional[str] = field(default=None, metadata=config(exclude=lambda _: True))
     file_type: Union[FileType, FileTypeValue] = field(default=FileType.FILE, metadata=config(field_name="fileType"))
@@ -232,11 +243,14 @@ class File(
 
     def _check_upload_allowance(self, local_path: str) -> None:
         """Ask the backend whether this upload fits the team's quota before sending its bytes."""
-        size = os.path.getsize(local_path)
+        self._check_upload_allowance_size(os.path.getsize(local_path), Path(local_path).name)
+
+    def _check_upload_allowance_size(self, size: int, name: str) -> None:
+        """Ask the backend whether *size* bytes fit the team's quota."""
         allowance = self.context.client.get(f"{self.RESOURCE_PATH}/upload-allowance", params={"size": size})
         if not allowance.get("allowed", True):
             raise FileUploadError(
-                f"Upload of {Path(local_path).name} ({size} bytes) is not allowed: "
+                f"Upload of {name} ({size} bytes) is not allowed: "
                 f"{allowance.get('reason', 'quota exceeded')}. "
                 f"Remaining size: {allowance.get('remainingSize')}, remaining files: {allowance.get('remainingFiles')}."
             )
@@ -326,7 +340,7 @@ class File(
             return "The partially uploaded folder could not be automatically removed; delete it manually."
         return "The partially uploaded folder was removed."
 
-    def _save_directory(self, root: Path) -> None:
+    def _save_directory(self, root: Path, include: Optional[List[str]] = None) -> None:
         root_data = self.context.client.post(
             self.RESOURCE_PATH,
             json={
@@ -353,9 +367,9 @@ class File(
         # unused; top-level children live under ``root`` itself).
         raw_children: Dict[Path, List[Path]] = {root: []}
         try:
-            for current, directory_names, file_names in os.walk(root):
-                directory_names.sort()
-                file_names.sort()
+            # Hidden files/folders, cache folders and symlinks leaving ``root``
+            # are never published unless re-admitted via ``include`` (BUG-1452).
+            for current, directory_names, file_names in walk_upload_tree(str(root), include=include):
                 current_path = Path(current)
                 parent_id = parents[current_path]
                 for directory_name in directory_names:
@@ -401,11 +415,20 @@ class File(
         self._apply_data(root_data)
         self.children = [_hydrate(path) for path in raw_children[root]]
 
-    def save(self, **_: Any) -> "File":
+    def save(self, *, include: Optional[List[str]] = None, **_: Any) -> "File":
         """Upload the source and persist it as a backend File asset.
+
+        Args:
+            include: When ``source`` is a directory, relative paths or
+                ``fnmatch`` patterns of hidden files/folders to upload anyway
+                (e.g. ``[".well-known/*"]``). By default hidden files and folders
+                (``.env``, ``.git/``), cache folders and symlinks leaving the
+                directory are skipped.
 
         Raises:
             ResourceError: If the file has been deleted.
+            FileUploadError: If an http(s) ``source`` is larger than
+                :attr:`MAX_URL_SOURCE_BYTES` or exceeds the team's quota.
         """
         # File.save() never reaches BaseResource.save(), so it needs its own
         # deleted-state guard (BUG-1093).
@@ -427,16 +450,39 @@ class File(
                 # ``safe_get`` re-validates every redirect target: a public host
                 # that 302s to ``http://169.254.169.254/`` would otherwise defeat
                 # a one-shot check on ``self.source``.
-                with safe_get(self.source, stream=True, timeout=self.context.client.timeout) as response:
+                # The default fetch timeout (not the API client's 300s) bounds an
+                # untrusted peer, and the body is capped while streaming so a
+                # huge URL cannot fill the disk before the quota check (BUG-1452).
+                cap = self.MAX_URL_SOURCE_BYTES
+                with safe_get(self.source, stream=True) as response:
                     response.raise_for_status()
+                    declared = _declared_length(response)
+                    if declared is not None:
+                        if declared > cap:
+                            raise FileUploadError(
+                                f"Refusing to download {self.source!r}: it declares {declared} bytes, "
+                                f"more than the {cap}-byte limit (File.MAX_URL_SOURCE_BYTES)."
+                            )
+                        # Fail before downloading anything when the quota cannot
+                        # fit it; re-checked after the download, since the
+                        # header can lie.
+                        self._check_upload_allowance_size(declared, Path(parsed.path).name or self.source)
                     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
                         temporary_path = handle.name
+                        written = 0
                         for chunk in response.iter_content(chunk_size=1024 * 1024):
-                            if chunk:
-                                handle.write(chunk)
+                            if not chunk:
+                                continue
+                            if written + len(chunk) > cap:
+                                raise FileUploadError(
+                                    f"Refusing to download {self.source!r}: the body exceeds the {cap}-byte "
+                                    f"limit (File.MAX_URL_SOURCE_BYTES)."
+                                )
+                            handle.write(chunk)
+                            written += len(chunk)
                 self._save_file(temporary_path)
             elif Path(self.source).is_dir():
-                self._save_directory(Path(self.source))
+                self._save_directory(Path(self.source), include=include)
             else:
                 self._save_file(self.source)
         finally:
@@ -640,19 +686,54 @@ class File(
         response = self.context.client.request_stream("GET", f"{self.RESOURCE_PATH}/{quote(self.id, safe='')}/download")
         if self.is_dir:
             target.mkdir(parents=True, exist_ok=True)
+            archive_cap = self.MAX_ARCHIVE_BYTES
             with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as archive:
                 archive_path = Path(archive.name)
-                for chunk in response.iter_content(chunk_size=1024 * 1024):
-                    if chunk:
+                try:
+                    written = 0
+                    for chunk in response.iter_content(chunk_size=1024 * 1024):
+                        if not chunk:
+                            continue
+                        written += len(chunk)
+                        if written > archive_cap:
+                            raise ResourceError(f"Folder archive exceeds the {archive_cap}-byte limit")
                         archive.write(chunk)
+                except BaseException:
+                    archive.close()
+                    archive_path.unlink(missing_ok=True)
+                    raise
             try:
                 with zipfile.ZipFile(archive_path) as bundle:
                     target_root = target.resolve()
-                    for member in bundle.infolist():
-                        member_path = (target / member.filename).resolve()
-                        if os.path.commonpath([target_root, member_path]) != str(target_root):
-                            raise ResourceError(f"Unsafe ZIP entry: {member.filename}")
-                    bundle.extractall(target)
+                    members = bundle.infolist()
+                    # Header pre-checks first, so an oversized archive extracts
+                    # nothing (BUG-1452); the copy below enforces the byte cap
+                    # again on what is actually decompressed, because the
+                    # sizes in the central directory can lie.
+                    if len(members) > self.MAX_ARCHIVE_ENTRIES:
+                        raise ResourceError(
+                            f"Folder archive has {len(members)} entries, more than the "
+                            f"{self.MAX_ARCHIVE_ENTRIES}-entry limit"
+                        )
+                    declared_total = sum(member.file_size for member in members)
+                    if declared_total > archive_cap:
+                        raise ResourceError(
+                            f"Folder archive would extract to {declared_total} bytes, more than the "
+                            f"{archive_cap}-byte limit"
+                        )
+                    destinations = []
+                    for member in members:
+                        # Check the raw name first: on Windows the sanitised
+                        # name drops ``..`` and leading separators, which would
+                        # turn a traversal entry into an in-folder one instead
+                        # of refusing it.
+                        raw_path = (target / member.filename).resolve()
+                        member_path = (target / _archive_member_name(member.filename)).resolve()
+                        for candidate in (raw_path, member_path):
+                            if os.path.commonpath([target_root, candidate]) != str(target_root):
+                                raise ResourceError(f"Unsafe ZIP entry: {member.filename}")
+                        destinations.append((member, member_path))
+                    _extract_bounded(bundle, destinations, archive_cap)
             except zipfile.BadZipFile as exc:
                 raise ResourceError("Downloaded folder archive is not a valid ZIP file") from exc
             finally:
@@ -673,6 +754,68 @@ class File(
         finally:
             temporary.unlink(missing_ok=True)
         return str(target)
+
+
+def _declared_length(response: Any) -> Optional[int]:
+    """Return the response's ``Content-Length`` as an int, or ``None`` if absent/invalid."""
+    raw = (getattr(response, "headers", None) or {}).get("Content-Length")
+    if isinstance(raw, str) and raw.strip().isdigit():
+        return int(raw.strip())
+    return None
+
+
+def _archive_member_name(filename: str) -> str:
+    """Return *filename* as ``ZipFile.extractall`` would write it on this OS.
+
+    On Windows ``extractall`` replaces characters that are illegal in file
+    names (``what?.txt`` becomes ``what_.txt``); the bounded copy below must do
+    the same so such archives keep extracting.
+    """
+    if os.path.sep != "\\":
+        return filename
+    sanitize = getattr(zipfile.ZipFile, "_sanitize_windows_name", None)
+    if sanitize is None:
+        return filename
+    return sanitize(filename.replace("/", os.path.sep), os.path.sep)
+
+
+def _extract_bounded(bundle: zipfile.ZipFile, destinations: List[Tuple[zipfile.ZipInfo, Path]], cap: int) -> None:
+    """Extract *destinations* from *bundle*, refusing to write more than *cap* bytes in total.
+
+    If the copy fails part-way (the cap is hit because the central directory
+    understated the sizes, or the OS refuses a name), the files this call
+    created are removed and the failure is raised as a :class:`ResourceError`.
+    Files that already existed in the destination are never removed.
+    """
+    total = 0
+    written: List[Path] = []
+    try:
+        for member, member_path in destinations:
+            if member.is_dir():
+                member_path.mkdir(parents=True, exist_ok=True)
+                continue
+            member_path.parent.mkdir(parents=True, exist_ok=True)
+            existed = os.path.lexists(member_path)
+            with bundle.open(member) as source, open(member_path, "wb") as sink:
+                if not existed:
+                    written.append(member_path)
+                while True:
+                    chunk = source.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > cap:
+                        raise ResourceError(f"Folder archive extracts to more than the {cap}-byte limit")
+                    sink.write(chunk)
+    except BaseException as exc:
+        for path in written:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        if isinstance(exc, OSError):
+            raise ResourceError(f"Could not extract folder archive: {exc}") from exc
+        raise
 
 
 __all__ = ["File", "Resource"]

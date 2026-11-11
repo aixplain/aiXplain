@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from aixplain.v2.exceptions import ResourceError, TimeoutError as AixTimeoutError
 from aixplain.v2.integration import ActionMixin
 
 POLL_URL = "https://platform-api.aixplain.com/sdk/actions/exec-1"
@@ -103,13 +104,17 @@ class TestJitteredBackoff:
 class TestBudget:
     """The loop must still honour its ``timeout``."""
 
-    def test_exhausted_budget_returns_none_without_polling(self):
+    def test_exhausted_budget_raises_without_polling(self):
         poller = _Poller([DONE])
 
-        assert poller._poll_for_data({"completed": False, "data": POLL_URL}, timeout=0) is None
+        with pytest.raises(AixTimeoutError) as excinfo:
+            poller._poll_for_data({"completed": False, "data": POLL_URL}, timeout=0)
+        # Carries the poll URL so the caller can resume (BUG-1095).
+        assert excinfo.value.poll_url == POLL_URL
         poller.context.client.request.assert_not_called()
 
-    def test_returns_none_when_the_budget_expires(self):
+    def test_raises_when_the_budget_expires(self):
+        """It used to return ``None``, which callers turned into ``[]`` (BUG-1453)."""
         poller = _Poller([PENDING] * 50)
 
         with patch("aixplain.v2.integration.sleep_with_jitter", return_value=0.0):
@@ -121,7 +126,8 @@ class TestBudget:
                     return PENDING
 
                 poller.context.client.request = Mock(side_effect=advance)
-                assert poller._poll_for_data({"completed": False, "data": POLL_URL}, timeout=30) is None
+                with pytest.raises(AixTimeoutError):
+                    poller._poll_for_data({"completed": False, "data": POLL_URL}, timeout=30)
 
         assert poller.context.client.request.call_count == 6
 
@@ -131,3 +137,27 @@ class TestBudget:
 
         with patch("aixplain.v2.integration.sleep_with_jitter", return_value=0.0):
             assert poller._poll_for_data({"completed": False, "data": POLL_URL}) == "d"
+
+
+class TestFailedStatus:
+    """A FAILED reply is an error, never data (BUG-1461 item 10)."""
+
+    def test_completed_failed_reply_raises_instead_of_returning_the_error_as_data(self):
+        poller = _Poller([])
+
+        with pytest.raises(ResourceError, match="boom"):
+            poller._poll_for_data({"completed": True, "status": "FAILED", "data": "boom"})
+
+    def test_polled_failed_reply_without_completed_raises_immediately(self):
+        poller = _Poller([{"status": "FAILED", "error": "auth expired"}, DONE])
+
+        with patch("aixplain.v2.integration.sleep_with_jitter", return_value=0.0):
+            with pytest.raises(ResourceError, match="auth expired"):
+                poller._poll_for_data({"completed": False, "data": POLL_URL})
+
+        assert poller.context.client.request.call_count == 1
+
+    def test_timeout_is_also_the_builtin_timeout_error(self):
+        import builtins
+
+        assert issubclass(AixTimeoutError, builtins.TimeoutError)

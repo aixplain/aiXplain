@@ -1436,3 +1436,274 @@ def test_experiment_diff_case_falls_back_to_agent_response_for_output() -> None:
     assert len(diff.regressions) == 1
     assert diff.regressions[0].baseline_output == "from_agent"
     assert diff.regressions[0].candidate_output == "from_agent2"
+
+
+# BUG-1460 — EvalCase.reference reaches the metric
+
+
+def _real_metric(name: str = "judge", **fields: bool) -> Metric:
+    from aixplain.v2.agent_evaluator import AgentResponseDataFields
+
+    metric = Metric.__new__(Metric)
+    metric.name = name
+    metric.id = None
+    metric.threshold = None
+    metric.additional_input_prompt = None
+    metric.agent_response_data_fields = AgentResponseDataFields(**fields)
+    return metric
+
+
+def _metric_response() -> MagicMock:
+    mr = MagicMock()
+    mr.status = "SUCCESS"
+    mr.completed = True
+    mr.validated_data = {"score": 1}
+    return mr
+
+
+def test_measure_appends_reference_to_metric_input() -> None:
+    metric = _real_metric(output=True)
+    ard = AgentResponseData(input="Capital of France?", output="Paris", steps=[])
+    with patch.object(Metric, "run", return_value=_metric_response()) as run:
+        metric.measure(ard, reference="Paris")
+    assert run.call_args.kwargs["data"] == {"data": "Output: Paris\nReference: Paris\n"}
+
+
+def test_measure_without_reference_is_unchanged() -> None:
+    metric = _real_metric(query=True, output=True)
+    ard = AgentResponseData(input="q", output="a", steps=[])
+    with patch.object(Metric, "run", return_value=_metric_response()) as run:
+        metric.measure(ard)
+    assert run.call_args.kwargs["data"] == {"data": "Query: q\nOutput: a\n"}
+
+
+def test_eval_sends_case_reference_to_metric() -> None:
+    agent = MagicMock()
+    agent.name = "agent_a"
+    agent.run.return_value = _successful_run_result(
+        AgentResponseData(input="Capital of France?", output="It is Paris.", steps=[])
+    )
+    metric = _real_metric(query=True, output=True)
+
+    with patch.object(Metric, "run", return_value=_metric_response()) as run:
+        result = Eval().evaluate(
+            agent, _eval_ds(EvalCase(query="Capital of France?", reference="Paris")), metrics=[metric]
+        )
+
+    payload = run.call_args.kwargs["data"]["data"]
+    assert "Reference: Paris" in payload
+    assert result.rows[0].metric_value("judge", "metric_status") == "SUCCESS"
+
+
+def test_eval_case_without_reference_calls_measure_positionally() -> None:
+    agent = MagicMock()
+    agent.name = "agent_a"
+    ard = AgentResponseData(input="q", output="a", steps=[])
+    agent.run.return_value = _successful_run_result(ard)
+    metric = MagicMock(spec=Metric)
+    metric.name = "m1"
+    metric.measure.return_value = _metric_response()
+
+    Eval().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[metric])
+
+    metric.measure.assert_called_once_with(ard)
+
+
+def test_legacy_measure_override_still_runs_and_warns_once() -> None:
+    class LegacyMetric(Metric):
+        def measure(self, agent_response):  # type: ignore[override]
+            return _metric_response()
+
+    metric = LegacyMetric.__new__(LegacyMetric)
+    metric.name = "legacy"
+    metric.id = None
+    metric.threshold = None
+    agent = MagicMock()
+    agent.name = "agent_a"
+    agent.run.return_value = _successful_run_result(AgentResponseData(input="q", output="a", steps=[]))
+
+    with pytest.warns(UserWarning, match="reference") as record:
+        run = Eval().evaluate(
+            agent,
+            _eval_ds(EvalCase(query="q1", reference="r1"), EvalCase(query="q2", reference="r2")),
+            metrics=[metric],
+        )
+
+    assert len([w for w in record if "reference" in str(w.message)]) == 1
+    assert [row.metric_value("legacy", "metric_status") for row in run.rows] == ["SUCCESS", "SUCCESS"]
+
+
+@pytest.mark.parametrize("reference", ["", "   "])
+def test_measure_skips_blank_reference(reference) -> None:
+    metric = _real_metric(output=True)
+    ard = AgentResponseData(input="q", output="a", steps=[])
+    with patch.object(Metric, "run", return_value=_metric_response()) as run:
+        metric.measure(ard, reference=reference)
+    assert run.call_args.kwargs["data"] == {"data": "Output: a\n"}
+
+
+def test_eval_blank_reference_calls_measure_positionally() -> None:
+    from aixplain.v2.agent_evaluator import _measure_metric
+
+    metric = MagicMock()
+    _measure_metric(metric, "agent-data", "", set())
+    metric.measure.assert_called_once_with("agent-data")
+
+
+# =============================================================================
+# BUG-1462: evaluator results must match what actually ran
+# =============================================================================
+
+
+def _failed_eval_row(case_index: int, agent_name: str = "A") -> AgentEvaluationRow:
+    row = _sample_eval_row(case_index=case_index, agent_name=agent_name, run_time=0.0, used_credits=0.0)
+    row.agent_run_failed = True
+    row.status = "FAILED"
+    row.completed = False
+    return row
+
+
+@pytest.mark.parametrize("criterion", ["latency", "cost"])
+def test_agent_failing_every_case_fails_sample_field_gates(criterion: str) -> None:
+    run = AgentEvaluationRun(rows=[_failed_eval_row(i) for i in range(5)])
+
+    report = run.evaluate_quality_gates(metric_score_criteria={criterion: {"threshold": 10, "operator": "lt"}})
+
+    assert report["all_agents_pass"] is False
+    gate = report["by_agent"]["A"]["metric_gates"][criterion]
+    assert gate["evaluated_rows"] == 5
+    assert gate["passed_rows"] == 0
+    debug = report["debug_dataframe"]
+    assert set(debug[f"{criterion}__criteria_reason"]) == {"agent_run_failed"}
+
+
+def test_successful_rows_still_pass_sample_field_gates() -> None:
+    run = AgentEvaluationRun(rows=[_sample_eval_row(case_index=i, run_time=1.0) for i in range(3)])
+
+    report = run.evaluate_quality_gates(metric_score_criteria={"latency": {"threshold": 10, "operator": "lt"}})
+
+    assert report["all_agents_pass"] is True
+
+
+def test_metric_highlights_do_not_rank_a_low_coverage_agent_best() -> None:
+    rows = []
+    for i in range(10):
+        a_metrics = {"acc": {"score": 0.95}} if i == 0 else {"acc": {"metric_skipped": True}}
+        rows.append(_sample_eval_row(case_index=i, agent_name="A", metrics=a_metrics))
+        rows.append(_sample_eval_row(case_index=i, agent_name="B", metrics={"acc": {"score": 0.9}}))
+    run = AgentEvaluationRun(rows=rows)
+
+    highlights = run.run_summary()["metric_highlights"]
+    col = next(k for k in highlights if k.startswith("acc"))
+    entry = highlights[col]
+
+    assert entry["best_agent"] == "B"
+    assert entry["excluded_low_coverage"] == ["A"]
+    assert entry["coverage"]["A"] == {"scored": 1, "rows": 10, "fraction": 0.1}
+    assert entry["coverage"]["B"]["scored"] == 10
+
+
+def test_metric_highlights_rank_agents_with_comparable_coverage() -> None:
+    rows = [
+        _sample_eval_row(case_index=0, agent_name="A", metrics={"acc": {"score": 0.95}}),
+        _sample_eval_row(case_index=0, agent_name="B", metrics={"acc": {"score": 0.9}}),
+    ]
+    entry = next(iter(AgentEvaluationRun(rows=rows).run_summary()["metric_highlights"].values()))
+
+    assert entry["best_agent"] == "A"
+    assert entry["worst_agent"] == "B"
+    assert entry["excluded_low_coverage"] == []
+
+
+def _pass_rate_run() -> AgentEvaluationRun:
+    return AgentEvaluationRun(
+        rows=[
+            _sample_eval_row(case_index=0, metrics={"acc": {"score": 0.9, "metric_pass": True}}),
+            _sample_eval_row(case_index=1, metrics={"acc": {"score": 0.1, "metric_pass": False}}),
+            _sample_eval_row(case_index=2, metrics={"acc": {"metric_skipped": True, "metric_pass": None}}),
+            _sample_eval_row(case_index=3, metrics={"acc": {"metric_skipped": True}}),
+        ]
+    )
+
+
+def test_metric_pass_rates_survive_csv_reload(tmp_path: Path) -> None:
+    run = _pass_rate_run()
+    in_memory = run.metric_pass_rates()
+    assert (in_memory["acc"]["passed"], in_memory["acc"]["evaluated"]) == (1, 2)
+
+    csv_path = tmp_path / "rates.csv"
+    run.to_dataframe().to_csv(csv_path, index=False)
+    loaded = Eval.load_from_csv(csv_path)
+
+    assert loaded.metric_pass_rates() == in_memory
+
+
+def test_metric_pass_rates_survive_experiment_cache_reload() -> None:
+    from aixplain.v2.eval_experiment import _deserialize_evaluation_records, _serialize_evaluation_records
+
+    run = _pass_rate_run()
+    reloaded = _deserialize_evaluation_records(_serialize_evaluation_records(run))
+
+    assert reloaded.metric_pass_rates() == run.metric_pass_rates()
+
+
+def test_normalize_keeps_missing_metric_pass_unknown() -> None:
+    df = pd.DataFrame({"acc__metric_pass": [1.0, 0.0, float("nan")], "b__metric_pass": ["True", "false", None]})
+
+    out = normalize_eval_results_dataframe(df)
+
+    assert list(out["acc__metric_pass"]) == [True, False, None]
+    assert list(out["b__metric_pass"]) == [True, False, None]
+
+
+def _named_agent(name: str) -> MagicMock:
+    agent = MagicMock()
+    agent.name = name
+    return agent
+
+
+def test_duplicate_agent_names_raise_before_anything_runs() -> None:
+    a1, a2 = _named_agent("support-bot"), _named_agent("support-bot")
+
+    with pytest.raises(ValueError, match="support-bot"):
+        Eval().evaluate([a1, a2], _eval_ds(EvalCase(query="q")))
+
+    a1.run.assert_not_called()
+    a2.run.assert_not_called()
+
+
+def test_duplicate_metric_names_raise_before_anything_runs() -> None:
+    agent = _named_agent("A")
+    m1, m2 = MagicMock(spec=Metric), MagicMock(spec=Metric)
+    m1.name = m2.name = "acc"
+
+    with pytest.raises(ValueError, match="acc"):
+        Eval().evaluate(agent, _eval_ds(EvalCase(query="q")), metrics=[m1, m2])
+
+    agent.run.assert_not_called()
+
+
+def test_duplicate_names_raise_when_building_an_experiment() -> None:
+    with pytest.raises(ValueError, match="support-bot"):
+        Eval().create_experiment(
+            [_named_agent("support-bot"), _named_agent("support-bot")], _eval_ds(EvalCase(query="q"))
+        )
+
+
+@pytest.mark.parametrize(
+    "threshold, score, expected",
+    [
+        (["true"], True, True),
+        (["true"], "TRUE", True),
+        (["false"], False, True),
+        (["true"], False, False),
+        (["Good"], "good ", True),
+        (["good"], "Good", True),
+        (["good"], "bad", False),
+    ],
+)
+def test_enum_thresholds_are_case_insensitive_and_accept_json_booleans(threshold, score, expected) -> None:
+    from aixplain.v2.agent_evaluator import _metric_row_passes_custom_criterion, _metric_threshold_passes
+
+    assert _metric_threshold_passes(threshold, score) is expected
+    assert _metric_row_passes_custom_criterion({"score": score}, threshold, "in", "score") is expected

@@ -7,6 +7,7 @@ Covers three SDK-side regressions surfaced during V3 DEV testing:
 """
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -175,7 +176,7 @@ class TestRunPayloadAttachments:
         ):
             MockUploader.return_value.upload.return_value = "https://cdn/clip.wav"
             MockDetector.detect_mime_type.return_value = "audio/wav"
-            payload = agent.build_run_payload(query="transcribe", attachments=["/tmp/clip.wav"])
+            payload = agent.build_run_payload(query="transcribe", attachments=[Path("/tmp/clip.wav")])
 
         assert payload["attachments"] == [
             {"url": "https://cdn/clip.wav", "name": "clip.wav", "type": "audio", "mimeType": "audio/wav"}

@@ -23,10 +23,11 @@ import tempfile
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import warnings
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config as dj_config
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from .resource import BaseResource, Result
 from .mixins import ToolableMixin, ToolDict
@@ -46,6 +47,10 @@ _SANDBOX_TOOL_ID = "microsoft/code-execution/microsoft"
 
 # Maximum characters of sandbox output fed back to the orchestrator per step.
 _REPL_OUTPUT_MAX_CHARS = 100_000
+
+#: Largest URL context body the parallel/rag modes will load into memory
+#: (BUG-1452). Over-size bodies raise ``UnsafeURLError`` (a ``ValueError``).
+MAX_URL_CONTEXT_BYTES = 50 * 1024 * 1024
 
 
 # Sandbox Sessions
@@ -390,14 +395,91 @@ def _find_code_blocks(text: str) -> Optional[List[str]]:
     return results if results else None
 
 
+_STR_PATH_WARNED = False
+# Strings longer than this, or containing a newline, are obviously text; skip
+# the filesystem probe for them entirely.
+_STR_PATH_PROBE_MAX_LEN = 4096
+
+
+def _warn_if_str_names_a_file(text: str) -> None:
+    """Emit a one-time ``FutureWarning`` when a ``str`` context names a file.
+
+    Before BUG-1451, ``RLM.run`` opened any ``str`` that happened to be an
+    existing path, so end-user text such as ``".env"`` read server files. A
+    ``str`` is now always text (or a URL). This only tells callers who relied
+    on the old behaviour how to migrate; it never opens the file, never probes
+    a Windows UNC (network share) path, and the message carries neither the path
+    nor any content.
+    """
+    global _STR_PATH_WARNED
+    if _STR_PATH_WARNED or len(text) > _STR_PATH_PROBE_MAX_LEN or "\n" in text:
+        return
+    if text.startswith(("\\\\", "//")):
+        # A UNC path: probing it would make Windows contact that server.
+        return
+    try:
+        names_a_file = os.path.isfile(text)
+    except (OSError, ValueError):
+        return
+    if names_a_file:
+        _STR_PATH_WARNED = True
+        warnings.warn(
+            "RLM.run received a str that names an existing file. A str is always treated as text "
+            "(or a URL) and is not read from disk; pass pathlib.Path(...) or context_path=... to "
+            "load a file.",
+            FutureWarning,
+            stacklevel=4,
+        )
+
+
+_FINAL_START_RE = re.compile(r"^\s*FINAL\(", re.MULTILINE)
+
+
+_PARAGRAPH_BREAK_RE = re.compile(r"\n[^\S\n]*\n")
+
+
+def _extract_final_content(text: str, start: int) -> Optional[str]:
+    """Return the body of a ``FINAL(`` declaration whose ``(`` ends just before ``start``.
+
+    Parentheses are matched, so ``FINAL(f(x) returns 2.)`` keeps ``f(x)``, and
+    the body ends at the ``)`` that balances the declaration; anything after it
+    (``FINAL(Paris) (see 1) above``) is ignored.
+
+    When the body has an unclosed ``(`` (``FINAL(see (a in the list)``) the
+    scan never balances; the body then runs to the last ``)`` in the
+    declaration's own paragraph, so a later paragraph such as
+    ``(Note: computed in the REPL)`` is not swallowed. Only when that
+    paragraph has no ``)`` at all does it fall back to the last ``)`` in the text.
+
+    Returns ``None`` when no ``)`` follows the declaration at all.
+    """
+    depth = 1
+    for index in range(start, len(text)):
+        char = text[index]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return text[start:index]
+    paragraph_break = _PARAGRAPH_BREAK_RE.search(text, start)
+    paragraph_end = paragraph_break.start() if paragraph_break else len(text)
+    last = text.rfind(")", start, paragraph_end)
+    if last == -1:
+        last = text.rfind(")", start)
+    return text[start:last] if last != -1 else None
+
+
 def _find_final_answer(text: str) -> Optional[tuple]:
     """Return (type, content) for FINAL_VAR or FINAL declarations, or None."""
     match = re.search(r"^\s*FINAL_VAR\((.*?)\)", text, re.MULTILINE | re.DOTALL)
     if match:
         return ("FINAL_VAR", match.group(1).strip())
-    match = re.search(r"^\s*FINAL\((.*?)\)", text, re.MULTILINE | re.DOTALL)
+    match = _FINAL_START_RE.search(text)
     if match:
-        return ("FINAL", match.group(1).strip())
+        content = _extract_final_content(text, match.end())
+        if content is not None:
+            return ("FINAL", content.strip())
     return None
 
 
@@ -405,6 +487,137 @@ def _truncate(text: str, max_chars: int = _REPL_OUTPUT_MAX_CHARS) -> str:
     if len(text) > max_chars:
         return text[:max_chars] + f"\n... [truncated — {len(text) - max_chars} chars omitted]"
     return text
+
+
+# Orchestrator History Budget (BUG-949)
+
+# Fraction of the orchestrator's window the serialized history may occupy;
+# mirrors ``_CONTEXT_ROT_FRACTION`` for the same context-rot reason.
+_HISTORY_BUDGET_FRACTION = 0.80
+
+# ``max_tokens`` passed to every orchestrator call; reserved out of the window.
+_ORCHESTRATOR_MAX_TOKENS = 8192
+
+# Assumed orchestrator window when neither model reports ``max_context_length``.
+_DEFAULT_ORCHESTRATOR_WINDOW_TOKENS = 128_000
+
+# Floor for the history budget, in tokens, so a tiny or malformed window still
+# leaves room for the system prompt and the newest turn.
+_MIN_HISTORY_BUDGET_TOKENS = 8_000
+
+# Smallest slice of the newest turn kept when it alone overflows the budget.
+_MIN_HISTORY_ITEM_CHARS = 4_000
+
+_HISTORY_ELIDED_NOTE = (
+    "[{n} earlier message(s) omitted to fit the orchestrator context budget. "
+    "REPL state is preserved — re-inspect variables if you need earlier results.]"
+)
+
+
+def _serialized_len(msg: Dict[str, str]) -> int:
+    """Characters ``msg`` contributes to :func:`_messages_to_prompt` (incl. separator)."""
+    return len(msg["role"]) + len(msg["content"]) + 4 + 2  # "[ROLE]: " + "\n\n"
+
+
+def _fit_history(messages: List[Dict[str, str]], budget_chars: int) -> List[Dict[str, str]]:
+    """Return a view of ``messages`` whose serialized size fits ``budget_chars``.
+
+    Always keeps ``messages[0]`` (the system prompt) and ``messages[-1]`` (the
+    pending instruction). The oldest middle messages are dropped first and
+    replaced by a single elision note; the REPL keeps all state, so the
+    orchestrator can re-inspect anything it needs. If even the newest middle
+    message does not fit, its content is truncated (never below
+    ``_MIN_HISTORY_ITEM_CHARS``). The input list is never mutated. O(n).
+    """
+    total = sum(_serialized_len(m) for m in messages)
+    if total <= budget_chars or len(messages) <= 2:
+        return messages
+
+    first, last, middle = messages[0], messages[-1], messages[1:-1]
+    # Size the note for the worst case (every middle message dropped).
+    note_len = _serialized_len({"role": "user", "content": _HISTORY_ELIDED_NOTE.format(n=len(middle))})
+    remaining = budget_chars - _serialized_len(first) - _serialized_len(last) - note_len
+
+    kept: List[Dict[str, str]] = []
+    for msg in reversed(middle):
+        size = _serialized_len(msg)
+        if size > remaining:
+            break
+        kept.append(msg)
+        remaining -= size
+    kept.reverse()
+
+    if not kept and middle:
+        # The newest turn alone overflows: keep a truncated copy of it.
+        newest = middle[-1]
+        overhead = _serialized_len({"role": newest["role"], "content": ""}) + 80  # truncation suffix
+        max_chars = max(remaining - overhead, _MIN_HISTORY_ITEM_CHARS)
+        kept = [{**newest, "content": _truncate(newest["content"], max_chars)}]
+
+    dropped = len(middle) - len(kept)
+    if dropped == 0:
+        return [first, *kept, last]
+    note = {"role": "user", "content": _HISTORY_ELIDED_NOTE.format(n=dropped)}
+    return [first, note, *kept, last]
+
+
+# Bounded Thread Pools (BUG-949)
+
+# At most this many futures per worker are pending at once, so a huge chunk list
+# does not materialize thousands of Future objects (and their results) up front.
+_FUTURES_WINDOW_FACTOR = 2
+
+
+class _FutureTimeout(Exception):
+    """Stored in a result slot whose call did not finish before the deadline."""
+
+
+def _bounded_map(fn: Callable[[int], Any], n: int, *, max_workers: int, timeout: float) -> List[Any]:
+    """Run ``fn(0) … fn(n-1)`` on a thread pool with a deadline and a submit window.
+
+    At most ``max_workers`` calls run at once and at most
+    ``max_workers × _FUTURES_WINDOW_FACTOR`` futures are pending. Results come
+    back in index order; a slot holds the raised exception (or a
+    :class:`_FutureTimeout`) instead of a value when that call failed or missed
+    the deadline, so one bad call never aborts the batch.
+
+    ``timeout`` is a *stall* timeout: the batch is abandoned only when no call
+    completes for ``timeout`` seconds, so a large batch that keeps making
+    progress is never cut short just because its total runtime exceeds
+    ``timeout``. On a stall, still-pending calls get a :class:`_FutureTimeout`
+    and the pool is shut down with ``wait=False`` rather than joined (which a
+    ``with ThreadPoolExecutor`` block would do), so a hung HTTP call cannot pin
+    the caller. An abandoned thread still ends on its own HTTP read timeout.
+    """
+    results: List[Any] = [None] * n
+    if n <= 0:
+        return results
+    window = max(1, max_workers) * _FUTURES_WINDOW_FACTOR
+    executor = ThreadPoolExecutor(max_workers=max(1, max_workers))
+    pending: Dict[Future, int] = {}
+    next_idx = 0
+    try:
+        while next_idx < n or pending:
+            while next_idx < n and len(pending) < window:
+                pending[executor.submit(fn, next_idx)] = next_idx
+                next_idx += 1
+            done = wait(pending, timeout=timeout, return_when=FIRST_COMPLETED).done
+            if not done:
+                for future, idx in pending.items():
+                    future.cancel()
+                    results[idx] = _FutureTimeout(f"no worker call completed for {timeout:.0f}s")
+                for idx in range(next_idx, n):
+                    results[idx] = _FutureTimeout(f"not started: worker calls stalled for {timeout:.0f}s")
+                break
+            for future in done:
+                idx = pending.pop(future)
+                try:
+                    results[idx] = future.result()
+                except Exception as exc:  # isolate per-slot failures
+                    results[idx] = exc
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+    return results
 
 
 # llm_query Protocol Helpers
@@ -585,6 +798,10 @@ def _select_mode(query: str) -> str:
 # Result
 
 
+class _BudgetExhausted(Exception):
+    """A recursive-mode call would start with no ``timeout`` budget left (BUG-1453)."""
+
+
 @dataclass_json
 @dataclass(repr=False)
 class RLMResult(Result):
@@ -599,23 +816,48 @@ class RLMResult(Result):
             sandbox executions, and worker ``llm_query()`` invocations.
         repl_logs: Per-iteration REPL execution log (excluded from
             serialization; present only on live instances).
+        timed_out: ``True`` when a recursive run hit its ``timeout`` before
+            producing a final answer. Such a result has ``status="FAILED"``
+            and no ``data``, so it is never mistaken for a normal success.
+        final_answer_forced: ``True`` when the loop ended without a final
+            answer (``max_iterations`` exhausted or ``timeout`` hit) and the
+            answer came from the forced final-answer request. Informational;
+            an unusable forced reply is reported as ``status="FAILED"``.
+            Excluded from serialization.
+        failed_chunks: Number of chunks whose worker call failed in
+            ``mode="parallel"``. Those chunks are left out of the answer; when
+            every chunk fails the run is ``FAILED``.
     """
 
     iterations_used: int = field(default=0)
     used_credits: float = field(default=0.0, metadata=dj_config(field_name="usedCredits"))
+    timed_out: bool = field(default=False, metadata=dj_config(field_name="timedOut"))
     repl_logs: List[Dict] = field(
         default_factory=list,
         repr=False,
         compare=False,
         metadata=dj_config(exclude=lambda x: True),
     )
+    final_answer_forced: bool = field(
+        default=False,
+        compare=False,
+        metadata=dj_config(exclude=lambda x: True),
+    )
+    failed_chunks: int = field(default=0, metadata=dj_config(field_name="failedChunks"))
 
     def __repr__(self) -> str:
         """Render the base ``Result`` repr plus RLM-specific fields."""
         # Base Result.__repr__ only renders fields it knows about, so RLM-specific
         # fields would otherwise be invisible. Inject them before the closing ")".
         base = super().__repr__()
-        extras = f",\n  iterations_used={self.iterations_used},\n  used_credits={self.used_credits}"
+        extras = (
+            f",\n  iterations_used={self.iterations_used},\n  used_credits={self.used_credits}"
+            f",\n  final_answer_forced={self.final_answer_forced}"
+        )
+        if self.timed_out:
+            extras += ",\n  timed_out=True"
+        if self.failed_chunks:
+            extras += f",\n  failed_chunks={self.failed_chunks}"
         return base[:-2] + extras + "\n)" if base.endswith("\n)") else base
 
 
@@ -703,6 +945,17 @@ class RLM(BaseResource, ToolableMixin):
             batch of ``llm_query`` calls costs two iterations in recursive mode
             — one to submit the prompts and one to consume the answers.
         timeout: Maximum wall-clock seconds per ``run()`` call (default 600).
+            In recursive mode the remaining budget is passed to every
+            orchestrator, sandbox and ``llm_query`` call, where it bounds result
+            polling (the submit request itself keeps the client's read timeout),
+            and no new call is started once it is spent. No final answer is
+            forced then and the result carries ``timed_out=True``. Sandbox
+            teardown and the sandbox tool's first action discovery are not
+            counted against it. Also used as a stall timeout for concurrent
+            batches of worker calls (parallel-mode map/reduce levels and
+            ``llm_query`` batches): if no call in a batch completes for this
+            long, the still-pending calls are abandoned and their slots get an
+            error marker.
     """
 
     # Not a platform-backed resource — no API endpoint.
@@ -782,6 +1035,15 @@ class RLM(BaseResource, ToolableMixin):
         metadata=dj_config(exclude=lambda x: True),
         init=False,
     )
+    # Absolute ``time.time()`` deadline of the recursive run in progress, or
+    # ``None`` outside recursive mode (parallel/rag keep their old behaviour).
+    _deadline: Optional[float] = field(
+        default=None,
+        repr=False,
+        compare=False,
+        metadata=dj_config(exclude=lambda x: True),
+        init=False,
+    )
 
     def __post_init__(self) -> None:
         """Auto-assign a UUID when no id is provided.
@@ -816,12 +1078,14 @@ class RLM(BaseResource, ToolableMixin):
 
         Accepted input forms:
 
-        - ``pathlib.Path`` or ``str`` pointing to an existing file → file is
-          read; ``.json`` files are parsed with ``json.load()``, everything else
-          is read as plain text.
+        - ``pathlib.Path`` (any ``os.PathLike``) → the file is read; ``.json``
+          files are parsed with ``json.load()``, everything else is read as
+          plain text.
         - ``str`` HTTP/HTTPS URL → returned as-is; :meth:`_setup_repl` streams
           it directly into the sandbox without an intermediate re-upload.
-        - ``str`` that is **not** a file path or URL → returned as-is (raw text).
+        - any other ``str`` → returned as-is (raw text). A ``str`` is never
+          opened as a file, even if it names one: callers forward end-user
+          text here, and ``".env"`` must not become a file read (BUG-1451).
         - ``dict`` / ``list`` → passed through unchanged.
         - Anything else → converted via ``str()``.
 
@@ -832,24 +1096,22 @@ class RLM(BaseResource, ToolableMixin):
             Normalized context ready for :meth:`_setup_repl`.
 
         Raises:
-            ValueError: If the path exists but the file cannot be read or parsed.
+            ValueError: If a path is given but the file cannot be read or parsed.
         """
-        if isinstance(context, pathlib.Path):
-            context = str(context)
-
-        if isinstance(context, str) and os.path.isfile(context):
-            ext = os.path.splitext(context)[1].lower()
+        if isinstance(context, os.PathLike):
+            path = os.fspath(context)
+            ext = os.path.splitext(path)[1].lower()
             try:
-                if ext == ".json":
-                    with open(context, "r", encoding="utf-8") as fh:
-                        return json.load(fh)
-                else:
-                    with open(context, "r", encoding="utf-8") as fh:
-                        return fh.read()
+                with open(path, "r", encoding="utf-8") as fh:
+                    return json.load(fh) if ext == ".json" else fh.read()
             except Exception as exc:
-                raise ValueError(f"RLM: failed to read context file '{context}': {exc}") from exc
+                raise ValueError(f"RLM: failed to read context file '{path}': {exc}") from exc
 
-        if isinstance(context, (str, dict, list)):
+        if isinstance(context, str):
+            _warn_if_str_names_a_file(context)
+            return context
+
+        if isinstance(context, (dict, list)):
             return context
 
         return str(context)
@@ -911,6 +1173,29 @@ class RLM(BaseResource, ToolableMixin):
             except (ValueError, TypeError):
                 pass
         return _DEFAULT_WORKER_WINDOW_TOKENS
+
+    def _get_orchestrator_context_tokens(self) -> int:
+        """Return the orchestrator's max context window as an int.
+
+        The orchestrator is the model that receives the history, so its window
+        is the binding one. Falls back to the worker's reported window, then to
+        ``_DEFAULT_ORCHESTRATOR_WINDOW_TOKENS``.
+        """
+        for model in (self._get_orchestrator(), self._get_worker()):
+            attrs = getattr(model, "attributes", None) or {}
+            raw = attrs.get("max_context_length", None) if isinstance(attrs, dict) else None
+            if raw is not None:
+                try:
+                    return int(raw)
+                except (ValueError, TypeError):
+                    pass
+        return _DEFAULT_ORCHESTRATOR_WINDOW_TOKENS
+
+    def _history_budget_chars(self) -> int:
+        """Character budget for the serialized orchestrator history (BUG-949)."""
+        tokens = self._get_orchestrator_context_tokens()
+        usable = int(tokens * _HISTORY_BUDGET_FRACTION) - _ORCHESTRATOR_MAX_TOKENS - _RESERVED_PROMPT_TOKENS
+        return max(usable, _MIN_HISTORY_BUDGET_TOKENS) * _CHARS_PER_TOKEN
 
     # Secret Tripwire (BUG-936)
 
@@ -1040,13 +1325,10 @@ del _url, _url_path, _r
 
         else:
             # --- Upload path: serialize locally, upload, then download in sandbox ---
-            if isinstance(context, str):
-                ext = ".txt"
-                content_bytes = context.encode("utf-8")
-                load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
-            elif isinstance(context, (dict, list)):
+            # Written straight to the temp file (no intermediate encoded copy of
+            # the whole context), and the upload streams that file (BUG-949).
+            if isinstance(context, (dict, list)):
                 ext = ".json"
-                content_bytes = json.dumps(context).encode("utf-8")
                 load_code = (
                     "import json as __json\n"
                     "with open(_filename, 'r', encoding='utf-8') as _f:\n"
@@ -1054,14 +1336,18 @@ del _url, _url_path, _r
                 )
             else:
                 ext = ".txt"
-                content_bytes = str(context).encode("utf-8")
                 load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
 
             tmp_dir = tempfile.mkdtemp()
             tmp_path = os.path.join(tmp_dir, f"context{ext}")
             try:
-                with open(tmp_path, "wb") as fh:
-                    fh.write(content_bytes)
+                # newline="" keeps the bytes identical on every OS (no \r\n
+                # translation on Windows), as the previous binary write did.
+                with open(tmp_path, "w", encoding="utf-8", newline="") as fh:
+                    if ext == ".json":
+                        json.dump(context, fh)
+                    else:
+                        fh.write(context if isinstance(context, str) else str(context))
 
                 uploader = FileUploader(
                     backend_url=self.context.backend_url,
@@ -1072,7 +1358,7 @@ del _url, _url_path, _r
                     is_temp=True,
                     return_download_link=True,
                 )
-                logger.debug(f"RLM: context uploaded ({ext}, {len(content_bytes)} bytes).")
+                logger.debug(f"RLM: context uploaded ({ext}, {os.path.getsize(tmp_path)} bytes).")
             finally:
                 try:
                     os.unlink(tmp_path)
@@ -1133,6 +1419,25 @@ del _url, _r
             raise ResourceError(f"RLM: sandbox {session!r} session has not been started.")
         return session_id
 
+    def _remaining_budget(self) -> Optional[float]:
+        """Seconds left before the recursive-mode deadline, or ``None`` when unbounded."""
+        deadline = getattr(self, "_deadline", None)
+        return None if deadline is None else deadline - time.time()
+
+    def _budget_kwargs(self) -> Dict[str, float]:
+        """``{"timeout": remaining}`` for a ``run`` call, or ``{}`` when unbounded.
+
+        Raises:
+            _BudgetExhausted: If the recursive-mode budget is already spent, so
+                no new billable call is started past the deadline.
+        """
+        remaining = self._remaining_budget()
+        if remaining is None:
+            return {}
+        if remaining <= 0:
+            raise _BudgetExhausted("RLM timeout budget exhausted")
+        return {"timeout": remaining}
+
     def _run_sandbox(self, sandbox: Any, code: str, *, session: str) -> Any:
         """Execute code in the named sandbox session and return the raw ToolResult.
 
@@ -1157,6 +1462,7 @@ del _url, _r
         result = sandbox.run(
             data={"code": code, "sessionId": session_id},
             action="run",
+            **self._budget_kwargs(),
         )
         self._used_credits += float(getattr(result, "used_credits", 0) or 0)
         return result
@@ -1350,6 +1656,37 @@ del _url, _r
             return None
         return value
 
+    def _resolve_forced_final(self, reply: str) -> Tuple[Optional[str], Optional[str]]:
+        """Parse the orchestrator's forced final reply.
+
+        Must run while the REPL session is still alive (before :meth:`close`),
+        because a ``FINAL_VAR(name)`` reply is resolved from the sandbox.
+
+        Args:
+            reply: The (already redacted) forced final reply.
+
+        Returns:
+            ``(answer, None)`` when the reply is a usable ``FINAL(...)`` or a
+            resolvable ``FINAL_VAR(...)``; ``(None, error)`` otherwise.
+        """
+        parsed = _find_final_answer(reply)
+        if parsed is None:
+            return None, "forced final answer did not use FINAL(...) or FINAL_VAR(...)"
+        answer_type, content = parsed
+        if answer_type == "FINAL_VAR":
+            try:
+                value = self._get_repl_variable(content)
+            except Exception as exc:
+                return None, self._redact(f"forced final answer FINAL_VAR({content!r}) lookup failed: {exc}")
+            if value is None:
+                return None, f"forced final answer FINAL_VAR({content!r}) could not be resolved"
+            if not value.strip():
+                return None, f"forced final answer FINAL_VAR({content!r}) was empty"
+            return value, None
+        if not content:
+            return None, "forced final answer FINAL(...) was empty"
+        return self._redact(content), None
+
     # llm_query Resolution (SDK-side, credentialled)
 
     def _resolve_llm_queries(self, prompts: List[str]) -> Dict[str, str]:
@@ -1359,7 +1696,7 @@ del _url, _r
         which already holds the key, instead of by sandbox-resident code. Runs
         the batch concurrently, deduplicates by prompt hash, and never lets a
         single failure kill the run — a failed prompt is answered with an error
-        marker, matching :meth:`_parallel_map`.
+        marker.
 
         Args:
             prompts: Prompts submitted by the sandbox this turn.
@@ -1379,16 +1716,20 @@ del _url, _r
         # Warm the lazy worker cache before threads start, as parallel mode does.
         self._get_worker()
 
+        items = list(uniq.items())
+        results = _bounded_map(
+            lambda i: self._worker_call(items[i][1], _LLM_QUERY_MAX_TOKENS),
+            len(items),
+            max_workers=min(len(items), _MAX_PARALLEL_WORKERS),
+            timeout=self.timeout,
+        )
         answers: Dict[str, str] = {}
-        with ThreadPoolExecutor(max_workers=min(len(uniq), _MAX_PARALLEL_WORKERS)) as ex:
-            futures = {ex.submit(self._worker_call, prompt, _LLM_QUERY_MAX_TOKENS): key for key, prompt in uniq.items()}
-            for f in as_completed(futures):
-                key = futures[f]
-                try:
-                    answers[key] = f.result()
-                except Exception as exc:
-                    logger.warning(f"RLM: llm_query failed: {exc}")
-                    answers[key] = f"Error: llm_query failed — {exc}"
+        for (key, _), res in zip(items, results):
+            if isinstance(res, BaseException):
+                logger.warning(f"RLM: llm_query failed: {res}")
+                answers[key] = f"Error: llm_query failed — {res}"
+            else:
+                answers[key] = res
 
         logger.debug(f"RLM: resolved {len(answers)} llm_query prompt(s) SDK-side.")
         return answers
@@ -1414,7 +1755,11 @@ del _url, _r
         """Query the orchestrator model with the full conversation history.
 
         Serializes the message list to a formatted prompt string and calls
-        ``Model.run()`` on the resolved orchestrator.
+        ``Model.run()`` on the resolved orchestrator. The serialized history is
+        bounded by :meth:`_history_budget_chars`: once it would overflow, the
+        oldest turns are elided (see :func:`_fit_history`) so a long run does not
+        resend every prior REPL output on each iteration (BUG-949). Only the view
+        sent to the model is trimmed; ``messages`` itself is left intact.
 
         Args:
             messages: Full conversation history as role/content dicts.
@@ -1425,7 +1770,15 @@ del _url, _r
         Raises:
             ResourceError: If the orchestrator model call fails or returns an error.
         """
-        response = self._get_orchestrator().run(text=_messages_to_prompt(messages), max_tokens=8192)
+        budget = self._history_budget_chars()
+        fitted = _fit_history(messages, budget)
+        if fitted is not messages:
+            logger.info(
+                f"RLM: orchestrator history trimmed {len(messages)}→{len(fitted)} messages to fit {budget} chars."
+            )
+        response = self._get_orchestrator().run(
+            text=_messages_to_prompt(fitted), max_tokens=_ORCHESTRATOR_MAX_TOKENS, **self._budget_kwargs()
+        )
         self._used_credits += float(getattr(response, "used_credits", 0) or 0)
         if response.completed or response.status == "SUCCESS":
             return str(response.data)
@@ -1442,7 +1795,7 @@ del _url, _r
         ``ThreadPoolExecutor`` from the parallel map step or from
         :meth:`_resolve_llm_queries`.
         """
-        response = self._get_worker().run(text=prompt, max_tokens=max_tokens)
+        response = self._get_worker().run(text=prompt, max_tokens=max_tokens, **self._budget_kwargs())
         credits = float(getattr(response, "used_credits", 0) or 0)
         with self._credits_lock:
             self._used_credits += credits
@@ -1462,8 +1815,9 @@ del _url, _r
             return context
         from aixplain.utils.url_safety import safe_get
 
-        # ``context`` is caller-supplied, so the fetch is SSRF-gated (BUG-939).
-        r = safe_get(context, timeout=60)
+        # ``context`` is caller-supplied, so the fetch is SSRF-gated (BUG-939)
+        # and its body capped before it is loaded into memory (BUG-1452).
+        r = safe_get(context, max_bytes=MAX_URL_CONTEXT_BYTES)
         r.raise_for_status()
         ct = r.headers.get("Content-Type", "")
         url_path = context.split("?")[0].lower()
@@ -1474,32 +1828,34 @@ del _url, _r
                 return r.text
         return r.text
 
-    def _parallel_map(self, chunks: List[str], query: str) -> List[str]:
+    def _parallel_map(self, chunks: List[str], query: str) -> Tuple[List[str], int, Optional[BaseException]]:
         """Run the map step: one worker call per chunk, in parallel.
 
-        Returns answers in original chunk order. A single chunk failure does
-        not fail the whole run — its slot is replaced with an error marker
-        and the reduce step proceeds with what's available.
+        Returns ``(answers, failed, last_error)``: answers in original chunk
+        order, the number of chunks whose worker call failed, and the last such
+        error. A single chunk failure does not fail the whole run: its slot
+        becomes ``"NONE"``, so ``_reduce`` drops it instead of synthesizing the
+        error text as if it were content (BUG-1462).
         """
         n = len(chunks)
-        answers: List[Optional[str]] = [None] * n
 
         def _map_one(idx: int) -> str:
             prompt = _MAP_PROMPT.format(idx=idx + 1, total=n, query=query, chunk=chunks[idx])
             return self._worker_call(prompt)
 
-        max_workers = min(n, _MAX_PARALLEL_WORKERS)
-        with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            futures = {ex.submit(_map_one, i): i for i in range(n)}
-            for f in as_completed(futures):
-                i = futures[f]
-                try:
-                    answers[i] = f.result()
-                except Exception as exc:
-                    logger.warning(f"RLM parallel: chunk {i} failed: {exc}")
-                    answers[i] = f"[Error analyzing this part: {exc}]"
-
-        return [a if a is not None else "NONE" for a in answers]
+        results = _bounded_map(_map_one, n, max_workers=min(n, _MAX_PARALLEL_WORKERS), timeout=self.timeout)
+        answers: List[str] = []
+        failed = 0
+        last_error: Optional[BaseException] = None
+        for i, res in enumerate(results):
+            if isinstance(res, BaseException):
+                failed += 1
+                last_error = res
+                logger.warning(f"RLM parallel: chunk {i} failed: {self._redact(str(res))}")
+                answers.append("NONE")
+            else:
+                answers.append(res if res is not None else "NONE")
+        return answers, failed, last_error
 
     def _reduce_call(self, formatted_answers: str, query: str, n: int) -> str:
         """Single reduce call: synthesize partial answers into one final answer."""
@@ -1511,6 +1867,11 @@ del _url, _r
 
         Combines ``_REDUCE_FAN_IN`` answers at a time, in parallel at each
         level, until a single answer remains. log(N) depth.
+
+        A failed or timed-out group is replaced by an error marker, as
+        :meth:`_parallel_map` does for chunks, so one bad call does not abort
+        the run. If *every* group at a level fails there is nothing left to
+        combine, and a ``ResourceError`` is raised instead.
         """
         while len(answers) > 1:
             groups = [answers[i : i + _REDUCE_FAN_IN] for i in range(0, len(answers), _REDUCE_FAN_IN)]
@@ -1519,14 +1880,24 @@ del _url, _r
                 formatted = "\n\n".join(f"[Part]: {a}" for a in group)
                 return self._reduce_call(formatted, query, len(group))
 
-            next_level: List[Optional[str]] = [None] * len(groups)
-            max_workers = min(len(groups), _MAX_PARALLEL_WORKERS)
-            with ThreadPoolExecutor(max_workers=max_workers) as ex:
-                futures = {ex.submit(_reduce_group, g): i for i, g in enumerate(groups)}
-                for f in as_completed(futures):
-                    i = futures[f]
-                    next_level[i] = f.result()
-            answers = [a for a in next_level if a is not None]
+            results = _bounded_map(
+                lambda i, groups=groups: _reduce_group(groups[i]),
+                len(groups),
+                max_workers=min(len(groups), _MAX_PARALLEL_WORKERS),
+                timeout=self.timeout,
+            )
+            failures = [r for r in results if isinstance(r, BaseException)]
+            if failures and len(failures) == len(results):
+                raise ResourceError(f"RLM: all {len(results)} reduce group(s) failed — {failures[0]}")
+            next_level: List[str] = []
+            for i, res in enumerate(results):
+                if isinstance(res, BaseException):
+                    # Drop the failed group rather than synthesizing its error
+                    # text as if it were content (BUG-1462).
+                    logger.warning(f"RLM parallel: reduce group {i} failed: {self._redact(str(res))}")
+                elif res is not None:
+                    next_level.append(res)
+            answers = next_level
         return answers[0]
 
     def _reduce(self, chunk_answers: List[str], query: str, budget_chars: int) -> str:
@@ -1556,6 +1927,7 @@ del _url, _r
     ) -> RLMResult:
         """Deterministic chunk → parallel map → reduce. No orchestrator, no sandbox."""
         iterations_used = 0
+        failed_chunks = 0
         try:
             context = self._resolve_url_context(context)
             # Pre-resolve worker once so the cache is populated before threads
@@ -1564,7 +1936,9 @@ del _url, _r
 
             worker_tokens = self._get_worker_context_tokens()
             budget_chars = _compute_chunk_budget_chars(worker_tokens)
-            chunks = _chunk_context(context, budget_chars)
+            # An empty list/dict context chunks to nothing; take the single-call
+            # path instead of sizing a thread pool at zero workers (BUG-1095).
+            chunks = _chunk_context(context, budget_chars) or [""]
             n_chunks = len(chunks)
             logger.info(
                 f"RLM '{name}' parallel: {n_chunks} chunk(s), ~{budget_chars} chars/chunk "
@@ -1578,11 +1952,28 @@ del _url, _r
                 final_answer = self._worker_call(prompt)
                 iterations_used = 1
             else:
-                chunk_answers = self._parallel_map(chunks, query)
-                final_answer = self._reduce(chunk_answers, query, budget_chars)
+                chunk_answers, failed_chunks, last_error = self._parallel_map(chunks, query)
                 iterations_used = n_chunks
+                if failed_chunks >= n_chunks:
+                    # Nothing was analysed: an answer built from nothing (or, as
+                    # before, from the error strings) must not read as SUCCESS.
+                    error_msg = self._redact(
+                        f"RLM parallel error: all {n_chunks} chunk(s) failed; last error: {last_error}"
+                    )
+                    logger.error(error_msg)
+                    result = RLMResult(status="FAILED", completed=True, error_message=error_msg, data=None)
+                    result.iterations_used = iterations_used
+                    result.used_credits = self._used_credits
+                    result.failed_chunks = failed_chunks
+                    return result
+                if failed_chunks:
+                    logger.warning(
+                        f"RLM '{name}' parallel: {failed_chunks} of {n_chunks} chunk(s) failed and were left out "
+                        "of the answer."
+                    )
+                final_answer = self._reduce(chunk_answers, query, budget_chars)
         except Exception as exc:
-            error_msg = f"RLM parallel error: {exc}"
+            error_msg = self._redact(f"RLM parallel error: {exc}")
             logger.error(error_msg)
             result = RLMResult(
                 status="FAILED",
@@ -1592,6 +1983,7 @@ del _url, _r
             )
             result.iterations_used = iterations_used
             result.used_credits = self._used_credits
+            result.failed_chunks = failed_chunks
             return result
 
         run_time = time.time() - start_time
@@ -1599,10 +1991,13 @@ del _url, _r
         result = RLMResult(
             status="SUCCESS",
             completed=True,
-            data=final_answer,
+            # The worker may echo its prompt, and the prompt carries the
+            # context: mask credentials here as recursive mode does (BUG-1451).
+            data=self._redact(final_answer),
         )
         result.iterations_used = iterations_used
         result.used_credits = self._used_credits
+        result.failed_chunks = failed_chunks
         result._raw_data = {"run_time": run_time}
         return result
 
@@ -1701,12 +2096,22 @@ del _url, _r
                 self._used_credits += float(getattr(upsert_resp, "used_credits", 0) or 0)
                 logger.debug(f"RLM '{name}' rag: upserted {n_chunks} chunks.")
 
-            # Retrieve. Clamp top_k to available chunks so we never ask for more.
-            top_k = min(top_k, max(n_chunks, 1))
-            search_resp = index.run(action="search", data={"query": query, "top_k": top_k})
+            # Retrieve. For an ephemeral index, clamp top_k to the chunks just
+            # upserted so we never ask for more. A pre-built index holds its own
+            # chunks, unrelated to the size of ``context``: clamping there (and
+            # trimming to that value below) would drop hits the caller asked for.
+            if ephemeral_index is not None:
+                top_k = min(top_k, max(n_chunks, 1))
+            # aIR search is documented to honour ``num_results`` and reportedly
+            # ignores ``top_k``; send both, and trim client-side so ``rag_top_k``
+            # bounds the synthesis prompt either way (BUG-1462).
+            search_resp = index.run(action="search", data={"query": query, "top_k": top_k, "num_results": top_k})
             self._used_credits += float(getattr(search_resp, "used_credits", 0) or 0)
 
             retrieved = self._parse_rag_search_response(search_resp)
+            if len(retrieved) > top_k:
+                # Service order is relevance order: trim before re-sorting by position.
+                retrieved = retrieved[:top_k]
             logger.info(f"RLM '{name}' rag: retrieved {len(retrieved)} chunk(s) (top_k={top_k}).")
 
             if not retrieved:
@@ -1721,7 +2126,7 @@ del _url, _r
             # One synthesis call (or zero if nothing retrieved).
             iterations_used = 1
         except Exception as exc:
-            error_msg = f"RLM rag error: {exc}"
+            error_msg = self._redact(f"RLM rag error: {exc}")
             logger.error(error_msg)
             result = RLMResult(
                 status="FAILED",
@@ -1745,7 +2150,9 @@ del _url, _r
         result = RLMResult(
             status="SUCCESS",
             completed=True,
-            data=final_answer,
+            # The worker may echo its prompt, and the prompt carries the
+            # context: mask credentials here as recursive mode does (BUG-1451).
+            data=self._redact(final_answer),
         )
         result.iterations_used = iterations_used
         result.used_credits = self._used_credits
@@ -1756,10 +2163,11 @@ del _url, _r
 
     def run(
         self,
-        data: Union[str, dict, pathlib.Path],
+        data: Union[str, dict, pathlib.Path, None] = None,
         name: str = "rlm_process",
         timeout: Optional[float] = None,
         mode: str = "auto",
+        context_path: Optional[Union[str, "os.PathLike[str]"]] = None,
         **kwargs: Any,
     ) -> RLMResult:
         """Run the RLM over a (potentially large) context, dispatching by mode.
@@ -1790,19 +2198,33 @@ del _url, _r
                 - ``str`` **HTTP/HTTPS URL** — content is downloaded automatically;
                   ``.json`` URLs or ``application/json`` responses are parsed into a
                   dict/list, all other content decoded as plain text.
-                - ``str`` **file path** — file is read automatically; ``.json`` files are
-                  parsed into a dict/list, all other formats read as plain text.
-                - ``pathlib.Path`` — resolved and read like a file-path string.
+                - ``pathlib.Path`` — the file is read; ``.json`` files are parsed
+                  into a dict/list, all other formats read as plain text.
                 - ``dict`` — must contain ``"context"`` (required) and optionally
                   ``"query"`` (defaults to a generic analysis prompt). The value
-                  of ``"context"`` itself may also be a URL, a file path, or a
+                  of ``"context"`` itself may be text, a URL, or a
                   ``pathlib.Path``.
+
+                .. versionchanged:: BUG-1451
+                   A ``str`` is no longer read from disk when it happens to name
+                   a file; it is always text (or a URL). Pass ``pathlib.Path``
+                   or ``context_path=`` to load a file. A ``FutureWarning`` is
+                   emitted once when a ``str`` names an existing file.
 
             name: Identifier used in log messages. Defaults to ``"rlm_process"``.
             timeout: Maximum wall-clock seconds. Applies to ``"recursive"`` mode
-                only. Overrides ``self.timeout`` when provided.
-            mode: ``"auto"``, ``"parallel"``, or ``"recursive"``. Defaults to
-                ``"auto"``.
+                only. Overrides ``self.timeout`` when provided. The remaining
+                budget bounds result polling of each orchestrator, sandbox and
+                ``llm_query`` call (not the submit request itself), and no new
+                call is started once it is spent. No final answer is forced then
+                and the result has ``status="FAILED"`` and ``timed_out=True``.
+                (Concurrent worker batches always use ``self.timeout`` as their
+                stall timeout.)
+            mode: ``"auto"``, ``"parallel"``, ``"recursive"``, or ``"rag"``.
+                Defaults to ``"auto"``.
+            context_path: Explicit path of a file to use as the context. Use
+                instead of ``data``, or together with a ``data`` dict that
+                carries only ``"query"``.
             **kwargs: Ignored; kept for API compatibility.
 
         Returns:
@@ -1810,6 +2232,8 @@ del _url, _r
 
             - ``data``: Final answer string.
             - ``status``: ``"SUCCESS"`` or ``"FAILED"``.
+            - ``timed_out``: ``True`` if a recursive run hit ``timeout``
+              before producing a final answer.
             - ``completed``: ``True``.
             - ``used_credits``: Total credits across all model calls.
             - ``iterations_used``: Recursive mode → orchestrator iterations.
@@ -1817,12 +2241,16 @@ del _url, _r
               chunks), or 1 for the single-call fast path.
             - ``repl_logs``: Per-iteration execution log (recursive mode only;
               empty for parallel). Not serialized.
+            - ``failed_chunks``: Parallel mode → chunks whose worker call
+              failed and were left out of the answer. ``FAILED`` when every
+              chunk failed.
 
         Raises:
             ResourceError: If ``worker_id`` is unset, or ``recursive`` mode is
                 used without ``orchestrator_id``, or a model call fails.
             ValueError: If ``data`` is a dict missing ``"context"``, ``mode``
-                is invalid, or ``data`` is an unsupported type.
+                is invalid, ``data`` is an unsupported type, neither ``data``
+                nor ``context_path`` is given, or both supply a context.
         """
         if mode not in ("auto", "parallel", "recursive", "rag"):
             raise ValueError(f"Invalid mode: {mode!r}. Choose 'auto', 'parallel', 'recursive', or 'rag'.")
@@ -1830,10 +2258,18 @@ del _url, _r
             raise ResourceError("RLM requires a worker_id. Pass worker_id= when constructing aix.RLM(...).")
 
         # Normalise data argument
-        if isinstance(data, pathlib.Path):
-            data = str(data)
+        if context_path is not None:
+            if data is not None and not (isinstance(data, dict) and "context" not in data):
+                raise ValueError(
+                    "Pass the context either in data=... or as context_path=..., not both. "
+                    "With context_path=, data may only be a dict carrying a 'query'."
+                )
+            data = {**(data or {}), "context": pathlib.Path(context_path)}
 
-        if isinstance(data, str):
+        if data is None:
+            raise ValueError(f"Unsupported data type: {type(data)}. RLM.run requires data=... or context_path=....")
+
+        if isinstance(data, (str, os.PathLike)):
             context: Any = data
             query = _DEFAULT_QUERY
         elif isinstance(data, dict):
@@ -1846,7 +2282,7 @@ del _url, _r
         else:
             raise ValueError(
                 f"Unsupported data type: {type(data)}. "
-                "Expected a str (raw text or file path), a pathlib.Path, "
+                "Expected a str (raw text or URL), a pathlib.Path, "
                 "or a dict with a 'context' key."
             )
 
@@ -1889,8 +2325,15 @@ del _url, _r
         """
         iterations_used = 0
         final_answer: Optional[str] = None
+        forced_final = False
+        forced_error: Optional[str] = None
         repl_logs: List[Dict] = []
         self._used_credits = 0.0
+        # One deadline for the whole run, held on the instance so the budget
+        # reaches every orchestrator, sandbox and llm_query call (BUG-1453).
+        deadline = start_time + effective_timeout
+        self._deadline = deadline
+        timed_out = False
 
         try:
             self._preflight()
@@ -1900,8 +2343,9 @@ del _url, _r
             for iteration in range(self.max_iterations):
                 iterations_used = iteration + 1
 
-                if (time.time() - start_time) > effective_timeout:
-                    logger.warning(f"RLM '{name}': timeout after {iteration} iterations — forcing final answer.")
+                if time.time() >= deadline:
+                    logger.warning(f"RLM '{name}': timeout after {iteration} iterations.")
+                    timed_out = True
                     break
 
                 # Ask orchestrator for its next action
@@ -1924,6 +2368,12 @@ del _url, _r
                                 "content": (f"Code executed:\n```python\n{code}\n```\n\nREPL output:\n{output}"),
                             }
                         )
+                        # Re-checked after every block, not just per iteration:
+                        # the remaining blocks would otherwise run past it.
+                        if time.time() >= deadline:
+                            logger.warning(f"RLM '{name}': timeout during iteration {iteration} — skipping the rest.")
+                            timed_out = True
+                            break
                 else:
                     self._messages.append({"role": "assistant", "content": response_text})
 
@@ -1936,57 +2386,102 @@ del _url, _r
                         # send the orchestrator back to re-run its block.
                         if _LLM_PENDING_SENTINEL in content:
                             logger.warning(f"RLM '{name}': FINAL(...) contained a pending placeholder — rejected.")
+                            if timed_out:
+                                break
                             self._messages.append({"role": "user", "content": _PENDING_REJECTED_PROMPT})
                             continue
+                        # A literal answer needs no further I/O, so it is kept
+                        # even when the budget ran out during this iteration.
                         final_answer = self._redact(content)
+                        timed_out = False
                         break
-                    elif answer_type == "FINAL_VAR":
+                    elif answer_type == "FINAL_VAR" and not timed_out:
                         retrieved = self._get_repl_variable(content)
                         if retrieved is not None:
                             final_answer = retrieved
                             break
                         logger.warning(f"RLM '{name}': FINAL_VAR('{content}') unusable — continuing.")
 
-            # Force a final answer if loop exhausted or timed out without one
-            if final_answer is None:
+                if timed_out:
+                    break
+
+            # Force a final answer if the loop was exhausted without one. Not on
+            # a timeout: that would be one more unbounded-cost call past the
+            # caller's deadline (BUG-1453).
+            if final_answer is None and not timed_out:
+                forced_final = True
                 logger.info(f"RLM '{name}': requesting forced final answer after {iterations_used} iteration(s).")
                 self._messages.append(_next_action_message(query, iterations_used, force_final=True))
-                final_answer = self._redact(self._orchestrator_completion(self._messages))
+                raw_reply = self._redact(self._orchestrator_completion(self._messages))
+                # Parse and resolve here, inside the try: FINAL_VAR needs the
+                # REPL, which the finally block below tears down.
+                final_answer, forced_error = self._resolve_forced_final(raw_reply)
+                if final_answer is None:
+                    logger.warning(f"RLM '{name}': {forced_error} — returning the raw reply as FAILED.")
+                    final_answer = raw_reply
                 if _LLM_PENDING_SENTINEL in final_answer:
                     # Last resort: the placeholder must never surface as content.
                     logger.warning(f"RLM '{name}': forced final answer contained pending placeholder(s) — stripped.")
                     final_answer = final_answer.replace(_LLM_PENDING_SENTINEL, "[unanswered]")
 
         except Exception as exc:
-            # Redacted before it is logged or returned: an exception raised deep
-            # in the client stack can quote a request that carried the key.
-            error_msg = self._redact(f"RLM run error: {exc}")
-            logger.error(error_msg)
-            result = RLMResult(
-                status="FAILED",
-                completed=True,
-                error_message=error_msg,
-                data=None,
-            )
-            result.iterations_used = iterations_used
-            result.used_credits = self._used_credits
-            result.repl_logs = repl_logs
-            return result
+            # A call refused for lack of budget, or a model/sandbox poll that ran
+            # out of it, is the run's timeout — not a generic error. A
+            # TimeoutError raised while budget remains is a real failure.
+            if isinstance(exc, _BudgetExhausted) or (isinstance(exc, TimeoutError) and time.time() >= deadline):
+                logger.warning(f"RLM '{name}': timeout reached during iteration {iterations_used}: {exc}")
+                timed_out = True
+                final_answer = None
+            else:
+                # Redacted before it is logged or returned: an exception raised deep
+                # in the client stack can quote a request that carried the key.
+                error_msg = self._redact(f"RLM run error: {exc}")
+                logger.error(error_msg)
+                result = RLMResult(
+                    status="FAILED",
+                    completed=True,
+                    error_message=error_msg,
+                    data=None,
+                )
+                result.iterations_used = iterations_used
+                result.used_credits = self._used_credits
+                result.repl_logs = repl_logs
+                return result
         finally:
+            # Cleared before teardown so session close never inherits a spent
+            # budget (best-effort teardown must still run).
+            self._deadline = None
             # Unconditional: success, exception, and timeout paths all land here.
             self.close()
 
         run_time = time.time() - start_time
-        logger.info(f"RLM '{name}': done in {iterations_used} iteration(s), {run_time:.1f}s.")
 
-        result = RLMResult(
-            status="SUCCESS",
-            completed=True,
-            data=final_answer or "",
-        )
+        if timed_out:
+            error_msg = (
+                f"RLM '{name}': timeout of {effective_timeout}s reached after "
+                f"{iterations_used} iteration(s) without a final answer."
+            )
+            logger.warning(error_msg)
+            result = RLMResult(status="FAILED", completed=True, error_message=error_msg, data=None)
+            result.timed_out = True
+        elif forced_error is not None:
+            result = RLMResult(
+                status="FAILED",
+                completed=True,
+                data=final_answer or "",
+                error_message=f"RLM: {forced_error}",
+            )
+        else:
+            logger.info(f"RLM '{name}': done in {iterations_used} iteration(s), {run_time:.1f}s.")
+            result = RLMResult(
+                status="SUCCESS",
+                completed=True,
+                data=final_answer or "",
+            )
         result.iterations_used = iterations_used
         result.used_credits = self._used_credits
         result.repl_logs = repl_logs
+        result.final_answer_forced = forced_final
         result._raw_data = {"run_time": run_time}
         return result
 

@@ -148,27 +148,16 @@ def test_a_foreign_request_id_on_the_session_path_is_refused_before_any_request(
     assert not [r for r in platform.requests if r.url.startswith(FOREIGN)]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "ENG-3782 finding (ENG-3761 BUG item 1): Aixplain.__init__ writes the caller's key into "
-        "os.environ['TEAM_API_KEY'] and ['AIXPLAIN_API_KEY'] (aixplain/v2/core.py), so a process that "
-        "serves several tenants keeps the last tenant's key in its environment."
-    ),
-)
 def test_constructing_a_client_leaves_the_environment_alone(aix, canary: str) -> None:
+    # ENG-3782 / BUG-948 item 1: Aixplain.__init__ used to copy the caller's key
+    # into os.environ, so every child process (and later client) inherited it.
     assert not [name for name, value in os.environ.items() if canary in value]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "ENG-3782 finding (consequence of the os.environ write): a client built without an explicit key "
-        "resolves TEAM_API_KEY/AIXPLAIN_API_KEY, which the previous tenant's client just wrote, so it "
-        "authenticates as that tenant."
-    ),
-)
 def test_a_later_keyless_client_does_not_inherit_the_previous_key(aix, canary: str) -> None:
+    # Consequence of the old os.environ write: a keyless client authenticated as
+    # the previous tenant. With no key in the environment it now refuses to build.
     from aixplain import Aixplain
 
-    assert Aixplain(backend_url=BACKEND_URL).api_key != canary
+    with pytest.raises(AssertionError, match="API key is required"):
+        Aixplain(backend_url=BACKEND_URL)

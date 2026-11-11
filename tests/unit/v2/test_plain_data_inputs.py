@@ -583,6 +583,7 @@ ANNOTATED_ALIASES = [
     ("aixplain/v2/resource.py", "OwnershipTypeValue"),
     ("aixplain/v2/file.py", "FileTypeValue"),
     ("aixplain/v2/issue.py", "IssueSeverityValue"),
+    ("aixplain/v2/index.py", "SplittingOptionsValue"),
 ]
 
 #: Aliases with no annotation site, and why. These describe enums the SDK exports
@@ -593,7 +594,6 @@ UNATTACHED_ALIASES = {
     "AttachmentTypeValue": "attachment type is inferred from the MIME type; no caller-facing field",
     "AuthenticationSchemeValue": "integration connect takes untyped **kwargs today",
     "LicenseValue": "license is documented on upload_utils but is not a typed parameter",
-    "SplittingOptionsValue": "index chunking has no v2 surface yet",
     "StorageTypeValue": "storage type is inferred during upload; no caller-facing field",
 }
 

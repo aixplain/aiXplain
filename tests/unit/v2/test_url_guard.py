@@ -73,6 +73,17 @@ class TestNormalizeOrigin:
             "https://platform-api.aixplain.com/x"
         )
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://evil.example\\.platform-api.aixplain.com/x",
+            "https://evil.example\t.platform-api.aixplain.com/x",
+        ],
+    )
+    def test_malformed_host_is_rejected(self, url):
+        """urllib3 would connect to a different host than urlparse reports."""
+        assert normalize_origin(url) is None
+
     def test_userinfo_is_rejected(self):
         """A trusted-looking userinfo prefix must not disguise the real host."""
         assert normalize_origin("https://platform-api.aixplain.com@evil.example.com/x") is None

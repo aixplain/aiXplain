@@ -198,10 +198,11 @@ Tear down sandbox sessions on scope exit.
 #### run
 
 ```python
-def run(data: Union[str, dict, pathlib.Path],
+def run(data: Union[str, dict, pathlib.Path, None] = None,
         name: str = "rlm_process",
         timeout: Optional[float] = None,
         mode: str = "auto",
+        context_path: Optional[Union[str, "os.PathLike[str]"]] = None,
         **kwargs: Any) -> RLMResult
 ```
 
@@ -236,19 +237,26 @@ multi-hop reasoning (keywords such as "compare across",
   - ``str`` **HTTP/HTTPS URL** — content is downloaded automatically;
   ``.json`` URLs or ``application/json`` responses are parsed into a
   dict/list, all other content decoded as plain text.
-  - ``str`` **file path** — file is read automatically; ``.json`` files are
-  parsed into a dict/list, all other formats read as plain text.
-  - ``pathlib.Path`` — resolved and read like a file-path string.
+  - ``pathlib.Path`` — the file is read; ``.json`` files are parsed
+  into a dict/list, all other formats read as plain text.
   - ``dict`` — must contain ``"context"`` (required) and optionally
   ``"query"`` (defaults to a generic analysis prompt). The value
-  of ``"context"`` itself may also be a URL, a file path, or a
+  of ``"context"`` itself may be text, a URL, or a
   ``pathlib.Path``.
+  
+  A ``str`` is no longer read from disk when it happens to name
+  a file; it is always text (or a URL). Pass ``pathlib.Path``
+  or ``context_path=`` to load a file. A ``FutureWarning`` is
+  emitted once when a ``str`` names an existing file.
   
 - `name` - Identifier used in log messages. Defaults to ``"rlm_process"``.
 - `timeout` - Maximum wall-clock seconds. Applies to ``"recursive"`` mode
   only. Overrides ``self.timeout`` when provided.
-- `mode` - ``"auto"``, ``"parallel"``, or ``"recursive"``. Defaults to
-  ``"auto"``.
+- `mode` - ``"auto"``, ``"parallel"``, ``"recursive"``, or ``"rag"``.
+  Defaults to ``"auto"``.
+- `context_path` - Explicit path of a file to use as the context. Use
+  instead of ``data``, or together with a ``data`` dict that
+  carries only ``"query"``.
 - `**kwargs` - Ignored; kept for API compatibility.
   
 

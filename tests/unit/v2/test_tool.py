@@ -896,6 +896,32 @@ class TestValidateParamsToleratesTransportFailures:
 
         assert tool._validate_params(action="search", data={"query": "hi"}) == []
 
+    def test_an_input_discovery_timeout_does_not_block_the_run(self):
+        """Discovery raises ``TimeoutError`` instead of returning ``[]`` (BUG-1453)."""
+        from aixplain.v2.exceptions import TimeoutError as AixTimeoutError
+
+        tool = self._tool_whose_loader_raises(AixTimeoutError("Action polling timed out after 30 seconds"))
+
+        assert tool._validate_params(action="search", data={"query": "hi"}) == []
+
+    def test_an_action_discovery_timeout_does_not_block_the_run(self):
+        """``validate_allowed_actions`` used to see ``[]`` on timeout and skip (BUG-1453)."""
+        from aixplain.v2.exceptions import TimeoutError as AixTimeoutError
+
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]})
+        tool.validate_allowed_actions = Mock(side_effect=AixTimeoutError("Action polling timed out"))
+
+        assert tool._validate_params(action="search", data={"query": "hi"}) == []
+
+    def test_a_non_transport_discovery_error_still_raises(self):
+        query_spec = _make_action_input_spec(required=True)
+        tool = _make_minimal_tool_with_actions({"search": [query_spec]})
+        tool.validate_allowed_actions = Mock(side_effect=RuntimeError("bug"))
+
+        with pytest.raises(RuntimeError, match="bug"):
+            tool._validate_params(action="search", data={"query": "hi"})
+
     def test_a_backend_4xx_still_blocks_the_run(self):
         """A 4xx is the backend rejecting *this* action or payload, not a blip."""
         tool = self._tool_whose_loader_raises(APIError("Unknown action", status_code=400))
@@ -915,3 +941,138 @@ class TestValidateParamsToleratesTransportFailures:
 
         assert len(errors) == 1
         assert "Could not validate inputs for 'GHOST'" in errors[0]
+
+
+# =============================================================================
+# BUG-1461 item 10 — failed discovery is an error, never a cached []
+# =============================================================================
+
+
+FAILED_DISCOVERY = {"completed": True, "status": "FAILED", "data": "connection expired"}
+ONE_ACTION = {"completed": True, "status": "SUCCESS", "data": [{"name": "SEND_MESSAGE", "description": "Send"}]}
+
+
+class TestFailedDiscovery:
+    """Discovery failures surface instead of reading as "no actions"."""
+
+    @staticmethod
+    def _tool(responses, allowed_actions=None):
+        context = Mock()
+        context.client.request = Mock(side_effect=list(responses))
+        tool = _make_fetched_tool(context=context)
+        tool.build_run_url = Mock(return_value="https://example.test/run")
+        if allowed_actions is not None:
+            tool.allowed_actions = list(allowed_actions)
+        return tool
+
+    def test_failed_listing_without_integration_fallback_raises(self):
+        tool = self._tool([FAILED_DISCOVERY])
+
+        with patch.object(Tool, "_ensure_integration", return_value=False):
+            with pytest.raises(ResourceError, match="connection expired"):
+                tool.list_actions()
+
+    def test_failed_discovery_is_not_cached(self):
+        tool = self._tool([FAILED_DISCOVERY, ONE_ACTION])
+
+        with patch.object(Tool, "_ensure_integration", return_value=False):
+            with pytest.raises(ResourceError):
+                list(tool.actions)
+            assert list(tool.actions) == ["SEND_MESSAGE"]
+
+    def test_run_without_action_reports_the_discovery_error(self):
+        tool = self._tool([FAILED_DISCOVERY])
+        tool._ensure_valid_state = Mock()
+
+        with patch.object(Tool, "_ensure_integration", return_value=False):
+            with pytest.raises(ResourceError, match="connection expired"):
+                tool.run(data={"text": "hi"})
+
+    def test_validate_allowed_actions_does_not_skip_on_a_failed_discovery(self):
+        tool = self._tool([FAILED_DISCOVERY], allowed_actions=["SEND_MESAGE"])
+        tool.integration = Mock(list_actions=Mock(side_effect=ResourceError("Integration request failed: down")))
+
+        with patch.object(Tool, "_ensure_integration", return_value=True):
+            with pytest.warns(UserWarning, match="Error listing actions"):
+                with pytest.raises(ResourceError, match="down"):
+                    tool.validate_allowed_actions()
+
+    def test_misspelled_allowed_action_is_still_rejected(self):
+        tool = self._tool([ONE_ACTION], allowed_actions=["SEND_MESAGE"])
+
+        with patch.object(Tool, "_ensure_integration", return_value=True):
+            with pytest.raises(AssertionError, match="All allowed actions must be available"):
+                tool.validate_allowed_actions()
+
+
+class TestActionNameResolutionToleratesDiscoveryTimeout:
+    """BUG-1453: ``list_actions()`` raises on a discovery timeout instead of
+    returning ``[]``; name resolution in ``Model.run`` / ``get_parameters`` must
+    not turn that into a failed ``tool.run()`` / ``tool.as_tool()``."""
+
+    @staticmethod
+    def _tool_whose_lister_raises(exc):
+        tool = _make_minimal_tool_with_actions({})
+
+        def _lister():
+            raise exc
+
+        def _factory(action_name, description=None):
+            return Action(name=action_name, inputs=Inputs.from_action_input_specs([_make_action_input_spec()]))
+
+        tool.__dict__["actions"] = Actions(_action_factory=_factory, _actions_lister=_lister)
+        return tool
+
+    def test_merge_falls_back_to_caller_data_on_discovery_timeout(self, caplog):
+        from aixplain.v2.exceptions import TimeoutError as AixTimeoutError
+
+        tool = self._tool_whose_lister_raises(AixTimeoutError("Action polling timed out after 30 seconds"))
+
+        with caplog.at_level("WARNING", logger="aixplain.v2.tool"):
+            result = tool._merge_with_dynamic_attrs(action="search", data={"query": "hi"}, identifier="alice")
+
+        assert result["action"] == "search"
+        assert result["data"] == {"query": "hi"}
+        assert result["identifier"] == "alice"
+        assert any("action lookup failed" in record.message for record in caplog.records)
+
+    def test_merge_still_raises_non_transport_errors(self):
+        tool = self._tool_whose_lister_raises(RuntimeError("bug"))
+
+        with pytest.raises(RuntimeError, match="bug"):
+            tool._merge_with_dynamic_attrs(action="search", data={"query": "hi"})
+
+    def test_tool_run_still_sends_the_request_on_discovery_timeout(self):
+        from aixplain.v2.exceptions import TimeoutError as AixTimeoutError
+
+        tool = self._tool_whose_lister_raises(AixTimeoutError("Action polling timed out after 30 seconds"))
+        tool.validate_allowed_actions = Mock(side_effect=AixTimeoutError("Action polling timed out"))
+        tool._ensure_valid_state = Mock()
+        sent = Mock(return_value="RESULT")
+
+        with (
+            patch("aixplain.v2.model.Model.is_sync_only", new=False),
+            patch("aixplain.v2.model.Model.params", new=None),
+            patch("aixplain.v2.resource.RunnableResourceMixin.run", sent),
+        ):
+            assert tool.run(action="search", data={"query": "hi"}) == "RESULT"
+
+        sent.assert_called_once()
+        assert sent.call_args.kwargs["action"] == "search"
+        assert sent.call_args.kwargs["data"] == {"query": "hi"}
+
+    def test_get_parameters_uses_spec_defaults_on_discovery_timeout(self):
+        from aixplain.v2.exceptions import TimeoutError as AixTimeoutError
+
+        tool = self._tool_whose_lister_raises(AixTimeoutError("Action polling timed out after 30 seconds"))
+        tool.validate_allowed_actions = Mock()
+        tool._get_effective_actions = Mock(return_value=["search"])
+        spec = ActionSpec(
+            name="search", slug="search", description="Search", inputs=[_make_action_input_spec(default_value="x")]
+        )
+        tool._list_inputs = Mock(return_value=[spec])
+
+        params = tool.get_parameters()
+
+        assert params[0]["code"] == "search"
+        assert params[0]["inputs"]["query"]["value"] == "x"

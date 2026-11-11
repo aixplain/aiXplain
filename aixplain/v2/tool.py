@@ -50,6 +50,11 @@ def _is_transport_failure(exc: BaseException) -> bool:
     """
     if isinstance(exc, requests.RequestException):
         return True
+    # Input discovery that ran out of its polling budget is the backend being
+    # slow, not the payload being wrong; it raises rather than returning ``[]``
+    # since BUG-1453, so it must not newly block ``tool.run()``.
+    if isinstance(exc, TimeoutError):
+        return True
     if isinstance(exc, APIError):
         status = getattr(exc, "status_code", 0) or 0
         return status == 0 or status == 429 or status >= 500
@@ -277,25 +282,50 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         return True
 
     def list_actions(self) -> List[ActionSpec]:
-        """List available actions for the tool (with integration fallback)."""
+        """List available actions for the tool (with integration fallback).
+
+        Raises:
+            TimeoutError: If discovery timed out and the integration fallback is
+                unavailable or timed out as well. A timeout is never reported as
+                an empty action list (BUG-1453).
+        """
+        primary_timeout: Optional[TimeoutError] = None
         try:
             actions = super().list_actions()
             if actions:
                 return actions
+        except TimeoutError as e:  # builtin; also catches aixplain's subclass
+            primary_timeout = e
+            warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
         except Exception as e:
             warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
+            # With no integration to fall back to, a failed discovery is an
+            # error, not "no actions" -- an empty list would disable
+            # validate_allowed_actions and the single-action default (BUG-1461).
+            if not self._ensure_integration():
+                raise
 
         if self._ensure_integration():
+            # The fallback's own TimeoutError propagates.
             return self.integration.list_actions()
 
+        if primary_timeout is not None:
+            raise primary_timeout
         return []
 
     def _list_inputs(self, *actions: str) -> List[ActionSpec]:
-        """List available inputs for specified actions (with integration fallback)."""
+        """List available inputs for specified actions (with integration fallback).
+
+        Raises:
+            TimeoutError: If discovery timed out and the integration fallback is
+                unavailable or failed too. A timeout is never reported as an
+                empty input list (BUG-1453).
+        """
         try:
             return super()._list_inputs(*actions)
         except Exception as e:
             warnings.warn(f"Error listing inputs: {e}. Using integration._list_inputs() instead.")
+            timeout_error: Optional[TimeoutError] = e if isinstance(e, TimeoutError) else None
             if self._ensure_integration():
                 try:
                     return self.integration._list_inputs(*actions)
@@ -305,7 +335,11 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     # _validate_params now surfaces as a run failure (BUG-946).
                     # Without this the real cause never reaches the caller.
                     warnings.warn(f"Error listing inputs via the integration fallback: {fallback_error}.")
+                    if isinstance(fallback_error, TimeoutError):
+                        timeout_error = fallback_error
 
+            if timeout_error is not None:
+                raise timeout_error
             return []
 
     def list_inputs(self, *actions: str) -> List[ActionSpec]:
@@ -537,6 +571,14 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
                     action_obj = self.actions[action_name]
                 except (ValueError, KeyError):
                     continue
+                except Exception as e:
+                    # Name resolution goes through ``list_actions()``, which raises
+                    # on a discovery timeout since BUG-1453. The spec above already
+                    # came back, so fall back to its defaults instead of failing.
+                    if not _is_transport_failure(e):
+                        raise
+                    logger.warning(f"Using default inputs for '{action_name}'; the action lookup failed: {e}")
+                    action_obj = None
 
             for input_param in spec.inputs:
                 input_code = input_param.code or input_param.name.lower().replace(" ", "_")
@@ -603,6 +645,13 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         except AssertionError as e:
             errors.append(str(e))
             return errors
+        except Exception as e:
+            # Action discovery is a network call and, since BUG-1453, raises on
+            # timeout instead of returning ``[]`` (which skipped this check). A
+            # transport failure must not block the run; anything else still does.
+            if not _is_transport_failure(e):
+                raise
+            logger.warning(f"Skipping allowed-actions validation; the action lookup failed: {e}")
 
         if self.allowed_actions and action not in self.allowed_actions:
             errors.append(f"Action '{action}' is not allowed for this tool. Allowed actions: {self.allowed_actions}")
@@ -668,12 +717,20 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
         if not action_name:
             raise ValueError("No action provided")
 
-        action_obj = self.actions[action_name]
-
-        for input_code in action_obj.inputs.keys():
-            inp = action_obj.inputs.get(input_code)
-            if inp is not None and inp.value is not None:
-                merged[input_code] = inp.value
+        try:
+            action_obj = self.actions[action_name]
+            for input_code in action_obj.inputs.keys():
+                inp = action_obj.inputs.get(input_code)
+                if inp is not None and inp.value is not None:
+                    merged[input_code] = inp.value
+        except Exception as e:
+            # The lookup is a network call and, since BUG-1453, raises on a
+            # discovery timeout instead of returning ``[]``. A transport failure
+            # must not block the run: send the caller's action and data as-is.
+            if not _is_transport_failure(e):
+                raise
+            logger.warning(f"Skipping stored inputs for '{action_name}'; the action lookup failed: {e}")
+            merged = {}
 
         kwargs.setdefault("data", {})
 
