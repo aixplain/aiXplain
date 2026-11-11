@@ -657,7 +657,7 @@ def test_production_secrets_only_expand_on_production_runs():
     expands through IS_PROD to the empty string otherwise.
     """
     step_env = _functional_env_step().get("env") or {}
-    prod_entries = {name: value for name, value in step_env.items() if "_PROD" in str(value)}
+    prod_entries = {name: value for name, value in step_env.items() if re.search(r"secrets\.\w+_PROD\b", str(value))}
     assert prod_entries, "the functional env step no longer reads any _PROD secret; update this test"
     for name, value in prod_entries.items():
         assert re.fullmatch(r"\$\{\{ env\.IS_PROD == 'true' && secrets\.\w+_PROD \|\| '' \}\}", str(value)), (
@@ -692,9 +692,9 @@ def test_the_models_url_ships_the_endpoint_the_conftest_speaks():
 def test_the_functional_legs_set_the_canonical_api_key_alias_to_the_same_value():
     """AIXPLAIN_API_KEY is the fallback every functional conftest accepts.
 
-    It cannot be a *second* credential: `aixplain/utils/config.py` raises when
-    AIXPLAIN_API_KEY and TEAM_API_KEY are both set and differ, so a well-meant
-    second secret here would fail every leg at import time.
+    It cannot be a *second* credential: `Aixplain()` warns when AIXPLAIN_API_KEY
+    and TEAM_API_KEY are both set and differ and then ignores AIXPLAIN_API_KEY,
+    so a well-meant second secret here would be silently unused.
     """
     script = _functional_env_step()["run"]
     team = re.findall(r"(?<![A-Z_])TEAM_API_KEY=\$\{?(\w+)", script)
@@ -707,8 +707,8 @@ def test_the_functional_legs_set_the_canonical_api_key_alias_to_the_same_value()
     )
     assert set(team) == set(aixplain), (
         f"TEAM_API_KEY is set from {sorted(set(team))} but AIXPLAIN_API_KEY from "
-        f"{sorted(set(aixplain))}. They must carry the same value: aixplain/utils/config.py "
-        "raises when the two are set and differ."
+        f"{sorted(set(aixplain))}. They must carry the same value: Aixplain() "
+        "warns when the two are set and differ."
     )
 
 
@@ -806,12 +806,21 @@ def test_only_the_legs_that_read_slack_token_are_handed_it():
     readers = {entry["suite"] for entry in _include() if _runs_a_slack_token_test(REPO_ROOT / entry["path"].split()[0])}
     assert readers, "no functional leg uses the `slack_token` fixture any more; drop SLACK_TOKEN and this test"
     for entry in _include():
-        rendered = _render(value.replace("secrets.SLACK_TOKEN", "'<secret>'"), {}, matrix=entry)
+        rendered = _render(value.replace("secrets.SLACK_TOKEN", "'<secret>'"), {}, {"IS_PROD": "true"}, matrix=entry)
         expected = "<secret>" if entry["suite"] in readers else ""
         assert rendered == expected, (
             f"the `{entry['suite']}` leg gets SLACK_TOKEN={rendered!r}; expected {expected!r} because it "
             f"{'runs' if expected else 'runs no'} test using the `slack_token` fixture. Set or drop `slack: true`."
         )
+
+
+def test_slack_token_never_reaches_a_non_production_run():
+    """BUG-1452: a same-repo PR (or a `test`/nightly run) must not hold SLACK_TOKEN on any leg."""
+    value = str((_functional_env_step().get("env") or {}).get("SLACK_TOKEN", ""))
+    assert "env.IS_PROD == 'true'" in value, f"SLACK_TOKEN is not gated on IS_PROD ({value!r})"
+    for entry in _include():
+        rendered = _render(value.replace("secrets.SLACK_TOKEN", "'<secret>'"), {}, {"IS_PROD": "false"}, matrix=entry)
+        assert rendered == "", f"the `{entry['suite']}` leg gets SLACK_TOKEN={rendered!r} on a non-production run"
 
 
 @needs_bash
@@ -929,6 +938,49 @@ def test_the_nightly_failure_notification_is_wired_to_the_whole_run():
     )
 
 
+def _nightly_step(name: str) -> dict:
+    return next(step for step in _job(MAIN_WORKFLOW, "nightly-report")["steps"] if step.get("name") == name)
+
+
+def test_a_missing_nightly_webhook_fails_every_scheduled_run():
+    """A warning on a green job is how 13 red nightlies alerted nobody (BUG-1454).
+
+    The notify step only runs on a red nightly, so a separate check has to make
+    an unconfigured webhook red on green nights as well.
+    """
+    steps = _job(MAIN_WORKFLOW, "nightly-report")["steps"]
+    check = _nightly_step("Require the Slack webhook on scheduled runs")
+    assert steps.index(check) == 0, "the webhook check must run before (and independently of) the notify step"
+    assert "schedule" in str(check.get("if", "")), "the webhook check is not scoped to scheduled runs"
+    assert check["env"]["SLACK_WEBHOOK_URL"] == "${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}"
+    assert "failure" not in str(check.get("if", "")), "the webhook check must run on green nightlies too"
+    assert "::error::" in check["run"] and "exit 1" in check["run"]
+
+
+def _run_nightly_script(step: dict, event: str) -> subprocess.CompletedProcess:
+    env = _clean_env(SLACK_WEBHOOK_URL="", RUN_URL="https://example.invalid/run", GITHUB_REF_NAME="main")
+    env["GITHUB_EVENT_NAME"] = event
+    return subprocess.run(["bash", "-c", step["run"]], env=env, capture_output=True, text=True, timeout=30)
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+@pytest.mark.parametrize(
+    ("event", "code", "prefix"),
+    [("schedule", 1, "::error::"), ("workflow_dispatch", 0, "::warning::"), ("push", 0, "::warning::")],
+)
+def test_the_notify_step_fails_on_a_missing_webhook_only_on_scheduled_runs(event: str, code: int, prefix: str):
+    """The empty-secret path exits before `jq`/`curl`, so this needs no network."""
+    result = _run_nightly_script(_nightly_step("Notify Slack when the nightly run is not green"), event)
+    assert result.returncode == code, result.stdout + result.stderr
+    assert result.stdout.startswith(prefix), result.stdout
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+def test_the_webhook_check_fails_when_the_secret_is_empty():
+    result = _run_nightly_script(_nightly_step("Require the Slack webhook on scheduled runs"), "schedule")
+    assert result.returncode == 1 and result.stdout.startswith("::error::"), result.stdout + result.stderr
+
+
 # ---------------------------------------------------------------------------
 # release.yaml: no PyPI upload without a green production run on that commit
 # ---------------------------------------------------------------------------
@@ -974,6 +1026,72 @@ def test_the_functional_gate_checks_the_released_commit_against_the_real_leg_lis
         assert move in script, f"release.yaml's functional gate no longer seems to {what} ({move!r} is gone)"
 
     assert "strategy" not in job, "the gate is a single decision; a matrix would make a missing leg a skipped job"
+
+
+def _ancestry_step() -> dict:
+    steps = [
+        step
+        for step in _job(RELEASE_WORKFLOW, "functional-gate")["steps"]
+        if "merge-base --is-ancestor" in (step.get("run") or "")
+    ]
+    assert len(steps) == 1, f"expected one ancestry-check step in the release gate, found {len(steps)}"
+    return steps[0]
+
+
+def test_the_release_gate_requires_the_tagged_commit_to_be_on_main():
+    """BUG-1452: a tag on a commit that never reached main must not publish."""
+    job = _job(RELEASE_WORKFLOW, "functional-gate")
+    step = _ancestry_step()
+    assert 'git merge-base --is-ancestor "$SHA" origin/main' in step["run"]
+    assert (step.get("env") or {}).get("SHA") == "${{ github.sha }}"
+    checkout = next(s for s in job["steps"] if str(s.get("uses", "")).startswith("actions/checkout@"))
+    assert checkout["with"].get("fetch-depth") == 0, "the ancestry check needs main's history"
+    assert checkout["with"].get("persist-credentials") is False
+    names = [s.get("name") for s in job["steps"]]
+    functional = next(i for i, s in enumerate(job["steps"]) if "runs_filter" in (s.get("run") or ""))
+    assert names.index(step["name"]) < functional, "check ancestry before spending API calls on the run lookup"
+
+
+@needs_bash
+@pytest.mark.parametrize("on_main", [True, False], ids=["merged-commit", "unmerged-commit"])
+def test_the_ancestry_step_accepts_only_commits_on_main(tmp_path, on_main: bool):
+    """Run the real step against a throwaway origin with a `main` and a side branch."""
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    (tmp_path / "home").mkdir()
+    _git(origin, "init", "-q", "-b", "main")
+    (origin / "a.txt").write_text("a\n")
+    _git(origin, "add", "a.txt")
+    _git(origin, "commit", "-q", "--no-verify", "-m", "on main")
+    merged = _git(origin, "rev-parse", "HEAD")
+    _git(origin, "checkout", "-q", "-b", "side")
+    (origin / "b.txt").write_text("b\n")
+    _git(origin, "add", "b.txt")
+    _git(origin, "commit", "-q", "--no-verify", "-m", "unmerged")
+    unmerged = _git(origin, "rev-parse", "HEAD")
+
+    clone = tmp_path / "clone"
+    subprocess.run(
+        ["git", "clone", "-q", "--no-checkout", str(origin), str(clone)],
+        check=True,
+        capture_output=True,
+        env=_clean_env(HOME=str(tmp_path / "home")),
+    )
+    script = tmp_path / "ancestry.sh"
+    script.write_text(_ancestry_step()["run"])
+    result = subprocess.run(
+        ["bash", str(script)],
+        cwd=clone,
+        capture_output=True,
+        text=True,
+        env=_clean_env(HOME=str(tmp_path / "home"), SHA=merged if on_main else unmerged),
+        timeout=60,
+    )
+    if on_main:
+        assert result.returncode == 0, result.stdout + result.stderr
+    else:
+        assert result.returncode != 0, "a commit that is not on main passed the release gate"
+        assert "not reachable from main" in result.stdout
 
 
 def _runs_filter() -> str:
@@ -1122,6 +1240,30 @@ def test_pre_commit_is_not_handed_a_backend_credential():
         "pre-commit.yaml is handed TEAM_API_KEY again. It runs `tests/unit` plus third-party "
         "hook code and needs no backend credential."
     )
+
+
+def test_pre_commit_reports_on_fork_pull_requests():
+    """A push to a fork starts no workflow here; only `pull_request` reports on a fork PR (BUG-1454)."""
+    triggers = _triggers(_load(PRE_COMMIT_WORKFLOW))
+    assert "push" in triggers, "pre-commit no longer runs on branch pushes (ENG-3686: a secret scan on every push)"
+    assert "pull_request" in triggers, (
+        "pre-commit.yaml has no `pull_request` trigger, so a fork PR never runs ruff, the unit hook or "
+        "the secret scan -- and a required `pre-commit` context would never report on it."
+    )
+    assert "pull_request_target" not in triggers, "pull_request_target runs fork code with secrets and a write token"
+
+
+def test_pre_commit_job_is_never_skipped():
+    """A job skipped by `if:` reports as a passing check and would satisfy a required context."""
+    for name, job in _load(PRE_COMMIT_WORKFLOW)["jobs"].items():
+        assert "if" not in job, f"pre-commit.yaml job {name!r} has a job-level `if:`; a skipped run masks a red one"
+
+
+def test_pre_commit_concurrency_only_cancels_pull_request_runs():
+    concurrency = _load(PRE_COMMIT_WORKFLOW)["concurrency"]
+    assert "github.event.pull_request.number" in concurrency["group"]
+    assert "github.run_id" in concurrency["group"], "push runs must keep a group of their own"
+    assert concurrency["cancel-in-progress"] == "${{ github.event_name == 'pull_request' }}"
 
 
 # ---------------------------------------------------------------------------

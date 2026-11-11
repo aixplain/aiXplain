@@ -156,7 +156,11 @@ class TestActionPollPathIsGuarded:
             )
 
         assert data == ["ok"]
-        mock_request.assert_called_once_with("get", f"{BACKEND_URL}/sdk/runs/abc")
+        mock_request.assert_called_once()
+        assert mock_request.call_args.args == ("get", f"{BACKEND_URL}/sdk/runs/abc")
+        # Each poll is bounded by the remaining budget (BUG-1453).
+        _connect, read = mock_request.call_args.kwargs["timeout"]
+        assert read <= 5
 
 
 class TestTrustedPollURLsStillWork:

@@ -1,11 +1,16 @@
 """Resource management module for v2 API."""
 
 import requests
+import contextvars
 import inspect
+import math
 import logging
+import os
 import re
+import sys
 import time
 import reprlib
+import warnings
 from datetime import datetime
 from dataclasses import MISSING, dataclass, field
 from dataclasses_json import dataclass_json, config
@@ -13,6 +18,7 @@ from urllib.parse import quote
 from typing import (
     List,
     Tuple,
+    Dict,
     TypedDict,
     TypeVar,
     Generic,
@@ -23,6 +29,7 @@ from typing import (
     runtime_checkable,
     Union,
     Callable,
+    ClassVar,
     Iterable,
     Iterator,
 )
@@ -95,6 +102,31 @@ def _client_retry_attempts(client: Any) -> int:
     if isinstance(total, bool) or not isinstance(total, int) or total < 0:
         return DEFAULT_RETRY_TOTAL + 1
     return total + 1
+
+
+def _caller_timeout_seconds(kwargs: Any) -> Optional[float]:
+    """The caller's explicit ``timeout`` run kwarg in seconds, or ``None``.
+
+    Anything that is not a positive number (absent, ``None``, ``bool``, junk)
+    means "no explicit bound", so request kwargs stay exactly as they were.
+    """
+    if not isinstance(kwargs, dict):
+        return None
+    value = kwargs.get("timeout")
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        return None
+    return float(value)
+
+
+def _request_timeout_for_budget(client: Any, budget: float) -> Tuple[float, float]:
+    """``(connect, read)`` timeout for one request bounded by ``budget`` seconds.
+
+    The read timeout is narrowed to the budget but never widened past what the
+    client is configured with, and floored at 1s so a nearly spent budget still
+    sends a request that can succeed (BUG-1462).
+    """
+    connect, read = _client_timeout_bounds(client)
+    return (connect, max(1.0, min(float(budget), read)))
 
 
 _DESCENDING = "DESC"
@@ -206,7 +238,13 @@ def with_hooks(func: Callable) -> Callable:
         except Exception as e:
             # Transform low-level exceptions to domain-specific errors
             if not isinstance(e, ResourceError):
-                raise ResourceError(f"Failed to {operation_name} resource: {e}")
+                # Keep the rewrap (callers catch ResourceError) but preserve the
+                # HTTP details and the cause, so e.g. a 402 and a 404 stay
+                # distinguishable.
+                wrapped = ResourceError(f"Failed to {operation_name} resource: {e}")
+                wrapped.status_code = getattr(e, "status_code", None)
+                wrapped.response_data = getattr(e, "response_data", None)
+                raise wrapped from e
 
             # Call after hook (error case)
             after_method = getattr(self, f"after_{operation_name}", None)
@@ -635,6 +673,10 @@ class BaseResource:
         """Update the resource."""
         self.context.client.request("put", f"{resource_path}/{self.encoded_id}", json=payload)
 
+    # save() kwargs that are options consumed by a hook (e.g. Agent's
+    # ``as_draft``), not attributes; exempt from the unknown-attribute warning.
+    _SAVE_OPTION_KWARGS: ClassVar[frozenset] = frozenset()
+
     @with_hooks
     def save(self, *args: Any, **kwargs: Any) -> "BaseResource":
         """Save the resource with attribute shortcuts.
@@ -674,6 +716,14 @@ class BaseResource:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
+            elif key not in self._SAVE_OPTION_KWARGS:
+                # Warn rather than raise so existing callers keep working, but
+                # make ``save(descripton=...)`` stop being a silent no-op.
+                warnings.warn(
+                    f"{type(self).__name__}.save() ignored unknown attribute {key!r}",
+                    UserWarning,
+                    stacklevel=3,
+                )
 
         payload = self.build_save_payload(**kwargs)
 
@@ -705,8 +755,16 @@ class BaseResource:
         Returns:
             BaseResource: New resource instance with id=None
         """
-        # Create deep copy of the resource
-        cloned = deepcopy(self)
+        # Deep-copy the resource state, but share the Aixplain context: it is a
+        # live client (requests.Session, config), not resource state. Copying it
+        # minted a never-closed Session per clone and froze the clone against a
+        # config snapshot. The memo also covers nested resources (an agent's
+        # tools, say) that reference the same context.
+        memo: Dict[int, Any] = {}
+        for shared in (getattr(self, "context", None), getattr(self, "_context", None)):
+            if shared is not None:
+                memo[id(shared)] = shared
+        cloned = deepcopy(self, memo)
 
         # Reset ID and saved state for new asset
         cloned.id = None
@@ -790,13 +848,64 @@ class BaseResource:
 # observable effect was riding into the model input body (BUG-1091).
 _SDK_REQUEST_KEYS: frozenset[str] = frozenset({"api_key", "resource_path"})
 
+_PER_CALL_API_KEY_MESSAGE = (
+    "Passing api_key= to an individual call is ignored: requests always authenticate with the "
+    "Aixplain context's key. Use Aixplain(api_key=...) (one context per tenant) instead. "
+    "The per-call parameter will be removed in the next major version."
+)
+
+# Set while a decorated entry point is running, so an override that delegates to
+# ``super()`` (``Agent.run`` -> ``RunnableResourceMixin.run``) warns once per call.
+_PER_CALL_API_KEY_WARNED: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "aixplain_per_call_api_key_warned", default=False
+)
+_PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
+
+
+def _caller_stacklevel() -> int:
+    """Return the ``warnings.warn`` stacklevel of the first frame outside ``aixplain``.
+
+    Computed relative to the function that calls ``warnings.warn`` (the caller
+    of this helper), so the warning is attributed to user code however deeply
+    the SDK's own overrides are nested.
+    """
+    frame = sys._getframe(1)
+    level = 1
+    while frame is not None and os.path.abspath(frame.f_code.co_filename).startswith(_PACKAGE_DIR):
+        frame = frame.f_back
+        level += 1
+    return level
+
+
+def _deprecates_per_call_api_key(func: Callable) -> Callable:
+    """Emit one ``DeprecationWarning`` when *func* is called with ``api_key=``.
+
+    The per-call key is accepted for backward compatibility and then ignored
+    (BUG-1091 strips it from every request); without a warning a multi-tenant
+    caller passing another tenant's key silently runs and bills against the
+    context's key (BUG-1452). Behaviour is otherwise unchanged.
+    """
+
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        if "api_key" not in kwargs or _PER_CALL_API_KEY_WARNED.get():
+            return func(*args, **kwargs)
+        warnings.warn(_PER_CALL_API_KEY_MESSAGE, DeprecationWarning, stacklevel=_caller_stacklevel())
+        token = _PER_CALL_API_KEY_WARNED.set(True)
+        try:
+            return func(*args, **kwargs)
+        finally:
+            _PER_CALL_API_KEY_WARNED.reset(token)
+
+    return wrapper
+
 
 class BaseParams(TypedDict):
     """Base class for parameters that include API key and resource path.
 
     Attributes:
-        api_key: Accepted for backward compatibility and **ignored**.
-            Authentication always comes from the ``Aixplain`` context
+        api_key: Deprecated: accepted for backward compatibility, **ignored**,
+            and emits a ``DeprecationWarning`` when passed. Authentication always comes from the ``Aixplain`` context
             (``Client._auth_headers``), which overrides any per-call value. It is
             stripped from every request so it can never reach a model input body
             or a supplier's prompt logs. Configure credentials via
@@ -1007,9 +1116,13 @@ class Page(Generic[ResourceT]):
     Attributes:
         results: The list of resources in this page.
         page_number: Current page number (0-indexed).
-        page_total: Total number of pages.
-        total: Total number of resources across all pages. Never counts a
-            record that was returned by the API but skipped by this page.
+        page_total: Total number of pages (backend ``pagesCount``, or
+            ``ceil(total / page_size)`` when absent), or ``None`` when the
+            backend does not report it and it cannot be inferred.
+            Use ``len(results)`` for the number of items on this page.
+        total: Total number of resources across all pages, or ``None`` when
+            unknown. Never counts a record that was returned by the API but
+            skipped by this page.
         skipped: Number of records the API returned for this page that could
             not be deserialized and were skipped. Always ``0`` under
             ``strict=True``, where such records raise instead.
@@ -1017,16 +1130,16 @@ class Page(Generic[ResourceT]):
 
     results: List[ResourceT]
     page_number: int
-    page_total: int
-    total: int
+    page_total: Optional[int]
+    total: Optional[int]
     skipped: int
 
     def __init__(
         self,
         results: List[ResourceT],
         page_number: int,
-        page_total: int,
-        total: int,
+        page_total: Optional[int],
+        total: Optional[int],
         skipped: int = 0,
     ):
         """Initialize a Page instance.
@@ -1054,9 +1167,23 @@ class Page(Generic[ResourceT]):
         """Iterate over the results in this page."""
         return iter(self.results)
 
-    def __getitem__(self, key: str):
-        """Allow dictionary-like access to page attributes."""
+    def __getitem__(self, key: Union[str, int, slice]):
+        """Index the results (``page[0]``, ``page[1:]``) or read an attribute (``page["total"]``)."""
+        if isinstance(key, slice) or (isinstance(key, int) and not isinstance(key, bool)):
+            return self.results[key]
         return getattr(self, key)
+
+    def __len__(self) -> int:
+        """Return the number of results in this page."""
+        return len(self.results)
+
+    def __bool__(self) -> bool:
+        """Keep a page truthy even when empty.
+
+        Defining ``__len__`` would otherwise make an empty page falsy and
+        silently change the meaning of existing ``if page:`` checks.
+        """
+        return True
 
 
 class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
@@ -1067,7 +1194,12 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         PAGINATE_METHOD: str: The method for pagination.
         PAGINATE_ITEMS_KEY: str: The key for the response.
         PAGINATE_TOTAL_KEY: str: The key for the total number of resources.
-        PAGINATE_PAGE_TOTAL_KEY: str: The key for the total number of pages.
+        PAGINATE_PAGES_COUNT_KEY: str: The key for the total number of pages
+            (``pagesCount``); ``Page.page_total`` falls back to
+            ``ceil(total / page_size)`` when it is absent.
+        PAGINATE_PAGE_TOTAL_KEY: str: The backend's per-page item count
+            (``pageTotal``). No longer used for ``Page.page_total``; kept for
+            subclasses that reference it.
         PAGINATE_DEFAULT_PAGE_NUMBER: int: The default page number.
         PAGINATE_DEFAULT_PAGE_SIZE: int: The default page size.
         PAGINATE_STRICT: bool: Whether a record that cannot be deserialized
@@ -1082,6 +1214,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
     PAGINATE_ITEMS_KEY: str = "results"  # Default to match backend
     PAGINATE_TOTAL_KEY: str = "total"
     PAGINATE_PAGE_TOTAL_KEY: str = "pageTotal"
+    PAGINATE_PAGES_COUNT_KEY: str = "pagesCount"
     PAGINATE_PAGE_NUMBER_KEY: str = "pageNumber"
     PAGINATE_DEFAULT_PAGE_NUMBER: int = 0
     PAGINATE_DEFAULT_PAGE_SIZE: int = 20
@@ -1196,6 +1329,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         return filters
 
     @classmethod
+    @_deprecates_per_call_api_key
     def search(cls: type, **kwargs: Unpack[SearchParamsT]) -> Page[ResourceT]:
         """Search resources across the first n pages with optional filtering.
 
@@ -1297,11 +1431,40 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         return items
 
     @classmethod
+    def _page_count(cls: type, json_data: Any, total: int, items: List[Any], page_size: Any) -> int:
+        """Return the number of pages a paginated search spans.
+
+        Reads the backend's ``pagesCount`` (``PAGINATE_PAGES_COUNT_KEY``) and
+        falls back to ``ceil(total / page_size)``. The backend's ``pageTotal``
+        is deliberately not used: it is the number of items on *this* page, so
+        a loop bounded by it skips or over-fetches pages (BUG-1459).
+
+        Args:
+            json_data: The decoded response body.
+            total: The backend's total record count (before any skip correction).
+            items: The raw records on this page.
+            page_size: The requested page size, if known.
+
+        Returns:
+            int: The number of pages.
+        """
+
+        def _count(value: Any) -> bool:
+            return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+        pages_key = getattr(cls, "PAGINATE_PAGES_COUNT_KEY", "pagesCount")
+        if pages_key and isinstance(json_data, dict) and _count(json_data.get(pages_key)):
+            return json_data[pages_key]
+        if _count(page_size) and page_size > 0:
+            return math.ceil(total / page_size)
+        return 1 if items else 0
+
+    @classmethod
     def _build_page(cls: type, response: "Any", context: "Aixplain", **kwargs: Any) -> Page[ResourceT]:
         """Build a page of resources from the response.
 
         Accepts either a requests.Response or already-decoded dict/list. A
-        missing ``total`` / ``pageTotal`` falls back to the computed default,
+        missing ``total`` / ``pagesCount`` falls back to the computed default,
         but an envelope that carries no usable item list at all is reported:
         a renamed envelope, or a 200 error body, must not be indistinguishable
         from "no results". A present-but-empty (or explicitly ``null``) item
@@ -1331,12 +1494,7 @@ class SearchResourceMixin(BaseMixin, Generic[SearchParamsT, ResourceT]):
         if not isinstance(total, int) or isinstance(total, bool):
             total = len(items)
 
-        page_total = len(items)
-        paginate_page_total_key = getattr(cls, "PAGINATE_PAGE_TOTAL_KEY", "pageTotal")
-        if paginate_page_total_key and isinstance(json_data, dict):
-            page_total = json_data.get(paginate_page_total_key, page_total)
-        if not isinstance(page_total, int) or isinstance(page_total, bool):
-            page_total = len(items)
+        page_total = cls._page_count(json_data, total, items, kwargs.get("page_size"))
 
         # Build resources using shared method
         results, errors = cls._deserialize_items(items, context)
@@ -1420,6 +1578,7 @@ class GetResourceMixin(BaseMixin, Generic[GetParamsT, ResourceT]):
     """Mixin for getting a resource."""
 
     @classmethod
+    @_deprecates_per_call_api_key
     def get(cls: type, id: Any, host: Optional[str] = None, **kwargs: Unpack[GetParamsT]) -> ResourceT:
         """Retrieve a single resource by its ID (or other get parameters).
 
@@ -1620,6 +1779,7 @@ class DeleteResourceMixin(BaseMixin, Generic[DeleteParamsT, DeleteResultT]):
         """
         return None
 
+    @_deprecates_per_call_api_key
     @with_hooks
     def delete(self, *args: Any, **kwargs: Unpack[DeleteParamsT]) -> DeleteResultT:
         """Delete a resource.
@@ -1855,9 +2015,22 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 attempt has been used.
         """
         run_retries, run_retry_wait = self._run_retry_settings(kwargs)
+        timeout = _caller_timeout_seconds(kwargs)
+        start = time.time()
+        # The loop calls ``_post_and_handle_run`` directly (no helper frame) so
+        # warnings raised in ``build_run_payload`` keep a fixed stacklevel.
         for attempt in range(run_retries + 1):
             try:
-                return self._post_and_handle_run(**kwargs)
+                if timeout is None:
+                    return self._post_and_handle_run(**kwargs)
+                # The caller's ``timeout`` also bounds the submission itself: for
+                # a sync-only model the POST *is* the whole execution, so without
+                # this ``run(timeout=5)`` could block for the client's 300s read
+                # timeout (BUG-1462).
+                remaining = timeout - (time.time() - start)
+                if remaining <= 0:
+                    raise TimeoutError(f"Operation timed out after {timeout} seconds")
+                return self._post_and_handle_run(_request_timeout=remaining, **kwargs)
             except APIError as e:
                 if not self._is_retryable_run_error(e) or attempt >= run_retries:
                     raise
@@ -1866,6 +2039,56 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
                 sleep_with_jitter(run_retry_wait)
 
         raise RuntimeError("run submission retry loop exhausted without return")
+
+    def _retry_submission(self, submit: Callable[[], ResultT], kwargs: dict) -> ResultT:
+        """Call ``submit`` honouring ``run_retries`` / ``run_retry_wait``.
+
+        Only retryable ``APIError`` failures are retried (see
+        :meth:`_is_retryable_run_error`); anything else propagates at once.
+        """
+        run_retries, run_retry_wait = self._run_retry_settings(kwargs)
+        for attempt in range(run_retries + 1):
+            try:
+                return submit()
+            except APIError as e:
+                if not self._is_retryable_run_error(e) or attempt >= run_retries:
+                    raise
+                # Jittered: a platform blip otherwise makes every client
+                # re-submit in the same instant (BUG-942).
+                sleep_with_jitter(run_retry_wait)
+
+        raise RuntimeError("run submission retry loop exhausted without return")
+
+    # Whether ``timeout=None`` is a meaningful value for ``run()``. Agent sets
+    # this: there ``None`` means "derive the budget from the run's duration".
+    _POLL_TIMEOUT_NONE_IS_DEFAULT = False
+
+    def _validate_poll_kwargs(self, kwargs: Dict[str, Any]) -> None:
+        """Reject poll budgets that would otherwise fail only after the run is billed.
+
+        ``sync_poll`` reads ``timeout``/``wait_time`` after the POST, so
+        ``timeout=None`` used to raise ``TypeError`` and ``timeout=0`` a
+        ``TimeoutError`` -- each with a billed job left running (BUG-1095).
+
+        Raises:
+            ValueError: ``timeout`` is not a positive number, or ``wait_time``
+                is not a non-negative number.
+        """
+
+        def _is_number(value: Any) -> bool:
+            return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+        if "timeout" in kwargs:
+            timeout = kwargs["timeout"]
+            if not (timeout is None and self._POLL_TIMEOUT_NONE_IS_DEFAULT):
+                # ``not timeout > 0`` (not ``timeout <= 0``) also rejects NaN,
+                # which would otherwise never expire the poll loop.
+                if not _is_number(timeout) or not timeout > 0:
+                    raise ValueError(f"timeout must be a positive number of seconds, got {timeout!r}")
+        if "wait_time" in kwargs:
+            wait_time = kwargs["wait_time"]
+            if not _is_number(wait_time) or not wait_time >= 0:
+                raise ValueError(f"wait_time must be a non-negative number of seconds, got {wait_time!r}")
 
     def _begin_run(self, **kwargs: Unpack[RunParamsT]) -> Optional[ResultT]:
         """Invoke before_run; return early result or None to continue."""
@@ -1916,8 +2139,19 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             raise ValueError(f"{key} {value!r} cannot be sent as the {header} header: header values must be ASCII")
         return value
 
-    def _post_and_handle_run(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
-        """Single POST + handle_run_response (no retries, no before_run)."""
+    def _post_and_handle_run(
+        self, *, _request_timeout: Optional[float] = None, **kwargs: Unpack[RunParamsT]
+    ) -> ResultT:
+        """Single POST + handle_run_response (no retries, no before_run).
+
+        Args:
+            _request_timeout: Remaining caller budget in seconds. When given it
+                becomes the POST's read timeout and a read timeout is raised as
+                :class:`~aixplain.v2.exceptions.TimeoutError` (never retried, as
+                the submission may already have landed). ``None`` keeps the
+                client default.
+            **kwargs: Run parameters.
+        """
         self._ensure_valid_state()
         payload_input = self._payload_kwargs_for_run(kwargs)
         payload = self.build_run_payload(**payload_input)
@@ -1926,7 +2160,14 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         headers = self._headers_for_run(kwargs)
         if headers:
             request_kwargs["headers"] = headers
-        response = self.context.client.request("post", run_url, **request_kwargs)
+        if _request_timeout is not None:
+            request_kwargs["timeout"] = _request_timeout_for_budget(self.context.client, _request_timeout)
+        try:
+            response = self.context.client.request("post", run_url, **request_kwargs)
+        except requests.exceptions.ReadTimeout as e:
+            if _request_timeout is None:
+                raise
+            raise TimeoutError(f"Run submission did not complete within {_request_timeout:.1f}s") from e
         return self.handle_run_response(response, **kwargs)
 
     def _apply_after_run(self, result: ResultT, **kwargs: Unpack[RunParamsT]) -> ResultT:
@@ -2095,6 +2336,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
         """
         return None
 
+    @_deprecates_per_call_api_key
     def run(self, *args: Any, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Run the resource synchronously with automatic polling.
 
@@ -2120,6 +2362,9 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             ``before_run`` raising: nothing has been set up yet, so a hook must
             not leave a resource live behind a raise of its own.
         """
+        # Before _begin_run and the POST: a bad budget must not bill a run
+        # that is then abandoned (BUG-1095).
+        self._validate_poll_kwargs(kwargs)
         early = self._begin_run(**kwargs)
         if early is not None:
             return self._apply_after_run(early, **kwargs)
@@ -2128,7 +2373,13 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             result = self._submit_with_retries(**kwargs)
             if result.url and not result.completed:
                 request_id = getattr(result, "request_id", None)
-                result = self.sync_poll(result.url, **kwargs)
+                try:
+                    result = self.sync_poll(result.url, **kwargs)
+                except TimeoutError as timeout_exc:
+                    # The job keeps running server-side; hand back its id.
+                    if timeout_exc.request_id is None:
+                        timeout_exc.request_id = request_id
+                    raise
                 if request_id is not None and hasattr(result, "request_id") and not result.request_id:
                     result.request_id = request_id
         except BaseException as exc:
@@ -2138,6 +2389,7 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             raise
         return self._apply_after_run(result, **kwargs)
 
+    @_deprecates_per_call_api_key
     def run_async(self, **kwargs: Unpack[RunParamsT]) -> ResultT:
         """Run the resource asynchronously.
 
@@ -2201,11 +2453,15 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             # If poll_url is a full URL, urljoin will use it directly
             # If it's a relative path, it will be joined with base_url
             response = self.context.client.get(poll_url, **request_kwargs)
+        except (APIError, UntrustedURLError):
+            # An HTTP error already carries the real status code, the supplier
+            # message and the response body. Rewrapping it as status 0 -- the
+            # SDK's "no HTTP response at all" sentinel -- lost all three
+            # (BUG-1462).
+            raise
         except Exception as e:
-            # Re-raise as APIError instead of silently returning failed result
-            from .exceptions import APIError
-
-            raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url})
+            # Transport failure: no HTTP response, so status 0 is accurate.
+            raise APIError(f"Polling failed: {str(e)}", 0, {"poll_url": poll_url}) from e
 
         # Handle polling response - use camelCase keys (what backend sends)
         # dataclass_json with config(field_name=...) handles mapping to snake_case
@@ -2244,6 +2500,10 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
             filtered_response["errorDetails"] = response["errorDetails"]
         if response.get("warnings") is not None:
             filtered_response["warnings"] = response["warnings"]
+        # A model run's reasoning / tool calls / finish reason, kept so a polled
+        # result matches the synchronous path (BUG-1459).
+        if response.get("details") is not None:
+            filtered_response["details"] = response["details"]
         status = response.get("status", "IN_PROGRESS")
 
         # Failure handling
@@ -2397,4 +2657,4 @@ class RunnableResourceMixin(BaseMixin, Generic[RunParamsT, ResultT]):
 
         if show_progress:
             logger.error(f"Operation timeout - No response after {timeout}s")
-        raise TimeoutError(f"Operation timed out after {timeout} seconds") from last_error
+        raise TimeoutError(f"Operation timed out after {timeout} seconds", poll_url=poll_url) from last_error

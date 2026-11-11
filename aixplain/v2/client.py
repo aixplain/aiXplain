@@ -10,6 +10,7 @@ import requests
 from requests.adapters import HTTPAdapter, Retry
 from urllib.parse import urljoin, urlparse
 
+from ..utils.url_safety import is_unambiguous_host
 from .exceptions import APIError, UntrustedURLError
 
 logger = logging.getLogger(__name__)
@@ -326,7 +327,9 @@ def normalize_origin(url: str) -> Optional[Origin]:
     (``https://platform-api.aixplain.com@evil.example.com/x``) cannot disguise the
     real target and so ``:443`` compares equal to the implicit default. Returns
     ``None`` for anything that is not a parseable http(s) URL with a host, and for
-    URLs carrying userinfo, which a legitimate aiXplain endpoint never does.
+    URLs carrying userinfo, which a legitimate aiXplain endpoint never does, and
+    for malformed authorities where ``urllib3`` would connect to a different host
+    than ``urlparse`` reports.
     """
     try:
         parsed = urlparse(url)
@@ -340,7 +343,7 @@ def normalize_origin(url: str) -> Optional[Origin]:
         host, port = parsed.hostname, parsed.port
     except ValueError:  # malformed port, e.g. "https://host:notaport/x"
         return None
-    if not host:
+    if not host or not is_unambiguous_host(url, host):
         return None
     # ``port is None`` means "not specified", which is the scheme default. An
     # explicit ``:0`` is a distinct (unconnectable) origin, so it must not be
@@ -464,6 +467,56 @@ def _build_retry(**kwargs: Any) -> Retry:
     return Retry(**kwargs)
 
 
+def _api_error_from_response(response: requests.Response, default_message: str) -> APIError:
+    """Build an ``APIError`` from a non-2xx response, whatever shape its body has.
+
+    An object body keeps today's behaviour (``supplierError`` first). A list body
+    becomes the ``errors`` payload. A scalar JSON body such as ``"Forbidden"``
+    (typical of a gateway or proxy in front of the API) used to reach
+    ``.get(...)`` on a ``str`` and raise ``AttributeError``; it is now wrapped as
+    an ``APIError`` with the real status code (BUG-1462).
+    """
+    body: Any = None
+    try:
+        body = response.json()
+    except Exception as e:
+        logger.error(f"Error parsing error response: {e}")
+        body = None
+
+    status_code = response.status_code
+    if isinstance(body, list):
+        return APIError(
+            [item if isinstance(item, str) else json.dumps(item, default=str) for item in body],
+            status_code=status_code,
+            response_data={"errors": body},
+        )
+    if isinstance(body, dict) and body:
+        # supplierError carries the actionable detail (e.g. "Name already
+        # exists"); the "error" field is often just a code like
+        # "err.supplier_error".
+        message = (
+            body.get("supplierError")
+            or body.get("supplier_error")
+            or body.get("message")
+            or body.get("error")
+            or response.text
+            or default_message
+        )
+        status = body.get("statusCode", status_code)
+        if isinstance(status, bool) or not isinstance(status, int):
+            status = status_code
+        return APIError(
+            message if isinstance(message, str) else json.dumps(message, default=str),
+            status_code=status,
+            response_data=body,
+            error=body.get("error", response.text),
+        )
+    if body is not None and not isinstance(body, dict):
+        text = body if isinstance(body, str) else json.dumps(body, default=str)
+        return APIError(text or default_message, status_code=status_code, response_data={"error": body}, error=text)
+    return APIError(response.text or default_message, status_code=status_code, error=response.text)
+
+
 def create_retry_session(
     total: Optional[int] = None,
     backoff_factor: Optional[float] = None,
@@ -492,9 +545,11 @@ def create_retry_session(
     Returns:
         requests.Session: A requests.Session object with the specified retry strategy.
     """
-    total = total or DEFAULT_RETRY_TOTAL
-    backoff_factor = backoff_factor or DEFAULT_RETRY_BACKOFF_FACTOR
-    status_forcelist = status_forcelist or DEFAULT_RETRY_STATUS_FORCELIST
+    # ``is not None``, not ``or``: ``total=0`` is how retries are disabled, and
+    # ``0`` / ``[]`` must not be silently replaced by the defaults (BUG-1095).
+    total = total if total is not None else DEFAULT_RETRY_TOTAL
+    backoff_factor = backoff_factor if backoff_factor is not None else DEFAULT_RETRY_BACKOFF_FACTOR
+    status_forcelist = status_forcelist if status_forcelist is not None else DEFAULT_RETRY_STATUS_FORCELIST
     retry_kwargs: dict = {
         "total": total,
         "backoff_factor": backoff_factor,
@@ -504,6 +559,11 @@ def create_retry_session(
         "backoff_max": DEFAULT_RETRY_BACKOFF_MAX,
         "respect_retry_after_header": True,
         "retry_after_max": DEFAULT_RETRY_AFTER_MAX,
+        # Once the status retries run out, hand back the final response instead of
+        # raising ``requests.RetryError``. ``request_raw`` then turns it into an
+        # ``APIError`` that keeps the real status (e.g. 429) and the supplier's
+        # message, rather than a status-0 "Max retries exceeded" (BUG-1462).
+        "raise_on_status": False,
     }
     # Caller kwargs win over the defaults above rather than colliding with them.
     retry_kwargs.update(kwargs)
@@ -640,33 +700,7 @@ class AixplainClient:
         response = self.session.request(method=method, url=url, **kwargs)
         _log_response(method, url, response)
         if not response.ok:
-            error_obj = None
-            try:
-                error_obj = response.json()
-            except Exception as e:
-                logger.error(f"Error parsing error response: {e}")
-
-            if isinstance(error_obj, list):
-                raise APIError(error_obj, status_code=response.status_code, response_data={"errors": error_obj})
-            if error_obj:
-                # supplierError carries the actionable detail (e.g. "Name already
-                # exists"); the "error" field is often just a code like
-                # "err.supplier_error".
-                message = (
-                    error_obj.get("supplierError")
-                    or error_obj.get("supplier_error")
-                    or error_obj.get("message")
-                    or error_obj.get("error")
-                    or response.text
-                )
-                raise APIError(
-                    message,
-                    status_code=error_obj.get("statusCode", response.status_code),
-                    response_data=error_obj,
-                    error=error_obj.get("error", response.text),
-                )
-            else:
-                raise APIError(response.text, status_code=response.status_code, error=response.text)
+            raise _api_error_from_response(response, default_message=response.text)
 
         return response
 
@@ -744,25 +778,9 @@ class AixplainClient:
 
         # For streaming, we check status but don't consume the response body
         if not response.ok:
-            error_obj = None
-            try:
-                # Try to get error details from response
-                error_obj = response.json()
-            except Exception as e:
-                logger.error(f"Error parsing error response: {e}")
-
-            if error_obj:
-                raise APIError(
-                    error_obj.get("message", error_obj.get("error", "Stream request failed")),
-                    status_code=error_obj.get("statusCode", response.status_code),
-                    response_data=error_obj,
-                    error=error_obj.get("error", ""),
-                )
-            else:
-                raise APIError(
-                    f"Stream request failed with status {response.status_code}",
-                    status_code=response.status_code,
-                    error="",
-                )
+            raise _api_error_from_response(
+                response,
+                default_message=f"Stream request failed with status {response.status_code}",
+            )
 
         return response

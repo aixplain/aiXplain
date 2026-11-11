@@ -71,9 +71,9 @@ It used to be built at import time with the failure swallowed, so a missing `TEA
 | [`MetricFactory`](#metricfactory--aixmetric) | `aix.Metric` | Direct |
 | [`APIKeyFactory`](#apikeyfactory--aixapikey) | `aix.APIKey` | Direct |
 | [`FileFactory`](#filefactory--aixfile) | `aix.File` | Direct |
+| [`IndexFactory`](#indexfactory--aixindex) | `aix.Index` | Direct |
 | [`ScriptFactory`](#scriptfactory--aixtool) | `aix.Tool` | Shape change — custom code becomes a tool |
 | [`AssetFactory`](#assetfactory) | — | Internal abstract base, never user-facing |
-| [`IndexFactory`](#no-v2-equivalent) | **none** | Gap — see below |
 | [`PipelineFactory`](#no-v2-equivalent) | **none** | Gap — see below |
 | [`BenchmarkFactory`](#no-v2-equivalent) | **none** | Gap — see below |
 | [`CorpusFactory`](#no-v2-equivalent) | **none** | Gap — see below |
@@ -192,8 +192,10 @@ from aixplain import Aixplain
 aix = Aixplain()
 
 model = aix.Model.get("6414bd3cd09663e9225130e8")
-models = aix.Model.search(function=aix.Function.TEXT_GENERATION)
+models = aix.Model.search(functions=[aix.Function.TEXT_GENERATION])
 ```
+
+`function=` is accepted as an alias of `functions=` (pass one or the other). Function members are sent as the backend's kebab codes (`text-generation`), so raw codes work too. `Model.search` rejects undeclared filters with `ValidationError`; `source_languages`, `target_languages`, `is_finetunable`, `ownership` and `status` are not read by the v2 search endpoint, so they emit a `FutureWarning` and are not sent.
 
 `ModelFactory.create_utility_model(...)` becomes `aix.Tool(code=...)` — custom Python code is a tool in v2, run in the Python Sandbox integration. Note the shape change: a v1 utility model was a standalone asset that showed up in model search and ran on its own, while a tool is attached to an agent. There is no v2 equivalent for onboarding a standalone utility-model asset. The model-onboarding helpers (`create_asset_repo`, `asset_repo_login`, `onboard_model`, `list_host_machines`, `list_gpus`, `deploy_huggingface_model`) have no v2 equivalent; they went with v1, along with the `aixplain` console script that exposed them. Use the web console, or stay on `0.2.48`.
 
@@ -331,6 +333,68 @@ link = upload_file("/path/to/local.csv")
 validate_file_for_upload("/path/to/local.csv")
 ```
 
+### `IndexFactory` → `aix.Index`
+
+`aix.Index` is the typed v2 index resource (ENG-3148, shipped in BUG-1455). The
+method names on an index are the v1 `IndexModel` names, so most code changes only
+in how the index is created or fetched and where the types are imported from.
+
+```python
+# v1 (removed in 0.3.0)
+from aixplain.factories import IndexFactory, ModelFactory
+from aixplain.enums import EmbeddingModel
+from aixplain.modules.model.record import Record
+from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator
+from aixplain.factories.index_factory.utils import AirParams
+
+index = IndexFactory.create(params=AirParams(name="docs", description="Product docs",
+                                             embedding_model=EmbeddingModel.BGE_M3))
+index = ModelFactory.get(index.id)
+```
+
+```python
+# v2
+from aixplain import Aixplain, AirParams, IndexFilter, IndexFilterOperator, Record
+
+aix = Aixplain()
+
+index = aix.Index.create(params=AirParams(name="docs", description="Product docs",
+                                          embedding_model=aix.EmbeddingModel.BGE_M3))
+index.upsert([Record(value="Noise-cancelling headphones", attributes={"category": "audio"})])
+hits = index.search("headphones", top_k=5,
+                    filters=[IndexFilter("category", "audio", IndexFilterOperator.EQUALS)])
+print(index.count())
+index.delete()
+```
+
+| v1 (`IndexFactory` / `IndexModel`) | v2 |
+| --- | --- |
+| `IndexFactory.create(name=, description=, embedding_model=)` | `aix.Index.create(name=, description=, embedding_model=)` (creates an AIR index) |
+| `IndexFactory.create(params=AirParams(...))` / `VectaraParams` / `GraphRAGParams` / `ZeroEntropyParams` | `aix.Index.create(params=...)` with the same params classes, imported from `aixplain` |
+| `IndexFactory.list(query=, page_number=, page_size=)` | `aix.Index.list(query=, page_number=, page_size=)` — returns a `Page` of `Index` (iterate it, or read `.results`); the v1 `suppliers` / `ownership` / `sort_*` filters are not carried over |
+| `ModelFactory.get(index_id)` | `aix.Index.get(index_id)` |
+| `index.upsert`, `search`, `count`, `get_record`, `delete_record`, `retrieve_records_with_filter`, `delete_records_by_date`, `delete` | Same names on `Index`; data-plane calls return an `IndexResult` instead of a `ModelResponse` (`count()` still returns an `int`) |
+| `from aixplain.modules.model.record import Record` | `from aixplain import Record` |
+| `from aixplain.modules.model.index_model import IndexFilter, IndexFilterOperator, Splitter` | `from aixplain import IndexFilter, IndexFilterOperator, Splitter` |
+| `from aixplain.enums import EmbeddingModel, IndexStores` | `from aixplain import EmbeddingModel, IndexStores`, or `aix.EmbeddingModel` / `aix.IndexStores` |
+
+Indexes created with v1 are the same backend objects, so `aix.Index.get(id)`
+opens them directly.
+
+**Resolving an index by name.** `list(query=...)` is a search, not an exact
+match, so filter the page by name:
+
+```python
+matches = [ix for ix in aix.Index.list(query="docs", page_size=50) if ix.name == "docs"]
+index = matches[0] if matches else aix.Index.create(params=AirParams(name="docs", description="Product docs"))
+```
+
+`Index` has no generic `run()`: use the typed methods above. To give an
+**agent** a knowledge base to search, attach the aiR knowledge-base tool
+(`aix.Tool(integration="aixplain/air-knowledge-base/aixplain", ...)`) as before;
+`aix.Index` is the typed surface for creating and managing the collection from
+code.
+
 ### `ScriptFactory` → `aix.Tool`
 
 `ScriptFactory.upload_script` uploaded a code file and returned an ID to wire in by hand. In v2, custom code is a `Tool`: the code runs in the Python Sandbox integration and the tool is attached to an agent like any other.
@@ -370,13 +434,12 @@ An internal abstract base class that other v1 factories inherit `get` from. It h
 
 ## No v2 equivalent
 
-These eight factories have **no v2 replacement**, and the removal took them with it. There is no v2 spelling to port them to.
+These seven factories have **no v2 replacement**, and the removal took them with it. There is no v2 spelling to port them to.
 
 If you depend on any of them, stay on `0.2.48` (`pip install 'aiXplain==0.2.48'`) and [open an issue](https://github.com/aixplain/aiXplain/issues) saying which one — that is what prioritises the replacement.
 
 | v1 factory | What it covered | Notes |
 | --- | --- | --- |
-| `IndexFactory` | Vector indexes / RAG collections | No v2 surface. |
 | `PipelineFactory` | Legacy static pipelines | The v2 replacement is being designed as static-graph agents; see [`docs/rfcs/rfc-static-graph-agents.md`](docs/rfcs/rfc-static-graph-agents.md). |
 | `BenchmarkFactory` | Benchmarks and benchmark jobs | v2 has `aix.Eval` for agent evaluation, which is not a replacement for model benchmarking. |
 | `CorpusFactory` | Corpus assets | Data-asset onboarding has no v2 surface. |
@@ -428,7 +491,7 @@ to the v2 classes the SDK raises, not the v1-era look-alikes:
 | `aixplain.exceptions.ValidationError` (v1 class; never raised by v2) | `aixplain.ValidationError` (same class the SDK raises) |
 | `aixplain.exceptions.ResourceError` (v1 class; never raised by v2) | `aixplain.ResourceError` (same class the SDK raises) |
 | `aixplain.exceptions.types.ValidationError` | unchanged (v1 types still importable) |
-| `from aixplain.exceptions import AixplainBaseException, AuthenticationError, BillingError, SupplierError, NetworkError, ServiceError, InternalError, AlreadyDeployedError, get_error_from_status_code` | `from aixplain.exceptions.types import ...` (the old path still works but warns, and is removed in 0.4.0) |
+| `from aixplain.exceptions import AixplainBaseException, AuthenticationError, BillingError, SupplierError, NetworkError, ServiceError, InternalError, AlreadyDeployedError, get_error_from_status_code` | `except aixplain.APIError as e` and branch on `e.status_code` (e.g. `401`) -- the SDK never raises the v1 types. They stay importable from `aixplain.exceptions.types`; the old path still works but warns, and is removed in 0.4.0. |
 
 The v2 classes are a different hierarchy from the v1 ones, so code that built or
 inspected them as v1 objects needs a change:

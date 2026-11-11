@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from .enums import Function
 from .exceptions import ResourceError
 from .resource import (
+    _deprecates_per_call_api_key,
     BaseResource,
     BaseGetParams,
     BaseSearchParams,
@@ -452,6 +453,7 @@ class Inspector(
         return inspector
 
     @classmethod
+    @_deprecates_per_call_api_key
     def get(cls, id: Any, **kwargs: Any) -> "Inspector":
         """Retrieve a prebuilt guard by human-readable path (IDs also accepted).
 

@@ -7,7 +7,9 @@ the stream's final status. The body is served on the wire to the real
 ``Model.run_stream``. SDK #987, #1012 and BUG-1094 were each tested with chunk
 objects built by hand. The SSE bodies are shared with aixplain-agents'
 tests/stream_replay; a file whose expected result the SDK does not produce yet
-carries ``known_failure`` and runs as a strict xfail.
+carries ``known_failure`` and runs as a strict xfail. A file whose body is a
+poll envelope may carry ``poll``: the ``models_root`` path and JSON body that
+answer the SDK's poll of that envelope.
 """
 
 import json
@@ -47,6 +49,9 @@ def test_stream_yields_its_recorded_meaning(aix, platform: PlatformStub, spec: d
             body=fill(response.get("json")),
         ),
     )
+    poll = spec.get("poll")
+    if poll:
+        platform.route("GET", "models_root", poll["path"], StubResponse(body=fill(poll["json"])))
     expected = spec["expected"]
     model = aix.Model.get(LLM_ID)
 
@@ -76,7 +81,8 @@ def test_stream_yields_its_recorded_meaning(aix, platform: PlatformStub, spec: d
         return
     if "content_must_not_contain" in expected:
         assert expected["content_must_not_contain"] not in content
-        return
+        if "content" not in expected:
+            return
     assert content == expected["content"]
     assert reasoning == expected["reasoning"]
     assert finish == expected["finish_reason"]

@@ -29,9 +29,16 @@ class AixplainV2Error(Exception):
 
 
 class ResourceError(AixplainV2Error):
-    """Raised when resource operations fail."""
+    """Raised when resource operations fail.
 
-    pass
+    ``status_code`` and ``response_data`` are copied from the wrapped
+    :class:`APIError` when a ``save``/``delete``/``clone``/``duplicate`` failure
+    is rewrapped (see ``with_hooks``); they stay ``None`` otherwise. The original
+    exception is also available as ``__cause__``.
+    """
+
+    status_code: Optional[int] = None
+    response_data: Optional[Dict[str, Any]] = None
 
 
 class APIError(AixplainV2Error):
@@ -115,9 +122,34 @@ class TimeoutError(AixplainV2Error, builtins.TimeoutError):
     it would silently stop catching socket and asyncio timeouts. Inheriting both
     means the shadowing is harmless -- the name catches strictly more than it did
     before, never less.
+
+    A poll timeout does not cancel the server-side job. ``poll_url`` and
+    ``request_id`` (``None`` when unknown) identify it so the caller can keep
+    polling or look the run up instead of orphaning it.
     """
 
-    pass
+    poll_url: Optional[str] = None
+    request_id: Optional[str] = None
+
+    def __init__(
+        self,
+        message: Union[str, List[str]],
+        details: Optional[Dict[str, Any]] = None,
+        *,
+        poll_url: Optional[str] = None,
+        request_id: Optional[str] = None,
+    ) -> None:
+        """Initialize the timeout with optional handles to the still-running job.
+
+        Args:
+            message: Error message string or list of error messages.
+            details: Optional dictionary with additional error details.
+            poll_url: URL that can still be polled for the job's result.
+            request_id: Identifier of the submitted run, when known.
+        """
+        super().__init__(message, details)
+        self.poll_url = poll_url
+        self.request_id = request_id
 
 
 class FileUploadError(AixplainV2Error):
