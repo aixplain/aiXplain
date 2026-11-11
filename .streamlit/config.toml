@@ -1,0 +1,7 @@
+# Streamlit reads this file from the directory `streamlit run` is started in.
+# Bind the eval dashboard (eval_dashboard/app.py) to loopback: it reads local
+# CSV paths and spends the operator's AIXPLAIN_API_KEY, so it must not be
+# reachable from the LAN by default (BUG-1452). Pass --server.address to
+# override deliberately.
+[server]
+address = "127.0.0.1"

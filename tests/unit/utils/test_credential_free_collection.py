@@ -1,6 +1,6 @@
 """Guard: the unit suite must be collectible without any API credential.
 
-``aixplain/utils/config.py`` used to call ``validate_api_keys()`` at module
+The now-removed ``aixplain/utils/config.py`` used to call ``validate_api_keys()`` at module
 import time, which made ~27 unit test files fail *at collection* when neither
 ``TEAM_API_KEY`` nor ``AIXPLAIN_API_KEY`` was set. That coupled the unit suite
 to a secret it does not need, and made a rotated key look like a code failure.
@@ -77,7 +77,11 @@ def test_dotenv_neutralisation_actually_works(tmp_path):
     (tmp_path / "sitecustomize.py").write_text(SITECUSTOMIZE)
 
     result = subprocess.run(
-        [sys.executable, "-c", "from aixplain.utils import config; print(repr(config.TEAM_API_KEY))"],
+        [
+            sys.executable,
+            "-c",
+            "import os, aixplain; print(repr(os.environ.get('TEAM_API_KEY', '')))",
+        ],
         cwd=str(REPO_ROOT),
         env=_credential_free_env(tmp_path),
         capture_output=True,

@@ -114,13 +114,29 @@ messages") and a translation model returned HTTP 491, while the same asset ran f
 To actually test an asset, write the SDK call from `list_inputs_*` and run it in the shell:
 
 ```bash
-python3 -c '
+inputs_file="$(mktemp)"
+cat > "$inputs_file" <<'JSON'
+{"<input name from list_inputs>": "<value>"}
+JSON
+python3 - "$inputs_file" <<'PY'
+import json
+import sys
+
 from aixplain import Aixplain
-aix = Aixplain(api_key="'"$AIXPLAIN_API_KEY"'")
-r = aix.Model.get("<id>").run(<kwargs from list_inputs>)
+
+aix = Aixplain()  # reads AIXPLAIN_API_KEY (or TEAM_API_KEY) from the environment
+with open(sys.argv[1], encoding="utf-8") as handle:
+    inputs = json.load(handle)
+r = aix.Model.get("<id>").run(**inputs)
 print(r.status, r.data)
-'
+PY
+rm -f "$inputs_file"
 ```
+
+Never put the API key into the command: the SDK reads it from the environment, and a key on the command
+line is visible to other local users in the process list. Write the inputs — including fixed marketplace
+values — as a JSON object inside the quoted `<<'JSON'` heredoc, so quotes, `$` and backticks in a value
+stay data and are never interpreted by the shell.
 
 Report the real `status` and `data`. That closes the loop — found, verified running, then integrated —
 and it is the only execution path that works today.

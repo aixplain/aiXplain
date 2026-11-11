@@ -11,10 +11,17 @@ from collections import UserList
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
-import numpy as np
-import pandas as pd
+from ._lazy import _LazyModule
+
+if TYPE_CHECKING:
+    import numpy as np
+    import pandas as pd
+else:
+    # Deferred so ``import aixplain`` does not pay for pandas/numpy (BUG-949).
+    np = _LazyModule("numpy")
+    pd = _LazyModule("pandas")
 
 from .agent import Agent
 from .exceptions import ValidationError

@@ -171,6 +171,33 @@ class TestParseSteps:
 
         assert tracker._parse_steps(SimpleNamespace(_raw_data={})) == []
 
+    def test_raw_data_steps_skip_to_dict(self):
+        """Each poll must not fully re-serialize the response (BUG-949)."""
+        tracker = _tracker()
+        to_dict = MagicMock(side_effect=AssertionError("to_dict must not be called"))
+        response = SimpleNamespace(_raw_data={"data": {"steps": [{"id": "a"}]}}, to_dict=to_dict)
+
+        steps = tracker._parse_steps(response)
+
+        assert [s["_progress_id"] for s in steps] == ["a"]
+        to_dict.assert_not_called()
+
+    def test_raw_data_steps_are_copied_not_aliased(self):
+        tracker = _tracker()
+        raw_step = {"id": "a"}
+        response = SimpleNamespace(_raw_data={"data": {"steps": [raw_step]}})
+
+        steps = tracker._parse_steps(response)
+        steps[0]["mutated"] = True
+
+        assert "mutated" not in raw_step and "_progress_id" not in raw_step
+
+    def test_falls_back_to_to_dict_without_raw_steps(self):
+        tracker = _tracker()
+        response = SimpleNamespace(_raw_data=None, to_dict=lambda: {"data": {"steps": [{"id": "td"}]}})
+
+        assert [s["_progress_id"] for s in tracker._parse_steps(response)] == ["td"]
+
 
 class TestLogsFormatEmitsPerStepLines:
     def test_update_prints_a_line_per_step_and_completion(self, capsys):
