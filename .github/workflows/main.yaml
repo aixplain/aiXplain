@@ -745,6 +745,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # BUG-1454: the Slack step below only runs on a red nightly, so on its own
+      # a removed webhook would leave every green nightly green and every red one
+      # silent. This makes the missing configuration itself red, every night.
+      - name: Require the Slack webhook on scheduled runs
+        if: github.event_name == 'schedule'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::error::SLACK_NIGHTLY_WEBHOOK_URL is not set; a failing nightly would alert nobody"
+            exit 1
+          fi
+
       - name: Notify Slack when the nightly run is not green
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         env:
@@ -762,10 +776,15 @@ jobs:
           set -euo pipefail
 
           if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
-            # Not a failure: the nightly itself is already red, and failing here
-            # too would only add a second red job saying the same thing. The
-            # warning is what makes an unconfigured webhook visible in the
-            # Actions summary instead of silently swallowing every alert.
+            # BUG-1454: a warning on a green job is how 13 red nightlies went
+            # unreported. On a scheduled run nobody reads the log, so a missing
+            # webhook is a broken alert and turns this job red. Any other event
+            # (should this job's `if:` ever be widened) keeps the warning: a
+            # person started that run and is looking at it.
+            if [ "${GITHUB_EVENT_NAME:-}" = "schedule" ]; then
+              echo "::error::SLACK_NIGHTLY_WEBHOOK_URL is not set; no Slack alert was sent for $RUN_URL"
+              exit 1
+            fi
             echo "::warning::SLACK_NIGHTLY_WEBHOOK_URL is not set; no Slack alert was sent for $RUN_URL"
             exit 0
           fi
