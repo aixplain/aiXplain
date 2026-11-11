@@ -40,6 +40,5 @@
       "agents #272/#251 (SSE keepalive)"
     ],
     "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/edge/keepalive-comments; the expected block is what the SDK's streamer should yield for it, written by hand."
-  },
-  "known_failure": "ENG-3782 finding: ModelResponseStreamer strips only 'data:'; an SSE comment line (': keepalive') is buffered as JSON, fails to parse, and is yielded as chunk content."
+  }
 }

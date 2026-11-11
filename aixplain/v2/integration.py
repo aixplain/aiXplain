@@ -7,8 +7,10 @@ from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config
 from functools import cached_property
 
+import requests
+
 from ._backoff import next_wait, sleep_with_jitter
-from .resource import BaseSearchParams, Result
+from .resource import BaseSearchParams, Result, _client_retry_attempts, _client_timeout_bounds
 from .model import Model
 from .enums import AuthenticationScheme
 from .actions import Actions, Action as ActionView, Inputs
@@ -221,9 +223,21 @@ class ActionMixin:
     def _poll_for_data(self, response: dict, timeout: float = 30, wait_time: float = 1) -> Any:
         """Poll an async response until completion and return the ``data`` field.
 
+        Args:
+            response: The initial run response. Polling only happens when it is
+                not completed and its ``data`` is a poll URL.
+            timeout: Wall-clock budget, in seconds, for the whole poll loop. Each
+                poll request is bounded by what is left of it (BUG-1453).
+            wait_time: Initial wait between polls, backed off with jitter.
+
+        Returns:
+            The ``data`` field of the completed response.
+
         Raises:
             ResourceError: If the backend reports ``status: FAILED``.
-            TimeoutError: If the request does not complete within *timeout* seconds.
+            TimeoutError: If the operation is still pending when *timeout*
+                expires. This used to return ``None``, which callers turned into
+                ``[]`` -- indistinguishable from "no actions" (BUG-1453).
         """
         self._raise_if_failed(response)
         data = response.get("data")
@@ -231,26 +245,48 @@ class ActionMixin:
             return data
 
         poll_url = data
+        client = self.context.client
+        connect_timeout, read_timeout = _client_timeout_bounds(client)
+        attempts = _client_retry_attempts(client)
         start = time.time()
         while True:
             remaining = timeout - (time.time() - start)
             if remaining <= 0:
-                raise TimeoutError(f"Integration request did not complete within {timeout}s.")
+                break
             # Jittered and backed off, rather than a fixed 1s tick: a fleet of
             # clients polling in lockstep is the load shape BUG-942 is about.
             # Clamped to the remaining budget so jitter never overruns *timeout*.
             sleep_with_jitter(wait_time, max_sleep=remaining)
             wait_time = next_wait(wait_time)
-            poll_resp = self.context.client.request("get", poll_url)
+            remaining = timeout - (time.time() - start)
+            if remaining <= 0:
+                break
+            # Same bound as BaseResource.poll (BUG-1097): urllib3 re-sends a
+            # timed-out GET underneath ``requests``, so the read timeout is the
+            # remaining budget divided by the transport attempts. Without it one
+            # hung poll could block ~6 x 300s against a 30s budget (BUG-1453).
+            per_request = (connect_timeout, max(1.0, min(remaining / attempts, read_timeout)))
+            try:
+                poll_resp = client.request("get", poll_url, timeout=per_request)
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+                if timeout - (time.time() - start) <= 0:
+                    raise TimeoutError(f"Action polling timed out after {timeout} seconds") from exc
+                # Budget left: a real transport failure, propagated as before.
+                raise
             self._raise_if_failed(poll_resp)
             if poll_resp.get("completed", False) or poll_resp.get("status") == "SUCCESS":
                 return poll_resp.get("data")
+        raise TimeoutError(f"Action polling timed out after {timeout} seconds")
 
     def list_actions(self) -> List[ActionSpec]:
         """List available actions for the integration.
 
         Returns:
             List of :class:`ActionSpec` objects from the backend.
+
+        Raises:
+            TimeoutError: If action discovery does not complete within its
+                polling budget (rather than returning ``[]``).
         """
         if self.actions_available is False:
             return []
@@ -279,6 +315,10 @@ class ActionMixin:
 
         This is the internal implementation. Use ``tool.actions['name'].inputs``
         to discover and configure action inputs interactively.
+
+        Raises:
+            TimeoutError: If input discovery does not complete within its
+                polling budget (rather than returning ``[]``).
         """
         run_url = self.build_run_url()
         response = self.context.client.request(
@@ -360,6 +400,10 @@ class ActionMixin:
 
         Returns:
             List of :class:`TriggerTypeSpec` objects from the backend.
+
+        Raises:
+            TimeoutError: If discovery does not complete within its polling
+                budget (rather than returning ``[]``).
         """
         run_url = self.build_run_url()
         response = self.context.client.request("post", run_url, json={"action": "list_trigger_types", "data": ""})

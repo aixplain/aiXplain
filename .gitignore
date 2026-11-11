@@ -156,3 +156,6 @@ aixplain-dev/
 .brusk/
 .claude/
 CLAUDE.md
+
+# Streamlit secrets (the eval dashboard config in .streamlit/config.toml is tracked)
+.streamlit/secrets.toml

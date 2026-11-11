@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 from ._expected_output import expected_output_to_wire
 from .enums import AssetStatus, AssetStatusValue, ResponseStatus
-from .model import Model
+from .model import Model, _model_sort_field
 from .file import File
 from .skill import Skill
 from .graph import Graph, GraphDict, InspectorNode, StaticGraphStrategy, StaticGraphStrategyDict
@@ -29,6 +29,8 @@ from .plain_data import WireValue, coerce_enum, coerce_struct_list, struct_field
 from ..utils.user_info_utils import build_run_metadata
 
 from .resource import (
+    _caller_stacklevel,
+    _deprecates_per_call_api_key,
     BaseResource,
     SearchResourceMixin,
     GetResourceMixin,
@@ -41,6 +43,9 @@ from .resource import (
     RunnableResourceMixin,
     Page,
     with_hooks,
+    _filter_value,
+    _filter_values,
+    _sort_direction,
 )
 
 if TYPE_CHECKING:
@@ -851,6 +856,17 @@ class Task:
             ]
 
 
+class AgentSearchParams(BaseSearchParams):
+    """Search parameters for agents.
+
+    Attributes:
+        status: Agent status to filter by: ``"draft"`` or ``"onboarded"``.
+            A one-element list is accepted; other values warn and are not sent.
+    """
+
+    status: NotRequired[Union[AssetStatus, AssetStatusValue, List[Union[AssetStatus, AssetStatusValue]]]]
+
+
 @dataclass_json
 @dataclass(repr=False)
 class Agent(
@@ -1158,6 +1174,46 @@ class Agent(
                 original_by_id.get(skill, skill) if isinstance(skill, str) else skill for skill in effective_current
             ]
             self.skills = [self._skill_reference_id(skill) or skill for skill in self._original_skills]
+
+    @staticmethod
+    def _agent_reference_id(agent: Optional[Union[str, Dict[str, Any], "Agent"]]) -> Optional[str]:
+        """Return the backend ID represented by one sub-agent reference."""
+        if agent is None:
+            return None
+        if isinstance(agent, str):
+            return agent
+        if isinstance(agent, dict):
+            return agent.get("id")
+        return getattr(agent, "id", None)
+
+    def _sync_agent_references(self) -> None:
+        """Capture direct mutations to ``agent.agents`` before validation or save.
+
+        The public ``agent.agents`` list (ids, dicts or Agent objects; ``None``
+        marks an unsaved Agent) is the source of truth. ``_original_agents``
+        mirrors it and keeps the original Agent objects for retained members, so
+        unsaved-member checks and ``save_subcomponents`` recursion keep working.
+        """
+        current = list(self.agents or [])
+        original = list(getattr(self, "_original_agents", []) or [])
+        # A None slot is a still-unsaved placeholder; only safe to refresh by position if lengths match.
+        same_length = len(current) == len(original)
+        effective_current = [
+            original[index] if agent is None and same_length else agent for index, agent in enumerate(current)
+        ]
+        current_ids = [self._agent_reference_id(agent) for agent in effective_current]
+        original_ids = [self._agent_reference_id(agent) for agent in original]
+        if current_ids != original_ids or any(not isinstance(agent, str) and agent is not None for agent in current):
+            original_by_id = {
+                self._agent_reference_id(agent): agent
+                for agent in original
+                if self._agent_reference_id(agent) is not None
+            }
+            self._original_agents = [
+                original_by_id.get(agent, agent) if isinstance(agent, str) else agent for agent in effective_current
+            ]
+            # Keep the public list in its post-init shape: ids, None for unsaved Agents.
+            self.agents = [self._agent_reference_id(agent) for agent in self._original_agents]
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Keep ``self.budget`` a (never-None) ``Budget`` instance, and note role assignments.
@@ -1563,6 +1619,9 @@ class Agent(
         normalized["maxIterations"] = max_iterations
         return normalized, False
 
+    # Decorated here as well as on the base ``run``: the ``session=`` path
+    # returns before reaching ``super().run`` (BUG-1452).
+    @_deprecates_per_call_api_key
     def run(self, *args: Any, **kwargs: Unpack[AgentRunParams]) -> AgentRunResult:
         """Run the agent with optional progress display.
 
@@ -1829,6 +1888,8 @@ class Agent(
         # ``self.tools`` with backend dicts and drop those mutations.
         pre_save_tools = list(self.tools) if self.tools else []
         pre_save_graph = (self.graph, self.strategy, self.graph_version)
+        # The roster was synced from the public list by _validate_dependencies().
+        pre_save_agents = list(getattr(self, "_original_agents", None) or [])
 
         # before_save() flips the local status to DRAFT/ONBOARDED before the
         # request is sent (the payload carries it). If the server never accepts
@@ -1850,6 +1911,13 @@ class Agent(
                 self.strategy = pre_save_graph[1] or StaticGraphStrategy()
             if self._server_omitted("graphVersion"):
                 self.graph_version = pre_save_graph[2] or "1"
+
+        # A create response that does not echo ``agents`` would hydrate an empty
+        # public roster, which the next sync would read as "cleared" and the
+        # next save() would send as ``agents: []`` (BUG-1457).
+        if pre_save_agents and self._server_omitted("agents"):
+            self._original_agents = pre_save_agents
+            self.agents = [self._agent_reference_id(agent) for agent in pre_save_agents]
 
         # Restore the caller's tool objects, then re-hydrate any dict entries so
         # ``agent.tools[i]`` stays a mutable Tool/Model object after save.
@@ -1903,6 +1971,7 @@ class Agent(
         """Recursively save all unsaved child components."""
         self._sync_file_references()
         self._sync_skill_references()
+        self._sync_agent_references()
         failed_components = []
 
         # Save tools
@@ -1962,6 +2031,7 @@ class Agent(
         """Validate that all child components are saved before running."""
         self._sync_file_references()
         self._sync_skill_references()
+        self._sync_agent_references()
         unsaved_components = []
 
         # Check tools
@@ -2008,6 +2078,7 @@ class Agent(
         """Validate that all child components are saved."""
         self._sync_file_references()
         self._sync_skill_references()
+        self._sync_agent_references()
         unsaved_components = []
 
         # Check tools
@@ -2128,22 +2199,112 @@ class Agent(
     def search(
         cls: type["Agent"],
         query: Optional[str] = None,
-        **kwargs: Unpack[BaseSearchParams],
+        **kwargs: Unpack[AgentSearchParams],
     ) -> "Page[Agent]":
         """Search agents with optional query and filtering.
 
         Args:
             query: Optional search query string
-            **kwargs: Additional search parameters (ownership, status, etc.)
+            **kwargs: Additional search parameters: ``status`` (a single
+                ``"draft"`` or ``AssetStatus.ONBOARDED``), ``sort_by``,
+                ``sort_order``, ``page_number``, ``page_size``.
 
         Returns:
             Page of agents matching the search criteria
+
+        Raises:
+            ValidationError: If an unsupported filter is passed.
+
+        Warns:
+            FutureWarning: For ``ownership``, which ``v2/agents/paginate`` does
+                not read, and for a ``status`` other than one ``draft`` or
+                ``onboarded`` value, which it rejects; neither is sent.
         """
         # If query is provided, add it to kwargs
         if query is not None:
             kwargs["query"] = query
 
         return super().search(**kwargs)
+
+    #: Keys ``Agent.search`` accepts; anything else raises ``ValidationError``
+    #: instead of being dropped silently (BUG-1459).
+    _SEARCH_KNOWN_KEYS: ClassVar[frozenset] = frozenset(
+        {
+            "query",
+            "ownership",
+            "sort_by",
+            "sort_order",
+            "status",
+            "page_number",
+            "page_size",
+            "resource_path",
+            "paginate_items_key",
+            "strict",
+            "api_key",
+        }
+    )
+
+    #: Statuses ``v2/agents/paginate`` accepts: a single scalar, one of these
+    #: (``AgentPaginateInput.status``). Lists and other values are rejected by
+    #: the backend, so they warn and are not sent.
+    _SEARCH_STATUS_VALUES: ClassVar[frozenset] = frozenset({AssetStatus.DRAFT.value, AssetStatus.ONBOARDED.value})
+
+    @classmethod
+    def _populate_filters(cls, params: dict) -> dict:
+        """Build the ``v2/agents/paginate`` request body.
+
+        The endpoint (``AgentPaginateInput``) sorts through
+        ``sort: [{field, dir}]`` and filters by a single ``status``
+        (``draft`` or ``onboarded``); it reads neither ``sortBy``/``sortOrder``
+        nor ``ownership`` (BUG-1459).
+
+        Raises:
+            ValidationError: If ``params`` carries an unsupported filter.
+
+        Warns:
+            FutureWarning: When ``ownership`` is passed, or ``status`` is not a
+                single ``draft``/``onboarded`` value; it is dropped.
+        """
+        unknown = set(params) - cls._SEARCH_KNOWN_KEYS
+        if unknown:
+            raise ValidationError(f"{cls.__name__}.search() received unsupported filter(s): {sorted(unknown)}")
+
+        filters = super()._populate_filters(params)
+        filters.pop("sortBy", None)
+        filters.pop("sortOrder", None)
+        if filters.pop("ownership", None) is not None:
+            warnings.warn(
+                f"{cls.__name__}.search(): filter(s) ['ownership'] are not supported by the backend and were "
+                "ignored; they will raise in a future release.",
+                FutureWarning,
+                stacklevel=4,
+            )
+
+        sort_by = params.get("sort_by")
+        sort_order = params.get("sort_order")
+        if sort_by is not None or sort_order is not None:
+            filters["sort"] = [
+                {
+                    "field": _model_sort_field("name" if sort_by is None else sort_by),
+                    "dir": _sort_direction("ASC" if sort_order is None else sort_order),
+                }
+            ]
+
+        status = params.get("status")
+        if status is not None:
+            values = _filter_values(status) if isinstance(status, (list, tuple, set)) else [_filter_value(status)]
+            values = list(dict.fromkeys(values))
+            if len(values) == 1 and values[0] in cls._SEARCH_STATUS_VALUES:
+                filters["status"] = values[0]
+            else:
+                warnings.warn(
+                    f"{cls.__name__}.search(): status={status!r} is not supported by the backend and was ignored; "
+                    f"pass a single status, one of {sorted(cls._SEARCH_STATUS_VALUES)}. This will raise in a "
+                    "future release.",
+                    FutureWarning,
+                    stacklevel=4,
+                )
+        return filters
 
     @classmethod
     def _normalize_tool_for_api(cls, tool: Any) -> dict:
@@ -2643,6 +2804,7 @@ class Agent(
         """Build the payload for the save action."""
         self._sync_file_references()
         self._sync_skill_references()
+        self._sync_agent_references()
         # Import Inspector from v2 module
         from .inspector import Inspector
 
@@ -2740,23 +2902,18 @@ class Agent(
             payload.pop("graph", None)
             payload.pop("strategy", None)
 
-        # Convert agents to API format, resolving IDs from original objects
-        if hasattr(self, "_original_agents") and self._original_agents:
-            converted_agents = []
-            for agent in self._original_agents:
-                member_inspectors: List[Any] = []
-                if isinstance(agent, str):
-                    agent_id = agent
-                elif isinstance(agent, dict):
-                    agent_id = agent.get("id")
-                    # A fetched member keeps the inspectors the backend stored for it.
-                    member_inspectors = list(agent.get("inspectors") or [])
-                else:
-                    agent_id = agent.id  # Get current ID from Agent object
-                if not agent_id:
-                    raise ValueError("All agents must be saved before saving the team agent.")
-                converted_agents.append({"id": agent_id, "inspectors": member_inspectors})
-            payload["agents"] = converted_agents
+        # Convert agents to API format, resolving IDs from original objects.
+        # Always set the key from the synced roster so an emptied team sends
+        # ``agents: []`` (a plain agent already serializes ``agents: []``).
+        converted_agents = []
+        for agent in getattr(self, "_original_agents", None) or []:
+            agent_id = self._agent_reference_id(agent)
+            if not agent_id:
+                raise ValueError("All agents must be saved before saving the team agent.")
+            # A fetched member keeps the inspectors the backend stored for it.
+            member_inspectors = list(agent.get("inspectors") or []) if isinstance(agent, dict) else []
+            converted_agents.append({"id": agent_id, "inspectors": member_inspectors})
+        payload["agents"] = converted_agents
 
         # Convert skills to API format. Skills follow the same wire design as
         # tools: each is sent as an object (via as_tool()), never a bare id.
@@ -2896,20 +3053,21 @@ class Agent(
         if deprecated_iterations is not None:
             # Point past the SDK run plumbing (build_run_payload ->
             # _post_and_handle_run -> _submit_with_retries ->
-            # RunnableResourceMixin.run -> Agent.run) to the user's agent.run(...)
-            # call site. The conflict warning (below) is emitted from this same
-            # frame, so it shares the stacklevel. ``_submit_with_retries`` is the
-            # POST-only retry boundary added for BUG-1090; it sits on both the
-            # run and run_async paths, so both stay at this depth.
+            # RunnableResourceMixin.run -> Agent.run, plus any decorator
+            # wrappers) to the user's agent.run(...) call site. Computed rather
+            # than hard-coded, so a frame added to that chain cannot silently
+            # re-attribute the warning to SDK code. The conflict warning (below)
+            # is emitted from this same frame, so it shares the stacklevel.
+            stacklevel = _caller_stacklevel()
             warnings.warn(
                 "Execution param 'max_iterations' is deprecated; set agent.budget.max_iterations instead. "
                 "It will be removed in a future release.",
                 DeprecationWarning,
-                stacklevel=6,
+                stacklevel=stacklevel,
             )
             normalized_budget, conflicted = self._fold_iter_into_budget(budget, deprecated_iterations)
             if conflicted:
-                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=6)
+                warnings.warn(self._BUDGET_ITER_CONFLICT_MSG, UserWarning, stacklevel=stacklevel)
         else:
             normalized_budget = self._normalize_budget(budget)
 
@@ -3181,9 +3339,12 @@ class Agent(
 
         We don't poll session messages for the assistant reply — the run result
         endpoint is fully populated for the run the user message triggered.
-        """
-        self._validate_run_dependencies()
 
+        Before step 1, the same ``before_run`` guard as the direct path runs
+        (after cheap argument validation): it validates dependencies, auto-saves
+        a modified draft, and refuses an onboarded agent with unsaved edits, so
+        no session message is posted for a stale configuration.
+        """
         offending = [k for k in self._LEGACY_ONLY_RUN_KWARGS if kwargs.get(k) is not None]
         if offending:
             raise ValueError(
@@ -3200,6 +3361,12 @@ class Agent(
         if query is not None and not isinstance(query, str):
             raise ValueError("session=… only supports string queries.")
         query = query or ""
+
+        # Same guard as the direct (non-session) path. ``before_run`` does not
+        # read or mutate kwargs, so query/attachments/overrides stay available.
+        early_result = self.before_run(**kwargs)
+        if early_result is not None:
+            return early_result
 
         session = self._resolve_session(session)
         self._apply_run_overrides_to_session(session, kwargs)

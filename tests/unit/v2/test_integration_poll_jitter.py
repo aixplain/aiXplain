@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from aixplain.v2.exceptions import ResourceError, TimeoutError
+from aixplain.v2.exceptions import ResourceError, TimeoutError as AixTimeoutError
 from aixplain.v2.integration import ActionMixin
 
 POLL_URL = "https://platform-api.aixplain.com/sdk/actions/exec-1"
@@ -107,11 +107,12 @@ class TestBudget:
     def test_exhausted_budget_raises_without_polling(self):
         poller = _Poller([DONE])
 
-        with pytest.raises(TimeoutError):
+        with pytest.raises(AixTimeoutError):
             poller._poll_for_data({"completed": False, "data": POLL_URL}, timeout=0)
         poller.context.client.request.assert_not_called()
 
     def test_raises_when_the_budget_expires(self):
+        """It used to return ``None``, which callers turned into ``[]`` (BUG-1453)."""
         poller = _Poller([PENDING] * 50)
 
         with patch("aixplain.v2.integration.sleep_with_jitter", return_value=0.0):
@@ -123,7 +124,7 @@ class TestBudget:
                     return PENDING
 
                 poller.context.client.request = Mock(side_effect=advance)
-                with pytest.raises(TimeoutError):
+                with pytest.raises(AixTimeoutError):
                     poller._poll_for_data({"completed": False, "data": POLL_URL}, timeout=30)
 
         assert poller.context.client.request.call_count == 6
@@ -157,4 +158,4 @@ class TestFailedStatus:
     def test_timeout_is_also_the_builtin_timeout_error(self):
         import builtins
 
-        assert issubclass(TimeoutError, builtins.TimeoutError)
+        assert issubclass(AixTimeoutError, builtins.TimeoutError)

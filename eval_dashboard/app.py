@@ -5,7 +5,12 @@ so Python loads the **checkout** ``aixplain/`` package (no ``pip install -e .`` 
 for the SDK itself). You still need this venv to satisfy the SDK’s third-party
 dependencies (``pandas``, ``requests``, etc.—see the repo ``pyproject.toml``)::
 
-    streamlit run eval_dashboard/app.py
+    streamlit run eval_dashboard/app.py --server.address 127.0.0.1
+
+Keep the dashboard on loopback: it reads any local CSV path you type and spends your
+``AIXPLAIN_API_KEY``, so it must not be reachable from the LAN. The repository's
+``.streamlit/config.toml`` sets ``server.address = "127.0.0.1"`` when you launch from the
+repo root; the explicit flag covers launching from anywhere else.
 
 Load a file produced by :meth:`~aixplain.v2.agent_evaluator.AgentEvaluationRun.to_dataframe`
 (``to_csv``). Optional LLM features (executive summary, chat) need ``AIXPLAIN_API_KEY`` and
@@ -102,6 +107,7 @@ def _csv_signature(uploaded: Any, path_str: str) -> Optional[tuple[Any, ...]]:
 
 
 def main() -> None:
+    """Render the evaluation dashboard."""
     st.set_page_config(page_title="Agent eval dashboard", layout="wide")
     st.title("Agent evaluation dashboard")
     st.caption("Load results CSV · run summary · charts · optional LLM chat")
@@ -159,9 +165,7 @@ def main() -> None:
 
     df = run.to_dataframe()
 
-    tab_summary, tab_plots, tab_data, tab_chat = st.tabs(
-        ["Run summary", "Plots", "Data preview", "Chat"]
-    )
+    tab_summary, tab_plots, tab_data, tab_chat = st.tabs(["Run summary", "Plots", "Data preview", "Chat"])
 
     with tab_summary:
         if include_llm_summary:
