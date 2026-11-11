@@ -16,6 +16,14 @@ from aixplain.utils.url_safety import validate_config_url, validate_upload_url
 
 from .exceptions import FileUploadError
 
+# Retryable methods for the upload session. A presigned S3 ``PUT`` is idempotent
+# (same key, same bytes), so a transport-level retry on 429/5xx or a read error is
+# safe -- and it is the largest, slowest request the SDK makes, so it is the one
+# most worth retrying (BUG-949). ``POST`` stays excluded for the same reason as
+# ``client.RETRY_ALLOWED_METHODS`` (BUG-1090): the presigned-URL request on this
+# session must never be silently re-sent.
+UPLOAD_RETRY_ALLOWED_METHODS = frozenset({"GET", "PUT"})
+
 
 class FileValidator:
     """Handles file validation logic."""
@@ -127,7 +135,7 @@ class RequestManager:
                 if cls._session is None:
                     from .client import create_retry_session
 
-                    cls._session = create_retry_session()
+                    cls._session = create_retry_session(allowed_methods=UPLOAD_RETRY_ALLOWED_METHODS)
         return cls._session
 
     @classmethod
@@ -214,15 +222,21 @@ class S3Uploader:
         headers = {"Content-Type": content_type}
 
         try:
+            # Stream the file instead of reading it whole: ``requests`` sets
+            # Content-Length from the file size, and urllib3 rewinds the file
+            # before each retry, so memory stays flat regardless of file size
+            # (BUG-949).
+            # An empty file is sent as ``b""``: ``requests`` would otherwise fall
+            # back to ``Transfer-Encoding: chunked`` for a zero-length stream,
+            # which S3 presigned PUTs reject.
             with open(file_path, "rb") as f:
-                file_data = f.read()
-
-            # A presigned S3 PUT never legitimately redirects; following a 307
-            # would re-send the bytes to a host ``validate_upload_url`` never
-            # saw (BUG-939).
-            response = RequestManager.request_with_retry(
-                "put", presigned_url, headers=headers, data=file_data, allow_redirects=False
-            )
+                body = f if os.fstat(f.fileno()).st_size > 0 else b""
+                # A presigned S3 PUT never legitimately redirects; following a
+                # 307 would re-send the bytes to a host ``validate_upload_url``
+                # never saw (BUG-939).
+                response = RequestManager.request_with_retry(
+                    "put", presigned_url, headers=headers, data=body, allow_redirects=False
+                )
 
             if response.status_code != 200:
                 raise FileUploadError("File Uploading Error: Failure on Uploading to S3.")

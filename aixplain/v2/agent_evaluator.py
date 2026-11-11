@@ -22,8 +22,6 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Iterator, List,
 if TYPE_CHECKING:
     from .eval_experiment import Experiment, ExperimentLocalCache
 
-import numpy as np
-import pandas as pd
 from dataclasses_json import config as dj_config, dataclass_json
 
 from .agent import Agent, AgentResponseData, AgentRunResult
@@ -32,6 +30,15 @@ from .model import Model, ModelResult
 from .exceptions import AixplainV2Error, ValidationError, create_operation_failed_error
 from .resource import Result
 from .tool import Tool
+from ._lazy import _LazyModule
+
+if TYPE_CHECKING:
+    import numpy as np
+    import pandas as pd
+else:
+    # Deferred so ``import aixplain`` does not pay for pandas/numpy (BUG-949).
+    np = _LazyModule("numpy")
+    pd = _LazyModule("pandas")
 
 
 BASE_METRIC_PROMPT_TEMPLATE = """

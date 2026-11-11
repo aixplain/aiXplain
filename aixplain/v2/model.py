@@ -335,6 +335,11 @@ def _extract_stream_error(data: Any) -> Optional[str]:
 #: first non-empty line starts with one of these is a stream even when the
 #: server forgot the ``text/event-stream`` content type.
 _SSE_LINE_PREFIXES = ("data:", "event:", "id:", "retry:", ":")
+# Bounds on reassembling one JSON payload split across consecutive ``data:``
+# lines. Past either cap the buffered text is emitted raw instead of growing
+# without limit (BUG-949).
+_SSE_MAX_BUFFER_CHARS = 16 * 1024 * 1024
+_SSE_MAX_CONTINUATION_LINES = 10_000
 
 
 def _content_from_document(data: Any) -> str:
@@ -614,6 +619,79 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
             finish_reason=finish_reason,
         )
 
+    def _reassemble_payload(self, line: str) -> tuple[str, Any]:
+        """Parse ``line`` as JSON, joining continuation ``data:`` lines if needed.
+
+        Returns ``(payload, data)`` where ``data`` is the parsed JSON or ``None``
+        when the payload never became valid JSON. Continuations are collected in
+        a list and joined once per parse attempt; for an object/array payload a
+        parse is only attempted once a continuation could close it (ends in
+        ``}``/``]``), so reassembly is linear rather than quadratic in the
+        number of lines. The buffer is capped (BUG-949).
+        """
+        try:
+            return line, json.loads(line)
+        except json.JSONDecodeError:
+            pass
+
+        parts: List[str] = [line]
+        size = len(line)
+        container = line.lstrip()[:1] in ("{", "[")
+        parsed_up_to_date = True
+        while True:
+            try:
+                continuation_line = next(self._iterator)
+                # A non-data SSE field between the halves of a split
+                # payload is protocol noise, not a payload boundary.
+                while (
+                    continuation_line
+                    and not continuation_line.startswith("data:")
+                    and continuation_line.startswith(_SSE_LINE_PREFIXES)
+                ):
+                    continuation_line = next(self._iterator)
+            except StopIteration:
+                break
+
+            if not continuation_line:
+                break
+
+            if not continuation_line.startswith("data:"):
+                self._buffered_line = continuation_line
+                break
+
+            continuation_payload = continuation_line[5:].lstrip()
+            if continuation_payload == "[DONE]":
+                self._buffered_line = continuation_line
+                break
+
+            parts.append(continuation_payload)
+            size += len(continuation_payload)
+            parsed_up_to_date = False
+            if size > _SSE_MAX_BUFFER_CHARS or len(parts) > _SSE_MAX_CONTINUATION_LINES:
+                logger.warning(
+                    "Model stream payload exceeded %d chars / %d lines without parsing; emitting it raw.",
+                    _SSE_MAX_BUFFER_CHARS,
+                    _SSE_MAX_CONTINUATION_LINES,
+                )
+                break
+
+            if container and not continuation_payload.rstrip().endswith(("}", "]")):
+                continue
+            payload = "".join(parts)
+            parsed_up_to_date = True
+            try:
+                return payload, json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+
+        payload = "".join(parts)
+        if not parsed_up_to_date:
+            try:
+                return payload, json.loads(payload)
+            except json.JSONDecodeError:
+                pass
+        return payload, None
+
     def __next__(self) -> StreamChunk:
         """Return the next chunk of the response.
 
@@ -672,40 +750,7 @@ class ModelResponseStreamer(Iterator[StreamChunk]):
 
             # Try to parse as JSON. If parsing fails, keep buffering consecutive
             # SSE data lines to reconstruct split JSON payloads.
-            buffered_payload = line
-            data = None
-            while True:
-                try:
-                    data = json.loads(buffered_payload)
-                    break
-                except json.JSONDecodeError:
-                    try:
-                        continuation_line = next(self._iterator)
-                        # A non-data SSE field between the halves of a split
-                        # payload is protocol noise, not a payload boundary.
-                        while (
-                            continuation_line
-                            and not continuation_line.startswith("data:")
-                            and continuation_line.startswith(_SSE_LINE_PREFIXES)
-                        ):
-                            continuation_line = next(self._iterator)
-                    except StopIteration:
-                        break
-
-                    if not continuation_line:
-                        break
-
-                    if not continuation_line.startswith("data:"):
-                        self._buffered_line = continuation_line
-                        break
-
-                    continuation_payload = continuation_line[5:].lstrip()
-                    if continuation_payload == "[DONE]":
-                        self._buffered_line = continuation_line
-                        break
-
-                    buffered_payload += continuation_payload
-
+            buffered_payload, data = self._reassemble_payload(line)
             if data is None:
                 if buffered_payload.strip():
                     return StreamChunk(status=self.status, data=buffered_payload)

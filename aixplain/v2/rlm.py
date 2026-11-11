@@ -24,10 +24,10 @@ import threading
 import time
 import uuid
 import warnings
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config as dj_config
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from .resource import BaseResource, Result
 from .mixins import ToolableMixin, ToolDict
@@ -489,6 +489,137 @@ def _truncate(text: str, max_chars: int = _REPL_OUTPUT_MAX_CHARS) -> str:
     return text
 
 
+# Orchestrator History Budget (BUG-949)
+
+# Fraction of the orchestrator's window the serialized history may occupy;
+# mirrors ``_CONTEXT_ROT_FRACTION`` for the same context-rot reason.
+_HISTORY_BUDGET_FRACTION = 0.80
+
+# ``max_tokens`` passed to every orchestrator call; reserved out of the window.
+_ORCHESTRATOR_MAX_TOKENS = 8192
+
+# Assumed orchestrator window when neither model reports ``max_context_length``.
+_DEFAULT_ORCHESTRATOR_WINDOW_TOKENS = 128_000
+
+# Floor for the history budget, in tokens, so a tiny or malformed window still
+# leaves room for the system prompt and the newest turn.
+_MIN_HISTORY_BUDGET_TOKENS = 8_000
+
+# Smallest slice of the newest turn kept when it alone overflows the budget.
+_MIN_HISTORY_ITEM_CHARS = 4_000
+
+_HISTORY_ELIDED_NOTE = (
+    "[{n} earlier message(s) omitted to fit the orchestrator context budget. "
+    "REPL state is preserved — re-inspect variables if you need earlier results.]"
+)
+
+
+def _serialized_len(msg: Dict[str, str]) -> int:
+    """Characters ``msg`` contributes to :func:`_messages_to_prompt` (incl. separator)."""
+    return len(msg["role"]) + len(msg["content"]) + 4 + 2  # "[ROLE]: " + "\n\n"
+
+
+def _fit_history(messages: List[Dict[str, str]], budget_chars: int) -> List[Dict[str, str]]:
+    """Return a view of ``messages`` whose serialized size fits ``budget_chars``.
+
+    Always keeps ``messages[0]`` (the system prompt) and ``messages[-1]`` (the
+    pending instruction). The oldest middle messages are dropped first and
+    replaced by a single elision note; the REPL keeps all state, so the
+    orchestrator can re-inspect anything it needs. If even the newest middle
+    message does not fit, its content is truncated (never below
+    ``_MIN_HISTORY_ITEM_CHARS``). The input list is never mutated. O(n).
+    """
+    total = sum(_serialized_len(m) for m in messages)
+    if total <= budget_chars or len(messages) <= 2:
+        return messages
+
+    first, last, middle = messages[0], messages[-1], messages[1:-1]
+    # Size the note for the worst case (every middle message dropped).
+    note_len = _serialized_len({"role": "user", "content": _HISTORY_ELIDED_NOTE.format(n=len(middle))})
+    remaining = budget_chars - _serialized_len(first) - _serialized_len(last) - note_len
+
+    kept: List[Dict[str, str]] = []
+    for msg in reversed(middle):
+        size = _serialized_len(msg)
+        if size > remaining:
+            break
+        kept.append(msg)
+        remaining -= size
+    kept.reverse()
+
+    if not kept and middle:
+        # The newest turn alone overflows: keep a truncated copy of it.
+        newest = middle[-1]
+        overhead = _serialized_len({"role": newest["role"], "content": ""}) + 80  # truncation suffix
+        max_chars = max(remaining - overhead, _MIN_HISTORY_ITEM_CHARS)
+        kept = [{**newest, "content": _truncate(newest["content"], max_chars)}]
+
+    dropped = len(middle) - len(kept)
+    if dropped == 0:
+        return [first, *kept, last]
+    note = {"role": "user", "content": _HISTORY_ELIDED_NOTE.format(n=dropped)}
+    return [first, note, *kept, last]
+
+
+# Bounded Thread Pools (BUG-949)
+
+# At most this many futures per worker are pending at once, so a huge chunk list
+# does not materialize thousands of Future objects (and their results) up front.
+_FUTURES_WINDOW_FACTOR = 2
+
+
+class _FutureTimeout(Exception):
+    """Stored in a result slot whose call did not finish before the deadline."""
+
+
+def _bounded_map(fn: Callable[[int], Any], n: int, *, max_workers: int, timeout: float) -> List[Any]:
+    """Run ``fn(0) … fn(n-1)`` on a thread pool with a deadline and a submit window.
+
+    At most ``max_workers`` calls run at once and at most
+    ``max_workers × _FUTURES_WINDOW_FACTOR`` futures are pending. Results come
+    back in index order; a slot holds the raised exception (or a
+    :class:`_FutureTimeout`) instead of a value when that call failed or missed
+    the deadline, so one bad call never aborts the batch.
+
+    ``timeout`` is a *stall* timeout: the batch is abandoned only when no call
+    completes for ``timeout`` seconds, so a large batch that keeps making
+    progress is never cut short just because its total runtime exceeds
+    ``timeout``. On a stall, still-pending calls get a :class:`_FutureTimeout`
+    and the pool is shut down with ``wait=False`` rather than joined (which a
+    ``with ThreadPoolExecutor`` block would do), so a hung HTTP call cannot pin
+    the caller. An abandoned thread still ends on its own HTTP read timeout.
+    """
+    results: List[Any] = [None] * n
+    if n <= 0:
+        return results
+    window = max(1, max_workers) * _FUTURES_WINDOW_FACTOR
+    executor = ThreadPoolExecutor(max_workers=max(1, max_workers))
+    pending: Dict[Future, int] = {}
+    next_idx = 0
+    try:
+        while next_idx < n or pending:
+            while next_idx < n and len(pending) < window:
+                pending[executor.submit(fn, next_idx)] = next_idx
+                next_idx += 1
+            done = wait(pending, timeout=timeout, return_when=FIRST_COMPLETED).done
+            if not done:
+                for future, idx in pending.items():
+                    future.cancel()
+                    results[idx] = _FutureTimeout(f"no worker call completed for {timeout:.0f}s")
+                for idx in range(next_idx, n):
+                    results[idx] = _FutureTimeout(f"not started: worker calls stalled for {timeout:.0f}s")
+                break
+            for future in done:
+                idx = pending.pop(future)
+                try:
+                    results[idx] = future.result()
+                except Exception as exc:  # isolate per-slot failures
+                    results[idx] = exc
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+    return results
+
+
 # llm_query Protocol Helpers
 
 
@@ -804,6 +935,10 @@ class RLM(BaseResource, ToolableMixin):
             batch of ``llm_query`` calls costs two iterations in recursive mode
             — one to submit the prompts and one to consume the answers.
         timeout: Maximum wall-clock seconds per ``run()`` call (default 600).
+            Also used as a stall timeout for concurrent batches of worker
+            calls (parallel-mode map/reduce levels and ``llm_query`` batches):
+            if no call in a batch completes for this long, the still-pending
+            calls are abandoned and their slots get an error marker.
     """
 
     # Not a platform-backed resource — no API endpoint.
@@ -1013,6 +1148,29 @@ class RLM(BaseResource, ToolableMixin):
                 pass
         return _DEFAULT_WORKER_WINDOW_TOKENS
 
+    def _get_orchestrator_context_tokens(self) -> int:
+        """Return the orchestrator's max context window as an int.
+
+        The orchestrator is the model that receives the history, so its window
+        is the binding one. Falls back to the worker's reported window, then to
+        ``_DEFAULT_ORCHESTRATOR_WINDOW_TOKENS``.
+        """
+        for model in (self._get_orchestrator(), self._get_worker()):
+            attrs = getattr(model, "attributes", None) or {}
+            raw = attrs.get("max_context_length", None) if isinstance(attrs, dict) else None
+            if raw is not None:
+                try:
+                    return int(raw)
+                except (ValueError, TypeError):
+                    pass
+        return _DEFAULT_ORCHESTRATOR_WINDOW_TOKENS
+
+    def _history_budget_chars(self) -> int:
+        """Character budget for the serialized orchestrator history (BUG-949)."""
+        tokens = self._get_orchestrator_context_tokens()
+        usable = int(tokens * _HISTORY_BUDGET_FRACTION) - _ORCHESTRATOR_MAX_TOKENS - _RESERVED_PROMPT_TOKENS
+        return max(usable, _MIN_HISTORY_BUDGET_TOKENS) * _CHARS_PER_TOKEN
+
     # Secret Tripwire (BUG-936)
 
     def _secret_values(self) -> Tuple[str, ...]:
@@ -1141,13 +1299,10 @@ del _url, _url_path, _r
 
         else:
             # --- Upload path: serialize locally, upload, then download in sandbox ---
-            if isinstance(context, str):
-                ext = ".txt"
-                content_bytes = context.encode("utf-8")
-                load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
-            elif isinstance(context, (dict, list)):
+            # Written straight to the temp file (no intermediate encoded copy of
+            # the whole context), and the upload streams that file (BUG-949).
+            if isinstance(context, (dict, list)):
                 ext = ".json"
-                content_bytes = json.dumps(context).encode("utf-8")
                 load_code = (
                     "import json as __json\n"
                     "with open(_filename, 'r', encoding='utf-8') as _f:\n"
@@ -1155,14 +1310,18 @@ del _url, _url_path, _r
                 )
             else:
                 ext = ".txt"
-                content_bytes = str(context).encode("utf-8")
                 load_code = "with open(_filename, 'r', encoding='utf-8') as _f:\n    context = _f.read()"
 
             tmp_dir = tempfile.mkdtemp()
             tmp_path = os.path.join(tmp_dir, f"context{ext}")
             try:
-                with open(tmp_path, "wb") as fh:
-                    fh.write(content_bytes)
+                # newline="" keeps the bytes identical on every OS (no \r\n
+                # translation on Windows), as the previous binary write did.
+                with open(tmp_path, "w", encoding="utf-8", newline="") as fh:
+                    if ext == ".json":
+                        json.dump(context, fh)
+                    else:
+                        fh.write(context if isinstance(context, str) else str(context))
 
                 uploader = FileUploader(
                     backend_url=self.context.backend_url,
@@ -1173,7 +1332,7 @@ del _url, _url_path, _r
                     is_temp=True,
                     return_download_link=True,
                 )
-                logger.debug(f"RLM: context uploaded ({ext}, {len(content_bytes)} bytes).")
+                logger.debug(f"RLM: context uploaded ({ext}, {os.path.getsize(tmp_path)} bytes).")
             finally:
                 try:
                     os.unlink(tmp_path)
@@ -1511,16 +1670,20 @@ del _url, _r
         # Warm the lazy worker cache before threads start, as parallel mode does.
         self._get_worker()
 
+        items = list(uniq.items())
+        results = _bounded_map(
+            lambda i: self._worker_call(items[i][1], _LLM_QUERY_MAX_TOKENS),
+            len(items),
+            max_workers=min(len(items), _MAX_PARALLEL_WORKERS),
+            timeout=self.timeout,
+        )
         answers: Dict[str, str] = {}
-        with ThreadPoolExecutor(max_workers=min(len(uniq), _MAX_PARALLEL_WORKERS)) as ex:
-            futures = {ex.submit(self._worker_call, prompt, _LLM_QUERY_MAX_TOKENS): key for key, prompt in uniq.items()}
-            for f in as_completed(futures):
-                key = futures[f]
-                try:
-                    answers[key] = f.result()
-                except Exception as exc:
-                    logger.warning(f"RLM: llm_query failed: {exc}")
-                    answers[key] = f"Error: llm_query failed — {exc}"
+        for (key, _), res in zip(items, results):
+            if isinstance(res, BaseException):
+                logger.warning(f"RLM: llm_query failed: {res}")
+                answers[key] = f"Error: llm_query failed — {res}"
+            else:
+                answers[key] = res
 
         logger.debug(f"RLM: resolved {len(answers)} llm_query prompt(s) SDK-side.")
         return answers
@@ -1546,7 +1709,11 @@ del _url, _r
         """Query the orchestrator model with the full conversation history.
 
         Serializes the message list to a formatted prompt string and calls
-        ``Model.run()`` on the resolved orchestrator.
+        ``Model.run()`` on the resolved orchestrator. The serialized history is
+        bounded by :meth:`_history_budget_chars`: once it would overflow, the
+        oldest turns are elided (see :func:`_fit_history`) so a long run does not
+        resend every prior REPL output on each iteration (BUG-949). Only the view
+        sent to the model is trimmed; ``messages`` itself is left intact.
 
         Args:
             messages: Full conversation history as role/content dicts.
@@ -1557,7 +1724,13 @@ del _url, _r
         Raises:
             ResourceError: If the orchestrator model call fails or returns an error.
         """
-        response = self._get_orchestrator().run(text=_messages_to_prompt(messages), max_tokens=8192)
+        budget = self._history_budget_chars()
+        fitted = _fit_history(messages, budget)
+        if fitted is not messages:
+            logger.info(
+                f"RLM: orchestrator history trimmed {len(messages)}→{len(fitted)} messages to fit {budget} chars."
+            )
+        response = self._get_orchestrator().run(text=_messages_to_prompt(fitted), max_tokens=_ORCHESTRATOR_MAX_TOKENS)
         self._used_credits += float(getattr(response, "used_credits", 0) or 0)
         if response.completed or response.status == "SUCCESS":
             return str(response.data)
@@ -1617,28 +1790,24 @@ del _url, _r
         error text as if it were content (BUG-1462).
         """
         n = len(chunks)
-        answers: List[Optional[str]] = [None] * n
-        failed = 0
-        last_error: Optional[BaseException] = None
 
         def _map_one(idx: int) -> str:
             prompt = _MAP_PROMPT.format(idx=idx + 1, total=n, query=query, chunk=chunks[idx])
             return self._worker_call(prompt)
 
-        max_workers = min(n, _MAX_PARALLEL_WORKERS)
-        with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            futures = {ex.submit(_map_one, i): i for i in range(n)}
-            for f in as_completed(futures):
-                i = futures[f]
-                try:
-                    answers[i] = f.result()
-                except Exception as exc:
-                    failed += 1
-                    last_error = exc
-                    logger.warning(f"RLM parallel: chunk {i} failed: {self._redact(str(exc))}")
-                    answers[i] = "NONE"
-
-        return [a if a is not None else "NONE" for a in answers], failed, last_error
+        results = _bounded_map(_map_one, n, max_workers=min(n, _MAX_PARALLEL_WORKERS), timeout=self.timeout)
+        answers: List[str] = []
+        failed = 0
+        last_error: Optional[BaseException] = None
+        for i, res in enumerate(results):
+            if isinstance(res, BaseException):
+                failed += 1
+                last_error = res
+                logger.warning(f"RLM parallel: chunk {i} failed: {self._redact(str(res))}")
+                answers.append("NONE")
+            else:
+                answers.append(res if res is not None else "NONE")
+        return answers, failed, last_error
 
     def _reduce_call(self, formatted_answers: str, query: str, n: int) -> str:
         """Single reduce call: synthesize partial answers into one final answer."""
@@ -1650,6 +1819,11 @@ del _url, _r
 
         Combines ``_REDUCE_FAN_IN`` answers at a time, in parallel at each
         level, until a single answer remains. log(N) depth.
+
+        A failed or timed-out group is replaced by an error marker, as
+        :meth:`_parallel_map` does for chunks, so one bad call does not abort
+        the run. If *every* group at a level fails there is nothing left to
+        combine, and a ``ResourceError`` is raised instead.
         """
         while len(answers) > 1:
             groups = [answers[i : i + _REDUCE_FAN_IN] for i in range(0, len(answers), _REDUCE_FAN_IN)]
@@ -1658,14 +1832,24 @@ del _url, _r
                 formatted = "\n\n".join(f"[Part]: {a}" for a in group)
                 return self._reduce_call(formatted, query, len(group))
 
-            next_level: List[Optional[str]] = [None] * len(groups)
-            max_workers = min(len(groups), _MAX_PARALLEL_WORKERS)
-            with ThreadPoolExecutor(max_workers=max_workers) as ex:
-                futures = {ex.submit(_reduce_group, g): i for i, g in enumerate(groups)}
-                for f in as_completed(futures):
-                    i = futures[f]
-                    next_level[i] = f.result()
-            answers = [a for a in next_level if a is not None]
+            results = _bounded_map(
+                lambda i, groups=groups: _reduce_group(groups[i]),
+                len(groups),
+                max_workers=min(len(groups), _MAX_PARALLEL_WORKERS),
+                timeout=self.timeout,
+            )
+            failures = [r for r in results if isinstance(r, BaseException)]
+            if failures and len(failures) == len(results):
+                raise ResourceError(f"RLM: all {len(results)} reduce group(s) failed — {failures[0]}")
+            next_level: List[str] = []
+            for i, res in enumerate(results):
+                if isinstance(res, BaseException):
+                    # Drop the failed group rather than synthesizing its error
+                    # text as if it were content (BUG-1462).
+                    logger.warning(f"RLM parallel: reduce group {i} failed: {self._redact(str(res))}")
+                elif res is not None:
+                    next_level.append(res)
+            answers = next_level
         return answers[0]
 
     def _reduce(self, chunk_answers: List[str], query: str, budget_chars: int) -> str:
@@ -1975,7 +2159,8 @@ del _url, _r
 
             name: Identifier used in log messages. Defaults to ``"rlm_process"``.
             timeout: Maximum wall-clock seconds. Applies to ``"recursive"`` mode
-                only. Overrides ``self.timeout`` when provided.
+                only. Overrides ``self.timeout`` when provided. (Concurrent
+                worker batches always use ``self.timeout`` as their stall timeout.)
             mode: ``"auto"``, ``"parallel"``, ``"recursive"``, or ``"rag"``.
                 Defaults to ``"auto"``.
             context_path: Explicit path of a file to use as the context. Use
