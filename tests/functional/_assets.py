@@ -156,10 +156,10 @@ class AssetIds:
     TAVILY: str
 
     #: A Google web-search connector tool with a single query action, for the
-    #: generic web-search agent test (Tavily has its own test). Scale SERP on
-    #: dev/test, where it used to be fetched by the marketplace path
-    #: ``scale-serp/google-search/Google``; that path does not exist on prod, so
-    #: prod uses the SerpAPI Google Search API tool.
+    #: generic web-search agent test (Tavily has its own test). The test used to
+    #: fetch it by the marketplace path ``scale-serp/google-search/Google``, which
+    #: does not exist on prod, so it is pinned by id: the Google Search API tool,
+    #: shared by every id space until a backend proves otherwise.
     WEB_SEARCH_TOOL: str
 
     #: The pre-configured Debugger meta-agent behind ``aix.Debugger()``. The SDK
@@ -203,7 +203,7 @@ SPECS: Dict[str, AssetSpec] = {
     "SLACK_INTEGRATION": AssetSpec("Integration", "Slack integration"),
     "FIRECRAWL": AssetSpec("Tool", "Firecrawl connector tool"),
     "TAVILY": AssetSpec("Tool", "Tavily Web Search connector tool"),
-    "WEB_SEARCH_TOOL": AssetSpec("Tool", "Google web-search connector tool (dev/test: Scale SERP; prod: SerpAPI)"),
+    "WEB_SEARCH_TOOL": AssetSpec("Tool", "Google Search API web-search connector tool"),
     "DEBUGGER_AGENT": AssetSpec("Agent", "Debugger meta-agent (SDK meta_agents.DEBUGGER_AGENT_ID)"),
 }
 
