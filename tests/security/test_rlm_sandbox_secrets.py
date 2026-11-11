@@ -98,7 +98,7 @@ class _FakeSandbox:
     def codes_for(self, session_id) -> list:
         return [c["code"] for c in self.calls if c["session"] == session_id and c["code"] is not None]
 
-    def run(self, data=None, action="run"):
+    def run(self, data=None, action="run", **kwargs):
         data = data or {}
         session_id = data.get("sessionId")
         code = data.get("code")

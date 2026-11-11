@@ -266,7 +266,7 @@ class TestRecursiveHistoryBudget:
         orchestrator.attributes = {"max_context_length": 32_000}
         sent = []
 
-        def orch_run(text, max_tokens):
+        def orch_run(text, max_tokens, timeout=None):
             sent.append(text)
             if len(sent) > 10:  # forced final turn must answer with FINAL(...)
                 return _model_response("FINAL(done)")

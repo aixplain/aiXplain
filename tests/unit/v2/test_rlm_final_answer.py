@@ -205,7 +205,22 @@ class TestForcedFinalAnswer:
         assert result.status == "FAILED"
         assert not [e for e in events if e[0] == "sandbox"]
 
-    def test_timeout_reaches_forced_parse(self):
+    def test_iterations_exhausted_reaches_forced_parse(self):
+        result, _, replies = _run(
+            _make_rlm(max_iterations=1),
+            "Still thinking.",
+            "FINAL_VAR(x)",
+            repl={"x": "Paris"},
+        )
+
+        assert replies == ["Still thinking.", "FINAL_VAR(x)"]
+        assert result.status == "SUCCESS"
+        assert result.data == "Paris"
+        assert result.final_answer_forced is True
+
+    def test_timeout_skips_forced_final(self):
+        # BUG-1453: no forced-final call past the deadline; the run is flagged
+        # as timed out instead of reaching the forced parse.
         result, _, replies = _run(
             _make_rlm(max_iterations=5),
             "Still thinking.",
@@ -215,10 +230,10 @@ class TestForcedFinalAnswer:
             timeout=1.0,
         )
 
-        assert replies == ["FINAL_VAR(x)"]
-        assert result.status == "SUCCESS"
-        assert result.data == "Paris"
-        assert result.final_answer_forced is True
+        assert replies == []
+        assert result.status == "FAILED"
+        assert result.timed_out is True
+        assert result.final_answer_forced is False
 
     def test_in_loop_answer_is_not_forced(self):
         result, _, replies = _run(_make_rlm(), "FINAL(Paris (France))", "FINAL(unused)")

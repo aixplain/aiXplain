@@ -35,7 +35,7 @@ class FakeModel:
         self.calls = []
         self._lock = threading.Lock()
 
-    def run(self, text, max_tokens=None):
+    def run(self, text, max_tokens=None, timeout=None):
         with self._lock:
             self.calls.append({"text": text, "max_tokens": max_tokens})
         out = self._responder(text)
@@ -77,7 +77,7 @@ class FakeSandbox:
             raise self.actions
         return [SimpleNamespace(name=a) for a in (self.actions or [])]
 
-    def run(self, data, action):
+    def run(self, data, action, timeout=None):
         self.calls.append({"data": data, "action": action})
         if action != "run":
             return resp(data={"closed": True})
@@ -123,9 +123,9 @@ class ExecSandbox(FakeSandbox):
         self.namespaces = {}
         self._current = None
 
-    def run(self, data, action):
+    def run(self, data, action, timeout=None):
         self._current = data.get("sessionId")
-        return super().run(data, action)
+        return super().run(data, action, timeout=timeout)
 
     def _exec(self, code):
         import contextlib

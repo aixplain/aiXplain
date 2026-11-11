@@ -270,15 +270,18 @@ class TestRecursiveLoop:
 
         assert result.data == "forced"
 
-    def test_timeout_forces_final_without_iterating(self, uploads):
+    def test_spent_timeout_makes_no_orchestrator_call(self, uploads):
+        # BUG-1453: a spent budget starts no orchestrator call, not even the
+        # forced final one, and the result is flagged as timed out.
         orch = ScriptedModel(["forced"])
         rlm = _recursive_rlm(orch, ExecSandbox(context_value="c"))
 
         result = rlm.run(data={"context": "c", "query": "Q"}, mode="recursive", timeout=-1)
 
-        assert result.data == "forced"
-        assert len(orch.calls) == 1
-        assert orch.calls[0]["text"].endswith(rlm_mod._FORCE_FINAL_PROMPT)
+        assert result.status == "FAILED"
+        assert result.timed_out is True
+        assert result.data is None
+        assert orch.calls == []
 
     def test_forced_final_pending_placeholder_stripped(self, uploads):
         orch = ScriptedModel([f"answer: {rlm_mod._LLM_PENDING_SENTINEL}"])
