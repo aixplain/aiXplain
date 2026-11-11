@@ -1,5 +1,5 @@
 import pytest
-from aixplain import SortBy, SortOrder
+from aixplain import Function, SortBy, SortOrder
 
 
 @pytest.fixture(scope="module")
@@ -550,6 +550,13 @@ def test_search_models_with_functions_filter(client):
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
     assert models.results, "Expected the functions filter to return results"
+    # The enum member and the ``function=`` alias are sent as the same kebab code (BUG-1459).
+    for page in (
+        client.Model.search(functions=[Function.TEXT_GENERATION]),
+        client.Model.search(function=Function.TEXT_GENERATION),
+    ):
+        assert page.results, "Expected Function.TEXT_GENERATION to match text-generation models"
+        assert all(m.function.name == "TEXT_GENERATION" for m in page.results if m.function)
     # If results are present, ensure each model has the requested function.
     # The v2 Function enum uses uppercase values (TEXT_GENERATION), while the
     # backend filter id is the lowercase dashed form.
@@ -559,8 +566,9 @@ def test_search_models_with_functions_filter(client):
 
 
 def test_search_models_with_status_filter(client):
-    """Test searching models using the 'status' filter as a list of strings."""
-    models = client.Model.search(status=["onboarded"])
+    """``status`` is not read by v2/models/paginate: it warns and is not sent (BUG-1459)."""
+    with pytest.warns(FutureWarning, match="status"):
+        models = client.Model.search(status=["onboarded"])
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
     for model in models.results:
@@ -569,9 +577,10 @@ def test_search_models_with_status_filter(client):
 
 
 def test_search_models_with_suppliers_filter(client):
-    """Test searching models using the 'suppliers' filter as a list of strings."""
-    # Use a supplier code known to exist in dev (fallback checks only structure)
-    models = client.Model.search(suppliers=["google"])
+    """Test searching models using the ``vendors`` filter (sent as ``suppliers``)."""
+    # Use a supplier code known to exist in dev (fallback checks only structure).
+    # ``suppliers=`` is not a declared kwarg and raises ValidationError (BUG-1459).
+    models = client.Model.search(vendors=["google"])
     assert hasattr(models, "results")
     assert isinstance(models.results, list)
 

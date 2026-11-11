@@ -14,8 +14,8 @@ Three unrelated code paths used to trust a URL simply because it parsed:
 
 All three decisions live here so the call sites stay one-liners and the policy
 cannot drift between v1, v2 and ``aixplain/utils``. This module deliberately
-imports nothing from ``aixplain.v2`` -- it is consumed by ``aixplain.utils.config``
-and by v1, neither of which may depend on v2.
+imports nothing from ``aixplain.v2`` -- it is consumed by ``aixplain.v2`` (``core``, ``file``,
+``upload_utils``, ``code_utils``, ``rlm``) and must not import it back.
 
 Residual risk: :func:`safe_get` resolves the host to validate it and then lets
 ``requests`` resolve it again to connect, so a hostile resolver serving a

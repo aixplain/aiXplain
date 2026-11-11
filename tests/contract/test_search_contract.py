@@ -50,49 +50,39 @@ def test_tool_sort_reaches_the_backend(aix, pages: PlatformStub) -> None:
 
     body = _body(pages, "tools")
     assert readers.sort_problems(body) == [] and body["sort"] == [{"field": "name", "dir": 1}]
-    assert readers.unread_keys(body, readers.TOOL_PAGINATE) == ["sortBy", "sortOrder"]  # harmless legacy keys
+    assert readers.unread_keys(body, readers.TOOL_PAGINATE) == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "ENG-3782 finding (BUG-1092 class): Agent.search sends only sortBy/sortOrder, which "
-        "AgentService.paginateV2 never reads (it reads `sort: [{field, dir}]`), so agent search results "
-        "are never sorted. #1146 fixed this for Model/Tool only."
-    ),
-)
 def test_agent_sort_reaches_the_backend(aix, pages: PlatformStub) -> None:
+    """BUG-1459: Agent.search used to send only sortBy/sortOrder, which paginateV2 never reads."""
     aix.Agent.search(query="geo", sort_by=SortBy.CREATED_AT, sort_order=SortOrder.DESC)
 
     assert readers.sort_problems(_body(pages, "agents")) == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "ENG-3782 finding (BUG-1092 class): the `ownership` filter is sent to v2/models/paginate and "
-        "v2/agents/paginate, and neither service reads it (agents read `owned`), so "
-        "search(ownership=PRIVATE) returns every visible asset."
-    ),
-)
 @pytest.mark.parametrize("resource", ["Agent", "Model"])
-def test_ownership_filter_reaches_the_backend(aix, pages: PlatformStub, resource: str) -> None:
-    getattr(aix, resource).search(query="x", ownership=OwnershipType.PRIVATE)
+def test_ownership_filter_is_not_sent_unread(aix, pages: PlatformStub, resource: str) -> None:
+    """BUG-1459: neither paginate service reads ``ownership``, so the SDK warns and does not send it."""
+    with pytest.warns(FutureWarning, match="ownership"):
+        getattr(aix, resource).search(query="x", ownership=OwnershipType.PRIVATE)
 
     body = _body(pages, resource.lower() + "s")
     reads = readers.AGENT_PAGINATE if resource == "Agent" else readers.MODEL_PAGINATE
     assert "ownership" not in readers.unread_keys(body, reads)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "ENG-3782 finding (BUG-1092 class): Model.search sends sourceLanguages/targetLanguages, which "
-        "ModelService.paginateModels never reads (ModelPaginationInput has no language filter), so the "
-        "filter is accepted and ignored."
-    ),
-)
-def test_language_filters_reach_the_backend(aix, pages: PlatformStub) -> None:
-    aix.Model.search(query="translate", source_languages=["en"], target_languages=["fr"])
+def test_language_filters_are_not_sent_unread(aix, pages: PlatformStub) -> None:
+    """BUG-1459: ModelPaginationInput has no language filter, so the SDK warns and does not send one."""
+    with pytest.warns(FutureWarning, match="source_languages"):
+        aix.Model.search(query="translate", source_languages=["en"], target_languages=["fr"])
 
     assert readers.unread_keys(_body(pages, "models"), readers.MODEL_PAGINATE) == []
+
+
+def test_agent_status_reaches_the_backend_as_one_scalar(aix, pages: PlatformStub) -> None:
+    """BUG-1459: AgentPaginateInput.status is a scalar draft/onboarded enum; it used to be dropped."""
+    aix.Agent.search(query="geo", status=["onboarded"])
+
+    body = _body(pages, "agents")
+    assert body["status"] == "onboarded"
+    assert readers.unread_keys(body, readers.AGENT_PAGINATE) == []
