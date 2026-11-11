@@ -449,16 +449,32 @@ def test_run_time_inspector_accepted(run_agent, assets):
 # ---------------------------------------------------------------------------
 
 
-def test_timeout_zero_raises_before_first_poll(run_agent):
-    """``timeout`` bounds the SDK's wait for an accepted run.
+def test_timeout_zero_is_rejected_before_submission(run_agent):
+    """A non-positive ``timeout`` is rejected before the run is submitted.
 
-    Agent runs are asynchronous: the submission returns a poll URL, and
-    ``sync_poll`` checks the remaining budget before its first poll, so
-    ``timeout=0`` raises deterministically. The run itself carries on on the
-    backend.
+    ``Agent.run`` validates the poll budget before the POST (BUG-1095), so a
+    budget that can never be met does not bill a run that is then abandoned.
+    The unit tests in ``tests/unit/v2/test_bug_1095_contracts.py`` check that no
+    request is sent; this test checks the same contract against the live client.
     """
-    with pytest.raises(SDKTimeoutError, match=r"timed out after 0 seconds"):
+    with pytest.raises(ValueError, match=r"timeout must be a positive number of seconds"):
         run_agent.run("Say hi.", timeout=0)
+
+
+def test_tiny_timeout_raises_sdk_timeout(run_agent):
+    """A positive but tiny ``timeout`` is accepted, then expires in ``sync_poll``.
+
+    The run is submitted, and ``sync_poll`` starts its clock once the submission
+    returns. The budget is spent by the first poll at the latest: that poll's
+    read timeout has a 1 s floor and the loop rechecks the budget after every
+    poll, so the call raises the SDK ``TimeoutError`` instead of returning. The
+    only way out is a "Say hi." run completing within a millisecond of being
+    accepted, which an LLM round trip rules out. The run itself carries on on
+    the backend, and the error carries its poll URL.
+    """
+    with pytest.raises(SDKTimeoutError, match=r"timed out after 0\.001 seconds") as excinfo:
+        run_agent.run("Say hi.", timeout=0.001)
+    assert excinfo.value.poll_url, "the timeout should carry the run's poll URL"
 
 
 # ---------------------------------------------------------------------------
