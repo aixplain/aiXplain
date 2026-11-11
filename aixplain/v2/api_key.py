@@ -4,13 +4,14 @@ This module provides classes for managing API keys and their rate limits
 using the V2 SDK foundation with proper mixin usage.
 """
 
+import logging
 import re
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config as dj_config
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from numbers import Integral
-from typing import Dict, Iterable, List, Optional, Union, Any, TYPE_CHECKING
+from typing import Dict, Iterable, List, Optional, Set, Union, Any, TYPE_CHECKING
 from typing_extensions import Literal, TypedDict
 
 from .resource import (
@@ -30,6 +31,8 @@ from .plain_data import coerce_enum
 if TYPE_CHECKING:
     from .core import Aixplain
 
+logger = logging.getLogger(__name__)
+
 
 def _resolve_model(model: Any) -> str:
     """Resolve a model reference to a string identifier.
@@ -46,6 +49,72 @@ def _resolve_model(model: Any) -> str:
     if model_id:
         return model_id
     return str(model)
+
+
+def _resolve_model_path_to_id(context: Any, path: str) -> str:
+    """Resolve an exact model path (``developer/model/host``) to its model ID.
+
+    Raises:
+        ValidationError: If the path is malformed, unknown, or does not match
+            the resolved model's path exactly.
+    """
+    try:
+        if len(path.split("/")) != 3 or not all(path.split("/")):
+            raise ValidationError("Use an exact model path (developer/model/host) or a model ID")
+        resolved = context.Model.get(path)
+        if not isinstance(resolved.path, str) or resolved.path.casefold() != path.casefold():
+            raise ValidationError("Model path did not match exactly; use a model ID instead")
+        return resolved.id
+    except Exception as exc:
+        raise ValidationError(
+            f"Could not resolve model path '{path}': {exc}. "
+            "Use a valid model path (e.g. 'openai/gpt-4o-mini/openai') or a model ID."
+        ) from exc
+
+
+def _model_path_cache(context: Any) -> Dict[str, str]:
+    """Return the per-context model-ID-to-path cache (created on first use)."""
+    if context is None:
+        return {}
+    cache = getattr(context, "_model_path_cache", None)
+    if not isinstance(cache, dict):
+        cache = {}
+        context._model_path_cache = cache
+    return cache
+
+
+def _model_ref_candidates(context: Any, model: Any, resolve: bool = True) -> Set[str]:
+    """Return every identifier a model reference may be stored or reported under.
+
+    The backend reports and stores model IDs, while callers may pass an ID, a
+    path or a ``Model`` -- and a limit fetched in this process may carry the
+    path restored from the context cache. The result holds the reference's own
+    ID and path, anything the cache maps them to, and -- when only a path is
+    known and *resolve* is set -- the ID the path resolves to.
+
+    Raises:
+        ValidationError: If a path has to be resolved and cannot be.
+    """
+    refs: Set[str] = set()
+    if isinstance(model, str):
+        refs.add(model)
+    else:
+        for attr in ("id", "path"):
+            value = getattr(model, attr, None)
+            if isinstance(value, str) and value:
+                refs.add(value)
+    if not refs:
+        refs.add(str(model))
+    cache = _model_path_cache(context)
+    for model_id, path in list(cache.items()):
+        if model_id in refs or path in refs:
+            refs.update((model_id, path))
+    if resolve and context is not None and all("/" in ref for ref in refs):
+        path = next(iter(refs))
+        model_id = _resolve_model_path_to_id(context, path)
+        cache[model_id] = path
+        refs.add(model_id)
+    return refs
 
 
 class TokenType(Enum):
@@ -380,6 +449,8 @@ class APIKey(
 
     # Core fields
     budget: Optional[float] = field(default=None)
+    # A timezone-aware datetime is sent as the same instant in UTC; a naive
+    # datetime is interpreted as UTC. A string is sent unchanged.
     expires_at: Optional[Union[datetime, str]] = field(default=None, metadata=dj_config(field_name="expiresAt"))
     key: Optional[str] = field(default=None, metadata=dj_config(field_name="accessKey"))
     is_admin: bool = field(default=False, metadata=dj_config(field_name="isAdmin"))
@@ -443,8 +514,11 @@ class APIKey(
                     if existing.name == self.name:
                         self.id = existing.id
                         break
-            except Exception:
-                pass
+            except (APIError, ResourceError, OSError) as exc:
+                # Not fatal: _create() resolves a 422 name conflict by PUTting
+                # the caller's payload onto the existing key. Anything else
+                # (a programming error) propagates.
+                logger.warning("Could not look up an existing API key named %r: %s", self.name, exc)
         return None
 
     def build_save_payload(self, **kwargs: Any) -> Dict:
@@ -464,7 +538,12 @@ class APIKey(
 
         if self.expires_at:
             if isinstance(self.expires_at, datetime):
-                payload["expiresAt"] = self.expires_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                expires_at = self.expires_at
+                # Aware datetimes are sent as the same instant in UTC; naive
+                # datetimes are interpreted as UTC (documented on the field).
+                if expires_at.tzinfo is not None:
+                    expires_at = expires_at.astimezone(timezone.utc)
+                payload["expiresAt"] = expires_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             else:
                 payload["expiresAt"] = self.expires_at
 
@@ -478,7 +557,13 @@ class APIKey(
         return payload
 
     def _create(self, resource_path: str, payload: dict) -> None:
-        """Create the resource, falling back to lookup on name conflict (HTTP 422)."""
+        """Create the resource; on a name conflict (HTTP 422) update the existing key.
+
+        Upsert by name: when the name lookup in :meth:`before_save` could not
+        run, the POST conflicts and the caller's settings are PUT onto the
+        existing key -- the same outcome as a successful lookup. The existing
+        key's fields are never adopted in place of the caller's.
+        """
         try:
             super()._create(resource_path, payload)
         except (APIError, ResourceError) as e:
@@ -487,14 +572,12 @@ class APIKey(
             )
             if status != 422:
                 raise
-            for existing in self.list():
-                if existing.name == self.name:
-                    for f in self.__dataclass_fields__:
-                        if hasattr(existing, f):
-                            setattr(self, f, getattr(existing, f))
-                    break
-            else:
+            existing = next((key for key in self.list() if key.name == self.name), None)
+            if existing is None or not existing.id:
                 raise
+            self.id = existing.id
+            self._update(resource_path, {**payload, "id": existing.id})
+            return
         self._restore_model_paths()
 
     def _update(self, resource_path: str, payload: dict) -> None:
@@ -756,13 +839,13 @@ class APIKey(
             List of usage limit objects
         """
         self._ensure_valid_state()
-        resolved = _resolve_model(model) if model else None
+        candidates = _model_ref_candidates(self.context, model) if model else None
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}/usage-limits"
         response = self.context.client.get(path)
 
         results = []
         for item in response:
-            if resolved is None or item.get("assetId") == resolved:
+            if candidates is None or item.get("assetId") in candidates:
                 results.append(APIKeyUsageLimit.from_dict(item))
         return results
 
@@ -781,13 +864,13 @@ class APIKey(
         if context is None:
             raise ResourceError("Context is required for API key operations")
 
-        resolved = _resolve_model(model) if model else None
+        candidates = _model_ref_candidates(context, model) if model else None
         path = f"{cls.RESOURCE_PATH}/usage-limits"
         response = context.client.get(path)
 
         results = []
         for item in response:
-            if resolved is None or item.get("assetId") == resolved:
+            if candidates is None or item.get("assetId") in candidates:
                 results.append(APIKeyUsageLimit.from_dict(item))
         return results
 
@@ -833,7 +916,8 @@ class APIKey(
             global_limits: Global rate limits. A dict on the user-facing field
                 names (see :class:`APIKeyLimitsDict`) or an :class:`APIKeyLimits`.
             asset_limits: Optional per-asset rate limits, in the same two forms
-            expires_at: Optional expiration datetime
+            expires_at: Optional expiration datetime. A timezone-aware datetime is
+                converted to UTC; a naive datetime is interpreted as UTC.
             **kwargs: Additional arguments passed to save()
 
         Returns:
@@ -879,21 +963,11 @@ class APIKey(
             if asset_id in cache:
                 asset_limit["assetId"] = cache[asset_id]
                 continue
-            try:
-                if len(asset_id.split("/")) != 3 or not all(asset_id.split("/")):
-                    raise ValidationError("Use an exact model path (developer/model/host) or a model ID")
-                resolved = self.context.Model.get(asset_id)
-                if not isinstance(resolved.path, str) or resolved.path.casefold() != asset_id.casefold():
-                    raise ValidationError("Model path did not match exactly; use a model ID instead")
-                cache[asset_id] = resolved.id
-                self._id_to_path[resolved.id] = asset_id
-                self._get_path_cache()[resolved.id] = asset_id
-                asset_limit["assetId"] = resolved.id
-            except Exception as exc:
-                raise ValidationError(
-                    f"Could not resolve model path '{asset_id}': {exc}. "
-                    "Use a valid model path (e.g. 'openai/gpt-4o-mini/openai') or a model ID."
-                ) from exc
+            model_id = _resolve_model_path_to_id(self.context, asset_id)
+            cache[asset_id] = model_id
+            self._id_to_path[model_id] = asset_id
+            self._get_path_cache()[model_id] = asset_id
+            asset_limit["assetId"] = model_id
 
     def _restore_model_paths(self) -> None:
         """Replace resolved model IDs with the original user-provided paths.
@@ -917,14 +991,7 @@ class APIKey(
 
         Scoped per ``Aixplain`` instance so it doesn't bleed across clients.
         """
-        ctx = getattr(self, "context", None)
-        if ctx is None:
-            return {}
-        cache = getattr(ctx, "_model_path_cache", None)
-        if not isinstance(cache, dict):
-            cache = {}
-            ctx._model_path_cache = cache
-        return cache
+        return _model_path_cache(getattr(self, "context", None))
 
     def _validate_limits(self) -> None:
         """Validate the API key configuration."""
@@ -946,12 +1013,16 @@ class APIKey(
                 self.global_limits = APIKeyLimits()
             setattr(self.global_limits, attr, value)
         else:
-            resolved = _resolve_model(model)
-            for limit in self.asset_limits:
-                if limit.model == resolved:
-                    setattr(limit, attr, value)
-                    return
-            raise ResourceError(f"Limit for model {resolved} not found in the API key")
+            context = getattr(self, "context", None)
+            # Try the cheap identifiers first; resolve a path over the network
+            # only when nothing matched locally.
+            for resolve in (False, True):
+                candidates = _model_ref_candidates(context, model, resolve=resolve)
+                for limit in self.asset_limits:
+                    if limit.model in candidates:
+                        setattr(limit, attr, value)
+                        return
+            raise ResourceError(f"Limit for model {_resolve_model(model)} not found in the API key")
 
     @staticmethod
     def _limits_to_api_dict(limits: APIKeyLimits, include_asset: bool = False) -> Dict:

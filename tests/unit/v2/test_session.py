@@ -516,19 +516,33 @@ class TestSessionSearch:
         assert page.total == 0
 
     def test_search_paginated_dict_envelope(self):
-        """Tolerate a future paginated dict envelope (total/pageTotal)."""
+        """Tolerate a future paginated dict envelope; page_total reads pagesCount (BUG-1459)."""
         ctx = _make_mock_context()
         ctx.client.request.return_value = {
             "results": [SAMPLE_SESSION_DICT],
             "total": 17,
-            "pageTotal": 4,
+            "pageTotal": 1,
+            "pagesCount": 4,
         }
         BoundSession = _bound_session_class(ctx)
 
-        page = BoundSession.search(page_number=1)
+        page = BoundSession.search(page_number=1, page_size=5)
         assert page.total == 17
         assert page.page_total == 4
         assert len(page.results) == 1
+
+    def test_search_dict_envelope_page_total_is_not_the_item_count(self):
+        """Without pagesCount, page_total is ceil(total / page_size), never pageTotal (BUG-1459)."""
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = {
+            "results": [SAMPLE_SESSION_DICT],
+            "total": 17,
+            "pageTotal": 1,
+        }
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search(page_size=5)
+        assert page.page_total == 4
 
 
 # =========================================================================
@@ -569,6 +583,55 @@ class TestSessionMessages:
 
         messages = session.messages()
         assert messages == []
+
+    # --- messages() pagination (BUG-949) ---
+
+    def test_messages_without_args_sends_no_params(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = [SAMPLE_MESSAGE_DICT]
+        session = self._make_session(ctx)
+
+        session.messages()
+
+        assert "params" not in ctx.client.request.call_args.kwargs
+
+    def test_messages_forwards_pagination_params(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = [SAMPLE_MESSAGE_DICT]
+        session = self._make_session(ctx)
+
+        messages = session.messages(page_number=2, page_size=50)
+
+        assert ctx.client.request.call_args.kwargs["params"] == {"pageNumber": 2, "pageSize": 50}
+        assert len(messages) == 1
+
+    def test_messages_forwards_only_given_param(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = []
+        session = self._make_session(ctx)
+
+        session.messages(page_size=10)
+
+        assert ctx.client.request.call_args.kwargs["params"] == {"pageSize": 10}
+
+    @pytest.mark.parametrize("key", ["results", "items"])
+    def test_messages_parses_paginated_envelope(self, key):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = {key: [SAMPLE_MESSAGE_DICT], "total": 1}
+        session = self._make_session(ctx)
+
+        messages = session.messages(page_number=0, page_size=1)
+
+        assert [m.id for m in messages] == ["msg_001"]
+
+    @pytest.mark.parametrize("kwargs", [{"page_number": -1}, {"page_size": 0}])
+    def test_messages_rejects_invalid_pagination(self, kwargs):
+        ctx = _make_mock_context()
+        session = self._make_session(ctx)
+
+        with pytest.raises(ValueError):
+            session.messages(**kwargs)
+        ctx.client.request.assert_not_called()
 
     def test_add_message_basic(self):
         ctx = _make_mock_context()
@@ -765,7 +828,9 @@ class TestSessionMessages:
             MockUploader.return_value.upload.return_value = "https://cdn.example.com/clip.wav"
             MockDetector.detect_mime_type.return_value = "audio/wav"
 
-            session.add_message(role="user", content="transcribe", attachments=["/tmp/clip.wav"])
+            # A plain-string local path still uploads but is deprecated (BUG-948).
+            with pytest.warns(FutureWarning, match="plain string"):
+                session.add_message(role="user", content="transcribe", attachments=["/tmp/clip.wav"])
 
         att = ctx.client.request.call_args[1]["json"]["attachments"][0]
         assert att == {
@@ -1430,3 +1495,93 @@ class TestSessionExecutionConfigConstruction:
     def test_run_response_generation_false_is_kept(self):
         cfg = ExecutionConfig(run_response_generation=False)
         assert cfg.run_response_generation is False
+
+
+# =========================================================================
+# BUG-1461 — honest paging, ordered messages, context_overflow_strategy
+# =========================================================================
+
+
+class TestBug1461SessionCorrectness:
+    """Regression tests for BUG-1461 items 1 and 2."""
+
+    def test_execution_config_sends_context_overflow_strategy_camel_case(self):
+        cfg = ExecutionConfig(execution_params={"context_overflow_strategy": "summarize"})
+        exec_params = cfg.to_api_dict()["executionParams"]
+        assert exec_params["contextOverflowStrategy"] == "summarize"
+        assert "context_overflow_strategy" not in exec_params
+
+    def test_full_bare_array_page_reports_unknown_counts(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = [{**SAMPLE_SESSION_DICT, "id": f"sess_{i}"} for i in range(5)]
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search(page_size=5)
+
+        assert len(page.results) == 5
+        assert page.page_total is None
+        assert page.total is None
+
+    def test_short_bare_array_page_is_the_last_page(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = [SAMPLE_SESSION_DICT, {**SAMPLE_SESSION_DICT, "id": "sess_002"}]
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search(page_number=2, page_size=5)
+
+        assert page.page_total == 3
+        assert page.total == 12
+
+    def test_empty_page_past_the_first_reports_unknown_counts(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = []
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search(page_number=3, page_size=5)
+
+        assert page.page_total is None
+        assert page.total is None
+
+    def test_dict_envelope_without_counts_does_not_invent_them(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = {"results": [{**SAMPLE_SESSION_DICT, "id": f"s{i}"} for i in range(5)]}
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search(page_size=5)
+
+        assert page.page_total is None
+        assert page.total is None
+
+    def test_messages_are_sorted_by_sequence(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = [
+            {**SAMPLE_MESSAGE_DICT, "id": "m3", "sequence": 3},
+            {**SAMPLE_MESSAGE_DICT, "id": "m1", "sequence": 1},
+            {**SAMPLE_MESSAGE_DICT, "id": "m2", "sequence": 2},
+        ]
+        BoundSession = _bound_session_class(ctx)
+        session = BoundSession.from_dict(SAMPLE_SESSION_DICT)
+        session.context = ctx
+        session._update_saved_state()
+
+        assert [m.id for m in session.messages()] == ["m1", "m2", "m3"]
+
+    def test_messages_with_null_sequence_sort_last(self):
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = [
+            {**SAMPLE_MESSAGE_DICT, "id": "mx", "sequence": None},
+            {**SAMPLE_MESSAGE_DICT, "id": "m2", "sequence": 2},
+            {**SAMPLE_MESSAGE_DICT, "id": "m1", "sequence": 1},
+        ]
+        BoundSession = _bound_session_class(ctx)
+        session = BoundSession.from_dict(SAMPLE_SESSION_DICT)
+        session.context = ctx
+        session._update_saved_state()
+
+        assert [m.id for m in session.messages()] == ["m1", "m2", "mx"]
+
+    def test_invalid_page_size_reports_unknown_counts(self):
+        from aixplain.v2.session import _infer_page_counts
+
+        assert _infer_page_counts(0, 0, 3) == (None, None)
+        assert _infer_page_counts(0, None, 3) == (None, None)

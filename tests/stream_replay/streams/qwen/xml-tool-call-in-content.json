@@ -1,0 +1,42 @@
+{
+  "contract": "Qwen in XML-tag tool mode streams the call as content (agents #362).",
+  "family": "qwen",
+  "request": {
+    "tools": [
+      "get_weather"
+    ],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream"
+    },
+    "sse": [
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"qwen3-coder\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"<tool_call>\\n<function=get_weat\"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"qwen3-coder\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"her>\\n<parameter=city>\\nParis\\n</parameter>\\n</function>\\n</tool_call>\"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"qwen3-coder\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ]
+  },
+  "expected": {
+    "status": "SUCCESS",
+    "content": "<tool_call>\n<function=get_weather>\n<parameter=city>\nParis\n</parameter>\n</function>\n</tool_call>",
+    "reasoning": "",
+    "finish_reason": "stop"
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 aixplain/v2/model.py ModelResponseStreamer.__next__ 476-635",
+      "agents #362 (7300eff7) _extract_xml_function_tool_call_entries"
+    ],
+    "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/qwen/xml-tool-call-in-content; the expected block is what the SDK's streamer should yield for it, written by hand."
+  }
+}

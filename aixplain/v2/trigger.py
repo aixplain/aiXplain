@@ -21,6 +21,7 @@ from typing_extensions import TypedDict
 
 from .plain_data import coerce_struct
 from .resource import (
+    _deprecates_per_call_api_key,
     BaseResource,
     SearchResourceMixin,
     GetResourceMixin,
@@ -485,6 +486,7 @@ class Trigger(
     # ------------------------------------------------------------------
 
     @classmethod
+    @_deprecates_per_call_api_key
     def search(cls, agent: Optional[Any] = None, agent_id: Optional[str] = None, **kwargs: Any) -> Page["Trigger"]:
         """List triggers for the team, optionally filtered by agent.
 

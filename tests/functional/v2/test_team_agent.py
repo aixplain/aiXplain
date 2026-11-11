@@ -45,7 +45,7 @@ test_nested_deployment_chain     ``test_nested_deployment_chain``
 test_fail_non_existent_llm       ``test_fail_non_existent_llm``
 test_add_remove_agents_from_team_agent
                                  ``test_add_remove_agents_from_team_agent``
-                                 (plus the strict-xfail public-path twin
+                                 (plus the append-only public-list twin
                                  ``test_add_agent_via_public_agents_list``)
 test_team_agent_tasks            ``test_team_agent_tasks``
 test_team_agent_with_instructions
@@ -77,7 +77,6 @@ import json
 import re
 from typing import List
 
-import pydantic
 import pytest
 from pydantic import BaseModel
 
@@ -341,9 +340,7 @@ def test_nested_deployment_chain(client, resource_tracker):
 def test_add_remove_agents_from_team_agent(client, resource_tracker):
     """A saved team's subagent list can be extended, saved, run, then shrunk.
 
-    Edits go through the private ``_original_agents`` list because the public
-    ``team.agents`` edit is dropped on save; see
-    ``test_add_agent_via_public_agents_list``.
+    All edits go through the public ``team.agents`` list (BUG-1457).
     """
     first = client.Agent(name=unique_name("TA-keep"), instructions="Answer A.")
     first.save()
@@ -359,28 +356,16 @@ def test_add_remove_agents_from_team_agent(client, resource_tracker):
     team.save()
     resource_tracker.append(team)
 
-    # ``_original_agents`` is what build_save_payload serializes; keep the public
-    # id list in step so a later to_dict()/is_modified check sees the change.
-    team._original_agents.append(added)
     team.agents.append(added.id)
     team.save()
     assert set(agent_ids(client.Agent.get(team.id).agents)) == {first.id, second.id, added.id}
     _assert_success(team.run("Reply with exactly the word OK."))
 
-    team._original_agents = [agent for agent in team._original_agents if agent is not second]
-    team.agents = [agent_id for agent_id in team.agents if agent_id != second.id]
+    team.agents.remove(second.id)
     team.save()
     assert set(agent_ids(client.Agent.get(team.id).agents)) == {first.id, added.id}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "SDK bug: Agent.build_save_payload reads _original_agents, so public edits to agents "
-        "are dropped on save — ticket to be filed"
-    ),
-)
 def test_add_agent_via_public_agents_list(client, resource_tracker):
     """Appending to the public ``team.agents`` list, then saving, persists the new member."""
     first = client.Agent(name=unique_name("TA-pub-keep"), instructions="Answer A.")
@@ -435,14 +420,6 @@ class _People(BaseModel):
 _ROSTER = {"Ana": 19, "Bruno": 34, "Carla": 45, "Davi": 28}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=pydantic.ValidationError,
-    reason=(
-        "Backend: the agent engine does not resolve $ref/$defs in expected_output schemas, "
-        "so nested models lose their types (ticket to be filed)"
-    ),
-)
 def test_run_team_agent_with_expected_output(client, resource_tracker):
     """A team saved with a JSON ``expected_output`` model answers in that structure.
 
@@ -451,10 +428,9 @@ def test_run_team_agent_with_expected_output(client, resource_tracker):
     ``executionParams.expectedOutput``. They are not run kwargs.
 
     ``_People`` nests ``_Person``, so its schema reaches ``_Person`` through
-    ``$defs``; the engine degrades that to a list of anything, and the model
-    answered ``{"result": ["Bruno: 34 ..."]}``. Only the validation of that
-    structure is expected to fail: the persistence checks, a failed run and a
-    missing delegation are ``AssertionError``s, which the xfail does not accept.
+    ``$defs``. This test therefore also covers the engine resolving
+    ``$ref``/``$defs`` in ``expected_output``: when it did not, nested models
+    lost their types and the answer failed validation.
     """
     roster = "\n".join(f"- {name}: {age} years old" for name, age in _ROSTER.items())
     sub = client.Agent(

@@ -21,6 +21,7 @@ from aixplain.utils.url_safety import (
     ALLOW_PRIVATE_FETCH_ENV_VAR,
     INSECURE_OPT_IN_ENV_VAR,
     UPLOAD_ALLOWLIST_ENV_VAR,
+    UPLOAD_S3_BUCKETS_ENV_VAR,
     UnsafeURLError,
     safe_get,
     validate_config_url,
@@ -32,7 +33,12 @@ from aixplain.utils.url_safety import (
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):
     """Run every test with the security opt-ins off and no remembered warnings."""
-    for name in (INSECURE_OPT_IN_ENV_VAR, ALLOW_PRIVATE_FETCH_ENV_VAR, UPLOAD_ALLOWLIST_ENV_VAR):
+    for name in (
+        INSECURE_OPT_IN_ENV_VAR,
+        ALLOW_PRIVATE_FETCH_ENV_VAR,
+        UPLOAD_ALLOWLIST_ENV_VAR,
+        UPLOAD_S3_BUCKETS_ENV_VAR,
+    ):
         monkeypatch.delenv(name, raising=False)
     url_safety._WARNED_CONFIG_HOSTS.clear()
     yield
@@ -240,11 +246,109 @@ def test_private_fetch_opt_in_does_not_reopen_cloud_metadata(url, resolver, monk
         validate_fetch_url(url)
 
 
+@pytest.mark.parametrize(
+    "address",
+    [
+        "169.254.170.2",  # ECS task-role credentials
+        "169.254.1.1",  # anywhere in IPv4 link-local
+        "100.100.100.200",  # Alibaba Cloud metadata
+        "fd00:ec2::1",  # AWS IMDS IPv6 range
+        "64:ff9b::a9fe:a9fe",  # NAT64 form of 169.254.169.254
+        "::ffff:169.254.170.2",  # IPv4-mapped form
+        "2002:a9fe:aa02::",  # 6to4 form of 169.254.170.2
+        "64:ff9b:1::a9fe:a9fe",  # RFC 8215 local-use NAT64 form of 169.254.169.254
+        "fd20:ce::254",  # GCP metadata over IPv6
+        "::a9fe:a9fe",  # deprecated IPv4-compatible form of 169.254.169.254
+        "::ffff:0:a9fe:a9fe",  # IPv4-translated form of 169.254.169.254
+    ],
+)
+@pytest.mark.parametrize("opt_in", [True, False])
+def test_metadata_ranges_stay_refused_with_or_without_the_opt_in(address, opt_in, resolver, monkeypatch):
+    """BUG-1452: the opt-in must not reopen any metadata range or embedded form."""
+    if opt_in:
+        monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
+    resolver({"meta.example.com": [address]})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url("http://meta.example.com/latest/")
+
+
+@pytest.mark.parametrize("literal", ["http://169.254.170.2/v2/credentials", "http://[64:ff9b::a9fe:a9fe]/"])
+def test_metadata_literals_stay_refused_under_the_opt_in(literal, resolver, monkeypatch):
+    """The ticket's literal forms, as a URL host rather than a DNS answer."""
+    monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
+    resolver({})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url(literal)
+
+
+def test_nat64_loopback_is_still_refused_without_the_opt_in(resolver):
+    """Unwrapping NAT64 for the metadata check does not loosen the default block."""
+    resolver({"nat64.example.com": ["64:ff9b::7f00:1"]})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url("http://nat64.example.com/x")
+
+
+def test_nat64_public_address_is_still_refused_without_the_opt_in(resolver):
+    """The blanket NAT64 refusal in default mode is unchanged."""
+    resolver({"nat64.example.com": ["64:ff9b::5db8:d822"]})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url("http://nat64.example.com/x")
+
+
 def test_private_fetch_opt_in_still_allows_an_internal_name(resolver, monkeypatch):
     """The flag's actual purpose keeps working: a private artifact host by name."""
     monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
     resolver({"artifacts.internal": ["10.1.2.3"]})
     assert validate_fetch_url("http://artifacts.internal/code.py") == "http://artifacts.internal/code.py"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://100.100.100.200/latest/meta-data/",  # Alibaba Cloud ECS metadata
+        "http://100.64.0.1/",  # RFC 6598 shared address space (CGNAT / Tailscale)
+        "http://100.127.255.254/",
+        "http://192.0.0.8/",  # IETF protocol assignments
+        "http://198.18.0.1/",  # benchmarking
+        "http://[::ffff:100.100.100.200]/",  # mapped form of the metadata address
+        "http://[::ffff:100.64.0.1]/",
+    ],
+)
+def test_non_global_addresses_are_rejected(url, resolver):
+    """Anything outside the global address space is refused, not just RFC 1918 (BUG-1451)."""
+    resolver({})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url(url)
+
+
+def test_public_name_resolving_to_shared_address_space_is_rejected(resolver):
+    resolver({"innocent.example": ["100.100.100.200"]})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url("http://innocent.example/")
+
+
+def test_private_fetch_opt_in_does_not_reopen_alibaba_metadata(resolver, monkeypatch):
+    """100.100.100.200 is a credential endpoint, so it stays blocked under the opt-in."""
+    monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
+    resolver({})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url("http://100.100.100.200/latest/meta-data/")
+
+
+@pytest.mark.parametrize("address", ["64:ff9b::a9fe:a9fe", "64:ff9b::6464:64c8"])
+def test_private_fetch_opt_in_does_not_reopen_nat64_metadata(address, resolver, monkeypatch):
+    """The NAT64 form of a metadata address stays blocked under the opt-in."""
+    monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
+    resolver({"innocent.example": [address]})
+    with pytest.raises(UnsafeURLError, match="metadata"):
+        validate_fetch_url("http://innocent.example/")
+
+
+def test_private_fetch_opt_in_allows_shared_address_space(resolver, monkeypatch):
+    """An on-prem artifact host on a CGNAT/Tailscale address is reachable with the opt-in."""
+    monkeypatch.setenv(ALLOW_PRIVATE_FETCH_ENV_VAR, "1")
+    resolver({})
+    assert validate_fetch_url("http://100.64.0.1/code.py") == "http://100.64.0.1/code.py"
 
 
 # --------------------------------------------------------------------------
@@ -421,6 +525,20 @@ def test_safe_get_enforces_max_bytes(resolver):
         safe_get("https://example.com/big", session=session, max_bytes=1024)
 
 
+def test_safe_get_refuses_an_oversize_content_length_before_reading(resolver):
+    """BUG-1452: a body that announces it is too large is refused up front."""
+    resolver({"example.com": ["93.184.216.34"]})
+    session, _ = _session_with({"https://example.com/big": (200, {"Content-Length": "999999"}, b"x" * 10)})
+    with pytest.raises(UnsafeURLError, match="999999"):
+        safe_get("https://example.com/big", session=session, max_bytes=1024)
+
+
+def test_safe_get_accepts_a_content_length_within_the_cap(resolver):
+    resolver({"example.com": ["93.184.216.34"]})
+    session, _ = _session_with({"https://example.com/ok": (200, {"Content-Length": "5"}, b"hello")})
+    assert safe_get("https://example.com/ok", session=session, max_bytes=1024).content == b"hello"
+
+
 # --------------------------------------------------------------------------
 # validate_upload_url
 # --------------------------------------------------------------------------
@@ -431,6 +549,10 @@ def test_safe_get_enforces_max_bytes(resolver):
     [
         "https://bucket.s3.amazonaws.com/key?X-Amz-Signature=abc",
         "https://s3.us-east-1.amazonaws.com/bucket/key",
+        "https://bucket.s3.us-west-2.amazonaws.com/key",
+        "https://bucket.s3-us-west-2.amazonaws.com/key",
+        "https://bucket.s3.dualstack.us-east-1.amazonaws.com/key",
+        "https://aixplain-platform-assets.s3.amazonaws.com/files/x",
         "https://uploads.aixplain.com/x",
         "https://aixplain.com/x",
     ],
@@ -448,6 +570,11 @@ def test_expected_upload_hosts_are_allowed(url):
         "https://notamazonaws.com/x",
         "http://bucket.s3.amazonaws.com/x",
         "ftp://bucket.s3.amazonaws.com/x",
+        "https://abc123.execute-api.us-east-1.amazonaws.com/prod/x",
+        "https://my-elb-1.us-east-1.elb.amazonaws.com/x",
+        "https://ec2-1-2-3-4.compute-1.amazonaws.com/x",
+        "https://amazonaws.com/x",
+        "https://bucket.s3.amazonaws.com.evil.com/x",
     ],
 )
 def test_foreign_upload_hosts_are_rejected(url):
@@ -463,3 +590,72 @@ def test_upload_allowlist_env_var_extends_the_defaults(monkeypatch):
     assert validate_upload_url("https://a.cdn.example.org/x")
     with pytest.raises(UnsafeURLError):
         validate_upload_url("https://other.example.com/x")
+
+
+def test_upload_s3_bucket_list_pins_s3_uploads(monkeypatch):
+    """BUG-1452: with a configured bucket list, only those buckets are accepted."""
+    monkeypatch.setenv(UPLOAD_S3_BUCKETS_ENV_VAR, "good-bucket, other")
+    assert validate_upload_url("https://good-bucket.s3.amazonaws.com/x")
+    assert validate_upload_url("https://s3.us-east-1.amazonaws.com/other/key")
+    with pytest.raises(UnsafeURLError):
+        validate_upload_url("https://any-bucket.s3.amazonaws.com/x")
+    with pytest.raises(UnsafeURLError):
+        validate_upload_url("https://s3.us-east-1.amazonaws.com/any-bucket/key")
+    with pytest.raises(UnsafeURLError):
+        validate_upload_url("https://s3.us-east-1.amazonaws.com/")
+    # requests/urllib3 normalise dot segments before sending, so a path that
+    # starts with a pinned bucket must not be able to step out of it.
+    for path in ("good-bucket/../any-bucket/key", "good-bucket/%2e%2E/any-bucket/key", "./any-bucket/key"):
+        with pytest.raises(UnsafeURLError):
+            validate_upload_url(f"https://s3.us-east-1.amazonaws.com/{path}")
+    with pytest.raises(UnsafeURLError):
+        validate_upload_url("https://s3.us-east-1.amazonaws.com//any-bucket/key")
+    # aixplain.com hosts are not affected by the bucket list.
+    assert validate_upload_url("https://uploads.aixplain.com/x")
+
+
+def test_upload_allowlist_env_var_can_readmit_a_non_s3_aws_host(monkeypatch):
+    """A deliberate custom AWS endpoint is still reachable through the allow-list."""
+    monkeypatch.setenv(UPLOAD_ALLOWLIST_ENV_VAR, "abc123.execute-api.us-east-1.amazonaws.com")
+    assert validate_upload_url("https://abc123.execute-api.us-east-1.amazonaws.com/prod/x")
+
+
+# --------------------------------------------------------------------------
+# Hosts that urllib.parse and urllib3 read differently (BUG-1451 review)
+# --------------------------------------------------------------------------
+
+MALFORMED_HOST_URLS = [
+    "https://evil.example\\.platform-api.aixplain.com/",
+    "https://evil.example\\@platform-api.aixplain.com/",
+    "https://evil.example\t.platform-api.aixplain.com/",
+    "https://evil.example\n.platform-api.aixplain.com/",
+    "https://evil.example%2f.platform-api.aixplain.com/",
+]
+
+
+@pytest.mark.parametrize("url", MALFORMED_HOST_URLS)
+def test_malformed_host_is_rejected_by_config_policy(url, caplog):
+    with pytest.raises(UnsafeURLError):
+        validate_config_url(url, "BACKEND_URL")
+
+
+@pytest.mark.parametrize("url", MALFORMED_HOST_URLS)
+def test_malformed_host_is_rejected_by_fetch_policy(url, resolver):
+    resolver({})
+    with pytest.raises(UnsafeURLError):
+        validate_fetch_url(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://platform-api.aixplain.com/sdk/x?a=b\\c",
+        "https://Platform-API.aixplain.com:443/",
+        "http://[::1]:8000/",
+        "http://127.0.0.1:8000/",
+    ],
+)
+def test_well_formed_hosts_stay_unambiguous(url):
+    from urllib.parse import urlparse
+
+    assert url_safety.is_unambiguous_host(url, urlparse(url).hostname)

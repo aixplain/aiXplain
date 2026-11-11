@@ -1,0 +1,41 @@
+{
+  "contract": "OpenRouter carries reasoning in reasoning_details[] (SDK #1012).",
+  "family": "openrouter",
+  "request": {
+    "tools": [],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream"
+    },
+    "sse": [
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"openrouter/deepseek-r1\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"Thinking about it.\"}]},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"openrouter/deepseek-r1\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"42\"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"openrouter/deepseek-r1\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ]
+  },
+  "expected": {
+    "status": "SUCCESS",
+    "content": "42",
+    "reasoning": "Thinking about it.",
+    "finish_reason": "stop",
+    "tool_call_names": []
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 aixplain/v2/model.py ModelResponseStreamer.__next__ 476-635",
+      "SDK #1012 (565e1002) _normalize_reasoning"
+    ],
+    "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/openrouter/reasoning-details; the expected block is what the SDK's streamer should yield for it, written by hand."
+  }
+}

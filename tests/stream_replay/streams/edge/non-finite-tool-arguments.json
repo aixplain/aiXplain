@@ -1,0 +1,40 @@
+{
+  "contract": "Bare NaN/Infinity in streamed arguments (agents #312/#337): never forwarded as invalid JSON.",
+  "family": "openai",
+  "request": {
+    "tools": [
+      "get_weather"
+    ],
+    "max_tokens": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream"
+    },
+    "sse": [
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gpt-4o-mini-2024-07-18\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"call_a\",\"type\":\"function\",\"function\":{\"name\":\"score\",\"arguments\":\"{\\\"weights\\\": [1.5, NaN, Infinity]}\"},\"index\":0}]},\"logprobs\":null,\"finish_reason\":null}]}",
+      "",
+      "data: {\"id\":\"chatcmpl-replay\",\"object\":\"chat.completion.chunk\",\"created\":1792800000,\"model\":\"gpt-4o-mini-2024-07-18\",\"system_fingerprint\":\"fp_replay\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"tool_calls\"}]}",
+      "",
+      "data: [DONE]",
+      ""
+    ]
+  },
+  "expected": {
+    "status": "SUCCESS",
+    "content": "",
+    "reasoning": "",
+    "finish_reason": "tool_calls"
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "aixplain SDK 0.3.0 aixplain/v2/model.py ModelResponseStreamer.__next__ 476-635",
+      "agents #312 (c405645b), #337 (c3a58f3c)"
+    ],
+    "note": "Same SSE body as aixplain-agents tests/stream_replay/streams/edge/non-finite-tool-arguments; the expected block is what the SDK's streamer should yield for it, written by hand."
+  }
+}

@@ -41,7 +41,7 @@ on:
 # Least privilege (ENG-3428): every job below only reads the repository --
 # checkout, pip install, pytest. Without this block the workflow inherits the
 # repository default GITHUB_TOKEN, which is write-all here, while executing
-# repository code and third-party dependencies. `actions/upload-artifact@v4`
+# repository code and third-party dependencies. `actions/upload-artifact@v7`
 # authenticates with the Actions runtime token rather than GITHUB_TOKEN scopes,
 # so `contents: read` covers the artifact uploads too.
 permissions:
@@ -77,9 +77,11 @@ concurrency:
 
 env:
   # Coverage floor for the unit suite, enforced by the `unit-coverage` job.
-  # Measured at 64% on `development` @ 42ed1e02; set two points below to absorb
-  # ordering/version jitter. Ratchet it up here as coverage improves.
-  COVERAGE_FLOOR: "62"
+  # Measured at 85.2% (serial `coverage run -m pytest tests/unit`, no xdist --
+  # under `-n` the figure collapses to ~26%) on BUG-1456, i.e. `development` @
+  # 71666c32 plus the RLM unit tests, with the `test` extra installed; set about two points
+  # below to absorb ordering/version jitter. Ratchet it up here as coverage improves.
+  COVERAGE_FLOOR: "83"
   # A leg that collects tests, skips every one, and exits 0 is indistinguishable
   # from a leg that passed -- `agent` and `team_agent` reported green while
   # executing 0 of 50 collected tests (ENG-3544). With this set, the
@@ -104,10 +106,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
           cache: 'pip'
@@ -132,7 +134,7 @@ jobs:
         run: coverage xml
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-xml
@@ -143,10 +145,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
           cache: 'pip'
@@ -258,7 +260,6 @@ jobs:
               "aixplain.v2.core",
               "aixplain.v2.agent",
               "aixplain.v2.api_key",
-              "aixplain.utils.config",
               "aixplain.utils.url_safety",
               "aixplain.exceptions.types",
               "aixplain._compat",
@@ -288,7 +289,7 @@ jobs:
           PY
 
       - name: Upload the built artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dist
@@ -308,7 +309,7 @@ jobs:
       reason: ${{ steps.decide.outputs.reason }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # The diff below is base..head, so the shallow default is not enough.
           fetch-depth: 0
@@ -460,6 +461,7 @@ jobs:
           'debugger',
           'eval',
           'file',
+          'index',
           'integration',
           'issue',
           'model',
@@ -525,6 +527,9 @@ jobs:
           - suite: 'file'
             path: 'tests/functional/v2/test_file.py'
             timeout: 30
+          - suite: 'index'
+            path: 'tests/functional/v2/test_index.py'
+            timeout: 30
           - suite: 'integration'
             path: 'tests/functional/v2/test_integration.py'
             timeout: 30
@@ -568,10 +573,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
           cache: 'pip'
@@ -589,12 +594,14 @@ jobs:
       # string otherwise. A same-repository PR runs `pip install ".[test]"` with
       # whatever dependency changes it carries, unreviewed, in this job; a PR
       # job that never holds the production key cannot leak it. SLACK_TOKEN is
-      # gated the same way on the leg's `slack` key.
+      # gated the same way, on IS_PROD *and* the leg's `slack` key (BUG-1452):
+      # PR, `test` and nightly runs never hold it, so the Slack tests skip there
+      # and run on production runs only.
       - name: Set environment variables
         env:
           TEAM_API_KEY_PROD: ${{ env.IS_PROD == 'true' && secrets.TEAM_API_KEY_PROD || '' }}
           TEAM_API_KEY_TEST: ${{ secrets.TEAM_API_KEY }}
-          SLACK_TOKEN: ${{ matrix.slack && secrets.SLACK_TOKEN || '' }}
+          SLACK_TOKEN: ${{ env.IS_PROD == 'true' && matrix.slack && secrets.SLACK_TOKEN || '' }}
         run: |
           set -euo pipefail
 
@@ -614,10 +621,9 @@ jobs:
           {
             echo "TEAM_API_KEY=$api_key"
             # The same value, deliberately. Every functional conftest accepts
-            # AIXPLAIN_API_KEY as the fallback for TEAM_API_KEY, and
-            # aixplain/utils/config.py raises when both are set and differ -- so
-            # this has to mirror TEAM_API_KEY rather than carry a second
-            # credential (ENG-3683).
+            # AIXPLAIN_API_KEY as the fallback for TEAM_API_KEY, and Aixplain()
+            # warns when both are set and differ -- so this mirrors
+            # TEAM_API_KEY rather than carrying a second credential (ENG-3683).
             echo "AIXPLAIN_API_KEY=$api_key"
             echo "BACKEND_URL=$backend"
             # v2 is the only model API the suites speak. tests/functional/v2/
@@ -745,6 +751,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # BUG-1454: the Slack step below only runs on a red nightly, so on its own
+      # a removed webhook would leave every green nightly green and every red one
+      # silent. This makes the missing configuration itself red, every night.
+      - name: Require the Slack webhook on scheduled runs
+        if: github.event_name == 'schedule'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::error::SLACK_NIGHTLY_WEBHOOK_URL is not set; a failing nightly would alert nobody"
+            exit 1
+          fi
+
       - name: Notify Slack when the nightly run is not green
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         env:
@@ -762,10 +782,15 @@ jobs:
           set -euo pipefail
 
           if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
-            # Not a failure: the nightly itself is already red, and failing here
-            # too would only add a second red job saying the same thing. The
-            # warning is what makes an unconfigured webhook visible in the
-            # Actions summary instead of silently swallowing every alert.
+            # BUG-1454: a warning on a green job is how 13 red nightlies went
+            # unreported. On a scheduled run nobody reads the log, so a missing
+            # webhook is a broken alert and turns this job red. Any other event
+            # (should this job's `if:` ever be widened) keeps the warning: a
+            # person started that run and is looking at it.
+            if [ "${GITHUB_EVENT_NAME:-}" = "schedule" ]; then
+              echo "::error::SLACK_NIGHTLY_WEBHOOK_URL is not set; no Slack alert was sent for $RUN_URL"
+              exit 1
+            fi
             echo "::warning::SLACK_NIGHTLY_WEBHOOK_URL is not set; no Slack alert was sent for $RUN_URL"
             exit 0
           fi

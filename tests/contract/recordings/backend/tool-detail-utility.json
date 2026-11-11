@@ -1,0 +1,123 @@
+{
+  "contract": "Tool detail (function=utilities); vendor and supplier are always {} on this route.",
+  "endpoint": {
+    "method": "GET",
+    "host": "backend",
+    "path": "/v2/tools/{id}"
+  },
+  "request": {},
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "id": "66f423426eb563fa213a3531",
+      "name": "Google Search",
+      "serviceName": "google-search",
+      "status": "onboarded",
+      "host": "aixplain",
+      "developer": "aiXplain",
+      "description": "Search the web.",
+      "descriptionShort": null,
+      "subscriptions": [],
+      "assetInfo": {
+        "assetPath": "aixplain/google-search"
+      },
+      "vendor": {},
+      "supplier": {},
+      "connectionType": [
+        "synchronous"
+      ],
+      "function": {
+        "id": "utilities",
+        "name": "Utilities"
+      },
+      "pricing": {
+        "price": 0.0,
+        "unitType": "REQUEST",
+        "unitTypeScale": "1"
+      },
+      "version": {
+        "name": null,
+        "id": null
+      },
+      "functionType": "utility",
+      "type": "model",
+      "onboardingStatusMessage": null,
+      "createdAt": "2025-01-10T12:00:00.000Z",
+      "updatedAt": "2026-09-01T12:00:00.000Z",
+      "isSystemAsset": true,
+      "supportsStreaming": false,
+      "supportsBYOC": false,
+      "dataRetention": {
+        "mode": "unknown"
+      },
+      "attributes": {},
+      "parentModelId": null,
+      "params": [
+        {
+          "name": "text",
+          "required": true,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [],
+          "availableOptions": [],
+          "dataType": "text",
+          "dataSubType": "text",
+          "multipleValues": false
+        },
+        {
+          "name": "numResults",
+          "required": false,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [
+            {
+              "value": 5,
+              "label": "5"
+            }
+          ],
+          "availableOptions": [],
+          "dataType": "number",
+          "dataSubType": "number",
+          "multipleValues": false
+        },
+        {
+          "name": "country",
+          "required": false,
+          "isFixed": false,
+          "values": [],
+          "defaultValues": [],
+          "availableOptions": [
+            {
+              "value": "us",
+              "label": "us"
+            },
+            {
+              "value": "uk",
+              "label": "uk"
+            },
+            {
+              "value": "de",
+              "label": "de"
+            }
+          ],
+          "dataType": "text",
+          "dataSubType": "text",
+          "multipleValues": false
+        }
+      ]
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "platform-backend@91ed4d7bf src/model/controllers/model.tool.v2.controller.ts:127-150",
+      "platform-backend@91ed4d7bf src/model/services/model.service.ts:2593-2720"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording via scripts/contract_record.py. Shared with aixplain-agents tests/contract/recordings (same platform endpoint)."
+  }
+}

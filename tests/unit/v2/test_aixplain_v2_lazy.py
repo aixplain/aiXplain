@@ -18,7 +18,7 @@ A module-level ``__getattr__`` now builds it on first access, so ``import aixpla
 still works without a key (``aixplain --help`` and unit-test collection depend on
 that) while the real error reaches whoever actually asks for the client.
 
-``Aixplain(api_key=...)`` mutates ``os.environ``, and ``aixplain/__init__.py``
+``Aixplain(api_key=...)`` used to mutate ``os.environ`` (BUG-948), and ``aixplain/__init__.py``
 loads a working-directory ``.env``, so every keyless case runs in a subprocess
 with the variables stripped and ``python-dotenv`` neutered.
 """

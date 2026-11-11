@@ -59,13 +59,20 @@ python -m pytest tests/unit
 # Functional / integration tests
 python -m pytest tests/functional
 
-# Unit tests with coverage (same as pre-commit hook)
-coverage run --source=. -m pytest tests/unit
+# Unit tests with coverage (same as the pre-commit hook and the CI `unit-coverage` job).
+# Scope comes from [tool.coverage.run] in pyproject.toml -- do not add --source=.,
+# which also counts tests/ and inflates the figure. Run it serially (no -n/xdist):
+# xdist under-reports badly, and the CI floor is measured serially.
+coverage run -m pytest tests/unit
+coverage report
 ```
 
 ### Lint and Format
 
-Ruff is the sole linter and formatter.
+Ruff is the sole linter and formatter. Use the version pinned in `.pre-commit-config.yaml`
+(`ruff==0.12.12`, e.g. `uvx ruff@0.12.12 check .`). `ruff check .` is green on a clean checkout;
+`ruff.toml` exempts tests and repository tooling scripts from the pydocstyle (`D`) rules. The
+pre-commit hooks lint `aixplain/v2/` and format `aixplain/v2/` and `tests/`.
 
 ```bash
 ruff check .            # Lint
@@ -111,7 +118,7 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
 > `tests/unit/test_v1_removal.py` fails if any hand-written doc disagrees, so change the constants
 > and then the docs, never the reverse. Importing a legacy path raises a `ModuleNotFoundError`
 > naming the v2 replacement — see [`MIGRATION.md`](MIGRATION.md) for the factory-by-factory map,
-> including the eight factories that had no v2 equivalent and were removed without one.
+> including the seven factories that had no v2 equivalent and were removed without one.
 
 ### Package Layout
 
@@ -162,7 +169,9 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
 - **Framework**: pytest (configured in `pytest.ini`, `testpaths = tests`).
 - **Unit tests**: `tests/unit/` -- fast, mocked, no network calls.
 - **Functional tests**: `tests/functional/` -- integration tests against real or staged services.
-- **Mock data**: unit tests build API responses inline (plain dicts, `unittest.mock` stubs); there is no shared fixture directory.
+- **Test layers** (ENG-3782): a change to a field read from or sent to the platform, to stream parsing, to timeouts/retries, or to where the API key goes gets its test in `tests/contract/`, `tests/stream_replay/`, `tests/fault/` or `tests/security/` respectively, not a mocked unit test. Those layers replay recorded responses (`tests/contract/recordings`, `tests/stream_replay/streams`) through the real HTTP stack; see [docs/testing-layers.md](docs/testing-layers.md) for which layer a test belongs in.
+- **Fix PRs**: include a test that fails on an assertion against the pre-fix code. `revert-check.yaml` reports whether it does.
+- **Mock data**: unit tests build API responses inline (plain dicts, `unittest.mock` stubs); recorded responses live only in the layer directories above.
 - **Backend asset ids**: never inline a 24-hex ObjectId in a functional test. `tests/functional/_assets.py` holds one named field per asset, per environment (`dev`/`test`/`prod`, selected by `BACKEND_URL`); read it through the `assets` fixture and override a single id for one run with `AIXPLAIN_TEST_<NAME>`. Each name is resolved against the backend the first time a test reads it (cached for the session), so a retired id fails only the tests that use it, by name; `tests/unit/test_functional_hygiene.py` fails if a bare literal reappears.
 - **CI**: GitHub Actions runs the credential-free unit suite plus one functional leg per `tests/functional/v2/test_*.py` file (`agent`, `model`, ...) on Python 3.10, each with its own step timeout (`timeout` in the leg's matrix entry: 30 or 45 minutes). A new functional test file needs its own leg in `.github/workflows/main.yaml`; `tests/unit/test_ci_matrix_coverage.py` fails otherwise.
 - **Docstrings in tests**: Not enforced (ruff ignores `D` rules for `tests/**/*.py`). Since `D` is the only selected rule set, `ruff check` reports nothing for tests; they are format-checked only.

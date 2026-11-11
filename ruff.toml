@@ -24,6 +24,15 @@ extend-safe-fixes = []
 # test docstrings are not held to the public-API pydocstyle rules (AGENTS.md),
 # so `ruff check` reports nothing for tests/.
 "tests/**/*.py" = ["D"]
+# Repository tooling scripts, not shipped API: pydocstyle does not apply, so a
+# plain `ruff check .` stays green on a clean checkout (BUG-1456).
+"post_process_docs.py" = ["D"]
+"docs_rst_processor.py" = ["D"]
+"generate_llms_full.py" = ["D"]
+".github/tools/*.py" = ["D"]
+"eval_dashboard/**/*.py" = ["D"]
+"skills/**/scripts/*.py" = ["D"]
+"docs/notebooks/*.ipynb" = ["D"]
 
 [lint.isort]
 known-first-party = ["src"]

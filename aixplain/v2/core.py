@@ -13,6 +13,7 @@ from .tool import Tool
 from .skill import Skill
 from .agent_evaluator import Eval as EvalClass, Metric as MetricBase
 from .integration import Integration
+from .index import Index
 from .trigger import Trigger
 from .file import File
 from .inspector import Inspector
@@ -31,6 +32,7 @@ ToolType = Type[Tool]
 SkillType = Type[Skill]
 MetricType = Type[MetricBase]
 IntegrationType = Type[Integration]
+IndexType = Type[Index]
 TriggerType = Type[Trigger]
 FileResourceType = Type[File]
 InspectorType = Type[Inspector]
@@ -61,6 +63,7 @@ class Aixplain:
     Metric: MetricType = None
     Eval: type = None
     Integration: IntegrationType = None
+    Index: IndexType = None
     Trigger: TriggerType = None
     File: FileResourceType = None
     Inspector: InspectorType = None
@@ -97,9 +100,11 @@ class Aixplain:
     AuthenticationScheme = enums.AuthenticationScheme
     CodeInterpreterModel = enums.CodeInterpreterModel
     DataType = enums.DataType
+    EmbeddingModel = enums.EmbeddingModel
     EvolveType = enums.EvolveType
     FileContentType = enums.FileContentType
     FunctionType = enums.FunctionType
+    IndexStores = enums.IndexStores
     SplittingOptions = enums.SplittingOptions
 
     BACKEND_URL = "https://platform-api.aixplain.com"
@@ -122,11 +127,22 @@ class Aixplain:
             pipeline_url (str, optional): The pipeline execution URL. Falls back to PIPELINES_RUN_URL env var.
             model_url (str, optional): The model execution URL. Falls back to MODELS_RUN_URL env var.
         """
-        resolved = api_key or os.getenv("TEAM_API_KEY") or os.getenv("AIXPLAIN_API_KEY") or ""
+        env_team_key = os.getenv("TEAM_API_KEY")
+        env_aixplain_key = os.getenv("AIXPLAIN_API_KEY")
+        if not api_key and env_team_key and env_aixplain_key and env_team_key != env_aixplain_key:
+            # Never include either value in the message: warnings end up in logs.
+            warnings.warn(
+                "Both TEAM_API_KEY and AIXPLAIN_API_KEY are set but differ; using TEAM_API_KEY. "
+                "Set only one of them, or give both the same value.",
+                UserWarning,
+                stacklevel=2,
+            )
+        resolved = api_key or env_team_key or env_aixplain_key or ""
         self.api_key = resolved
-        if api_key:
-            os.environ["TEAM_API_KEY"] = api_key
-            os.environ["AIXPLAIN_API_KEY"] = api_key
+        # BUG-948: never promote an explicit key into ``os.environ``. It would be
+        # inherited by every child process the host spawns, and a later keyless
+        # ``Aixplain()`` would silently reuse it. The key travels explicitly via
+        # ``AixplainClient(team_api_key=...)`` and ``FileUploader(api_key=...)``.
         assert self.api_key, (
             "API key is required. Pass api_key=... to Aixplain() or set TEAM_API_KEY or AIXPLAIN_API_KEY."
         )
@@ -170,6 +186,7 @@ class Aixplain:
         self.Metric = type("Metric", (MetricBase,), {"context": self})
         self.Eval = EvalClass
         self.Integration = type("Integration", (Integration,), {"context": self})
+        self.Index = type("Index", (Index,), {"context": self})
         self.Trigger = type("Trigger", (Trigger,), {"context": self})
         self.File = type("File", (File,), {"context": self})
         # ``Resource`` is a deprecated alias for ``File``, not a separate

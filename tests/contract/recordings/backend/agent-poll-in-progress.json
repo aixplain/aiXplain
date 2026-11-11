@@ -1,0 +1,35 @@
+{
+  "contract": "Agent run poll while the run is still going.",
+  "endpoint": {
+    "method": "GET",
+    "host": "backend",
+    "path": "/sdk/agents/{request_id}/result"
+  },
+  "request": {},
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "completed": false,
+      "status": "IN_PROGRESS",
+      "data": {},
+      "progress": {
+        "stage": "reasoning",
+        "message": "Thinking",
+        "currentStep": 1,
+        "totalSteps": 3
+      }
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "platform-backend@91ed4d7bf src/agent/dto/agent.dto.ts:596-642 AgentResultDto (progress mapped from snake_case)"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording."
+  }
+}
