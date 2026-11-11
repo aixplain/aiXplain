@@ -292,6 +292,18 @@ class TestSaveRaisesValidationError:
         with pytest.raises(ValidationError, match="positive number of seconds"):
             agent.save()
 
+    def test_nothing_is_saved_before_the_check(self, monkeypatch):
+        # With save_subcomponents=True, an invalid timeout must fail before any
+        # child tool or sub-agent is saved.
+        agent, sent = _saved_agent({"id": "x1", "type": "model", "name": "air"})
+        agent.tools[0].timeout = 0
+        save_subcomponents = Mock()
+        monkeypatch.setattr(agent, "_save_subcomponents", save_subcomponents)
+        with pytest.raises(ValidationError, match="positive number of seconds"):
+            agent.save(save_subcomponents=True)
+        save_subcomponents.assert_not_called()
+        assert sent == []
+
 
 class TestUpdateResponse:
     # The PUT response carries the platform's copy of the tools, the same as

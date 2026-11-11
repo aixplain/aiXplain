@@ -1898,6 +1898,11 @@ class Agent(
             if kwargs.get(attr) is not None and not isinstance(kwargs[attr], WireValue):
                 coerce_enum(kwargs[attr], enum_cls, label=attr)
 
+        # Here rather than in build_save_payload(): super().save() runs inside
+        # with_hooks, which turns any other exception into a ResourceError.
+        # Before _save_subcomponents(), so an invalid timeout saves nothing.
+        self._validate_tool_timeouts()
+
         save_subcomponents = kwargs.pop("save_subcomponents", False)
 
         # Save all child components recursively if requested
@@ -1907,9 +1912,6 @@ class Agent(
         # Validate that all dependencies are saved before proceeding
         self._validate_dependencies()
 
-        # Here rather than in build_save_payload(): super().save() runs inside
-        # with_hooks, which turns any other exception into a ResourceError.
-        self._validate_tool_timeouts()
         self._update_response_tools: Optional[List[Any]] = None
 
         # Capture names before save because the backend response can rebuild self.tools without Integration objects.
