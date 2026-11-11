@@ -23,6 +23,7 @@ import tempfile
 import threading
 import time
 import uuid
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, config as dj_config
@@ -394,14 +395,91 @@ def _find_code_blocks(text: str) -> Optional[List[str]]:
     return results if results else None
 
 
+_STR_PATH_WARNED = False
+# Strings longer than this, or containing a newline, are obviously text; skip
+# the filesystem probe for them entirely.
+_STR_PATH_PROBE_MAX_LEN = 4096
+
+
+def _warn_if_str_names_a_file(text: str) -> None:
+    """Emit a one-time ``FutureWarning`` when a ``str`` context names a file.
+
+    Before BUG-1451, ``RLM.run`` opened any ``str`` that happened to be an
+    existing path, so end-user text such as ``".env"`` read server files. A
+    ``str`` is now always text (or a URL). This only tells callers who relied
+    on the old behaviour how to migrate; it never opens the file, never probes
+    a Windows UNC (network share) path, and the message carries neither the path
+    nor any content.
+    """
+    global _STR_PATH_WARNED
+    if _STR_PATH_WARNED or len(text) > _STR_PATH_PROBE_MAX_LEN or "\n" in text:
+        return
+    if text.startswith(("\\\\", "//")):
+        # A UNC path: probing it would make Windows contact that server.
+        return
+    try:
+        names_a_file = os.path.isfile(text)
+    except (OSError, ValueError):
+        return
+    if names_a_file:
+        _STR_PATH_WARNED = True
+        warnings.warn(
+            "RLM.run received a str that names an existing file. A str is always treated as text "
+            "(or a URL) and is not read from disk; pass pathlib.Path(...) or context_path=... to "
+            "load a file.",
+            FutureWarning,
+            stacklevel=4,
+        )
+
+
+_FINAL_START_RE = re.compile(r"^\s*FINAL\(", re.MULTILINE)
+
+
+_PARAGRAPH_BREAK_RE = re.compile(r"\n[^\S\n]*\n")
+
+
+def _extract_final_content(text: str, start: int) -> Optional[str]:
+    """Return the body of a ``FINAL(`` declaration whose ``(`` ends just before ``start``.
+
+    Parentheses are matched, so ``FINAL(f(x) returns 2.)`` keeps ``f(x)``, and
+    the body ends at the ``)`` that balances the declaration; anything after it
+    (``FINAL(Paris) (see 1) above``) is ignored.
+
+    When the body has an unclosed ``(`` (``FINAL(see (a in the list)``) the
+    scan never balances; the body then runs to the last ``)`` in the
+    declaration's own paragraph, so a later paragraph such as
+    ``(Note: computed in the REPL)`` is not swallowed. Only when that
+    paragraph has no ``)`` at all does it fall back to the last ``)`` in the text.
+
+    Returns ``None`` when no ``)`` follows the declaration at all.
+    """
+    depth = 1
+    for index in range(start, len(text)):
+        char = text[index]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return text[start:index]
+    paragraph_break = _PARAGRAPH_BREAK_RE.search(text, start)
+    paragraph_end = paragraph_break.start() if paragraph_break else len(text)
+    last = text.rfind(")", start, paragraph_end)
+    if last == -1:
+        last = text.rfind(")", start)
+    return text[start:last] if last != -1 else None
+
+
 def _find_final_answer(text: str) -> Optional[tuple]:
     """Return (type, content) for FINAL_VAR or FINAL declarations, or None."""
     match = re.search(r"^\s*FINAL_VAR\((.*?)\)", text, re.MULTILINE | re.DOTALL)
     if match:
         return ("FINAL_VAR", match.group(1).strip())
-    match = re.search(r"^\s*FINAL\((.*?)\)", text, re.MULTILINE | re.DOTALL)
+    match = _FINAL_START_RE.search(text)
     if match:
-        return ("FINAL", match.group(1).strip())
+        content = _extract_final_content(text, match.end())
+        if content is not None:
+            return ("FINAL", content.strip())
     return None
 
 
@@ -603,6 +681,14 @@ class RLMResult(Result):
             sandbox executions, and worker ``llm_query()`` invocations.
         repl_logs: Per-iteration REPL execution log (excluded from
             serialization; present only on live instances).
+        final_answer_forced: ``True`` when the loop ended without a final
+            answer (``max_iterations`` exhausted or ``timeout`` hit) and the
+            answer came from the forced final-answer request. Informational;
+            an unusable forced reply is reported as ``status="FAILED"``.
+            Excluded from serialization.
+        failed_chunks: Number of chunks whose worker call failed in
+            ``mode="parallel"``. Those chunks are left out of the answer; when
+            every chunk fails the run is ``FAILED``.
     """
 
     iterations_used: int = field(default=0)
@@ -613,13 +699,24 @@ class RLMResult(Result):
         compare=False,
         metadata=dj_config(exclude=lambda x: True),
     )
+    final_answer_forced: bool = field(
+        default=False,
+        compare=False,
+        metadata=dj_config(exclude=lambda x: True),
+    )
+    failed_chunks: int = field(default=0, metadata=dj_config(field_name="failedChunks"))
 
     def __repr__(self) -> str:
         """Render the base ``Result`` repr plus RLM-specific fields."""
         # Base Result.__repr__ only renders fields it knows about, so RLM-specific
         # fields would otherwise be invisible. Inject them before the closing ")".
         base = super().__repr__()
-        extras = f",\n  iterations_used={self.iterations_used},\n  used_credits={self.used_credits}"
+        extras = (
+            f",\n  iterations_used={self.iterations_used},\n  used_credits={self.used_credits}"
+            f",\n  final_answer_forced={self.final_answer_forced}"
+        )
+        if self.failed_chunks:
+            extras += f",\n  failed_chunks={self.failed_chunks}"
         return base[:-2] + extras + "\n)" if base.endswith("\n)") else base
 
 
@@ -820,12 +917,14 @@ class RLM(BaseResource, ToolableMixin):
 
         Accepted input forms:
 
-        - ``pathlib.Path`` or ``str`` pointing to an existing file → file is
-          read; ``.json`` files are parsed with ``json.load()``, everything else
-          is read as plain text.
+        - ``pathlib.Path`` (any ``os.PathLike``) → the file is read; ``.json``
+          files are parsed with ``json.load()``, everything else is read as
+          plain text.
         - ``str`` HTTP/HTTPS URL → returned as-is; :meth:`_setup_repl` streams
           it directly into the sandbox without an intermediate re-upload.
-        - ``str`` that is **not** a file path or URL → returned as-is (raw text).
+        - any other ``str`` → returned as-is (raw text). A ``str`` is never
+          opened as a file, even if it names one: callers forward end-user
+          text here, and ``".env"`` must not become a file read (BUG-1451).
         - ``dict`` / ``list`` → passed through unchanged.
         - Anything else → converted via ``str()``.
 
@@ -836,24 +935,22 @@ class RLM(BaseResource, ToolableMixin):
             Normalized context ready for :meth:`_setup_repl`.
 
         Raises:
-            ValueError: If the path exists but the file cannot be read or parsed.
+            ValueError: If a path is given but the file cannot be read or parsed.
         """
-        if isinstance(context, pathlib.Path):
-            context = str(context)
-
-        if isinstance(context, str) and os.path.isfile(context):
-            ext = os.path.splitext(context)[1].lower()
+        if isinstance(context, os.PathLike):
+            path = os.fspath(context)
+            ext = os.path.splitext(path)[1].lower()
             try:
-                if ext == ".json":
-                    with open(context, "r", encoding="utf-8") as fh:
-                        return json.load(fh)
-                else:
-                    with open(context, "r", encoding="utf-8") as fh:
-                        return fh.read()
+                with open(path, "r", encoding="utf-8") as fh:
+                    return json.load(fh) if ext == ".json" else fh.read()
             except Exception as exc:
-                raise ValueError(f"RLM: failed to read context file '{context}': {exc}") from exc
+                raise ValueError(f"RLM: failed to read context file '{path}': {exc}") from exc
 
-        if isinstance(context, (str, dict, list)):
+        if isinstance(context, str):
+            _warn_if_str_names_a_file(context)
+            return context
+
+        if isinstance(context, (dict, list)):
             return context
 
         return str(context)
@@ -1354,6 +1451,37 @@ del _url, _r
             return None
         return value
 
+    def _resolve_forced_final(self, reply: str) -> Tuple[Optional[str], Optional[str]]:
+        """Parse the orchestrator's forced final reply.
+
+        Must run while the REPL session is still alive (before :meth:`close`),
+        because a ``FINAL_VAR(name)`` reply is resolved from the sandbox.
+
+        Args:
+            reply: The (already redacted) forced final reply.
+
+        Returns:
+            ``(answer, None)`` when the reply is a usable ``FINAL(...)`` or a
+            resolvable ``FINAL_VAR(...)``; ``(None, error)`` otherwise.
+        """
+        parsed = _find_final_answer(reply)
+        if parsed is None:
+            return None, "forced final answer did not use FINAL(...) or FINAL_VAR(...)"
+        answer_type, content = parsed
+        if answer_type == "FINAL_VAR":
+            try:
+                value = self._get_repl_variable(content)
+            except Exception as exc:
+                return None, self._redact(f"forced final answer FINAL_VAR({content!r}) lookup failed: {exc}")
+            if value is None:
+                return None, f"forced final answer FINAL_VAR({content!r}) could not be resolved"
+            if not value.strip():
+                return None, f"forced final answer FINAL_VAR({content!r}) was empty"
+            return value, None
+        if not content:
+            return None, "forced final answer FINAL(...) was empty"
+        return self._redact(content), None
+
     # llm_query Resolution (SDK-side, credentialled)
 
     def _resolve_llm_queries(self, prompts: List[str]) -> Dict[str, str]:
@@ -1363,7 +1491,7 @@ del _url, _r
         which already holds the key, instead of by sandbox-resident code. Runs
         the batch concurrently, deduplicates by prompt hash, and never lets a
         single failure kill the run — a failed prompt is answered with an error
-        marker, matching :meth:`_parallel_map`.
+        marker.
 
         Args:
             prompts: Prompts submitted by the sandbox this turn.
@@ -1479,15 +1607,19 @@ del _url, _r
                 return r.text
         return r.text
 
-    def _parallel_map(self, chunks: List[str], query: str) -> List[str]:
+    def _parallel_map(self, chunks: List[str], query: str) -> Tuple[List[str], int, Optional[BaseException]]:
         """Run the map step: one worker call per chunk, in parallel.
 
-        Returns answers in original chunk order. A single chunk failure does
-        not fail the whole run — its slot is replaced with an error marker
-        and the reduce step proceeds with what's available.
+        Returns ``(answers, failed, last_error)``: answers in original chunk
+        order, the number of chunks whose worker call failed, and the last such
+        error. A single chunk failure does not fail the whole run: its slot
+        becomes ``"NONE"``, so ``_reduce`` drops it instead of synthesizing the
+        error text as if it were content (BUG-1462).
         """
         n = len(chunks)
         answers: List[Optional[str]] = [None] * n
+        failed = 0
+        last_error: Optional[BaseException] = None
 
         def _map_one(idx: int) -> str:
             prompt = _MAP_PROMPT.format(idx=idx + 1, total=n, query=query, chunk=chunks[idx])
@@ -1501,10 +1633,12 @@ del _url, _r
                 try:
                     answers[i] = f.result()
                 except Exception as exc:
-                    logger.warning(f"RLM parallel: chunk {i} failed: {exc}")
-                    answers[i] = f"[Error analyzing this part: {exc}]"
+                    failed += 1
+                    last_error = exc
+                    logger.warning(f"RLM parallel: chunk {i} failed: {self._redact(str(exc))}")
+                    answers[i] = "NONE"
 
-        return [a if a is not None else "NONE" for a in answers]
+        return [a if a is not None else "NONE" for a in answers], failed, last_error
 
     def _reduce_call(self, formatted_answers: str, query: str, n: int) -> str:
         """Single reduce call: synthesize partial answers into one final answer."""
@@ -1561,6 +1695,7 @@ del _url, _r
     ) -> RLMResult:
         """Deterministic chunk → parallel map → reduce. No orchestrator, no sandbox."""
         iterations_used = 0
+        failed_chunks = 0
         try:
             context = self._resolve_url_context(context)
             # Pre-resolve worker once so the cache is populated before threads
@@ -1583,11 +1718,28 @@ del _url, _r
                 final_answer = self._worker_call(prompt)
                 iterations_used = 1
             else:
-                chunk_answers = self._parallel_map(chunks, query)
-                final_answer = self._reduce(chunk_answers, query, budget_chars)
+                chunk_answers, failed_chunks, last_error = self._parallel_map(chunks, query)
                 iterations_used = n_chunks
+                if failed_chunks >= n_chunks:
+                    # Nothing was analysed: an answer built from nothing (or, as
+                    # before, from the error strings) must not read as SUCCESS.
+                    error_msg = self._redact(
+                        f"RLM parallel error: all {n_chunks} chunk(s) failed; last error: {last_error}"
+                    )
+                    logger.error(error_msg)
+                    result = RLMResult(status="FAILED", completed=True, error_message=error_msg, data=None)
+                    result.iterations_used = iterations_used
+                    result.used_credits = self._used_credits
+                    result.failed_chunks = failed_chunks
+                    return result
+                if failed_chunks:
+                    logger.warning(
+                        f"RLM '{name}' parallel: {failed_chunks} of {n_chunks} chunk(s) failed and were left out "
+                        "of the answer."
+                    )
+                final_answer = self._reduce(chunk_answers, query, budget_chars)
         except Exception as exc:
-            error_msg = f"RLM parallel error: {exc}"
+            error_msg = self._redact(f"RLM parallel error: {exc}")
             logger.error(error_msg)
             result = RLMResult(
                 status="FAILED",
@@ -1597,6 +1749,7 @@ del _url, _r
             )
             result.iterations_used = iterations_used
             result.used_credits = self._used_credits
+            result.failed_chunks = failed_chunks
             return result
 
         run_time = time.time() - start_time
@@ -1604,10 +1757,13 @@ del _url, _r
         result = RLMResult(
             status="SUCCESS",
             completed=True,
-            data=final_answer,
+            # The worker may echo its prompt, and the prompt carries the
+            # context: mask credentials here as recursive mode does (BUG-1451).
+            data=self._redact(final_answer),
         )
         result.iterations_used = iterations_used
         result.used_credits = self._used_credits
+        result.failed_chunks = failed_chunks
         result._raw_data = {"run_time": run_time}
         return result
 
@@ -1708,10 +1864,16 @@ del _url, _r
 
             # Retrieve. Clamp top_k to available chunks so we never ask for more.
             top_k = min(top_k, max(n_chunks, 1))
-            search_resp = index.run(action="search", data={"query": query, "top_k": top_k})
+            # aIR search is documented to honour ``num_results`` and reportedly
+            # ignores ``top_k``; send both, and trim client-side so ``rag_top_k``
+            # bounds the synthesis prompt either way (BUG-1462).
+            search_resp = index.run(action="search", data={"query": query, "top_k": top_k, "num_results": top_k})
             self._used_credits += float(getattr(search_resp, "used_credits", 0) or 0)
 
             retrieved = self._parse_rag_search_response(search_resp)
+            if len(retrieved) > top_k:
+                # Service order is relevance order: trim before re-sorting by position.
+                retrieved = retrieved[:top_k]
             logger.info(f"RLM '{name}' rag: retrieved {len(retrieved)} chunk(s) (top_k={top_k}).")
 
             if not retrieved:
@@ -1726,7 +1888,7 @@ del _url, _r
             # One synthesis call (or zero if nothing retrieved).
             iterations_used = 1
         except Exception as exc:
-            error_msg = f"RLM rag error: {exc}"
+            error_msg = self._redact(f"RLM rag error: {exc}")
             logger.error(error_msg)
             result = RLMResult(
                 status="FAILED",
@@ -1750,7 +1912,9 @@ del _url, _r
         result = RLMResult(
             status="SUCCESS",
             completed=True,
-            data=final_answer,
+            # The worker may echo its prompt, and the prompt carries the
+            # context: mask credentials here as recursive mode does (BUG-1451).
+            data=self._redact(final_answer),
         )
         result.iterations_used = iterations_used
         result.used_credits = self._used_credits
@@ -1761,10 +1925,11 @@ del _url, _r
 
     def run(
         self,
-        data: Union[str, dict, pathlib.Path],
+        data: Union[str, dict, pathlib.Path, None] = None,
         name: str = "rlm_process",
         timeout: Optional[float] = None,
         mode: str = "auto",
+        context_path: Optional[Union[str, "os.PathLike[str]"]] = None,
         **kwargs: Any,
     ) -> RLMResult:
         """Run the RLM over a (potentially large) context, dispatching by mode.
@@ -1795,19 +1960,27 @@ del _url, _r
                 - ``str`` **HTTP/HTTPS URL** — content is downloaded automatically;
                   ``.json`` URLs or ``application/json`` responses are parsed into a
                   dict/list, all other content decoded as plain text.
-                - ``str`` **file path** — file is read automatically; ``.json`` files are
-                  parsed into a dict/list, all other formats read as plain text.
-                - ``pathlib.Path`` — resolved and read like a file-path string.
+                - ``pathlib.Path`` — the file is read; ``.json`` files are parsed
+                  into a dict/list, all other formats read as plain text.
                 - ``dict`` — must contain ``"context"`` (required) and optionally
                   ``"query"`` (defaults to a generic analysis prompt). The value
-                  of ``"context"`` itself may also be a URL, a file path, or a
+                  of ``"context"`` itself may be text, a URL, or a
                   ``pathlib.Path``.
+
+                .. versionchanged:: BUG-1451
+                   A ``str`` is no longer read from disk when it happens to name
+                   a file; it is always text (or a URL). Pass ``pathlib.Path``
+                   or ``context_path=`` to load a file. A ``FutureWarning`` is
+                   emitted once when a ``str`` names an existing file.
 
             name: Identifier used in log messages. Defaults to ``"rlm_process"``.
             timeout: Maximum wall-clock seconds. Applies to ``"recursive"`` mode
                 only. Overrides ``self.timeout`` when provided.
-            mode: ``"auto"``, ``"parallel"``, or ``"recursive"``. Defaults to
-                ``"auto"``.
+            mode: ``"auto"``, ``"parallel"``, ``"recursive"``, or ``"rag"``.
+                Defaults to ``"auto"``.
+            context_path: Explicit path of a file to use as the context. Use
+                instead of ``data``, or together with a ``data`` dict that
+                carries only ``"query"``.
             **kwargs: Ignored; kept for API compatibility.
 
         Returns:
@@ -1822,12 +1995,16 @@ del _url, _r
               chunks), or 1 for the single-call fast path.
             - ``repl_logs``: Per-iteration execution log (recursive mode only;
               empty for parallel). Not serialized.
+            - ``failed_chunks``: Parallel mode → chunks whose worker call
+              failed and were left out of the answer. ``FAILED`` when every
+              chunk failed.
 
         Raises:
             ResourceError: If ``worker_id`` is unset, or ``recursive`` mode is
                 used without ``orchestrator_id``, or a model call fails.
             ValueError: If ``data`` is a dict missing ``"context"``, ``mode``
-                is invalid, or ``data`` is an unsupported type.
+                is invalid, ``data`` is an unsupported type, neither ``data``
+                nor ``context_path`` is given, or both supply a context.
         """
         if mode not in ("auto", "parallel", "recursive", "rag"):
             raise ValueError(f"Invalid mode: {mode!r}. Choose 'auto', 'parallel', 'recursive', or 'rag'.")
@@ -1835,10 +2012,18 @@ del _url, _r
             raise ResourceError("RLM requires a worker_id. Pass worker_id= when constructing aix.RLM(...).")
 
         # Normalise data argument
-        if isinstance(data, pathlib.Path):
-            data = str(data)
+        if context_path is not None:
+            if data is not None and not (isinstance(data, dict) and "context" not in data):
+                raise ValueError(
+                    "Pass the context either in data=... or as context_path=..., not both. "
+                    "With context_path=, data may only be a dict carrying a 'query'."
+                )
+            data = {**(data or {}), "context": pathlib.Path(context_path)}
 
-        if isinstance(data, str):
+        if data is None:
+            raise ValueError(f"Unsupported data type: {type(data)}. RLM.run requires data=... or context_path=....")
+
+        if isinstance(data, (str, os.PathLike)):
             context: Any = data
             query = _DEFAULT_QUERY
         elif isinstance(data, dict):
@@ -1851,7 +2036,7 @@ del _url, _r
         else:
             raise ValueError(
                 f"Unsupported data type: {type(data)}. "
-                "Expected a str (raw text or file path), a pathlib.Path, "
+                "Expected a str (raw text or URL), a pathlib.Path, "
                 "or a dict with a 'context' key."
             )
 
@@ -1894,6 +2079,8 @@ del _url, _r
         """
         iterations_used = 0
         final_answer: Optional[str] = None
+        forced_final = False
+        forced_error: Optional[str] = None
         repl_logs: List[Dict] = []
         self._used_credits = 0.0
 
@@ -1954,9 +2141,16 @@ del _url, _r
 
             # Force a final answer if loop exhausted or timed out without one
             if final_answer is None:
+                forced_final = True
                 logger.info(f"RLM '{name}': requesting forced final answer after {iterations_used} iteration(s).")
                 self._messages.append(_next_action_message(query, iterations_used, force_final=True))
-                final_answer = self._redact(self._orchestrator_completion(self._messages))
+                raw_reply = self._redact(self._orchestrator_completion(self._messages))
+                # Parse and resolve here, inside the try: FINAL_VAR needs the
+                # REPL, which the finally block below tears down.
+                final_answer, forced_error = self._resolve_forced_final(raw_reply)
+                if final_answer is None:
+                    logger.warning(f"RLM '{name}': {forced_error} — returning the raw reply as FAILED.")
+                    final_answer = raw_reply
                 if _LLM_PENDING_SENTINEL in final_answer:
                     # Last resort: the placeholder must never surface as content.
                     logger.warning(f"RLM '{name}': forced final answer contained pending placeholder(s) — stripped.")
@@ -1984,14 +2178,23 @@ del _url, _r
         run_time = time.time() - start_time
         logger.info(f"RLM '{name}': done in {iterations_used} iteration(s), {run_time:.1f}s.")
 
-        result = RLMResult(
-            status="SUCCESS",
-            completed=True,
-            data=final_answer or "",
-        )
+        if forced_error is not None:
+            result = RLMResult(
+                status="FAILED",
+                completed=True,
+                data=final_answer or "",
+                error_message=f"RLM: {forced_error}",
+            )
+        else:
+            result = RLMResult(
+                status="SUCCESS",
+                completed=True,
+                data=final_answer or "",
+            )
         result.iterations_used = iterations_used
         result.used_credits = self._used_credits
         result.repl_logs = repl_logs
+        result.final_answer_forced = forced_final
         result._raw_data = {"run_time": run_time}
         return result
 

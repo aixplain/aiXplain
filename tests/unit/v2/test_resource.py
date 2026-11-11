@@ -980,6 +980,92 @@ class TestRunnableResourceMixin:
         assert exc_info.value.status_code == 0
         resource.context.client.request.assert_called_once()
 
+    @pytest.mark.parametrize("status", [422, 429])
+    def test_poll_http_error_keeps_status_message_and_body(self, status):
+        """An HTTP error while polling keeps its real status (BUG-1462).
+
+        It used to be rewrapped as ``APIError("Polling failed: ...", 0)``, and
+        status 0 is the SDK's "no HTTP response at all" sentinel.
+        """
+        resource = self._create_runnable_resource()
+        resource.context.client.ensure_trusted_url = Mock(return_value=None)
+        body = {"supplierError": "Rate limit exceeded", "statusCode": status}
+        original = APIError("Rate limit exceeded", status_code=status, response_data=body)
+        resource.context.client.get = Mock(side_effect=original)
+
+        with pytest.raises(APIError) as exc_info:
+            resource.poll("https://poll.url/job")
+
+        assert exc_info.value is original
+        assert exc_info.value.status_code == status
+        assert exc_info.value.response_data == body
+        assert "Polling failed" not in str(exc_info.value)
+
+    def test_poll_transport_error_is_chained(self):
+        resource = self._create_runnable_resource()
+        resource.context.client.ensure_trusted_url = Mock(return_value=None)
+        cause = ConnectionError("connection reset")
+        resource.context.client.get = Mock(side_effect=cause)
+
+        with pytest.raises(APIError) as exc_info:
+            resource.poll("https://poll.url/job")
+
+        assert exc_info.value.status_code == 0
+        assert exc_info.value.__cause__ is cause
+
+    def test_submission_without_timeout_keeps_request_kwargs(self):
+        """No ``timeout`` run kwarg: the POST carries no explicit timeout."""
+        resource = self._create_runnable_resource()
+        resource.context.client.request = Mock(return_value={"status": "SUCCESS", "completed": True, "data": "x"})
+
+        resource.run_async()
+
+        assert "timeout" not in resource.context.client.request.call_args.kwargs
+
+    def test_submission_read_timeout_is_bounded_by_caller_timeout(self):
+        """``run(timeout=5)`` bounds the POST read, not just polling (BUG-1462)."""
+        resource = self._create_runnable_resource()
+        resource.context.client.timeout = (10.0, 300.0)
+        resource.context.client.request = Mock(return_value={"status": "SUCCESS", "completed": True, "data": "x"})
+
+        resource.run(timeout=5)
+
+        connect, read = resource.context.client.request.call_args.kwargs["timeout"]
+        assert connect == 10.0
+        assert 1.0 <= read <= 5.0
+
+    def test_submission_timeout_never_widens_the_client_read_timeout(self):
+        resource = self._create_runnable_resource()
+        resource.context.client.timeout = (10.0, 30.0)
+        resource.context.client.request = Mock(return_value={"status": "SUCCESS", "completed": True, "data": "x"})
+
+        resource.run(timeout=1000)
+
+        assert resource.context.client.request.call_args.kwargs["timeout"] == (10.0, 30.0)
+
+    def test_submission_read_timeout_raises_timeout_error_without_resubmitting(self):
+        import requests
+
+        resource = self._create_runnable_resource()
+        resource.context.client.timeout = (10.0, 300.0)
+        resource.context.client.request = Mock(side_effect=requests.exceptions.ReadTimeout("read timed out"))
+
+        with patch("aixplain.v2.resource.time.sleep"):
+            with pytest.raises(TimeoutError) as exc_info:
+                resource.run(timeout=5, run_retries=3, run_retry_wait=0.01)
+
+        assert isinstance(exc_info.value.__cause__, requests.exceptions.ReadTimeout)
+        resource.context.client.request.assert_called_once()
+
+    def test_submission_read_timeout_without_caller_timeout_is_unchanged(self):
+        import requests
+
+        resource = self._create_runnable_resource()
+        resource.context.client.request = Mock(side_effect=requests.exceptions.ReadTimeout("read timed out"))
+
+        with pytest.raises(requests.exceptions.ReadTimeout):
+            resource.run_async()
+
     def test_run_does_not_resubmit_after_poll_timeout(self):
         """A sync_poll timeout propagates without a second submission."""
         resource = self._create_runnable_resource()

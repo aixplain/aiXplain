@@ -113,6 +113,9 @@ class TestBlackholeFailsFast:
         file_path = tmp_path / "sample.csv"
         file_path.write_text("a,b\n1,2\n")
 
+        # The blackhole is plain http on loopback, which the config-URL policy
+        # only allows under the explicit insecure opt-in (BUG-1451).
+        monkeypatch.setenv("AIXPLAIN_ALLOW_INSECURE_URLS", "1")
         uploader = FileUploader(backend_url=blackhole_url, api_key="key")
 
         started = time.monotonic()

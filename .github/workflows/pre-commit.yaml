@@ -4,6 +4,27 @@ on:
   push:
     branches:
       - '**'
+  # BUG-1454: a push to a fork never starts a workflow in this repository, so
+  # without this trigger a fork PR ran no ruff, no unit hook and no secret scan
+  # -- and once `pre-commit` is a required context, every fork PR would wait
+  # forever on a check that never reports. `pull_request` (never
+  # `pull_request_target`) runs the fork's code with no secrets and a read-only
+  # token, and nothing below needs more. Same-repo PRs therefore run twice (push
+  # + PR). That is deliberate: skipping the PR run with a job-level `if:` would
+  # report a *skipped* `pre-commit` check, and a skipped check satisfies a
+  # required context even while the push run is red.
+  pull_request:
+
+# Mirrors main.yaml: only PR runs cancel each other (the newest commit on a PR
+# re-runs everything the superseded run would have). Every other event gets a
+# group of its own, so a push run always keeps its own result, and a push run
+# and its PR run never cancel each other -- a cancelled run is a failed check.
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{ github.event_name == 'pull_request'
+    && format('pr-{0}', github.event.pull_request.number)
+    || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Least privilege (ENG-3428): `pre-commit run --all-files` executes hook code
 # from the third-party repos pinned in .pre-commit-config.yaml, plus the repo's

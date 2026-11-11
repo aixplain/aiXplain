@@ -692,9 +692,9 @@ def test_the_models_url_ships_the_endpoint_the_conftest_speaks():
 def test_the_functional_legs_set_the_canonical_api_key_alias_to_the_same_value():
     """AIXPLAIN_API_KEY is the fallback every functional conftest accepts.
 
-    It cannot be a *second* credential: `aixplain/utils/config.py` raises when
-    AIXPLAIN_API_KEY and TEAM_API_KEY are both set and differ, so a well-meant
-    second secret here would fail every leg at import time.
+    It cannot be a *second* credential: `Aixplain()` warns when AIXPLAIN_API_KEY
+    and TEAM_API_KEY are both set and differ and then ignores AIXPLAIN_API_KEY,
+    so a well-meant second secret here would be silently unused.
     """
     script = _functional_env_step()["run"]
     team = re.findall(r"(?<![A-Z_])TEAM_API_KEY=\$\{?(\w+)", script)
@@ -707,8 +707,8 @@ def test_the_functional_legs_set_the_canonical_api_key_alias_to_the_same_value()
     )
     assert set(team) == set(aixplain), (
         f"TEAM_API_KEY is set from {sorted(set(team))} but AIXPLAIN_API_KEY from "
-        f"{sorted(set(aixplain))}. They must carry the same value: aixplain/utils/config.py "
-        "raises when the two are set and differ."
+        f"{sorted(set(aixplain))}. They must carry the same value: Aixplain() "
+        "warns when the two are set and differ."
     )
 
 
@@ -936,6 +936,49 @@ def test_the_nightly_failure_notification_is_wired_to_the_whole_run():
     assert "github.run_id" in str(step.get("env", "")), (
         "the Slack message carries no link to the run, which is the only actionable part of it"
     )
+
+
+def _nightly_step(name: str) -> dict:
+    return next(step for step in _job(MAIN_WORKFLOW, "nightly-report")["steps"] if step.get("name") == name)
+
+
+def test_a_missing_nightly_webhook_fails_every_scheduled_run():
+    """A warning on a green job is how 13 red nightlies alerted nobody (BUG-1454).
+
+    The notify step only runs on a red nightly, so a separate check has to make
+    an unconfigured webhook red on green nights as well.
+    """
+    steps = _job(MAIN_WORKFLOW, "nightly-report")["steps"]
+    check = _nightly_step("Require the Slack webhook on scheduled runs")
+    assert steps.index(check) == 0, "the webhook check must run before (and independently of) the notify step"
+    assert "schedule" in str(check.get("if", "")), "the webhook check is not scoped to scheduled runs"
+    assert check["env"]["SLACK_WEBHOOK_URL"] == "${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}"
+    assert "failure" not in str(check.get("if", "")), "the webhook check must run on green nightlies too"
+    assert "::error::" in check["run"] and "exit 1" in check["run"]
+
+
+def _run_nightly_script(step: dict, event: str) -> subprocess.CompletedProcess:
+    env = _clean_env(SLACK_WEBHOOK_URL="", RUN_URL="https://example.invalid/run", GITHUB_REF_NAME="main")
+    env["GITHUB_EVENT_NAME"] = event
+    return subprocess.run(["bash", "-c", step["run"]], env=env, capture_output=True, text=True, timeout=30)
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+@pytest.mark.parametrize(
+    ("event", "code", "prefix"),
+    [("schedule", 1, "::error::"), ("workflow_dispatch", 0, "::warning::"), ("push", 0, "::warning::")],
+)
+def test_the_notify_step_fails_on_a_missing_webhook_only_on_scheduled_runs(event: str, code: int, prefix: str):
+    """The empty-secret path exits before `jq`/`curl`, so this needs no network."""
+    result = _run_nightly_script(_nightly_step("Notify Slack when the nightly run is not green"), event)
+    assert result.returncode == code, result.stdout + result.stderr
+    assert result.stdout.startswith(prefix), result.stdout
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+def test_the_webhook_check_fails_when_the_secret_is_empty():
+    result = _run_nightly_script(_nightly_step("Require the Slack webhook on scheduled runs"), "schedule")
+    assert result.returncode == 1 and result.stdout.startswith("::error::"), result.stdout + result.stderr
 
 
 # ---------------------------------------------------------------------------
@@ -1197,6 +1240,30 @@ def test_pre_commit_is_not_handed_a_backend_credential():
         "pre-commit.yaml is handed TEAM_API_KEY again. It runs `tests/unit` plus third-party "
         "hook code and needs no backend credential."
     )
+
+
+def test_pre_commit_reports_on_fork_pull_requests():
+    """A push to a fork starts no workflow here; only `pull_request` reports on a fork PR (BUG-1454)."""
+    triggers = _triggers(_load(PRE_COMMIT_WORKFLOW))
+    assert "push" in triggers, "pre-commit no longer runs on branch pushes (ENG-3686: a secret scan on every push)"
+    assert "pull_request" in triggers, (
+        "pre-commit.yaml has no `pull_request` trigger, so a fork PR never runs ruff, the unit hook or "
+        "the secret scan -- and a required `pre-commit` context would never report on it."
+    )
+    assert "pull_request_target" not in triggers, "pull_request_target runs fork code with secrets and a write token"
+
+
+def test_pre_commit_job_is_never_skipped():
+    """A job skipped by `if:` reports as a passing check and would satisfy a required context."""
+    for name, job in _load(PRE_COMMIT_WORKFLOW)["jobs"].items():
+        assert "if" not in job, f"pre-commit.yaml job {name!r} has a job-level `if:`; a skipped run masks a red one"
+
+
+def test_pre_commit_concurrency_only_cancels_pull_request_runs():
+    concurrency = _load(PRE_COMMIT_WORKFLOW)["concurrency"]
+    assert "github.event.pull_request.number" in concurrency["group"]
+    assert "github.run_id" in concurrency["group"], "push runs must keep a group of their own"
+    assert concurrency["cancel-in-progress"] == "${{ github.event_name == 'pull_request' }}"
 
 
 # ---------------------------------------------------------------------------
