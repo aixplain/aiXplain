@@ -195,8 +195,8 @@ at all: no functional test reads it.
 
 `AIXPLAIN_API_KEY` is **not** a separate secret. The workflow exports it with the same value as
 `TEAM_API_KEY`, because every functional conftest accepts it as the canonical fallback while
-`aixplain/utils/config.py` raises when the two are set and differ. Adding a second, different
-credential under that name would fail every leg at import time.
+`Aixplain()` warns when the two are set and differ (and uses `TEAM_API_KEY`). A second, different
+credential under that name would be ignored by the SDK and contradict the conftests' fallback.
 
 These are repository secrets and have to be created by hand (Settings → Secrets and variables →
 Actions). The two `TEST_…_ID` secrets name backend-resident objects — an integration and a connected

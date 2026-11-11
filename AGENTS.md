@@ -59,13 +59,20 @@ python -m pytest tests/unit
 # Functional / integration tests
 python -m pytest tests/functional
 
-# Unit tests with coverage (same as pre-commit hook)
-coverage run --source=. -m pytest tests/unit
+# Unit tests with coverage (same as the pre-commit hook and the CI `unit-coverage` job).
+# Scope comes from [tool.coverage.run] in pyproject.toml -- do not add --source=.,
+# which also counts tests/ and inflates the figure. Run it serially (no -n/xdist):
+# xdist under-reports badly, and the CI floor is measured serially.
+coverage run -m pytest tests/unit
+coverage report
 ```
 
 ### Lint and Format
 
-Ruff is the sole linter and formatter.
+Ruff is the sole linter and formatter. Use the version pinned in `.pre-commit-config.yaml`
+(`ruff==0.12.12`, e.g. `uvx ruff@0.12.12 check .`). `ruff check .` is green on a clean checkout;
+`ruff.toml` exempts tests and repository tooling scripts from the pydocstyle (`D`) rules. The
+pre-commit hooks lint `aixplain/v2/` and format `aixplain/v2/` and `tests/`.
 
 ```bash
 ruff check .            # Lint

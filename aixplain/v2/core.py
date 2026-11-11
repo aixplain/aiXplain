@@ -127,7 +127,17 @@ class Aixplain:
             pipeline_url (str, optional): The pipeline execution URL. Falls back to PIPELINES_RUN_URL env var.
             model_url (str, optional): The model execution URL. Falls back to MODELS_RUN_URL env var.
         """
-        resolved = api_key or os.getenv("TEAM_API_KEY") or os.getenv("AIXPLAIN_API_KEY") or ""
+        env_team_key = os.getenv("TEAM_API_KEY")
+        env_aixplain_key = os.getenv("AIXPLAIN_API_KEY")
+        if not api_key and env_team_key and env_aixplain_key and env_team_key != env_aixplain_key:
+            # Never include either value in the message: warnings end up in logs.
+            warnings.warn(
+                "Both TEAM_API_KEY and AIXPLAIN_API_KEY are set but differ; using TEAM_API_KEY. "
+                "Set only one of them, or give both the same value.",
+                UserWarning,
+                stacklevel=2,
+            )
+        resolved = api_key or env_team_key or env_aixplain_key or ""
         self.api_key = resolved
         if api_key:
             os.environ["TEAM_API_KEY"] = api_key

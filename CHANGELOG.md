@@ -124,9 +124,12 @@ What changes for code that used the old classes through `aixplain.exceptions`:
 `AixplainBaseException`, `AuthenticationError`, `AlreadyDeployedError`,
 `BillingError`, `SupplierError`, `NetworkError`, `ServiceError`, `InternalError`
 and `get_error_from_status_code` still import from `aixplain.exceptions`, but now
-emit a `DeprecationWarning` and will be removed from it in 0.4.0. Import them
-from `aixplain.exceptions.types`, where they stay. They are no longer in
-`aixplain.exceptions.__all__`, so a star-import does not pull them in.
+emit a `DeprecationWarning` and will be removed from it in 0.4.0. The SDK never
+raises them, so `except AuthenticationError:` does not catch an API failure:
+catch `aixplain.APIError` and check `status_code` instead (e.g. `401`). The
+warning says so. The names stay importable from `aixplain.exceptions.types`.
+They are no longer in `aixplain.exceptions.__all__`, so a star-import does not
+pull them in.
 
 The v1 `ValidationError` / `ResourceError` (what `get_error_from_status_code`
 returns) now also subclass the v2 classes of the same name, so
@@ -206,7 +209,15 @@ Also removed, because they existed only to serve v1:
   wrapped the v1 model-onboarding factory. Use the web console.
 - `aixplain.utils.file_utils`, `request_utils`, `asset_cache`, `cache_utils`,
   `llm_utils`, `evolve_utils`, `validation_utils` and `convert_datatype_utils`.
-  `aixplain.utils.config`, `url_safety` and `user_info_utils` stay.
+  `url_safety` and `user_info_utils` stay.
+- `aixplain.utils.config`. Nothing in the package imported it any more, so its
+  checks never ran. The environment variables only it read -- `SENTRY_DSN`,
+  `MODEL_API_KEY`, `HF_TOKEN` and `PIPELINE_API_KEY` -- are no longer read, and
+  the SDK does not initialise Sentry. Configure the SDK through
+  `Aixplain(api_key=..., backend_url=...)` or the environment variables
+  `Aixplain()` reads. When `TEAM_API_KEY` and `AIXPLAIN_API_KEY` are both set
+  and differ, `Aixplain()` now emits a `UserWarning` and uses `TEAM_API_KEY`
+  (the old module raised, but only if something imported it).
 - `aixplain/v2/enums_include.py`, a re-export shim over the v1 enums that nothing
   imported, and the `generate.py` code generator that rendered it.
 

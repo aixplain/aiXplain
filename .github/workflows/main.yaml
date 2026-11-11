@@ -77,9 +77,11 @@ concurrency:
 
 env:
   # Coverage floor for the unit suite, enforced by the `unit-coverage` job.
-  # Measured at 64% on `development` @ 42ed1e02; set two points below to absorb
-  # ordering/version jitter. Ratchet it up here as coverage improves.
-  COVERAGE_FLOOR: "62"
+  # Measured at 85.2% (serial `coverage run -m pytest tests/unit`, no xdist --
+  # under `-n` the figure collapses to ~26%) on BUG-1456, i.e. `development` @
+  # 71666c32 plus the RLM unit tests, with the `test` extra installed; set about two points
+  # below to absorb ordering/version jitter. Ratchet it up here as coverage improves.
+  COVERAGE_FLOOR: "83"
   # A leg that collects tests, skips every one, and exits 0 is indistinguishable
   # from a leg that passed -- `agent` and `team_agent` reported green while
   # executing 0 of 50 collected tests (ENG-3544). With this set, the
@@ -258,7 +260,6 @@ jobs:
               "aixplain.v2.core",
               "aixplain.v2.agent",
               "aixplain.v2.api_key",
-              "aixplain.utils.config",
               "aixplain.utils.url_safety",
               "aixplain.exceptions.types",
               "aixplain._compat",
@@ -618,10 +619,9 @@ jobs:
           {
             echo "TEAM_API_KEY=$api_key"
             # The same value, deliberately. Every functional conftest accepts
-            # AIXPLAIN_API_KEY as the fallback for TEAM_API_KEY, and
-            # aixplain/utils/config.py raises when both are set and differ -- so
-            # this has to mirror TEAM_API_KEY rather than carry a second
-            # credential (ENG-3683).
+            # AIXPLAIN_API_KEY as the fallback for TEAM_API_KEY, and Aixplain()
+            # warns when both are set and differ -- so this mirrors
+            # TEAM_API_KEY rather than carrying a second credential (ENG-3683).
             echo "AIXPLAIN_API_KEY=$api_key"
             echo "BACKEND_URL=$backend"
             # v2 is the only model API the suites speak. tests/functional/v2/

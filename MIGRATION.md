@@ -489,7 +489,7 @@ to the v2 classes the SDK raises, not the v1-era look-alikes:
 | `aixplain.exceptions.ValidationError` (v1 class; never raised by v2) | `aixplain.ValidationError` (same class the SDK raises) |
 | `aixplain.exceptions.ResourceError` (v1 class; never raised by v2) | `aixplain.ResourceError` (same class the SDK raises) |
 | `aixplain.exceptions.types.ValidationError` | unchanged (v1 types still importable) |
-| `from aixplain.exceptions import AixplainBaseException, AuthenticationError, BillingError, SupplierError, NetworkError, ServiceError, InternalError, AlreadyDeployedError, get_error_from_status_code` | `from aixplain.exceptions.types import ...` (the old path still works but warns, and is removed in 0.4.0) |
+| `from aixplain.exceptions import AixplainBaseException, AuthenticationError, BillingError, SupplierError, NetworkError, ServiceError, InternalError, AlreadyDeployedError, get_error_from_status_code` | `except aixplain.APIError as e` and branch on `e.status_code` (e.g. `401`) -- the SDK never raises the v1 types. They stay importable from `aixplain.exceptions.types`; the old path still works but warns, and is removed in 0.4.0. |
 
 The v2 classes are a different hierarchy from the v1 ones, so code that built or
 inspected them as v1 objects needs a change:
