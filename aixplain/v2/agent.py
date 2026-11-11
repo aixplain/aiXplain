@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 from ._expected_output import expected_output_to_wire
 from .enums import AssetStatus, AssetStatusValue, ResponseStatus
-from .model import Model
+from .model import Model, _model_sort_field
 from .file import File
 from .skill import Skill
 from .graph import Graph, GraphDict, InspectorNode, StaticGraphStrategy, StaticGraphStrategyDict
@@ -41,6 +41,9 @@ from .resource import (
     RunnableResourceMixin,
     Page,
     with_hooks,
+    _filter_value,
+    _filter_values,
+    _sort_direction,
 )
 
 if TYPE_CHECKING:
@@ -849,6 +852,17 @@ class Task:
             self.dependencies = [
                 dependency if isinstance(dependency, str) else dependency.name for dependency in self.dependencies
             ]
+
+
+class AgentSearchParams(BaseSearchParams):
+    """Search parameters for agents.
+
+    Attributes:
+        status: Agent status to filter by: ``"draft"`` or ``"onboarded"``.
+            A one-element list is accepted; other values warn and are not sent.
+    """
+
+    status: NotRequired[Union[AssetStatus, AssetStatusValue, List[Union[AssetStatus, AssetStatusValue]]]]
 
 
 @dataclass_json
@@ -2156,22 +2170,112 @@ class Agent(
     def search(
         cls: type["Agent"],
         query: Optional[str] = None,
-        **kwargs: Unpack[BaseSearchParams],
+        **kwargs: Unpack[AgentSearchParams],
     ) -> "Page[Agent]":
         """Search agents with optional query and filtering.
 
         Args:
             query: Optional search query string
-            **kwargs: Additional search parameters (ownership, status, etc.)
+            **kwargs: Additional search parameters: ``status`` (a single
+                ``"draft"`` or ``AssetStatus.ONBOARDED``), ``sort_by``,
+                ``sort_order``, ``page_number``, ``page_size``.
 
         Returns:
             Page of agents matching the search criteria
+
+        Raises:
+            ValidationError: If an unsupported filter is passed.
+
+        Warns:
+            FutureWarning: For ``ownership``, which ``v2/agents/paginate`` does
+                not read, and for a ``status`` other than one ``draft`` or
+                ``onboarded`` value, which it rejects; neither is sent.
         """
         # If query is provided, add it to kwargs
         if query is not None:
             kwargs["query"] = query
 
         return super().search(**kwargs)
+
+    #: Keys ``Agent.search`` accepts; anything else raises ``ValidationError``
+    #: instead of being dropped silently (BUG-1459).
+    _SEARCH_KNOWN_KEYS: ClassVar[frozenset] = frozenset(
+        {
+            "query",
+            "ownership",
+            "sort_by",
+            "sort_order",
+            "status",
+            "page_number",
+            "page_size",
+            "resource_path",
+            "paginate_items_key",
+            "strict",
+            "api_key",
+        }
+    )
+
+    #: Statuses ``v2/agents/paginate`` accepts: a single scalar, one of these
+    #: (``AgentPaginateInput.status``). Lists and other values are rejected by
+    #: the backend, so they warn and are not sent.
+    _SEARCH_STATUS_VALUES: ClassVar[frozenset] = frozenset({AssetStatus.DRAFT.value, AssetStatus.ONBOARDED.value})
+
+    @classmethod
+    def _populate_filters(cls, params: dict) -> dict:
+        """Build the ``v2/agents/paginate`` request body.
+
+        The endpoint (``AgentPaginateInput``) sorts through
+        ``sort: [{field, dir}]`` and filters by a single ``status``
+        (``draft`` or ``onboarded``); it reads neither ``sortBy``/``sortOrder``
+        nor ``ownership`` (BUG-1459).
+
+        Raises:
+            ValidationError: If ``params`` carries an unsupported filter.
+
+        Warns:
+            FutureWarning: When ``ownership`` is passed, or ``status`` is not a
+                single ``draft``/``onboarded`` value; it is dropped.
+        """
+        unknown = set(params) - cls._SEARCH_KNOWN_KEYS
+        if unknown:
+            raise ValidationError(f"{cls.__name__}.search() received unsupported filter(s): {sorted(unknown)}")
+
+        filters = super()._populate_filters(params)
+        filters.pop("sortBy", None)
+        filters.pop("sortOrder", None)
+        if filters.pop("ownership", None) is not None:
+            warnings.warn(
+                f"{cls.__name__}.search(): filter(s) ['ownership'] are not supported by the backend and were "
+                "ignored; they will raise in a future release.",
+                FutureWarning,
+                stacklevel=4,
+            )
+
+        sort_by = params.get("sort_by")
+        sort_order = params.get("sort_order")
+        if sort_by is not None or sort_order is not None:
+            filters["sort"] = [
+                {
+                    "field": _model_sort_field("name" if sort_by is None else sort_by),
+                    "dir": _sort_direction("ASC" if sort_order is None else sort_order),
+                }
+            ]
+
+        status = params.get("status")
+        if status is not None:
+            values = _filter_values(status) if isinstance(status, (list, tuple, set)) else [_filter_value(status)]
+            values = list(dict.fromkeys(values))
+            if len(values) == 1 and values[0] in cls._SEARCH_STATUS_VALUES:
+                filters["status"] = values[0]
+            else:
+                warnings.warn(
+                    f"{cls.__name__}.search(): status={status!r} is not supported by the backend and was ignored; "
+                    f"pass a single status, one of {sorted(cls._SEARCH_STATUS_VALUES)}. This will raise in a "
+                    "future release.",
+                    FutureWarning,
+                    stacklevel=4,
+                )
+        return filters
 
     @classmethod
     def _normalize_tool_for_api(cls, tool: Any) -> dict:

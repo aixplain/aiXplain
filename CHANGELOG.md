@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Fixed: v2 search filters, `Page.page_total` and polled model details
+
+- `Model.search` sends `Function` members as the backend's kebab codes
+  (`text-generation`) and accepts `function=` as an alias of `functions=`.
+  (`Tool`/`Integration.search` encode `functions` the same way, but their
+  endpoints do not filter by it yet.) Filters `v2/models/paginate` does not read
+  (`source_languages`, `target_languages`, `is_finetunable`, `ownership`,
+  `status`) are no longer sent and emit a `FutureWarning`; undeclared keywords
+  raise `ValidationError`. `sortBy`/`sortOrder` are no longer sent next to `sort`.
+- `Agent.search` sends `sort: [{field, dir}]` and forwards `status` as a single
+  `draft`/`onboarded` value (a one-element list is unwrapped); other statuses,
+  several statuses, and `ownership` are not accepted by the backend, so they
+  warn and are not sent. Undeclared keywords
+  raise `ValidationError`.
+- `Page.page_total` is now the number of pages (backend `pagesCount`, or
+  `ceil(total / page_size)`), as documented. It used to hold the number of items
+  on the page; use `len(page.results)` for that.
+- A polled model run keeps `details` (reasoning, tool calls, finish reason),
+  matching the synchronous path.
+
 ### Added: typed v2 Index API (`aix.Index`)
 
 `aix.Index` is the v2 replacement for v1 `IndexFactory` / `IndexModel` (BUG-1455,

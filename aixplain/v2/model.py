@@ -6,11 +6,12 @@ import json
 import logging
 import re
 import time
+import warnings
 from collections.abc import Mapping
 from itertools import chain
 
 import requests
-from typing import Callable, Dict, Union, List, Optional, Any, Iterator
+from typing import Callable, ClassVar, Dict, FrozenSet, Union, List, Optional, Any, Iterator, Tuple
 from urllib.parse import urlparse
 from typing_extensions import NotRequired, Unpack
 from dataclasses_json import dataclass_json, config
@@ -844,6 +845,31 @@ def find_function_by_id(function_id: str) -> Optional[Function]:
         return None
 
 
+def _function_code(value: Any) -> str:
+    """Return the backend kebab code for a ``functions`` search filter argument.
+
+    The inverse of :func:`find_function_by_id`. ``v2/models/paginate`` matches
+    ``functions`` exactly against stored kebab codes (``text-generation``), so
+    the enum's UPPER_SNAKE values silently match nothing (BUG-1459).
+
+    - ``Function.TEXT_GENERATION`` and ``"TEXT_GENERATION"`` -> ``"text-generation"``;
+    - members whose value is already kebab (``Function.UTILITIES``) are unchanged;
+    - any other string (e.g. a raw backend code ``"text-generation"``) passes through.
+
+    Args:
+        value: ``Function`` member, its string value, or a raw backend code.
+
+    Returns:
+        str: The function code to place in the request body.
+    """
+    raw = _filter_value(value)
+    try:
+        member = Function(raw)
+    except ValueError:
+        return raw
+    return member.value.lower().replace("_", "-")
+
+
 @dataclass_json
 @dataclass
 class Parameter:
@@ -890,9 +916,18 @@ class VendorInfo:
 
 
 class ModelSearchParams(BaseSearchParams):
-    """Search parameters for model queries."""
+    """Search parameters for model queries.
 
-    functions: NotRequired[List[str]]
+    ``function`` is an alias of ``functions`` (pass one or the other).
+
+    ``source_languages``, ``target_languages``, ``is_finetunable``, ``status``
+    and the inherited ``ownership`` are **deprecated**: ``v2/models/paginate``
+    does not read them, so they are not sent and emit a ``FutureWarning``
+    instead of silently returning an unfiltered page (BUG-1459).
+    """
+
+    function: NotRequired[Union[Function, str, List[Union[Function, str]]]]
+    functions: NotRequired[Union[Function, str, List[Union[Function, str]]]]
     vendors: NotRequired[Union[SupplierValue, Supplier, List[Union[SupplierValue, Supplier]]]]
     source_languages: NotRequired[Union[LanguageValue, Language, List[Union[LanguageValue, Language]]]]
     target_languages: NotRequired[Union[LanguageValue, Language, List[Union[LanguageValue, Language]]]]
@@ -1162,10 +1197,22 @@ class Model(
 
         Args:
             query: Optional search query string
-            **kwargs: Additional search parameters (functions, suppliers, etc.)
+            **kwargs: Additional search parameters, e.g.
+                ``functions=[Function.TEXT_GENERATION]`` (or the alias
+                ``function=Function.TEXT_GENERATION``), ``vendors``, ``host``,
+                ``developer``, ``path``, ``saved``, ``sort_by``/``sort_order``.
 
         Returns:
             Page of items matching the search criteria
+
+        Raises:
+            ValidationError: If an unsupported filter is passed, or both
+                ``function`` and ``functions`` are given.
+
+        Warns:
+            FutureWarning: For deprecated filters the backend does not read
+                (``source_languages``, ``target_languages``, ``is_finetunable``,
+                ``ownership``, ``status``); they are not sent.
         """
         # If query is provided, add it to kwargs
         if query is not None:
@@ -1623,12 +1670,82 @@ class Model(
                     )
         return parameters
 
+    #: Keys ``Model.search`` (and ``Tool``/``Integration``) accept. Anything else
+    #: raises :class:`ValidationError` rather than being dropped silently, which
+    #: would return the unfiltered catalogue (BUG-1459, aiXplain#958 item 2).
+    _SEARCH_KNOWN_KEYS: ClassVar[FrozenSet[str]] = frozenset(
+        {
+            # BaseSearchParams / BaseParams / SearchResourceMixin plumbing
+            "query",
+            "ownership",
+            "sort_by",
+            "sort_order",
+            "page_number",
+            "page_size",
+            "resource_path",
+            "paginate_items_key",
+            "strict",
+            "api_key",
+            # ModelSearchParams
+            "function",
+            "functions",
+            "vendors",
+            "source_languages",
+            "target_languages",
+            "is_finetunable",
+            "saved",
+            "status",
+            "q",
+            "host",
+            "developer",
+            "path",
+        }
+    )
+
+    #: Declared search kwargs that ``v2/models/paginate`` does not read
+    #: (``ModelPaginationInput`` / ``paginateModels``). Accepted for backward
+    #: compatibility, warned about and **not sent**, so a caller is never handed
+    #: an unfiltered page without being told (BUG-1459).
+    _UNREAD_SEARCH_FILTERS: ClassVar[Tuple[str, ...]] = (
+        "source_languages",
+        "target_languages",
+        "is_finetunable",
+        "ownership",
+        "status",
+    )
+
     @classmethod
     def _populate_filters(cls, params: dict) -> dict:
-        """Override to handle model-specific filter structure."""
+        """Build the ``v2/models/paginate`` request body.
+
+        Raises:
+            ValidationError: If ``params`` carries an unsupported filter, or both
+                ``function`` and ``functions``.
+
+        Warns:
+            FutureWarning: When a filter in ``_UNREAD_SEARCH_FILTERS`` is passed;
+                it is dropped from the body.
+        """
+        unknown = set(params) - cls._SEARCH_KNOWN_KEYS
+        if unknown:
+            raise ValidationError(f"{cls.__name__}.search() received unsupported filter(s): {sorted(unknown)}")
+
+        unread = [key for key in cls._UNREAD_SEARCH_FILTERS if params.get(key) is not None]
+        if unread:
+            warnings.warn(
+                f"{cls.__name__}.search(): filter(s) {unread} are not supported by the backend and were "
+                "ignored; they will raise in a future release.",
+                FutureWarning,
+                stacklevel=4,
+            )
+
         # Call parent's _populate_filters to get basic pagination and common
         # filters
         filters = super()._populate_filters(params)
+        # The base builder adds ``ownership``/``sortBy``/``sortOrder``; this
+        # endpoint reads none of them (sorting goes through ``sort`` below).
+        for key in ("ownership", "sortBy", "sortOrder"):
+            filters.pop(key, None)
 
         # Handle 'q' parameter directly as per Swagger spec
         if params.get("q") is not None:
@@ -1650,30 +1767,21 @@ class Model(
         if params.get("path") is not None:
             filters["path"] = params["path"]
 
-        # functions - backend validates "each value in functions must be a string"
-        if params.get("functions") is not None:
-            filters["functions"] = _filter_values(params["functions"])
+        # functions - a list of backend kebab codes (``text-generation``);
+        # ``function`` is accepted as an alias.
+        functions = params.get("functions")
+        if params.get("function") is not None:
+            if functions is not None:
+                raise ValidationError(f"{cls.__name__}.search(): pass either function= or functions=, not both.")
+            functions = params["function"]
+        if functions is not None:
+            if not isinstance(functions, (list, tuple, set)):
+                functions = [functions]
+            filters["functions"] = [_function_code(item) for item in functions]
 
         # suppliers - should be array of strings
         if params.get("vendors") is not None:
             filters["suppliers"] = _filter_values(params["vendors"])
-
-        # status - should be array of strings
-        if params.get("status") is not None:
-            filters["status"] = _filter_values(params["status"])
-
-        # source_languages - should be array of language codes
-        if params.get("source_languages") is not None:
-            filters["sourceLanguages"] = _filter_values(params["source_languages"])
-
-        # target_languages - should be array of language codes
-        if params.get("target_languages") is not None:
-            filters["targetLanguages"] = _filter_values(params["target_languages"])
-
-        # is_finetunable - boolean filter
-        # Note: v1 API uses "isFineTunable" (capital T), v2 API uses "isFinetunable" (lowercase t)
-        if params.get("is_finetunable") is not None:
-            filters["isFineTunable"] = params["is_finetunable"]
 
         # sort - array of {field, dir}; ``dir`` is +/-1 per the backend contract
         sort_by = params.get("sort_by")

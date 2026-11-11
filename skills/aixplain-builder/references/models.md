@@ -6,7 +6,7 @@ Run any of aiXplain's 170+ LLMs and 900+ assets (speech, vision, translation, em
 
 ```python
 # Keyword search — returns a Page object (not a dict)
-page = aix.Model.search("llama", page_size=5)   # also: page_number, sort_by, sort_order, status, ownership
+page = aix.Model.search("llama", page_size=5)   # also: page_number, sort_by, sort_order, functions
 page.results        # list[Model]   (page["results"] also works — __getitem__ is just getattr)
 page.total          # matches across all pages
 page.page_number    # current page, 0-indexed
@@ -27,7 +27,7 @@ model = aix.Model.get("openai/gpt-4o-mini/openai")
 model = aix.Model.get("669a63646eb56306647e1091")
 ```
 
-The canonical asset path is three segments — `<developer>/<slug>/<host>` — and it is what `m.path` returns and what the docs now use everywhere. Full declared search filters: `query host developer vendors functions source_languages target_languages is_finetunable saved status ownership sort_by sort_order page_number page_size`.
+The canonical asset path is three segments — `<developer>/<slug>/<host>` — and it is what `m.path` returns and what the docs now use everywhere. Search filters the backend reads: `query host developer vendors functions` (alias `function`; e.g. `functions=[aix.Function.TEXT_GENERATION]`) `saved path sort_by sort_order page_number page_size`. `source_languages target_languages is_finetunable status ownership` are still accepted but not read by the backend: they emit a `FutureWarning` and are not sent. Any other keyword raises `ValidationError`.
 
 ## Run
 

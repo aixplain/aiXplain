@@ -516,19 +516,33 @@ class TestSessionSearch:
         assert page.total == 0
 
     def test_search_paginated_dict_envelope(self):
-        """Tolerate a future paginated dict envelope (total/pageTotal)."""
+        """Tolerate a future paginated dict envelope; page_total reads pagesCount (BUG-1459)."""
         ctx = _make_mock_context()
         ctx.client.request.return_value = {
             "results": [SAMPLE_SESSION_DICT],
             "total": 17,
-            "pageTotal": 4,
+            "pageTotal": 1,
+            "pagesCount": 4,
         }
         BoundSession = _bound_session_class(ctx)
 
-        page = BoundSession.search(page_number=1)
+        page = BoundSession.search(page_number=1, page_size=5)
         assert page.total == 17
         assert page.page_total == 4
         assert len(page.results) == 1
+
+    def test_search_dict_envelope_page_total_is_not_the_item_count(self):
+        """Without pagesCount, page_total is ceil(total / page_size), never pageTotal (BUG-1459)."""
+        ctx = _make_mock_context()
+        ctx.client.request.return_value = {
+            "results": [SAMPLE_SESSION_DICT],
+            "total": 17,
+            "pageTotal": 1,
+        }
+        BoundSession = _bound_session_class(ctx)
+
+        page = BoundSession.search(page_size=5)
+        assert page.page_total == 4
 
 
 # =========================================================================
