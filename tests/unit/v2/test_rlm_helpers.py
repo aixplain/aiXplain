@@ -298,10 +298,11 @@ class TestResolveContext:
     def test_other_types_stringified(self):
         assert RLM._resolve_context(42) == "42"
 
-    def test_text_file_path_str(self, tmp_path):
+    def test_text_file_path_str_is_text_not_read(self, tmp_path):
+        # BUG-1451: a str is always text; only pathlib.Path / context_path= load a file.
         f = tmp_path / "doc.txt"
         f.write_text("file body", encoding="utf-8")
-        assert RLM._resolve_context(str(f)) == "file body"
+        assert RLM._resolve_context(str(f)) == str(f)
 
     def test_pathlib_path(self, tmp_path):
         f = tmp_path / "doc.md"

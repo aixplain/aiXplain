@@ -27,11 +27,13 @@ Closing that window requires connecting to the pinned address with an explicit
 import ipaddress
 import logging
 import os
+import re
 import socket
 from typing import Any, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin, urlparse
 
 import requests
+from urllib3.util import parse_url as _urllib3_parse_url
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +65,18 @@ _ALLOWED_SCHEMES = frozenset({"http", "https"})
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 _METADATA_HOSTS = frozenset({"metadata.google.internal", "metadata.goog"})
-_METADATA_IPS = frozenset({"169.254.169.254", "fd00:ec2::254"})
+# 100.100.100.200 is the Alibaba Cloud ECS metadata service (BUG-1451).
+_METADATA_IPS = frozenset({"169.254.169.254", "fd00:ec2::254", "100.100.100.200"})
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 # NAT64: ``64:ff9b::7f00:1`` is 127.0.0.1 reached over IPv6.
 _NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+
+# A host the SDK will talk to is an LDH name (plus ``_``, which some internal
+# DNS uses) or an IP literal. Anything else -- ``\``, ``%``, whitespace,
+# control characters -- is a place where ``urllib.parse`` and ``urllib3`` (what
+# ``requests`` connects with) can disagree about the host (BUG-1451 review).
+_HOSTNAME_RE = re.compile(r"[a-z0-9_.-]+")
+_AUTHORITY_FORBIDDEN_RE = re.compile(r"[\\\s\x00-\x1f\x7f]")
 
 # ``(variable, host)`` pairs already warned about, so a module reload or a second
 # ``Aixplain()`` does not repeat the line. A plain set (not ``lru_cache``) so a
@@ -85,6 +95,39 @@ class UnsafeURLError(ValueError):
 def _env_flag(name: str) -> bool:
     """Return True when environment variable *name* holds an affirmative value."""
     return os.getenv(name, "").strip().lower() in _TRUTHY
+
+
+def _raw_authority(url: str) -> str:
+    """Return the authority of *url* as written, before any parser normalises it."""
+    _, sep, rest = url.strip().partition("://")
+    if not sep:
+        return ""
+    return re.split(r"[/?#]", rest, maxsplit=1)[0]
+
+
+def is_unambiguous_host(url: str, host: str) -> bool:
+    """True if *host* (``urlparse(url).hostname``) is the host ``requests`` would connect to.
+
+    ``urllib.parse`` keeps characters such as a backslash inside ``hostname`` while
+    ``urllib3`` ends the host there, so a suffix check on the former can pass
+    for a URL that connects somewhere else. Rejects authorities containing
+    backslashes, whitespace or control characters, hosts that are neither an LDH
+    name nor an IP literal, and any URL where ``urllib3`` reads a different
+    host.
+    """
+    if _AUTHORITY_FORBIDDEN_RE.search(_raw_authority(url)):
+        return False
+    host = host.lower()
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        if not _HOSTNAME_RE.fullmatch(host):
+            return False
+    try:
+        connect_host = (_urllib3_parse_url(url.strip()).host or "").lower().strip("[]")
+    except Exception:
+        return False
+    return connect_host == host
 
 
 def _parse_http_url(url: str, label: str) -> Any:
@@ -123,6 +166,8 @@ def _parse_http_url(url: str, label: str) -> Any:
         raise UnsafeURLError(f"{label} must not contain credentials in the URL: {url}")
     if not parsed.hostname:
         raise UnsafeURLError(f"{label} has no host: {url}")
+    if not is_unambiguous_host(url, parsed.hostname):
+        raise UnsafeURLError(f"{label} has a malformed host: {url!r}")
     return parsed
 
 
@@ -193,14 +238,33 @@ def _classify_address(raw: str) -> Union[ipaddress.IPv4Address, ipaddress.IPv6Ad
     return address
 
 
-def _is_blocked_address(address: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> bool:
-    """True if *address* is one the SDK must never be pointed at."""
+def _is_metadata_address(address: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> bool:
+    """True if *address* is a cloud metadata endpoint, including its NAT64 form."""
     if str(address) in _METADATA_IPS:
         return True
     if isinstance(address, ipaddress.IPv6Address) and address in _NAT64_PREFIX:
+        return str(ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)) in _METADATA_IPS
+    return False
+
+
+def _is_blocked_address(address: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> bool:
+    """True if *address* is one the SDK must never be pointed at.
+
+    ``not is_global`` is the deny-by-default rule: it is True for every IANA
+    special-purpose range, including 100.64.0.0/10 (shared address space /
+    CGNAT, home of Alibaba Cloud's ``100.100.100.200`` metadata service and of
+    Tailscale peers), which none of the individual flags below cover
+    (BUG-1451). The explicit flags are kept for readability and for
+    interpreters whose ``is_global`` tables differ.
+    """
+    if _is_metadata_address(address):
+        return True
+    if isinstance(address, ipaddress.IPv6Address) and address in _NAT64_PREFIX:
+        # 64:ff9b::/96 reports is_global=True, so it needs its own check.
         return True
     return bool(
-        address.is_loopback
+        not address.is_global
+        or address.is_loopback
         or address.is_private
         or address.is_link_local
         or address.is_reserved
@@ -232,8 +296,9 @@ def validate_fetch_url(url: str) -> str:
     ``http://169.254.169.254/latest/meta-data/``, ``http://127.0.0.1:8080/x``
     and ``http://10.0.0.1/`` (BUG-939). This is the security check that has to
     sit next to it: scheme allowlist, no userinfo, and *every* resolved address
-    rejected if it is loopback, private, link-local, reserved, multicast,
-    unspecified or a known cloud-metadata endpoint.
+    rejected if it is not globally routable (``ipaddress``'s ``is_global``,
+    which also covers 100.64.0.0/10 shared address space) or is a known
+    cloud-metadata endpoint.
 
     Set ``AIXPLAIN_ALLOW_PRIVATE_FETCH=1`` on an on-prem deployment whose
     artifact host lives on a private range. That opt-in relaxes the *private
@@ -263,7 +328,7 @@ def validate_fetch_url(url: str) -> str:
             address = _classify_address(raw)
         except ValueError as exc:
             raise UnsafeURLError(f"Host {host!r} resolved to an unusable address {raw!r}: {exc}")
-        if str(address) in _METADATA_IPS:
+        if _is_metadata_address(address):
             raise UnsafeURLError(
                 f"Refusing to fetch {url!r}: host {host!r} resolves to the cloud metadata address "
                 f"{address}, which stays blocked even under {ALLOW_PRIVATE_FETCH_ENV_VAR}."
