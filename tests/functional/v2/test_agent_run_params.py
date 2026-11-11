@@ -462,19 +462,27 @@ def test_timeout_zero_is_rejected_before_submission(run_agent):
 
 
 def test_tiny_timeout_raises_sdk_timeout(run_agent):
-    """A positive but tiny ``timeout`` is accepted, then expires in ``sync_poll``.
+    """A positive but tiny ``timeout`` passes validation and then raises the SDK ``TimeoutError``.
 
-    The run is submitted, and ``sync_poll`` starts its clock once the submission
-    returns. The budget is spent by the first poll at the latest: that poll's
-    read timeout has a 1 s floor and the loop rechecks the budget after every
-    poll, so the call raises the SDK ``TimeoutError`` instead of returning. The
-    only way out is a "Say hi." run completing within a millisecond of being
-    accepted, which an LLM round trip rules out. The run itself carries on on
-    the backend, and the error carries its poll URL.
+    The budget bounds two steps, and either one can expire it:
+
+    * the submission POST, whose read timeout is the remaining budget floored
+      at 1 s (BUG-1462). A POST slower than that raises "Run submission did
+      not complete within ...", and that error has no poll URL yet;
+    * otherwise ``sync_poll``, which rechecks the budget after every poll, so
+      it raises "timed out after 0.001 seconds" by the first poll at the latest.
+
+    The test accepts either message because prod POST latency decides which
+    one appears. The call can only return if a "Say hi." run finishes within a
+    millisecond of being accepted, and an LLM round trip rules that out.
     """
-    with pytest.raises(SDKTimeoutError, match=r"timed out after 0\.001 seconds") as excinfo:
+    with pytest.raises(
+        SDKTimeoutError,
+        match=r"timed out after 0\.001 seconds|Run submission did not complete within",
+    ) as excinfo:
         run_agent.run("Say hi.", timeout=0.001)
-    assert excinfo.value.poll_url, "the timeout should carry the run's poll URL"
+    if "timed out after" in str(excinfo.value):
+        assert excinfo.value.poll_url, "a poll timeout should carry the run's poll URL"
 
 
 # ---------------------------------------------------------------------------
