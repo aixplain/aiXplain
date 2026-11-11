@@ -113,13 +113,16 @@ class AssetIds:
     DEFAULT_LLM: str
 
     #: A stable non-default LLM, for tests that must prove a configured LLM
-    #: survives a round-trip. Must differ from ``client.Agent.DEFAULT_LLM``.
+    #: survives a round-trip. Must differ from ``client.Agent.DEFAULT_LLM`` in
+    #: every id space.
     NON_DEFAULT_LLM: str
 
-    #: A second-vendor LLM, paired with ``DEFAULT_LLM`` (GPT-5.4) for cross-vendor
-    #: behaviour (Arabic rendering, tool-calling style) rather than for any
-    #: capability of its own.
-    CLAUDE_LLM: str
+    #: A strong multilingual LLM from a vendor other than ``DEFAULT_LLM``'s
+    #: (OpenAI), paired with it for cross-vendor behaviour (Arabic rendering)
+    #: rather than for any capability of its own. Claude Opus 4.6 on dev/test;
+    #: the prod account may not run Anthropic models, so Gemini 3.1 Pro there.
+    #: Named for its role, not its vendor, because the vendor differs per backend.
+    SECOND_VENDOR_LLM: str
 
     #: Emits tool-call deltas over a streaming connection.
     STREAMING_TOOL_CALL_MODEL: str
@@ -152,6 +155,19 @@ class AssetIds:
     FIRECRAWL: str
     TAVILY: str
 
+    #: A Google web-search connector tool with a single query action, for the
+    #: generic web-search agent test (Tavily has its own test). Scale SERP on
+    #: dev/test, where it used to be fetched by the marketplace path
+    #: ``scale-serp/google-search/Google``; that path does not exist on prod, so
+    #: prod uses the SerpAPI Google Search API tool.
+    WEB_SEARCH_TOOL: str
+
+    #: The pre-configured Debugger meta-agent behind ``aix.Debugger()``. The SDK
+    #: hard-codes it as ``aixplain.v2.meta_agents.DEBUGGER_AGENT_ID``;
+    #: ``tests/functional/v2/test_debugger.py`` patches that constant with this
+    #: backend's id, so the debugger tests exercise the debugger rather than a 404.
+    DEBUGGER_AGENT: str
+
 
 @dataclass(frozen=True)
 class AssetSpec:
@@ -171,8 +187,12 @@ class AssetSpec:
 #: the tests actually make.
 SPECS: Dict[str, AssetSpec] = {
     "DEFAULT_LLM": AssetSpec("Model", "default text-generation LLM (GPT-5.4)"),
-    "NON_DEFAULT_LLM": AssetSpec("Model", "non-default LLM (GPT-4.1 Nano)"),
-    "CLAUDE_LLM": AssetSpec("Model", "Anthropic Claude Opus 4.6"),
+    "NON_DEFAULT_LLM": AssetSpec(
+        "Model", "non-default LLM (dev: GPT-4.1 Nano; test: Claude Opus 4.6; prod: GPT-4.1 Mini)"
+    ),
+    "SECOND_VENDOR_LLM": AssetSpec(
+        "Model", "second-vendor multilingual LLM (dev/test: Claude Opus 4.6; prod: Gemini 3.1 Pro)"
+    ),
     "STREAMING_TOOL_CALL_MODEL": AssetSpec("Model", "streaming tool-calling model"),
     "VISION_LLM": AssetSpec("Model", "vision-capable LLM for image attachments (Gemini)"),
     "SYNC_ONLY_MODEL": AssetSpec("Model", "sync-only model (Cloud Translation)"),
@@ -183,6 +203,8 @@ SPECS: Dict[str, AssetSpec] = {
     "SLACK_INTEGRATION": AssetSpec("Integration", "Slack integration"),
     "FIRECRAWL": AssetSpec("Tool", "Firecrawl connector tool"),
     "TAVILY": AssetSpec("Tool", "Tavily Web Search connector tool"),
+    "WEB_SEARCH_TOOL": AssetSpec("Tool", "Google web-search connector tool (dev/test: Scale SERP; prod: SerpAPI)"),
+    "DEBUGGER_AGENT": AssetSpec("Agent", "Debugger meta-agent (SDK meta_agents.DEBUGGER_AGENT_ID)"),
 }
 
 
@@ -194,7 +216,7 @@ SPECS: Dict[str, AssetSpec] = {
 DEV = AssetIds(
     DEFAULT_LLM="69b7e5f1b2fe44704ab0e7d0",
     NON_DEFAULT_LLM="67fd9e2bef0365783d06e2f0",
-    CLAUDE_LLM="698c87701239a117fd66b468",
+    SECOND_VENDOR_LLM="698c87701239a117fd66b468",
     STREAMING_TOOL_CALL_MODEL="69727676c60248082d79932f",
     VISION_LLM="6a2846019a0a2598b61e12b8",
     SYNC_ONLY_MODEL="66aa869f6eb56342c26057e1",
@@ -208,11 +230,18 @@ DEV = AssetIds(
     # tavily/tavily-search-api/Tavily, which collides with the Legacy Tavily
     # asset whose single generic `run` action breaks the tool tests.
     TAVILY="6931bdf462eb386b7158def3",
+    # Google Search API, which the marketplace path scale-serp/google-search/Google
+    # resolved to before the tests stopped using the path. The same id is the
+    # SerpAPI Google Search tool on prod (verified 2026-11-11, BUG-1095).
+    WEB_SEARCH_TOOL="692f18557b2cc45d29150cb0",
+    # The SDK's hard-coded meta_agents.DEBUGGER_AGENT_ID.
+    DEBUGGER_AGENT="696fdccad63e898317c097a0",
 )
 
 #: `test` and `prod` are separate id spaces from `dev`, but the v2 leg has been
 #: running these same literals against all three, so they are recorded as shared
-#: rather than guessed at per environment. That is a claim :class:`LazyAssets`
+#: rather than guessed at per environment, except where an entry below says
+#: otherwise. That is a claim :class:`LazyAssets`
 #: checks on every run: an id that does not exist on a backend fails the tests
 #: that read it, by name, and the fix is one line here --
 #: ``TEST = replace(DEV, SEEDREAM_MODEL="<the test-backend id>")``.
@@ -221,7 +250,26 @@ DEV = AssetIds(
 #: :data:`DEFAULT_BACKEND_URL`). Moving the default from `dev` to `test` changed
 #: no id, since `TEST` is `DEV` until an entry here says otherwise.
 TEST = replace(DEV, NON_DEFAULT_LLM="698c87701239a117fd66b468")
-PROD = replace(DEV)
+
+#: `PROD` overrides every entry that was proved wrong against
+#: ``platform-api`` (BUG-1095, 2026-11-11). Each override was found with the SDK
+#: on prod and checked with one real call (a ``Model.run`` and an agent run):
+#:
+#: - ``NON_DEFAULT_LLM``: GPT-4.1 Nano is not onboarded on prod; GPT-4.1 Mini is
+#:   the nearest model from the same vendor and family.
+#: - ``SECOND_VENDOR_LLM``: the prod account may not run Anthropic models
+#:   ("Access to Anthropic models is not allowed for this account"), so a strong
+#:   multilingual non-OpenAI model, Gemini 3.1 Pro, stands in for Claude.
+#:
+#: ``DEBUGGER_AGENT`` keeps the shared id: no Debugger meta-agent visible to the
+#: prod account was found (the SDK id returns 404 there), so the debugger tests
+#: fail on prod by name until the platform publishes one -- see
+#: ``tests/functional/v2/test_debugger.py``.
+PROD = replace(
+    DEV,
+    NON_DEFAULT_LLM="67fd9ddfef0365783d06e2ef",
+    SECOND_VENDOR_LLM="6999aedf6103733bc067e0b2",
+)
 
 ASSETS_BY_ENVIRONMENT: Dict[str, AssetIds] = {"dev": DEV, "test": TEST, "prod": PROD}
 

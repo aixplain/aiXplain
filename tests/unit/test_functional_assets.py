@@ -195,6 +195,13 @@ def test_the_non_default_llm_is_not_the_default():
     assert DEV.NON_DEFAULT_LLM != DEV.DEFAULT_LLM
 
 
+@pytest.mark.parametrize("environment", sorted(ASSETS_BY_ENVIRONMENT))
+def test_the_non_default_llm_is_not_the_default_in_any_id_space(environment):
+    """Each backend picks its own NON_DEFAULT_LLM, so the guard above must hold for every id space."""
+    ids = ASSETS_BY_ENVIRONMENT[environment]
+    assert ids.NON_DEFAULT_LLM != ids.DEFAULT_LLM
+
+
 # ---------------------------------------------------------------------------
 # LazyAssets: per-name resolution through SPECS
 # ---------------------------------------------------------------------------

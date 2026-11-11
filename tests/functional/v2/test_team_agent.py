@@ -288,7 +288,7 @@ def test_role_llm_overrides_persisted_and_used(client, resource_tracker, assets)
     sub = client.Agent(name=unique_name("TA-roles-sub"), instructions="Answer briefly.")
     sub.save()
     resource_tracker.append(sub)
-    # Any non-default model proves the override; NON_DEFAULT_LLM is much cheaper than CLAUDE_LLM.
+    # Any non-default model proves the override; NON_DEFAULT_LLM is much cheaper than SECOND_VENDOR_LLM.
     model_id = assets.NON_DEFAULT_LLM
     assert model_id != client.Agent.DEFAULT_LLM, "NON_DEFAULT_LLM must differ from the SDK default LLM"
     team = client.Agent(

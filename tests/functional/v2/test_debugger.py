@@ -1,9 +1,10 @@
 """Functional tests for the Debugger meta-agent.
 
 The debugger is a pre-configured backend agent, so this is the one path that
-actually exercises ``Debugger.run`` / ``AgentRunResult.debug`` end to end. It
-needs ``meta_agents.DEBUGGER_AGENT_ID`` to exist on whichever backend the leg
-runs against.
+actually exercises ``Debugger.run`` / ``AgentRunResult.debug`` end to end. The
+SDK hard-codes one debugger agent id (``meta_agents.DEBUGGER_AGENT_ID``), which
+exists on dev only, so every test here patches it with this backend's
+``DEBUGGER_AGENT`` from ``tests/functional/_assets.py``.
 
 Copyright 2022 The aiXplain SDK authors
 
@@ -25,7 +26,19 @@ import uuid
 
 import pytest
 
+from aixplain.v2 import meta_agents
 from aixplain.v2.meta_agents import Debugger
+
+
+@pytest.fixture(autouse=True)
+def _debugger_agent_for_this_backend(assets, monkeypatch):
+    """Point the SDK's hard-coded debugger agent id at this backend's debugger.
+
+    ``Debugger._get_debugger_agent`` reads the module global at call time, so
+    patching it is enough; reading ``assets.DEBUGGER_AGENT`` also fails the test
+    by name if the debugger agent does not resolve on this backend.
+    """
+    monkeypatch.setattr(meta_agents, "DEBUGGER_AGENT_ID", assets.DEBUGGER_AGENT)
 
 
 @pytest.fixture(scope="module")
