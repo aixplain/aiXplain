@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Changed: `Eval` sends the case reference to metrics
+
+`Eval` now calls `metric.measure(agent_response, reference=case.reference)`.
+`Metric.measure` adds a `Reference: <value>` line to the metric's `data` string
+whenever the case reference is not `None` or a blank string. The line is added
+regardless of the `query` / `trace` / `output` flags, so existing metrics used
+with cases that have a reference (including reference-free rubrics) now see it.
+To keep the old payload, leave `EvalCase.reference` unset. A custom `measure()`
+override without a `reference` keyword still runs, without the reference, and
+raises a one-time `UserWarning`.
+
+### Fixed: RLM final answers with parentheses, and the forced final answer
+
+`FINAL(...)` is parsed with balanced parentheses, so `FINAL(f(x) returns 2.)`
+keeps its full text. When the loop hits `max_iterations` or `timeout`, the
+forced reply is now parsed and a `FINAL_VAR(name)` reply is resolved from the
+REPL. An unparseable, empty or unresolvable forced reply returns
+`status="FAILED"` with the raw reply in `data`, and
+`RLMResult.final_answer_forced` marks every forced answer.
+
 ### Fixed: v2 search filters, `Page.page_total` and polled model details
 
 - `Model.search` sends `Function` members as the backend's kebab codes

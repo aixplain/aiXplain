@@ -59,7 +59,6 @@ class TestFindFinalAnswer:
     def test_none_without_declaration(self):
         assert rlm_mod._find_final_answer("still working") is None
 
-    @pytest.mark.xfail(strict=True, reason="non-greedy FINAL\\((.*?)\\) stops at the first ')' in the answer")
     def test_answer_containing_parentheses_is_kept_whole(self):
         assert rlm_mod._find_final_answer("FINAL(Revenue grew (see Q3) by 5%)") == (
             "FINAL",

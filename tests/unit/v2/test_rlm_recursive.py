@@ -253,13 +253,15 @@ class TestRecursiveLoop:
 
         result = rlm.run(data={"context": "c", "query": "Q"}, mode="recursive")
 
-        assert result.status == "SUCCESS"
+        # BUG-1460: a forced reply with no FINAL/FINAL_VAR declaration is not a
+        # plain SUCCESS; the raw reply is kept in data and the result is flagged.
+        assert result.status == "FAILED"
         assert result.data == "plain forced answer"
+        assert result.final_answer_forced is True
         assert result.iterations_used == 2
         assert len(orch.calls) == 3
         assert orch.calls[-1]["text"].endswith(rlm_mod._FORCE_FINAL_PROMPT)
 
-    @pytest.mark.xfail(strict=True, reason="forced final answer is returned verbatim, FINAL(...) wrapper not parsed")
     def test_forced_final_unwraps_final_declaration(self, uploads):
         orch = ScriptedModel(["thinking", "FINAL(forced)"])
         rlm = _recursive_rlm(orch, ExecSandbox(context_value="c"), max_iterations=1)

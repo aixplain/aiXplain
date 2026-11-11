@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import enum
+import inspect
 import json
 import re
 import warnings
@@ -82,6 +83,11 @@ class MetricResponse(Result):
     validated_data: Optional[Any] = field(default=None, metadata=dj_config(field_name="validatedData"))
 
 
+def _is_missing_reference(reference: Any) -> bool:
+    """Return True for a case reference that carries nothing (``None`` or a blank string)."""
+    return reference is None or (isinstance(reference, str) and not reference.strip())
+
+
 @dataclass_json
 @dataclass
 class AgentResponseDataFields:
@@ -102,8 +108,15 @@ class AgentResponseDataFields:
             code_response["output"] = "{{OUTPUT}}"
         return code_response
 
-    def give_metric_input(self, agent_response: AgentResponseData) -> str:
-        """Build metric input string from agent response fields."""
+    def give_metric_input(self, agent_response: AgentResponseData, reference: Any = None) -> str:
+        """Build metric input string from agent response fields.
+
+        Args:
+            agent_response: The agent's response data.
+            reference: Optional ground truth for the case. Unless it is ``None``
+                or a blank string, a ``Reference: <value>`` line is appended,
+                whatever the flags say.
+        """
         metric_input = ""
         if self.query:
             metric_input += f"Query: {agent_response.input}\n"
@@ -111,6 +124,8 @@ class AgentResponseDataFields:
             metric_input += f"Trace: {agent_response.steps}\n"
         if self.output:
             metric_input += f"Output: {agent_response.output}\n"
+        if not _is_missing_reference(reference):
+            metric_input += f"Reference: {reference}\n"
         return metric_input
 
 
@@ -340,9 +355,16 @@ class Metric(Tool):
         except Exception as e:
             raise Exception(f"An unexpected error occurred: {str(e)}")
 
-    def measure(self, agent_response: AgentResponseData) -> MetricResponse:
-        """Run metric tool with agent response data."""
-        metric_input = self.agent_response_data_fields.give_metric_input(agent_response)
+    def measure(self, agent_response: AgentResponseData, *, reference: Any = None) -> MetricResponse:
+        """Run metric tool with agent response data.
+
+        Args:
+            agent_response: The agent's response data.
+            reference: Optional ground truth for this case (e.g.
+                :attr:`EvalCase.reference`). Unless it is ``None`` or a blank
+                string it is appended to the metric input as ``Reference: <value>``.
+        """
+        metric_input = self.agent_response_data_fields.give_metric_input(agent_response, reference=reference)
         if self.additional_input_prompt:
             metric_input = self.additional_input_prompt + "\n\n" + metric_input
         metric_payload = {"data": metric_input}
@@ -3316,13 +3338,50 @@ def compare_agents_side_by_side(
     return wide.reset_index()
 
 
+def _accepts_reference_kwarg(measure: Callable[..., Any]) -> bool:
+    """Return True if ``measure`` can be called with ``reference=``."""
+    try:
+        params = inspect.signature(measure).parameters.values()
+    except (TypeError, ValueError):
+        return True
+    return any(p.name == "reference" or p.kind is inspect.Parameter.VAR_KEYWORD for p in params)
+
+
+def _measure_metric(metric: Any, agent_data: Any, reference: Any, warned: set) -> Any:
+    """Call ``metric.measure`` with the case reference when it can take one.
+
+    A missing reference (``None`` or a blank string) keeps the original
+    ``measure(agent_data)`` call. A
+    subclass whose ``measure`` override predates the ``reference`` keyword is
+    still called without it, with a one-time warning per metric (``warned``).
+    """
+    if _is_missing_reference(reference):
+        return metric.measure(agent_data)
+    if _accepts_reference_kwarg(metric.measure):
+        return metric.measure(agent_data, reference=reference)
+    if id(metric) not in warned:
+        warned.add(id(metric))
+        warnings.warn(
+            f"{type(metric).__name__}.measure() does not accept a 'reference' keyword; "
+            "the case reference was not sent to this metric.",
+            UserWarning,
+            stacklevel=3,
+        )
+    return metric.measure(agent_data)
+
+
 class Eval:
     """Runs eval cases across agents, runs metric tools, returns :class:`AgentEvaluationRun`.
 
     For each pair of (case, agent) the executor calls ``agent.run`` with the
-    case's ``query``. Each :class:`Metric` is invoked with ``run`` payload
-    ``data`` containing at least ``output`` (agent output) and ``reference``
-    (from the case, may be ``None``). Metric results are nested under
+    case's ``query``. Each :class:`Metric` is then invoked as
+    ``metric.measure(agent_response, reference=case.reference)`` (the keyword
+    is omitted when the case reference is ``None`` or a blank string). The metric's ``run`` payload is
+    ``{"data": <str>}``, where the string holds the ``Query:`` / ``Trace:`` /
+    ``Output:`` lines enabled by :attr:`Metric.agent_response_data_fields`
+    (all off by default, see aiXplain#1170), preceded by
+    :attr:`Metric.additional_input_prompt` if set, plus a ``Reference: <value>``
+    line whenever the case reference is not ``None`` or a blank string. Metric results are nested under
     ``AgentEvaluationRow.metrics[prefix]`` using the tool's ``name``, ``id``, or
     ``metric_<n>`` as prefix (see :meth:`AgentEvaluationRun.to_dataframe` for the
     legacy ``<prefix>__<key>`` flat layout).
@@ -3485,6 +3544,7 @@ class Eval:
         """
         out_rows: List[AgentEvaluationRow] = []
         metrics_list: List[Metric] = list(metrics) if metrics is not None else []
+        reference_warned: set = set()
         agents_list: List[Agent] = _normalize_agents(agents)
         _ensure_unique_eval_names(agents_list, metrics_list)
 
@@ -3556,7 +3616,7 @@ class Eval:
                 for metric_index, metric in enumerate(metrics_list):
                     prefix = _metric_prefix(metric, metric_index)
                     try:
-                        metric_result = metric.measure(result.data)
+                        metric_result = _measure_metric(metric, result.data, case.reference, reference_warned)
                         _merge_metric_columns(current.metrics, prefix, metric_result, metric)
                     except Exception as exc:
                         _record_metric_failure(current.metrics, prefix, exc)
