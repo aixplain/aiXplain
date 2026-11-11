@@ -460,3 +460,126 @@ class TestTriggerTypesCollection:
     def test_discovery_only_has_no_connection(self):
         col = TriggerTypes(self._specs())  # from an unconnected integration
         assert col["NEW_EMAIL"].connection_id is None
+
+
+# =============================================================================
+# Saving a fetched trigger: which schedule edit wins (BUG-1458)
+# =============================================================================
+
+
+def _fetched(configuration, **over):
+    dto = {
+        "id": "trig1",
+        "name": "Digest",
+        "triggerType": "time",
+        "assetId": AGENT_ID,
+        "assetType": "agent",
+        "input": "Sum",
+        "enabled": True,
+        "notifications": False,
+        "configuration": configuration,
+    }
+    dto.update(over)
+    return Trigger.from_dict(dto)
+
+
+DAILY_0900_UTC = {"type": "daily", "time": "09:00", "timezone": "UTC"}
+
+
+class TestSaveScheduleEdits:
+    def test_configuration_assignment_on_fetched_trigger_is_sent(self):
+        t = _fetched(dict(DAILY_0900_UTC))
+        t.configuration = {"type": "daily", "time": "17:30", "timezone": "Asia/Dubai"}
+        assert t.build_save_payload()["configuration"] == {"type": "daily", "time": "17:30", "timezone": "Asia/Dubai"}
+
+    def test_configuration_assignment_can_switch_to_weekly(self):
+        t = _fetched(dict(DAILY_0900_UTC))
+        t.configuration = {"type": "weekly", "daysOfWeek": ["mon"], "time": "08:00"}
+        assert t.build_save_payload()["configuration"] == {"type": "weekly", "daysOfWeek": ["mon"], "time": "08:00"}
+
+    def test_flat_field_edit_on_fetched_trigger_is_still_sent(self):
+        t = _fetched(dict(DAILY_0900_UTC))
+        t.at = "17:30"
+        assert t.build_save_payload()["configuration"] == {"type": "daily", "time": "17:30", "timezone": "UTC"}
+
+    def test_editing_both_sides_is_rejected(self):
+        t = _fetched(dict(DAILY_0900_UTC))
+        t.at = "10:00"
+        t.configuration = {"type": "daily", "time": "17:30"}
+        with pytest.raises(ValueError, match="change one of them"):
+            t.build_save_payload()
+
+    def test_recurring_every_one_week_can_be_disabled(self):
+        config = {"type": "recurring", "repeat": {"every": 1, "unit": "week"}}
+        t = _fetched(config)
+        t.enabled = False
+        p = t.build_save_payload()
+        assert p["enabled"] is False
+        assert p["configuration"] == config
+
+    def test_recurring_every_one_week_keeps_its_shape_when_rebuilt(self):
+        t = _fetched({"type": "recurring", "startAt": "2026-12-01T00:00:00Z", "repeat": {"every": 1, "unit": "week"}})
+        t.timezone = "Europe/London"  # a flat edit forces a rebuild
+        assert t.build_save_payload()["configuration"] == {
+            "type": "recurring",
+            "timezone": "Europe/London",
+            "startAt": "2026-12-01T00:00:00Z",
+            "repeat": {"every": 1, "unit": "week"},
+        }
+
+    @pytest.mark.parametrize(
+        "config",
+        [
+            {"type": "daily", "time": "09:00", "timezone": "UTC", "startAt": "2026-12-01T00:00:00Z"},
+            {"type": "weekly", "time": "09:00", "daysOfWeek": ["mon"], "startAt": "2026-12-01T00:00:00Z"},
+            {"type": "monthly", "time": "09:00", "daysOfMonth": [1], "startAt": "2026-12-01T00:00:00Z"},
+        ],
+    )
+    def test_start_at_survives_unrelated_and_schedule_saves(self, config):
+        t = _fetched(dict(config))
+        t.enabled = False
+        assert t.build_save_payload()["configuration"]["startAt"] == "2026-12-01T00:00:00Z"
+        t.at = "10:00"  # a rebuild keeps it too
+        p = t.build_save_payload()["configuration"]
+        assert p["startAt"] == "2026-12-01T00:00:00Z" and p["time"] == "10:00"
+
+    def test_start_at_is_sent_at_creation_for_daily(self):
+        p = Trigger(
+            name="t", agent=FakeAgent(), input="q", every="day", at="09:00", start_at="2026-12-01T00:00:00Z"
+        ).build_save_payload()
+        assert p["configuration"] == {"type": "daily", "time": "09:00", "startAt": "2026-12-01T00:00:00Z"}
+
+    @pytest.mark.parametrize("change", [{"enabled": False}, {"name": "Renamed"}, {"input": "New query"}])
+    def test_saves_that_do_not_touch_the_schedule_send_it_unchanged(self, change):
+        config = {"type": "weekly", "time": "17:00", "timezone": "UTC", "daysOfWeek": ["mon", "thu"]}
+        t = _fetched(dict(config))
+        for key, value in change.items():
+            setattr(t, key, value)
+        assert t.build_save_payload()["configuration"] == config
+
+    def test_in_place_weekday_edit_counts_as_a_flat_edit(self):
+        t = _fetched({"type": "weekly", "time": "17:00", "daysOfWeek": ["mon"]})
+        t.on.append("fri")
+        assert t.build_save_payload()["configuration"]["daysOfWeek"] == ["mon", "fri"]
+
+    def test_flat_edit_after_construction_is_sent(self):
+        t = Trigger(name="t", agent=FakeAgent(), input="q", every="day", at="09:00")
+        t.at = "10:00"
+        assert t.build_save_payload()["configuration"] == {"type": "daily", "time": "10:00"}
+
+    def test_after_save_the_flat_fields_follow_the_saved_configuration(self):
+        client = Mock()
+        client.request.return_value = {}
+        trigger_cls = bound_trigger_class(make_context(client))
+        t = trigger_cls.from_dict(
+            {"id": "trig1", "name": "Digest", "triggerType": "time", "input": "Sum", "configuration": DAILY_0900_UTC}
+        )
+        t.context = make_context(client)
+
+        t.configuration = {"type": "daily", "time": "17:30", "timezone": "Asia/Dubai"}
+        t.save()
+        assert (t.at, t.timezone) == ("17:30", "Asia/Dubai")
+
+        # The next edit is measured against what was saved: no false conflict.
+        t.at = "20:00"
+        assert t.build_save_payload()["configuration"] == {"type": "daily", "time": "20:00", "timezone": "Asia/Dubai"}

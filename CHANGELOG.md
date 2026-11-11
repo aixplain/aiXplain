@@ -23,6 +23,22 @@ A `FAILED` agent run now raises `AgentRunFailedError`, a subclass of `APIError`
 `diagnostic_error_codes` is deprecated: it mixes fatal and non-fatal codes.
 Use `error.code` and `warnings[].code` instead.
 
+### Fixed: `Trigger.save()` on a fetched trigger overwrote schedule changes
+
+Saving a trigger loaded with `Trigger.get()` always rebuilt `configuration`
+from the flat schedule fields (`at`, `every`, `on`, ...). So a
+`trigger.configuration = {...}` edit was silently replaced by the old
+schedule, a `recurring` every-1-week trigger (created in Studio or via the
+API) could not be saved at all (so `enabled = False` raised), and `startAt`
+was dropped from daily, weekly and monthly schedules.
+
+The SDK now records both representations when a trigger is loaded, built or
+saved, and on save rebuilds only if the flat fields changed. A
+`configuration` assignment is sent as is. A save that changes only
+`enabled`, `name` or `input` leaves the schedule untouched. Changing both
+sides raises a `ValueError` that names the conflict. Daily, weekly and
+monthly schedules keep `start_at`, both on update and at creation.
+
 ### Fixed: `agent.budget.max_duration_seconds` was ignored on every run
 
 `agent.run()` always sent `executionParams.maxTime: 300`, and the backend ranks
