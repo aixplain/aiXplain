@@ -111,7 +111,7 @@ from mixins, and serialize through `dataclasses-json` (camelCase API to snake_ca
 > `tests/unit/test_v1_removal.py` fails if any hand-written doc disagrees, so change the constants
 > and then the docs, never the reverse. Importing a legacy path raises a `ModuleNotFoundError`
 > naming the v2 replacement — see [`MIGRATION.md`](MIGRATION.md) for the factory-by-factory map,
-> including the eight factories that had no v2 equivalent and were removed without one.
+> including the seven factories that had no v2 equivalent and were removed without one.
 
 ### Package Layout
 
