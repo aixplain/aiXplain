@@ -19,7 +19,6 @@
   "expected": {
     "raises_with": "Model context length exceeded"
   },
-  "known_failure": "ENG-3782 finding (ENG-3761 BUG item 4): client.request_stream builds its APIError from message/error only and ignores supplierError, so a streamed call reports 'err.supplier_error' instead of the supplier's reason.",
   "provenance": {
     "source": "reconstructed",
     "recorded_at": null,

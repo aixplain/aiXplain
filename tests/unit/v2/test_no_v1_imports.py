@@ -20,15 +20,20 @@ V2_PACKAGE_DIR = Path(__file__).resolve().parents[3] / "aixplain" / "v2"
 FUNCTIONAL_V2_DIR = Path(__file__).resolve().parents[3] / "tests" / "functional" / "v2"
 
 # No file is exempt. ``enums_include.py`` (the generated v1 enum shim) and
-# ``core.py``'s guarded sync into ``aixplain.utils.config`` both went with v1.
+# ``core.py``'s guarded sync into the v1 config module both went with v1.
 EXCLUDED_FILES = set()
 
 # Modules under ``aixplain.utils`` that v2 *may* import. ``url_safety`` is the
 # shared URL trust policy (BUG-939) and imports nothing from ``aixplain`` at all,
 # so it cannot pull a chain of anything in; ``test_url_safety_stays_self_contained``
 # below keeps that true. ``user_info_utils`` builds the agent run ``metaData``
-# object and likewise imports nothing from the package.
-ALLOWED_SHARED_MODULES = {"aixplain.utils.url_safety", "aixplain.utils.user_info_utils"}
+# object and likewise imports nothing from the package. ``folder_walk`` is the
+# shared safe folder-upload walk (BUG-1452) and also imports nothing from it.
+ALLOWED_SHARED_MODULES = {
+    "aixplain.utils.url_safety",
+    "aixplain.utils.user_info_utils",
+    "aixplain.utils.folder_walk",
+}
 
 # Patterns that constitute a v1 import.
 # Matches:  from aixplain.modules  / from aixplain.factories

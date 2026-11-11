@@ -23,6 +23,7 @@ from .plain_data import WireValue, coerce_enum, struct_fields, wire_value
 if TYPE_CHECKING:
     from .agent import Budget, BudgetDict
 from .resource import (
+    _deprecates_per_call_api_key,
     BaseResource,
     GetResourceMixin,
     DeleteResourceMixin,
@@ -774,6 +775,7 @@ class Session(
         return payload
 
     @classmethod
+    @_deprecates_per_call_api_key
     def search(
         cls,
         agent: Optional[Any] = None,
@@ -851,7 +853,9 @@ class Session(
         if isinstance(response, dict):
             items = response.get(cls.PAGINATE_ITEMS_KEY) or response.get("items") or []
             total = response.get(cls.PAGINATE_TOTAL_KEY, len(items))
-            page_total = response.get(cls.PAGINATE_PAGE_TOTAL_KEY, 1)
+            # ``pageTotal`` is the item count of this page; use ``pagesCount``
+            # or ``ceil(total / page_size)`` for the page count (BUG-1459).
+            page_total = cls._page_count(response, total if isinstance(total, int) else len(items), items, page_size)
         else:
             items = _parse_list_response(response, "sessions")
             total = len(items)
@@ -866,28 +870,68 @@ class Session(
 
         return Page(results=results, page_number=page_number, page_total=page_total, total=total)
 
-    def messages(self) -> List[SessionMessage]:
-        """Get all messages in this session.
+    def messages(
+        self,
+        page_number: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> List[SessionMessage]:
+        """Get the messages in this session.
+
+        With no arguments every message is fetched, exactly as before. Long-lived
+        sessions can pass ``page_number``/``page_size`` to fetch one page at a
+        time instead of the whole history in a single response.
+
+        Args:
+            page_number: Zero-indexed page to fetch. ``None`` (default) leaves
+                paging to the server, which returns all messages.
+            page_size: Messages per page. ``None`` (default) uses the server
+                default.
 
         Returns:
             List of SessionMessage instances.
 
         Raises:
+            ValueError: If ``page_number`` is negative or ``page_size`` is
+                smaller than 1.
             ResourceError: If the API response is not a list or
                 deserialization fails.
             APIError: If the API request fails.
         """
+        if page_number is not None and page_number < 0:
+            raise ValueError(f"page_number must be >= 0, got {page_number}")
+        if page_size is not None and page_size < 1:
+            raise ValueError(f"page_size must be >= 1, got {page_size}")
+
         self._ensure_valid_state()
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}/messages"
 
+        params: Dict[str, Any] = {}
+        if page_number is not None:
+            params["pageNumber"] = page_number
+        if page_size is not None:
+            params["pageSize"] = page_size
+
         try:
-            response = self.context.client.request("get", path)
+            # No ``params`` kwarg at all when unpaginated, so the default call is
+            # byte-identical to what it was before pagination existed.
+            if params:
+                response = self.context.client.request("get", path, params=params)
+            else:
+                response = self.context.client.request("get", path)
         except APIError:
             raise
         except Exception as e:
             raise ResourceError(f"Failed to list messages for session '{self.id}': {e}")
 
-        items = _parse_list_response(response, "messages")
+        # The backend returns a bare JSON array today; tolerate a paginated
+        # envelope too, as ``search()`` does.
+        envelope_items = None
+        if isinstance(response, dict):
+            for key in (self.PAGINATE_ITEMS_KEY, "items"):
+                if isinstance(response.get(key), list):
+                    envelope_items = response[key]
+                    break
+        items = envelope_items if envelope_items is not None else _parse_list_response(response, "messages")
         return [_deserialize(SessionMessage, item, "session message") for item in items]
 
     def add_message(

@@ -297,7 +297,8 @@ class TestBuildPageDefaults:
 
         assert len(page.results) == 2
         assert page.total == 2
-        assert page.page_total == 2
+        # page_total counts pages: ceil(2 / default page_size 20) (BUG-1459).
+        assert page.page_total == 1
 
     def test_missing_items_key_is_reported(self, monkeypatch):
         """A renamed envelope must not masquerade as "no results"."""
@@ -374,7 +375,7 @@ class TestBuildPageDefaults:
 
         assert [r.id for r in page.results] == ["m1", "m2"]
         assert page.total == 2
-        assert page.page_total == 2
+        assert page.page_total == 1
 
     def test_bare_array_is_read_even_when_a_key_is_configured(self, monkeypatch):
         """``APIKey.list`` answers with an array while inheriting the key."""

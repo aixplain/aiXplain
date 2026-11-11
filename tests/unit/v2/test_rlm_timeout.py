@@ -169,7 +169,7 @@ class TestDeadline:
 
     def test_forced_final_still_runs_when_iterations_run_out(self):
         rlm, sandbox = _make_rlm(max_iterations=2), _Sandbox()
-        orch = _orchestrator([CODE_REPLY, CODE_REPLY, "forced answer"])
+        orch = _orchestrator([CODE_REPLY, CODE_REPLY, "FINAL(forced answer)"])
 
         result = _run(rlm, sandbox, orch, timeout=5.0)
 
