@@ -22,6 +22,49 @@ REPL. An unparseable, empty or unresolvable forced reply returns
 `status="FAILED"` with the raw reply in `data`, and
 `RLMResult.final_answer_forced` marks every forced answer.
 
+### Fixed: v2 search filters, `Page.page_total` and polled model details
+
+- `Model.search` sends `Function` members as the backend's kebab codes
+  (`text-generation`) and accepts `function=` as an alias of `functions=`.
+  (`Tool`/`Integration.search` encode `functions` the same way, but their
+  endpoints do not filter by it yet.) Filters `v2/models/paginate` does not read
+  (`source_languages`, `target_languages`, `is_finetunable`, `ownership`,
+  `status`) are no longer sent and emit a `FutureWarning`; undeclared keywords
+  raise `ValidationError`. `sortBy`/`sortOrder` are no longer sent next to `sort`.
+- `Agent.search` sends `sort: [{field, dir}]` and forwards `status` as a single
+  `draft`/`onboarded` value (a one-element list is unwrapped); other statuses,
+  several statuses, and `ownership` are not accepted by the backend, so they
+  warn and are not sent. Undeclared keywords
+  raise `ValidationError`.
+- `Page.page_total` is now the number of pages (backend `pagesCount`, or
+  `ceil(total / page_size)`), as documented. It used to hold the number of items
+  on the page; use `len(page.results)` for that.
+- A polled model run keeps `details` (reasoning, tool calls, finish reason),
+  matching the synchronous path.
+
+### Added: typed v2 Index API (`aix.Index`)
+
+`aix.Index` is the v2 replacement for v1 `IndexFactory` / `IndexModel` (BUG-1455,
+porting the ENG-3148 work that was never merged). It covers the control plane
+(`create`, `list`, `get`, `delete`) and the data plane (`upsert`, `search`,
+`count`, `get_record`, `delete_record`, `retrieve_records_with_filter`,
+`delete_records_by_date`). The supporting types import from the package root:
+`Record`, `IndexFilter`, `IndexFilterOperator`, `Splitter`, `IndexResult`,
+`AirParams`, `VectaraParams`, `GraphRAGParams`, `ZeroEntropyParams`, and the
+`EmbeddingModel` and `IndexStores` enums (also available on the client as
+`aix.EmbeddingModel` / `aix.IndexStores`). `Splitter.split_by` accepts the plain
+string form (`"sentence"`). Local files passed to `upsert` or `search` are
+uploaded with the client's own API key. See
+[`IndexFactory` → `aix.Index`](MIGRATION.md#indexfactory--aixindex).
+
+### Fixed: uploads to path-style S3 URLs used the wrong bucket
+
+`S3Uploader.construct_s3_url` recognised only virtual-hosted S3 URLs
+(`https://<bucket>.s3.amazonaws.com/...`). For path-style and regional URLs it
+fell back to the hard-coded `aixplain-uploads` bucket, so the returned
+`s3://` link pointed at the wrong bucket. It now reads the bucket from both URL
+styles, including regional hosts.
+
 ### Added: SDK type information
 
 The package now ships `py.typed`. Type checkers such as mypy will check SDK
@@ -121,9 +164,12 @@ What changes for code that used the old classes through `aixplain.exceptions`:
 `AixplainBaseException`, `AuthenticationError`, `AlreadyDeployedError`,
 `BillingError`, `SupplierError`, `NetworkError`, `ServiceError`, `InternalError`
 and `get_error_from_status_code` still import from `aixplain.exceptions`, but now
-emit a `DeprecationWarning` and will be removed from it in 0.4.0. Import them
-from `aixplain.exceptions.types`, where they stay. They are no longer in
-`aixplain.exceptions.__all__`, so a star-import does not pull them in.
+emit a `DeprecationWarning` and will be removed from it in 0.4.0. The SDK never
+raises them, so `except AuthenticationError:` does not catch an API failure:
+catch `aixplain.APIError` and check `status_code` instead (e.g. `401`). The
+warning says so. The names stay importable from `aixplain.exceptions.types`.
+They are no longer in `aixplain.exceptions.__all__`, so a star-import does not
+pull them in.
 
 The v1 `ValidationError` / `ResourceError` (what `get_error_from_status_code`
 returns) now also subclass the v2 classes of the same name, so
@@ -160,11 +206,12 @@ Migration guide: https://github.com/aixplain/aiXplain/blob/main/MIGRATION.md
 **The last release that contained v1 is `0.2.48`.** It stays on PyPI and stays
 installable; code pinned to it keeps running unchanged.
 
-Eight v1 factories — `IndexFactory`, `PipelineFactory`, `BenchmarkFactory`,
-`CorpusFactory`, `DataFactory`, `DatasetFactory`, `FinetuneFactory`,
-`WalletFactory` — had no v2 equivalent and were removed without one. If you depend
-on any of them, stay on `0.2.48` and
-[open an issue](https://github.com/aixplain/aiXplain/issues) naming it.
+Seven v1 factories — `PipelineFactory`, `BenchmarkFactory`, `CorpusFactory`,
+`DataFactory`, `DatasetFactory`, `FinetuneFactory`, `WalletFactory` — had no v2
+equivalent and were removed without one. If you depend on any of them, stay on
+`0.2.48` and [open an issue](https://github.com/aixplain/aiXplain/issues) naming
+it. `IndexFactory` was listed here too until `aix.Index` shipped in the same
+release (see "Added: typed v2 Index API" above).
 
 `aixplain._compat.AixplainV1DeprecationWarning` is kept as an importable name,
 although nothing emits it any more. `-W` options and `filterwarnings` entries
@@ -202,7 +249,15 @@ Also removed, because they existed only to serve v1:
   wrapped the v1 model-onboarding factory. Use the web console.
 - `aixplain.utils.file_utils`, `request_utils`, `asset_cache`, `cache_utils`,
   `llm_utils`, `evolve_utils`, `validation_utils` and `convert_datatype_utils`.
-  `aixplain.utils.config`, `url_safety` and `user_info_utils` stay.
+  `url_safety` and `user_info_utils` stay.
+- `aixplain.utils.config`. Nothing in the package imported it any more, so its
+  checks never ran. The environment variables only it read -- `SENTRY_DSN`,
+  `MODEL_API_KEY`, `HF_TOKEN` and `PIPELINE_API_KEY` -- are no longer read, and
+  the SDK does not initialise Sentry. Configure the SDK through
+  `Aixplain(api_key=..., backend_url=...)` or the environment variables
+  `Aixplain()` reads. When `TEAM_API_KEY` and `AIXPLAIN_API_KEY` are both set
+  and differ, `Aixplain()` now emits a `UserWarning` and uses `TEAM_API_KEY`
+  (the old module raised, but only if something imported it).
 - `aixplain/v2/enums_include.py`, a re-export shim over the v1 enums that nothing
   imported, and the `generate.py` code generator that rendered it.
 

@@ -9,7 +9,10 @@ The v1-era hierarchy (``AixplainBaseException``, ``AuthenticationError``,
 ``BillingError``, ..., and ``get_error_from_status_code``) is defined in
 ``aixplain.exceptions.types``. Its names still resolve here for one release,
 with a ``DeprecationWarning``, and are removed from this module in
-``V1_EXCEPTIONS_REMOVED_IN``. Nothing in the SDK raises them.
+``V1_EXCEPTIONS_REMOVED_IN``. Nothing in the SDK raises them: an API failure
+surfaces as ``aixplain.APIError`` (or a subclass), so handle it with
+``except aixplain.APIError as e`` and branch on ``e.status_code`` (for example
+``401`` for what ``AuthenticationError`` used to mean).
 """
 
 from aixplain.v2.exceptions import (
@@ -66,9 +69,21 @@ def __getattr__(name: str) -> object:
 
         from . import types
 
+        if name == "get_error_from_status_code":
+            # A helper, not an exception class: there is nothing to `except`.
+            hint = (
+                "the SDK raises `aixplain.APIError` itself, with the HTTP status on `status_code`; "
+                "you should not need to build errors from a status code"
+            )
+        else:
+            hint = (
+                f"the SDK never raises it, so `except {name}` will not catch API failures -- "
+                f"catch `aixplain.APIError` and check `status_code` instead "
+                f"(e.g. `except aixplain.APIError as e: if e.status_code == 401: ...`)"
+            )
         warnings.warn(
-            f"`aixplain.exceptions.{name}` is deprecated and will be removed in {V1_EXCEPTIONS_REMOVED_IN}; "
-            f"import it from `aixplain.exceptions.types` instead.",
+            f"`aixplain.exceptions.{name}` is deprecated and will be removed in {V1_EXCEPTIONS_REMOVED_IN}: "
+            f"{hint}. Until then it stays importable from `aixplain.exceptions.types`.",
             DeprecationWarning,
             stacklevel=2,
         )

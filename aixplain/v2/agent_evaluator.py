@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Iterator, List,
 if TYPE_CHECKING:
     from .eval_experiment import Experiment, ExperimentLocalCache
 
+import numpy as np
 import pandas as pd
 from dataclasses_json import config as dj_config, dataclass_json
 
@@ -413,13 +414,34 @@ def _validate_metric_threshold(threshold: Any) -> None:
     )
 
 
+#: ``run_summary()["metric_highlights"]`` ranks an agent only when its scored-row
+#: coverage is at least this fraction of the best coverage among agents; the
+#: others are listed under ``excluded_low_coverage`` instead (BUG-1462).
+_HIGHLIGHT_MIN_RELATIVE_COVERAGE = 0.5
+
+
+def _enum_token(value: Any) -> str:
+    """Normalise one enum score or threshold member for comparison.
+
+    Matching is case-insensitive and whitespace-trimmed, and a JSON boolean maps
+    to ``"true"`` / ``"false"``: ``str(True)`` is ``"True"``, so a judge that
+    returned a JSON ``true`` used to fail a ``["true"]`` threshold (BUG-1462).
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value).strip().casefold()
+
+
 def _metric_threshold_passes(threshold: Union[Sequence[str], float, int], score: Any) -> bool:
-    """Return True if ``score`` passes ``threshold`` (enum membership or numeric greater-than)."""
+    """Return True if ``score`` passes ``threshold`` (enum membership or numeric greater-than).
+
+    Enum membership is case-insensitive, and JSON booleans match ``"true"`` / ``"false"``.
+    """
     if isinstance(threshold, (list, tuple)):
-        passing = {str(x).strip() for x in threshold}
+        passing = {_enum_token(x) for x in threshold}
         if score is None:
             return False
-        return str(score).strip() in passing
+        return _enum_token(score) in passing
     if isinstance(threshold, bool):
         return False
     if isinstance(threshold, (int, float)):
@@ -641,6 +663,11 @@ def _metric_gate_entry_for_rows(
             )
         for r in rows:
             evaluated += 1
+            # A failed run is recorded with run_time/used_credits 0.0, which would
+            # otherwise pass any upper bound: an agent failing every case passed a
+            # latency- or cost-only gate (BUG-1462).
+            if r.agent_run_failed:
+                continue
             if _row_sample_field_passes(r, sample_attr, thr_part, op):
                 passed_n += 1
     else:
@@ -693,6 +720,8 @@ def _row_quality_gate_criteria_detail(row: "AgentEvaluationRow", pfx: str, raw_s
                 f"metric_score_criteria[{pfx!r}]: enum/list criteria are not supported "
                 f"for per-row field {sample_attr!r}; use a numeric threshold and operator.",
             )
+        if getattr(row, "agent_run_failed", False):
+            return {"gate_pass": False, "gate_reason": "agent_run_failed"}
         raw_val = getattr(row, sample_attr, None)
         try:
             val_f = float(raw_val)
@@ -903,8 +932,9 @@ def _metric_row_passes_custom_criterion(
                 numeric_members.append(xf)
         if numeric_members:
             return score_f in set(numeric_members)
-        passing = {str(x).strip() for x in threshold_part}
-        return str(score).strip() in passing
+        # Case-insensitive; JSON booleans match "true"/"false" (BUG-1462).
+        passing = {_enum_token(x) for x in threshold_part}
+        return _enum_token(score) in passing
     try:
         bound = float(threshold_part)
         val = float(score)
@@ -989,9 +1019,13 @@ def _coerce_metric_pass_value(value: Any) -> Optional[bool]:
     """Parse ``metric_pass`` after CSV or API into ``True``/``False``; unknown becomes ``None``."""
     if value is None:
         return None
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
+    if isinstance(value, (bool, np.bool_)):
+        return bool(value)
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        # NaN is how a missing value comes back from CSV/pandas; ``bool(nan)``
+        # is True, which counted skipped rows as passes (BUG-1462).
+        if value != value:
+            return None
         return bool(value)
     if isinstance(value, str):
         s = value.strip().lower()
@@ -1563,8 +1597,9 @@ class AgentEvaluationRun:
         **Per-sample latency and cost** use the same criterion shapes as numeric metrics but
         reserved criterion names (not metric prefixes): ``run_time`` / ``latency`` compare
         :attr:`AgentEvaluationRow.run_time`; ``used_credits`` / ``credits_used`` / ``cost``
-        compare :attr:`AgentEvaluationRow.used_credits`. Every row is evaluated; list/enum
-        criteria are not allowed for these fields.
+        compare :attr:`AgentEvaluationRow.used_credits`. Every row is evaluated, and a row whose
+        agent run failed **fails** these criteria (its recorded ``0.0`` is not a real measurement);
+        list/enum criteria are not allowed for these fields.
 
         **Run aggregate gates** use the same **field names** as overall :meth:`run_summary`
         (``agent_failure_rate``, ``total_time_seconds``, ``total_cost``, ``n_agent_failures``,
@@ -1845,6 +1880,14 @@ class AgentEvaluationRun:
                     f"- {metric_name}: best={best} ({best_value:.4f}), worst={worst} ({worst_value:.4f}), "
                     f"spread={metric_data.get('spread', 0.0):.4f}."
                 )
+                excluded = metric_data.get("excluded_low_coverage") or []
+                if excluded:
+                    coverage = metric_data.get("coverage") or {}
+                    parts = []
+                    for agent in excluded:
+                        cov = coverage.get(agent) or {}
+                        parts.append(f"{agent} ({cov.get('scored', '?')}/{cov.get('rows', '?')} rows scored)")
+                    lines.append(f"  Not ranked for {metric_name} (low coverage): {', '.join(parts)}.")
 
         mpr = summary.get("metric_pass_rates") or {}
         if mpr:
@@ -2114,24 +2157,45 @@ class AgentEvaluationRun:
         df = self.to_dataframe()
         if not df.empty and "agent_name" in df.columns:
             metric_cols = [c for c in df.columns if _is_metric_data_column(c)]
+            rows_per_agent = df.groupby("agent_name", dropna=False).size()
             for col in metric_cols:
                 numeric = pd.to_numeric(df[col], errors="coerce")
                 valid = df.assign(_v=numeric).dropna(subset=["_v"])
                 if valid.empty:
                     continue
-                by_agent = valid.groupby("agent_name", dropna=False)["_v"].mean()
+                grouped = valid.groupby("agent_name", dropna=False)["_v"]
+                by_agent = grouped.mean()
                 if by_agent.empty:
                     continue
-                best_agent = str(by_agent.idxmax())
-                worst_agent = str(by_agent.idxmin())
-                best_value = float(by_agent.max())
-                worst_value = float(by_agent.min())
+                # The mean covers scored rows only, so an agent that completed 1 of
+                # 10 cases used to outrank one that completed all 10 (BUG-1462).
+                # Rank only agents whose coverage is close to the best coverage.
+                scored_counts = grouped.count()
+                coverage: Dict[str, Dict[str, Any]] = {}
+                fractions: Dict[Any, float] = {}
+                for agent_key, scored in scored_counts.items():
+                    total_rows = int(rows_per_agent.get(agent_key, scored))
+                    fraction = (float(scored) / float(total_rows)) if total_rows else 0.0
+                    fractions[agent_key] = fraction
+                    coverage[str(agent_key)] = {"scored": int(scored), "rows": total_rows, "fraction": fraction}
+                best_coverage = max(fractions.values())
+                eligible = [
+                    k for k, frac in fractions.items() if frac >= _HIGHLIGHT_MIN_RELATIVE_COVERAGE * best_coverage
+                ]
+                excluded = sorted(str(k) for k in fractions if k not in eligible)
+                ranked = by_agent[by_agent.index.isin(eligible)]
+                best_agent = str(ranked.idxmax())
+                worst_agent = str(ranked.idxmin())
+                best_value = float(ranked.max())
+                worst_value = float(ranked.min())
                 metric_highlights[str(col)] = {
                     "best_agent": best_agent,
                     "best_value": best_value,
                     "worst_agent": worst_agent,
                     "worst_value": worst_value,
                     "spread": best_value - worst_value,
+                    "coverage": coverage,
+                    "excluded_low_coverage": excluded,
                 }
 
         out = {
@@ -3017,6 +3081,34 @@ def _metric_prefix(tool: Metric, index: int) -> str:
     return f"metric_{index}"
 
 
+def _ensure_unique_eval_names(agents: Sequence[Agent], metrics: Sequence[Metric]) -> None:
+    """Reject agents or metrics that would share a result key in one evaluation.
+
+    Rows are grouped by agent name and metric buckets are keyed by metric name,
+    so two agents called ``"support-bot"`` (or the same agent passed twice)
+    used to merge into one entry with twice the rows, and side-by-side showed a
+    single score (BUG-1462). Called before anything runs, so nothing is billed.
+
+    Raises:
+        ValueError: If two agents share a name or two metrics share a prefix.
+    """
+    names = [getattr(a, "name", None) for a in agents]
+    named = [str(n) for n in names if n is not None]
+    dup_agents = sorted({n for n in named if named.count(n) > 1})
+    if dup_agents:
+        raise ValueError(
+            f"Duplicate agent name(s) in one evaluation: {dup_agents}. Rows and side-by-side columns are "
+            "keyed by agent name; rename the agents or evaluate them separately."
+        )
+    prefixes = [_metric_prefix(m, i) for i, m in enumerate(metrics)]
+    dup_metrics = sorted({p for p in prefixes if prefixes.count(p) > 1})
+    if dup_metrics:
+        raise ValueError(
+            f"Duplicate metric name(s) in one evaluation: {dup_metrics}. Metric results are keyed by "
+            "name; give each metric a distinct name."
+        )
+
+
 def _metric_bucket(metrics: Dict[str, Dict[str, Any]], prefix: str) -> Dict[str, Any]:
     """Return the nested dict for a metric tool prefix, creating it if needed."""
     return metrics.setdefault(prefix, {})
@@ -3146,10 +3238,10 @@ def normalize_eval_results_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             s = out[col]
             if pd.api.types.is_bool_dtype(s):
                 continue
-            if pd.api.types.is_numeric_dtype(s):
-                out[col] = s.astype(bool)
-            else:
-                out[col] = _coerce_object_bool(s.astype("object"))
+            # A skipped row has no metric_pass; it reloads as NaN/None and must stay
+            # unknown. The old string/bool coercion turned it into False (or True
+            # via ``astype(bool)``), so pass rates changed after a reload (BUG-1462).
+            out[col] = s.astype("object").map(_coerce_metric_pass_value)
             continue
         if not _is_metric_data_column(col):
             continue
@@ -3358,6 +3450,7 @@ class Eval:
 
         agents_list = _normalize_agents(agents)
         metrics_list = list(metrics) if metrics is not None else []
+        _ensure_unique_eval_names(agents_list, metrics_list)
         exp = ExperimentCls(
             id=str(uuid.uuid4()),
             created_at=datetime.now(timezone.utc),
@@ -3445,11 +3538,15 @@ class Eval:
             :class:`AgentEvaluationRun` with one :class:`AgentEvaluationRow` per
             (case, agent). Agent or metric failures are recorded per row instead of
             aborting the batch. Empty ``dataset.cases`` yields an empty run.
+
+        Raises:
+            ValueError: If two agents share a name or two metrics share a name.
         """
         out_rows: List[AgentEvaluationRow] = []
         metrics_list: List[Metric] = list(metrics) if metrics is not None else []
         reference_warned: set = set()
         agents_list: List[Agent] = _normalize_agents(agents)
+        _ensure_unique_eval_names(agents_list, metrics_list)
 
         for case_index, case in enumerate(dataset.cases):
             for agent in agents_list:

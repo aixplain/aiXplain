@@ -4,6 +4,8 @@ This module tests the foundational HTTP client that all API calls go through.
 Covers: initialization, headers, retry logic, request handling, and error parsing.
 """
 
+import json
+
 import pytest
 from unittest.mock import Mock, patch
 import requests
@@ -1016,3 +1018,93 @@ class TestConnectionPoolSizing:
             self._cycle_connections(pool, 50)
 
         assert [r for r in caplog.records if "pool is full" in r.getMessage().lower()]
+
+
+class TestErrorBodyShapesAndTerminalStatus:
+    """BUG-1462 items 1b and 2: every non-2xx body shape becomes an ``APIError``."""
+
+    @staticmethod
+    def _client():
+        return AixplainClient(base_url="https://api.example.com", team_api_key="key")
+
+    @staticmethod
+    def _error_response(status, body, text=None):
+        response = Mock()
+        response.ok = False
+        response.status_code = status
+        response.text = text if text is not None else json.dumps(body)
+        response.json.return_value = body
+        return response
+
+    @pytest.mark.parametrize("method_name", ["request_raw", "request_stream"])
+    @pytest.mark.parametrize("body", ["Forbidden", 403, True])
+    def test_scalar_json_body_raises_api_error(self, method_name, body):
+        client = self._client()
+        response = self._error_response(403, body)
+
+        with patch.object(client.session, "request", return_value=response):
+            with pytest.raises(APIError) as exc_info:
+                getattr(client, method_name)("GET", "resource")
+
+        assert exc_info.value.status_code == 403
+        assert str(body) in str(exc_info.value) or json.dumps(body) in str(exc_info.value)
+
+    def test_list_body_on_stream_raises_api_error(self):
+        client = self._client()
+        response = self._error_response(400, ["bad input", {"field": "text"}])
+
+        with patch.object(client.session, "request", return_value=response):
+            with pytest.raises(APIError) as exc_info:
+                client.request_stream("POST", "resource")
+
+        assert exc_info.value.status_code == 400
+        assert "bad input" in str(exc_info.value)
+        assert exc_info.value.response_data == {"errors": ["bad input", {"field": "text"}]}
+
+    def test_stream_error_prefers_supplier_error(self):
+        client = self._client()
+        body = {"error": "err.supplier_error", "supplierError": "Rate limit exceeded", "statusCode": 429}
+        response = self._error_response(429, body)
+
+        with patch.object(client.session, "request", return_value=response):
+            with pytest.raises(APIError) as exc_info:
+                client.request_stream("POST", "resource")
+
+        assert exc_info.value.status_code == 429
+        assert "Rate limit exceeded" in str(exc_info.value)
+
+    def test_retry_session_returns_the_final_response_instead_of_raising(self):
+        retry = create_retry_session().get_adapter("https://example.com").max_retries
+
+        assert retry.raise_on_status is False
+
+    def test_terminal_429_on_get_keeps_status_and_supplier_message(self):
+        """A throttled poll that stays throttled surfaces its own 429, not status 0."""
+        from io import BytesIO
+
+        from urllib3 import HTTPResponse
+
+        client = self._client()
+        client.session = create_retry_session(total=2, backoff_factor=0)
+        # Ignore any proxy from the environment: the wire is faulted out below.
+        client.session.trust_env = False
+        attempts = []
+        body = json.dumps({"supplierError": "Too many requests for this model"}).encode()
+
+        def throttled(self, conn, method, url, **_):
+            attempts.append(method)
+            return HTTPResponse(
+                body=BytesIO(body),
+                status=429,
+                headers={"Content-Type": "application/json"},
+                preload_content=False,
+                request_method=method,
+            )
+
+        with patch("urllib3.connectionpool.HTTPSConnectionPool._make_request", throttled):
+            with pytest.raises(APIError) as exc_info:
+                client.request_raw("GET", "https://api.example.com/sdk/runs/abc")
+
+        assert len(attempts) == 3
+        assert exc_info.value.status_code == 429
+        assert "Too many requests for this model" in str(exc_info.value)

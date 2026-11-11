@@ -241,7 +241,7 @@ analyst = aix.Agent(name="Analyst", description="Computes and charts from data y
 analyst.save()
 ```
 
-> Separately, `aix.Utility` (custom utility code) has its own parser rules and requires a `def main(...)` entry point — don't confuse it with the Python Sandbox integration. `Utility.run(**kwargs)` is an **instance** method (it was a classmethod in earlier builds — calling `aix.Utility.run(...)` on the class no longer works).
+> For custom Python, use the Python Sandbox integration above. (The separate custom-utility asset was removed in 0.3.0.)
 
 ## MCP servers
 
