@@ -119,8 +119,8 @@ class AssetIds:
 
     #: A strong multilingual LLM from a vendor other than ``DEFAULT_LLM``'s
     #: (OpenAI), paired with it for cross-vendor behaviour (Arabic rendering)
-    #: rather than for any capability of its own. Claude Opus 4.6 on dev/test;
-    #: the prod account may not run Anthropic models, so Gemini 3.1 Pro there.
+    #: rather than for any capability of its own. Claude Opus 4.6 on test; the
+    #: dev and prod accounts may not run Anthropic models, so Gemini 3.1 Pro there.
     #: Named for its role, not its vendor, because the vendor differs per backend.
     SECOND_VENDOR_LLM: str
 
@@ -187,11 +187,9 @@ class AssetSpec:
 #: the tests actually make.
 SPECS: Dict[str, AssetSpec] = {
     "DEFAULT_LLM": AssetSpec("Model", "default text-generation LLM (GPT-5.4)"),
-    "NON_DEFAULT_LLM": AssetSpec(
-        "Model", "non-default LLM (dev: GPT-4.1 Nano; test: Claude Opus 4.6; prod: GPT-4.1 Mini)"
-    ),
+    "NON_DEFAULT_LLM": AssetSpec("Model", "non-default LLM (dev/prod: GPT-4.1 Mini; test: Claude Opus 4.6)"),
     "SECOND_VENDOR_LLM": AssetSpec(
-        "Model", "second-vendor multilingual LLM (dev/test: Claude Opus 4.6; prod: Gemini 3.1 Pro)"
+        "Model", "second-vendor multilingual LLM (dev/prod: Gemini 3.1 Pro; test: Claude Opus 4.6)"
     ),
     "STREAMING_TOOL_CALL_MODEL": AssetSpec("Model", "streaming tool-calling model"),
     "VISION_LLM": AssetSpec("Model", "vision-capable LLM for image attachments (Gemini)"),
@@ -215,8 +213,13 @@ SPECS: Dict[str, AssetSpec] = {
 #: validated against.
 DEV = AssetIds(
     DEFAULT_LLM="69b7e5f1b2fe44704ab0e7d0",
-    NON_DEFAULT_LLM="67fd9e2bef0365783d06e2f0",
-    SECOND_VENDOR_LLM="698c87701239a117fd66b468",
+    # GPT-4.1 Mini. GPT-4.1 Nano (67fd9e2b...), which this used to be, is no
+    # longer onboarded on dev or prod (BUG-1095).
+    NON_DEFAULT_LLM="67fd9ddfef0365783d06e2ef",
+    # Gemini 3.1 Pro. The dev account may not run Anthropic models ("Access to
+    # Anthropic models is not allowed for this account"), so Claude Opus 4.6
+    # (698c8770...) cannot run there (BUG-1095).
+    SECOND_VENDOR_LLM="6999aedf6103733bc067e0b2",
     STREAMING_TOOL_CALL_MODEL="69727676c60248082d79932f",
     VISION_LLM="6a2846019a0a2598b61e12b8",
     SYNC_ONLY_MODEL="66aa869f6eb56342c26057e1",
@@ -249,27 +252,33 @@ DEV = AssetIds(
 #: `TEST` is also what a run with no ``BACKEND_URL`` selects (see
 #: :data:`DEFAULT_BACKEND_URL`). Moving the default from `dev` to `test` changed
 #: no id, since `TEST` is `DEV` until an entry here says otherwise.
-TEST = replace(DEV, NON_DEFAULT_LLM="698c87701239a117fd66b468")
-
-#: `PROD` overrides every entry that was proved wrong against
-#: ``platform-api`` (BUG-1095, 2026-11-11). Each override was found with the SDK
-#: on prod and checked with one real call (a ``Model.run`` and an agent run):
 #:
-#: - ``NON_DEFAULT_LLM``: GPT-4.1 Nano is not onboarded on prod; GPT-4.1 Mini is
-#:   the nearest model from the same vendor and family.
-#: - ``SECOND_VENDOR_LLM``: the prod account may not run Anthropic models
-#:   ("Access to Anthropic models is not allowed for this account"), so a strong
-#:   multilingual non-OpenAI model, Gemini 3.1 Pro, stands in for Claude.
+#: `TEST` keeps Claude Opus 4.6 for both LLM roles: those are the ids the test
+#: backend has been running with, and `test-platform-api` was not reachable to
+#: re-verify them when `DEV` moved off Claude (BUG-1095).
+TEST = replace(
+    DEV,
+    NON_DEFAULT_LLM="698c87701239a117fd66b468",
+    SECOND_VENDOR_LLM="698c87701239a117fd66b468",
+)
+
+#: `PROD` shares every `DEV` id. Each one was checked against ``platform-api``
+#: (BUG-1095, 2026-11-11) with the SDK and one real call (a ``Model.run`` and an
+#: agent run); the two that were wrong there were wrong on dev too and are fixed
+#: in `DEV` above:
+#:
+#: - ``NON_DEFAULT_LLM``: GPT-4.1 Nano is not onboarded on prod or dev; GPT-4.1
+#:   Mini is the nearest model from the same vendor and family.
+#: - ``SECOND_VENDOR_LLM``: neither the prod nor the dev account may run
+#:   Anthropic models ("Access to Anthropic models is not allowed for this
+#:   account"), so a strong multilingual non-OpenAI model, Gemini 3.1 Pro,
+#:   stands in for Claude.
 #:
 #: ``DEBUGGER_AGENT`` keeps the shared id: no Debugger meta-agent visible to the
 #: prod account was found (the SDK id returns 404 there), so the debugger tests
 #: fail on prod by name until the platform publishes one -- see
 #: ``tests/functional/v2/test_debugger.py``.
-PROD = replace(
-    DEV,
-    NON_DEFAULT_LLM="67fd9ddfef0365783d06e2ef",
-    SECOND_VENDOR_LLM="6999aedf6103733bc067e0b2",
-)
+PROD = replace(DEV)
 
 ASSETS_BY_ENVIRONMENT: Dict[str, AssetIds] = {"dev": DEV, "test": TEST, "prod": PROD}
 

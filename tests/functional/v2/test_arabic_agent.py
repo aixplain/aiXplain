@@ -31,7 +31,7 @@ ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uF
 #: from the `assets` fixture at setup, so the same parameter ids run against
 #: dev, test and prod. gpt-5.4 is the registry's ``DEFAULT_LLM``; the second
 #: param is a non-OpenAI multilingual LLM whose vendor differs per backend
-#: (Claude on dev/test, Gemini on prod), so its label names the role.
+#: (Gemini on dev/prod, Claude on test), so its label names the role.
 MODELS = [
     pytest.param("gpt-5.4", "DEFAULT_LLM", id="gpt-5.4"),
     pytest.param("second-vendor", "SECOND_VENDOR_LLM", id="second-vendor-llm"),

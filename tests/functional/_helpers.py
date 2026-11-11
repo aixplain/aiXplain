@@ -127,12 +127,13 @@ def _probed_action_count(tool) -> Optional[int]:
     """`_action_count` for a search candidate, or ``None`` when the backend refuses *this* tool.
 
     A candidate from ``Tool.search`` can be one the key may not list (403), whose
-    connection is gone (404) or whose credentials expired (4xx): that rules out
-    the tool, not the run. Anything else -- a 5xx, a timeout, an auth failure on
-    every call -- is the listing endpoint itself being broken, and propagates
-    instead of being reported as "connect Slack in this tenant".
+    connection is gone (404) or whose credentials expired (4xx), or one whose
+    supplier answers with a ``status: FAILED`` reply (``ResourceError``): that
+    rules out the tool, not the run. Anything else -- a 5xx, a timeout, an auth
+    failure on every call -- is the listing endpoint itself being broken, and
+    propagates instead of being reported as "connect Slack in this tenant".
     """
-    from aixplain.v2.exceptions import APIError
+    from aixplain.v2.exceptions import APIError, ResourceError
 
     try:
         return _action_count(tool)
@@ -140,6 +141,8 @@ def _probed_action_count(tool) -> Optional[int]:
         if 400 <= error.status_code < 500 and error.status_code not in (401, 408, 429):
             return None
         raise
+    except ResourceError:
+        return None
 
 
 def _searched_tools(client) -> List[Any]:
@@ -220,10 +223,19 @@ _TRIGGER_CONNECTION_ENV = "AIXPLAIN_TEST_TRIGGER_CONNECTION_ID"
 def _probed_trigger_count(tool) -> Optional[int]:
     """How many event-trigger types *tool* lists, or ``None`` when the backend refuses *this* tool.
 
-    Same rule as `_probed_action_count`: a 4xx rules out the candidate, anything
-    else is the listing endpoint being broken and propagates.
+    Same rule as `_probed_action_count`: a 4xx or a ``status: FAILED`` reply rules
+    out the candidate, anything else is the listing endpoint being broken and
+    propagates.
+
+    The FAILED reply matters here in particular: an integration with no event
+    triggers (the aiXplain Memory tools on dev, for one) answers
+    ``list_trigger_types`` with either a 422 or a completed ``status: FAILED``
+    reply carrying ``supplierError: "Unknown action: list_trigger_types"``,
+    which the SDK raises as ``ResourceError``. Letting that propagate errored
+    the event-trigger test at setup on the first such candidate instead of
+    probing the next one (BUG-1095).
     """
-    from aixplain.v2.exceptions import APIError
+    from aixplain.v2.exceptions import APIError, ResourceError
 
     try:
         return len(tool.list_trigger_types() or [])
@@ -231,6 +243,8 @@ def _probed_trigger_count(tool) -> Optional[int]:
         if 400 <= error.status_code < 500 and error.status_code not in (401, 408, 429):
             return None
         raise
+    except ResourceError:
+        return None
 
 
 def resolve_trigger_connection(client, preferred_integration_id: str):
