@@ -139,9 +139,10 @@ class Aixplain:
             )
         resolved = api_key or env_team_key or env_aixplain_key or ""
         self.api_key = resolved
-        if api_key:
-            os.environ["TEAM_API_KEY"] = api_key
-            os.environ["AIXPLAIN_API_KEY"] = api_key
+        # BUG-948: never promote an explicit key into ``os.environ``. It would be
+        # inherited by every child process the host spawns, and a later keyless
+        # ``Aixplain()`` would silently reuse it. The key travels explicitly via
+        # ``AixplainClient(team_api_key=...)`` and ``FileUploader(api_key=...)``.
         assert self.api_key, (
             "API key is required. Pass api_key=... to Aixplain() or set TEAM_API_KEY or AIXPLAIN_API_KEY."
         )

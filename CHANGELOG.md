@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### Security: key handling, attachments, skill downloads and telemetry (BUG-948)
+
+- `Aixplain(api_key=...)` no longer writes the key into `os.environ`
+  (`TEAM_API_KEY` / `AIXPLAIN_API_KEY`). Child processes no longer inherit it,
+  and a later `Aixplain()` with no key no longer silently reuses it. Code that
+  read `os.environ["TEAM_API_KEY"]` after constructing a client, or called
+  `upload_file()` / `parse_code()` without `api_key=`, must now pass the key
+  explicitly (for example `api_key=aix.api_key`). Likewise the lazily built
+  `aixplain.aixplain_v2` client reads only the environment, not a key passed to
+  an earlier `Aixplain(api_key=...)`. The standalone upload helpers
+  now also fall back to `AIXPLAIN_API_KEY`.
+- Passing a local file as a plain string in `attachments` is deprecated: it
+  still uploads but emits a `FutureWarning`. Pass `pathlib.Path(...)` or
+  `{"path": ...}` instead. A plain string naming a dotfile or a system path
+  (`/etc`, `/proc`, `/sys`, `/dev`, or the `/run/secrets` and `/var/run/secrets`
+  container mounts; the system-path list applies on POSIX only) is refused before
+  anything is read, as is a symlink that resolves into a dot-directory under the
+  home directory, and
+  `AIXPLAIN_STRICT_ATTACHMENTS=1` rejects every plain-string local path now.
+  URL detection (`http://`, `https://`, `s3://`) is case-insensitive.
+- `Skill.download()` reduces the backend-supplied skill name to a bare file
+  name, so the default `./{name}.zip` path cannot escape the current directory.
+- Set `AIXPLAIN_NO_TELEMETRY=1` (or `AIXPLAIN_DISABLE_GEOLOCATION=1`) to skip the
+  `ipinfo.io` lookup behind agent-run metadata; see `docs/run-metadata.md`.
+- Added `SECURITY.md`; the package classifier is now `Development Status :: 4 - Beta`.
+
 ### Changed: security hardening (BUG-1452)
 
 - Passing `api_key=` to an individual call (`get`, `search`, `delete`, `run`,

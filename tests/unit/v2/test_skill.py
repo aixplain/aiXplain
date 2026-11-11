@@ -432,3 +432,45 @@ class TestUpdatePersistsMetadata:
         skill.save()
 
         assert skill.description == "folder desc"
+
+
+class TestDownloadPathTraversal:
+    """BUG-948: the default download path must stay inside the current directory."""
+
+    @pytest.mark.parametrize(
+        "name, expected",
+        [
+            ("../../etc/x", "x.zip"),
+            ("/abs/x", "x.zip"),
+            ("a/b", "b.zip"),
+            ("..\\..\\x", "x.zip"),
+            ("..", "skill.zip"),
+            ("", "skill.zip"),
+            ("plain", "plain.zip"),
+        ],
+    )
+    def test_default_path_is_a_bare_filename_in_cwd(self, aix, tmp_path, monkeypatch, name, expected):
+        work = tmp_path / "work"
+        work.mkdir()
+        monkeypatch.chdir(work)
+        skill = aix.Skill(id="skill-1", name="s")
+        skill.name = name
+        skill._ensure_valid_state = Mock()
+        monkeypatch.setattr(aix.client, "request_raw", Mock(return_value=Mock(content=b"zip-bytes")))
+
+        written = skill.download()
+
+        resolved = (work / written).resolve()
+        assert resolved.parent == work.resolve()
+        assert resolved.name == expected
+        assert resolved.read_bytes() == b"zip-bytes"
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["work"]
+
+    def test_explicit_file_path_is_honoured(self, aix, tmp_path, monkeypatch):
+        skill = aix.Skill(id="skill-1", name="../evil")
+        skill._ensure_valid_state = Mock()
+        monkeypatch.setattr(aix.client, "request_raw", Mock(return_value=Mock(content=b"z")))
+        target = tmp_path / "chosen.zip"
+
+        assert skill.download(str(target)) == str(target)
+        assert target.read_bytes() == b"z"

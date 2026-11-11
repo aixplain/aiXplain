@@ -372,3 +372,45 @@ class TestAixplainEnumAccess:
         assert aix_a.Language is aix_b.Language
         assert aix_a.SortBy is aix_b.SortBy
         assert aix_a.SortOrder is aix_b.SortOrder
+
+
+class TestApiKeyNotExported:
+    """BUG-948: an explicit key must never be written into ``os.environ``."""
+
+    KEY_A = "a" * 32
+
+    @pytest.fixture(autouse=True)
+    def _no_env_keys(self, monkeypatch):
+        monkeypatch.delenv("TEAM_API_KEY", raising=False)
+        monkeypatch.delenv("AIXPLAIN_API_KEY", raising=False)
+
+    def test_explicit_key_leaves_environ_unchanged(self):
+        before = dict(os.environ)
+        aix = Aixplain(api_key=self.KEY_A)
+        assert aix.api_key == self.KEY_A
+        assert dict(os.environ) == before
+        assert "TEAM_API_KEY" not in os.environ
+        assert "AIXPLAIN_API_KEY" not in os.environ
+
+    def test_second_keyless_client_does_not_inherit_key(self):
+        Aixplain(api_key=self.KEY_A)
+        with pytest.raises(AssertionError, match="API key is required"):
+            Aixplain()
+
+    def test_child_process_does_not_see_key(self):
+        import subprocess
+        import sys
+
+        Aixplain(api_key=self.KEY_A)
+        out = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import os; print(os.environ.get('TEAM_API_KEY', '') + os.environ.get('AIXPLAIN_API_KEY', ''))",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert self.KEY_A not in out.stdout
+        assert out.stdout.strip() == ""

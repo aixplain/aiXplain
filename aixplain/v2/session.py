@@ -1,6 +1,7 @@
 """Session module for aiXplain v2 SDK."""
 
 import os
+import sys
 import logging
 import mimetypes
 from contextlib import contextmanager
@@ -18,6 +19,7 @@ from ._expected_output import expected_output_to_wire
 from .enums import AttachmentType
 from .exceptions import APIError, ResourceError, ValidationError
 from .file import File
+from ..utils.url_safety import _env_flag
 from .plain_data import WireValue, coerce_enum, struct_fields, wire_value
 
 if TYPE_CHECKING:
@@ -80,13 +82,103 @@ def _normalize_execution_params(params: Optional[Dict[str, Any]]) -> Optional[Di
     return normalized
 
 
+_HOSTED_SCHEMES = ("http://", "https://", "s3://")
+
+#: Set to a truthy value (``1``, ``true``, ``yes``, ``on``) to reject bare-string
+#: local paths in ``attachments`` now, ahead of the planned removal (BUG-948).
+STRICT_ATTACHMENTS_ENV_VAR = "AIXPLAIN_STRICT_ATTACHMENTS"
+
+#: System trees a bare-string attachment may never point into. ``/private/etc``
+#: is where ``/etc`` resolves on macOS; ``/run/secrets`` and ``/var/run/secrets``
+#: are the Docker and Kubernetes secret mounts.
+_SENSITIVE_ROOTS = (
+    "/etc",
+    "/proc",
+    "/sys",
+    "/dev",
+    "/private/etc",
+    "/run/secrets",
+    "/var/run/secrets",
+    "/private/var/run/secrets",
+)
+
+
 def _is_hosted_url(value: str) -> bool:
     """True if ``value`` is an already-hosted location (not a local path).
 
     Used by the unified ``attachments`` parameter to decide whether a string
-    entry is a URL to attach as-is or a local file path to upload.
+    entry is a URL to attach as-is or a local file path to upload. The scheme
+    match is case-insensitive, so ``HTTPS://...`` is a URL too.
     """
-    return value.startswith(("http://", "https://", "s3://"))
+    return value.strip().lower().startswith(_HOSTED_SCHEMES)
+
+
+def _has_dot_component(parts) -> bool:
+    """True if any path component is a dotfile or dot-directory name."""
+    return any(part.startswith(".") and part not in (".", "..") for part in parts)
+
+
+def _dot_component_below_home(path: str) -> bool:
+    """True if ``path`` lies under the home directory inside a dotfile or dot-directory."""
+    for home in {os.path.expanduser("~"), os.path.realpath(os.path.expanduser("~"))}:
+        if path.startswith(home.rstrip(os.sep) + os.sep):
+            return _has_dot_component(Path(os.path.relpath(path, home)).parts)
+    return False
+
+
+def _caller_stacklevel() -> int:
+    """``stacklevel`` that points a warning at the first frame outside the ``aixplain`` package."""
+    package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
+    frame = sys._getframe(1)
+    level = 1
+    while frame is not None and os.path.abspath(frame.f_code.co_filename).startswith(package_dir):
+        frame = frame.f_back
+        level += 1
+    return level
+
+
+def _is_sensitive_local_path(value: str) -> bool:
+    """True if a bare-string path names a dotfile/dot-directory or a system tree.
+
+    Dot components are checked on the path as written (after ``~`` expansion and
+    normalisation), so ``~/.aws/credentials`` and ``./.env`` match while a project
+    that merely lives under a dot-directory does not; a symlink whose target adds a
+    dot component below the home directory is refused too, so a dot-free link
+    cannot hide ``~/.aws``. System roots are checked on both the written and the
+    resolved path, so a symlink cannot hide ``/etc``. The system-root denylist is
+    POSIX-only; on Windows only the dotfile rule applies.
+    """
+    try:
+        written = os.path.normpath(os.path.expanduser(value))
+        if _has_dot_component(Path(written).parts):
+            return True
+        absolute = os.path.abspath(written)
+        resolved = os.path.realpath(written)
+        # A dot-free symlink can still point into a dot-directory under the
+        # home directory (e.g. ``notes.txt -> ~/.aws/credentials``). Refuse when
+        # resolving adds a dot component below home that the unresolved path
+        # lacks, so a project that merely lives under ``~/.something`` still works.
+        if _dot_component_below_home(resolved) and not _dot_component_below_home(absolute):
+            return True
+        candidates = {absolute, resolved}
+    except (ValueError, OSError):
+        # e.g. an embedded NUL byte: not a usable path, so refuse it as a
+        # ResourceError rather than leak a bare ValueError to the caller.
+        return True
+    for candidate in candidates:
+        if any(candidate == root or candidate.startswith(root + os.sep) for root in _SENSITIVE_ROOTS):
+            return True
+    return False
+
+
+def _refuse_sensitive_path(value: str, where: str) -> None:
+    """Raise if an untrusted bare-string path points at a dotfile or system path (BUG-948)."""
+    if _is_sensitive_local_path(value):
+        raise ResourceError(
+            f"Refusing to upload '{value}'{where}: a plain-string attachment may not point at a "
+            "dotfile or a system path. Pass pathlib.Path(...) or {'path': ...} if this upload "
+            "is intentional."
+        )
 
 
 def _mime_to_attachment_type(mime_type: str) -> str:
@@ -186,9 +278,13 @@ def resolve_attachments(
     """Normalize the unified ``attachments`` (plus deprecated ``files``) for the API.
 
     Each entry becomes a ``{url, name, type, mimeType}`` dict. URL entries (``http(s)://``
-    / ``s3://`` strings, or dicts carrying a ``url``) pass through unchanged; local paths
-    (plain strings, or dicts carrying a ``path``) are uploaded to aiXplain storage and the
-    resulting download link is attached. A saved ``File`` is attached by a short-lived
+    / ``s3://`` strings, matched case-insensitively, or dicts carrying a ``url``) pass
+    through unchanged; local paths (``pathlib.Path`` or dicts carrying a ``path``) are
+    uploaded to aiXplain storage and the resulting download link is attached. A plain
+    non-URL string is still uploaded as a local path but is deprecated (it emits a
+    ``FutureWarning``; ``AIXPLAIN_STRICT_ATTACHMENTS=1`` rejects it), and one naming
+    a dotfile or a system path (``/etc``, ``/proc``, ``/sys``, ``/dev``, container
+    secret mounts) is refused. A saved ``File`` is attached by a short-lived
     signed url fetched on demand (:meth:`File.get_signed_url`) — file-asset responses
     never carry a stable url; an unsaved ``File`` or a folder raises, rather than
     silently re-uploading or guessing. The ``FileUploader`` is created lazily, only when
@@ -235,14 +331,41 @@ def resolve_attachments(
                 resolved.append(att)
             else:
                 raise ResourceError("attachment dict must have a 'url' or a 'path' key")
-        elif isinstance(entry, (str, Path)):
-            value = str(entry)
+        elif isinstance(entry, Path):
+            # An explicit pathlib.Path is a deliberate local-file upload.
+            resolved.append(_upload(str(entry)))
+        elif isinstance(entry, str):
+            value = entry
             if _is_hosted_url(value):
+                value = value.strip()
                 # A bare URL string: attach as-is, auto-detecting type/mimeType
                 # (and name) from the extension.
                 att: Dict[str, Any] = {"url": value, "name": os.path.basename(value.split("?", 1)[0])}
                 resolved.append(_augment_hosted_attachment(att))
             else:
+                # BUG-948: a bare string is often model- or user-authored text, so
+                # it must not silently become an arbitrary local-file read. Refuse
+                # sensitive paths outright; otherwise warn that the implicit form
+                # is deprecated (or reject it under the strict opt-in).
+                where = f" for {error_label}" if error_label else ""
+                _refuse_sensitive_path(value, where)
+                if _env_flag(STRICT_ATTACHMENTS_ENV_VAR):
+                    raise ResourceError(
+                        f"Plain-string attachment '{value}'{where} is not a URL. Pass local files as "
+                        f"pathlib.Path(...) or {{'path': ...}} ({STRICT_ATTACHMENTS_ENV_VAR} is set)."
+                    )
+                warnings.warn(
+                    "Passing a local file path as a plain string in `attachments` is deprecated and "
+                    "will be rejected in a future release; pass pathlib.Path(...) or {'path': ...} "
+                    "instead. Plain strings will be treated as URLs only.",
+                    # FutureWarning, not DeprecationWarning: the warning is raised
+                    # inside aixplain, where Python's default filters would hide a
+                    # DeprecationWarning from the end user it is meant for.
+                    FutureWarning,
+                    # Point at the user's call (Agent.run / Session.add_message),
+                    # whatever the SDK-internal call depth is.
+                    stacklevel=_caller_stacklevel(),
+                )
                 resolved.append(_upload(value))
         elif isinstance(entry, File):
             where = f" for {error_label}" if error_label else ""
@@ -286,6 +409,10 @@ def resolve_attachments(
                     f"`files` only accepts local paths{where}; pass {type(file_path).__name__} "
                     "entries through `attachments` instead."
                 )
+            if isinstance(file_path, str):
+                # ``files`` always meant local paths, but a str entry can still be
+                # untrusted text: keep the sensitive-path refusal (BUG-948).
+                _refuse_sensitive_path(file_path, f" for {error_label}" if error_label else "")
             resolved.append(_upload(str(file_path)))
 
     return resolved
@@ -985,8 +1112,11 @@ class Session(
 
                 * a hosted-URL dict ``{"url", "type"?, "name"?, "mimeType"?}`` — used as-is;
                 * a local-path dict ``{"path": "/...", "type"?, ...}`` — uploaded;
-                * a string URL (``http(s)://`` / ``s3://``) — attached as-is;
-                * a string local path — uploaded to aiXplain storage.
+                * a string URL (``http(s)://`` / ``s3://``, any case) — attached as-is;
+                * a ``pathlib.Path`` — uploaded to aiXplain storage;
+                * a plain-string local path — deprecated: still uploaded with a
+                  ``FutureWarning``, but refused for dotfiles and system
+                  paths, and rejected outright under ``AIXPLAIN_STRICT_ATTACHMENTS=1``.
 
             files: Deprecated. Local file paths to upload and attach — pass these
                 through ``attachments`` instead.
