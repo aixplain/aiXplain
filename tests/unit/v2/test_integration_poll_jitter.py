@@ -107,8 +107,10 @@ class TestBudget:
     def test_exhausted_budget_raises_without_polling(self):
         poller = _Poller([DONE])
 
-        with pytest.raises(AixTimeoutError):
+        with pytest.raises(AixTimeoutError) as excinfo:
             poller._poll_for_data({"completed": False, "data": POLL_URL}, timeout=0)
+        # Carries the poll URL so the caller can resume (BUG-1095).
+        assert excinfo.value.poll_url == POLL_URL
         poller.context.client.request.assert_not_called()
 
     def test_raises_when_the_budget_expires(self):

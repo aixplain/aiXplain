@@ -1936,7 +1936,9 @@ del _url, _r
 
             worker_tokens = self._get_worker_context_tokens()
             budget_chars = _compute_chunk_budget_chars(worker_tokens)
-            chunks = _chunk_context(context, budget_chars)
+            # An empty list/dict context chunks to nothing; take the single-call
+            # path instead of sizing a thread pool at zero workers (BUG-1095).
+            chunks = _chunk_context(context, budget_chars) or [""]
             n_chunks = len(chunks)
             logger.info(
                 f"RLM '{name}' parallel: {n_chunks} chunk(s), ~{budget_chars} chars/chunk "

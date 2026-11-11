@@ -270,13 +270,13 @@ class ActionMixin:
                 poll_resp = client.request("get", poll_url, timeout=per_request)
             except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
                 if timeout - (time.time() - start) <= 0:
-                    raise TimeoutError(f"Action polling timed out after {timeout} seconds") from exc
+                    raise TimeoutError(f"Action polling timed out after {timeout} seconds", poll_url=poll_url) from exc
                 # Budget left: a real transport failure, propagated as before.
                 raise
             self._raise_if_failed(poll_resp)
             if poll_resp.get("completed", False) or poll_resp.get("status") == "SUCCESS":
                 return poll_resp.get("data")
-        raise TimeoutError(f"Action polling timed out after {timeout} seconds")
+        raise TimeoutError(f"Action polling timed out after {timeout} seconds", poll_url=poll_url)
 
     def list_actions(self) -> List[ActionSpec]:
         """List available actions for the integration.

@@ -545,9 +545,11 @@ def create_retry_session(
     Returns:
         requests.Session: A requests.Session object with the specified retry strategy.
     """
-    total = total or DEFAULT_RETRY_TOTAL
-    backoff_factor = backoff_factor or DEFAULT_RETRY_BACKOFF_FACTOR
-    status_forcelist = status_forcelist or DEFAULT_RETRY_STATUS_FORCELIST
+    # ``is not None``, not ``or``: ``total=0`` is how retries are disabled, and
+    # ``0`` / ``[]`` must not be silently replaced by the defaults (BUG-1095).
+    total = total if total is not None else DEFAULT_RETRY_TOTAL
+    backoff_factor = backoff_factor if backoff_factor is not None else DEFAULT_RETRY_BACKOFF_FACTOR
+    status_forcelist = status_forcelist if status_forcelist is not None else DEFAULT_RETRY_STATUS_FORCELIST
     retry_kwargs: dict = {
         "total": total,
         "backoff_factor": backoff_factor,
