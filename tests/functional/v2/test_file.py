@@ -25,6 +25,7 @@ import pytest
 import requests
 
 from aixplain.v2.exceptions import APIError
+from aixplain.v2.client import upload_timeout
 from aixplain.v2.upload_utils import upload_file
 
 MB = 1024 * 1024
@@ -75,7 +76,12 @@ class TestFileResource:
             client.File.get(deleted_id)
 
     def test_upload_put_uses_the_client_timeout(self, client, tmp_path, resource_tracker, monkeypatch):
-        """The presigned PUT of the file body is sent with the client's configured timeout."""
+        """The presigned PUT is sent with the client's read timeout and the upload connect/send slot.
+
+        The first slot also bounds each block of the body while it is sent, so the
+        upload raises it to at least ``AIXPLAIN_HTTP_UPLOAD_TIMEOUT`` (default 120s)
+        instead of the client's 10s connect timeout (ENG-3907).
+        """
         source = _write(tmp_path / "timeout.txt", 1024)
         real_put = requests.put
         put_timeouts = []
@@ -95,4 +101,5 @@ class TestFileResource:
             client.client.timeout = original
 
         assert file.id
-        assert put_timeouts == [(10, 60)]
+        assert put_timeouts == [upload_timeout((10, 60))]
+        assert put_timeouts[0][1] == 60  # the read timeout is still the client's

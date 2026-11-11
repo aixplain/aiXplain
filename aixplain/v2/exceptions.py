@@ -101,6 +101,28 @@ class AgentRunFailedError(APIError):
         self.warnings = list(warnings or [])
 
 
+class AgentRunNotStartedError(APIError, ValueError):
+    """Raised when the platform accepted an agent run's user message but did not start the run.
+
+    On the session path the run is started by ``POST /v1/sessions/{id}/messages``.
+    platform-backend relays only a 429 from starting that run; any other refusal,
+    such as ``err.not_enough_balance``, comes back as a saved message with no
+    ``requestId``, so the reason is not available to the SDK. ``retryable`` is
+    ``False``: re-sending the same message does not change the refusal. Also a
+    ``ValueError``, which the session path raised for this case before.
+    """
+
+    def __init__(self, message: Union[str, List[str]], session_id: Optional[str] = None) -> None:
+        """Initialize with the session the message was posted to.
+
+        Args:
+            message: Error message string or list of error messages.
+            session_id: The session holding the message whose run did not start.
+        """
+        super().__init__(message, retryable=False)
+        self.session_id = session_id
+
+
 class AixplainIssueError(APIError):
     """Raised when SDK issue reporting fails."""
 

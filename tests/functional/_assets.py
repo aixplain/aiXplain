@@ -163,9 +163,9 @@ class AssetIds:
     WEB_SEARCH_TOOL: str
 
     #: The pre-configured Debugger meta-agent behind ``aix.Debugger()``. The SDK
-    #: hard-codes it as ``aixplain.v2.meta_agents.DEBUGGER_AGENT_ID``;
-    #: ``tests/functional/v2/test_debugger.py`` patches that constant with this
-    #: backend's id, so the debugger tests exercise the debugger rather than a 404.
+    #: defaults to ``aixplain.v2.meta_agents.DEBUGGER_AGENT_ID``;
+    #: ``tests/functional/v2/test_debugger.py`` sets ``AIXPLAIN_DEBUGGER_AGENT_ID``
+    #: to this backend's id, so the debugger tests exercise the debugger rather than a 404.
     DEBUGGER_AGENT: str
 
 
@@ -237,8 +237,9 @@ DEV = AssetIds(
     # resolved to before the tests stopped using the path. The same id is the
     # SerpAPI Google Search tool on prod (verified 2026-11-11, BUG-1095).
     WEB_SEARCH_TOOL="692f18557b2cc45d29150cb0",
-    # The SDK's hard-coded meta_agents.DEBUGGER_AGENT_ID.
-    DEBUGGER_AGENT="696fdccad63e898317c097a0",
+    # The SDK's default meta_agents.DEBUGGER_AGENT_ID (aiXplain Debugger Agent c3).
+    # The old 696fdccad63e898317c097a0 points at a retired tool on dev (ENG-3907).
+    DEBUGGER_AGENT="6a83989b20d5ce8082cdc775",
 )
 
 #: `test` and `prod` are separate id spaces from `dev`, but the v2 leg has been
@@ -275,7 +276,7 @@ TEST = replace(
 #:   stands in for Claude.
 #:
 #: ``DEBUGGER_AGENT`` keeps the shared id: no Debugger meta-agent visible to the
-#: prod account was found (the SDK id returns 404 there), so the debugger tests
+#: prod account was found (the SDK default returns 404 there, ENG-3651), so the debugger tests
 #: fail on prod by name until the platform publishes one -- see
 #: ``tests/functional/v2/test_debugger.py``.
 PROD = replace(DEV)

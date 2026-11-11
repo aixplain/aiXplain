@@ -40,7 +40,7 @@ limitations under the License.
 import os
 import time
 import uuid
-from typing import Any, List, NoReturn, Optional, Tuple
+from typing import Any, Iterator, List, NoReturn, Optional, Tuple
 
 import pytest
 
@@ -247,16 +247,49 @@ def _probed_trigger_count(tool) -> Optional[int]:
         return None
 
 
-def resolve_trigger_connection(client, preferred_integration_id: str):
-    """Return a connected tool that lists one or more event-trigger types.
+#: Fragments of a Composio activation refusal meaning "this connection cannot
+#: carry a trigger": an OAuth grant that expired (410
+#: ``ActionExecute_ConnectedAccountExpired``), a connection whose OAuth flow was
+#: started and never finished (422 ``TOOL_AUTH_BadConnectedAccountState``,
+#: status ``INITIATED``), or a webhook trigger on a connection with no
+#: verification token, which is every Slack connection made from a bot token
+#: (400 ``TriggerInstance_WebhookConfigInvalid``). Listing trigger types works on
+#: all of them, which is why the probe in `trigger_connection_candidates` cannot
+#: rule them out; only activating a trigger does.
+_INACTIVE_ACCOUNT_MARKERS = (
+    "ConnectedAccountExpired",
+    "BadConnectedAccountState",
+    "not in an ACTIVE state",
+    "in EXPIRED state",
+    "TriggerInstance_WebhookConfigInvalid",
+)
 
-    Prefers the tool pinned by ``AIXPLAIN_TEST_TRIGGER_CONNECTION_ID``. Without
-    one, searches up to `_SEARCH_PAGES` pages of tools and probes them with
-    ``list_trigger_types()``: tools backed by *preferred_integration_id* first,
-    then tools backed by any other integration, stopping after
+
+def is_inactive_connection_error(error: BaseException) -> bool:
+    """Whether *error* is a trigger activation refused because the connection's account is not active.
+
+    That refusal is about the candidate, not the code under test: the tenant's
+    OAuth connections expire, and the next candidate may be live. Any other
+    activation failure is a real one and must not be retried past.
+    """
+    text = str(error)
+    return any(marker in text for marker in _INACTIVE_ACCOUNT_MARKERS)
+
+
+def trigger_connection_candidates(client, preferred_integration_id: str) -> Iterator[Any]:
+    """Yield connected tools that list one or more event-trigger types, best first.
+
+    Yields only the tool pinned by ``AIXPLAIN_TEST_TRIGGER_CONNECTION_ID`` when it
+    is set. Without one, searches up to `_SEARCH_PAGES` pages of tools and probes
+    them with ``list_trigger_types()``: tools backed by *preferred_integration_id*
+    first, then tools backed by any other integration, stopping after
     `_MAX_ACTION_PROBES` probes. A tool with no integration cannot carry a
-    connection and is not tried. Not finding one fails: the event-trigger
-    lifecycle test cannot run without a connection.
+    connection and is not tried.
+
+    A caller that activates a trigger on a candidate and gets an
+    `is_inactive_connection_error` moves on to the next one: listing trigger
+    types succeeds on a connection whose OAuth account has expired, so the probe
+    here cannot tell a live connection from a dead one.
 
     A connection belongs to the account that made it, so there is no id to pin
     per backend; this replaced the ``TEST_CONNECTION_ID`` secrets, which were
@@ -270,32 +303,37 @@ def resolve_trigger_connection(client, preferred_integration_id: str):
     pinned = (os.getenv(_TRIGGER_CONNECTION_ENV) or "").strip()
     if pinned:
         tool = client.Tool.get(pinned)
-        count = len(tool.list_trigger_types() or [])
-        if count < 1:
+        if len(tool.list_trigger_types() or []) < 1:
             missing_fixture(
                 f"a connected tool with event-trigger types at {pinned}",
                 "The pinned tool lists none.",
                 env_var=_TRIGGER_CONNECTION_ENV,
             )
-        return tool
+        yield tool
+        return
 
     tools = _searched_tools(client)
     preferred = [tool for tool in tools if tool.integration_id == preferred_integration_id]
     other = [tool for tool in tools if tool.integration_id and tool.integration_id != preferred_integration_id]
-
-    probed = []
     for tool in (preferred + other)[:_MAX_ACTION_PROBES]:
-        count = _probed_trigger_count(tool)
-        if count:
-            return tool
-        probed.append(f"{tool.id}={'refused' if count is None else count}")
+        if _probed_trigger_count(tool):
+            yield tool
 
+
+def resolve_trigger_connection(client, preferred_integration_id: str):
+    """Return the first of `trigger_connection_candidates`; fail when there is none.
+
+    It may be a connection whose account has expired: activating a trigger is
+    the only way to tell, so the event-trigger lifecycle test walks the
+    candidates itself instead of calling this.
+    """
+    for tool in trigger_connection_candidates(client, preferred_integration_id):
+        return tool
     missing_fixture(
         "a connected tool with event-trigger types",
-        f"Searched {len(tools)} tool(s) in up to {_SEARCH_PAGES} page(s) of {_SEARCH_PAGE_SIZE} "
-        f"({len(preferred)} backed by integration {preferred_integration_id}, {len(other)} by another "
-        f"integration) and probed {len(probed)} for trigger types (id=count): {', '.join(probed) or 'none'}. "
-        "Connect Composio Gmail, or any integration that exposes event triggers, in this tenant.",
+        f"Searched up to {_SEARCH_PAGES} page(s) of {_SEARCH_PAGE_SIZE} tools and probed up to "
+        f"{_MAX_ACTION_PROBES} for trigger types. Connect Composio Gmail, or any integration that exposes "
+        "event triggers, in this tenant.",
         env_var=_TRIGGER_CONNECTION_ENV,
     )
 

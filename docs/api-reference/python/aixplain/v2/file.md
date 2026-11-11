@@ -28,7 +28,7 @@ limitations under the License.
 class FileSearchParams(BaseSearchParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L56)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L58)
 
 Search parameters for File assets.
 
@@ -52,7 +52,7 @@ class File(BaseResource, SearchResourceMixin[FileSearchParams, "File"],
            DeleteResourceMixin[BaseDeleteParams, "File"])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L76)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L78)
 
 A persisted aiXplain file or folder.
 
@@ -62,6 +62,21 @@ A persisted aiXplain file or folder.
 - `name` - Optional name overriding the name inferred from ``source``.
 - `kwargs` - Backend metadata used when hydrating an existing File.
 
+#### MAX\_URL\_SOURCE\_BYTES
+
+Largest body `save` will download from an http(s) ``source``, in
+bytes. Enforced while streaming, so no more than this reaches disk
+(BUG-1452). Override on the class (or an instance) to raise it.
+
+#### MAX\_ARCHIVE\_BYTES
+
+Largest folder archive `download` will accept: both the compressed
+download and the total uncompressed size of its entries (BUG-1452).
+
+#### MAX\_ARCHIVE\_ENTRIES
+
+Most entries a downloaded folder archive may contain (BUG-1452).
+
 #### \_\_init\_\_
 
 ```python
@@ -70,7 +85,7 @@ def __init__(source: Optional[Union[str, os.PathLike[str]]] = None,
              **kwargs: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L115)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L127)
 
 Initialize a File without performing network writes.
 
@@ -81,23 +96,34 @@ Initialize a File without performing network writes.
 def is_dir() -> bool
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L207)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L219)
 
 Whether this File represents a directory.
 
 #### save
 
 ```python
-def save(**_: Any) -> "File"
+def save(*, include: Optional[List[str]] = None, **_: Any) -> "File"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L395)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L418)
 
 Upload the source and persist it as a backend File asset.
+
+**Arguments**:
+
+- `include` - When ``source`` is a directory, relative paths or
+  ``fnmatch`` patterns of hidden files/folders to upload anyway
+  (e.g. ``[".well-known/*"]``). By default hidden files and folders
+  (``.env``, ``.git/``), cache folders and symlinks leaving the
+  directory are skipped.
+  
 
 **Raises**:
 
 - `ResourceError` - If the file has been deleted.
+- `FileUploadError` - If an http(s) ``source`` is larger than
+  `MAX_URL_SOURCE_BYTES` or exceeds the team's quota.
 
 #### get\_signed\_url
 
@@ -105,16 +131,17 @@ Upload the source and persist it as a backend File asset.
 def get_signed_url(expires_in: Optional[int] = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L440)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L495)
 
 Return a short-lived signed URL for this file's bytes.
 
 The backend's file-asset responses (create/get/paginate) never carry a
 stable ``url`` — it must be requested on demand through the same
 signed-URL endpoint the platform UI uses to render media inline. The
-endpoint is ``{rootAssetId}/file/{fileId}/url``: a standalone root file
-addresses itself both ways, but a child (from ``folder.children``)
-must address its parent folder's asset id, tracked in ``_root_id``.
+endpoint is ``{assetId}/file/{fileId}/url``. This SDK uses the containing
+root asset id tracked in ``_root_id`` when available. The backend also
+accepts the file's own id in both positions, including for nested files,
+subject to the requesting team's file access.
 
 **Arguments**:
 
@@ -133,7 +160,7 @@ must address its parent folder's asset id, tracked in ``_root_id``.
 def build_delete_url(**kwargs: Any) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L468)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L529)
 
 Refuse to delete a non-root child node; there is no documented endpoint for one.
 
@@ -150,7 +177,7 @@ tree; there is no separate per-child delete to fall back on here.
 def get(cls, identifier: str, recursive: bool = True) -> "File"
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L485)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L546)
 
 Retrieve a File by ID, encoded asset path, or instance ID.
 
@@ -161,7 +188,7 @@ def download(
         destination: Optional[Union[str, os.PathLike[str]]] = None) -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L612)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L672)
 
 Stream this File to disk, safely extracting folders from one ZIP request.
 
@@ -176,7 +203,7 @@ Stream this File to disk, safely extracting folders from one ZIP request.
 def __getattr__(name: str) -> Any
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L667)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/file.py#L824)
 
 PEP 562: warn on the deprecated ``Resource`` alias, matching ``Aixplain().Resource``.
 

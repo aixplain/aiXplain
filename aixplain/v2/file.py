@@ -277,15 +277,23 @@ class File(
         # ``uploadUrl`` is chosen by the response, so the host is checked before
         # the file bytes leave the machine (BUG-939).
         validate_upload_url(upload_url)
+        from .client import upload_timeout
+        from .upload_utils import upload_body
+
         with open(local_path, "rb") as handle:
             # A presigned S3 PUT never legitimately redirects, and following one
             # would re-send the file bytes to a host that never passed
             # ``validate_upload_url`` (BUG-939).
             upload_response = requests.put(
                 upload_url,
-                data=handle,
+                # An empty file goes as ``b""`` so it is sent with
+                # ``Content-Length: 0`` rather than chunked (see ``upload_body``).
+                data=upload_body(handle),
                 headers={"Content-Type": content_type},
-                timeout=self.context.client.timeout,
+                # The client's 10-second connect timeout also bounds each block
+                # of the body while it is sent; ``upload_timeout`` raises it so a
+                # slow link does not fail a large file (see DEFAULT_UPLOAD_TIMEOUT).
+                timeout=upload_timeout(self.context.client.timeout),
                 allow_redirects=False,
             )
         if not upload_response.ok:

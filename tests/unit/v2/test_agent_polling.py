@@ -289,6 +289,7 @@ class TestAgentRunRequestId:
         """Should keep requestId from initial run response when poll omits it."""
         agent = _create_agent()
         agent.before_run = Mock(return_value=None)
+        agent._sessionless_run_reason = lambda kwargs: "direct path under test"
         request_id = "190bab47-30e2b0287e9b"
         poll_url = f"{BACKEND_URL}/sdk/agents/{request_id}/result"
         agent.context.client.request = Mock(
@@ -313,6 +314,7 @@ class TestAgentRunRequestId:
         """Should send identifier in payload and as x-user-id header on the run request."""
         agent = _create_agent()
         agent.before_run = Mock(return_value=None)
+        agent._sessionless_run_reason = lambda kwargs: "direct path under test"
         identifier = "end-user-123"
         agent.context.client.request = Mock(
             return_value={

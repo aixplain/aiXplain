@@ -18,6 +18,7 @@ surfaces as ``aixplain.APIError`` (or a subclass), so handle it with
 from aixplain.v2.exceptions import (
     APIError,
     AgentRunFailedError,
+    AgentRunNotStartedError,
     AixplainIssueError,
     AixplainV2Error,
     FileUploadError,
@@ -31,6 +32,7 @@ __all__ = [
     "AixplainV2Error",
     "APIError",
     "AgentRunFailedError",
+    "AgentRunNotStartedError",
     "AixplainIssueError",
     "ValidationError",
     "ResourceError",

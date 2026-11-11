@@ -27,8 +27,14 @@ def canary(api_key: str) -> str:
 
 
 def _every_flow(aix, platform: PlatformStub) -> None:
-    """Agent run and poll, model detail, run and stream, search, tool and file reads, and a failure."""
-    platform.serve("backend/agent-detail").serve("backend/agent-run-submit")
+    """Agent runs on both paths and their polls, model detail, run and stream, search, tool and file reads, and a failure.
+
+    The session run covers ``POST /v1/sessions`` and its message; the direct run
+    (``history=`` keeps that path) covers the ``/v2/agents/{id}/run`` body, the
+    one that carries ``metaData``.
+    """
+    platform.serve("backend/agent-detail").serve("backend/session-create").serve("backend/session-message")
+    platform.serve("backend/agent-run-submit")
     platform.serve("backend/agent-poll-in-progress", then=["backend/agent-poll-success"])
     platform.serve("backend/model-detail-llm").serve("backend/models-paginate").serve("backend/tool-detail-utility")
     platform.serve("backend/file-asset-detail")
@@ -45,7 +51,9 @@ def _every_flow(aix, platform: PlatformStub) -> None:
     )
     platform.route("POST", "models", "/" + LLM_ID, lambda _r, _p: next(responses))
 
-    aix.Agent.get(AGENT_ID).run("What is the capital of France?", show_progress=False)
+    agent = aix.Agent.get(AGENT_ID)
+    agent.run("What is the capital of France?", show_progress=False)
+    agent.run("And of Spain?", show_progress=False, history=[{"role": "user", "content": "Hello"}])
     model = aix.Model.get(LLM_ID)
     model.run(text="hi")
     list(model.run_stream(text="hi"))
@@ -61,6 +69,8 @@ def test_key_reaches_the_platform_only_as_the_auth_header(aix, platform: Platfor
     _every_flow(aix, platform)
 
     assert len(platform.requests) >= 10
+    assert len(platform.sent("POST", "/v1/sessions")) == 2  # the create and the message
+    assert len(platform.sent("POST", "/v2/agents/" + AGENT_ID + "/run")) == 1
     for request in platform.requests:
         assert request.url.startswith((BACKEND_URL, MODELS_ROOT_URL))
         assert canary not in request.url
@@ -116,6 +126,21 @@ def test_a_poll_url_on_a_foreign_host_is_refused_before_any_request(aix, platfor
         "/v2/agents/{id}/run",
         StubResponse(status=201, body={"data": FOREIGN + "/sdk/agents/x/result", "requestId": "x"}),
     )
+
+    with pytest.raises(UntrustedURLError):
+        # history keeps the run on the direct path, where the poll URL comes from the body.
+        aix.Agent.get(AGENT_ID).run("hi", show_progress=False, history=[{"role": "user", "content": "Hello"}])
+
+    assert not [r for r in platform.requests if r.url.startswith(FOREIGN)]
+
+
+def test_a_foreign_request_id_on_the_session_path_is_refused_before_any_request(aix, platform: PlatformStub) -> None:
+    # The session path builds the poll URL from the message's requestId, and a
+    # requestId that is already a URL is used as it is.
+    platform.serve("backend/agent-detail").serve("backend/session-create")
+    message = dict(load_recording("backend/session-message")["response"]["json"])
+    message["requestId"] = FOREIGN + "/sdk/agents/x/result"
+    platform.route("POST", "backend", "/v1/sessions/{id}/messages", StubResponse(status=201, body=message))
 
     with pytest.raises(UntrustedURLError):
         aix.Agent.get(AGENT_ID).run("hi", show_progress=False)

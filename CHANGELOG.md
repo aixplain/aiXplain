@@ -2,6 +2,79 @@
 
 ## Unreleased
 
+### Changed: every agent run goes through a session
+
+`agent.run(query)` and `agent.run_async(query)` without `session=` now create a new
+session for the run and post the query to it (`POST /v1/sessions/{id}/messages`),
+the same path `session=` takes. The run is recorded as a platform session and its id
+is on `result.session_id`; pass it back as `session=` to continue the conversation.
+The run's `execution_params`, `criteria`, `evolve`, `identifier` and
+`run_response_generation`, and the agent's budget, are stored in that session's
+`executionConfig`. The SDK does not delete these sessions; the backend removes a
+session after 180 days without activity.
+
+Runs that pass `tasks`, `prompt`, `inspectors`, `history` or `variables`, a
+non-string `query`, `session_id` / `agent_name` (sent as the `x-session-id` / `x-agent`
+headers) or any other kwarg the direct path forwards, still use
+`POST /v2/agents/{id}/run` with no session, because the session endpoint does not carry
+those. Alongside `session=` such kwargs are not sent, and the run warns. Session runs
+do not send `metaData` (see [docs/run-metadata.md](docs/run-metadata.md)). A run's
+`identifier` is stored in the
+session's `executionConfig` and is also sent as the `x-user-id` header on the session
+create and on the message, as the direct path sends it on the run: the backend makes
+the session owned by that end user (without the header a session is visible to every
+caller on the team) and applies per-user rate limits. `run_retries` / `run_retry_wait`
+retry the session create and the message POST on a 429 or a 5xx, as they retry the
+direct run POST.
+
+`run_async(session=...)` is now supported and returns a result whose `url` polls the
+triggered run; it used to raise `NotImplementedError`. Session runs now call the
+agent's `before_run` hook (which saves a new or modified draft agent) and `after_run`
+hook, as direct runs do.
+
+**Behaviour change for existing `session=` callers:** because `before_run` now runs on
+that path too, `agent.run(query, session=...)` on an onboarded agent with unsaved local
+edits raises `ValueError` (it used to run the stale server copy silently), and an edited
+draft agent is saved before the message is posted. `before_run` and `after_run` are
+called as on the direct path: `after_run` is not called when `before_run` raises, and is
+called once with an early result `before_run` returns.
+
+**Refusals on the session path.** A refused session create raises the `APIError` with
+the platform's status and code, as the direct run POST does; it is no longer wrapped in
+the `ResourceError` that `Session.save()` raises. A 429 on the message POST raises the
+same way. Any other refusal to start the run, such as `err.not_enough_balance`, is not
+relayed by platform-backend on this path: the message is saved and comes back with no
+`requestId`. That now raises the new `AgentRunNotStartedError`, an `APIError` (with no
+status, `retryable=False`) and a `ValueError` (which this case raised before), naming the
+session. The direct path still raises `APIError(471, err.not_enough_balance)` for a run
+refused for balance.
+
+### Fixed: large uploads failing after 10 seconds on slow connections
+
+The S3 PUT behind `FileUploader`, agent attachments and `File.save()` was held to the
+10-second connect timeout for the whole body, regardless of the 300-second read
+timeout: urllib3 keeps the socket at the connect timeout while it sends the request,
+and the file was sent as one block. Uploads now stream the file and use an upload
+timeout of at least 120 seconds per block (`AIXPLAIN_HTTP_UPLOAD_TIMEOUT`), so only a
+stalled transfer times out. An empty file is sent as an empty body with
+`Content-Length: 0`, since a streamed empty file would go out chunked, which a
+presigned S3 PUT rejects. A client timeout in any shape `requests` accepts still works for
+uploads: a pair with a `None` slot keeps it, and a `urllib3` `Timeout` or other shape is
+passed through unchanged. `nan`, `inf` and other non-finite values of the
+`AIXPLAIN_HTTP_*_TIMEOUT` variables are ignored with a warning, like non-numeric ones.
+
+### Changed: the Debugger's default agent id, an override, and a clearer error
+
+`aix.Debugger()` and `result.debug()` looked up agent `696fdccad63e898317c097a0`,
+which does not exist on the test or production backends and points at a retired
+tool on dev. The default is now `6a83989b20d5ce8082cdc775` (aiXplain Debugger Agent
+c3), which exists on dev only: until a debugger is deployed on production (ENG-3651),
+`result.debug()` still fails there unless `AIXPLAIN_DEBUGGER_AGENT_ID` names one.
+That variable overrides the default for a backend that deploys the debugger under
+another id. A missing debugger agent now raises a `ResourceError` naming the id, the
+backend and that variable; it used to raise `APIError: Not Found`, so code catching
+`APIError` there must catch `ResourceError` instead.
+
 ### Security: key handling, attachments, skill downloads and telemetry (BUG-948)
 
 - `Aixplain(api_key=...)` no longer writes the key into `os.environ`

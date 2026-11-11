@@ -22,7 +22,7 @@ import uuid
 
 import pytest
 
-from aixplain import Inspector
+from aixplain import AgentRunFailedError, Inspector
 
 ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
 
@@ -123,6 +123,17 @@ def _assert_success_response(response) -> tuple[str, list]:
     return _extract_output(response), _extract_steps(response)
 
 
+#: Start of the error the engine returns when a run's LLM is momentarily
+#: unreachable. It fails the run straight away rather than hanging, so it is
+#: retried like an empty body: the leg used to go red on it about one run in two.
+_MODEL_UNAVAILABLE = "is currently unavailable or unreachable"
+
+#: Poll budget for the team-with-inspector run. Two delegated agents plus an
+#: inspector writing long Arabic legal text regularly outlast the SDK's 300s
+#: default, which failed the test with ``TimeoutError`` while the run was healthy.
+_TEAM_RUN_TIMEOUT_SECONDS = 600
+
+
 def _run_until_output(run, description: str) -> tuple[str, list]:
     """Call *run* until it yields usable content; fail if it never does.
 
@@ -131,7 +142,9 @@ def _run_until_output(run, description: str) -> tuple[str, list]:
     genuine regression in the Arabic runtime path indistinguishable:
     three tests across two LLMs could all go quiet and the leg still reported
     success. Retrying absorbs the transient case that motivated the skip; a run
-    that comes back empty every time is reported as the failure it is.
+    that comes back empty every time is reported as the failure it is. A run
+    failed with ``_MODEL_UNAVAILABLE`` is retried the same way, and re-raised
+    on the last attempt; any other failure is raised at once.
 
     Args:
         run: Zero-argument callable that performs the agent run and returns the
@@ -140,9 +153,16 @@ def _run_until_output(run, description: str) -> tuple[str, list]:
     """
     output = ""
     for attempt in range(1, _OUTPUT_ATTEMPTS + 1):
-        output, steps = _assert_success_response(run())
-        if _has_usable_output(output):
-            return output, steps
+        try:
+            response = run()
+        except AgentRunFailedError as error:
+            if _MODEL_UNAVAILABLE not in str(error) or attempt == _OUTPUT_ATTEMPTS:
+                raise
+            output = f"<run failed: {error}>"
+        else:
+            output, steps = _assert_success_response(response)
+            if _has_usable_output(output):
+                return output, steps
         if attempt < _OUTPUT_ATTEMPTS:
             time.sleep(_OUTPUT_RETRY_DELAY_SECONDS)
 
@@ -291,7 +311,7 @@ def test_arabic_team_agent_with_inspector(client, assets, resource_tracker, mode
     team_agent = _make_team_agent(client, resource_tracker, llm_id, model_name, inspectors=[inspector])
 
     output, steps = _run_until_output(
-        lambda: team_agent.run(ARABIC_QUERIES["pure_arabic"]),
+        lambda: team_agent.run(ARABIC_QUERIES["pure_arabic"], timeout=_TEAM_RUN_TIMEOUT_SECONDS),
         f"Arabic team agent with inspector on {model_name}",
     )
     assert steps, "Expected team-agent execution steps for the Arabic team flow"

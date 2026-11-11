@@ -878,6 +878,25 @@ class Session(
             if resolved:
                 self.agent_id = resolved
 
+    # The end user an agent run is acting for, sent as ``x-user-id`` on the
+    # session create and on ``add_message`` while an agent run binds it
+    # (``aixplain.v2.agent._bound_end_user``). The backend stores that header as
+    # the session's owner, so a session created without it is visible to every
+    # caller on the team. A plain class attribute rather than a dataclass field:
+    # it never goes on the wire as a body field and never comes back from the
+    # backend.
+    _end_user_id = None
+
+    def _end_user_headers(self) -> Optional[Dict[str, str]]:
+        """The ``x-user-id`` header for the bound end user, or ``None`` when none is bound."""
+        if not self._end_user_id:
+            return None
+        return {"x-user-id": self._end_user_id}
+
+    def _create(self, resource_path: str, payload: dict, headers: Optional[Dict[str, str]] = None) -> None:
+        """Create the session, sending the bound end user as ``x-user-id``."""
+        super()._create(resource_path, payload, headers=headers or self._end_user_headers())
+
     @classmethod
     def _fold_legacy_execution_config(cls, kvs: Any) -> Any:
         """Pre-fold a legacy ``executionConfig`` payload before decoding.
@@ -1146,8 +1165,12 @@ class Session(
             payload["tools"] = tools
 
         path = f"{self.RESOURCE_PATH}/{self.encoded_id}/messages"
+        request_kwargs: Dict[str, Any] = {"json": payload}
+        end_user_headers = self._end_user_headers()
+        if end_user_headers:
+            request_kwargs["headers"] = end_user_headers
         try:
-            response = self.context.client.request("post", path, json=payload)
+            response = self.context.client.request("post", path, **request_kwargs)
         except APIError:
             raise
         except Exception as e:

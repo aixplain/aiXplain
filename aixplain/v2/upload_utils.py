@@ -8,7 +8,7 @@ import os
 import re
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any
+from typing import BinaryIO, Dict, List, Optional, Union, Any
 from urllib.parse import urljoin
 import requests
 
@@ -145,10 +145,12 @@ class RequestManager:
         A default ``(connect, read)`` timeout is applied when the caller doesn't
         pass one: without it ``requests`` waits forever, so a peer that accepts
         the connection and then goes silent pins the calling thread with no upper
-        bound. The read timeout bounds the gap between bytes, not the total
-        transfer, so large uploads are unaffected. Override per call with
+        bound. The read timeout only starts once the request body has been sent;
+        while it is being sent the socket is held to the *connect* timeout, so
+        an upload passes its own ``timeout=upload_timeout()`` (see
+        :func:`aixplain.v2.client.upload_timeout`). Override per call with
         ``timeout=`` or globally via ``AIXPLAIN_HTTP_CONNECT_TIMEOUT`` /
-        ``AIXPLAIN_HTTP_READ_TIMEOUT``.
+        ``AIXPLAIN_HTTP_READ_TIMEOUT`` / ``AIXPLAIN_HTTP_UPLOAD_TIMEOUT``.
         """
         from .client import default_timeout
 
@@ -201,6 +203,23 @@ class PresignedUrlManager:
             raise FileUploadError(f"File Upload Error: Failed to get pre-signed URL: {e}")
 
 
+def upload_body(handle: BinaryIO) -> Union[BinaryIO, bytes]:
+    """Return what to send as the body of a presigned upload PUT for *handle*.
+
+    The open handle itself, so the file is streamed, except for an empty file:
+    ``requests`` cannot take a length from an empty handle and falls back to
+    ``Transfer-Encoding: chunked``, which a presigned S3 PUT rejects. An empty
+    ``bytes`` body is sent with ``Content-Length: 0`` instead.
+
+    Args:
+        handle: The file, opened in binary mode and positioned at its start.
+
+    Returns:
+        *handle*, or ``b""`` when the file is empty.
+    """
+    return handle if os.fstat(handle.fileno()).st_size else b""
+
+
 class S3Uploader:
     """Handles S3 file uploads using pre-signed URLs."""
 
@@ -219,23 +238,30 @@ class S3Uploader:
         # reported success.
         validate_upload_url(presigned_url)
 
+        from .client import upload_timeout
+
         headers = {"Content-Type": content_type}
 
         try:
-            # Stream the file instead of reading it whole: ``requests`` sets
-            # Content-Length from the file size, and urllib3 rewinds the file
-            # before each retry, so memory stays flat regardless of file size
-            # (BUG-949).
-            # An empty file is sent as ``b""``: ``requests`` would otherwise fall
-            # back to ``Transfer-Encoding: chunked`` for a zero-length stream,
-            # which S3 presigned PUTs reject.
+            # Stream the open handle rather than one ``bytes`` body, and send it
+            # with the upload timeout: a single ``bytes`` body went out in one
+            # ``sendall`` bounded by the 10-second connect timeout, so any file
+            # that took longer than that to transfer failed. Streaming also keeps
+            # memory flat regardless of file size, and urllib3 rewinds the file
+            # before each retry of the PUT (BUG-949). ``requests`` still sets
+            # ``Content-Length`` from the file size, which S3 requires; an empty
+            # file is sent as ``b""`` for the same reason (``upload_body``).
             with open(file_path, "rb") as f:
-                body = f if os.fstat(f.fileno()).st_size > 0 else b""
                 # A presigned S3 PUT never legitimately redirects; following a
                 # 307 would re-send the bytes to a host ``validate_upload_url``
                 # never saw (BUG-939).
                 response = RequestManager.request_with_retry(
-                    "put", presigned_url, headers=headers, data=body, allow_redirects=False
+                    "put",
+                    presigned_url,
+                    headers=headers,
+                    data=upload_body(f),
+                    allow_redirects=False,
+                    timeout=upload_timeout(),
                 )
 
             if response.status_code != 200:

@@ -798,7 +798,42 @@ class TestDebuggerGetDebuggerAgent:
 
     def test_debugger_agent_id_constant(self):
         """DEBUGGER_AGENT_ID should have expected value."""
-        assert DEBUGGER_AGENT_ID == "696fdccad63e898317c097a0"
+        assert DEBUGGER_AGENT_ID == "6a83989b20d5ce8082cdc775"
+
+    def test_env_var_overrides_the_debugger_agent_id(self, monkeypatch):
+        from aixplain import Agent
+
+        monkeypatch.setenv("AIXPLAIN_DEBUGGER_AGENT_ID", "  custom-debugger  ")
+        debugger = type("Debugger", (Debugger,), {"context": Mock()})()
+
+        with patch.object(Agent, "get", return_value=Mock()) as mock_get:
+            debugger._get_debugger_agent()
+
+        mock_get.assert_called_once_with("custom-debugger")
+
+    def test_a_missing_debugger_agent_names_the_id_backend_and_override(self, monkeypatch):
+        from aixplain import Agent, APIError, ResourceError
+
+        monkeypatch.delenv("AIXPLAIN_DEBUGGER_AGENT_ID", raising=False)
+        debugger = type("Debugger", (Debugger,), {"context": Mock(backend_url="https://test-platform-api")})()
+
+        with patch.object(Agent, "get", side_effect=APIError("Not Found", status_code=404)):
+            with pytest.raises(ResourceError) as raised:
+                debugger._get_debugger_agent()
+
+        message = str(raised.value)
+        assert DEBUGGER_AGENT_ID in message
+        assert "https://test-platform-api" in message
+        assert "AIXPLAIN_DEBUGGER_AGENT_ID" in message
+
+    def test_other_api_errors_propagate_unchanged(self):
+        from aixplain import Agent, APIError
+
+        debugger = type("Debugger", (Debugger,), {"context": Mock()})()
+
+        with patch.object(Agent, "get", side_effect=APIError("boom", status_code=500)):
+            with pytest.raises(APIError, match="boom"):
+                debugger._get_debugger_agent()
 
 
 # =============================================================================

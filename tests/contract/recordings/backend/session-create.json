@@ -1,0 +1,51 @@
+{
+  "contract": "Session create: 201 with the stored session entity (ObjectId _id plus the string id), idle and empty.",
+  "endpoint": {
+    "method": "POST",
+    "host": "backend",
+    "path": "/v1/sessions"
+  },
+  "request": {},
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "json": {
+      "_id": "6a1000000000000000000001",
+      "id": "sess-contract-1",
+      "teamId": 1001,
+      "userId": "2001",
+      "agentId": "agent-contract-1",
+      "shareLinkId": null,
+      "consentGiven": null,
+      "browserSessionId": null,
+      "name": "Contract Agent run",
+      "status": "active",
+      "runStatus": "idle",
+      "executionConfig": {
+        "executionParams": {
+          "budget": {
+            "maxIterations": 5
+          }
+        }
+      },
+      "messageCount": 0,
+      "lastMessageAt": null,
+      "lastMessagePreview": null,
+      "createdAt": "2026-11-10T12:00:00.000Z",
+      "updatedAt": "2026-11-10T12:00:00.000Z"
+    }
+  },
+  "provenance": {
+    "source": "reconstructed",
+    "recorded_at": null,
+    "backend": null,
+    "derived_from": [
+      "platform-backend@97ec505ad src/session/controllers/session.controller.ts:102-135 (returns the raw entity minus identifier)",
+      "platform-backend@97ec505ad src/session/services/session.service.ts:196-215 createSession",
+      "platform-backend@97ec505ad src/session/models/mongodb/session.entity.ts:13-26 SessionStatus, SessionRunStatus"
+    ],
+    "note": "Reconstructed from server and client code; replace with a live recording."
+  }
+}
