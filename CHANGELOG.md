@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Changed: security hardening (BUG-1452)
+
+- Passing `api_key=` to an individual call (`get`, `search`, `delete`, `run`,
+  `run_async`, `run_stream`) now emits a `DeprecationWarning`. The value was
+  already ignored; authenticate with `Aixplain(api_key=...)` instead. The
+  per-call parameter will be removed in the next major version.
+- Folder uploads (`Skill.save` / `Skill.update` on a folder, `File.save` on a
+  directory) skip hidden files and folders (`.env`, `.git/`, ...),
+  `__pycache__/`, `node_modules/` and symlinks that leave the folder. Pass
+  `include=[...]` (relative paths or `fnmatch` patterns) to upload hidden paths
+  deliberately.
+- `File.save()` from a URL uses the 30 s fetch timeout and refuses bodies over
+  `File.MAX_URL_SOURCE_BYTES` (1 GiB) without writing past the cap; folder
+  downloads refuse archives over `File.MAX_ARCHIVE_BYTES` (10 GiB uncompressed)
+  or `File.MAX_ARCHIVE_ENTRIES` (100,000 entries). RLM URL contexts are capped
+  at 50 MiB.
+- `AIXPLAIN_ALLOW_PRIVATE_FETCH=1` no longer reopens any link-local
+  (`169.254.0.0/16`), `fd00:ec2::/32` or `100.100.100.200` address, including
+  their IPv4-mapped, 6to4 and NAT64 forms.
+- Presigned uploads to `amazonaws.com` are accepted only for S3 hosts. Set
+  `AIXPLAIN_UPLOAD_S3_BUCKETS` to pin them to specific buckets; add any other
+  host through `AIXPLAIN_UPLOAD_HOST_ALLOWLIST`.
+
 ### Changed: tighter URL and context handling (BUG-1451)
 
 - A `.env` in the working directory can no longer set `BACKEND_URL`,

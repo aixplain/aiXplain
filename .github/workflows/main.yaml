@@ -594,12 +594,14 @@ jobs:
       # string otherwise. A same-repository PR runs `pip install ".[test]"` with
       # whatever dependency changes it carries, unreviewed, in this job; a PR
       # job that never holds the production key cannot leak it. SLACK_TOKEN is
-      # gated the same way on the leg's `slack` key.
+      # gated the same way, on IS_PROD *and* the leg's `slack` key (BUG-1452):
+      # PR, `test` and nightly runs never hold it, so the Slack tests skip there
+      # and run on production runs only.
       - name: Set environment variables
         env:
           TEAM_API_KEY_PROD: ${{ env.IS_PROD == 'true' && secrets.TEAM_API_KEY_PROD || '' }}
           TEAM_API_KEY_TEST: ${{ secrets.TEAM_API_KEY }}
-          SLACK_TOKEN: ${{ matrix.slack && secrets.SLACK_TOKEN || '' }}
+          SLACK_TOKEN: ${{ env.IS_PROD == 'true' && matrix.slack && secrets.SLACK_TOKEN || '' }}
         run: |
           set -euo pipefail
 

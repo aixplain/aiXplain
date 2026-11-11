@@ -27,8 +27,13 @@ EXCLUDED_FILES = set()
 # shared URL trust policy (BUG-939) and imports nothing from ``aixplain`` at all,
 # so it cannot pull a chain of anything in; ``test_url_safety_stays_self_contained``
 # below keeps that true. ``user_info_utils`` builds the agent run ``metaData``
-# object and likewise imports nothing from the package.
-ALLOWED_SHARED_MODULES = {"aixplain.utils.url_safety", "aixplain.utils.user_info_utils"}
+# object and likewise imports nothing from the package. ``folder_walk`` is the
+# shared safe folder-upload walk (BUG-1452) and also imports nothing from it.
+ALLOWED_SHARED_MODULES = {
+    "aixplain.utils.url_safety",
+    "aixplain.utils.user_info_utils",
+    "aixplain.utils.folder_walk",
+}
 
 # Patterns that constitute a v1 import.
 # Matches:  from aixplain.modules  / from aixplain.factories

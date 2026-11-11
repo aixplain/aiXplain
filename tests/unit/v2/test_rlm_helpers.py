@@ -12,7 +12,7 @@ import pytest
 
 from aixplain.v2 import rlm as rlm_mod
 from aixplain.v2.exceptions import ResourceError
-from aixplain.v2.rlm import RLM, RLMResult
+from aixplain.v2.rlm import MAX_URL_CONTEXT_BYTES, RLM, RLMResult
 
 from tests.unit.v2._rlm_fakes import API_KEY, FakeModel, make_context, make_rlm
 
@@ -347,9 +347,10 @@ class TestResolveContext:
                 return json.loads(body)
 
         calls = []
-        monkeypatch.setattr(url_safety, "safe_get", lambda u, timeout: calls.append((u, timeout)) or _Resp())
+        monkeypatch.setattr(url_safety, "safe_get", lambda u, **kw: calls.append((u, kw)) or _Resp())
         assert RLM._resolve_url_context(url) == expected
-        assert calls == [(url, 60)]
+        # BUG-1452: the body is capped and the fetch keeps safe_get's 30 s read timeout.
+        assert calls == [(url, {"max_bytes": MAX_URL_CONTEXT_BYTES})]
 
 
 # ---------------------------------------------------------------------------

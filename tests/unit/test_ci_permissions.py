@@ -334,6 +334,29 @@ def test_every_pypi_publish_step_is_pinned_to_a_commit_sha():
     )
 
 
+def test_every_third_party_action_is_pinned_to_a_commit_sha():
+    """A mutable tag on a third-party action is code chosen by whoever can move it (BUG-1452).
+
+    `peter-evans/create-pull-request` runs with `contents: write` and
+    `pull-requests: write`; a moved `@v8` tag would run new code with those
+    scopes and no diff here. First-party `actions/*` steps and local `./` actions
+    are out of scope. Bump a pin by resolving the release tag
+    (`git ls-remote https://github.com/<owner>/<repo> 'refs/tags/<tag>*'`, using
+    the `^{}` line for an annotated tag) and keep the version in the comment.
+    """
+    offenders = {}
+    for path in _workflow_files():
+        for job_name, job in (_load(path).get("jobs") or {}).items():
+            uses_list = [step.get("uses") for step in job.get("steps") or []] + [job.get("uses")]
+            for uses in filter(None, map(str, filter(None, uses_list))):
+                if uses.startswith(("./", "actions/", "docker://")):
+                    continue
+                _, _, ref = uses.partition("@")
+                if not COMMIT_SHA_REF.match(ref):
+                    offenders.setdefault(f"{path.name}:{job_name}", []).append(uses)
+    assert not offenders, f"third-party actions pinned to a mutable ref instead of a 40-hex commit SHA: {offenders}"
+
+
 def test_release_build_job_runs_the_whole_unit_suite_before_publishing():
     """A tag alone must not be able to publish code the unit suite never saw.
 

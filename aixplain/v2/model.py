@@ -30,6 +30,8 @@ from .resource import (
     _filter_value,
     _filter_values,
     _sort_direction,
+    _caller_stacklevel,
+    _deprecates_per_call_api_key,
     _caller_timeout_seconds,
     _request_timeout_for_budget,
 )
@@ -1221,6 +1223,7 @@ class Model(
         # Use v2 endpoint - it uses "results" as the items key (default)
         return super().search(**kwargs)
 
+    @_deprecates_per_call_api_key
     def run(self, **kwargs: Unpack[ModelRunParams]) -> Union[ModelResult, "ModelResponseStreamer"]:
         """Run the model with dynamic parameter validation and default handling.
 
@@ -1284,6 +1287,7 @@ class Model(
         """
         return self._submit_with_retries(**kwargs)
 
+    @_deprecates_per_call_api_key
     def run_async(self, **kwargs: Unpack[ModelRunParams]) -> ModelResult:
         """Run the model asynchronously.
 
@@ -1422,6 +1426,7 @@ class Model(
                 supplier_error=supplier_error,
             )
 
+    @_deprecates_per_call_api_key
     def run_stream(self, **kwargs: Unpack[ModelRunParams]) -> ModelResponseStreamer:
         """Run the model with streaming response.
 
@@ -1736,7 +1741,7 @@ class Model(
                 f"{cls.__name__}.search(): filter(s) {unread} are not supported by the backend and were "
                 "ignored; they will raise in a future release.",
                 FutureWarning,
-                stacklevel=4,
+                stacklevel=_caller_stacklevel(),
             )
 
         # Call parent's _populate_filters to get basic pagination and common
