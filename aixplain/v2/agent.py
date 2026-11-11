@@ -1068,6 +1068,10 @@ class Agent(
         # helpers below still read from it.
         self._files_ever_configured = bool(self.files)
         self._original_files = list(self.files or [])
+        # A budget that was ever set must be sent (cleared) on save once removed.
+        self._budget_ever_configured = getattr(self, "_budget_ever_configured", False) or bool(
+            self._normalize_budget(self.budget)
+        )
         # Hydrate raw backend File dicts (e.g. from a get() response) into real
         # File objects, so a fetched agent's files are directly usable
         # (``.name``, ``.download()``, ``.delete()``, ...) — mirrors ``_hydrate_tools``.
@@ -1231,6 +1235,9 @@ class Agent(
         if name == "budget":
             coerced = self._coerce_budget(value, strict=True)
             value = coerced if coerced is not None else Budget()
+            if self._normalize_budget(value):
+                # Plain attribute (not a field); also set during __init__.
+                object.__setattr__(self, "_budget_ever_configured", True)
         elif name == "tasks":
             # Assignment has to coerce too. Left to ``__post_init__``, a dict
             # assigned afterwards stayed a dict -- and ``dataclass_json`` passes
@@ -1315,6 +1322,9 @@ class Agent(
         finally:
             self.tools = original_tools
             self.files = original_files
+        # The public to_dict() carries the budget for dump/reload, but the budget
+        # has never counted toward ``is_modified``; keep it that way.
+        state.pop("budget", None)
         # ``graph`` and ``strategy`` are excluded from ``to_dict()``, so edits to them are tracked here.
         if self.graph is not None:
             state["graph"] = deepcopy(self.graph.to_dict(validate=False))
@@ -1881,8 +1891,16 @@ class Agent(
         # The roster was synced from the public list by _validate_dependencies().
         pre_save_agents = list(getattr(self, "_original_agents", None) or [])
 
-        # Call the parent save method
-        saved_agent = super().save(*args, **kwargs)
+        # before_save() flips the local status to DRAFT/ONBOARDED before the
+        # request is sent (the payload carries it). If the server never accepts
+        # the save, the local copy must not claim it did, or the next run()
+        # blames an "onboarded" agent that is still a draft on the server.
+        previous_status = self.status
+        try:
+            saved_agent = super().save(*args, **kwargs)
+        except BaseException:
+            self.status = previous_status
+            raise
 
         # A create response that does not echo the graph would otherwise leave it None,
         # and the next save() would send no graph.
@@ -2160,8 +2178,14 @@ class Agent(
 
         response_data = _flatten_asset_info(dict(response_data)) if isinstance(response_data, dict) else response_data
 
-        duplicated = Agent.from_dict(response_data)
+        duplicated = type(self).from_dict(response_data)
         duplicated.context = self.context
+        # An unbound class has no class-level context, so __post_init__ skipped
+        # tool/file hydration; redo it now that the context is bound, so the
+        # duplicate's tools are Tool/Model objects exactly like get() returns.
+        duplicated._hydrate_tools()
+        duplicated._hydrate_files()
+        duplicated._original_tools = list(duplicated.tools) if duplicated.tools else []
         # Record which keys the duplicate response carried, like get()/search()
         # do: without this the duplicate has no provenance and a later save()
         # would PUT the SDK default model over whatever the platform gave the
@@ -2302,7 +2326,7 @@ class Agent(
           through; a bare ``{"id": ...}`` attach dict is resolved for its type.
         """
         if isinstance(tool, ToolableMixin):
-            return cls._normalize_tool_dict_for_api(tool.as_tool())
+            return cls._normalize_tool_dict_for_api(cls._apply_stored_tool_fields(tool, dict(tool.as_tool())))
         if isinstance(tool, str):
             return cls._normalize_tool_dict_for_api(cls._resolve_tool_entry(tool))
         if isinstance(tool, dict):
@@ -2312,6 +2336,24 @@ class Agent(
         raise ValueError(
             f"A tool must be a Tool, Model, ToolableMixin instance, a string id, or a dictionary, got {type(tool)}."
         )
+
+    @staticmethod
+    def _apply_stored_tool_fields(tool: Any, snapshot: dict) -> dict:
+        """Back-fill a hydrated model tool's stored supplier/function/version.
+
+        Only values ``as_tool()`` filled from a default (no vendor set, or a
+        ``None``/empty function or version) are replaced; anything the caller set
+        on the object wins.
+        """
+        stored = getattr(tool, "_agent_tool_stored_fields", None) or {}
+        for key, value in stored.items():
+            if key == "supplier":
+                vendor = getattr(tool, "vendor", None)
+                if not getattr(vendor, "code", None):
+                    snapshot[key] = value
+            elif snapshot.get(key) in (None, ""):
+                snapshot[key] = value
+        return snapshot
 
     @classmethod
     def _resolve_tool_entry(cls, tool_id: str, attach: Optional[dict] = None) -> dict:
@@ -2477,6 +2519,12 @@ class Agent(
             params=params or None,
         )
         model.context = context
+        # The rebuilt Model has no vendor/function/version, so as_tool() would
+        # re-save it with defaults. Remember what the backend stored (a plain
+        # attribute, not a dataclass field) for _normalize_tool_for_api.
+        model._agent_tool_stored_fields = {
+            key: entry[key] for key in _MODEL_TOOL_STORED_FIELDS if entry.get(key) not in (None, "")
+        }
         return model
 
     @staticmethod
@@ -2804,11 +2852,19 @@ class Agent(
         # ``budget`` field is ``exclude=lambda v: True`` so ``to_dict()`` never
         # emits it — we build the wire shape explicitly below.)
         payload.pop("maxIterations", None)
+        # The public to_dict() now carries the budget too; rebuild it here.
+        payload.pop("budget", None)
         budget = getattr(self, "budget", None)
-        if budget is not None:
-            normalized_budget = self._normalize_budget(budget)
-            if normalized_budget:
-                payload["budget"] = normalized_budget
+        normalized_budget = self._normalize_budget(budget) if budget is not None else {}
+        if normalized_budget:
+            payload["budget"] = normalized_budget
+            # Covers in-place edits (``agent.budget.max_cost = 5``) too.
+            self._budget_ever_configured = True
+        elif getattr(self, "_budget_ever_configured", False):
+            # A budget that was set (or fetched) and is now cleared must still be
+            # sent, as an explicit empty budget, or a merging backend keeps the
+            # old cap. Mirrors ``_files_ever_configured`` below.
+            payload["budget"] = {}
 
         # Convert {{var}} to {var} in instructions and description for backend compatibility (v1 format)
         # User writes: {{language}} → Backend receives: {language}
@@ -2854,7 +2910,9 @@ class Agent(
             agent_id = self._agent_reference_id(agent)
             if not agent_id:
                 raise ValueError("All agents must be saved before saving the team agent.")
-            converted_agents.append({"id": agent_id, "inspectors": []})
+            # A fetched member keeps the inspectors the backend stored for it.
+            member_inspectors = list(agent.get("inspectors") or []) if isinstance(agent, dict) else []
+            converted_agents.append({"id": agent_id, "inspectors": member_inspectors})
         payload["agents"] = converted_agents
 
         # Convert skills to API format. Skills follow the same wire design as
@@ -2932,7 +2990,8 @@ class Agent(
         kwargs = {k: v for k, v in kwargs.items() if k not in self._RUN_CONTROL_KEYS}
 
         # Extract execution_params if provided, otherwise use defaults
-        execution_params = kwargs.pop("execution_params", {})
+        # ``or {}``: the parameter is typed Optional, so an explicit None means "none".
+        execution_params = kwargs.pop("execution_params", None) or {}
 
         # Normalize snake_case keys to camelCase for the API
         execution_params = {self._EXEC_PARAMS_MAP.get(k, k): v for k, v in execution_params.items()}
@@ -3414,6 +3473,10 @@ Agent.from_dict = classmethod(_agent_from_dict)
 # pops it (unset roles, and the BUG-1093 default-suppression case).
 _dataclass_json_agent_to_dict = Agent.to_dict
 
+#: Model-tool keys the backend stores on an agent's tool entry that a rebuilt
+#: ``Model`` cannot carry; kept so get-then-save does not reset them (BUG-1461).
+_MODEL_TOOL_STORED_FIELDS = ("supplier", "function", "version")
+
 
 def _role_ref_to_public_dict(ref: RoleModelRef) -> Union[str, Dict[str, Any]]:
     """Return a JSON-safe dump of *ref* that preserves the caller's shape.
@@ -3435,6 +3498,22 @@ def _agent_to_dict(self: Agent, encode_json: bool = False) -> Dict[str, Any]:
         ref = getattr(self, spec.attr, None)
         if ref is not None:
             result[spec.save_key] = _role_ref_to_public_dict(ref)
+    # ``budget``, ``graph``, ``graphVersion`` and ``strategy`` are excluded from
+    # the dataclass dump (they are serialized by hand on save), so the same
+    # round-trip trap applies: re-attach them under the keys ``from_dict`` reads.
+    # ``build_save_payload`` rebuilds or pops all four, and
+    # ``_get_serializable_state`` drops the budget, so neither changes.
+    budget = getattr(self, "budget", None)
+    normalized_budget = Agent._normalize_budget(budget) if budget is not None else {}
+    if normalized_budget:
+        result["budget"] = normalized_budget
+    graph = getattr(self, "graph", None)
+    if graph is not None:
+        result["graph"] = deepcopy(graph.to_dict(validate=False))
+        if self.graph_version is not None:
+            result["graphVersion"] = self.graph_version
+        if self.strategy is not None:
+            result["strategy"] = self.strategy.to_dict(validate=False)
     return result
 
 

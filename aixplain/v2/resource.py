@@ -1089,10 +1089,12 @@ class Page(Generic[ResourceT]):
         results: The list of resources in this page.
         page_number: Current page number (0-indexed).
         page_total: Total number of pages (backend ``pagesCount``, or
-            ``ceil(total / page_size)`` when absent).
+            ``ceil(total / page_size)`` when absent), or ``None`` when the
+            backend does not report it and it cannot be inferred.
             Use ``len(results)`` for the number of items on this page.
-        total: Total number of resources across all pages. Never counts a
-            record that was returned by the API but skipped by this page.
+        total: Total number of resources across all pages, or ``None`` when
+            unknown. Never counts a record that was returned by the API but
+            skipped by this page.
         skipped: Number of records the API returned for this page that could
             not be deserialized and were skipped. Always ``0`` under
             ``strict=True``, where such records raise instead.
@@ -1100,16 +1102,16 @@ class Page(Generic[ResourceT]):
 
     results: List[ResourceT]
     page_number: int
-    page_total: int
-    total: int
+    page_total: Optional[int]
+    total: Optional[int]
     skipped: int
 
     def __init__(
         self,
         results: List[ResourceT],
         page_number: int,
-        page_total: int,
-        total: int,
+        page_total: Optional[int],
+        total: Optional[int],
         skipped: int = 0,
     ):
         """Initialize a Page instance.

@@ -299,6 +299,11 @@ class Tool(Model, DeleteResourceMixin[BaseDeleteParams, DeleteResult], ActionMix
             warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
         except Exception as e:
             warnings.warn(f"Error listing actions: {e}. Using integration.list_actions() instead.")
+            # With no integration to fall back to, a failed discovery is an
+            # error, not "no actions" -- an empty list would disable
+            # validate_allowed_actions and the single-action default (BUG-1461).
+            if not self._ensure_integration():
+                raise
 
         if self._ensure_integration():
             # The fallback's own TimeoutError propagates.

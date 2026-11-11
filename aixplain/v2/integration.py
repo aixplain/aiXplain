@@ -10,11 +10,11 @@ from functools import cached_property
 import requests
 
 from ._backoff import next_wait, sleep_with_jitter
-from .exceptions import TimeoutError
 from .resource import BaseSearchParams, Result, _client_retry_attempts, _client_timeout_bounds
 from .model import Model
 from .enums import AuthenticationScheme
 from .actions import Actions, Action as ActionView, Inputs
+from .exceptions import ResourceError, TimeoutError, _extract_error_from_dict
 
 if TYPE_CHECKING:
     from .tool import Tool
@@ -203,6 +203,23 @@ class ActionMixin:
 
     actions_available: Optional[bool] = field(default=None, metadata=config(field_name="actionsAvailable"))
 
+    @staticmethod
+    def _raise_if_failed(response: Any) -> None:
+        """Raise ``ResourceError`` for a ``status: FAILED`` reply (completed or not).
+
+        Without this a FAILED reply was either polled until the timeout or had
+        its error string returned as data, which the listers turn into ``[]``.
+        """
+        if isinstance(response, dict) and str(response.get("status") or "").upper() == "FAILED":
+            data = response.get("data")
+            reason = (
+                _extract_error_from_dict(response)
+                or (_extract_error_from_dict(data) if isinstance(data, dict) else None)
+                or (data if isinstance(data, str) and data else None)
+                or "unknown error"
+            )
+            raise ResourceError(f"Integration request failed: {reason}")
+
     def _poll_for_data(self, response: dict, timeout: float = 30, wait_time: float = 1) -> Any:
         """Poll an async response until completion and return the ``data`` field.
 
@@ -217,10 +234,12 @@ class ActionMixin:
             The ``data`` field of the completed response.
 
         Raises:
+            ResourceError: If the backend reports ``status: FAILED``.
             TimeoutError: If the operation is still pending when *timeout*
                 expires. This used to return ``None``, which callers turned into
                 ``[]`` -- indistinguishable from "no actions" (BUG-1453).
         """
+        self._raise_if_failed(response)
         data = response.get("data")
         if response.get("completed", True) or not isinstance(data, str) or not data.startswith("http"):
             return data
@@ -254,6 +273,7 @@ class ActionMixin:
                     raise TimeoutError(f"Action polling timed out after {timeout} seconds") from exc
                 # Budget left: a real transport failure, propagated as before.
                 raise
+            self._raise_if_failed(poll_resp)
             if poll_resp.get("completed", False) or poll_resp.get("status") == "SUCCESS":
                 return poll_resp.get("data")
         raise TimeoutError(f"Action polling timed out after {timeout} seconds")

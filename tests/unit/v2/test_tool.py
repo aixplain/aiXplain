@@ -943,6 +943,68 @@ class TestValidateParamsToleratesTransportFailures:
         assert "Could not validate inputs for 'GHOST'" in errors[0]
 
 
+# =============================================================================
+# BUG-1461 item 10 — failed discovery is an error, never a cached []
+# =============================================================================
+
+
+FAILED_DISCOVERY = {"completed": True, "status": "FAILED", "data": "connection expired"}
+ONE_ACTION = {"completed": True, "status": "SUCCESS", "data": [{"name": "SEND_MESSAGE", "description": "Send"}]}
+
+
+class TestFailedDiscovery:
+    """Discovery failures surface instead of reading as "no actions"."""
+
+    @staticmethod
+    def _tool(responses, allowed_actions=None):
+        context = Mock()
+        context.client.request = Mock(side_effect=list(responses))
+        tool = _make_fetched_tool(context=context)
+        tool.build_run_url = Mock(return_value="https://example.test/run")
+        if allowed_actions is not None:
+            tool.allowed_actions = list(allowed_actions)
+        return tool
+
+    def test_failed_listing_without_integration_fallback_raises(self):
+        tool = self._tool([FAILED_DISCOVERY])
+
+        with patch.object(Tool, "_ensure_integration", return_value=False):
+            with pytest.raises(ResourceError, match="connection expired"):
+                tool.list_actions()
+
+    def test_failed_discovery_is_not_cached(self):
+        tool = self._tool([FAILED_DISCOVERY, ONE_ACTION])
+
+        with patch.object(Tool, "_ensure_integration", return_value=False):
+            with pytest.raises(ResourceError):
+                list(tool.actions)
+            assert list(tool.actions) == ["SEND_MESSAGE"]
+
+    def test_run_without_action_reports_the_discovery_error(self):
+        tool = self._tool([FAILED_DISCOVERY])
+        tool._ensure_valid_state = Mock()
+
+        with patch.object(Tool, "_ensure_integration", return_value=False):
+            with pytest.raises(ResourceError, match="connection expired"):
+                tool.run(data={"text": "hi"})
+
+    def test_validate_allowed_actions_does_not_skip_on_a_failed_discovery(self):
+        tool = self._tool([FAILED_DISCOVERY], allowed_actions=["SEND_MESAGE"])
+        tool.integration = Mock(list_actions=Mock(side_effect=ResourceError("Integration request failed: down")))
+
+        with patch.object(Tool, "_ensure_integration", return_value=True):
+            with pytest.warns(UserWarning, match="Error listing actions"):
+                with pytest.raises(ResourceError, match="down"):
+                    tool.validate_allowed_actions()
+
+    def test_misspelled_allowed_action_is_still_rejected(self):
+        tool = self._tool([ONE_ACTION], allowed_actions=["SEND_MESAGE"])
+
+        with patch.object(Tool, "_ensure_integration", return_value=True):
+            with pytest.raises(AssertionError, match="All allowed actions must be available"):
+                tool.validate_allowed_actions()
+
+
 class TestActionNameResolutionToleratesDiscoveryTimeout:
     """BUG-1453: ``list_actions()`` raises on a discovery timeout instead of
     returning ``[]``; name resolution in ``Model.run`` / ``get_parameters`` must

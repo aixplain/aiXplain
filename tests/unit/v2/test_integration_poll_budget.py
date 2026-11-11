@@ -153,12 +153,13 @@ class TestToolFallback:
                 with pytest.warns(UserWarning), pytest.raises(AixTimeoutError, match="fallback"):
                     tool.list_actions()
 
-    def test_list_actions_non_timeout_error_still_returns_empty(self):
+    def test_list_actions_non_timeout_error_without_fallback_raises(self):
+        """A failed discovery is an error, not "no actions" (BUG-1461 item 10)."""
         tool = _bare_tool()
         with patch.object(ActionMixin, "list_actions", side_effect=RuntimeError("boom")):
             with patch.object(Tool, "_ensure_integration", return_value=False):
-                with pytest.warns(UserWarning):
-                    assert tool.list_actions() == []
+                with pytest.warns(UserWarning), pytest.raises(RuntimeError, match="boom"):
+                    tool.list_actions()
 
     def test_list_inputs_reraises_timeout_without_fallback(self):
         tool = _bare_tool()
