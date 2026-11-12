@@ -318,10 +318,6 @@ def test_agent_field_mappings(client, test_agent):
 
 # Platform tool helpers
 
-#: A marketplace path rather than an id, so it is not in
-#: `tests/functional/_assets.py`: the same path resolves on every backend.
-WEB_SEARCH_TOOL_PATH = "scale-serp/google-search/Google"
-
 
 def _get_output_text(response) -> str:
     """Extract final text output from an agent response."""
@@ -426,14 +422,14 @@ def test_agent_tavily_web_search_tool(client, assets, resource_tracker):
 
 # flaky: the LLM may not always invoke the Web Search tool.
 @pytest.mark.flaky(reruns=2)
-def test_agent_web_search_tool(client, resource_tracker):
+def test_agent_web_search_tool(client, assets, resource_tracker):
     """
     Verifies:
     1. The agent can be created with the Web Search tool via the v2 SDK.
     2. Agent execution succeeds.
     3. The response contains information retrieved from the search.
     """
-    tool = client.Tool.get(WEB_SEARCH_TOOL_PATH)
+    tool = client.Tool.get(assets.WEB_SEARCH_TOOL)
 
     response = _run_platform_tool_agent(
         client=client,

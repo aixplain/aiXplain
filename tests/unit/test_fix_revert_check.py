@@ -174,8 +174,22 @@ _GIT_ENV = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _no_inherited_git_location(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep every git call in this module (and in the script) off the outer repo.
+
+    The pytest-check pre-commit hook runs these tests inside ``git commit``,
+    which exports GIT_DIR, GIT_INDEX_FILE and friends. Inherited, they beat
+    ``git -C <toy>``: the toy repo's init/add/commit then land in the real
+    repository (flipping ``core.bare``, overwriting a worktree's index).
+    """
+    for name in frc.git_local_env_vars():
+        monkeypatch.delenv(name, raising=False)
+
+
 def _git(repo: Path, *args: str) -> str:
-    env = {**os.environ, **_GIT_ENV}
+    env = {k: v for k, v in os.environ.items() if k not in frc.git_local_env_vars()}
+    env.update(_GIT_ENV)
     return subprocess.run(
         ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True, env=env
     ).stdout.strip()
@@ -337,6 +351,54 @@ def test_the_worktree_is_removed_and_the_checkout_untouched(toy_repo: Path) -> N
     assert _git(toy_repo, "worktree", "list").count("\n") == 0
     assert _git(toy_repo, "status", "--porcelain") == ""
     assert "a + b" in (toy_repo / "toy" / "calc.py").read_text()
+
+
+def _decoy_state(decoy: Path) -> tuple[str, str, bytes, str]:
+    git_dir = decoy / ".git"
+    return (
+        (git_dir / "config").read_text(),
+        (git_dir / "HEAD").read_text(),
+        (git_dir / "index").read_bytes(),
+        subprocess.run(
+            ["git", "-C", str(decoy), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env={k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
+        ).stdout.strip(),
+    )
+
+
+def test_a_hook_environment_does_not_leak_into_the_toy_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # BUG-1095: under the pytest-check pre-commit hook, git exports GIT_DIR and
+    # GIT_INDEX_FILE; the toy repo's git calls then rewrote the real repository.
+    # Point both at a separate throwaway repo, never the real one.
+    decoy = tmp_path / "decoy"
+    decoy.mkdir()
+    _git(decoy, "init", "-q")
+    _commit(decoy, {"keep.txt": "decoy\n"}, "decoy")
+    before = _decoy_state(decoy)
+
+    monkeypatch.setenv("GIT_DIR", str(decoy / ".git"))
+    monkeypatch.setenv("GIT_INDEX_FILE", str(decoy / ".git" / "index"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(decoy))
+
+    toy = tmp_path / "toy"
+    toy.mkdir()
+    _git(toy, "init", "-q")
+    base = _commit(toy, {"pytest.ini": "[pytest]\n", "toy/__init__.py": "", "toy/calc.py": "X = 1\n"}, "base")
+    head = _commit(toy, {"toy/calc.py": "X = 2\n"}, "change")
+    # The script's own git calls, run with the hook variables set.
+    assert frc._git(toy, "rev-parse", "HEAD^1").strip() == base
+    assert frc._show(toy, head, "toy/calc.py") == "X = 2\n"
+    assert _run(toy, head).verdict == frc.VERDICT_NO_TESTS
+
+    monkeypatch.delenv("GIT_DIR")
+    monkeypatch.delenv("GIT_INDEX_FILE")
+    monkeypatch.delenv("GIT_WORK_TREE")
+    assert _decoy_state(decoy) == before
+    assert (toy / ".git").is_dir()
+    assert _git(toy, "rev-parse", "HEAD") == head
 
 
 def test_markdown_names_the_verdict_and_lists_still_green_tests() -> None:

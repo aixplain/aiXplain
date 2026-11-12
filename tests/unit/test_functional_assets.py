@@ -190,9 +190,28 @@ def test_the_default_llm_matches_the_sdk_default():
     assert DEV.DEFAULT_LLM == Agent.DEFAULT_LLM
 
 
+def test_every_asset_has_a_spec_and_every_spec_an_asset():
+    """`LazyAssets` only serves names in SPECS, so a field without a spec raises AttributeError in every test that reads it."""
+    assert sorted(SPECS) == sorted(ASSET_NAMES)
+
+
+def test_the_dev_debugger_agent_matches_the_sdk_constant():
+    """`test_debugger.py` patches `meta_agents.DEBUGGER_AGENT_ID` with DEBUGGER_AGENT; on dev it must be the SDK's own id."""
+    from aixplain.v2 import meta_agents
+
+    assert DEV.DEBUGGER_AGENT == meta_agents.DEBUGGER_AGENT_ID
+
+
 def test_the_non_default_llm_is_not_the_default():
     """`test_agent_llm_persistence.py` proves nothing if these two are the same id."""
     assert DEV.NON_DEFAULT_LLM != DEV.DEFAULT_LLM
+
+
+@pytest.mark.parametrize("environment", sorted(ASSETS_BY_ENVIRONMENT))
+def test_the_non_default_llm_is_not_the_default_in_any_id_space(environment):
+    """Each backend picks its own NON_DEFAULT_LLM, so the guard above must hold for every id space."""
+    ids = ASSETS_BY_ENVIRONMENT[environment]
+    assert ids.NON_DEFAULT_LLM != ids.DEFAULT_LLM
 
 
 # ---------------------------------------------------------------------------
