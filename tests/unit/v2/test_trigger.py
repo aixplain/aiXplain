@@ -583,3 +583,100 @@ class TestSaveScheduleEdits:
         # The next edit is measured against what was saved: no false conflict.
         t.at = "20:00"
         assert t.build_save_payload()["configuration"] == {"type": "daily", "time": "20:00", "timezone": "Asia/Dubai"}
+
+
+class TestSaveScheduleEditsReview:
+    """Failure paths and edge cases found in review."""
+
+    def _bound(self, client, configuration):
+        cls = bound_trigger_class(make_context(client))
+        t = cls.from_dict(
+            {"id": "trig1", "name": "Digest", "triggerType": "time", "input": "Sum", "configuration": configuration}
+        )
+        t.context = make_context(client)
+        return t
+
+    def test_failed_save_can_be_retried(self):
+        client = Mock()
+        client.request.side_effect = [ConnectionError("dropped"), {}]
+        t = self._bound(client, dict(DAILY_0900_UTC))
+        t.at = "17:30"
+        with pytest.raises(ResourceError):
+            t.save()
+        t.save()
+        sent = client.request.call_args.kwargs["json"]["configuration"]
+        assert sent == {"type": "daily", "time": "17:30", "timezone": "UTC"}
+        assert t.configuration.time == "17:30" and t.at == "17:30"
+
+    def test_reverting_after_a_failed_save_sends_the_original(self):
+        client = Mock()
+        client.request.side_effect = [ConnectionError("dropped"), {}]
+        t = self._bound(client, dict(DAILY_0900_UTC))
+        t.at = "17:30"
+        with pytest.raises(ResourceError):
+            t.save()
+        t.at = "09:00"
+        t.save()
+        assert client.request.call_args.kwargs["json"]["configuration"]["time"] == "09:00"
+
+    def test_payload_can_be_previewed_before_saving(self):
+        t = _fetched(dict(DAILY_0900_UTC))
+        t.at = "17:30"
+        first = t.build_save_payload()
+        assert t.build_save_payload() == first
+        assert t.configuration.time == "09:00"  # unchanged until a save succeeds
+
+    def test_conflict_through_save_is_a_resource_error_naming_it(self):
+        client = Mock()
+        t = self._bound(client, dict(DAILY_0900_UTC))
+        t.at = "10:00"
+        t.configuration = {"type": "daily", "time": "17:30"}
+        with pytest.raises(ResourceError, match="change one of them"):
+            t.save()
+        client.request.assert_not_called()
+
+    def test_on_accepts_a_generator_or_dict_view(self):
+        p = Trigger(
+            name="t", agent=FakeAgent(), input="q", every="week", on=(d for d in ["mon", "thu"]), at="09:00"
+        ).build_save_payload()
+        assert p["configuration"]["daysOfWeek"] == ["mon", "thu"]
+        days = {"mon": 1, "fri": 2}
+        p = Trigger(
+            name="t", agent=FakeAgent(), input="q", every="week", on=days.keys(), at="09:00"
+        ).build_save_payload()
+        assert p["configuration"]["daysOfWeek"] == ["mon", "fri"]
+
+    def test_at_on_a_recurring_week_warns_instead_of_vanishing(self):
+        t = _fetched({"type": "recurring", "repeat": {"every": 1, "unit": "week"}})
+        t.at = "09:00"
+        with pytest.warns(UserWarning, match="`at` is ignored"):
+            p = t.build_save_payload()
+        assert p["configuration"] == {"type": "recurring", "repeat": {"every": 1, "unit": "week"}}
+
+    def test_instance_without_a_baseline_sends_its_configuration(self):
+        t = _fetched(dict(DAILY_0900_UTC))
+        del t._schedule_seen
+        del t._configuration_seen
+        t.enabled = False
+        assert t.build_save_payload()["configuration"] == DAILY_0900_UTC
+
+    def test_flat_fields_are_reset_from_a_saved_configuration(self):
+        client = Mock()
+        client.request.return_value = {}
+        t = self._bound(client, {"type": "recurring", "repeat": {"every": 2, "unit": "hour"}})
+        t.configuration = {"type": "daily", "time": "09:00"}
+        t.save()
+        assert (t.every, t.interval) == ("day", 1)
+        t.at = "10:00"
+        assert t.build_save_payload()["configuration"] == {"type": "daily", "time": "10:00"}
+
+    @pytest.mark.parametrize(
+        "kwargs,expected_type",
+        [(dict(every="week", on=["mon"], at="09:00"), "weekly"), (dict(every="month", on=[1], at="09:00"), "monthly")],
+    )
+    def test_start_at_is_sent_at_creation_for_weekly_and_monthly(self, kwargs, expected_type):
+        p = Trigger(
+            name="t", agent=FakeAgent(), input="q", start_at="2026-12-01T00:00:00Z", **kwargs
+        ).build_save_payload()
+        assert p["configuration"]["type"] == expected_type
+        assert p["configuration"]["startAt"] == "2026-12-01T00:00:00Z"

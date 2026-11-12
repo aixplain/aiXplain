@@ -224,6 +224,8 @@ class Trigger(
         t = aix.Trigger.get("<id>")
         aix.Trigger.search(agent=agent)     # -> Page
         t.enabled = False; t.save()         # disable (re-enable with True)
+        t.at = "17:30"; t.save()            # edit the schedule through the flat fields,
+        t.configuration = {...}; t.save()   # or through configuration -- not both in one save
         t.delete()
     """
 
@@ -282,6 +284,10 @@ class Trigger(
             value = coerce_struct(
                 value, TriggerConfiguration, label="configuration", aliases=_CONFIGURATION_WIRE_ALIASES
             )
+        elif name == "on" and value is not None and not isinstance(value, (str, int, list)):
+            # A generator or dict view is consumed by the first read; keep a list
+            # so building the schedule and tracking edits both see the values.
+            value = list(value)
         super().__setattr__(name, value)
 
     def __post_init__(self) -> None:
@@ -455,6 +461,12 @@ class Trigger(
                 # Loaded as ``recurring`` every 1 week (created in Studio or via
                 # the API): keep that shape rather than demanding weekdays it
                 # never had.
+                if self.at is not None:
+                    warnings.warn(
+                        "`at` is ignored for a recurring every-1-week schedule; pass on=[...] weekdays "
+                        "to make it a weekly schedule at that time.",
+                        stacklevel=2,
+                    )
                 return TriggerConfiguration(
                     type="recurring",
                     timezone=tz,
@@ -490,9 +502,15 @@ class Trigger(
         return None
 
     def after_save(self, result: Any, *args: Any, **kwargs: Any) -> None:
-        """After a successful save, make the flat fields mirror what was sent and re-baseline edits."""
+        """After a successful save, adopt the schedule that was sent and re-baseline edits."""
+        pending = getattr(self, "_pending_configuration", None)
+        self._pending_configuration = None
         if isinstance(result, Exception):
             return None
+        if pending is not None and self._configuration_snapshot() == getattr(self, "_configuration_at_send", None):
+            # A PUT (its response is not read) or a create response without a
+            # configuration: what was sent is now what is stored.
+            self.configuration = pending
         if self.trigger_type != "external" and self.configuration is not None:
             self._hydrate_schedule_fields()
         self._remember_schedule()
@@ -530,18 +548,25 @@ class Trigger(
             # fields changed since the trigger was loaded, built or last saved;
             # a ``configuration`` assignment is sent as is, and a save that
             # touched neither (enabled/name/input only) leaves it untouched.
-            schedule_edited = self._schedule_snapshot() != getattr(self, "_schedule_seen", None)
-            configuration_edited = self._configuration_snapshot() != getattr(self, "_configuration_seen", None)
+            if not hasattr(self, "_schedule_seen"):
+                # No baseline (an instance that skipped __post_init__): nothing
+                # can be told apart as edited, so send the configuration as is.
+                self._remember_schedule()
+            schedule_edited = self._schedule_snapshot() != self._schedule_seen
+            configuration_edited = self._configuration_snapshot() != self._configuration_seen
             if schedule_edited and configuration_edited:
                 raise ValueError(
                     "Both the schedule fields (run_at/every/interval/at/on/timezone/start_at) and "
                     "`configuration` were changed since this trigger was loaded or saved; "
                     "change one of them, not both."
                 )
-            if schedule_edited:
-                self.configuration = self._build_configuration()
-            configuration = self.configuration.to_dict()
-            payload["configuration"] = _strip_none(configuration)
+            configuration = self._build_configuration() if schedule_edited else self.configuration
+            # Not assigned to self here: the save may still fail (or this may be
+            # a preview), and a rebuilt configuration on the object would then
+            # read as a second, conflicting edit. after_save adopts it.
+            self._pending_configuration = configuration
+            self._configuration_at_send = self._configuration_snapshot()
+            payload["configuration"] = _strip_none(configuration.to_dict())
         else:
             raise ValueError(
                 "A time trigger needs a schedule. Pass run_at=... (one-off) or "

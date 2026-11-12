@@ -36,8 +36,10 @@ The SDK now records both representations when a trigger is loaded, built or
 saved, and on save rebuilds only if the flat fields changed. A
 `configuration` assignment is sent as is. A save that changes only
 `enabled`, `name` or `input` leaves the schedule untouched. Changing both
-sides raises a `ValueError` that names the conflict. Daily, weekly and
-monthly schedules keep `start_at`, both on update and at creation.
+sides in one save is refused with a message that names the conflict
+(`save()` raises `ResourceError`; `build_save_payload()` raises `ValueError`).
+A failed save can be retried as is. Daily, weekly and monthly schedules keep
+`start_at`, both on update and at creation.
 
 ### Fixed: `agent.budget.max_duration_seconds` was ignored on every run
 
