@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 from ._expected_output import expected_output_to_wire
 from .enums import AssetStatus, AssetStatusValue, ResponseStatus
-from .model import Model, _model_sort_field
+from .model import Model, _model_sort_field, _validate_tool_timeout
 from .file import File
 from .skill import Skill
 from .graph import Graph, GraphDict, InspectorNode, StaticGraphStrategy, StaticGraphStrategyDict
@@ -1344,12 +1344,20 @@ class Agent(
 
     @staticmethod
     def _tool_identity(tool: Any) -> dict:
-        """Return a stable id/type signature for a tool entry (no param values)."""
+        """Return a stable id/type/timeout signature for a tool entry (no param values).
+
+        ``timeout`` is included because, unlike input values, it has no run-time
+        override: a change only takes effect once saved, so it must count as one.
+        """
         if isinstance(tool, str):
             return {"id": tool}
         if isinstance(tool, dict):
-            return {"id": tool.get("id"), "type": tool.get("type")}
-        return {"id": getattr(tool, "id", None), "type": getattr(tool, "type", None)}
+            return {"id": tool.get("id"), "type": tool.get("type"), "timeout": tool.get("timeout")}
+        return {
+            "id": getattr(tool, "id", None),
+            "type": getattr(tool, "type", None),
+            "timeout": getattr(tool, "timeout", None),
+        }
 
     @staticmethod
     def _file_identity(file: Any) -> dict:
@@ -1876,7 +1884,8 @@ class Agent(
 
         Raises:
             ResourceError: If the agent has been deleted.
-            ValidationError: If an enum attribute shortcut has an unknown value.
+            ValidationError: If an enum attribute shortcut has an unknown value, or a
+                tool's ``timeout`` is not a positive number of seconds.
             ValueError: If child components are not saved and save_subcomponents is False
         """
         # Guard before any child component is saved and before before_save()
@@ -1889,6 +1898,11 @@ class Agent(
             if kwargs.get(attr) is not None and not isinstance(kwargs[attr], WireValue):
                 coerce_enum(kwargs[attr], enum_cls, label=attr)
 
+        # Here rather than in build_save_payload(): super().save() runs inside
+        # with_hooks, which turns any other exception into a ResourceError.
+        # Before _save_subcomponents(), so an invalid timeout saves nothing.
+        self._validate_tool_timeouts()
+
         save_subcomponents = kwargs.pop("save_subcomponents", False)
 
         # Save all child components recursively if requested
@@ -1898,6 +1912,8 @@ class Agent(
         # Validate that all dependencies are saved before proceeding
         self._validate_dependencies()
 
+        self._update_response_tools: Optional[List[Any]] = None
+
         # Capture names before save because the backend response can rebuild self.tools without Integration objects.
         unconnected_integration_names = self._get_unconnected_integration_names()
 
@@ -1905,6 +1921,7 @@ class Agent(
         # overrides the caller set): a create response would otherwise replace
         # ``self.tools`` with backend dicts and drop those mutations.
         pre_save_tools = list(self.tools) if self.tools else []
+        pre_save_tools_ref = self.tools
         pre_save_graph = (self.graph, self.strategy, self.graph_version)
         # The roster was synced from the public list by _validate_dependencies().
         pre_save_agents = list(getattr(self, "_original_agents", None) or [])
@@ -1919,6 +1936,13 @@ class Agent(
         except BaseException:
             self.status = previous_status
             raise
+
+        # The platform's copy of the tools: a create parses the response into
+        # ``self.tools``; an update keeps the response's tools aside (_update).
+        if self.tools is not pre_save_tools_ref:
+            stored_tools: Optional[List[Any]] = list(self.tools or [])
+        else:
+            stored_tools = self._update_response_tools
 
         # A create response that does not echo the graph would otherwise leave it None,
         # and the next save() would send no graph.
@@ -1942,6 +1966,7 @@ class Agent(
         self.tools = pre_save_tools
         self._hydrate_tools()
         self._original_tools = list(self.tools) if self.tools else []
+        self._reconcile_tool_timeouts(pre_save_tools, stored_tools)
 
         # Re-baseline the saved state against the restored tool objects. The
         # parent save() captured it mid-flow from the response dicts; without
@@ -1951,6 +1976,69 @@ class Agent(
 
         self._warn_for_unconnected_integrations(unconnected_integration_names)
         return saved_agent
+
+    def _update(self, resource_path: str, payload: dict) -> None:
+        """Update the agent, keeping the response's tools for ``_reconcile_tool_timeouts``."""
+        response = self.context.client.request("put", f"{resource_path}/{self.encoded_id}", json=payload)
+        tools = response.get("tools") if isinstance(response, dict) else None
+        self._update_response_tools = tools if isinstance(tools, list) else None
+
+    def _validate_tool_timeouts(self) -> None:
+        """Raise ``ValidationError`` for any tool whose ``timeout`` is not a positive number of seconds."""
+        for tool in self.tools or []:
+            timeout = tool.get("timeout") if isinstance(tool, dict) else getattr(tool, "timeout", None)
+            if timeout is not None:
+                _validate_tool_timeout(timeout, warn=False)
+
+    @staticmethod
+    def _reconcile_tool_timeouts(sent_tools: List[Any], stored_tools: Optional[List[Any]]) -> None:
+        """Check each tool's ``timeout`` against the platform's copy of the agent's tools.
+
+        Warns when a timeout the caller set was not stored: the local tool
+        keeps its value, so without this the agent would look saved with a
+        timeout the platform will not apply. Then records the stored value on
+        each tool object, so that unsetting it later sends the explicit
+        ``None`` that clears it (see ``Model.as_tool``) rather than an omitted
+        key the platform keeps the old value for.
+
+        ``stored_tools`` is ``None`` when the response carried no tools. The
+        sent value is then recorded as stored: the worst case is a later
+        ``None`` sent for a value that was never stored, which changes nothing.
+        """
+
+        def id_and_timeout(tool: Any) -> tuple:
+            # The response may still be dicts or already hydrated into Tool/Model objects.
+            if isinstance(tool, dict):
+                return tool.get("id") or tool.get("assetId"), tool.get("timeout")
+            return getattr(tool, "id", None), getattr(tool, "timeout", None)
+
+        if stored_tools is None:
+            for tool in sent_tools:
+                if hasattr(tool, "_platform_timeout"):
+                    tool._platform_timeout = tool.timeout
+            return
+
+        stored = dict(
+            id_and_timeout(Agent._tool_entry_from_backend(entry))
+            for entry in stored_tools
+            if not isinstance(entry, str)
+        )
+        for tool in sent_tools:
+            if isinstance(tool, str):
+                continue
+            tool_id, timeout = id_and_timeout(tool)
+            if tool_id not in stored:
+                continue
+            if timeout is not None and stored[tool_id] is None:
+                warnings.warn(
+                    f"Warning: the platform did not store the timeout set on tool '{tool_id}', so agent "
+                    "runs will use the platform default for it.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+            if hasattr(tool, "_platform_timeout"):
+                tool._platform_timeout = stored[tool_id]
+                tool._clear_timeout = False
 
     def _warn_for_unconnected_integrations(self, integration_names: Optional[List[str]] = None) -> None:
         """Warn when an agent is saved with integration definitions that need connection."""
@@ -2507,6 +2595,32 @@ class Agent(
             return entry
 
     @staticmethod
+    def _tool_entry_from_backend(entry: Any) -> Any:
+        """Clean the ``timeout`` of a tool entry in an agent record from the backend.
+
+        A stored value is not the caller's input, so one ``as_tool()`` would
+        reject is logged and dropped instead of failing the agent's next save,
+        and a numeric string is coerced, as the agent runtime accepts it.
+        Caller-supplied tool dicts never pass through here; they are validated
+        strictly when the agent is saved. A stored ``null`` means "unset" and
+        is dropped, so it is not taken for a caller's ``"timeout": None``,
+        which asks for the stored value to be cleared.
+        """
+        if not isinstance(entry, dict) or "timeout" not in entry:
+            return entry
+        raw = entry["timeout"]
+        cleaned = dict(entry)
+        if raw is None:
+            del cleaned["timeout"]
+            return cleaned
+        try:
+            cleaned["timeout"] = _validate_tool_timeout(float(raw) if isinstance(raw, str) else raw, warn=False)
+        except (ValidationError, ValueError):
+            logger.warning("Ignoring invalid stored timeout %r on tool %r.", raw, entry.get("id"))
+            del cleaned["timeout"]
+        return cleaned
+
+    @staticmethod
     def _build_model_tool(entry: dict, context: Any, parameters: Any) -> Any:
         """Build a bound ``Model`` from a tool dict, seeding inputs from ``parameters``.
 
@@ -2536,6 +2650,8 @@ class Agent(
             description=entry.get("description"),
             params=params or None,
         )
+        model.timeout = model._platform_timeout = entry.get("timeout")
+        model._clear_timeout = "timeout" in entry and entry["timeout"] is None
         model.context = context
         # The rebuilt Model has no vendor/function/version, so as_tool() would
         # re-save it with defaults. Remember what the backend stored (a plain
@@ -2561,6 +2677,8 @@ class Agent(
             name=entry.get("name"),
             description=entry.get("description"),
         )
+        tool.timeout = tool._platform_timeout = entry.get("timeout")
+        tool._clear_timeout = "timeout" in entry and entry["timeout"] is None
         tool.context = context
 
         actions_map: Dict[str, Action] = {}
@@ -2608,6 +2726,9 @@ class Agent(
                 # definitions (current input values included); normalize each
                 # definition's keys to camelCase.
                 result[api_key] = [Agent._normalize_parameter_for_api(p) for p in v]
+            elif api_key == "timeout" and v is not None:
+                # A plain dict entry skips ``as_tool()``, so validate it here too.
+                result[api_key] = _validate_tool_timeout(v)
             else:
                 result[api_key] = v
         return result
@@ -3471,6 +3592,8 @@ def _agent_from_dict(cls, kvs: Any, *, infer_missing: bool = False) -> "Agent":
             if kvs.get(attr) is not None and not isinstance(kvs[attr], WireValue):
                 kvs[attr] = coerce_enum(kvs[attr], enum_cls, label=attr).value
     kvs = cls._fold_legacy_max_iterations(kvs)
+    if isinstance(kvs, dict) and isinstance(kvs.get("tools"), list):
+        kvs["tools"] = [Agent._tool_entry_from_backend(tool) for tool in kvs["tools"]]
     if isinstance(kvs, dict) and not kvs.get("graph") and ("strategy" in kvs or "graphVersion" in kvs):
         # A non-graph agent may still report a strategy or graphVersion; neither applies without a graph.
         kvs = {key: value for key, value in kvs.items() if key not in ("strategy", "graphVersion")}
