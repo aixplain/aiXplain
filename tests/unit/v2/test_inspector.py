@@ -74,6 +74,32 @@ class _Holder:
         return True
 
 
+_THRESHOLD = 3
+
+
+def uses_module_import(text):
+    return bool(ast.parse(text))
+
+
+def uses_module_constant(text):
+    return len(text) > _THRESHOLD
+
+
+def uses_annotation_from_module(text: "str") -> ast.AST:
+    return text
+
+
+def attribute_named_like_a_global(text):
+    return text.edit_fn and str(text).upper()
+
+
+def recursive_check(text, depth=0):
+    return depth > 2 or recursive_check(text, depth + 1)
+
+
+lambda_with_global_default = lambda text, n=_THRESHOLD: len(text) > n  # noqa: E731
+
+
 class _CallableInstance:
     def __call__(self, text):
         return True
@@ -663,6 +689,28 @@ class TestFunctionJudgeSource:
 
         with pytest.raises(ValueError, match="closes over threshold"):
             Inspector(name="i", action="abort", metric=check)
+
+    @pytest.mark.parametrize(
+        "fn,missing",
+        [
+            (uses_module_import, "ast"),
+            (uses_module_constant, "_THRESHOLD"),
+            (uses_annotation_from_module, "ast"),
+            (lambda_with_global_default, "_THRESHOLD"),
+        ],
+        ids=["module-import", "module-constant", "annotation", "lambda-default"],
+    )
+    def test_module_globals_are_rejected(self, fn, missing):
+        with pytest.raises(ValueError, match=f"uses {missing} from its module"):
+            Inspector(name="i", action="abort", metric=fn)
+
+    @pytest.mark.parametrize(
+        "fn",
+        [attribute_named_like_a_global, recursive_check, module_check],
+        ids=["attribute", "recursion", "local-import"],
+    )
+    def test_builtins_attributes_own_name_and_local_imports_are_allowed(self, fn):
+        assert _binds(_Judge.coerce(fn).function, "evaluator_fn")
 
     def test_bound_method_is_rejected(self):
         with pytest.raises(ValueError, match="bound methods"):

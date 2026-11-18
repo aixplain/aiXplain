@@ -10,6 +10,7 @@ plain strings for ``action`` / ``targets`` / ``severity`` and an ``aix.Metric``
 """
 
 import ast
+import builtins
 import functools
 import inspect
 import logging
@@ -118,14 +119,46 @@ def _isolate_lambda(raw: str, fn: Any, name: str) -> str:
     return segment
 
 
+def _global_names(code: Any) -> set:
+    """Return the global names *code* and the code nested in it look up."""
+    names = set(code.co_names) - set(code.co_varnames) - set(code.co_cellvars)
+    for const in code.co_consts:
+        if inspect.iscode(const):
+            names |= _global_names(const)
+    return names
+
+
+def _outside_names(fn: Any, node: ast.AST, allowed: set) -> List[str]:
+    """Return names *fn*'s source reads from its module, which the sandbox does not have.
+
+    Body lookups are the code object's global names that the source actually
+    loads as plain names (not attributes). Defaults and annotations are
+    evaluated when the sent source is executed, so plain names there count too.
+    Builtins and the names the sent source binds itself (*allowed*) are fine.
+    """
+    loads = {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+    outside = _global_names(fn.__code__) & loads
+    args = node.args
+    header = [*args.defaults, *(d for d in args.kw_defaults if d is not None)]
+    for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs, args.vararg, args.kwarg]:
+        if arg is not None and arg.annotation is not None:
+            header.append(arg.annotation)
+    if getattr(node, "returns", None) is not None:
+        header.append(node.returns)
+    for expr in header:
+        outside |= {n.id for n in ast.walk(expr) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+    return sorted(n for n in outside if n not in allowed and not hasattr(builtins, n))
+
+
 def _function_source(fn: Any, name: str) -> str:
     """Serialise *fn* into source that binds *name* at top level, or raise ``ValueError``.
 
     A named function keeps its own source and name; a top-level ``name = fn``
     binding is appended unless it is already called *name*. A lambda becomes
     ``name = <lambda source>`` when it can be isolated exactly. Closures, bound
-    methods, decorated functions and callables without Python source are
-    rejected because the sandbox could never run them.
+    methods, decorated functions, functions that read module globals or
+    module-level imports, and callables without Python source are rejected
+    because the sandbox could never run them.
     """
     if inspect.ismethod(fn):
         raise _unrunnable(name, "bound methods depend on their instance, which is not sent")
@@ -139,7 +172,9 @@ def _function_source(fn: Any, name: str) -> str:
         raise _unrunnable(name, "its source is not available (was it defined in a REPL or notebook cell?)") from exc
 
     if fn.__name__ == "<lambda>":
-        source = f"{name} = {_isolate_lambda(raw, fn, name)}\n"
+        segment = _isolate_lambda(raw, fn, name)
+        node = ast.parse(segment, mode="eval").body
+        source = f"{name} = {segment}\n"
     else:
         try:
             tree = ast.parse(raw)
@@ -151,6 +186,11 @@ def _function_source(fn: Any, name: str) -> str:
         if node.decorator_list:
             raise _unrunnable(name, "decorated functions need their decorator, which is not sent")
         source = f"{raw}\n" if fn.__name__ == name else f"{raw}\n\n{name} = {fn.__name__}\n"
+    outside = _outside_names(fn, node, {name, fn.__name__})
+    if outside:
+        raise _unrunnable(
+            name, f"it uses {', '.join(outside)} from its module, which is not sent (import inside the function)"
+        )
     _check_top_level_binding(source, name)
     return source
 
@@ -424,8 +464,8 @@ class Inspector(
     imports inside its body. The SDK sends its source and binds it as
     ``evaluator_fn`` (``metric``) or ``edit_fn`` (``editor``), the names the
     engine runs. A lambda is accepted only when it is the sole lambda in its
-    statement. Closures, bound methods, decorated functions, builtins,
-    ``functools.partial``, callable instances and functions defined in a REPL or
+    statement. Closures, functions that read module-level imports or globals,
+    bound methods, decorated functions, builtins, ``functools.partial``, callable instances and functions defined in a REPL or
     notebook cell raise ``ValueError``. To send source yourself, pass
     ``{"function": "<source>"}``; it is sent unchanged and must define
     ``evaluator_fn`` / ``edit_fn`` at top level. A bare string is an asset id,
