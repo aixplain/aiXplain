@@ -24,7 +24,7 @@ through ``/v1/triggers``.
 class TriggerRepeatRuleDict(TypedDict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L98)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L99)
 
 The dict form of `TriggerRepeatRule`, on the same field names.
 
@@ -34,7 +34,7 @@ The dict form of `TriggerRepeatRule`, on the same field names.
 class TriggerConfigurationDict(TypedDict)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L105)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L106)
 
 The dict form of `TriggerConfiguration`, on the same field names.
 
@@ -51,7 +51,7 @@ never sent.
 class TriggerRepeatRule()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L126)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L127)
 
 Interval rule for a ``recurring`` schedule (e.g. every 2 hours).
 
@@ -64,7 +64,7 @@ Interval rule for a ``recurring`` schedule (e.g. every 2 hours).
 class TriggerConfiguration()
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L135)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L136)
 
 Structured time-schedule configuration (mirrors the backend config).
 
@@ -74,7 +74,7 @@ Structured time-schedule configuration (mirrors the backend config).
 def __setattr__(name: str, value: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L148)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L149)
 
 Coerce a dict ``repeat`` into a `TriggerRepeatRule`.
 
@@ -90,7 +90,7 @@ Mirrors how `Trigger` coerces ``configuration``.
 class TriggerSearchParams(BaseSearchParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L173)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L174)
 
 Search parameters for triggers (filter by agent).
 
@@ -100,7 +100,7 @@ Search parameters for triggers (filter by agent).
 class TriggerGetParams(BaseGetParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L179)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L180)
 
 Get parameters for triggers.
 
@@ -110,7 +110,7 @@ Get parameters for triggers.
 class TriggerDeleteParams(BaseDeleteParams)
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L185)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L186)
 
 Delete parameters for triggers.
 
@@ -126,7 +126,7 @@ class Trigger(BaseResource, SearchResourceMixin[TriggerSearchParams,
               DeleteResourceMixin[TriggerDeleteParams, DeleteResult])
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L193)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L194)
 
 A schedule/event trigger that fires an agent with a fixed input.
 
@@ -162,6 +162,8 @@ Manage:
 t = aix.Trigger.get("<id>")
 aix.Trigger.search(agent=agent)     # -> Page
 t.enabled = False; t.save()         # disable (re-enable with True)
+t.at = "17:30"; t.save()            # edit the schedule through the flat fields,
+t.configuration = {...}; t.save()   # or through configuration -- not both in one save
 t.delete()
 ```
 
@@ -177,7 +179,7 @@ bare array response
 def __setattr__(name: str, value: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L273)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L276)
 
 Coerce a dict ``configuration`` into a `TriggerConfiguration`.
 
@@ -191,7 +193,7 @@ constructor, and reading it back always gives an object with attributes.
 def __post_init__() -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L286)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L293)
 
 Translate friendly construction kwargs into backend-shaped fields.
 
@@ -204,9 +206,19 @@ friendly schedule fields from ``configuration`` without rebuilding it.
 def before_save(*args: Any, **kwargs: Any) -> None
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L436)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L498)
 
 Activate the Composio trigger before persisting a new event trigger.
+
+#### after\_save
+
+```python
+def after_save(result: Any, *args: Any, **kwargs: Any) -> None
+```
+
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L504)
+
+After a successful save, adopt the schedule that was sent and re-baseline edits.
 
 #### build\_save\_payload
 
@@ -214,7 +226,7 @@ Activate the Composio trigger before persisting a new event trigger.
 def build_save_payload(**kwargs: Any) -> Dict[str, Any]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L442)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L519)
 
 Build the whitelisted payload for ``POST``/``PUT`` /v1/triggers.
 
@@ -231,7 +243,7 @@ def search(cls,
            **kwargs: Any) -> Page["Trigger"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L488)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L583)
 
 List triggers for the team, optionally filtered by agent.
 
@@ -253,7 +265,7 @@ List triggers for the team, optionally filtered by agent.
 def list(cls, **kwargs: Any) -> List["Trigger"]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L523)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L618)
 
 Convenience wrapper returning the results list directly.
 
@@ -263,7 +275,7 @@ Convenience wrapper returning the results list directly.
 def delete(*args: Any, **kwargs: Any) -> DeleteResult
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L531)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L626)
 
 Delete the trigger (deactivating the Composio trigger for events).
 
@@ -274,7 +286,7 @@ Delete the trigger (deactivating the Composio trigger for events).
 def schedule_type() -> Optional[str]
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L614)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L709)
 
 The schedule type (once/daily/weekly/monthly/recurring), if a time trigger.
 
@@ -284,7 +296,7 @@ The schedule type (once/daily/weekly/monthly/recurring), if a time trigger.
 def __repr__() -> str
 ```
 
-[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L618)
+[[view_source]](https://github.com/aixplain/aiXplain/blob/main/aixplain/v2/trigger.py#L713)
 
 Return a concise representation.
 
