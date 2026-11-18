@@ -9,6 +9,8 @@ plain strings for ``action`` / ``targets`` / ``severity`` and an ``aix.Metric``
 
 """
 
+import ast
+import functools
 import inspect
 import logging
 import textwrap
@@ -42,12 +44,115 @@ _TARGET_VALUES = frozenset({"input", "steps", "output"})
 _SEVERITY_VALUES = frozenset({"low", "medium", "high", "critical"})
 
 
-def _callable_to_string(fn) -> str:
-    """Convert a callable to its source string representation."""
+# Name the agents engine looks up at the top level of a function judge's
+# source (``<name> not defined at top level of source`` when it is missing).
+_EXPECTED_FN_NAME = {"evaluator": "evaluator_fn", "editor": "edit_fn"}
+
+
+def _unrunnable(name: str, why: str) -> ValueError:
+    """Build the error for a callable the engine could never run as *name*."""
+    return ValueError(
+        f"cannot use this callable as an inspector function ({name}): {why}. Function judges run in an isolated "
+        "sandbox that only sees the function's own source, so pass a module-level function (a def in a .py file) "
+        "that uses only its own arguments and its own imports (import inside the function), or pass the source "
+        f"itself as {{'function': '<source that defines {name}>'}}."
+    )
+
+
+def _top_level_binds(tree: ast.Module, name: str) -> bool:
+    """Return True if *tree* binds *name* at module top level the way the engine requires.
+
+    Mirrors the agents engine: a ``def`` / ``async def`` named *name*, or an
+    assignment to *name*. An assignment that instantiates a class defined in the
+    same source does not count.
+    """
+    classes = {node.name for node in tree.body if isinstance(node, ast.ClassDef)}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
+            return True
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets = [node.target]
+        else:
+            continue
+        if any(isinstance(target, ast.Name) and target.id == name for target in targets):
+            value = node.value
+            return not (isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id in classes)
+    return False
+
+
+def _check_top_level_binding(source: str, name: str) -> None:
+    """Raise ``ValueError`` unless *source* parses and binds *name* at top level."""
     try:
-        return textwrap.dedent(inspect.getsource(fn)).strip()
-    except (OSError, IOError, TypeError):
-        return f"{fn.__module__}.{fn.__qualname__}"
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        raise _unrunnable(name, f"the serialised source does not parse ({exc.msg})") from exc
+    if not _top_level_binds(tree, name):
+        raise _unrunnable(name, f"{name} is not defined at top level of the serialised source")
+
+
+def _isolate_lambda(raw: str, fn: Any, name: str) -> str:
+    """Return the source of lambda *fn* from its enclosing statement *raw*, or raise.
+
+    ``inspect.getsource`` returns the whole statement around a lambda. The
+    lambda is extracted only when the statement holds exactly one lambda whose
+    parameters match *fn*; anything less certain is rejected.
+    """
+    try:
+        tree = ast.parse(raw)
+    except SyntaxError:
+        raise _unrunnable(name, "the lambda cannot be isolated from the surrounding code; use a def") from None
+    lambdas = [node for node in ast.walk(tree) if isinstance(node, ast.Lambda)]
+    if len(lambdas) != 1:
+        raise _unrunnable(name, "the lambda shares its statement with other lambdas, so it cannot be isolated")
+    node = lambdas[0]
+    code = fn.__code__
+    expected_args = list(code.co_varnames[: code.co_argcount + code.co_kwonlyargcount])
+    found_args = [a.arg for a in node.args.posonlyargs + node.args.args + node.args.kwonlyargs]
+    if found_args != expected_args or bool(node.args.vararg) != bool(code.co_flags & inspect.CO_VARARGS):
+        raise _unrunnable(name, "the lambda in the retrieved source does not match the callable; use a def")
+    segment = ast.get_source_segment(raw, node)
+    if not segment:
+        raise _unrunnable(name, "the lambda cannot be isolated from the surrounding code; use a def")
+    return segment
+
+
+def _function_source(fn: Any, name: str) -> str:
+    """Serialise *fn* into source that binds *name* at top level, or raise ``ValueError``.
+
+    A named function keeps its own source and name; a top-level ``name = fn``
+    binding is appended unless it is already called *name*. A lambda becomes
+    ``name = <lambda source>`` when it can be isolated exactly. Closures, bound
+    methods, decorated functions and callables without Python source are
+    rejected because the sandbox could never run them.
+    """
+    if inspect.ismethod(fn):
+        raise _unrunnable(name, "bound methods depend on their instance, which is not sent")
+    if isinstance(fn, functools.partial) or not inspect.isfunction(fn):
+        raise _unrunnable(name, f"a {type(fn).__name__} object has no Python source to send")
+    if fn.__code__.co_freevars:
+        raise _unrunnable(name, f"it closes over {', '.join(fn.__code__.co_freevars)}, which is not sent")
+    try:
+        raw = textwrap.dedent(inspect.getsource(fn)).strip()
+    except (OSError, TypeError) as exc:
+        raise _unrunnable(name, "its source is not available (was it defined in a REPL or notebook cell?)") from exc
+
+    if fn.__name__ == "<lambda>":
+        source = f"{name} = {_isolate_lambda(raw, fn, name)}\n"
+    else:
+        try:
+            tree = ast.parse(raw)
+        except SyntaxError:
+            raise _unrunnable(name, "its source could not be isolated") from None
+        node = tree.body[0] if len(tree.body) == 1 else None
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) or node.name != fn.__name__:
+            raise _unrunnable(name, "its source could not be isolated")
+        if node.decorator_list:
+            raise _unrunnable(name, "decorated functions need their decorator, which is not sent")
+        source = f"{raw}\n" if fn.__name__ == name else f"{raw}\n\n{name} = {fn.__name__}\n"
+    _check_top_level_binding(source, name)
+    return source
 
 
 @dataclass
@@ -114,7 +219,9 @@ class _Judge:
     Users never import or construct this — they pass a Metric, an asset-id string,
     or a Python callable and :meth:`coerce` builds this. It serializes to the same
     backend shape the platform has always accepted (``type`` = ``asset`` |
-    ``function``).
+    ``function``). A ``function`` is always a source string: callables are
+    serialised by :func:`_function_source`, and strings (the user's own source,
+    or what the backend returns) are kept as they are.
     """
 
     asset_id: Optional[str] = None
@@ -124,7 +231,7 @@ class _Judge:
     def __post_init__(self) -> None:
         """Convert callable functions to source and validate the judge has a target."""
         if callable(self.function):
-            self.function = _callable_to_string(self.function)
+            self.function = _function_source(self.function, _EXPECTED_FN_NAME["evaluator"])
         if not self.asset_id and not self.function:
             raise ValueError("a judge needs an asset id (or Metric) or a function")
 
@@ -134,21 +241,31 @@ class _Judge:
         return "function" if self.function else "asset"
 
     @classmethod
-    def coerce(cls, value: Any, *, prompt: Optional[str] = None) -> Optional["_Judge"]:
+    def coerce(cls, value: Any, *, prompt: Optional[str] = None, role: str = "evaluator") -> Optional["_Judge"]:
         """Build a judge from a Metric, asset-id string, callable, dict, or judge.
 
         Accepts:
         - an ``aix.Metric`` (or any asset-backed object exposing ``id``) — the
           universal judge; its id and prompt flow into the evaluator payload;
         - a plain asset-id ``str``;
-        - a Python ``callable`` (or its source) — a custom function judge;
-        - a ``dict`` in either snake_case or the backend's camelCase.
+        - a Python function — a custom function judge. It must be a module-level
+          function that uses only its own arguments and its own imports; the
+          SDK binds it as ``evaluator_fn`` (``role="evaluator"``) or ``edit_fn``
+          (``role="editor"``), the names the engine looks up. Anything that
+          cannot be serialised into runnable source raises ``ValueError``;
+        - a ``dict`` in either snake_case or the backend's camelCase. Its
+          ``function`` may be a Python function (serialised as above) or a
+          source string, which is sent unchanged and must itself define
+          ``evaluator_fn`` / ``edit_fn``.
         """
         if value is None:
             return None
         if isinstance(value, cls):
             return value
         if isinstance(value, dict):
+            function = value.get("function")
+            if callable(function):
+                value = {**value, "function": _function_source(function, _EXPECTED_FN_NAME[role])}
             return cls.from_dict(value)
         if isinstance(value, str):
             return cls(asset_id=value, prompt=prompt)
@@ -164,7 +281,7 @@ class _Judge:
                     resolved_prompt = cfg.get("prompt")
             return cls(asset_id=asset_id, prompt=resolved_prompt)
         if callable(value):
-            return cls(function=_callable_to_string(value))
+            return cls(function=_function_source(value, _EXPECTED_FN_NAME[role]))
         if hasattr(value, "prompt_template"):
             # A Metric-like object that hasn't been onboarded yet has no id.
             raise ValueError("metric must be created before use as a judge — call Metric.create(...) so it has an id")
@@ -297,9 +414,22 @@ class Inspector(
       sub-agent name).
     - ``severity``: a string (``"low" | "medium" | "high" | "critical"``).
     - ``metric``: the universal judge — an ``aix.Metric``, an asset-id string, or
-      a Python callable. Required.
+      a Python function. Required.
     - ``editor``: required when ``action`` is ``"edit"``; same accepted types as
       ``metric``.
+
+    Function judges run in an isolated sandbox that sees only the function's own
+    source: not your module, its imports, closures or globals. Pass a
+    module-level ``def`` (in a ``.py`` file) that uses only its own arguments and
+    imports inside its body. The SDK sends its source and binds it as
+    ``evaluator_fn`` (``metric``) or ``edit_fn`` (``editor``), the names the
+    engine runs. A lambda is accepted only when it is the sole lambda in its
+    statement. Closures, bound methods, decorated functions, builtins,
+    ``functools.partial``, callable instances and functions defined in a REPL or
+    notebook cell raise ``ValueError``. To send source yourself, pass
+    ``{"function": "<source>"}``; it is sent unchanged and must define
+    ``evaluator_fn`` / ``edit_fn`` at top level. A bare string is an asset id,
+    not source.
 
     Example::
 
@@ -353,8 +483,8 @@ class Inspector(
             raise ValueError("metric is required")
 
         self.action = _ActionConfig.coerce(self.action)
-        self.metric = _Judge.coerce(self.metric)
-        self.editor = _Judge.coerce(self.editor)
+        self.metric = _Judge.coerce(self.metric, role="evaluator")
+        self.editor = _Judge.coerce(self.editor, role="editor")
 
         if self.severity is not None:
             self.severity = str(self.severity).strip().lower()

@@ -72,7 +72,7 @@ Keep `max_retries` at 2–3 and always set `on_exhaust`: `"abort"` when converge
 ### EDIT — sanitize with your own functions
 
 ```python
-# in a .py FILE — not a REPL/notebook cell (see the trap below)
+# in a .py FILE — not a REPL/notebook cell (see below)
 def evaluator_fn(text: str) -> bool:
     import re                                   # imports go INSIDE — the function runs in isolation
     return any(re.search(p, text.lower()) for p in [r"\bbypass\b", r"\bexploit\b", r"\bhack\b"])
@@ -86,10 +86,12 @@ guard = aix.Inspector(name="intent-guard", severity="high", targets=["input"],
     editor=edit_fn)                             # performs the rewrite
 ```
 
-⚠️ **Two traps with function judges.**
+⚠️ **Function judges run in an isolated sandbox.** The engine executes only the function's own source and looks up `evaluator_fn` (metric) / `edit_fn` (editor) at its top level.
 
-- **Name them `evaluator_fn` and `edit_fn`, at module top level in a `.py` file.** The docs state the runtime looks for exactly those names in the submitted source (`evaluator_fn not defined at top level of source` is the failure it logs). The SDK does **not** validate this — it just ships whatever you pass.
-- **Defined in a REPL or notebook cell, the check is silently skipped.** `_callable_to_string` calls `inspect.getsource(fn)`; when that raises (no source file), it falls back to the string `"<module>.<qualname>"`, which the backend cannot execute. No exception is raised locally — the inspector simply never fires.
+- **Use a module-level `def` in a `.py` file that relies only on its own arguments and its own imports** (import inside the function). Any name works: the SDK sends the source and appends `evaluator_fn = <your name>` / `edit_fn = <your name>` when needed, then checks the result binds that name at top level.
+- **`ValueError` at `Inspector(...)` for callables the engine could never run**: closures, bound methods, decorated functions, builtins, `functools.partial`, callable instances, functions defined in a REPL or notebook cell (no retrievable source), and lambdas that cannot be isolated exactly (a lambda is accepted only when it is the sole lambda in its statement). Previously these were sent anyway and the inspector silently never fired.
+- **Module-level imports and globals are not sent.** A function that uses `re` imported at the top of your file fails at run time; the SDK does not detect that.
+- **Raw source**: pass `{"function": "<source>"}`; it is sent unchanged and must define `evaluator_fn` / `edit_fn` itself. A bare string is an asset id, not source.
 
 Function evaluators run synchronously and block the pipeline — no slow I/O.
 
