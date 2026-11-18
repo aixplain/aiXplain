@@ -573,8 +573,14 @@ class ExecutionConfig:
         criteria: Free-form evaluation criteria sent to the agent.
         evolve: Evolution config as a JSON string (kept as a string to
             match the backend contract).
-        identifier: Free-form identifier the backend can echo back on
-            messages (e.g. for client-side correlation).
+        identifier: End-user identity the session's runs act for. The agents
+            runtime treats it as the trusted caller: it scopes per-user memory,
+            is stamped as ``x-user-id`` on outbound tool and LLM calls, is
+            passed to tools that accept it, and is inherited by nested runs.
+            It is not echoed on the run/poll response or on session messages
+            (only the async webhook delivery carries it back, as
+            ``userIdentifier``). Do not use it as a run tag; correlate runs
+            with the returned ``requestId`` (``AgentRunResult.request_id``).
         run_response_generation: Whether the agent should run its final
             response-generation step.
         budget: Per-session run budget (cost / duration / iterations). Accepts a

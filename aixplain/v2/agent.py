@@ -344,6 +344,16 @@ class AgentRunParams(BaseRunParams):
             emitted.
         criteria: Criteria for evaluation
         evolve: Evolution parameters
+        identifier: End-user identity for this run. The agents runtime treats
+            it as the trusted caller: it scopes per-user memory, is stamped as
+            ``x-user-id`` on outbound tool and LLM calls (the SDK also sends it
+            as the ``x-user-id`` header), is passed to tools that accept it,
+            and is inherited by nested runs. It is not echoed on the run/poll
+            response or on session messages (only the async webhook delivery
+            carries it back, as ``userIdentifier``). Do not use it as a run
+            tag; correlate runs with the returned ``requestId``
+            (``AgentRunResult.request_id``). A client-supplied ``request_id``
+            is ignored.
         inspectors: Inspector configurations
         run_response_generation: Whether to run response generation. Defaults to False.
         attachments: Multimodal attachments for the turn.
@@ -1373,6 +1383,31 @@ class Agent(
     # it is stripped before the payload is built and never reaches the wire.
     _PROGRESS_TRACKER_KWARG: ClassVar[str] = "_progress_tracker"
 
+    # Every run kwarg that a backend body field or an SDK control consumes.
+    # ``budget`` is not a run kwarg, but ``build_run_payload`` already drops a
+    # stray one quietly.
+    _KNOWN_RUN_KWARGS: ClassVar[frozenset] = (
+        AgentRunParams.__required_keys__
+        | AgentRunParams.__optional_keys__
+        | RunnableResourceMixin._RUN_CONTROL_KEYS
+        | {"budget"}
+    )
+
+    def _warn_unrecognised_run_kwargs(self, kwargs: Dict[str, Any]) -> None:
+        """Warn about run kwargs that no backend field or SDK control consumes.
+
+        They are still forwarded unchanged, so nothing that runs today breaks.
+        """
+        unknown = sorted(k for k in kwargs if k not in self._KNOWN_RUN_KWARGS)
+        if unknown:
+            warnings.warn(
+                f"Unrecognised agent run parameter(s): {', '.join(unknown)}. No backend run field or SDK option "
+                "uses them, so they have no effect. To correlate a run, use the returned request_id; 'identifier' "
+                "is the end-user identity, not a run tag.",
+                UserWarning,
+                stacklevel=_caller_stacklevel(),
+            )
+
     def _start_progress_tracker(self, kwargs: Dict[str, Any]) -> Optional[Any]:
         """Build and start a tracker from the progress kwargs; ``None`` if not requested."""
         progress_format = kwargs.get("progress_format")
@@ -1657,7 +1692,10 @@ class Agent(
                            progress tracking is disabled.
             progress_verbosity: Detail level 1-3 (default: 1)
             progress_truncate: Truncate long text (default: True)
-            **kwargs: Additional run parameters
+            **kwargs: Additional run parameters declared on
+                :class:`AgentRunParams` (for example ``identifier``, the
+                end-user identity). Unrecognised keys emit a ``UserWarning``:
+                they are still forwarded, but the backend ignores them.
 
         Returns:
             AgentRunResult: The result of the agent execution
@@ -1665,6 +1703,8 @@ class Agent(
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
+
+        self._warn_unrecognised_run_kwargs(kwargs)
 
         # Before either path posts (and bills) the run (BUG-1095).
         self._validate_poll_kwargs(kwargs)
@@ -1695,7 +1735,10 @@ class Agent(
         Args:
             *args: Positional arguments (first arg is treated as query)
             query: The query to run
-            **kwargs: Additional run parameters
+            **kwargs: Additional run parameters declared on
+                :class:`AgentRunParams` (for example ``identifier``, the
+                end-user identity). Unrecognised keys emit a ``UserWarning``:
+                they are still forwarded, but the backend ignores them.
 
         Returns:
             AgentRunResult: The result of the agent execution. Use ``result.url``
@@ -1716,6 +1759,8 @@ class Agent(
         if len(args) > 0:
             kwargs["query"] = args[0]
             args = args[1:]
+
+        self._warn_unrecognised_run_kwargs(kwargs)
 
         if kwargs.pop("session", None) is not None:
             raise NotImplementedError(
