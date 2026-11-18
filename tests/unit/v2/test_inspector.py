@@ -5,10 +5,104 @@ strings for ``action`` / ``targets`` / ``severity`` and a Metric / asset-id /
 callable for ``metric`` (the universal judge). No enums or config classes.
 """
 
+import ast
+import functools
+from unittest.mock import patch
+
 import pytest
 
 from aixplain import Inspector
-from aixplain.v2.inspector import _ActionConfig, _Judge, _guard_slugs, _resolve_guard_defaults
+from aixplain.v2.inspector import (
+    _ActionConfig,
+    _Judge,
+    _check_top_level_binding,
+    _guard_slugs,
+    _resolve_guard_defaults,
+    _top_level_binds,
+)
+
+_RUNNABLE_HINT = "module-level function"
+
+
+def _binds(source, name):
+    return _top_level_binds(ast.parse(source), name)
+
+
+def module_check(text):
+    import re
+
+    return bool(re.search(r"HIGH", text))
+
+
+async def module_async_check(text):
+    return "HIGH" in text
+
+
+def evaluator_fn(text):
+    return "HIGH" in text
+
+
+def edit_fn(text):
+    return text.replace("HIGH", "")
+
+
+lone_lambda = lambda text: "HIGH" in text  # noqa: E731
+
+two_lambdas = (lambda a: a, lambda b: b)  # noqa: E731
+
+# fmt: off
+multiline_lambda = dict(name="i", metric=lambda text: (
+    "HIGH"
+    in text
+))
+partial_source_lambdas = [
+    lambda text: "HIGH" in text, None]
+# fmt: on
+
+
+def _decorator(fn):
+    return fn
+
+
+@_decorator
+def decorated_check(text):
+    return True
+
+
+class _Holder:
+    def method_check(self, text):
+        return True
+
+
+_THRESHOLD = 3
+
+
+def uses_module_import(text):
+    return bool(ast.parse(text))
+
+
+def uses_module_constant(text):
+    return len(text) > _THRESHOLD
+
+
+def uses_annotation_from_module(text: "str") -> ast.AST:
+    return text
+
+
+def attribute_named_like_a_global(text):
+    return text.edit_fn and str(text).upper()
+
+
+def recursive_check(text, depth=0):
+    return depth > 2 or recursive_check(text, depth + 1)
+
+
+lambda_with_global_default = lambda text, n=_THRESHOLD: len(text) > n  # noqa: E731
+
+
+class _CallableInstance:
+    def __call__(self, text):
+        return True
 
 
 class _FakeMetric:
@@ -93,7 +187,9 @@ class TestJudge:
 
         judge = _Judge.coerce(my_evaluator)
         assert judge.type == "function"
-        assert "my_evaluator" in judge.function
+        assert "def my_evaluator(text: str) -> bool:" in judge.function
+        assert judge.function.rstrip().endswith("evaluator_fn = my_evaluator")
+        assert _binds(judge.function, "evaluator_fn")
 
     def test_unonboarded_metric_raises(self):
         class _Unonboarded:
@@ -179,10 +275,12 @@ class TestInspector:
         assert payload["severity"] == "medium"
         assert payload["targets"] == ["steps", "AgentA"]
         assert payload["action"] == {"type": "edit"}
+        assert set(payload["evaluator"]) == {"type", "function"}
         assert payload["evaluator"]["type"] == "function"
-        assert "eval_fn" in payload["evaluator"]["function"]
+        assert payload["evaluator"]["function"] == ("def eval_fn(text):\n    return True\n\nevaluator_fn = eval_fn\n")
+        assert set(payload["editor"]) == {"type", "function"}
         assert payload["editor"]["type"] == "function"
-        assert "edit_fn" in payload["editor"]["function"]
+        assert payload["editor"]["function"] == 'def edit_fn(text):\n    return "edited"\n'
 
     def test_edit_requires_editor(self):
         with pytest.raises(ValueError, match="editor is required"):
@@ -522,3 +620,189 @@ class TestInspectorSearch:
             "Detect Prompt Attacks Guardrail",
             "Sensitive Information Guardrail",
         ]
+
+
+# ---------------------------------------------------------------------------
+# Function judges: source the engine can run (BUG-1383)
+# ---------------------------------------------------------------------------
+
+
+class TestFunctionJudgeSource:
+    def test_named_function_gets_the_binding(self):
+        source = _Judge.coerce(module_check).function
+        assert source.startswith("def module_check(text):")
+        assert source.endswith("\n\nevaluator_fn = module_check\n")
+        assert _binds(source, "evaluator_fn")
+
+    def test_named_function_as_editor_binds_edit_fn(self):
+        inspector = Inspector(name="i", action="edit", metric=module_check, editor=module_async_check)
+        editor_source = inspector.to_dict()["editor"]["function"]
+        assert editor_source.endswith("edit_fn = module_async_check\n")
+        assert _binds(editor_source, "edit_fn")
+        assert not _binds(editor_source, "evaluator_fn")
+
+    def test_async_function_gets_the_binding(self):
+        source = _Judge.coerce(module_async_check).function
+        assert source.startswith("async def module_async_check(text):")
+        assert _binds(source, "evaluator_fn")
+
+    def test_correctly_named_functions_are_unchanged(self):
+        assert _Judge.coerce(evaluator_fn).function == 'def evaluator_fn(text):\n    return "HIGH" in text\n'
+        assert (
+            _Judge.coerce(edit_fn, role="editor").function
+            == 'def edit_fn(text):\n    return text.replace("HIGH", "")\n'
+        )
+
+    def test_lone_lambda_is_isolated(self):
+        source = _Judge.coerce(lone_lambda).function
+        assert source == 'evaluator_fn = lambda text: "HIGH" in text\n'
+        namespace = {}
+        exec(source, namespace)
+        assert namespace["evaluator_fn"]("HIGH risk") is True
+
+    def test_lambda_in_the_incident_shape_is_isolated(self):
+        inspector = Inspector(name="i", action="abort", metric=lambda text: "HIGH" in text)
+        assert inspector.to_dict()["evaluator"] == {
+            "type": "function",
+            "function": 'evaluator_fn = lambda text: "HIGH" in text\n',
+        }
+
+    def test_lambda_sharing_its_statement_is_rejected(self):
+        with pytest.raises(ValueError, match=_RUNNABLE_HINT):
+            _Judge.coerce(two_lambdas[0])
+
+    def test_multiline_lambda_is_isolated_whole(self):
+        source = _Judge.coerce(multiline_lambda["metric"]).function
+        assert source == 'evaluator_fn = lambda text: (\n    "HIGH"\n    in text\n)\n'
+        assert _binds(source, "evaluator_fn")
+
+    def test_lambda_with_partial_source_is_rejected(self):
+        """``getsource`` returns only ``lambda text: ..., None]`` here, which does not parse."""
+        with pytest.raises(ValueError, match="cannot be isolated"):
+            _Judge.coerce(partial_source_lambdas[0])
+
+    def test_closure_is_rejected(self):
+        threshold = 3
+
+        def check(text):
+            return len(text) > threshold
+
+        with pytest.raises(ValueError, match="closes over threshold"):
+            Inspector(name="i", action="abort", metric=check)
+
+    @pytest.mark.parametrize(
+        "fn,missing",
+        [
+            (uses_module_import, "ast"),
+            (uses_module_constant, "_THRESHOLD"),
+            (uses_annotation_from_module, "ast"),
+            (lambda_with_global_default, "_THRESHOLD"),
+        ],
+        ids=["module-import", "module-constant", "annotation", "lambda-default"],
+    )
+    def test_module_globals_are_rejected(self, fn, missing):
+        with pytest.raises(ValueError, match=f"uses {missing} from its module"):
+            Inspector(name="i", action="abort", metric=fn)
+
+    @pytest.mark.parametrize(
+        "fn",
+        [attribute_named_like_a_global, recursive_check, module_check],
+        ids=["attribute", "recursion", "local-import"],
+    )
+    def test_builtins_attributes_own_name_and_local_imports_are_allowed(self, fn):
+        assert _binds(_Judge.coerce(fn).function, "evaluator_fn")
+
+    def test_bound_method_is_rejected(self):
+        with pytest.raises(ValueError, match="bound methods"):
+            Inspector(name="i", action="abort", metric=_Holder().method_check)
+
+    @pytest.mark.parametrize(
+        "fn",
+        [len, functools.partial(module_check, text="x"), _CallableInstance()],
+        ids=["builtin", "partial", "callable-instance"],
+    )
+    def test_callables_without_source_are_rejected(self, fn):
+        with pytest.raises(ValueError, match=_RUNNABLE_HINT):
+            Inspector(name="i", action="abort", metric=fn)
+
+    def test_decorated_function_is_rejected(self):
+        with pytest.raises(ValueError, match="decorated"):
+            Inspector(name="i", action="abort", metric=decorated_check)
+
+    def test_function_without_retrievable_source_is_rejected(self):
+        """A REPL function used to become ``module.qualname``, which can never run."""
+        with patch("aixplain.v2.inspector.inspect.getsource", side_effect=OSError("could not get source")):
+            with pytest.raises(ValueError, match="REPL or notebook"):
+                Inspector(name="i", action="abort", metric=module_check)
+
+    def test_error_names_what_is_required(self):
+        with pytest.raises(ValueError) as excinfo:
+            Inspector(name="i", action="abort", metric=len)
+        message = str(excinfo.value)
+        assert "module-level function" in message
+        assert "own arguments and its own imports" in message
+        assert "'function'" in message
+
+    def test_source_string_passes_through_unchanged(self):
+        source = "def evaluator_fn(t):\n    return True\n"
+        inspector = Inspector(name="i", action="abort", metric={"function": source})
+        assert inspector.to_dict()["evaluator"] == {"type": "function", "function": source}
+
+    def test_dict_with_a_callable_is_serialised(self):
+        inspector = Inspector(name="i", action="edit", metric={"function": module_check}, editor={"function": edit_fn})
+        assert _binds(inspector.to_dict()["evaluator"]["function"], "evaluator_fn")
+        assert _binds(inspector.to_dict()["editor"]["function"], "edit_fn")
+
+    def test_backend_source_is_not_validated(self):
+        data = {
+            "name": "stored",
+            "targets": ["output"],
+            "action": {"type": "abort"},
+            "evaluator": {"type": "function", "function": "def anything(t): return True"},
+        }
+        assert Inspector.from_dict(data).to_dict() == data
+
+    @pytest.mark.parametrize(
+        "source,ok",
+        [
+            ("def evaluator_fn(t):\n    return t\n", True),
+            ("async def evaluator_fn(t):\n    return t\n", True),
+            ("def f(t):\n    return t\nevaluator_fn = f\n", True),
+            ("evaluator_fn: object = len\n", True),
+            ("def f(t):\n    return t\n", False),
+            ("if True:\n    evaluator_fn = len\n", False),
+            ("class C:\n    pass\nevaluator_fn = C()\n", False),
+        ],
+    )
+    def test_top_level_binding_mirrors_the_engine(self, source, ok):
+        if ok:
+            _check_top_level_binding(source, "evaluator_fn")
+        else:
+            with pytest.raises(ValueError, match="not defined at top level"):
+                _check_top_level_binding(source, "evaluator_fn")
+
+    def test_unparseable_source_is_rejected(self):
+        with pytest.raises(ValueError, match="does not parse"):
+            _check_top_level_binding("def evaluator_fn(:\n", "evaluator_fn")
+
+
+def test_agent_save_payload_keeps_the_function_judge_shape():
+    from unittest.mock import MagicMock
+
+    from aixplain import Agent
+
+    agent = Agent.from_dict({"id": "a1", "name": "t"})
+    agent.context = MagicMock()
+    agent.inspectors = [Inspector(name="i", targets=["output"], action="abort", metric=module_check)]
+
+    payload = agent.build_save_payload()
+
+    assert payload["inspectors"] == [
+        {
+            "name": "i",
+            "targets": ["output"],
+            "action": {"type": "abort"},
+            "evaluator": {"type": "function", "function": _Judge.coerce(module_check).function},
+        }
+    ]
+    assert _binds(payload["inspectors"][0]["evaluator"]["function"], "evaluator_fn")

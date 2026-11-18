@@ -99,7 +99,11 @@ def passthrough(text: str) -> str:
     return text
 
 # Config is plain data — strings for action/targets/severity, and a Metric,
-# asset-id string, or callable for the `metric` (the universal judge).
+# asset-id string, or function for the `metric` (the universal judge).
+# Function judges run in an isolated sandbox: use module-level functions that
+# rely only on their own arguments and imports (no closures, lambdas sharing a
+# statement, or REPL-defined functions; those raise ValueError). The SDK binds
+# them as `evaluator_fn` / `edit_fn`, the names the engine runs.
 noop_inspector = Inspector(
     name="noop-output-inspector",
     severity="low",

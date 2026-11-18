@@ -78,7 +78,7 @@ r.data.governance    # budget/policy verdict — see below
 
 > For the authoritative run cost, use `r.data.execution_stats["credits"]` — `r.used_credits` is frequently `0.0` on agent runs.
 
-Useful `run()` parameters: `query` (str or dict, **positional**), `session` (multi-turn — a `Session` or session id), `attachments` (images/audio for this run — URLs, or local files as `Path(...)` / `{"path": ...}`, which are auto-uploaded; plain-string local paths are deprecated), `history` (list of `{"role","content"}` to seed context; cannot be combined with `session`), `variables` (dict substituted into `{{placeholders}}` in instructions/description), `run_response_generation` (set `True` for JSON output), `execution_params` (per-run overrides, e.g. `{"context_overflow_strategy": "truncate"}`), `criteria`, `evolve`, `identifier`, `progress_format` (`None` = silent | `"status"` one line | `"logs"` step timeline), `progress_verbosity` (`1` steps, `2` + thoughts, `3` + full I/O), `progress_truncate` (default `True`), `run_retries` / `run_retry_wait` (extra submission attempts; total = 1 + n), `timeout` (default 300s — the SDK stops waiting, the server run continues), `wait_time` (poll interval, default 0.5s).
+Useful `run()` parameters: `query` (str or dict, **positional**), `session` (multi-turn — a `Session` or session id), `attachments` (images/audio for this run — URLs, or local files as `Path(...)` / `{"path": ...}`, which are auto-uploaded; plain-string local paths are deprecated), `history` (list of `{"role","content"}` to seed context; cannot be combined with `session`), `variables` (dict substituted into `{{placeholders}}` in instructions/description), `run_response_generation` (set `True` for JSON output), `execution_params` (per-run overrides, e.g. `{"context_overflow_strategy": "truncate"}`), `criteria`, `evolve`, `identifier` (the **end-user identity**: scopes per-user memory and is sent as `x-user-id` on outbound tool/LLM calls; it is not echoed on the run/poll response, so never use it as a run tag; correlate runs with `result.request_id`), `progress_format` (`None` = silent | `"status"` one line | `"logs"` step timeline), `progress_verbosity` (`1` steps, `2` + thoughts, `3` + full I/O), `progress_truncate` (default `True`), `run_retries` / `run_retry_wait` (extra submission attempts; total = 1 + n), `timeout` (default 300s — the SDK stops waiting, the server run continues), `wait_time` (poll interval, default 0.5s). Any other keyword (e.g. `tags=`, `labels=`) emits a `UserWarning`: the backend ignores it.
 
 > **Not run parameters:** output length and the iteration cap are *agent* settings — `agent.max_tokens` and `agent.budget.max_iterations`, then `save()`. There is **no `budget=` run kwarg**: `build_run_payload` explicitly pops any stray `budget` key (verified), so passing one is silently ignored.
 
@@ -154,7 +154,7 @@ Persist per-session run config instead of repeating it on every call:
 ```python
 from aixplain.v2 import Budget, ExecutionConfig
 cfg = ExecutionConfig(execution_params={"max_tokens": 1024, "output_format": "text"},
-                      criteria="Be concise.", identifier="support-desk",
+                      criteria="Be concise.", identifier=end_user_id,  # the end user this session acts for
                       budget=Budget(max_iterations=20))   # also: evolve, run_response_generation
 aix.Session(agent=agent, name="Configured", execution_config=cfg)
 ```
