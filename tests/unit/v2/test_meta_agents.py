@@ -798,7 +798,7 @@ class TestDebuggerGetDebuggerAgent:
 
     def test_debugger_agent_id_constant(self):
         """DEBUGGER_AGENT_ID should have expected value."""
-        assert DEBUGGER_AGENT_ID == "696fdccad63e898317c097a0"
+        assert DEBUGGER_AGENT_ID == "6a83989b20d5ce8082cdc775"
 
 
 # =============================================================================
