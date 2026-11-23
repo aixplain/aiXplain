@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+import decimal
+import math
+import numbers
 import re
 import time
 import warnings
@@ -1013,6 +1016,42 @@ class ModelRunParams(BaseRunParams):
     agent_name: NotRequired[Optional[str]]
 
 
+# The agent runtime's default RUN_TIMEOUT_SECONDS; a longer tool timeout is clamped to it there.
+_TOOL_TIMEOUT_CEILING_SECONDS = 3600.0
+
+
+def _validate_tool_timeout(value: Any, warn: bool = True) -> float:
+    """Return a tool ``timeout`` as float seconds.
+
+    Args:
+        value: The caller's per-call time limit for a tool, in seconds: any
+            real number (``int``, ``float``, ``Fraction``, ``Decimal``, ...).
+        warn: Whether to warn about a value above the runtime's run ceiling.
+
+    Returns:
+        float: The value as seconds.
+
+    Raises:
+        ValidationError: If ``value`` is not a positive, finite real number (bools included).
+    """
+    seconds = None
+    if isinstance(value, (numbers.Real, decimal.Decimal)) and not isinstance(value, bool):
+        try:
+            seconds = float(value)
+        except (OverflowError, ValueError):  # ValueError: a signalling Decimal NaN
+            seconds = None
+    if seconds is None or not math.isfinite(seconds) or seconds <= 0:
+        raise ValidationError(f"Tool timeout must be a positive number of seconds, got {value!r}.")
+    if warn and seconds > _TOOL_TIMEOUT_CEILING_SECONDS:
+        warnings.warn(
+            f"Tool timeout {seconds:g}s is above the agent runtime's default run ceiling "
+            f"({_TOOL_TIMEOUT_CEILING_SECONDS:g}s); the runtime cuts it down to that ceiling.",
+            UserWarning,
+            stacklevel=3,
+        )
+    return seconds
+
+
 @dataclass_json
 @dataclass(repr=False)
 class Model(
@@ -1063,6 +1102,27 @@ class Model(
     # The backend returns attributes as a plain key/value map.
     params: Optional[List[Parameter]] = None
     attributes: Optional[Dict[str, Any]] = None
+
+    # Per-call time limit in seconds when an agent calls this asset as a tool.
+    # Not ``Model.run(timeout=...)``, which bounds a direct call's wait for its
+    # result, and not ``RLM.timeout``. Only the caller sets it: it is sent only
+    # through ``as_tool()`` and never read back from a backend record, so a
+    # platform default there can't return as a saved override. ``init=False``
+    # keeps ``from_dict`` from decoding it; a ``decoder`` would instead make
+    # ``_create`` treat it as server-owned and wipe it on ``save()``.
+    timeout: Optional[float] = field(default=None, init=False, metadata=config(exclude=lambda x: True))
+    # The timeout the platform last stored for this tool on an agent. A save
+    # that omits ``timeout`` keeps the stored value, so once one is stored an
+    # unset ``timeout`` has to be sent as an explicit ``None`` to clear it.
+    _platform_timeout: Optional[float] = field(
+        default=None, init=False, repr=False, compare=False, metadata=config(exclude=lambda x: True)
+    )
+    # Set when the tool was built from a caller's tool dict that gave
+    # ``"timeout": None``, so the clear it asked for is sent even when the
+    # platform's stored value is not known yet.
+    _clear_timeout: bool = field(
+        default=False, init=False, repr=False, compare=False, metadata=config(exclude=lambda x: True)
+    )
 
     def __post_init__(self):
         """Initialize dynamic attributes based on backend parameters."""
@@ -1665,9 +1725,18 @@ class Model(
                 - type: Always "model"
                 - version: The model's version
                 - asset_id: The model's ID (same as id)
+                - timeout: Per-call time limit in seconds, only when ``self.timeout`` is set.
+                  It limits each call the agent makes to this tool; it is not
+                  ``run(timeout=...)``, which bounds a direct call's wait, nor ``RLM.timeout``.
+                  ``None`` when ``self.timeout`` was unset after the platform stored
+                  one, which clears the stored value.
+
+        Raises:
+            ValidationError: If ``self.timeout`` is not a positive number of seconds.
 
         Example:
             >>> model = aix.Model.get("some-model-id")
+            >>> model.timeout = 10
             >>> agent = aix.Agent(..., tools=[model.as_tool()])
         """
         # Get current parameter values using get_parameters()
@@ -1693,7 +1762,7 @@ class Model(
             elif isinstance(self.version, str):
                 version = self.version
 
-        return {
+        tool_dict: ToolDict = {
             "id": self.id,
             "name": self.name,
             "description": self.description or "",
@@ -1704,6 +1773,12 @@ class Model(
             "version": version,
             "asset_id": self.id,
         }
+        if self.timeout is not None:
+            tool_dict["timeout"] = _validate_tool_timeout(self.timeout)
+        elif self._platform_timeout is not None or self._clear_timeout:
+            # Omitting the key would keep the stored value; None clears it.
+            tool_dict["timeout"] = None
+        return tool_dict
 
     def get_parameters(self) -> List[dict]:
         """Get current parameter values for this model.
